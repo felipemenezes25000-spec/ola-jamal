@@ -3,14 +3,15 @@ using Moq;
 using FluentAssertions;
 using RenoveJa.Application.Services.Auth;
 using RenoveJa.Application.DTOs.Auth;
+using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Exceptions;
 using RenoveJa.Domain.ValueObjects;
 
-namespace RenoveJa.UnitTests.Application;
-
+namespace RenoveJa.UnitTests.Application
+{
 public class AuthServiceTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
@@ -164,9 +165,10 @@ public class AuthServiceTests
             .WithMessage("Invalid email or password");
     }
 }
+}
 
-namespace RenoveJa.UnitTests.Domain;
-
+namespace RenoveJa.UnitTests.Domain
+{
 public class UserTests
 {
     [Fact]
@@ -331,6 +333,19 @@ public class MoneyTests
 public class MedicalRequestTests
 {
     [Fact]
+    public void MedicalRequest_ShouldBeAggregateRoot()
+    {
+        var request = MedicalRequest.CreatePrescription(
+            Guid.NewGuid(),
+            "John Doe",
+            PrescriptionType.Simple,
+            new List<string> { "Med1" });
+
+        request.Should().BeAssignableTo<AggregateRoot>();
+        request.Should().BeAssignableTo<Entity>();
+    }
+
+    [Fact]
     public void CreatePrescription_ShouldCreateValidRequest()
     {
         // Arrange
@@ -459,4 +474,47 @@ public class PaymentTests
         act.Should().Throw<DomainException>()
             .WithMessage("Only pending payments can be approved");
     }
+}
+}
+
+namespace RenoveJa.UnitTests.DTOs
+{
+/// <summary>
+/// Testes dos DTOs por bounded context (DDD).
+/// Garante que a separação RequestDtos, PaymentDtos, etc. está correta.
+/// </summary>
+public class RequestDtosTests
+{
+    [Fact]
+    public void RequestResponseDto_ShouldBeCreatable()
+    {
+        var now = DateTime.UtcNow;
+        var dto = new RequestResponseDto(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Patient",
+            Guid.NewGuid(),
+            "Doctor",
+            "prescription",
+            "submitted",
+            "simple",
+            new List<string> { "Med1" },
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            now,
+            now);
+
+        dto.RequestType.Should().Be("prescription");
+        dto.Status.Should().Be("submitted");
+        dto.Medications.Should().HaveCount(1);
+    }
+}
 }

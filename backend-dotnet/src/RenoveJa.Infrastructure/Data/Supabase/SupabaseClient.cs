@@ -95,7 +95,9 @@ public class SupabaseClient
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             var result = JsonSerializer.Deserialize<List<T>>(responseContent, _jsonOptions);
             
-            return result?.FirstOrDefault() ?? throw new InvalidOperationException("Insert failed");
+            if (result is null || result.Count == 0)
+                throw new InvalidOperationException("Insert failed");
+            return result[0];
         }
         finally
         {
@@ -124,7 +126,9 @@ public class SupabaseClient
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             var result = JsonSerializer.Deserialize<List<T>>(responseContent, _jsonOptions);
             
-            return result?.FirstOrDefault() ?? throw new InvalidOperationException("Update failed");
+            if (result is null || result.Count == 0)
+                throw new InvalidOperationException("Update failed");
+            return result[0];
         }
         finally
         {

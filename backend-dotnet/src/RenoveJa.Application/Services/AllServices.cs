@@ -7,8 +7,8 @@ using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 
-namespace RenoveJa.Application.Services.Chat;
-
+namespace RenoveJa.Application.Services.Chat
+{
 public interface IChatService
 {
     Task<MessageResponseDto> SendMessageAsync(Guid requestId, SendMessageRequestDto dto, Guid senderId, CancellationToken cancellationToken = default);
@@ -91,9 +91,10 @@ public class ChatService : IChatService
             message.CreatedAt);
     }
 }
+}
 
-namespace RenoveJa.Application.Services.Notifications;
-
+namespace RenoveJa.Application.Services.Notifications
+{
 public interface INotificationService
 {
     Task<List<NotificationResponseDto>> GetUserNotificationsAsync(Guid userId, CancellationToken cancellationToken = default);
@@ -152,9 +153,10 @@ public class NotificationService : INotificationService
             notification.CreatedAt);
     }
 }
+}
 
-namespace RenoveJa.Application.Services.Video;
-
+namespace RenoveJa.Application.Services.Video
+{
 public interface IVideoService
 {
     Task<VideoRoomResponseDto> CreateRoomAsync(CreateVideoRoomRequestDto dto, CancellationToken cancellationToken = default);
@@ -218,9 +220,10 @@ public class VideoService : IVideoService
             room.CreatedAt);
     }
 }
+}
 
-namespace RenoveJa.Application.Services.Doctors;
-
+namespace RenoveJa.Application.Services.Doctors
+{
 public interface IDoctorService
 {
     Task<List<DoctorListResponseDto>> GetDoctorsAsync(string? specialty, bool? available, CancellationToken cancellationToken = default);
@@ -346,4 +349,5 @@ public class DoctorService : IDoctorService
             profile.Available,
             profile.CreatedAt);
     }
+}
 }

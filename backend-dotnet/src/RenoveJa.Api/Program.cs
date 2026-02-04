@@ -14,7 +14,6 @@ using RenoveJa.Api.Middleware;
 using RenoveJa.Api.Authentication;
 using Microsoft.AspNetCore.Authentication;
 using FluentValidation;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container

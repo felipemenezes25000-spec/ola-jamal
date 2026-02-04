@@ -35,37 +35,39 @@ Este backend .NET mantém **100% de compatibilidade** com o frontend existente, 
 
 ### Clean Architecture + DDD
 
+Estrutura convencional .NET (Microsoft / eShopOnWeb / Clean Architecture): pasta **src/** para código, **tests/** para testes, projetos com prefixo da solution (`RenoveJa.*`).
+
 ```
 /backend-dotnet
 ├── src/
-│   ├── RenoveJa.Domain/          # Camada de Domínio
-│   │   ├── Entities/              # Entidades (User, Request, Payment, etc.)
+│   ├── RenoveJa.Domain/           # Camada de Domínio
+│   │   ├── Entities/              # Entidades e raízes de agregado
 │   │   ├── ValueObjects/          # VOs (Email, Phone, Money)
 │   │   ├── Enums/                 # Enumerações
 │   │   ├── Interfaces/            # Contratos de Repositórios
 │   │   └── Exceptions/            # Exceções de Domínio
 │   │
 │   ├── RenoveJa.Application/      # Camada de Aplicação
-│   │   ├── DTOs/                  # Data Transfer Objects
+│   │   ├── DTOs/                  # Data Transfer Objects (por bounded context)
 │   │   ├── Services/              # Use Cases (AuthService, RequestService, etc.)
 │   │   ├── Interfaces/            # Contratos de Serviços
-│   │   ├── Validators/            # FluentValidation
-│   │   └── Mappers/               # Mapeadores Domain <-> DTO
+│   │   └── Validators/            # FluentValidation
 │   │
 │   ├── RenoveJa.Infrastructure/   # Camada de Infraestrutura
 │   │   ├── Data/
 │   │   │   ├── Supabase/          # Cliente Supabase
 │   │   │   └── Models/            # Modelos de Persistência
-│   │   ├── Repositories/          # Implementações de Repositórios
-│   │   └── ExternalServices/      # MercadoPago, PDF, Push, etc.
+│   │   └── Repositories/          # Implementações de Repositórios
 │   │
-│   └── RenoveJa.Api/              # Camada de Apresentação
+│   └── RenoveJa.Api/              # Camada de Apresentação (Host)
 │       ├── Controllers/           # Endpoints REST
 │       ├── Middleware/            # Exception Handling, Correlation ID
 │       └── Authentication/        # Bearer Token Handler
 │
-└── tests/
-    └── RenoveJa.UnitTests/        # Testes Unitários (xUnit)
+├── tests/
+│   └── RenoveJa.UnitTests/        # Testes unitários (xUnit)
+│
+└── RenoveJa.sln
 ```
 
 ---

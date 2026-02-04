@@ -4,7 +4,11 @@ using RenoveJa.Domain.Exceptions;
 
 namespace RenoveJa.Domain.Entities;
 
-public class User : Entity
+/// <summary>
+/// Agregado: Usuário (Paciente/Médico).
+/// Raiz do agregado de identidade — alterações de perfil e autenticação passam por esta entidade.
+/// </summary>
+public class User : AggregateRoot
 {
     public string Name { get; private set; }
     public Email Email { get; private set; }

@@ -4,7 +4,11 @@ using RenoveJa.Domain.ValueObjects;
 
 namespace RenoveJa.Domain.Entities;
 
-public class MedicalRequest : Entity
+/// <summary>
+/// Agregado: Solicitação Médica (Prescrição, Exame, Consulta).
+/// Raiz do agregado — todas as alterações de estado passam por esta entidade.
+/// </summary>
+public class MedicalRequest : AggregateRoot
 {
     public Guid PatientId { get; private set; }
     public string? PatientName { get; private set; }
