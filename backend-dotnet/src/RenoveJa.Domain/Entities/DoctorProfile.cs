@@ -38,6 +38,11 @@ public class DoctorProfile : Entity
         Available = available;
     }
 
+    private const int CrmMaxLength = 20;
+    private const int CrmStateLength = 2;
+    private const int SpecialtyMaxLength = 100;
+    private const int BioMaxLength = 5000;
+
     public static DoctorProfile Create(
         Guid userId,
         string crm,
@@ -50,12 +55,23 @@ public class DoctorProfile : Entity
 
         if (string.IsNullOrWhiteSpace(crm))
             throw new DomainException("CRM is required");
+        if (crm.Length > CrmMaxLength)
+            throw new DomainException($"CRM cannot exceed {CrmMaxLength} characters");
 
         if (string.IsNullOrWhiteSpace(crmState))
             throw new DomainException("CRM State is required");
 
+        var hasNumbers = crmState.Any(char.IsNumber);
+        if (hasNumbers || crmState.Trim().Length != CrmStateLength)
+            throw new DomainException($"CRM State must be exactly {CrmStateLength} characters (state abbreviation)");
+
         if (string.IsNullOrWhiteSpace(specialty))
             throw new DomainException("Specialty is required");
+        if (specialty.Length > SpecialtyMaxLength)
+            throw new DomainException($"Specialty cannot exceed {SpecialtyMaxLength} characters");
+
+        if (bio != null && bio.Length > BioMaxLength)
+            throw new DomainException($"Bio cannot exceed {BioMaxLength} characters");
 
         return new DoctorProfile(
             Guid.NewGuid(),
@@ -66,7 +82,7 @@ public class DoctorProfile : Entity
             bio,
             5.0m,
             0,
-            true);
+            false);
     }
 
     public static DoctorProfile Reconstitute(
@@ -97,10 +113,18 @@ public class DoctorProfile : Entity
     public void UpdateProfile(string? bio = null, string? specialty = null)
     {
         if (!string.IsNullOrWhiteSpace(bio))
+        {
+            if (bio.Length > BioMaxLength)
+                throw new DomainException($"Bio cannot exceed {BioMaxLength} characters");
             Bio = bio;
+        }
 
         if (!string.IsNullOrWhiteSpace(specialty))
+        {
+            if (specialty.Length > SpecialtyMaxLength)
+                throw new DomainException($"Specialty cannot exceed {SpecialtyMaxLength} characters");
             Specialty = specialty;
+        }
     }
 
     public void SetAvailability(bool available)

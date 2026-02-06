@@ -1,23 +1,25 @@
 namespace RenoveJa.Application.DTOs.Auth;
 
+/// <summary>DTO de registro de paciente.</summary>
 public record RegisterRequestDto(
     string Name,
     string Email,
     string Password,
-    string? Phone = null,
-    string? Cpf = null,
+    string Phone,
+    string Cpf,
     DateTime? BirthDate = null
 );
 
+/// <summary>DTO de registro de médico.</summary>
 public record RegisterDoctorRequestDto(
     string Name,
     string Email,
     string Password,
     string Phone,
+    string Cpf,
     string Crm,
     string CrmState,
     string Specialty,
-    string? Cpf = null,
     DateTime? BirthDate = null,
     string? Bio = null
 );
@@ -27,14 +29,18 @@ public record LoginRequestDto(
     string Password
 );
 
+/// <summary>DTO de autenticação via Google. Role opcional: "patient" (padrão) ou "doctor".</summary>
 public record GoogleAuthRequestDto(
-    string GoogleToken
+    string GoogleToken,
+    string? Role = null
 );
 
+/// <summary>Resposta de autenticação (usuário, token e perfil médico opcional).</summary>
 public record AuthResponseDto(
     UserDto User,
     string Token,
-    DoctorProfileDto? DoctorProfile = null
+    DoctorProfileDto? DoctorProfile = null,
+    bool ProfileComplete = true
 );
 
 public record UserDto(
@@ -47,9 +53,22 @@ public record UserDto(
     string? AvatarUrl,
     string Role,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    bool ProfileComplete = true
 );
 
+/// <summary>DTO para concluir cadastro (usuários criados via Google). Para médico, preencher também Crm, CrmState e Specialty.</summary>
+public record CompleteProfileRequestDto(
+    string Phone,
+    string Cpf,
+    DateTime? BirthDate = null,
+    string? Crm = null,
+    string? CrmState = null,
+    string? Specialty = null,
+    string? Bio = null
+);
+
+/// <summary>DTO de perfil de médico.</summary>
 public record DoctorProfileDto(
     Guid Id,
     Guid UserId,

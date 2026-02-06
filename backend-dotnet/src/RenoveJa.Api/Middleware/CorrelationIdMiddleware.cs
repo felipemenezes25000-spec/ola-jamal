@@ -1,15 +1,15 @@
 namespace RenoveJa.Api.Middleware;
 
-public class CorrelationIdMiddleware
+/// <summary>
+/// Middleware que propaga ou gera um ID de correlação por requisição para rastreamento.
+/// </summary>
+public class CorrelationIdMiddleware(RequestDelegate next)
 {
-    private readonly RequestDelegate _next;
     private const string CorrelationIdHeader = "X-Correlation-Id";
 
-    public CorrelationIdMiddleware(RequestDelegate next)
-    {
-        _next = next;
-    }
-
+    /// <summary>
+    /// Processa a requisição adicionando/propagando o header X-Correlation-Id.
+    /// </summary>
     public async Task InvokeAsync(HttpContext context)
     {
         var correlationId = context.Request.Headers[CorrelationIdHeader].FirstOrDefault()
@@ -18,6 +18,6 @@ public class CorrelationIdMiddleware
         context.Items["CorrelationId"] = correlationId;
         context.Response.Headers[CorrelationIdHeader] = correlationId;
 
-        await _next(context);
+        await next(context);
     }
 }

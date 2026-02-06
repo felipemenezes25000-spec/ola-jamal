@@ -1,5 +1,6 @@
 namespace RenoveJa.Infrastructure.Data.Models;
 
+/// <summary>Modelo de persistência de usuário (tabela users).</summary>
 public class UserModel
 {
     public Guid Id { get; set; }
@@ -13,6 +14,8 @@ public class UserModel
     public string Role { get; set; } = "patient";
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    /// <summary>Cadastro concluído (phone, CPF preenchidos). Usuários Google iniciam com false.</summary>
+    public bool ProfileComplete { get; set; } = true;
 }
 
 public class DoctorProfileModel
@@ -29,6 +32,7 @@ public class DoctorProfileModel
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de token de autenticação (tabela auth_tokens).</summary>
 public class AuthTokenModel
 {
     public Guid Id { get; set; }
@@ -38,6 +42,7 @@ public class AuthTokenModel
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de solicitação médica (tabela requests).</summary>
 public class RequestModel
 {
     public Guid Id { get; set; }
@@ -63,6 +68,7 @@ public class RequestModel
     public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de pagamento (tabela payments).</summary>
 public class PaymentModel
 {
     public Guid Id { get; set; }

@@ -231,7 +231,7 @@ POST /api/auth/register-doctor
 POST /api/auth/login
 GET  /api/auth/me               [Requires: Bearer Token]
 POST /api/auth/logout           [Requires: Bearer Token]
-POST /api/auth/google
+POST /api/auth/google   # Login com Google (ID token). Ver [docs/GOOGLE_LOGIN.md](docs/GOOGLE_LOGIN.md) para testar.
 ```
 
 ### Solicitações (Requests)

@@ -6,34 +6,32 @@ using RenoveJa.Application.Interfaces;
 
 namespace RenoveJa.Api.Authentication;
 
-public class BearerAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+/// <summary>
+/// Handler de autenticação Bearer que valida o token via IAuthService.
+/// </summary>
+public class BearerAuthenticationHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder,
+    IAuthService authService) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
-    private readonly IAuthService _authService;
-
-    public BearerAuthenticationHandler(
-        IOptionsMonitor<AuthenticationSchemeOptions> options,
-        ILoggerFactory logger,
-        UrlEncoder encoder,
-        IAuthService authService)
-        : base(options, logger, encoder)
-    {
-        _authService = authService;
-    }
-
+    /// <summary>
+    /// Valida o token Bearer e cria o principal de autenticação.
+    /// </summary>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.ContainsKey("Authorization"))
+        if (!Request.Headers.TryGetValue("Authorization", out var value))
             return AuthenticateResult.Fail("Missing Authorization Header");
 
-        var authHeader = Request.Headers["Authorization"].ToString();
+        var authHeader = value.ToString();
         if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             return AuthenticateResult.Fail("Invalid Authorization Header");
 
-        var token = authHeader.Substring("Bearer ".Length).Trim();
+        var token = authHeader["Bearer ".Length..].Trim();
 
         try
         {
-            var (userId, role) = await _authService.ValidateTokenAsync(token);
+            var (userId, role) = await authService.ValidateTokenAsync(token);
 
             var claims = new[]
             {

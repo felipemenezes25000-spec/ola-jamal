@@ -6,48 +6,23 @@ using RenoveJa.Domain.Interfaces;
 
 namespace RenoveJa.Application.Services.Payments;
 
-public interface IPaymentService
+/// <summary>
+/// Implementação do serviço de pagamentos (PIX, confirmação, webhook Mercado Pago).
+/// </summary>
+public class PaymentService(
+    IPaymentRepository paymentRepository,
+    IRequestRepository requestRepository,
+    INotificationRepository notificationRepository) : IPaymentService
 {
-    Task<PaymentResponseDto> CreatePaymentAsync(
-        CreatePaymentRequestDto request,
-        Guid userId,
-        CancellationToken cancellationToken = default);
-
-    Task<PaymentResponseDto> GetPaymentAsync(
-        Guid id,
-        CancellationToken cancellationToken = default);
-
-    Task<PaymentResponseDto> ConfirmPaymentAsync(
-        Guid id,
-        CancellationToken cancellationToken = default);
-
-    Task ProcessWebhookAsync(
-        MercadoPagoWebhookDto webhook,
-        CancellationToken cancellationToken = default);
-}
-
-public class PaymentService : IPaymentService
-{
-    private readonly IPaymentRepository _paymentRepository;
-    private readonly IRequestRepository _requestRepository;
-    private readonly INotificationRepository _notificationRepository;
-
-    public PaymentService(
-        IPaymentRepository paymentRepository,
-        IRequestRepository requestRepository,
-        INotificationRepository notificationRepository)
-    {
-        _paymentRepository = paymentRepository;
-        _requestRepository = requestRepository;
-        _notificationRepository = notificationRepository;
-    }
-
+    /// <summary>
+    /// Cria um pagamento para uma solicitação e retorna dados PIX.
+    /// </summary>
     public async Task<PaymentResponseDto> CreatePaymentAsync(
         CreatePaymentRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var medicalRequest = await _requestRepository.GetByIdAsync(request.RequestId, cancellationToken);
+        var medicalRequest = await requestRepository.GetByIdAsync(request.RequestId, cancellationToken);
         if (medicalRequest == null)
             throw new KeyNotFoundException("Request not found");
 
@@ -64,7 +39,7 @@ public class PaymentService : IPaymentService
             qrCodeBase64: "iVBORw0KGgoAAAANSUhEUgAA...",
             copyPaste: "00020126580014br.gov.bcb.pix...");
 
-        payment = await _paymentRepository.CreateAsync(payment, cancellationToken);
+        payment = await paymentRepository.CreateAsync(payment, cancellationToken);
 
         await CreateNotificationAsync(
             userId,
@@ -75,34 +50,40 @@ public class PaymentService : IPaymentService
         return MapToDto(payment);
     }
 
+    /// <summary>
+    /// Obtém um pagamento pelo ID.
+    /// </summary>
     public async Task<PaymentResponseDto> GetPaymentAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var payment = await _paymentRepository.GetByIdAsync(id, cancellationToken);
+        var payment = await paymentRepository.GetByIdAsync(id, cancellationToken);
         if (payment == null)
             throw new KeyNotFoundException("Payment not found");
 
         return MapToDto(payment);
     }
 
+    /// <summary>
+    /// Confirma um pagamento e atualiza a solicitação para pago.
+    /// </summary>
     public async Task<PaymentResponseDto> ConfirmPaymentAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var payment = await _paymentRepository.GetByIdAsync(id, cancellationToken);
+        var payment = await paymentRepository.GetByIdAsync(id, cancellationToken);
         if (payment == null)
             throw new KeyNotFoundException("Payment not found");
 
         payment.Approve();
-        payment = await _paymentRepository.UpdateAsync(payment, cancellationToken);
+        payment = await paymentRepository.UpdateAsync(payment, cancellationToken);
 
         // Update request status to paid
-        var request = await _requestRepository.GetByIdAsync(payment.RequestId, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(payment.RequestId, cancellationToken);
         if (request != null)
         {
             request.MarkAsPaid();
-            await _requestRepository.UpdateAsync(request, cancellationToken);
+            await requestRepository.UpdateAsync(request, cancellationToken);
 
             await CreateNotificationAsync(
                 payment.UserId,
@@ -114,6 +95,9 @@ public class PaymentService : IPaymentService
         return MapToDto(payment);
     }
 
+    /// <summary>
+    /// Processa webhook do Mercado Pago (atualização de pagamento).
+    /// </summary>
     public async Task ProcessWebhookAsync(
         MercadoPagoWebhookDto webhook,
         CancellationToken cancellationToken = default)
@@ -121,7 +105,7 @@ public class PaymentService : IPaymentService
         if (webhook.Action != "payment.updated" || webhook.Id == null)
             return;
 
-        var payment = await _paymentRepository.GetByExternalIdAsync(webhook.Id, cancellationToken);
+        var payment = await paymentRepository.GetByExternalIdAsync(webhook.Id, cancellationToken);
         if (payment == null)
             return;
 
@@ -130,13 +114,13 @@ public class PaymentService : IPaymentService
         if (payment.IsPending())
         {
             payment.Approve();
-            await _paymentRepository.UpdateAsync(payment, cancellationToken);
+            await paymentRepository.UpdateAsync(payment, cancellationToken);
 
-            var request = await _requestRepository.GetByIdAsync(payment.RequestId, cancellationToken);
+            var request = await requestRepository.GetByIdAsync(payment.RequestId, cancellationToken);
             if (request != null)
             {
                 request.MarkAsPaid();
-                await _requestRepository.UpdateAsync(request, cancellationToken);
+                await requestRepository.UpdateAsync(request, cancellationToken);
 
                 await CreateNotificationAsync(
                     payment.UserId,
@@ -154,7 +138,7 @@ public class PaymentService : IPaymentService
         CancellationToken cancellationToken)
     {
         var notification = Notification.Create(userId, title, message, NotificationType.Success);
-        await _notificationRepository.CreateAsync(notification, cancellationToken);
+        await notificationRepository.CreateAsync(notification, cancellationToken);
     }
 
     private static PaymentResponseDto MapToDto(Payment payment)

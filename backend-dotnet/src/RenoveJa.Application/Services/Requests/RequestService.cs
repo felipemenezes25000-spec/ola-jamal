@@ -8,41 +8,30 @@ using RenoveJa.Domain.Interfaces;
 
 namespace RenoveJa.Application.Services.Requests;
 
-public class RequestService : IRequestService
+/// <summary>
+/// Serviço de solicitações médicas: receita, exame, consulta, aprovação, rejeição, assinatura e sala de vídeo.
+/// </summary>
+public class RequestService(
+    IRequestRepository requestRepository,
+    IPaymentRepository paymentRepository,
+    IUserRepository userRepository,
+    IDoctorRepository doctorRepository,
+    IVideoRoomRepository videoRoomRepository,
+    INotificationRepository notificationRepository) : IRequestService
 {
-    private readonly IRequestRepository _requestRepository;
-    private readonly IPaymentRepository _paymentRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly IDoctorRepository _doctorRepository;
-    private readonly IVideoRoomRepository _videoRoomRepository;
-    private readonly INotificationRepository _notificationRepository;
-
     private const decimal PrescriptionPrice = 50.00m;
     private const decimal ExamPrice = 100.00m;
     private const decimal ConsultationPrice = 150.00m;
 
-    public RequestService(
-        IRequestRepository requestRepository,
-        IPaymentRepository paymentRepository,
-        IUserRepository userRepository,
-        IDoctorRepository doctorRepository,
-        IVideoRoomRepository videoRoomRepository,
-        INotificationRepository notificationRepository)
-    {
-        _requestRepository = requestRepository;
-        _paymentRepository = paymentRepository;
-        _userRepository = userRepository;
-        _doctorRepository = doctorRepository;
-        _videoRoomRepository = videoRoomRepository;
-        _notificationRepository = notificationRepository;
-    }
-
+    /// <summary>
+    /// Cria uma solicitação de receita médica e o pagamento associado.
+    /// </summary>
     public async Task<(RequestResponseDto Request, PaymentResponseDto Payment)> CreatePrescriptionAsync(
         CreatePrescriptionRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null)
             throw new InvalidOperationException("User not found");
 
@@ -55,14 +44,14 @@ public class RequestService : IRequestService
             request.Medications,
             request.PrescriptionImages);
 
-        medicalRequest = await _requestRepository.CreateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
 
         var payment = Payment.CreatePixPayment(medicalRequest.Id, userId, PrescriptionPrice);
-        payment = await _paymentRepository.CreateAsync(payment, cancellationToken);
+        payment = await paymentRepository.CreateAsync(payment, cancellationToken);
 
         // Update request status to pending payment
         medicalRequest.UpdateStatus(RequestStatus.PendingPayment);
-        medicalRequest = await _requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
 
         // Create notification
         await CreateNotificationAsync(
@@ -74,12 +63,15 @@ public class RequestService : IRequestService
         return (MapRequestToDto(medicalRequest), MapPaymentToDto(payment));
     }
 
+    /// <summary>
+    /// Cria uma solicitação de exame e o pagamento associado.
+    /// </summary>
     public async Task<(RequestResponseDto Request, PaymentResponseDto Payment)> CreateExamAsync(
         CreateExamRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null)
             throw new InvalidOperationException("User not found");
 
@@ -90,13 +82,13 @@ public class RequestService : IRequestService
             request.Exams,
             request.Symptoms);
 
-        medicalRequest = await _requestRepository.CreateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
 
         var payment = Payment.CreatePixPayment(medicalRequest.Id, userId, ExamPrice);
-        payment = await _paymentRepository.CreateAsync(payment, cancellationToken);
+        payment = await paymentRepository.CreateAsync(payment, cancellationToken);
 
         medicalRequest.UpdateStatus(RequestStatus.PendingPayment);
-        medicalRequest = await _requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
 
         await CreateNotificationAsync(
             userId,
@@ -107,12 +99,15 @@ public class RequestService : IRequestService
         return (MapRequestToDto(medicalRequest), MapPaymentToDto(payment));
     }
 
+    /// <summary>
+    /// Cria uma solicitação de consulta e o pagamento associado.
+    /// </summary>
     public async Task<(RequestResponseDto Request, PaymentResponseDto Payment)> CreateConsultationAsync(
         CreateConsultationRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null)
             throw new InvalidOperationException("User not found");
 
@@ -121,13 +116,13 @@ public class RequestService : IRequestService
             user.Name,
             request.Symptoms);
 
-        medicalRequest = await _requestRepository.CreateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
 
         var payment = Payment.CreatePixPayment(medicalRequest.Id, userId, ConsultationPrice);
-        payment = await _paymentRepository.CreateAsync(payment, cancellationToken);
+        payment = await paymentRepository.CreateAsync(payment, cancellationToken);
 
         medicalRequest.UpdateStatus(RequestStatus.PendingPayment);
-        medicalRequest = await _requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
 
         await CreateNotificationAsync(
             userId,
@@ -138,13 +133,16 @@ public class RequestService : IRequestService
         return (MapRequestToDto(medicalRequest), MapPaymentToDto(payment));
     }
 
+    /// <summary>
+    /// Lista solicitações do paciente com filtros opcionais por status e tipo.
+    /// </summary>
     public async Task<List<RequestResponseDto>> GetUserRequestsAsync(
         Guid userId,
         string? status = null,
         string? type = null,
         CancellationToken cancellationToken = default)
     {
-        var requests = await _requestRepository.GetByPatientIdAsync(userId, cancellationToken);
+        var requests = await requestRepository.GetByPatientIdAsync(userId, cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -161,23 +159,29 @@ public class RequestService : IRequestService
         return requests.Select(MapRequestToDto).ToList();
     }
 
+    /// <summary>
+    /// Obtém uma solicitação pelo ID.
+    /// </summary>
     public async Task<RequestResponseDto> GetRequestByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var request = await _requestRepository.GetByIdAsync(id, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
         return MapRequestToDto(request);
     }
 
+    /// <summary>
+    /// Atualiza o status de uma solicitação.
+    /// </summary>
     public async Task<RequestResponseDto> UpdateStatusAsync(
         Guid id,
         UpdateRequestStatusDto dto,
         CancellationToken cancellationToken = default)
     {
-        var request = await _requestRepository.GetByIdAsync(id, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
@@ -189,7 +193,7 @@ public class RequestService : IRequestService
             request.Reject(dto.RejectionReason);
         }
 
-        request = await _requestRepository.UpdateAsync(request, cancellationToken);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         await CreateNotificationAsync(
             request.PatientId,
@@ -200,17 +204,20 @@ public class RequestService : IRequestService
         return MapRequestToDto(request);
     }
 
+    /// <summary>
+    /// Aprova uma solicitação e define o valor (médico).
+    /// </summary>
     public async Task<RequestResponseDto> ApproveAsync(
         Guid id,
         ApproveRequestDto dto,
         Guid doctorId,
         CancellationToken cancellationToken = default)
     {
-        var request = await _requestRepository.GetByIdAsync(id, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
-        var doctor = await _userRepository.GetByIdAsync(doctorId, cancellationToken);
+        var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
         if (doctor == null || !doctor.IsDoctor())
             throw new InvalidOperationException("Doctor not found");
 
@@ -220,7 +227,7 @@ public class RequestService : IRequestService
         }
 
         request.Approve(dto.Price, dto.Notes);
-        request = await _requestRepository.UpdateAsync(request, cancellationToken);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         await CreateNotificationAsync(
             request.PatientId,
@@ -231,17 +238,20 @@ public class RequestService : IRequestService
         return MapRequestToDto(request);
     }
 
+    /// <summary>
+    /// Rejeita uma solicitação com motivo.
+    /// </summary>
     public async Task<RequestResponseDto> RejectAsync(
         Guid id,
         RejectRequestDto dto,
         CancellationToken cancellationToken = default)
     {
-        var request = await _requestRepository.GetByIdAsync(id, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
         request.Reject(dto.RejectionReason);
-        request = await _requestRepository.UpdateAsync(request, cancellationToken);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         await CreateNotificationAsync(
             request.PatientId,
@@ -252,26 +262,29 @@ public class RequestService : IRequestService
         return MapRequestToDto(request);
     }
 
+    /// <summary>
+    /// Atribui a solicitação ao primeiro médico disponível na fila.
+    /// </summary>
     public async Task<RequestResponseDto> AssignToQueueAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var request = await _requestRepository.GetByIdAsync(id, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
         // Get available doctors (simple queue logic)
-        var doctors = await _doctorRepository.GetAvailableAsync(null, cancellationToken);
+        var doctors = await doctorRepository.GetAvailableAsync(null, cancellationToken);
         if (doctors.Count == 0)
             throw new InvalidOperationException("No available doctors");
 
         var selectedDoctor = doctors.First();
-        var doctorUser = await _userRepository.GetByIdAsync(selectedDoctor.UserId, cancellationToken);
+        var doctorUser = await userRepository.GetByIdAsync(selectedDoctor.UserId, cancellationToken);
         
         if (doctorUser != null)
         {
             request.AssignDoctor(doctorUser.Id, doctorUser.Name);
-            request = await _requestRepository.UpdateAsync(request, cancellationToken);
+            request = await requestRepository.UpdateAsync(request, cancellationToken);
 
             await CreateNotificationAsync(
                 request.PatientId,
@@ -289,30 +302,33 @@ public class RequestService : IRequestService
         return MapRequestToDto(request);
     }
 
+    /// <summary>
+    /// Aceita a consulta, cria sala de vídeo e notifica o paciente.
+    /// </summary>
     public async Task<(RequestResponseDto Request, VideoRoomResponseDto VideoRoom)> AcceptConsultationAsync(
         Guid id,
         Guid doctorId,
         CancellationToken cancellationToken = default)
     {
-        var request = await _requestRepository.GetByIdAsync(id, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
         if (request.RequestType != RequestType.Consultation)
             throw new InvalidOperationException("Only consultation requests can create video rooms");
 
-        var doctor = await _userRepository.GetByIdAsync(doctorId, cancellationToken);
+        var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
         if (doctor == null || !doctor.IsDoctor())
             throw new InvalidOperationException("Doctor not found");
 
         request.AssignDoctor(doctorId, doctor.Name);
         request.MarkConsultationReady();
-        request = await _requestRepository.UpdateAsync(request, cancellationToken);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var roomName = $"consultation-{request.Id}";
         var videoRoom = VideoRoom.Create(request.Id, roomName);
         videoRoom.SetRoomUrl($"https://meet.renoveja.com/{roomName}");
-        videoRoom = await _videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
+        videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 
         await CreateNotificationAsync(
             request.PatientId,
@@ -323,12 +339,15 @@ public class RequestService : IRequestService
         return (MapRequestToDto(request), MapVideoRoomToDto(videoRoom));
     }
 
+    /// <summary>
+    /// Assina digitalmente a solicitação e gera o documento.
+    /// </summary>
     public async Task<RequestResponseDto> SignAsync(
         Guid id,
         SignRequestDto dto,
         CancellationToken cancellationToken = default)
     {
-        var request = await _requestRepository.GetByIdAsync(id, cancellationToken);
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
@@ -337,7 +356,7 @@ public class RequestService : IRequestService
         var signatureId = Guid.NewGuid().ToString();
 
         request.Sign(signedDocumentUrl, signatureId);
-        request = await _requestRepository.UpdateAsync(request, cancellationToken);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         await CreateNotificationAsync(
             request.PatientId,
@@ -355,7 +374,7 @@ public class RequestService : IRequestService
         CancellationToken cancellationToken)
     {
         var notification = Notification.Create(userId, title, message, NotificationType.Info);
-        await _notificationRepository.CreateAsync(notification, cancellationToken);
+        await notificationRepository.CreateAsync(notification, cancellationToken);
     }
 
     private static RequestResponseDto MapRequestToDto(MedicalRequest request)

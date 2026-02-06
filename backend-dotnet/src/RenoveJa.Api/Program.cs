@@ -8,18 +8,40 @@ using RenoveJa.Application.Services.Video;
 using RenoveJa.Application.Services.Doctors;
 using RenoveJa.Application.Validators;
 using RenoveJa.Domain.Interfaces;
+using RenoveJa.Application.Configuration;
 using RenoveJa.Infrastructure.Data.Supabase;
 using RenoveJa.Infrastructure.Repositories;
 using RenoveJa.Api.Middleware;
 using RenoveJa.Api.Authentication;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.OpenApi.Models;
 using FluentValidation;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Token do login. Cole o valor do campo 'token' retornado no POST /api/auth/login. O Swagger adiciona 'Bearer ' automaticamente.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer"
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
@@ -27,6 +49,10 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 // Configure Supabase
 builder.Services.Configure<SupabaseConfig>(
     builder.Configuration.GetSection("Supabase"));
+
+// Configure Google Auth (login com Google)
+builder.Services.Configure<GoogleAuthConfig>(
+    builder.Configuration.GetSection("Google"));
 
 builder.Services.AddHttpClient<SupabaseClient>();
 
@@ -74,11 +100,11 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
+// if (app.Environment.IsDevelopment())
+// {
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+// }
 
 app.UseCors();
 

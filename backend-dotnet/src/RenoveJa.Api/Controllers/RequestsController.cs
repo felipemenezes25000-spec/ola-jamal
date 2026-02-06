@@ -6,48 +6,56 @@ using System.Security.Claims;
 
 namespace RenoveJa.Api.Controllers;
 
+/// <summary>
+/// Controller responsável por solicitações médicas (receita, exame, consulta) e fluxo de aprovação.
+/// </summary>
 [ApiController]
 [Route("api/requests")]
 [Authorize]
-public class RequestsController : ControllerBase
+public class RequestsController(IRequestService requestService) : ControllerBase
 {
-    private readonly IRequestService _requestService;
-
-    public RequestsController(IRequestService requestService)
-    {
-        _requestService = requestService;
-    }
-
+    /// <summary>
+    /// Cria uma solicitação de receita médica.
+    /// </summary>
     [HttpPost("prescription")]
     public async Task<IActionResult> CreatePrescription(
         [FromBody] CreatePrescriptionRequestDto request,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _requestService.CreatePrescriptionAsync(request, userId, cancellationToken);
+        var result = await requestService.CreatePrescriptionAsync(request, userId, cancellationToken);
         return Ok(new { request = result.Request, payment = result.Payment });
     }
 
+    /// <summary>
+    /// Cria uma solicitação de exame.
+    /// </summary>
     [HttpPost("exam")]
     public async Task<IActionResult> CreateExam(
         [FromBody] CreateExamRequestDto request,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _requestService.CreateExamAsync(request, userId, cancellationToken);
+        var result = await requestService.CreateExamAsync(request, userId, cancellationToken);
         return Ok(new { request = result.Request, payment = result.Payment });
     }
 
+    /// <summary>
+    /// Cria uma solicitação de consulta.
+    /// </summary>
     [HttpPost("consultation")]
     public async Task<IActionResult> CreateConsultation(
         [FromBody] CreateConsultationRequestDto request,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _requestService.CreateConsultationAsync(request, userId, cancellationToken);
+        var result = await requestService.CreateConsultationAsync(request, userId, cancellationToken);
         return Ok(new { request = result.Request, payment = result.Payment });
     }
 
+    /// <summary>
+    /// Lista solicitações do usuário, com filtros opcionais por status e tipo.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetRequests(
         [FromQuery] string? status,
@@ -55,19 +63,25 @@ public class RequestsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var requests = await _requestService.GetUserRequestsAsync(userId, status, type, cancellationToken);
+        var requests = await requestService.GetUserRequestsAsync(userId, status, type, cancellationToken);
         return Ok(requests);
     }
 
+    /// <summary>
+    /// Obtém uma solicitação pelo ID.
+    /// </summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetRequest(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var request = await _requestService.GetRequestByIdAsync(id, cancellationToken);
+        var request = await requestService.GetRequestByIdAsync(id, cancellationToken);
         return Ok(request);
     }
 
+    /// <summary>
+    /// Atualiza o status de uma solicitação (médico).
+    /// </summary>
     [HttpPut("{id}/status")]
     [Authorize(Roles = "doctor")]
     public async Task<IActionResult> UpdateStatus(
@@ -75,10 +89,13 @@ public class RequestsController : ControllerBase
         [FromBody] UpdateRequestStatusDto dto,
         CancellationToken cancellationToken)
     {
-        var request = await _requestService.UpdateStatusAsync(id, dto, cancellationToken);
+        var request = await requestService.UpdateStatusAsync(id, dto, cancellationToken);
         return Ok(request);
     }
 
+    /// <summary>
+    /// Aprova uma solicitação e define valor (médico).
+    /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Roles = "doctor")]
     public async Task<IActionResult> Approve(
@@ -87,10 +104,13 @@ public class RequestsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var doctorId = GetUserId();
-        var request = await _requestService.ApproveAsync(id, dto, doctorId, cancellationToken);
+        var request = await requestService.ApproveAsync(id, dto, doctorId, cancellationToken);
         return Ok(request);
     }
 
+    /// <summary>
+    /// Rejeita uma solicitação com motivo (médico).
+    /// </summary>
     [HttpPost("{id}/reject")]
     [Authorize(Roles = "doctor")]
     public async Task<IActionResult> Reject(
@@ -98,19 +118,25 @@ public class RequestsController : ControllerBase
         [FromBody] RejectRequestDto dto,
         CancellationToken cancellationToken)
     {
-        var request = await _requestService.RejectAsync(id, dto, cancellationToken);
+        var request = await requestService.RejectAsync(id, dto, cancellationToken);
         return Ok(request);
     }
 
+    /// <summary>
+    /// Atribui a solicitação à fila (próximo médico disponível).
+    /// </summary>
     [HttpPost("{id}/assign-queue")]
     public async Task<IActionResult> AssignQueue(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var request = await _requestService.AssignToQueueAsync(id, cancellationToken);
+        var request = await requestService.AssignToQueueAsync(id, cancellationToken);
         return Ok(request);
     }
 
+    /// <summary>
+    /// Aceita a consulta e cria sala de vídeo (médico).
+    /// </summary>
     [HttpPost("{id}/accept-consultation")]
     [Authorize(Roles = "doctor")]
     public async Task<IActionResult> AcceptConsultation(
@@ -118,10 +144,13 @@ public class RequestsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var doctorId = GetUserId();
-        var result = await _requestService.AcceptConsultationAsync(id, doctorId, cancellationToken);
+        var result = await requestService.AcceptConsultationAsync(id, doctorId, cancellationToken);
         return Ok(new { request = result.Request, video_room = result.VideoRoom });
     }
 
+    /// <summary>
+    /// Assina digitalmente a solicitação (médico).
+    /// </summary>
     [HttpPost("{id}/sign")]
     [Authorize(Roles = "doctor")]
     public async Task<IActionResult> Sign(
@@ -129,7 +158,7 @@ public class RequestsController : ControllerBase
         [FromBody] SignRequestDto dto,
         CancellationToken cancellationToken)
     {
-        var request = await _requestService.SignAsync(id, dto, cancellationToken);
+        var request = await requestService.SignAsync(id, dto, cancellationToken);
         return Ok(request);
     }
 

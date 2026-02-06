@@ -1,3 +1,4 @@
+using System.Linq;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.ValueObjects;
 using RenoveJa.Domain.Exceptions;
@@ -19,6 +20,8 @@ public class User : AggregateRoot
     public string? AvatarUrl { get; private set; }
     public UserRole Role { get; private set; }
     public DateTime UpdatedAt { get; private set; }
+    /// <summary>Indica se o cadastro foi concluído (phone, CPF etc.). Usuários criados via Google iniciam com false.</summary>
+    public bool ProfileComplete { get; private set; }
 
     private User() : base() { }
 
@@ -33,7 +36,8 @@ public class User : AggregateRoot
         DateTime? birthDate = null,
         string? avatarUrl = null,
         DateTime? createdAt = null,
-        DateTime? updatedAt = null) 
+        DateTime? updatedAt = null,
+        bool profileComplete = true)
         : base(id, createdAt ?? DateTime.UtcNow)
     {
         Name = name;
@@ -45,34 +49,72 @@ public class User : AggregateRoot
         BirthDate = birthDate;
         AvatarUrl = avatarUrl;
         UpdatedAt = updatedAt ?? DateTime.UtcNow;
+        ProfileComplete = profileComplete;
+    }
+
+    /// <summary>
+    /// Valida nome, e-mail, telefone e CPF e retorna os value objects normalizados.
+    /// Reutilizado em CreatePatient e CreateDoctor para garantir as mesmas regras para todos os tipos de usuário.
+    /// </summary>
+    private static (Email email, Phone phone, string cpf) ValidateAndCreateCommonValues(
+        string name,
+        string email,
+        string phone,
+        string cpf)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new DomainException("Name is required");
+        
+        ValidateNameHasAtLeastTwoWords(name);
+
+        var normalizedEmail = Email.Create(email);
+        var normalizedPhone = Phone.Create(phone);
+        var cpfNormalized = NormalizeAndValidateCpf(cpf);
+        
+        return (normalizedEmail, normalizedPhone, cpfNormalized);
+    }
+
+    private static void ValidateNameHasAtLeastTwoWords(string name)
+    {
+        if (name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).Length < 2)
+            throw new DomainException("Name must contain at least two words");
+    }
+
+    private static string NormalizeAndValidateCpf(string cpf)
+    {
+        if (string.IsNullOrWhiteSpace(cpf))
+            throw new DomainException("CPF is required");
+
+        var digits = new string(cpf.Where(char.IsDigit).ToArray());
+        if (digits.Length != 11)
+            throw new DomainException("CPF must contain only numbers (11 digits)");
+
+        return digits;
     }
 
     public static User CreatePatient(
         string name,
         string email,
         string passwordHash,
-        string? phone = null,
-        string? cpf = null,
+        string cpf,
+        string phone,
         DateTime? birthDate = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new DomainException("Name is required");
-
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Password hash is required");
 
-        var emailVo = Email.Create(email);
-        var phoneVo = phone != null ? Phone.Create(phone) : null;
+        var (normalizedEmail, normalizedPhone, cpfNormalized) = ValidateAndCreateCommonValues(name, email, phone, cpf);
 
         return new User(
             Guid.NewGuid(),
             name,
-            emailVo,
+            normalizedEmail,
             passwordHash,
             UserRole.Patient,
-            phoneVo,
-            cpf,
-            birthDate);
+            normalizedPhone,
+            cpfNormalized,
+            birthDate,
+            profileComplete: true);
     }
 
     public static User CreateDoctor(
@@ -80,17 +122,13 @@ public class User : AggregateRoot
         string email,
         string passwordHash,
         string phone,
-        string? cpf = null,
+        string cpf,
         DateTime? birthDate = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new DomainException("Name is required");
-
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Password hash is required");
 
-        var emailVo = Email.Create(email);
-        var phoneVo = Phone.Create(phone);
+        var (emailVo, phoneVo, cpfNormalized) = ValidateAndCreateCommonValues(name, email, phone, cpf);
 
         return new User(
             Guid.NewGuid(),
@@ -99,8 +137,75 @@ public class User : AggregateRoot
             passwordHash,
             UserRole.Doctor,
             phoneVo,
-            cpf,
-            birthDate);
+            cpfNormalized,
+            birthDate,
+            profileComplete: true);
+    }
+
+    /// <summary>
+    /// Cria um usuário (paciente ou médico) a partir de login com Google. Cadastro fica incompleto até completar perfil.
+    /// </summary>
+    public static User CreateFromGoogleIdentity(string name, string email, string passwordHash, UserRole role = UserRole.Patient)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new DomainException("Name is required");
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new DomainException("Password hash is required");
+
+        var emailVo = Email.Create(email);
+
+        return new User(
+            Guid.NewGuid(),
+            name.Trim(),
+            emailVo,
+            passwordHash,
+            role,
+            phone: null,
+            cpf: null,
+            birthDate: null,
+            profileComplete: false);
+    }
+
+    /// <summary>
+    /// Conclui o cadastro com phone, CPF e data de nascimento (usado após login com Google – paciente).
+    /// </summary>
+    public void CompleteProfile(string phone, string cpf, DateTime? birthDate = null)
+    {
+        SetContactInfo(phone, cpf, birthDate);
+        ProfileComplete = true;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Preenche apenas phone, CPF e birth date (sem marcar perfil completo). Usado no fluxo do médico antes de criar DoctorProfile.
+    /// </summary>
+    public void SetContactInfo(string phone, string cpf, DateTime? birthDate = null)
+    {
+        var phoneVo = Phone.Create(phone);
+        var cpfNormalized = NormalizeAndValidateCpf(cpf);
+        Phone = phoneVo;
+        Cpf = cpfNormalized;
+        if (birthDate.HasValue)
+            BirthDate = birthDate;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Marca o cadastro como concluído (ex.: após criar DoctorProfile no fluxo Google).
+    /// </summary>
+    public void MarkProfileComplete()
+    {
+        ProfileComplete = true;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Marca o cadastro como incompleto (rollback quando falha criação do DoctorProfile).
+    /// </summary>
+    public void MarkProfileIncomplete()
+    {
+        ProfileComplete = false;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public static User Reconstitute(
@@ -114,7 +219,8 @@ public class User : AggregateRoot
         DateTime? birthDate,
         string? avatarUrl,
         DateTime createdAt,
-        DateTime updatedAt)
+        DateTime updatedAt,
+        bool profileComplete = true)
     {
         var emailVo = Email.Create(email);
         var phoneVo = phone != null ? Phone.Create(phone) : null;
@@ -131,7 +237,8 @@ public class User : AggregateRoot
             birthDate,
             avatarUrl,
             createdAt,
-            updatedAt);
+            updatedAt,
+            profileComplete);
     }
 
     public void UpdateProfile(
@@ -148,7 +255,7 @@ public class User : AggregateRoot
             Phone = Phone.Create(phone);
 
         if (!string.IsNullOrWhiteSpace(cpf))
-            Cpf = cpf;
+            Cpf = NormalizeAndValidateCpf(cpf!);
 
         if (birthDate.HasValue)
             BirthDate = birthDate;

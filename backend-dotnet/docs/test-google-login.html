@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teste Login Google - RenoveJá</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; }
+    .block { margin: 1rem 0; }
+    textarea { width: 100%; box-sizing: border-box; min-height: 100px; font-size: 12px; }
+    button { padding: 0.5rem 1rem; margin-right: 0.5rem; margin-top: 0.5rem; cursor: pointer; }
+    .result { white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 8px; font-size: 12px; margin-top: 0.5rem; }
+    .error { background: #ffebee; color: #c62828; }
+    .success { background: #e8f5e9; color: #2e7d32; }
+  </style>
+</head>
+<body>
+  <h1>Teste de login com Google</h1>
+  <p>Use esta página para obter um ID token do Google e testar o <code>POST /api/auth/google</code>.</p>
+
+  <div class="block">
+    <strong>1. Entrar com Google</strong><br>
+    <div id="buttonDiv"></div>
+  </div>
+
+  <div class="block">
+    <strong>2. ID Token (preenchido após o login)</strong><br>
+    <textarea id="token" placeholder="O ID token aparecerá aqui após clicar em 'Entrar com Google'."></textarea>
+    <br>
+    <button id="copy">Copiar token</button>
+  </div>
+
+  <div class="block">
+    <strong>3. Chamar a API</strong><br>
+    <label>URL da API: <input type="text" id="apiUrl" value="http://localhost:5000" style="width: 280px;"></label><br>
+    <button id="callApi">Chamar POST /api/auth/google</button>
+    <div id="apiResult" class="result" style="display: none;"></div>
+  </div>
+
+  <script>
+    const clientId = '393882962431-141i571c0527230j11q544rvhm1633af.apps.googleusercontent.com';
+    const tokenEl = document.getElementById('token');
+    const copyBtn = document.getElementById('copy');
+    const apiUrlEl = document.getElementById('apiUrl');
+    const callApiBtn = document.getElementById('callApi');
+    const apiResultEl = document.getElementById('apiResult');
+
+    window.onload = function () {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: function (res) {
+          tokenEl.value = res.credential || '';
+          apiResultEl.style.display = 'none';
+        }
+      });
+      google.accounts.id.renderButton(document.getElementById('buttonDiv'), {
+        type: 'standard',
+        size: 'large',
+        text: 'continue_with',
+        theme: 'outline'
+      });
+    };
+
+    copyBtn.onclick = function () {
+      tokenEl.select();
+      document.execCommand('copy');
+      copyBtn.textContent = 'Copiado!';
+      setTimeout(function () { copyBtn.textContent = 'Copiar token'; }, 2000);
+    };
+
+    callApiBtn.onclick = function () {
+      var token = tokenEl.value.trim();
+      if (!token) {
+        apiResultEl.style.display = 'block';
+        apiResultEl.className = 'result error';
+        apiResultEl.textContent = 'Obtenha o ID token primeiro (clique em Entrar com Google).';
+        return;
+      }
+      var base = apiUrlEl.value.replace(/\/$/, '');
+      var url = base + '/api/auth/google';
+      apiResultEl.style.display = 'block';
+      apiResultEl.className = 'result';
+      apiResultEl.textContent = 'Chamando ' + url + ' ...';
+
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ googleToken: token })
+      })
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
+        .then(function (result) {
+          if (result.ok) {
+            apiResultEl.className = 'result success';
+            apiResultEl.textContent = 'Resposta da API:\n' + JSON.stringify(result.data, null, 2);
+          } else {
+            apiResultEl.className = 'result error';
+            apiResultEl.textContent = 'Erro ' + result.status + ':\n' + JSON.stringify(result.data, null, 2);
+          }
+        })
+        .catch(function (err) {
+          apiResultEl.className = 'result error';
+          apiResultEl.textContent = 'Erro de rede: ' + err.message + '\n\nCertifique-se de que a API está rodando em ' + base;
+        });
+    };
+  </script>
+</body>
+</html>

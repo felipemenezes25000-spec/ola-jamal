@@ -6,18 +6,17 @@ using System.Security.Claims;
 
 namespace RenoveJa.Api.Controllers;
 
+/// <summary>
+/// Controller responsável por registro e remoção de tokens de push para notificações.
+/// </summary>
 [ApiController]
 [Route("api/push-tokens")]
 [Authorize]
-public class PushTokensController : ControllerBase
+public class PushTokensController(IPushTokenRepository pushTokenRepository) : ControllerBase
 {
-    private readonly IPushTokenRepository _pushTokenRepository;
-
-    public PushTokensController(IPushTokenRepository pushTokenRepository)
-    {
-        _pushTokenRepository = pushTokenRepository;
-    }
-
+    /// <summary>
+    /// Registra um token de push do dispositivo do usuário.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> RegisterToken(
         [FromBody] RegisterPushTokenRequest request,
@@ -26,7 +25,7 @@ public class PushTokensController : ControllerBase
         var userId = GetUserId();
 
         var pushToken = PushToken.Create(userId, request.Token, request.DeviceType);
-        pushToken = await _pushTokenRepository.CreateAsync(pushToken, cancellationToken);
+        pushToken = await pushTokenRepository.CreateAsync(pushToken, cancellationToken);
 
         return Ok(new
         {
@@ -35,6 +34,9 @@ public class PushTokensController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Remove o registro de um token de push.
+    /// </summary>
     [HttpDelete]
     public async Task<IActionResult> UnregisterToken(
         [FromBody] UnregisterPushTokenRequest request,
@@ -42,17 +44,20 @@ public class PushTokensController : ControllerBase
     {
         var userId = GetUserId();
 
-        await _pushTokenRepository.DeleteByTokenAsync(request.Token, userId, cancellationToken);
+        await pushTokenRepository.DeleteByTokenAsync(request.Token, userId, cancellationToken);
 
         return Ok(new { message = "Push token unregistered successfully" });
     }
 
+    /// <summary>
+    /// Lista os tokens de push do usuário autenticado.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetMyTokens(CancellationToken cancellationToken)
     {
         var userId = GetUserId();
 
-        var tokens = await _pushTokenRepository.GetByUserIdAsync(userId, cancellationToken);
+        var tokens = await pushTokenRepository.GetByUserIdAsync(userId, cancellationToken);
 
         return Ok(tokens.Select(t => new
         {
@@ -72,6 +77,3 @@ public class PushTokensController : ControllerBase
         return userId;
     }
 }
-
-public record RegisterPushTokenRequest(string Token, string? DeviceType = null);
-public record UnregisterPushTokenRequest(string Token);

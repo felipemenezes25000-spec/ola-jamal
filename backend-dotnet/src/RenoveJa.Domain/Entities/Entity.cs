@@ -1,16 +1,27 @@
 namespace RenoveJa.Domain.Entities;
 
+/// <summary>
+/// Classe base para entidades do domínio com identificador e data de criação.
+/// </summary>
 public abstract class Entity
 {
+    /// <summary>Identificador único da entidade.</summary>
     public Guid Id { get; protected set; }
+    /// <summary>Data de criação do registro.</summary>
     public DateTime CreatedAt { get; protected set; }
 
+    /// <summary>
+    /// Construtor padrão que gera novo Id e CreatedAt.
+    /// </summary>
     protected Entity()
     {
         Id = Guid.NewGuid();
         CreatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Construtor para reconstituição (ex.: leitura do banco).
+    /// </summary>
     protected Entity(Guid id, DateTime createdAt)
     {
         Id = id;

@@ -1,0 +1,142 @@
+using RenoveJa.Application.DTOs.Auth;
+using RenoveJa.Application.DTOs.Doctors;
+using RenoveJa.Domain.Entities;
+using RenoveJa.Domain.Interfaces;
+
+namespace RenoveJa.Application.Services.Doctors;
+
+/// <summary>
+/// Serviço de listagem e gestão de médicos.
+/// </summary>
+public interface IDoctorService
+{
+    Task<List<DoctorListResponseDto>> GetDoctorsAsync(string? specialty, bool? available, CancellationToken cancellationToken = default);
+    Task<DoctorListResponseDto> GetDoctorByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<List<DoctorListResponseDto>> GetQueueAsync(string? specialty, CancellationToken cancellationToken = default);
+    Task<DoctorProfileDto> UpdateAvailabilityAsync(Guid id, UpdateDoctorAvailabilityDto dto, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Implementação do serviço de médicos (listar, obter por ID, fila, disponibilidade).
+/// </summary>
+public class DoctorService(
+    IDoctorRepository doctorRepository,
+    IUserRepository userRepository) : IDoctorService
+{
+    /// <summary>
+    /// Lista médicos, opcionalmente por especialidade e disponibilidade.
+    /// </summary>
+    public async Task<List<DoctorListResponseDto>> GetDoctorsAsync(
+        string? specialty,
+        bool? available,
+        CancellationToken cancellationToken = default)
+    {
+        List<DoctorProfile> profiles;
+
+        if (available == true)
+        {
+            profiles = await doctorRepository.GetAvailableAsync(specialty, cancellationToken);
+        }
+        else if (!string.IsNullOrWhiteSpace(specialty))
+        {
+            profiles = await doctorRepository.GetBySpecialtyAsync(specialty, cancellationToken);
+        }
+        else
+        {
+            profiles = await doctorRepository.GetAllAsync(cancellationToken);
+        }
+
+        var result = new List<DoctorListResponseDto>();
+
+        foreach (var profile in profiles)
+        {
+            var user = await userRepository.GetByIdAsync(profile.UserId, cancellationToken);
+            if (user != null)
+            {
+                result.Add(new DoctorListResponseDto(
+                    profile.Id,
+                    user.Name,
+                    user.Email,
+                    user.Phone?.Value,
+                    user.AvatarUrl,
+                    profile.Crm,
+                    profile.CrmState,
+                    profile.Specialty,
+                    profile.Bio,
+                    profile.Rating,
+                    profile.TotalConsultations,
+                    profile.Available));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Obtém um médico pelo ID do perfil.
+    /// </summary>
+    public async Task<DoctorListResponseDto> GetDoctorByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var profile = await doctorRepository.GetByIdAsync(id, cancellationToken);
+        if (profile == null)
+            throw new KeyNotFoundException("Doctor not found");
+
+        var user = await userRepository.GetByIdAsync(profile.UserId, cancellationToken);
+        if (user == null)
+            throw new InvalidOperationException("Doctor user not found");
+
+        return new DoctorListResponseDto(
+            profile.Id,
+            user.Name,
+            user.Email,
+            user.Phone?.Value,
+            user.AvatarUrl,
+            profile.Crm,
+            profile.CrmState,
+            profile.Specialty,
+            profile.Bio,
+            profile.Rating,
+            profile.TotalConsultations,
+            profile.Available);
+    }
+
+    /// <summary>
+    /// Retorna a fila de médicos disponíveis (por especialidade opcional).
+    /// </summary>
+    public async Task<List<DoctorListResponseDto>> GetQueueAsync(
+        string? specialty,
+        CancellationToken cancellationToken = default)
+    {
+        return await GetDoctorsAsync(specialty, true, cancellationToken);
+    }
+
+    /// <summary>
+    /// Atualiza a disponibilidade de um médico.
+    /// </summary>
+    public async Task<DoctorProfileDto> UpdateAvailabilityAsync(
+        Guid id,
+        UpdateDoctorAvailabilityDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var profile = await doctorRepository.GetByIdAsync(id, cancellationToken);
+        if (profile == null)
+            throw new KeyNotFoundException("Doctor not found");
+
+        profile.SetAvailability(dto.Available);
+        profile = await doctorRepository.UpdateAsync(profile, cancellationToken);
+
+        return new DoctorProfileDto(
+            profile.Id,
+            profile.UserId,
+            profile.Crm,
+            profile.CrmState,
+            profile.Specialty,
+            profile.Bio,
+            profile.Rating,
+            profile.TotalConsultations,
+            profile.Available,
+            profile.CreatedAt);
+    }
+}

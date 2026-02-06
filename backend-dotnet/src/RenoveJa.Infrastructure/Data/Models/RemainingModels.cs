@@ -1,5 +1,6 @@
 namespace RenoveJa.Infrastructure.Data.Models;
 
+/// <summary>Modelo de persistência de mensagem de chat (tabela chat_messages).</summary>
 public class ChatMessageModel
 {
     public Guid Id { get; set; }
@@ -12,6 +13,7 @@ public class ChatMessageModel
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de notificação (tabela notifications).</summary>
 public class NotificationModel
 {
     public Guid Id { get; set; }
@@ -37,6 +39,7 @@ public class VideoRoomModel
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de token de push (tabela push_tokens).</summary>
 public class PushTokenModel
 {
     public Guid Id { get; set; }

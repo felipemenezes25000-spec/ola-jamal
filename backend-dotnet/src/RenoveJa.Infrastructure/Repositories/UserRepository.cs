@@ -5,19 +5,19 @@ using RenoveJa.Infrastructure.Data.Supabase;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class UserRepository : IUserRepository
+/// <summary>
+/// Repositório de usuários (pacientes e médicos) via Supabase.
+/// </summary>
+public class UserRepository(SupabaseClient supabase) : IUserRepository
 {
-    private readonly SupabaseClient _supabase;
     private const string TableName = "users";
 
-    public UserRepository(SupabaseClient supabase)
-    {
-        _supabase = supabase;
-    }
-
+    /// <summary>
+    /// Obtém um usuário pelo ID.
+    /// </summary>
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var model = await _supabase.GetSingleAsync<UserModel>(
+        var model = await supabase.GetSingleAsync<UserModel>(
             TableName,
             filter: $"id=eq.{id}",
             cancellationToken: cancellationToken);
@@ -27,7 +27,7 @@ public class UserRepository : IUserRepository
 
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
-        var model = await _supabase.GetSingleAsync<UserModel>(
+        var model = await supabase.GetSingleAsync<UserModel>(
             TableName,
             filter: $"email=eq.{email}",
             cancellationToken: cancellationToken);
@@ -37,7 +37,7 @@ public class UserRepository : IUserRepository
 
     public async Task<List<User>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var models = await _supabase.GetAllAsync<UserModel>(
+        var models = await supabase.GetAllAsync<UserModel>(
             TableName,
             cancellationToken: cancellationToken);
 
@@ -47,7 +47,7 @@ public class UserRepository : IUserRepository
     public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(user);
-        var created = await _supabase.InsertAsync<UserModel>(
+        var created = await supabase.InsertAsync<UserModel>(
             TableName,
             model,
             cancellationToken);
@@ -58,7 +58,7 @@ public class UserRepository : IUserRepository
     public async Task<User> UpdateAsync(User user, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(user);
-        var updated = await _supabase.UpdateAsync<UserModel>(
+        var updated = await supabase.UpdateAsync<UserModel>(
             TableName,
             $"id=eq.{user.Id}",
             model,
@@ -69,7 +69,7 @@ public class UserRepository : IUserRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        await _supabase.DeleteAsync(
+        await supabase.DeleteAsync(
             TableName,
             $"id=eq.{id}",
             cancellationToken);
@@ -94,7 +94,8 @@ public class UserRepository : IUserRepository
             model.BirthDate,
             model.AvatarUrl,
             model.CreatedAt,
-            model.UpdatedAt);
+            model.UpdatedAt,
+            model.ProfileComplete);
     }
 
     private static UserModel MapToModel(User user)
@@ -111,7 +112,8 @@ public class UserRepository : IUserRepository
             AvatarUrl = user.AvatarUrl,
             Role = user.Role.ToString().ToLowerInvariant(),
             CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt
+            UpdatedAt = user.UpdatedAt,
+            ProfileComplete = user.ProfileComplete
         };
     }
 }

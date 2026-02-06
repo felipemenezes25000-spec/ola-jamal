@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 using RenoveJa.Domain.Exceptions;
 
@@ -6,7 +7,7 @@ namespace RenoveJa.Domain.ValueObjects;
 public sealed class Phone : IEquatable<Phone>
 {
     private static readonly Regex PhoneRegex = new(
-        @"^\+?[\d\s\-\(\)]+$",
+        @"^\d{10,11}$",
         RegexOptions.Compiled
     );
 
@@ -23,9 +24,13 @@ public sealed class Phone : IEquatable<Phone>
             throw new DomainException("Phone cannot be empty");
 
         phone = phone.Trim();
+        var hasLetters = phone.Any(char.IsLetter);
+        
+        if (hasLetters)
+            throw new DomainException("Phone must contain only numbers");
 
         if (!PhoneRegex.IsMatch(phone))
-            throw new DomainException("Invalid phone format");
+            throw new DomainException("Phone must have 10 or 11 digits");
 
         return new Phone(phone);
     }

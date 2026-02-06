@@ -4,6 +4,9 @@ using RenoveJa.Application.DTOs.Video;
 
 namespace RenoveJa.Application.Interfaces;
 
+/// <summary>
+/// Serviço de solicitações médicas: receita, exame, consulta, aprovação, rejeição, assinatura e vídeo.
+/// </summary>
 public interface IRequestService
 {
     Task<(RequestResponseDto Request, PaymentResponseDto Payment)> CreatePrescriptionAsync(
