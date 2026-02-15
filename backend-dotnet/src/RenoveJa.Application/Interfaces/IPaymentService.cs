@@ -1,0 +1,42 @@
+using RenoveJa.Application.DTOs.Payments;
+
+namespace RenoveJa.Application.Interfaces;
+
+/// <summary>
+/// Serviço de pagamentos: criação, confirmação e webhook.
+/// </summary>
+public interface IPaymentService
+{
+    Task<PaymentResponseDto> CreatePaymentAsync(
+        CreatePaymentRequestDto request,
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentResponseDto> GetPaymentAsync(
+        Guid id,
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtém o pagamento pendente de uma solicitação. Permite ao paciente obter o PIX para pagar.
+    /// </summary>
+    Task<PaymentResponseDto?> GetPaymentByRequestIdAsync(
+        Guid requestId,
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentResponseDto> ConfirmPaymentAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confirma o pagamento pendente de uma solicitação (por requestId). Para testes.
+    /// </summary>
+    Task<PaymentResponseDto> ConfirmPaymentByRequestIdAsync(
+        Guid requestId,
+        CancellationToken cancellationToken = default);
+
+    Task ProcessWebhookAsync(
+        MercadoPagoWebhookDto? webhook,
+        CancellationToken cancellationToken = default);
+}

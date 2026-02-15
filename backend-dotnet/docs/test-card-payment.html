@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teste Pagamento com Cartão - RenoveJá</title>
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; }
+    .block { margin: 1rem 0; }
+    label { display: block; margin-top: 0.5rem; }
+    input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; padding: 0.5rem; font-size: 14px; margin-top: 0.25rem; }
+    button { padding: 0.5rem 1rem; margin-right: 0.5rem; margin-top: 0.5rem; cursor: pointer; }
+    .result { white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 8px; font-size: 12px; margin-top: 0.5rem; }
+    .error { background: #ffebee; color: #c62828; }
+    .success { background: #e8f5e9; color: #2e7d32; }
+    #cardPaymentBrick_container { margin: 1rem 0; min-height: 320px; }
+    #loadBrickBtn:disabled { opacity: 0.7; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h1>Teste de pagamento com cartão</h1>
+  <p>Use o <strong>Card Payment Brick</strong> do Mercado Pago para testar pagamentos com cartão. O valor da cobrança é definido pela solicitação aprovada no backend (não pelo valor exibido aqui). Em <strong>modo teste</strong> use os <a href="https://www.mercadopago.com.br/developers/pt/docs/checkout-bricks/integration-test/test-cards" target="_blank" rel="noopener">cartões de teste do MP</a>.</p>
+
+  <div class="block">
+    <strong>1. Dados para o teste</strong>
+    <label>URL da API: <input type="text" id="apiUrl" value="http://localhost:5000" placeholder="http://localhost:5000"></label>
+    <label>Bearer Token (paciente): <input type="text" id="bearerToken" placeholder="Token retornado no login"></label>
+    <label>Request ID (solicitação aprovada): <input type="text" id="requestId" placeholder="Ex: ecba9bf5-16f6-4eec-87d3-ae7ead185210"></label>
+    <label>Valor exibido no Brick (opcional): <input type="number" id="amountDisplay" value="100" min="1" step="0.01" placeholder="100"> (só para exibição; o valor real vem da solicitação)</label>
+    <button id="loadBrickBtn">Carregar formulário de cartão</button>
+  </div>
+
+  <div id="brickBlock" class="block" style="display: none;">
+    <strong>2. Dados do cartão</strong>
+    <p>Preencha com um <a href="https://www.mercadopago.com.br/developers/pt/docs/checkout-bricks/integration-test/test-cards" target="_blank" rel="noopener">cartão de teste</a> (ex.: 5031 4332 1540 6351, CVV 123, qualquer data futura).</p>
+    <div id="cardPaymentBrick_container"></div>
+  </div>
+
+  <div id="message" class="result" style="display: none;"></div>
+
+  <script>
+    const apiUrlEl = document.getElementById('apiUrl');
+    const bearerTokenEl = document.getElementById('bearerToken');
+    const requestIdEl = document.getElementById('requestId');
+    const amountDisplayEl = document.getElementById('amountDisplay');
+    const loadBrickBtn = document.getElementById('loadBrickBtn');
+    const brickBlock = document.getElementById('brickBlock');
+    const messageEl = document.getElementById('message');
+
+    let cardPaymentBrickController = null;
+
+    function showMessage(text, isError) {
+      messageEl.textContent = text;
+      messageEl.className = 'result ' + (isError ? 'error' : 'success');
+      messageEl.style.display = 'block';
+    }
+
+    function getBase() {
+      return apiUrlEl.value.replace(/\/$/, '');
+    }
+
+    loadBrickBtn.addEventListener('click', async function () {
+      const base = getBase();
+      const token = bearerTokenEl.value.trim();
+      const requestId = requestIdEl.value.trim();
+      if (!requestId) {
+        showMessage('Preencha o Request ID.', true);
+        return;
+      }
+
+      loadBrickBtn.disabled = true;
+      showMessage('Carregando chave pública e formulário...', false);
+
+      try {
+        let publicKey = null;
+        const keyRes = await fetch(base + '/api/integrations/mercadopago-public-key');
+        const keyData = await keyRes.json().catch(function () { return {}; });
+        publicKey = keyData.publicKey || null;
+
+        if (!publicKey) {
+          showMessage('Não foi possível obter a chave pública. Configure MercadoPago:PublicKey no appsettings e reinicie a API. Ou abra o console e defina window.MP_PUBLIC_KEY manualmente e clique novamente.', true);
+          loadBrickBtn.disabled = false;
+          return;
+        }
+
+        if (window.cardPaymentBrickController) {
+          try { window.cardPaymentBrickController.unmount(); } catch (e) {}
+          window.cardPaymentBrickController = null;
+        }
+
+        brickBlock.style.display = 'block';
+        const amount = parseFloat(amountDisplayEl.value) || 100;
+
+        const mp = new MercadoPago(publicKey);
+        const bricksBuilder = mp.bricks();
+
+        const settings = {
+          initialization: {
+            amount: amount
+          },
+          callbacks: {
+            onReady: function () {
+              showMessage('Formulário de cartão pronto. Preencha e clique em Pagar.', false);
+              loadBrickBtn.disabled = false;
+            },
+            onSubmit: function (formData, additionalData) {
+              return new Promise(function (resolve, reject) {
+                const tokenAuth = bearerTokenEl.value.trim();
+                const reqId = requestIdEl.value.trim();
+                if (!tokenAuth || !reqId) {
+                  reject(new Error('Token ou Request ID ausente. Recarregue a página e preencha novamente.'));
+                  return;
+                }
+
+                const tokenCard = formData.token || formData.Token;
+                const paymentMethodId = formData.paymentMethodId || formData.payment_method_id;
+                const installments = formData.installments != null ? formData.installments : (formData.Installments != null ? formData.Installments : 1);
+                const issuerId = formData.issuerId != null ? formData.issuerId : (formData.issuer_id != null ? formData.issuer_id : null);
+                // Cartão múltiplo: o Brick envia em additionalData.paymentTypeId a escolha do usuário (credit_card ou debit_card).
+                const paymentTypeId = (additionalData && (additionalData.paymentTypeId || additionalData.payment_type_id)) || 'credit_card';
+
+                if (!tokenCard || !paymentMethodId) {
+                  reject(new Error('Dados do cartão incompletos (token ou paymentMethodId).'));
+                  return;
+                }
+
+                const body = {
+                  requestId: reqId,
+                  paymentMethod: paymentTypeId,
+                  token: tokenCard,
+                  paymentMethodId: String(paymentMethodId),
+                  installments: parseInt(installments, 10) || 1
+                };
+                if (issuerId != null && issuerId !== '') body.issuerId = parseInt(issuerId, 10);
+
+                fetch(getBase() + '/api/payments', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + tokenAuth
+                  },
+                  body: JSON.stringify(body)
+                })
+                  .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
+                  .then(function (result) {
+                    if (result.ok) {
+                      showMessage('Pagamento criado. Status: ' + (result.data.status || '-') + '. ID: ' + (result.data.id || '-'), false);
+                      resolve();
+                    } else {
+                      showMessage('Erro: ' + (result.data.message || result.data.title || result.status + ' ' + JSON.stringify(result.data)), true);
+                      reject(new Error(result.data.message || result.data.title || 'Erro ao processar pagamento'));
+                    }
+                  })
+                  .catch(function (err) {
+                    showMessage('Erro: ' + (err.message || String(err)), true);
+                    reject(err);
+                  });
+              });
+            },
+            onError: function (error) {
+              console.error('Brick error', error);
+              showMessage('Erro no Brick: ' + (error && (error.message || error.cause)) || JSON.stringify(error), true);
+            }
+          }
+        };
+
+        cardPaymentBrickController = await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', settings);
+        window.cardPaymentBrickController = cardPaymentBrickController;
+      } catch (e) {
+        showMessage('Erro ao carregar Brick: ' + e.message, true);
+        loadBrickBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

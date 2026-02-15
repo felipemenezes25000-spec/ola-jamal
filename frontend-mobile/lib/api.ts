@@ -1,0 +1,450 @@
+import { apiClient } from './api-client';
+import {
+  RequestResponseDto,
+  RequestStatus,
+  PaymentResponseDto,
+  NotificationResponseDto,
+  DoctorProfileDto,
+  DoctorListResponseDto,
+  PagedResponse,
+  VideoRoomResponseDto,
+  CrmValidationResponseDto,
+  PushTokenDto,
+  CertificateInfoDto,
+  UploadCertificateResponseDto,
+} from '../types/database';
+
+// ============================================
+// AUTH
+// ============================================
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return apiClient.patch('/api/auth/change-password', {
+    currentPassword,
+    newPassword,
+  });
+}
+
+// ============================================
+// REQUEST MANAGEMENT
+// ============================================
+
+export interface CreatePrescriptionRequestData {
+  prescriptionType: 'simples' | 'controlado' | 'azul';
+  medications?: string[];  // Backend expects List<string>, NOT objects
+  images?: string[]; // URIs for image picker results
+}
+
+export async function createPrescriptionRequest(
+  data: CreatePrescriptionRequestData
+): Promise<{ request: RequestResponseDto; payment?: PaymentResponseDto }> {
+  // Always use multipart when images are provided
+  if (data.images && data.images.length > 0) {
+    const formData = new FormData();
+    formData.append('prescriptionType', data.prescriptionType);
+
+    for (let i = 0; i < data.images.length; i++) {
+      const uri = data.images[i];
+      const filename = uri.split('/').pop() || `prescription_${i}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('images', {
+        uri,
+        name: filename,
+        type,
+      } as any);
+    }
+
+    return apiClient.post('/api/requests/prescription', formData, true);
+  }
+
+  // JSON without images
+  return apiClient.post('/api/requests/prescription', {
+    prescriptionType: data.prescriptionType,
+    medications: data.medications || [],
+  });
+}
+
+export interface CreateExamRequestData {
+  examType: string;
+  exams: string[];
+  symptoms?: string;
+  images?: string[];
+}
+
+export async function createExamRequest(
+  data: CreateExamRequestData
+): Promise<{ request: RequestResponseDto; payment?: PaymentResponseDto }> {
+  // Use multipart when images are provided
+  if (data.images && data.images.length > 0) {
+    const formData = new FormData();
+    formData.append('examType', data.examType);
+    // Backend splits by \n, comma, or semicolon for multipart
+    formData.append('exams', data.exams.join('\n'));
+    if (data.symptoms) formData.append('symptoms', data.symptoms);
+
+    for (let i = 0; i < data.images.length; i++) {
+      const uri = data.images[i];
+      const filename = uri.split('/').pop() || `exam_${i}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('images', {
+        uri,
+        name: filename,
+        type,
+      } as any);
+    }
+
+    return apiClient.post('/api/requests/exam', formData, true);
+  }
+
+  // JSON without images
+  return apiClient.post('/api/requests/exam', {
+    examType: data.examType,
+    exams: data.exams,
+    symptoms: data.symptoms,
+  });
+}
+
+export interface CreateConsultationRequestData {
+  symptoms: string;
+}
+
+export async function createConsultationRequest(
+  data: CreateConsultationRequestData
+): Promise<{ request: RequestResponseDto; payment?: PaymentResponseDto }> {
+  return apiClient.post('/api/requests/consultation', data);
+}
+
+export async function fetchRequests(
+  filters?: {
+    status?: RequestStatus | string;
+    type?: string;
+    page?: number;
+    pageSize?: number;
+  }
+): Promise<PagedResponse<RequestResponseDto>> {
+  return apiClient.get('/api/requests', {
+    status: filters?.status,
+    type: filters?.type,
+    page: filters?.page || 1,
+    pageSize: filters?.pageSize || 20,
+  });
+}
+
+export async function fetchRequestById(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.get(`/api/requests/${requestId}`);
+}
+
+export async function updateRequestStatus(
+  requestId: string,
+  status: string,
+  rejectionReason?: string
+): Promise<RequestResponseDto> {
+  return apiClient.put(`/api/requests/${requestId}/status`, {
+    status,
+    rejectionReason,
+  });
+}
+
+export async function approveRequest(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/approve`, {});
+}
+
+export async function rejectRequest(requestId: string, rejectionReason: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/reject`, { rejectionReason });
+}
+
+export async function assignToQueue(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/assign-queue`, {});
+}
+
+export async function acceptConsultation(
+  requestId: string
+): Promise<{ request: RequestResponseDto; video_room: VideoRoomResponseDto }> {
+  return apiClient.post(`/api/requests/${requestId}/accept-consultation`, {});
+}
+
+export async function signRequest(
+  requestId: string,
+  signatureData?: string,
+  signedDocumentUrl?: string
+): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/sign`, {
+    signatureData,
+    signedDocumentUrl,
+  });
+}
+
+export async function reanalyzePrescription(
+  requestId: string,
+  prescriptionImageUrls: string[]
+): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/reanalyze-prescription`, {
+    prescriptionImageUrls,
+  });
+}
+
+export async function reanalyzeExam(
+  requestId: string,
+  examImageUrls?: string[],
+  textDescription?: string
+): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/reanalyze-exam`, {
+    examImageUrls,
+    textDescription,
+  });
+}
+
+export async function reanalyzeAsDoctor(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/reanalyze-as-doctor`, {});
+}
+
+export async function generatePdf(requestId: string): Promise<{ success: boolean; pdfUrl: string; message: string }> {
+  return apiClient.post(`/api/requests/${requestId}/generate-pdf`, {});
+}
+
+// ============================================
+// PAYMENT MANAGEMENT
+// ============================================
+
+export interface CreatePaymentData {
+  requestId: string;
+  paymentMethod?: string;
+  token?: string;
+  installments?: number;
+  paymentMethodId?: string;
+  issuerId?: number;
+}
+
+export async function createPayment(data: CreatePaymentData): Promise<PaymentResponseDto> {
+  return apiClient.post('/api/payments', data);
+}
+
+export async function fetchPaymentByRequest(requestId: string): Promise<PaymentResponseDto> {
+  return apiClient.get(`/api/payments/by-request/${requestId}`);
+}
+
+export async function fetchPayment(paymentId: string): Promise<PaymentResponseDto> {
+  return apiClient.get(`/api/payments/${paymentId}`);
+}
+
+export async function fetchPixCode(paymentId: string): Promise<string> {
+  return apiClient.get(`/api/payments/${paymentId}/pix-code`);
+}
+
+export async function confirmPayment(paymentId: string): Promise<PaymentResponseDto> {
+  return apiClient.post(`/api/payments/${paymentId}/confirm`, {});
+}
+
+export async function confirmPaymentByRequest(requestId: string): Promise<PaymentResponseDto> {
+  return apiClient.post(`/api/payments/confirm-by-request/${requestId}`, {});
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+export async function fetchNotifications(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PagedResponse<NotificationResponseDto>> {
+  return apiClient.get('/api/notifications', { page, pageSize });
+}
+
+export async function markNotificationRead(notificationId: string): Promise<NotificationResponseDto> {
+  return apiClient.put(`/api/notifications/${notificationId}/read`, {});
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  return apiClient.put('/api/notifications/read-all', {});
+}
+
+// ============================================
+// DOCTORS
+// ============================================
+
+export async function fetchDoctors(
+  filters?: {
+    specialty?: string;
+    available?: boolean;
+    page?: number;
+    pageSize?: number;
+  }
+): Promise<PagedResponse<DoctorListResponseDto>> {
+  return apiClient.get('/api/doctors', {
+    specialty: filters?.specialty,
+    available: filters?.available,
+    page: filters?.page || 1,
+    pageSize: filters?.pageSize || 20,
+  });
+}
+
+export async function fetchDoctorById(doctorId: string): Promise<DoctorListResponseDto> {
+  return apiClient.get(`/api/doctors/${doctorId}`);
+}
+
+export async function fetchDoctorQueue(specialty?: string): Promise<DoctorListResponseDto[]> {
+  return apiClient.get('/api/doctors/queue', { specialty });
+}
+
+export async function updateDoctorAvailability(
+  doctorId: string,
+  available: boolean
+): Promise<void> {
+  return apiClient.put(`/api/doctors/${doctorId}/availability`, { available });
+}
+
+export async function validateCrm(
+  crm: string,
+  uf: string
+): Promise<CrmValidationResponseDto> {
+  return apiClient.post('/api/doctors/validate-crm', { crm, uf });
+}
+
+// ============================================
+// PUSH TOKENS
+// ============================================
+
+export async function registerPushToken(token: string, deviceType: string): Promise<void> {
+  return apiClient.post('/api/push-tokens', { token, deviceType });
+}
+
+export async function unregisterPushToken(token: string): Promise<void> {
+  return apiClient.delete(`/api/push-tokens?token=${encodeURIComponent(token)}`);
+}
+
+export async function fetchPushTokens(): Promise<PushTokenDto[]> {
+  return apiClient.get('/api/push-tokens');
+}
+
+export async function setPushPreference(pushEnabled: boolean): Promise<void> {
+  return apiClient.put('/api/push-tokens/preference', { pushEnabled });
+}
+
+// ============================================
+// VIDEO
+// ============================================
+
+export async function createVideoRoom(requestId: string): Promise<VideoRoomResponseDto> {
+  return apiClient.post('/api/video/rooms', { requestId });
+}
+
+export async function fetchVideoRoom(roomId: string): Promise<VideoRoomResponseDto> {
+  return apiClient.get(`/api/video/rooms/${roomId}`);
+}
+
+// ============================================
+// SPECIALTIES
+// ============================================
+
+export async function fetchSpecialties(): Promise<string[]> {
+  return apiClient.get('/api/specialties');
+}
+
+// ============================================
+// CERTIFICATES (matches CertificatesController)
+// ============================================
+
+export async function uploadCertificate(
+  pfxUri: string,
+  password: string
+): Promise<UploadCertificateResponseDto> {
+  const formData = new FormData();
+  const filename = pfxUri.split('/').pop() || 'certificate.pfx';
+
+  formData.append('pfxFile', {
+    uri: pfxUri,
+    name: filename,
+    type: 'application/x-pkcs12',
+  } as any);
+  formData.append('password', password);
+
+  return apiClient.post('/api/certificates/upload', formData, true);
+}
+
+// GET /api/certificates/status → { hasValidCertificate: boolean }
+export async function getCertificateStatus(): Promise<{ hasValidCertificate: boolean }> {
+  return apiClient.get('/api/certificates/status');
+}
+
+// GET /api/certificates/active → CertificateInfoDto (404 if none)
+export async function getActiveCertificate(): Promise<CertificateInfoDto | null> {
+  try {
+    return await apiClient.get('/api/certificates/active');
+  } catch (error: any) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+}
+
+// POST /api/certificates/{id}/revoke → { message: string }
+export async function revokeCertificate(id: string, reason: string): Promise<void> {
+  return apiClient.post(`/api/certificates/${id}/revoke`, { reason });
+}
+
+// ============================================
+// INTEGRATIONS
+// ============================================
+
+export async function getMercadoPagoPublicKey(): Promise<{ publicKey: string }> {
+  return apiClient.get('/api/integrations/mercadopago-public-key');
+}
+
+export async function getIntegrationStatus(): Promise<any> {
+  return apiClient.get('/api/integrations/status');
+}
+
+// ============================================
+// DOCTOR STATS (derived from requests)
+// ============================================
+
+export interface DoctorStats {
+  pendingCount: number;
+  inReviewCount: number;
+  completedCount: number;
+  totalEarnings: number;
+}
+
+export async function fetchDoctorStats(): Promise<DoctorStats> {
+  try {
+    const allRequests = await fetchRequests({ pageSize: 1000 });
+    const requests = allRequests.items;
+
+    const pendingCount = requests.filter(
+      (r) => !r.doctorId && ['submitted', 'paid'].includes(r.status)
+    ).length;
+
+    const inReviewCount = requests.filter(
+      (r) => r.doctorId &&
+        ['in_review', 'approved', 'signed', 'consultation_ready', 'in_consultation'].includes(r.status)
+    ).length;
+
+    const completedCount = requests.filter(
+      (r) => r.doctorId && ['completed', 'delivered', 'consultation_finished'].includes(r.status)
+    ).length;
+
+    const totalEarnings = requests
+      .filter((r) => r.doctorId && ['completed', 'delivered', 'consultation_finished'].includes(r.status))
+      .reduce((sum, r) => sum + (r.price ?? 0), 0);
+
+    return { pendingCount, inReviewCount, completedCount, totalEarnings };
+  } catch {
+    return { pendingCount: 0, inReviewCount: 0, completedCount: 0, totalEarnings: 0 };
+  }
+}
+
+// ============================================
+// VIDEO - By Request (added endpoint)
+// ============================================
+
+export async function fetchVideoRoomByRequest(requestId: string): Promise<VideoRoomResponseDto | null> {
+  try {
+    return await apiClient.get(`/api/video/rooms/by-request/${requestId}`);
+  } catch (error: any) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+}

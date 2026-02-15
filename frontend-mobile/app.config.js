@@ -1,0 +1,51 @@
+export default {
+  expo: {
+    name: "RenoveJá",
+    slug: "renoveja-app",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "light",
+    newArchEnabled: true,
+    scheme: "renoveja",
+    splash: {
+      image: "./assets/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#0EA5E9"
+    },
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.renoveja.app"
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#0EA5E9"
+      },
+      package: "com.renoveja.app",
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false
+    },
+    web: {
+      favicon: "./assets/favicon.png"
+    },
+    plugins: [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/notification-icon.png",
+          color: "#0EA5E9"
+        }
+      ]
+    ],
+    experiments: {
+      typedRoutes: true
+    },
+    extra: {
+      // No dispositivo físico use o IP da sua máquina: EXPO_PUBLIC_API_URL=http://192.168.15.69:5000
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000"
+    }
+  }
+};

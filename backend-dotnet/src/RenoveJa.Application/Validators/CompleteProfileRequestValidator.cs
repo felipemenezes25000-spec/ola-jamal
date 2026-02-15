@@ -1,0 +1,48 @@
+using FluentValidation;
+using RenoveJa.Application.DTOs.Auth;
+using RenoveJa.Domain.Enums;
+
+namespace RenoveJa.Application.Validators;
+
+/// <summary>
+/// Validador para conclusão de cadastro (phone, CPF; para médico também Crm, CrmState, Specialty).
+/// </summary>
+public class CompleteProfileRequestValidator : AbstractValidator<CompleteProfileRequestDto>
+{
+    public CompleteProfileRequestValidator()
+    {
+        RuleFor(x => x.Phone)
+            .NotEmpty().WithMessage("Phone is required")
+            .Matches(@"^\d{10,11}$")
+            .WithMessage("Phone must contain only numbers (10 or 11 digits)");
+
+        RuleFor(x => x.Cpf)
+            .NotEmpty().WithMessage("CPF is required")
+            .Matches(@"^\d{11}$")
+            .WithMessage("CPF must contain only numbers (11 digits)");
+
+        RuleFor(x => x.Crm)
+            .MaximumLength(20)
+            .When(x => !string.IsNullOrEmpty(x.Crm))
+            .WithMessage("CRM cannot exceed 20 characters");
+
+        RuleFor(x => x.CrmState)
+            .Length(2)
+            .When(x => !string.IsNullOrEmpty(x.CrmState))
+            .WithMessage("CrmState must be exactly 2 characters (state abbreviation)");
+
+        RuleFor(x => x.Specialty)
+            .MaximumLength(100)
+            .When(x => !string.IsNullOrEmpty(x.Specialty))
+            .WithMessage("Specialty cannot exceed 100 characters");
+        RuleFor(x => x.Specialty)
+            .Must(MedicalSpecialtyDisplay.IsValid)
+            .When(x => !string.IsNullOrEmpty(x.Specialty))
+            .WithMessage("Invalid specialty. Use GET /api/specialties for valid values.");
+
+        RuleFor(x => x.Bio)
+            .MaximumLength(5000)
+            .When(x => !string.IsNullOrEmpty(x.Bio))
+            .WithMessage("Bio cannot exceed 5000 characters");
+    }
+}

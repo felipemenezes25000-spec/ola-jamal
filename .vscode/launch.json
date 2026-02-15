@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend .NET (Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-backend",
+      "program": "${workspaceFolder}/backend-dotnet/src/RenoveJa.Api/bin/Debug/net8.0/RenoveJa.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/backend-dotnet/src/RenoveJa.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Backend .NET (Attach)",
+      "type": "coreclr",
+      "request": "attach"
+    }
+  ]
+}

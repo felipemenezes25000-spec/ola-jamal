@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teste Pagamento PIX - RenoveJá</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; }
+    .block { margin: 1rem 0; }
+    input[type="text"], textarea { width: 100%; box-sizing: border-box; font-size: 14px; }
+    input[type="text"] { padding: 0.5rem; margin-top: 0.25rem; }
+    textarea { min-height: 120px; font-size: 12px; font-family: monospace; padding: 0.5rem; }
+    button { padding: 0.5rem 1rem; margin-right: 0.5rem; margin-top: 0.5rem; cursor: pointer; }
+    .result { white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 8px; font-size: 12px; margin-top: 0.5rem; }
+    .error { background: #ffebee; color: #c62828; }
+    .success { background: #e8f5e9; color: #2e7d32; }
+    #qrImg { max-width: 280px; border: 1px solid #ddd; border-radius: 8px; margin-top: 0.5rem; }
+    label { display: block; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Teste de Pagamento PIX</h1>
+  <p>Crie um pagamento PIX e copie o código. <strong>Modo teste:</strong> PIX de teste não paga no app do banco (diz "inválido"). Use o botão "Simular pagamento" para testar o fluxo.</p>
+
+  <div class="block">
+    <strong>1. Dados para criar o pagamento</strong><br>
+    <label>URL da API: <input type="text" id="apiUrl" value="http://localhost:5000"></label>
+    <label>Bearer Token (do paciente): <input type="text" id="token" placeholder="Cole o token retornado no login"></label>
+    <label>Request ID (solicitação aprovada): <input type="text" id="requestId" placeholder="Ex: 1a48151c-dc21-4478-96aa-ab3cc9df74d0"></label>
+    <button id="createPayment">Criar pagamento PIX</button>
+  </div>
+
+  <div class="block" id="resultBlock" style="display: none;">
+    <strong>2. Resultado — copie o código PIX completo</strong><br>
+    <p>Valor: R$ <span id="amount">-</span> | Status: <span id="status">-</span> | ID: <code id="paymentId">-</code></p>
+    <label>PIX Copia e Cola (código completo):</label>
+    <textarea id="pixCopyPaste" readonly placeholder="O código PIX aparecerá aqui" style="min-height: 150px; word-break: break-all;"></textarea>
+    <div>
+      <button id="copyPix">Copiar código PIX</button>
+      <button id="fetchRaw">Buscar código completo (texto puro)</button>
+      <button id="downloadPix">Baixar código (.txt)</button>
+      <button id="confirmPayment" style="background:#2e7d32;color:white;">Simular pagamento (teste)</button>
+    </div>
+    <div style="margin-top: 1rem;">
+      <label>QR Code:</label>
+      <img id="qrImg" alt="QR Code PIX" style="display: none; max-width: 280px;">
+      <p id="qrError" style="display: none; color: #c62828; font-size: 12px;"></p>
+    </div>
+    <details style="margin-top: 1rem;">
+      <summary>Resposta da API (JSON)</summary>
+      <pre id="fullResponse" style="background: #f5f5f5; padding: 1rem; overflow-x: auto; font-size: 11px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"></pre>
+    </details>
+  </div>
+
+  <div id="message" class="result" style="display: none;"></div>
+
+  <script>
+    const apiUrlEl = document.getElementById('apiUrl');
+    const tokenEl = document.getElementById('token');
+    const requestIdEl = document.getElementById('requestId');
+    const createBtn = document.getElementById('createPayment');
+    const resultBlock = document.getElementById('resultBlock');
+    const amountEl = document.getElementById('amount');
+    const statusEl = document.getElementById('status');
+    const pixCopyPasteEl = document.getElementById('pixCopyPaste');
+    const copyPixBtn = document.getElementById('copyPix');
+    const qrImgEl = document.getElementById('qrImg');
+    const fullResponseEl = document.getElementById('fullResponse');
+    const messageEl = document.getElementById('message');
+
+    function showMessage(text, isError) {
+      messageEl.textContent = text;
+      messageEl.className = 'result ' + (isError ? 'error' : 'success');
+      messageEl.style.display = 'block';
+    }
+
+    let lastPaymentId = null;
+    let lastToken = null;
+    let lastBase = null;
+
+    createBtn.onclick = async function () {
+      const base = apiUrlEl.value.replace(/\/$/, '');
+      const token = tokenEl.value.trim();
+      const requestId = requestIdEl.value.trim();
+      if (!token || !requestId) {
+        showMessage('Preencha o Bearer Token e o Request ID.', true);
+        return;
+      }
+      createBtn.disabled = true;
+      showMessage('Criando pagamento...', false);
+      qrImgEl.style.display = 'none';
+      document.getElementById('qrError').style.display = 'none';
+      try {
+        const res = await fetch(base + '/api/payments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ requestId: requestId })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showMessage('Erro: ' + (data.message || data.title || JSON.stringify(data)), true);
+          resultBlock.style.display = 'none';
+          return;
+        }
+        lastPaymentId = data.id;
+        lastToken = token;
+        lastBase = base;
+        resultBlock.style.display = 'block';
+        amountEl.textContent = data.amount ?? '-';
+        statusEl.textContent = data.status ?? '-';
+        document.getElementById('paymentId').textContent = data.id || '-';
+        pixCopyPasteEl.value = data.pixCopyPaste || data.pixQrCode || '';
+        fullResponseEl.textContent = JSON.stringify(data, null, 2);
+        if (data.pixQrCodeBase64) {
+          var b64 = (data.pixQrCodeBase64 || '').replace(/\s/g, '');
+          if (b64) {
+            qrImgEl.src = 'data:image/png;base64,' + b64;
+            qrImgEl.style.display = 'block';
+            qrImgEl.onerror = function() {
+              document.getElementById('qrError').textContent = 'QR Code não carregou. Use o código copia e cola.';
+              document.getElementById('qrError').style.display = 'block';
+            };
+          }
+        }
+        showMessage('Pagamento criado! Use "Buscar código completo" se o texto estiver cortado.', false);
+      } catch (e) {
+        showMessage('Erro: ' + e.message, true);
+        resultBlock.style.display = 'none';
+      } finally {
+        createBtn.disabled = false;
+      }
+    };
+
+    document.getElementById('fetchRaw').onclick = async function () {
+      if (!lastPaymentId || !lastToken || !lastBase) {
+        showMessage('Crie um pagamento primeiro.', true);
+        return;
+      }
+      const btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Buscando...';
+      try {
+        const res = await fetch(lastBase + '/api/payments/' + lastPaymentId + '/pix-code', {
+          headers: { 'Authorization': 'Bearer ' + lastToken }
+        });
+        const text = await res.text();
+        if (res.ok) {
+          pixCopyPasteEl.value = text;
+          showMessage('Código completo carregado.', false);
+        } else {
+          showMessage('Erro: ' + text, true);
+        }
+      } catch (e) {
+        showMessage('Erro: ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Buscar código completo (texto puro)';
+      }
+    };
+
+    document.getElementById('downloadPix').onclick = function () {
+      const code = pixCopyPasteEl.value;
+      if (!code) {
+        showMessage('Nenhum código para baixar. Crie o pagamento primeiro.', true);
+        return;
+      }
+      var a = document.createElement('a');
+      a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(code);
+      a.download = 'pix-codigo.txt';
+      a.click();
+      showMessage('Arquivo baixado. Abra e copie o código.', false);
+    };
+
+    copyPixBtn.onclick = function () {
+      pixCopyPasteEl.select();
+      document.execCommand('copy');
+      copyPixBtn.textContent = 'Copiado!';
+      setTimeout(() => { copyPixBtn.textContent = 'Copiar código PIX'; }, 1500);
+    };
+
+    document.getElementById('confirmPayment').onclick = async function () {
+      if (!lastPaymentId || !lastBase) {
+        showMessage('Crie um pagamento primeiro.', true);
+        return;
+      }
+      const btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Confirmando...';
+      try {
+        const res = await fetch(lastBase + '/api/payments/' + lastPaymentId + '/confirm', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          statusEl.textContent = 'approved';
+          showMessage('Pagamento simulado com sucesso! Solicitação marcada como paga.', false);
+        } else {
+          showMessage('Erro: ' + (data.message || data.title || res.status), true);
+        }
+      } catch (e) {
+        showMessage('Erro: ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Simular pagamento (teste)';
+      }
+    };
+  </script>
+</body>
+</html>

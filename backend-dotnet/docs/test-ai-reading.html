@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teste Leitura com IA - RenoveJá</title>
+  <style>
+    :root { --bg: #0f1419; --card: #1a2332; --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --success: #3fb950; --error: #f85149; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); max-width: 640px; margin: 0 auto; padding: 1.5rem; line-height: 1.5; }
+    h1 { font-size: 1.35rem; margin-bottom: 0.5rem; }
+    h2 { font-size: 1rem; color: var(--accent); margin: 1.25rem 0 0.5rem; }
+    p { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; }
+    .card { background: var(--card); border-radius: 10px; padding: 1rem; margin: 1rem 0; border: 1px solid rgba(255,255,255,0.06); }
+    label { display: block; margin-top: 0.75rem; font-size: 0.9rem; }
+    input[type="text"], input[type="url"], textarea, select { width: 100%; box-sizing: border-box; padding: 0.5rem 0.75rem; margin-top: 0.25rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; }
+    textarea { min-height: 80px; resize: vertical; }
+    button { padding: 0.5rem 1rem; margin: 0.5rem 0.5rem 0 0; cursor: pointer; border-radius: 6px; border: none; font-size: 14px; background: var(--accent); color: #fff; }
+    button:hover { opacity: 0.9; }
+    button.secondary { background: rgba(255,255,255,0.12); color: var(--text); }
+    .result { white-space: pre-wrap; background: var(--bg); padding: 1rem; border-radius: 8px; font-size: 12px; margin-top: 0.5rem; border: 1px solid rgba(255,255,255,0.06); max-height: 320px; overflow: auto; }
+    .error { border-color: var(--error); background: rgba(248,81,73,0.08); }
+    .success { border-color: var(--success); background: rgba(63,185,80,0.08); }
+    .ai-block { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.2); border-radius: 8px; padding: 0.75rem; margin: 0.5rem 0; }
+    .ai-block h3 { font-size: 0.85rem; margin: 0 0 0.25rem; color: var(--accent); }
+    .copy-btn { font-size: 12px; padding: 0.25rem 0.5rem; margin-left: 0.5rem; }
+    input[type="file"] { margin-top: 0.25rem; font-size: 13px; }
+    #message { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Teste – Leitura com IA (GPT-4o)</h1>
+  <p>Fluxos: Renovação de Receita e Pedido de Exame. A IA analisa imagens/texto e gera resumo para o médico. Configure OpenAI:ApiKey no backend.</p>
+
+  <div class="card">
+    <strong>Configuração</strong>
+    <label>URL da API: <input type="text" id="apiUrl" value="http://localhost:5000" placeholder="http://localhost:5000"></label>
+    <label>Bearer Token (login do paciente ou médico): <input type="text" id="bearerToken" placeholder="Token retornado no POST /api/auth/login"></label>
+  </div>
+
+  <h2>1. Criar solicitação de receita</h2>
+  <div class="card">
+    <label>Tipo da receita:
+      <select id="prescriptionType">
+        <option value="simples">Simples (R$ 50)</option>
+        <option value="controlado">Controlado (R$ 80)</option>
+        <option value="azul">Azul (R$ 100)</option>
+      </select>
+    </label>
+    <label>Imagens da receita (uma ou mais): <input type="file" id="prescriptionImages" accept="image/jpeg,image/png,image/webp,image/heic" multiple></label>
+    <button type="button" id="btnCreatePrescription" onclick="window.createPrescription && window.createPrescription()">Criar receita</button>
+    <div id="prescriptionResult" class="result" style="display: none;"></div>
+    <div id="prescriptionAi" style="display: none;"></div>
+  </div>
+
+  <h2>2. Criar solicitação de exame</h2>
+  <div class="card">
+    <p>Você pode <strong>anexar imagens</strong> do pedido antigo e/ou <strong>escrever</strong> o que deseja. A IA analisa e resume para o médico.</p>
+    <label>Tipo do exame: <input type="text" id="examType" placeholder="Ex: laboratorial ou geral"></label>
+    <label>Exames (um por linha ou separados por vírgula, opcional): <textarea id="exams" placeholder="Hemograma&#10;Glicemia"></textarea></label>
+    <label>Sintomas / indicação (opcional): <textarea id="examSymptoms" placeholder="Controle de diabetes"></textarea></label>
+    <label>Imagens do pedido de exame (opcional): <input type="file" id="examImages" accept="image/jpeg,image/png,image/webp,image/heic" multiple></label>
+    <button type="button" id="btnCreateExam" onclick="window.createExam && window.createExam()">Criar exame</button>
+    <div id="examResult" class="result" style="display: none;"></div>
+    <div id="examAi" style="display: none;"></div>
+  </div>
+
+  <h2>3. Buscar solicitação (ver resultado da IA)</h2>
+  <div class="card">
+    <label>ID da solicitação: <input type="text" id="getRequestId" placeholder="Guid da solicitação"></label>
+    <button type="button" id="btnGetRequest" onclick="window.getRequest && window.getRequest()">Buscar</button>
+    <div id="getRequestResult" class="result" style="display: none;"></div>
+    <div id="getRequestAi" style="display: none;"></div>
+  </div>
+
+  <h2>4. Reanalisar receita (imagem mais legível)</h2>
+  <div class="card">
+    <label>ID da solicitação (receita): <input type="text" id="reanalyzePrescriptionId" placeholder="Guid"></label>
+    <label>URLs das novas imagens (uma por linha): <textarea id="reanalyzePrescriptionUrls" placeholder="https://...&#10;https://..."></textarea></label>
+    <button type="button" id="btnReanalyzePrescription" onclick="window.reanalyzePrescription && window.reanalyzePrescription()">Reanalisar receita</button>
+    <div id="reanalyzePrescriptionResult" class="result" style="display: none;"></div>
+    <div id="reanalyzePrescriptionAi" style="display: none;"></div>
+  </div>
+
+  <h2>5. Reanalisar exame</h2>
+  <div class="card">
+    <label>ID da solicitação (exame): <input type="text" id="reanalyzeExamId" placeholder="Guid"></label>
+    <label>URLs de imagens (opcional, uma por linha): <textarea id="reanalyzeExamUrls" placeholder="https://..."></textarea></label>
+    <label>Texto do pedido (opcional): <textarea id="reanalyzeExamText" placeholder="Ajustar/estruturar este texto"></textarea></label>
+    <button type="button" id="btnReanalyzeExam" onclick="window.reanalyzeExam && window.reanalyzeExam()">Reanalisar exame</button>
+    <div id="reanalyzeExamResult" class="result" style="display: none;"></div>
+    <div id="reanalyzeExamAi" style="display: none;"></div>
+  </div>
+
+  <div id="message" class="result"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+    try {
+    const apiUrlEl = document.getElementById('apiUrl');
+    const bearerTokenEl = document.getElementById('bearerToken');
+
+    function getBase() { return apiUrlEl.value.replace(/\/$/, ''); }
+    function getHeaders(json) {
+      const h = { 'Authorization': 'Bearer ' + (bearerTokenEl.value || '').trim() };
+      if (json) h['Content-Type'] = 'application/json';
+      return h;
+    }
+
+    function showMessage(msg, isError) {
+      const el = document.getElementById('message');
+      el.textContent = msg;
+      el.className = 'result ' + (isError ? 'error' : 'success');
+      el.style.display = 'block';
+    }
+
+    function renderAiBlock(containerId, request) {
+      const c = document.getElementById(containerId);
+      if (!request) { c.style.display = 'none'; return; }
+      const summary = request.aiSummaryForDoctor;
+      const risk = request.aiRiskLevel;
+      const urgency = request.aiUrgency;
+      const ok = request.aiReadabilityOk;
+      const msg = request.aiMessageToUser;
+      let html = '';
+      if (summary) {
+        html += '<div class="ai-block"><h3>Resumo para o médico (copiável)</h3>';
+        html += '<span>' + escapeHtml(summary) + '</span>';
+        html += ' <button class="copy-btn" data-copy="' + escapeAttr(summary) + '">Copiar</button></div>';
+      }
+      if (risk) html += '<div class="ai-block"><h3>Risco (receita)</h3>' + escapeHtml(risk) + '</div>';
+      if (urgency) html += '<div class="ai-block"><h3>Urgência (exame)</h3>' + escapeHtml(urgency) + '</div>';
+      if (ok === false && msg) html += '<div class="ai-block" style="border-color: var(--error);"><h3>Imagem ilegível</h3>' + escapeHtml(msg) + '</div>';
+      c.innerHTML = html;
+      c.style.display = html ? 'block' : 'none';
+      c.querySelectorAll('[data-copy]').forEach(function(btn) {
+        btn.onclick = function() {
+          navigator.clipboard.writeText(btn.getAttribute('data-copy'));
+          btn.textContent = 'Copiado!';
+          setTimeout(function() { btn.textContent = 'Copiar'; }, 1500);
+        };
+      });
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+    function escapeAttr(s) {
+      return escapeHtml(s).replace(/"/g, '&quot;');
+    }
+
+    function showResult(elId, data, isError) {
+      const el = document.getElementById(elId);
+      el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      el.className = 'result ' + (isError ? 'error' : 'success');
+      el.style.display = 'block';
+    }
+
+    // 1. Criar receita (multipart)
+    window.createPrescription = async function() {
+      const btn = document.getElementById('btnCreatePrescription');
+      const base = getBase();
+      const token = bearerTokenEl.value.trim();
+      if (!token) { showMessage('Preencha o Bearer Token.', true); return; }
+      const type = document.getElementById('prescriptionType').value;
+      const files = document.getElementById('prescriptionImages').files;
+      if (!files || files.length === 0) { showMessage('Selecione pelo menos uma imagem.', true); return; }
+
+      const form = new FormData();
+      form.append('prescriptionType', type);
+      for (let i = 0; i < files.length; i++) form.append('images', files[i]);
+
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      showMessage('Enviando imagens e criando solicitação...', false);
+      document.getElementById('prescriptionResult').style.display = 'none';
+      document.getElementById('prescriptionAi').style.display = 'none';
+
+      try {
+        const r = await fetch(base + '/api/requests/prescription', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: form
+        });
+        const data = await r.json().catch(function() { return { message: 'Resposta inválida' }; });
+        if (!r.ok) {
+          showResult('prescriptionResult', data, true);
+          renderAiBlock('prescriptionAi', null);
+          showMessage((data.message || data.error || r.status) + '', true);
+          document.getElementById('prescriptionResult').scrollIntoView({ behavior: 'smooth' });
+        } else {
+          const req = data.request || data;
+          showResult('prescriptionResult', data, false);
+          renderAiBlock('prescriptionAi', req);
+          showMessage('Solicitação de receita criada. Veja o resumo da IA acima.', false);
+          document.getElementById('prescriptionAi').scrollIntoView({ behavior: 'smooth' });
+        }
+      } catch (e) {
+        showResult('prescriptionResult', e.message || String(e), true);
+        renderAiBlock('prescriptionAi', null);
+        showMessage('Erro: ' + (e.message || e), true);
+        document.getElementById('prescriptionResult').scrollIntoView({ behavior: 'smooth' });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Criar receita';
+      }
+    };
+    document.getElementById('btnCreatePrescription').addEventListener('click', window.createPrescription);
+
+    // 2. Criar exame (JSON ou multipart com imagens)
+    window.createExam = async function() {
+      const btn = document.getElementById('btnCreateExam');
+      const base = getBase();
+      const token = bearerTokenEl.value.trim();
+      if (!token) { showMessage('Preencha o Bearer Token.', true); return; }
+      const examType = document.getElementById('examType').value.trim() || 'geral';
+      const examsText = document.getElementById('exams').value.trim();
+      const exams = examsText ? examsText.split(/[\n,;]+/).map(function(s) { return s.trim(); }).filter(Boolean) : [];
+      const symptoms = document.getElementById('examSymptoms').value.trim() || null;
+      const files = document.getElementById('examImages').files;
+
+      if (exams.length === 0 && (!files || files.length === 0) && !symptoms) {
+        showMessage('Informe pelo menos um exame, imagens do pedido ou sintomas/indicação.', true);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      showMessage('Criando solicitação de exame...', false);
+      document.getElementById('examResult').style.display = 'none';
+      document.getElementById('examAi').style.display = 'none';
+
+      try {
+        let r, data;
+        if (files && files.length > 0) {
+          const form = new FormData();
+          form.append('examType', examType);
+          form.append('exams', exams.join('\n'));
+          form.append('symptoms', symptoms || '');
+          for (let i = 0; i < files.length; i++) form.append('images', files[i]);
+          r = await fetch(base + '/api/requests/exam', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: form
+          });
+        } else {
+          r = await fetch(base + '/api/requests/exam', {
+            method: 'POST',
+            headers: getHeaders(true),
+            body: JSON.stringify({ examType, exams, symptoms })
+          });
+        }
+        data = await r.json().catch(function() { return { message: 'Resposta inválida' }; });
+        if (!r.ok) {
+          showResult('examResult', data, true);
+          renderAiBlock('examAi', null);
+          showMessage((data.message || data.error || r.status) + '', true);
+          document.getElementById('examResult').scrollIntoView({ behavior: 'smooth' });
+        } else {
+          const req = data.request || data;
+          showResult('examResult', data, false);
+          renderAiBlock('examAi', req);
+          showMessage('Solicitação de exame criada. Veja o resumo da IA acima.', false);
+          document.getElementById('examAi').scrollIntoView({ behavior: 'smooth' });
+        }
+      } catch (e) {
+        showResult('examResult', e.message || String(e), true);
+        renderAiBlock('examAi', null);
+        showMessage('Erro: ' + (e.message || e), true);
+        document.getElementById('examResult').scrollIntoView({ behavior: 'smooth' });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Criar exame';
+      }
+    };
+    document.getElementById('btnCreateExam').addEventListener('click', window.createExam);
+
+    // 3. Buscar solicitação
+    window.getRequest = async function() {
+      const base = getBase();
+      const token = bearerTokenEl.value.trim();
+      const id = document.getElementById('getRequestId').value.trim();
+      if (!token) { showMessage('Preencha o Bearer Token.', true); return; }
+      if (!id) { showMessage('Preencha o ID da solicitação.', true); return; }
+
+      try {
+        const r = await fetch(base + '/api/requests/' + encodeURIComponent(id), { headers: getHeaders(false) });
+        const data = await r.json().catch(function() { return {}; });
+        if (!r.ok) {
+          showResult('getRequestResult', data, true);
+          document.getElementById('getRequestAi').style.display = 'none';
+          showMessage((data.message || data.error || r.status) + '', true);
+          return;
+        }
+        showResult('getRequestResult', data, false);
+        renderAiBlock('getRequestAi', data);
+        showMessage('Solicitação carregada.');
+      } catch (e) {
+        showResult('getRequestResult', e.message, true);
+        showMessage('Erro: ' + e.message, true);
+      }
+    };
+    document.getElementById('btnGetRequest').addEventListener('click', window.getRequest);
+
+    // 4. Reanalisar receita
+    window.reanalyzePrescription = async function() {
+      const base = getBase();
+      const token = bearerTokenEl.value.trim();
+      const id = document.getElementById('reanalyzePrescriptionId').value.trim();
+      const urlsText = document.getElementById('reanalyzePrescriptionUrls').value.trim();
+      const urls = urlsText ? urlsText.split(/\s+/).map(function(s) { return s.trim(); }).filter(Boolean);
+      if (!token) { showMessage('Preencha o Bearer Token.', true); return; }
+      if (!id) { showMessage('Preencha o ID da solicitação.', true); return; }
+      if (urls.length === 0) { showMessage('Informe pelo menos uma URL de imagem.', true); return; }
+
+      try {
+        const r = await fetch(base + '/api/requests/' + encodeURIComponent(id) + '/reanalyze-prescription', {
+          method: 'POST',
+          headers: getHeaders(true),
+          body: JSON.stringify({ prescriptionImageUrls: urls })
+        });
+        const data = await r.json().catch(function() { return {}; });
+        if (!r.ok) {
+          showResult('reanalyzePrescriptionResult', data, true);
+          showMessage((data.message || data.error || r.status) + '', true);
+          return;
+        }
+        showResult('reanalyzePrescriptionResult', data, false);
+        renderAiBlock('reanalyzePrescriptionAi', data);
+        showMessage('Reanálise concluída.');
+      } catch (e) {
+        showResult('reanalyzePrescriptionResult', e.message, true);
+        showMessage('Erro: ' + e.message, true);
+      }
+    };
+    document.getElementById('btnReanalyzePrescription').addEventListener('click', window.reanalyzePrescription);
+
+    // 5. Reanalisar exame
+    window.reanalyzeExam = async function() {
+      const base = getBase();
+      const token = bearerTokenEl.value.trim();
+      const id = document.getElementById('reanalyzeExamId').value.trim();
+      const urlsText = document.getElementById('reanalyzeExamUrls').value.trim();
+      const urls = urlsText ? urlsText.split(/\s+/).map(function(s) { return s.trim(); }).filter(Boolean) : [];
+      const text = document.getElementById('reanalyzeExamText').value.trim() || null;
+      if (!token) { showMessage('Preencha o Bearer Token.', true); return; }
+      if (!id) { showMessage('Preencha o ID da solicitação.', true); return; }
+      if (urls.length === 0 && !text) { showMessage('Informe URLs de imagem e/ou texto.', true); return; }
+
+      try {
+        const r = await fetch(base + '/api/requests/' + encodeURIComponent(id) + '/reanalyze-exam', {
+          method: 'POST',
+          headers: getHeaders(true),
+          body: JSON.stringify({ examImageUrls: urls.length ? urls : null, textDescription: text })
+        });
+        const data = await r.json().catch(function() { return {}; });
+        if (!r.ok) {
+          showResult('reanalyzeExamResult', data, true);
+          showMessage((data.message || data.error || r.status) + '', true);
+          return;
+        }
+        showResult('reanalyzeExamResult', data, false);
+        renderAiBlock('reanalyzeExamAi', data);
+        showMessage('Reanálise concluída.');
+      } catch (e) {
+        showResult('reanalyzeExamResult', e.message, true);
+        showMessage('Erro: ' + e.message, true);
+      }
+    };
+    document.getElementById('btnReanalyzeExam').addEventListener('click', window.reanalyzeExam);
+    } catch (e) {
+      document.getElementById('message').textContent = 'Erro ao carregar: ' + (e.message || e);
+      document.getElementById('message').style.display = 'block';
+      document.getElementById('message').className = 'result error';
+      console.error(e);
+    }
+    });
+  </script>
+</body>
+</html>
