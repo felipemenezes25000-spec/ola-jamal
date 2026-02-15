@@ -33,6 +33,11 @@ public interface ICurrentUserService
     Guid? GetDoctorProfileId();
 
     /// <summary>
+    /// Obtém o ID do perfil de médico via banco (quando não está no token).
+    /// </summary>
+    Task<Guid?> GetDoctorProfileIdAsync();
+
+    /// <summary>
     /// Obtém todas as claims do usuário.
     /// </summary>
     IEnumerable<Claim> GetClaims();

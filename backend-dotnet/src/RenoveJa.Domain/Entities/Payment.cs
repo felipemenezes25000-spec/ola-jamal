@@ -48,6 +48,14 @@ public class Payment : Entity
     }
 
     /// <summary>
+    /// Cria um pagamento via Checkout Pro (cartão ou PIX na página do Mercado Pago). ExternalId é definido pelo webhook.
+    /// </summary>
+    public static Payment CreateCheckoutProPayment(Guid requestId, Guid userId, decimal amount)
+    {
+        return CreateWithMethod(requestId, userId, amount, "checkout_pro");
+    }
+
+    /// <summary>
     /// Cria um pagamento com cartão (crédito ou débito). ExternalId é definido depois via SetExternalId.
     /// </summary>
     public static Payment CreateCardPayment(

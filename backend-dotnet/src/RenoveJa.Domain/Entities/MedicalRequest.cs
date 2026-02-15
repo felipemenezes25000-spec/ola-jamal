@@ -262,14 +262,42 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void Approve(decimal price, string? notes = null)
+    public void Approve(decimal price, string? notes = null, List<string>? medications = null, List<string>? exams = null)
     {
         if (price <= 0)
             throw new DomainException("Price must be greater than zero");
 
         Price = Money.Create(price);
         Notes = notes;
+        if (medications != null)
+            Medications = medications;
+        if (exams != null)
+            Exams = exams;
         Status = RequestStatus.ApprovedPendingPayment;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Permite o médico atualizar medicamentos e/ou notas antes da assinatura.</summary>
+    public void UpdatePrescriptionContent(List<string>? medications = null, string? notes = null)
+    {
+        if (RequestType != Enums.RequestType.Prescription)
+            throw new DomainException("Apenas solicitações de receita podem ter medicamentos atualizados.");
+        if (medications != null)
+            Medications = medications;
+        if (notes != null)
+            Notes = notes;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Permite o médico atualizar exames e/ou notas antes da assinatura.</summary>
+    public void UpdateExamContent(List<string>? exams = null, string? notes = null)
+    {
+        if (RequestType != Enums.RequestType.Exam)
+            throw new DomainException("Apenas solicitações de exame podem ter exames atualizados.");
+        if (exams != null)
+            Exams = exams;
+        if (notes != null)
+            Notes = notes;
         UpdatedAt = DateTime.UtcNow;
     }
 

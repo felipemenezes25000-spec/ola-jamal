@@ -111,14 +111,16 @@ public class PaymentService(
             throw new InvalidOperationException("Token e PaymentMethodId são obrigatórios para pagamento com cartão.");
 
         var patient = await userRepository.GetByIdAsync(userId, cancellationToken);
-        var patientEmail = patient?.Email?.Value ?? "pagador@renoveja.com.br";
-        var payerCpf = patient?.Cpf;
+        var payerEmail = !string.IsNullOrWhiteSpace(request.PayerEmail)
+            ? request.PayerEmail.Trim()
+            : (patient?.Email?.Value ?? "pagador@renoveja.com.br");
+        var payerCpf = !string.IsNullOrWhiteSpace(request.PayerCpf) ? request.PayerCpf : patient?.Cpf;
 
         var paymentTypeId = request.PaymentMethod?.Trim().ToLowerInvariant();
         var cardResult = await mercadoPagoService.CreateCardPaymentAsync(
             amount,
             $"RenoveJá - Solicitação {medicalRequestId:N}",
-            patientEmail,
+            payerEmail,
             payerCpf,
             medicalRequestId.ToString(),
             request.Token,
@@ -139,6 +141,10 @@ public class PaymentService(
         if (statusLower == "approved")
         {
             payment.Approve();
+            if (request.SaveCard)
+            {
+                logger.LogInformation("SaveCard solicitado para userId={UserId} (MP Customers API em implementação futura)", userId);
+            }
             var medicalRequest = await requestRepository.GetByIdAsync(request.RequestId, cancellationToken);
             if (medicalRequest != null)
             {
@@ -263,6 +269,56 @@ public class PaymentService(
     }
 
     /// <summary>
+    /// Obtém URL do Checkout Pro para pagamento com cartão. Cria pagamento checkout_pro e retorna init_point.
+    /// </summary>
+    public async Task<CheckoutProResponseDto> GetCheckoutProUrlAsync(
+        Guid requestId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var medicalRequest = await requestRepository.GetByIdAsync(requestId, cancellationToken);
+        if (medicalRequest == null)
+            throw new KeyNotFoundException("Solicitação não encontrada");
+
+        if (medicalRequest.PatientId != userId)
+            throw new UnauthorizedAccessException("Somente o paciente da solicitação pode pagar");
+
+        if (medicalRequest.Status != RequestStatus.ApprovedPendingPayment)
+            throw new InvalidOperationException("Solicitação deve estar aprovada e aguardando pagamento");
+
+        if (medicalRequest.Price == null || medicalRequest.Price.Amount <= 0)
+            throw new InvalidOperationException("Solicitação sem valor definido");
+
+        var amount = medicalRequest.Price.Amount;
+
+        var existingPayment = await paymentRepository.GetByRequestIdAsync(requestId, cancellationToken);
+        if (existingPayment != null && existingPayment.IsPending())
+            await paymentRepository.DeleteAsync(existingPayment.Id, cancellationToken);
+
+        var patient = await userRepository.GetByIdAsync(userId, cancellationToken);
+        var patientEmail = patient?.Email?.Value ?? "pagador@renoveja.com.br";
+
+        var initPoint = await mercadoPagoService.CreateCheckoutProPreferenceAsync(
+            amount,
+            $"RenoveJá - Solicitação {medicalRequest.Id:N}",
+            medicalRequest.Id.ToString(),
+            patientEmail,
+            mercadoPagoConfig.Value.RedirectBaseUrl,
+            cancellationToken);
+
+        var payment = Payment.CreateCheckoutProPayment(requestId, userId, amount);
+        payment = await paymentRepository.CreateAsync(payment, cancellationToken);
+
+        await CreateNotificationAsync(
+            userId,
+            "Checkout Pro",
+            "Abra o link para pagar com cartão ou PIX na página do Mercado Pago.",
+            cancellationToken);
+
+        return new CheckoutProResponseDto(initPoint, payment.Id);
+    }
+
+    /// <summary>
     /// Processa webhook do Mercado Pago com verificação real do pagamento via API e validação HMAC.
     /// </summary>
     public async Task ProcessWebhookAsync(
@@ -278,6 +334,22 @@ public class PaymentService(
             return;
 
         var payment = await paymentRepository.GetByExternalIdAsync(mpPaymentId, cancellationToken);
+
+        if (payment == null)
+        {
+            var details = await mercadoPagoService.GetPaymentDetailsAsync(mpPaymentId, cancellationToken);
+            if (details != null && !string.IsNullOrEmpty(details.ExternalReference) &&
+                Guid.TryParse(details.ExternalReference, out var requestIdFromExt))
+            {
+                payment = await paymentRepository.GetByRequestIdAsync(requestIdFromExt, cancellationToken);
+                if (payment != null)
+                {
+                    payment.SetExternalId(mpPaymentId);
+                    payment = await paymentRepository.UpdateAsync(payment, cancellationToken);
+                }
+            }
+        }
+
         if (payment == null)
             return;
 
@@ -326,6 +398,12 @@ public class PaymentService(
         {
             payment.Reject();
             await paymentRepository.UpdateAsync(payment, cancellationToken);
+
+            await CreateNotificationAsync(
+                payment.UserId,
+                "Pagamento não aprovado",
+                "Seu pagamento não foi aprovado. Tente outro cartão ou forma de pagamento.",
+                cancellationToken);
         }
     }
 
@@ -353,8 +431,12 @@ public class PaymentService(
         if (string.IsNullOrEmpty(ts) || string.IsNullOrEmpty(v1))
             return false;
 
-        // Build the manifest: id:{data.id};request-id:{x-request-id};ts:{ts};
-        var manifest = $"id:{dataId};request-id:{xRequestId};ts:{ts};";
+        // Manifest conforme doc MP: incluir apenas valores presentes. Id da URL em minúsculas se alfanumérico.
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(dataId)) parts.Add($"id:{dataId.ToLowerInvariant()}");
+        if (!string.IsNullOrEmpty(xRequestId)) parts.Add($"request-id:{xRequestId}");
+        parts.Add($"ts:{ts}");
+        var manifest = string.Join(";", parts) + ";";
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(manifest));
         var computed = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();

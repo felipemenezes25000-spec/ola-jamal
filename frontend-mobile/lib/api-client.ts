@@ -92,12 +92,28 @@ class ApiClient {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        ...authHeaders,
-      },
+      headers: { ...authHeaders },
     });
 
     return this.handleResponse<T>(response);
+  }
+
+  /** GET que retorna Blob (ex.: PDF). */
+  async getBlob(path: string): Promise<Blob> {
+    const authHeaders = await this.getAuthHeader();
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: { ...authHeaders },
+    });
+    if (!response.ok) {
+      let msg = 'Erro ao obter recurso';
+      try {
+        const err = await response.json();
+        msg = err.message || err.error || msg;
+      } catch {}
+      throw { message: msg, status: response.status };
+    }
+    return response.blob();
   }
 
   async post<T>(path: string, body?: any, isMultipart: boolean = false): Promise<T> {

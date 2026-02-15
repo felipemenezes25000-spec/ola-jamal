@@ -19,11 +19,47 @@ public class VerificationController(IVerificationService verificationService, IL
     /// <summary>
     /// Retorna dados públicos da receita para verificação.
     /// Dados sensíveis são mascarados (nome parcial do paciente, sem CPF).
+    /// Suporta o protocolo ITI: quando _format=application/validador-iti+json e _secretCode estão na query,
+    /// retorna JSON no formato esperado pelo Validador de Documentos Digitais (validar.iti.gov.br).
     /// </summary>
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetPublicVerification(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPublicVerification(
+        Guid id,
+        [FromQuery] string? _format,
+        [FromQuery] string? _secretCode,
+        CancellationToken cancellationToken)
     {
-        logger.LogInformation("Verify GetPublicVerification: requestId={RequestId}", id);
+        logger.LogInformation("Verify GetPublicVerification: requestId={RequestId}, format={Format}", id, _format ?? "(none)");
+
+        // Protocolo ITI: Validador chama com _format=application/validador-iti+json e _secretCode
+        if (string.Equals(_format, "application/validador-iti+json", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(_secretCode))
+        {
+            try
+            {
+                var full = await verificationService.GetFullVerificationAsync(id, _secretCode.Trim(), cancellationToken);
+                if (full == null)
+                    return NotFound(new { error = "Receita não encontrada." });
+
+                if (string.IsNullOrWhiteSpace(full.SignedDocumentUrl))
+                    return NotFound(new { error = "Documento assinado não disponível para esta receita." });
+
+                var itiResponse = new
+                {
+                    version = "1.0.0",
+                    prescription = new
+                    {
+                        signatureFiles = new[] { new { url = full.SignedDocumentUrl } }
+                    }
+                };
+                return Ok(itiResponse);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(401, new { error = "Código de acesso inválido." });
+            }
+        }
+
         var result = await verificationService.GetPublicVerificationAsync(id, cancellationToken);
         if (result == null)
             return NotFound(new { error = "Receita não encontrada." });

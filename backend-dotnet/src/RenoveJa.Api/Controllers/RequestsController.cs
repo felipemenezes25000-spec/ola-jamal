@@ -19,8 +19,9 @@ public class RequestsController(
     IPrescriptionPdfService pdfService,
     ILogger<RequestsController> logger) : ControllerBase
 {
-    private static readonly string[] AllowedImageContentTypes = ["image/jpeg", "image/png", "image/webp", "image/heic"];
-    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
+    private static readonly string[] AllowedImageContentTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
+    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB total para todas as imagens
+    private const int MaxPrescriptionImages = 5;
 
     /// <summary>
     /// Cria uma solicitação de receita (tipo + imagens; medicamentos opcional).
@@ -29,66 +30,117 @@ public class RequestsController(
     /// Multipart: prescriptionType, images (arquivos). Fotos são salvas no Supabase Storage.
     /// </summary>
     [HttpPost("prescription")]
-    [RequestSizeLimit(30 * 1024 * 1024)] // 30 MB total (multipart)
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB total (multipart)
     [Consumes("application/json", "multipart/form-data")]
     public async Task<IActionResult> CreatePrescription(CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
-        CreatePrescriptionRequestDto request;
-
-        if (Request.HasFormContentType)
+        try
         {
-            if (Request.Form.Files.Count == 0)
-                return BadRequest(new { error = "Para envio com imagens use multipart/form-data com campo 'images' (um ou mais arquivos)." });
+            var userId = GetUserId();
+            CreatePrescriptionRequestDto request;
 
-            var form = Request.Form;
-            var prescriptionType = form["prescriptionType"].ToString();
-            if (string.IsNullOrWhiteSpace(prescriptionType))
-                return BadRequest(new { error = "Campo 'prescriptionType' é obrigatório (simples, controlado ou azul)." });
-
-            var imageUrls = new List<string>();
-            foreach (var file in Request.Form.Files)
+            if (Request.HasFormContentType)
             {
-                if (file.Length == 0) continue;
-                if (file.Length > MaxFileSizeBytes)
-                    return BadRequest(new { error = $"Arquivo {file.FileName} excede 10 MB." });
-                var contentType = file.ContentType ?? "image/jpeg";
-                if (!AllowedImageContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
-                    return BadRequest(new { error = $"Tipo não permitido: {contentType}. Use: {string.Join(", ", AllowedImageContentTypes)}" });
+                if (Request.Form.Files.Count == 0)
+                    return BadRequest(new
+                    {
+                        error =
+                            "Para envio com imagens use multipart/form-data com campo 'images' (um ou mais arquivos)."
+                    });
 
-                await using var stream = file.OpenReadStream();
-                var url = await storageService.UploadPrescriptionImageAsync(stream, file.FileName, contentType, userId, cancellationToken);
-                imageUrls.Add(url);
+                if (Request.Form.Files.Count > MaxPrescriptionImages)
+                    return BadRequest(new
+                    {
+                        error =
+                            $"Máximo de {MaxPrescriptionImages} imagens permitidas. Você enviou {Request.Form.Files.Count}."
+                    });
+
+                var totalSize = Request.Form.Files.Sum(f => f.Length);
+                if (totalSize > MaxFileSizeBytes)
+                    return BadRequest(new
+                    {
+                        error =
+                            $"Tamanho total das imagens excede 10 MB (limite: 10 MB). Total enviado: {totalSize / (1024 * 1024):N1} MB."
+                    });
+
+                var form = Request.Form;
+                var prescriptionType = form["prescriptionType"].ToString();
+                if (string.IsNullOrWhiteSpace(prescriptionType))
+                    return BadRequest(new
+                        { error = "Campo 'prescriptionType' é obrigatório (simples, controlado ou azul)." });
+
+                var imageUrls = new List<string>();
+                foreach (var file in Request.Form.Files)
+                {
+                    if (file.Length == 0) continue;
+                    if (file.Length > 5 * 1024 * 1024)
+                        return BadRequest(new { error = $"Arquivo {file.FileName} excede 5 MB." });
+                    var contentType = file.ContentType ?? "image/jpeg";
+                    if (!AllowedImageContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
+                        return BadRequest(new
+                        {
+                            error =
+                                $"Tipo não permitido: {contentType}. Use: {string.Join(", ", AllowedImageContentTypes)}"
+                        });
+
+                    await using var stream = file.OpenReadStream();
+                    var url = await storageService.UploadPrescriptionImageAsync(stream, file.FileName, contentType,
+                        userId, cancellationToken);
+                    imageUrls.Add(url);
+                }
+
+                if (imageUrls.Count == 0)
+                    return BadRequest(new { error = "Envie pelo menos uma imagem da receita no campo 'images'." });
+
+                request = new CreatePrescriptionRequestDto(prescriptionType, new List<string>(), imageUrls);
+            }
+            else
+            {
+                CreatePrescriptionRequestDto? bodyRequest;
+                try
+                {
+                    var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                    bodyRequest =
+                        await Request.ReadFromJsonAsync<CreatePrescriptionRequestDto>(jsonOptions, cancellationToken);
+                }
+                catch
+                {
+                    return BadRequest(new
+                    {
+                        error =
+                            "Body inválido. Use JSON com prescriptionType (simples, controlado ou azul) e opcional medications, prescriptionImages."
+                    });
+                }
+
+                if (bodyRequest == null)
+                    return BadRequest(new
+                    {
+                        error =
+                            "Envie o body em JSON. Ex.: { \"prescriptionType\": \"simples\", \"medications\": [], \"prescriptionImages\": [] }"
+                    });
+
+                var imgCount = bodyRequest.PrescriptionImages?.Count ?? 0;
+                if (imgCount > MaxPrescriptionImages)
+                    return BadRequest(new
+                    {
+                        error = $"Máximo de {MaxPrescriptionImages} imagens permitidas. Você enviou {imgCount}."
+                    });
+
+                request = bodyRequest;
             }
 
-            if (imageUrls.Count == 0)
-                return BadRequest(new { error = "Envie pelo menos uma imagem da receita no campo 'images'." });
-
-            request = new CreatePrescriptionRequestDto(prescriptionType, new List<string>(), imageUrls);
+            var result = await requestService.CreatePrescriptionAsync(request, userId, cancellationToken);
+            logger.LogInformation("Requests CreatePrescription: userId={UserId}, requestId={RequestId}, type={Type}",
+                userId, result.Request.Id, request.PrescriptionType);
+            return result.Payment != null
+                ? Ok(new { request = result.Request, payment = result.Payment })
+                : Ok(new { request = result.Request });
         }
-        else
+        catch (Exception e)
         {
-            CreatePrescriptionRequestDto? bodyRequest;
-            try
-            {
-                var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-                bodyRequest = await Request.ReadFromJsonAsync<CreatePrescriptionRequestDto>(jsonOptions, cancellationToken);
-            }
-            catch
-            {
-                return BadRequest(new { error = "Body inválido. Use JSON com prescriptionType (simples, controlado ou azul) e opcional medications, prescriptionImages." });
-            }
-
-            if (bodyRequest == null)
-                return BadRequest(new { error = "Envie o body em JSON. Ex.: { \"prescriptionType\": \"simples\", \"medications\": [], \"prescriptionImages\": [] }" });
-
-            request = bodyRequest;
+            Console.WriteLine(e);
+            throw;
         }
-
-        var result = await requestService.CreatePrescriptionAsync(request, userId, cancellationToken);
-        logger.LogInformation("Requests CreatePrescription: userId={UserId}, requestId={RequestId}, type={Type}",
-            userId, result.Request.Id, request.PrescriptionType);
-        return result.Payment != null ? Ok(new { request = result.Request, payment = result.Payment }) : Ok(new { request = result.Request });
     }
 
     /// <summary>
@@ -97,7 +149,7 @@ public class RequestsController(
     /// Pode anexar imagens do pedido antigo e/ou escrever o que deseja; a IA analisa e resume.
     /// </summary>
     [HttpPost("exam")]
-    [RequestSizeLimit(30 * 1024 * 1024)] // 30 MB total (multipart)
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB total (multipart), máx. 5 imagens
     [Consumes("application/json", "multipart/form-data")]
     public async Task<IActionResult> CreateExam(CancellationToken cancellationToken)
     {
@@ -117,11 +169,18 @@ public class RequestsController(
             var imageUrls = new List<string>();
             if (Request.Form.Files.Count > 0)
             {
+                if (Request.Form.Files.Count > MaxPrescriptionImages)
+                    return BadRequest(new { error = $"Máximo de {MaxPrescriptionImages} imagens permitidas. Você enviou {Request.Form.Files.Count}." });
+
+                var totalSize = Request.Form.Files.Sum(f => f.Length);
+                if (totalSize > MaxFileSizeBytes)
+                    return BadRequest(new { error = $"Tamanho total das imagens excede 10 MB (limite: 10 MB). Total enviado: {totalSize / (1024 * 1024):N1} MB." });
+
                 foreach (var file in Request.Form.Files)
                 {
                     if (file.Length == 0) continue;
-                    if (file.Length > MaxFileSizeBytes)
-                        return BadRequest(new { error = $"Arquivo {file.FileName} excede 10 MB." });
+                    if (file.Length > 5 * 1024 * 1024)
+                        return BadRequest(new { error = $"Arquivo {file.FileName} excede 5 MB." });
                     var contentType = file.ContentType ?? "image/jpeg";
                     if (!AllowedImageContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
                         return BadRequest(new { error = $"Tipo não permitido: {contentType}. Use: {string.Join(", ", AllowedImageContentTypes)}" });
@@ -150,6 +209,11 @@ public class RequestsController(
             }
             if (bodyRequest == null)
                 return BadRequest(new { error = "Envie o body em JSON. Ex.: { \"examType\": \"laboratorial\", \"exams\": [\"Hemograma\"], \"symptoms\": \"Controle\" }" });
+
+            var examImgCount = bodyRequest.ExamImages?.Count ?? 0;
+            if (examImgCount > MaxPrescriptionImages)
+                return BadRequest(new { error = $"Máximo de {MaxPrescriptionImages} imagens permitidas. Você enviou {examImgCount}." });
+
             request = bodyRequest;
         }
 
@@ -347,10 +411,10 @@ public class RequestsController(
         var pdfData = new PrescriptionPdfData(
             request.Id,
             request.PatientName ?? "Paciente",
-            null, // PatientCpf
+            null,
             request.DoctorName ?? "Médico",
-            "CRM", // placeholder
-            "SP",  // placeholder
+            "CRM",
+            "SP",
             "Clínica Geral",
             request.Medications ?? new List<string>(),
             request.PrescriptionType ?? "simples",
@@ -361,12 +425,50 @@ public class RequestsController(
         if (!result.Success)
             return BadRequest(new { error = result.ErrorMessage ?? "Erro ao gerar PDF." });
 
-        return Ok(new
-        {
-            success = true,
-            pdfUrl = result.PdfUrl,
-            message = "PDF gerado com sucesso."
-        });
+        return Ok(new { success = true, pdfUrl = result.PdfUrl, message = "PDF gerado com sucesso." });
+    }
+
+    /// <summary>
+    /// Pré-visualização do PDF da receita (base64). Médico ou paciente.
+    /// </summary>
+    [HttpGet("{id}/preview-pdf")]
+    public async Task<IActionResult> PreviewPdf(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var bytes = await requestService.GetPrescriptionPdfPreviewAsync(id, userId, cancellationToken);
+        if (bytes == null || bytes.Length == 0)
+            return BadRequest(new { error = "Não foi possível gerar o preview. Verifique se há medicamentos informados ou extraídos pela IA." });
+        return File(bytes, "application/pdf", $"preview-receita-{id}.pdf");
+    }
+
+    /// <summary>
+    /// Médico atualiza medicamentos e/ou notas da receita antes da assinatura.
+    /// </summary>
+    [HttpPatch("{id}/prescription-content")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> UpdatePrescriptionContent(
+        Guid id,
+        [FromBody] UpdatePrescriptionContentDto dto,
+        CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var request = await requestService.UpdatePrescriptionContentAsync(id, dto.Medications, dto.Notes, doctorId, cancellationToken);
+        return Ok(request);
+    }
+
+    /// <summary>
+    /// Médico atualiza exames e/ou notas do pedido antes da assinatura.
+    /// </summary>
+    [HttpPatch("{id}/exam-content")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> UpdateExamContent(
+        Guid id,
+        [FromBody] UpdateExamContentDto dto,
+        CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var request = await requestService.UpdateExamContentAsync(id, dto.Exams, dto.Notes, doctorId, cancellationToken);
+        return Ok(request);
     }
 
     private Guid GetUserId()

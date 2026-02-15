@@ -26,17 +26,25 @@ public record UpdateRequestStatusDto(
 );
 
 /// <summary>
-/// Aprovação do médico. Body vazio — só aprova. O valor vem da tabela product_prices.
-/// Somente médicos podem aprovar (role doctor).
+/// Aprovação do médico. O valor vem da tabela product_prices.
+/// Medications/Exams/Notes: opcional — médico pode enviar medicamentos ou exames (ex.: copiados da análise IA).
 /// </summary>
-public record ApproveRequestDto;
+public record ApproveRequestDto(
+    List<string>? Medications = null,
+    List<string>? Exams = null,
+    string? Notes = null);
 
 public record RejectRequestDto(
     string RejectionReason
 );
 
-/// <summary>Assinatura e envio da receita/documento novo. SignedDocumentUrl = URL do PDF da receita assinada (ex.: upload no storage).</summary>
+/// <summary>
+/// Assinatura e envio da receita/documento novo.
+/// - PfxPassword: obrigatório quando o backend gera e assina o PDF automaticamente (senha do certificado digital).
+/// - SignedDocumentUrl: URL do PDF assinado externamente (fluxo manual).
+/// </summary>
 public record SignRequestDto(
+    string? PfxPassword = null,
     string? SignatureData = null,
     string? SignedDocumentUrl = null
 );
@@ -72,6 +80,12 @@ public record RequestResponseDto(
     bool? AiReadabilityOk = null,
     string? AiMessageToUser = null
 );
+
+/// <summary>Médico atualiza medicamentos e notas da receita antes da assinatura.</summary>
+public record UpdatePrescriptionContentDto(List<string>? Medications = null, string? Notes = null);
+
+/// <summary>Médico atualiza exames e notas do pedido antes da assinatura.</summary>
+public record UpdateExamContentDto(List<string>? Exams = null, string? Notes = null);
 
 /// <summary>Reanalisar receita com novas imagens (ex.: mais legíveis).</summary>
 public record ReanalyzePrescriptionDto(IReadOnlyList<string> PrescriptionImageUrls);

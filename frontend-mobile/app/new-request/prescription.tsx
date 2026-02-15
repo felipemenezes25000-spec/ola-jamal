@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
+import { ZoomableImage } from '../../components/ZoomableImage';
 import { createPrescriptionRequest } from '../../lib/api';
 import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+
+const MAX_IMAGES = 5;
+const MAX_TOTAL_BYTES = 10 * 1024 * 1024; // 10 MB
 
 const TYPES = [
   { key: 'simples', label: 'Simples', desc: 'Receita branca comum', price: 'R$ 29,90', icon: 'document-text' as const },
@@ -20,24 +27,76 @@ export default function PrescriptionScreen() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+  const addImages = (newUris: string[]) => {
+    setImages(prev => {
+      const combined = [...prev, ...newUris].slice(0, MAX_IMAGES);
+      if (combined.length > MAX_IMAGES) {
+        Alert.alert('Limite de imagens', `Máximo de ${MAX_IMAGES} imagens permitidas.`);
+      }
+      return combined.slice(0, MAX_IMAGES);
+    });
+  };
 
   const pickImage = async () => {
+    if (images.length >= MAX_IMAGES) {
+      Alert.alert('Limite atingido', `Máximo de ${MAX_IMAGES} imagens (10 MB no total).`);
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsMultipleSelection: true });
     if (!result.canceled) {
-      setImages(prev => [...prev, ...result.assets.map(a => a.uri)]);
+      const toAdd = result.assets.slice(0, MAX_IMAGES - images.length).map(a => a.uri);
+      addImages(toAdd);
     }
   };
 
   const takePhoto = async () => {
+    if (images.length >= MAX_IMAGES) {
+      Alert.alert('Limite atingido', `Máximo de ${MAX_IMAGES} imagens (10 MB no total).`);
+      return;
+    }
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) { Alert.alert('Permissão necessária', 'Permita o acesso à câmera.'); return; }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-    if (!result.canceled) setImages(prev => [...prev, result.assets[0].uri]);
+    if (!result.canceled) addImages([result.assets[0].uri]);
+  };
+
+  const pickDocument = async () => {
+    if (images.length >= MAX_IMAGES) {
+      Alert.alert('Limite atingido', `Máximo de ${MAX_IMAGES} arquivos (10 MB no total).`);
+      return;
+    }
+    const result = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
+    if (result.canceled) return;
+    addImages([result.assets[0].uri]);
+  };
+
+  const getTotalSize = async (uris: string[]): Promise<number> => {
+    let total = 0;
+    for (const uri of uris) {
+      try {
+        const info = await FileSystem.getInfoAsync(uri, { size: true });
+        if (info.exists && 'size' in info) total += info.size;
+      } catch {
+        // Se não conseguir obter tamanho, ignoramos (backend validará)
+      }
+    }
+    return total;
   };
 
   const handleSubmit = async () => {
     if (!selectedType) { Alert.alert('Atenção', 'Selecione o tipo de receita'); return; }
     if (images.length === 0) { Alert.alert('Atenção', 'Envie pelo menos uma foto da receita anterior'); return; }
+    if (images.length > MAX_IMAGES) {
+      Alert.alert('Limite de imagens', `Máximo de ${MAX_IMAGES} imagens permitidas.`);
+      return;
+    }
+    const totalSize = await getTotalSize(images);
+    if (totalSize > MAX_TOTAL_BYTES) {
+      Alert.alert('Tamanho excedido', `O total das imagens (${(totalSize / (1024 * 1024)).toFixed(1)} MB) excede 10 MB. Remova alguma imagem ou use imagens menores.`);
+      return;
+    }
     setLoading(true);
     try {
       const result = await createPrescriptionRequest({ prescriptionType: selectedType as any, images });
@@ -81,7 +140,7 @@ export default function PrescriptionScreen() {
         ))}
 
         {/* Step 2: Upload */}
-        <Text style={[styles.stepLabel, { marginTop: spacing.lg }]}>2. Foto da Receita Anterior</Text>
+        <Text style={[styles.stepLabel, { marginTop: spacing.lg }]}>2. Foto da Receita Anterior (máx. 5 arquivos: PNG, JPG, HEIC, PDF – 10 MB total)</Text>
         <View style={styles.uploadRow}>
           <TouchableOpacity style={styles.uploadBtn} onPress={takePhoto}>
             <Ionicons name="camera" size={28} color={colors.primary} />
@@ -91,13 +150,19 @@ export default function PrescriptionScreen() {
             <Ionicons name="images" size={28} color={colors.primary} />
             <Text style={styles.uploadText}>Galeria</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
+            <Ionicons name="document" size={28} color={colors.primary} />
+            <Text style={styles.uploadText}>PDF</Text>
+          </TouchableOpacity>
         </View>
 
         {images.length > 0 && (
           <View style={styles.previewRow}>
             {images.map((uri, i) => (
               <View key={i} style={styles.previewItem}>
-                <Image source={{ uri }} style={styles.previewImg} />
+                <TouchableOpacity onPress={() => setFullScreenImage(uri)} activeOpacity={0.9}>
+                  <Image source={{ uri }} style={styles.previewImg} />
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.removeBtn} onPress={() => setImages(prev => prev.filter((_, idx) => idx !== i))}>
                   <Ionicons name="close-circle" size={22} color={colors.error} />
                 </TouchableOpacity>
@@ -105,6 +170,18 @@ export default function PrescriptionScreen() {
             ))}
           </View>
         )}
+
+        <Modal visible={!!fullScreenImage} transparent animationType="fade">
+          <GestureHandlerRootView style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              {fullScreenImage && <ZoomableImage uri={fullScreenImage} key={fullScreenImage} />}
+            </View>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setFullScreenImage(null)}>
+              <Ionicons name="close-circle" size={40} color={colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.modalHint}>Pinch para zoom • Duplo toque para ampliar</Text>
+          </GestureHandlerRootView>
+        </Modal>
 
         <View style={styles.infoBox}>
           <Ionicons name="sparkles" size={18} color={colors.secondary} />
@@ -140,4 +217,8 @@ const styles = StyleSheet.create({
   removeBtn: { position: 'absolute', top: -6, right: -6 },
   infoBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', borderRadius: borderRadius.lg, padding: spacing.md, gap: spacing.sm },
   infoText: { flex: 1, ...typography.bodySmall, color: colors.gray600 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { flex: 1, width: '100%', justifyContent: 'center' },
+  modalCloseBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
+  modalHint: { ...typography.caption, color: colors.gray400, position: 'absolute', bottom: 40 },
 });

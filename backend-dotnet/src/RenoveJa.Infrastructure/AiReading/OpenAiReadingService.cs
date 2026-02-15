@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
+using ImageMagick;
 
 namespace RenoveJa.Infrastructure.AiReading;
 
@@ -58,11 +59,19 @@ public class OpenAiReadingService : IAiReadingService
         var systemPrompt = """
 Você é um assistente que analisa imagens de receitas médicas vencidas para renovação.
 Analise a(s) imagem(ns) e responda em JSON com exatamente estes campos:
+
 - readability_ok (boolean): false se a imagem estiver ilegível, borrada ou incompleta; true se conseguir ler.
-- message_to_user (string ou null): Se readability_ok for false, escreva uma mensagem curta em português pedindo ao paciente que envie uma foto mais nítida e legível. Ex.: "Não foi possível ler a receita. Envie uma foto mais nítida, com boa iluminação e a receita inteira visível."
-- summary_for_doctor (string): Resumo para o médico com medicamento(s), dosagem, médico anterior (se visível) e observações. Em português. Se não leu, use "".
-- extracted (objeto): { "medications": ["nome1", "nome2"], "dosage": "texto", "previous_doctor": "nome ou null" }
-- risk_level (string): "low", "medium" ou "high" conforme o tipo de medicamento (controlado/azul = medium/high).
+- message_to_user (string ou null): Se readability_ok for false, mensagem curta em português pedindo foto mais nítida.
+- summary_for_doctor (string): PRONTUÁRIO estruturado para o médico copiar/colar no sistema. Formato:
+  "MEDICAMENTOS IDENTIFICADOS:
+  • [Nome do medicamento] - [dosagem completa, ex: 1cp 12/12h]
+  • [Outro medicamento] - [posologia]
+  MÉDICO ANTERIOR: [nome ou "não identificado"]
+  OBSERVAÇÕES: [observações relevantes ou "nenhuma"]"
+  Se não leu, use "".
+- extracted (objeto): { "medications": ["Nome Medicamento 1 - dosagem", "Nome Medicamento 2 - posologia"], "dosage": "texto resumido", "previous_doctor": "nome ou null" }
+  IMPORTANTE: medications deve listar cada medicamento de forma completa (nome + posologia) para preenchimento do PDF.
+- risk_level (string): "low", "medium" ou "high" (controlado/azul = medium/high).
 
 Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
 """;
@@ -111,8 +120,14 @@ Você é um assistente que analisa pedidos de exame (imagem e/ou texto) para o m
 Responda em JSON com exatamente:
 - readability_ok (boolean): false se houver imagem mas estiver ilegível; true caso contrário.
 - message_to_user (string ou null): Se readability_ok for false, mensagem em português pedindo foto mais nítida.
-- summary_for_doctor (string): Resumo/texto estruturado para o médico (copiável para documento). Em português.
-- extracted (objeto): { "exam_type": "...", "clinical_indication": "..." } (ou vazio se só texto)
+- summary_for_doctor (string): PRONTUÁRIO estruturado para o médico copiar/colar. Formato:
+  "EXAMES SOLICITADOS:
+  • [Exame 1]
+  • [Exame 2]
+  INDICAÇÃO CLÍNICA: [motivo clínico ou sintomas]
+  OBSERVAÇÕES: [outras informações relevantes]"
+  Em português, ortografia correta.
+- extracted (objeto): { "exam_type": "tipo principal", "exams": ["exame1", "exame2"], "clinical_indication": "..." } (ou vazio se só texto)
 - urgency (string): "routine", "urgent" ou "emergency"
 
 Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
@@ -221,7 +236,8 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
 
     /// <summary>
     /// Resolve imagens: baixa do nosso storage e envia como base64 (acessível mesmo com bucket privado).
-    /// URLs externas são usadas diretamente.
+    /// Converte HEIF/HEIC/PDF para JPEG antes de enviar à OpenAI (que só aceita png, jpeg, gif, webp).
+    /// Nunca envia URL direta para formatos não suportados (HEIC etc.) – OpenAI rejeita.
     /// </summary>
     private async Task<List<object>> ResolveImageContentsAsync(IReadOnlyList<string> urls, CancellationToken cancellationToken)
     {
@@ -237,28 +253,95 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
             try
             {
                 var bytes = await _storageService.DownloadFromStorageUrlAsync(url, cancellationToken);
-                if (bytes != null && bytes.Length > 0)
+                if (bytes == null || bytes.Length == 0)
                 {
-                    var b64 = Convert.ToBase64String(bytes);
-                    var mime = "image/jpeg";
-                    if (url.Contains(".png", StringComparison.OrdinalIgnoreCase)) mime = "image/png";
-                    else if (url.Contains(".webp", StringComparison.OrdinalIgnoreCase)) mime = "image/webp";
-                    result.Add(new { type = "image_url", image_url = new { url = $"data:{mime};base64,{b64}" } });
-                    _logger.LogDebug("IA: URL #{Index} baixada ok, {Size} bytes, base64 envio", i + 1, bytes.Length);
+                    if (IsUnsupportedFormatForDirectUrl(url))
+                    {
+                        _logger.LogWarning("IA: URL #{Index} não pode ser usada (HEIC/HEIF/PDF) e download falhou. Ignorando: {Url}", i + 1, url);
+                    }
+                    else
+                    {
+                        result.Add(new { type = "image_url", image_url = new { url = url } });
+                        _logger.LogWarning("IA: URL #{Index} retornou vazio, usando URL direta: {Url}", i + 1, url);
+                    }
+                    continue;
                 }
-                else
-                {
-                    result.Add(new { type = "image_url", image_url = new { url = url } });
-                    _logger.LogWarning("IA: URL #{Index} retornou vazio, usando URL direta: {Url}", i + 1, url);
-                }
+                var (outBytes, mime) = ConvertToOpenAiSupportedFormat(bytes, url);
+                var b64 = Convert.ToBase64String(outBytes);
+                result.Add(new { type = "image_url", image_url = new { url = $"data:{mime};base64,{b64}" } });
+                _logger.LogDebug("IA: URL #{Index} baixada ok, {Size} bytes, mime={Mime}", i + 1, outBytes.Length, mime);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "IA: falha ao baixar URL #{Index} ({Url}), usando URL direta", i + 1, url);
-                result.Add(new { type = "image_url", image_url = new { url = url } });
+                if (IsUnsupportedFormatForDirectUrl(url))
+                {
+                    _logger.LogWarning(ex, "IA: URL #{Index} HEIC/HEIF/PDF e download/conversão falhou. Ignorando: {Url}", i + 1, url);
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "IA: falha ao baixar URL #{Index} ({Url}), usando URL direta", i + 1, url);
+                    result.Add(new { type = "image_url", image_url = new { url = url } });
+                }
             }
         }
         return result;
+    }
+
+    private static bool IsUnsupportedFormatForDirectUrl(string url)
+    {
+        return url.Contains(".heif", StringComparison.OrdinalIgnoreCase) ||
+               url.Contains(".heic", StringComparison.OrdinalIgnoreCase) ||
+               url.Contains(".pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Converte imagens HEIF/HEIC/PDF para JPEG (formato aceito pela OpenAI).
+    /// Detecta por URL e por magic bytes. png, jpeg, gif, webp são enviados sem conversão.
+    /// </summary>
+    private (byte[] bytes, string mime) ConvertToOpenAiSupportedFormat(byte[] data, string url)
+    {
+        var needsConversion = url.Contains(".heif", StringComparison.OrdinalIgnoreCase) ||
+                             url.Contains(".heic", StringComparison.OrdinalIgnoreCase) ||
+                             url.Contains(".pdf", StringComparison.OrdinalIgnoreCase) ||
+                             IsHeicMagicBytes(data) ||
+                             IsPdfMagicBytes(data);
+
+        if (!needsConversion)
+        {
+            var mime = "image/jpeg";
+            if (url.Contains(".png", StringComparison.OrdinalIgnoreCase)) mime = "image/png";
+            else if (url.Contains(".webp", StringComparison.OrdinalIgnoreCase)) mime = "image/webp";
+            else if (url.Contains(".gif", StringComparison.OrdinalIgnoreCase)) mime = "image/gif";
+            return (data, mime);
+        }
+
+        try
+        {
+            var isPdf = url.Contains(".pdf", StringComparison.OrdinalIgnoreCase) || IsPdfMagicBytes(data);
+            var settings = isPdf ? new MagickReadSettings { Density = new Density(150, 150) } : null;
+            using var image = settings != null ? new MagickImage(data, settings) : new MagickImage(data);
+            image.Quality = 85;
+            using var ms = new MemoryStream();
+            image.Write(ms, MagickFormat.Jpeg);
+            return (ms.ToArray(), "image/jpeg");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "IA: falha ao converter HEIC/PDF para JPEG: {Url}", url);
+            throw new InvalidOperationException($"Não foi possível converter a imagem (HEIC/PDF) para formato suportado: {ex.Message}");
+        }
+    }
+
+    private static bool IsHeicMagicBytes(byte[] data)
+    {
+        if (data == null || data.Length < 12) return false;
+        return data[4] == 'f' && data[5] == 't' && data[6] == 'y' && data[7] == 'p';
+    }
+
+    private static bool IsPdfMagicBytes(byte[] data)
+    {
+        if (data == null || data.Length < 5) return false;
+        return data[0] == '%' && data[1] == 'P' && data[2] == 'D' && data[3] == 'F';
     }
 
     private static string CleanJsonResponse(string raw)

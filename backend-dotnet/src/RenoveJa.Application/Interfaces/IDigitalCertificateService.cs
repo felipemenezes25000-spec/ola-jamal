@@ -53,11 +53,13 @@ public interface IDigitalCertificateService
 
     /// <summary>
     /// Assina um documento PDF usando o certificado do médico.
+    /// pfxPassword: senha do certificado PFX. Obrigatória para desbloquear a chave privada.
     /// </summary>
     Task<DigitalSignatureResult> SignPdfAsync(
         Guid certificateId,
         byte[] pdfBytes,
         string outputFileName,
+        string? pfxPassword = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

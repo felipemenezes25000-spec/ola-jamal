@@ -29,6 +29,16 @@ export async function changePassword(currentPassword: string, newPassword: strin
 // REQUEST MANAGEMENT
 // ============================================
 
+function getContentTypeFromFilename(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  if (ext === 'pdf') return 'application/pdf';
+  if (ext === 'heic' || ext === 'heif') return 'image/heic';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  return 'image/jpeg';
+}
+
 export interface CreatePrescriptionRequestData {
   prescriptionType: 'simples' | 'controlado' | 'azul';
   medications?: string[];  // Backend expects List<string>, NOT objects
@@ -46,8 +56,7 @@ export async function createPrescriptionRequest(
     for (let i = 0; i < data.images.length; i++) {
       const uri = data.images[i];
       const filename = uri.split('/').pop() || `prescription_${i}.jpg`;
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      const type = getContentTypeFromFilename(filename);
 
       formData.append('images', {
         uri,
@@ -87,8 +96,7 @@ export async function createExamRequest(
     for (let i = 0; i < data.images.length; i++) {
       const uri = data.images[i];
       const filename = uri.split('/').pop() || `exam_${i}.jpg`;
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      const type = getContentTypeFromFilename(filename);
 
       formData.append('images', {
         uri,
@@ -149,8 +157,17 @@ export async function updateRequestStatus(
   });
 }
 
-export async function approveRequest(requestId: string): Promise<RequestResponseDto> {
-  return apiClient.post(`/api/requests/${requestId}/approve`, {});
+export interface ApproveRequestData {
+  medications?: string[];
+  exams?: string[];
+  notes?: string;
+}
+
+export async function approveRequest(
+  requestId: string,
+  data?: ApproveRequestData
+): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/approve`, data ?? {});
 }
 
 export async function rejectRequest(requestId: string, rejectionReason: string): Promise<RequestResponseDto> {
@@ -169,12 +186,12 @@ export async function acceptConsultation(
 
 export async function signRequest(
   requestId: string,
-  signatureData?: string,
-  signedDocumentUrl?: string
+  options?: { pfxPassword?: string; signatureData?: string; signedDocumentUrl?: string }
 ): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/sign`, {
-    signatureData,
-    signedDocumentUrl,
+    pfxPassword: options?.pfxPassword,
+    signatureData: options?.signatureData,
+    signedDocumentUrl: options?.signedDocumentUrl,
   });
 }
 
@@ -204,6 +221,25 @@ export async function reanalyzeAsDoctor(requestId: string): Promise<RequestRespo
 
 export async function generatePdf(requestId: string): Promise<{ success: boolean; pdfUrl: string; message: string }> {
   return apiClient.post(`/api/requests/${requestId}/generate-pdf`, {});
+}
+
+/** Retorna o PDF em blob para preview (receita). */
+export async function getPreviewPdf(requestId: string): Promise<Blob> {
+  return apiClient.getBlob(`/api/requests/${requestId}/preview-pdf`);
+}
+
+export async function updatePrescriptionContent(
+  requestId: string,
+  data: { medications?: string[]; notes?: string }
+): Promise<RequestResponseDto> {
+  return apiClient.patch(`/api/requests/${requestId}/prescription-content`, data);
+}
+
+export async function updateExamContent(
+  requestId: string,
+  data: { exams?: string[]; notes?: string }
+): Promise<RequestResponseDto> {
+  return apiClient.patch(`/api/requests/${requestId}/exam-content`, data);
 }
 
 // ============================================
@@ -241,6 +277,11 @@ export async function confirmPayment(paymentId: string): Promise<PaymentResponse
 
 export async function confirmPaymentByRequest(requestId: string): Promise<PaymentResponseDto> {
   return apiClient.post(`/api/payments/confirm-by-request/${requestId}`, {});
+}
+
+/** Retorna URL do Checkout Pro e ID do pagamento para abrir no navegador e exibir na tela */
+export async function getCheckoutProUrl(requestId: string): Promise<{ initPoint: string; paymentId: string }> {
+  return apiClient.get(`/api/payments/checkout-pro/${requestId}`);
 }
 
 // ============================================

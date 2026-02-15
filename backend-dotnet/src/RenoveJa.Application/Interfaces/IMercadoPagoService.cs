@@ -35,7 +35,25 @@ public interface IMercadoPagoService
     /// Verifica o status real de um pagamento na API do Mercado Pago (GET /v1/payments/{id}).
     /// </summary>
     Task<string?> GetPaymentStatusAsync(string paymentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtém status e external_reference de um pagamento (para webhook Checkout Pro).
+    /// </summary>
+    Task<MercadoPagoPaymentDetails?> GetPaymentDetailsAsync(string paymentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cria uma preferência do Checkout Pro e retorna a URL init_point.
+    /// </summary>
+    Task<string> CreateCheckoutProPreferenceAsync(
+        decimal amount,
+        string title,
+        string externalReference,
+        string payerEmail,
+        string? redirectBaseUrl,
+        CancellationToken cancellationToken = default);
 }
+
+public record MercadoPagoPaymentDetails(string Status, string? ExternalReference);
 
 public record MercadoPagoPixResult(
     string ExternalId,

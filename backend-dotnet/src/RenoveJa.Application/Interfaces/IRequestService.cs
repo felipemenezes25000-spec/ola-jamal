@@ -86,4 +86,13 @@ public interface IRequestService
 
     /// <summary>Médico reexecuta a análise de IA com as imagens já existentes da receita/exame.</summary>
     Task<RequestResponseDto> ReanalyzeAsDoctorAsync(Guid id, Guid doctorId, CancellationToken cancellationToken = default);
+
+    /// <summary>Médico atualiza medicamentos e/ou notas da receita antes da assinatura.</summary>
+    Task<RequestResponseDto> UpdatePrescriptionContentAsync(Guid id, List<string>? medications, string? notes, Guid doctorId, CancellationToken cancellationToken = default);
+
+    /// <summary>Médico atualiza exames e/ou notas do pedido antes da assinatura.</summary>
+    Task<RequestResponseDto> UpdateExamContentAsync(Guid id, List<string>? exams, string? notes, Guid doctorId, CancellationToken cancellationToken = default);
+
+    /// <summary>Gera preview do PDF da receita (base64) para o médico visualizar antes de assinar.</summary>
+    Task<byte[]?> GetPrescriptionPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
 }

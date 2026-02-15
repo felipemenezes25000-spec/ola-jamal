@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.DTOs;
 using RenoveJa.Application.DTOs.Requests;
@@ -77,7 +78,17 @@ public class RequestService(
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
 
-        await RunPrescriptionAiAndUpdateAsync(medicalRequest, cancellationToken);
+        try
+        {
+            await RunPrescriptionAiAndUpdateAsync(medicalRequest, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "IA receita: falha inesperada para request {RequestId}. Solicitação criada, mas sem análise. O médico pode usar Reanalisar.", medicalRequest.Id);
+            // Não relança - a solicitação foi criada com sucesso; o médico pode clicar em "Reanalisar com IA"
+        }
+
+        var latest = await requestRepository.GetByIdAsync(medicalRequest.Id, cancellationToken);
 
         await CreateNotificationAsync(
             userId,
@@ -85,7 +96,9 @@ public class RequestService(
             "Sua solicitação de receita foi enviada. Aguardando análise do médico.",
             cancellationToken);
 
-        return (MapRequestToDto(medicalRequest), null);
+        await NotifyAvailableDoctorsOfNewRequestAsync("receita", latest ?? medicalRequest, cancellationToken);
+
+        return (MapRequestToDto(latest ?? medicalRequest), null);
     }
 
     /// <summary>
@@ -110,7 +123,16 @@ public class RequestService(
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
 
-        await RunExamAiAndUpdateAsync(medicalRequest, cancellationToken);
+        try
+        {
+            await RunExamAiAndUpdateAsync(medicalRequest, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "IA exame: falha inesperada para request {RequestId}. Solicitação criada, mas sem análise. O médico pode usar Reanalisar.", medicalRequest.Id);
+        }
+
+        var latest = await requestRepository.GetByIdAsync(medicalRequest.Id, cancellationToken);
 
         await CreateNotificationAsync(
             userId,
@@ -118,7 +140,9 @@ public class RequestService(
             "Sua solicitação de exame foi enviada. Aguardando análise do médico.",
             cancellationToken);
 
-        return (MapRequestToDto(medicalRequest), null);
+        await NotifyAvailableDoctorsOfNewRequestAsync("exame", latest ?? medicalRequest, cancellationToken);
+
+        return (MapRequestToDto(latest ?? medicalRequest), null);
     }
 
     /// <summary>
@@ -145,6 +169,8 @@ public class RequestService(
             "Solicitação Criada",
             "Sua solicitação de consulta foi enviada. Aguardando médico.",
             cancellationToken);
+
+        await NotifyAvailableDoctorsOfNewRequestAsync("consulta", medicalRequest, cancellationToken);
 
         return (MapRequestToDto(medicalRequest), null);
     }
@@ -219,7 +245,8 @@ public class RequestService(
     }
 
     /// <summary>
-    /// Obtém uma solicitação pelo ID. Valida que o usuário é o paciente ou o médico da solicitação.
+    /// Obtém uma solicitação pelo ID. Valida que o usuário é o paciente, o médico atribuído,
+    /// ou um médico visualizando solicitação disponível na fila (sem médico atribuído).
     /// </summary>
     public async Task<RequestResponseDto> GetRequestByIdAsync(
         Guid id,
@@ -230,8 +257,21 @@ public class RequestService(
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
-        var isOwner = request.PatientId == userId || request.DoctorId == userId;
-        if (!isOwner)
+        var isPatient = request.PatientId == userId;
+        var isAssignedDoctor = request.DoctorId.HasValue && request.DoctorId == userId;
+        var isAvailableForDoctor = !request.DoctorId.HasValue || request.DoctorId == Guid.Empty;
+
+        User? user = null;
+        if (!isPatient && !isAssignedDoctor && isAvailableForDoctor)
+        {
+            user = await userRepository.GetByIdAsync(userId, cancellationToken);
+        }
+
+        var canAccess = isPatient
+            || isAssignedDoctor
+            || (isAvailableForDoctor && user?.Role == UserRole.Doctor);
+
+        if (!canAccess)
             throw new KeyNotFoundException("Request not found");
 
         return MapRequestToDto(request);
@@ -298,7 +338,7 @@ public class RequestService(
                     $"Preço não encontrado para {productType}/{subtype}. Verifique a tabela product_prices.");
 
             var price = priceFromDb.Value;
-            request.Approve(price, notes: null);
+            request.Approve(price, dto.Notes, dto.Medications, dto.Exams);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
 
             await CreateNotificationAsync(
@@ -453,6 +493,13 @@ public class RequestService(
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
+        // Só permite assinar se o pagamento foi confirmado
+        if (request.Status != RequestStatus.Paid)
+        {
+            throw new InvalidOperationException(
+                "Apenas solicitações com pagamento confirmado podem ser assinadas. O paciente deve efetuar o pagamento (PIX ou cartão) antes da assinatura.");
+        }
+
         // Se o médico está atribuído, tentar fluxo completo de geração + assinatura
         if (request.DoctorId.HasValue)
         {
@@ -463,49 +510,105 @@ public class RequestService(
                 // 1. Verificar se médico tem certificado válido
                 var hasCertificate = await digitalCertificateService.HasValidCertificateAsync(doctorProfile.Id, cancellationToken);
 
-                if (hasCertificate && request.RequestType == Domain.Enums.RequestType.Prescription)
+                if (hasCertificate)
                 {
+                    // Senha do PFX obrigatória no fluxo automático de assinatura
+                    if (string.IsNullOrWhiteSpace(dto.PfxPassword))
+                    {
+                        throw new InvalidOperationException(
+                            "Senha do certificado digital é obrigatória para assinar. Envie o campo 'pfxPassword' no corpo da requisição.");
+                    }
+
                     var doctorUser = await userRepository.GetByIdAsync(request.DoctorId.Value, cancellationToken);
                     var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
 
-                    // 2. Gerar PDF da receita
-                    var pdfData = new PrescriptionPdfData(
-                        RequestId: request.Id,
-                        PatientName: request.PatientName ?? "Paciente",
-                        PatientCpf: patientUser?.Cpf,
-                        DoctorName: doctorUser?.Name ?? request.DoctorName ?? "Médico",
-                        DoctorCrm: doctorProfile.Crm,
-                        DoctorCrmState: doctorProfile.CrmState,
-                        DoctorSpecialty: doctorProfile.Specialty,
-                        Medications: request.Medications,
-                        PrescriptionType: PrescriptionTypeToDisplay(request.PrescriptionType) ?? "simples",
-                        EmissionDate: DateTime.UtcNow,
-                        AccessCode: request.AccessCode);
+                    byte[]? pdfBytes = null;
+                    string? pdfFileName = null;
 
-                    var pdfResult = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
-
-                    if (pdfResult.Success && pdfResult.PdfBytes != null)
+                    if (request.RequestType == Domain.Enums.RequestType.Prescription)
                     {
-                        // 3. Assinar PDF com certificado do médico
+                        var medications = request.Medications?.Where(m => !string.IsNullOrWhiteSpace(m)).ToList() ?? new List<string>();
+                        if (medications.Count == 0 && !string.IsNullOrWhiteSpace(request.AiExtractedJson))
+                            medications = ParseMedicationsFromAiJson(request.AiExtractedJson);
+                        if (medications.Count == 0)
+                        {
+                            throw new InvalidOperationException(
+                                "A receita deve ter ao menos um medicamento informado para gerar o PDF. Copie a análise da IA e adicione os medicamentos ao aprovar, ou use o botão Reanalisar com IA.");
+                        }
+
+                        var pdfData = new PrescriptionPdfData(
+                            RequestId: request.Id,
+                            PatientName: request.PatientName ?? "Paciente",
+                            PatientCpf: patientUser?.Cpf,
+                            DoctorName: doctorUser?.Name ?? request.DoctorName ?? "Médico",
+                            DoctorCrm: doctorProfile.Crm,
+                            DoctorCrmState: doctorProfile.CrmState,
+                            DoctorSpecialty: doctorProfile.Specialty,
+                            Medications: medications,
+                            PrescriptionType: PrescriptionTypeToDisplay(request.PrescriptionType) ?? "simples",
+                            EmissionDate: DateTime.UtcNow,
+                            AccessCode: request.AccessCode);
+
+                        var pdfResult = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
+                        if (pdfResult.Success && pdfResult.PdfBytes != null)
+                        {
+                            pdfBytes = pdfResult.PdfBytes;
+                            pdfFileName = $"receita-assinada-{request.Id}.pdf";
+                        }
+                        else
+                            logger.LogWarning("Falha ao gerar PDF de receita para request {RequestId}: {Error}", id, pdfResult.ErrorMessage);
+                    }
+                    else if (request.RequestType == Domain.Enums.RequestType.Exam)
+                    {
+                        var exams = request.Exams?.Where(e => !string.IsNullOrWhiteSpace(e)).ToList() ?? new List<string>();
+                        if (exams.Count == 0)
+                            exams = new List<string> { "Exames conforme solicitação médica" };
+
+                        var examPdfData = new ExamPdfData(
+                            RequestId: request.Id,
+                            PatientName: request.PatientName ?? "Paciente",
+                            PatientCpf: patientUser?.Cpf,
+                            DoctorName: doctorUser?.Name ?? request.DoctorName ?? "Médico",
+                            DoctorCrm: doctorProfile.Crm,
+                            DoctorCrmState: doctorProfile.CrmState,
+                            DoctorSpecialty: doctorProfile.Specialty,
+                            Exams: exams,
+                            Notes: request.Notes,
+                            EmissionDate: DateTime.UtcNow,
+                            AccessCode: request.AccessCode);
+
+                        var pdfResult = await prescriptionPdfService.GenerateExamRequestAsync(examPdfData, cancellationToken);
+                        if (pdfResult.Success && pdfResult.PdfBytes != null)
+                        {
+                            pdfBytes = pdfResult.PdfBytes;
+                            pdfFileName = $"pedido-exame-assinado-{request.Id}.pdf";
+                        }
+                        else
+                            logger.LogWarning("Falha ao gerar PDF de exame para request {RequestId}: {Error}", id, pdfResult.ErrorMessage);
+                    }
+
+                    if (pdfBytes != null && !string.IsNullOrEmpty(pdfFileName))
+                    {
                         var certInfo = await digitalCertificateService.GetActiveCertificateAsync(doctorProfile.Id, cancellationToken);
                         if (certInfo != null)
                         {
                             var signResult = await digitalCertificateService.SignPdfAsync(
                                 certInfo.Id,
-                                pdfResult.PdfBytes,
-                                $"receita-assinada-{request.Id}.pdf",
+                                pdfBytes,
+                                pdfFileName,
+                                dto.PfxPassword,
                                 cancellationToken);
 
                             if (signResult.Success)
                             {
-                                // 4 & 5. PDF assinado foi uploaded pelo SignPdfAsync; atualizar request
                                 request.Sign(signResult.SignedDocumentUrl!, signResult.SignatureId!);
                                 request = await requestRepository.UpdateAsync(request, cancellationToken);
 
+                                var docTipo = request.RequestType == Domain.Enums.RequestType.Prescription ? "receita" : "pedido de exame";
                                 await CreateNotificationAsync(
                                     request.PatientId,
                                     "Documento Assinado",
-                                    "Sua receita foi assinada digitalmente e está disponível para download.",
+                                    $"Sua {docTipo} foi assinada digitalmente e está disponível para download.",
                                     cancellationToken);
 
                                 return MapRequestToDto(request);
@@ -514,18 +617,22 @@ public class RequestService(
                             logger.LogWarning("Falha ao assinar PDF para request {RequestId}: {Error}", id, signResult.ErrorMessage);
                         }
                     }
-                    else
-                    {
-                        logger.LogWarning("Falha ao gerar PDF para request {RequestId}: {Error}", id, pdfResult.ErrorMessage);
-                    }
                 }
             }
         }
 
-        // Fallback: aceitar URL externa (comportamento anterior)
-        var signedDocumentUrl = !string.IsNullOrWhiteSpace(dto.SignedDocumentUrl)
-            ? dto.SignedDocumentUrl.Trim()
-            : $"https://storage.renoveja.com/signed/{id}.pdf";
+        // Fallback: aceitar URL externa apenas se o médico fornecer explicitamente
+        if (string.IsNullOrWhiteSpace(dto.SignedDocumentUrl))
+        {
+            var msg = request.RequestType == Domain.Enums.RequestType.Prescription
+                ? "Não foi possível gerar/assinar o PDF. Verifique: (1) médico tem certificado digital válido, (2) receita tem ao menos um medicamento informado."
+                : request.RequestType == Domain.Enums.RequestType.Exam
+                    ? "Não foi possível gerar/assinar o PDF. Verifique: (1) médico tem certificado digital válido, (2) pedido de exame tem ao menos um exame informado."
+                    : "Assinatura requer fluxo específico. Entre em contato com o suporte.";
+            throw new InvalidOperationException(msg);
+        }
+
+        var signedDocumentUrl = dto.SignedDocumentUrl.Trim();
         var signatureId = !string.IsNullOrWhiteSpace(dto.SignatureData) ? dto.SignatureData : Guid.NewGuid().ToString();
 
         request.Sign(signedDocumentUrl, signatureId);
@@ -556,12 +663,25 @@ public class RequestService(
             request.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, result.RiskLevel, null, result.ReadabilityOk, result.MessageToUser);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
             logger.LogInformation("IA reanálise receita: sucesso para request {RequestId}", id);
+            if (request.DoctorId.HasValue)
+            {
+                await CreateNotificationAsync(
+                    request.DoctorId.Value,
+                    "Reanálise Solicitada",
+                    "O paciente solicitou reanálise da receita. Nova análise da IA disponível.",
+                    cancellationToken);
+            }
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "IA reanálise receita (paciente): falhou para request {RequestId}. {Message}", id, ex.Message);
             request.SetAiAnalysis("[Reanálise por IA indisponível.]", null, null, null, null, null);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
+            await CreateNotificationAsync(
+                request.PatientId,
+                "Reanálise não concluída",
+                "Não foi possível concluir a reanálise da IA. Tente novamente ou entre em contato com o suporte.",
+                cancellationToken);
         }
         return MapRequestToDto(request);
     }
@@ -612,6 +732,11 @@ public class RequestService(
             throw new InvalidOperationException("Apenas receitas e exames podem ser reanalisados pela IA.");
 
         request = await requestRepository.UpdateAsync(request, cancellationToken);
+        await CreateNotificationAsync(
+            doctorId,
+            "Reanálise concluída",
+            "A reanálise da IA foi concluída. A nova análise está disponível.",
+            cancellationToken);
         return MapRequestToDto(request);
     }
 
@@ -632,14 +757,99 @@ public class RequestService(
             request.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, null, result.Urgency, result.ReadabilityOk, result.MessageToUser);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
             logger.LogInformation("IA reanálise exame (paciente): sucesso para request {RequestId}", id);
+            if (request.DoctorId.HasValue)
+            {
+                await CreateNotificationAsync(
+                    request.DoctorId.Value,
+                    "Reanálise Solicitada",
+                    "O paciente solicitou reanálise do pedido de exame. Nova análise da IA disponível.",
+                    cancellationToken);
+            }
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "IA reanálise exame (paciente): falhou para request {RequestId}. {Message}", id, ex.Message);
             request.SetAiAnalysis("[Reanálise por IA indisponível.]", null, null, null, null, null);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
+            await CreateNotificationAsync(
+                request.PatientId,
+                "Reanálise não concluída",
+                "Não foi possível concluir a reanálise da IA. Tente novamente ou entre em contato com o suporte.",
+                cancellationToken);
         }
         return MapRequestToDto(request);
+    }
+
+    public async Task<RequestResponseDto> UpdatePrescriptionContentAsync(Guid id, List<string>? medications, string? notes, Guid doctorId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null) throw new KeyNotFoundException("Solicitação não encontrada");
+        if (request.DoctorId != doctorId) throw new UnauthorizedAccessException("Somente o médico atribuído pode atualizar.");
+        if (request.RequestType != RequestType.Prescription) throw new InvalidOperationException("Apenas receitas podem ter medicamentos atualizados.");
+        if (request.Status != RequestStatus.Paid)
+            throw new InvalidOperationException("Só é possível editar medicamentos/notas após o pagamento. O paciente deve pagar antes de editar e assinar.");
+        request.UpdatePrescriptionContent(medications, notes);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
+        await CreateNotificationAsync(
+            request.PatientId,
+            "Receita atualizada",
+            "O médico atualizou sua receita. O documento está disponível para assinatura.",
+            cancellationToken);
+        return MapRequestToDto(request);
+    }
+
+    public async Task<RequestResponseDto> UpdateExamContentAsync(Guid id, List<string>? exams, string? notes, Guid doctorId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null) throw new KeyNotFoundException("Solicitação não encontrada");
+        if (request.DoctorId != doctorId) throw new UnauthorizedAccessException("Somente o médico atribuído pode atualizar.");
+        if (request.RequestType != RequestType.Exam) throw new InvalidOperationException("Apenas pedidos de exame podem ter exames atualizados.");
+        if (request.Status != RequestStatus.Paid)
+            throw new InvalidOperationException("Só é possível editar exames/notas após o pagamento. O paciente deve pagar antes de editar e assinar.");
+        request.UpdateExamContent(exams, notes);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
+        await CreateNotificationAsync(
+            request.PatientId,
+            "Pedido de exame atualizado",
+            "O médico atualizou seu pedido de exame. O documento está disponível para assinatura.",
+            cancellationToken);
+        return MapRequestToDto(request);
+    }
+
+    public async Task<byte[]?> GetPrescriptionPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null) return null;
+        if (request.RequestType != RequestType.Prescription) return null;
+        var isDoctor = request.DoctorId == userId;
+        var isPatient = request.PatientId == userId;
+        if (!isDoctor && !isPatient) return null;
+
+        var medications = request.Medications?.Where(m => !string.IsNullOrWhiteSpace(m)).ToList() ?? new List<string>();
+        if (medications.Count == 0 && !string.IsNullOrWhiteSpace(request.AiExtractedJson))
+            medications = ParseMedicationsFromAiJson(request.AiExtractedJson);
+        if (medications.Count == 0)
+            return null;
+
+        var doctorProfile = request.DoctorId.HasValue ? await doctorRepository.GetByUserIdAsync(request.DoctorId.Value, cancellationToken) : null;
+        var doctorUser = request.DoctorId.HasValue ? await userRepository.GetByIdAsync(request.DoctorId.Value, cancellationToken) : null;
+        var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
+
+        var pdfData = new PrescriptionPdfData(
+            request.Id,
+            request.PatientName ?? "Paciente",
+            patientUser?.Cpf,
+            doctorUser?.Name ?? request.DoctorName ?? "Médico",
+            doctorProfile?.Crm ?? "CRM",
+            doctorProfile?.CrmState ?? "SP",
+            doctorProfile?.Specialty ?? "Clínica Geral",
+            medications,
+            PrescriptionTypeToDisplay(request.PrescriptionType) ?? "simples",
+            DateTime.UtcNow,
+            AdditionalNotes: request.Notes);
+
+        var result = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
+        return result.Success ? result.PdfBytes : null;
     }
 
     private async Task CreateNotificationAsync(
@@ -651,6 +861,32 @@ public class RequestService(
         var notification = Notification.Create(userId, title, message, NotificationType.Info);
         await notificationRepository.CreateAsync(notification, cancellationToken);
         await pushNotificationSender.SendAsync(userId, title, message, ct: cancellationToken);
+    }
+
+    /// <summary>
+    /// Notifica médicos disponíveis sobre nova solicitação na fila (limita a 5 para evitar spam).
+    /// </summary>
+    private async Task NotifyAvailableDoctorsOfNewRequestAsync(
+        string tipoSolicitacao,
+        MedicalRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var doctors = await doctorRepository.GetAvailableAsync(null, cancellationToken);
+            foreach (var doc in doctors.Take(5))
+            {
+                await CreateNotificationAsync(
+                    doc.UserId,
+                    "Nova solicitação na fila",
+                    $"Nova solicitação de {tipoSolicitacao} disponível: {request.PatientName ?? "paciente"}.",
+                    cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Falha ao notificar médicos sobre nova solicitação {RequestId}", request.Id);
+        }
     }
 
     private async Task RunPrescriptionAiAndUpdateAsync(MedicalRequest medicalRequest, CancellationToken cancellationToken)
@@ -674,8 +910,15 @@ public class RequestService(
         {
             logger.LogWarning(ex, "IA receita: análise falhou para request {RequestId}. Mensagem: {Message}. Inner: {Inner}",
                 medicalRequest.Id, ex.Message, ex.InnerException?.Message ?? "-");
-            medicalRequest.SetAiAnalysis("[Análise por IA indisponível no momento.]", null, null, null, null, null);
-            await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+            medicalRequest.SetAiAnalysis("[Análise por IA indisponível no momento. O médico pode clicar em Reanalisar com IA.]", null, null, null, null, null);
+            try
+            {
+                await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+            }
+            catch (Exception updateEx)
+            {
+                logger.LogError(updateEx, "IA receita: falha ao persistir fallback para request {RequestId}", medicalRequest.Id);
+            }
         }
     }
 
@@ -706,9 +949,38 @@ public class RequestService(
         {
             logger.LogWarning(ex, "IA exame: análise falhou para request {RequestId}. Mensagem: {Message}. Inner: {Inner}",
                 medicalRequest.Id, ex.Message, ex.InnerException?.Message ?? "-");
-            medicalRequest.SetAiAnalysis("[Análise por IA indisponível no momento.]", null, null, null, null, null);
-            await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+            medicalRequest.SetAiAnalysis("[Análise por IA indisponível no momento. O médico pode clicar em Reanalisar com IA.]", null, null, null, null, null);
+            try
+            {
+                await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+            }
+            catch (Exception updateEx)
+            {
+                logger.LogError(updateEx, "IA exame: falha ao persistir fallback para request {RequestId}", medicalRequest.Id);
+            }
         }
+    }
+
+    /// <summary>Extrai medicamentos do JSON extraído pela IA (extracted.medications).</summary>
+    private static List<string> ParseMedicationsFromAiJson(string aiExtractedJson)
+    {
+        var result = new List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(aiExtractedJson);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("medications", out var meds) && meds.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var m in meds.EnumerateArray())
+                {
+                    var s = m.GetString()?.Trim();
+                    if (!string.IsNullOrEmpty(s))
+                        result.Add(s);
+                }
+            }
+        }
+        catch { /* ignore */ }
+        return result;
     }
 
     private static RequestResponseDto MapRequestToDto(MedicalRequest request)

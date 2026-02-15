@@ -45,7 +45,23 @@ public record PrescriptionPdfResult(
     string? ErrorMessage);
 
 /// <summary>
-/// Serviço para geração de PDFs de receitas médicas.
+/// Dados para geração de PDF de pedido de exame.
+/// </summary>
+public record ExamPdfData(
+    Guid RequestId,
+    string PatientName,
+    string? PatientCpf,
+    string DoctorName,
+    string DoctorCrm,
+    string DoctorCrmState,
+    string DoctorSpecialty,
+    List<string> Exams,
+    string? Notes,
+    DateTime EmissionDate,
+    string? AccessCode = null);
+
+/// <summary>
+/// Serviço para geração de PDFs de receitas médicas e pedidos de exame.
 /// </summary>
 public interface IPrescriptionPdfService
 {
@@ -70,5 +86,12 @@ public interface IPrescriptionPdfService
         byte[] pdfBytes,
         Guid certificateId,
         string outputFileName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gera um PDF de pedido de exame (para assinatura digital).
+    /// </summary>
+    Task<PrescriptionPdfResult> GenerateExamRequestAsync(
+        ExamPdfData data,
         CancellationToken cancellationToken = default);
 }

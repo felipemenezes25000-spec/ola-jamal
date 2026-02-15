@@ -11,7 +11,11 @@ namespace RenoveJa.Infrastructure.Storage;
 public class SupabaseStorageService : IStorageService
 {
     public const string HttpClientName = "SupabaseStorage";
-    private const string BucketName = "prescription-images";
+    private const string PrescriptionBucket = "prescription-images";
+    private const string CertificatesBucket = "certificates";
+
+    private static string GetBucketForPath(string path) =>
+        path.StartsWith("certificates/", StringComparison.OrdinalIgnoreCase) ? CertificatesBucket : PrescriptionBucket;
     private readonly HttpClient _httpClient;
     private readonly SupabaseConfig _config;
 
@@ -37,7 +41,7 @@ public class SupabaseStorageService : IStorageService
         var safeFileName = $"{Guid.NewGuid():N}{extension}";
         var objectPath = $"{userId}/{safeFileName}";
 
-        var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{BucketName}/{objectPath}";
+        var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{PrescriptionBucket}/{objectPath}";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("apikey", _config.ServiceKey);
@@ -57,7 +61,7 @@ public class SupabaseStorageService : IStorageService
                 $"Storage upload failed: {response.StatusCode}. {body}.{hint}");
         }
 
-        var publicUrl = $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{BucketName}/{objectPath}";
+        var publicUrl = $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{PrescriptionBucket}/{objectPath}";
         return publicUrl;
     }
 
@@ -70,7 +74,8 @@ public class SupabaseStorageService : IStorageService
     {
         try
         {
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{BucketName}/{path}";
+            var bucket = GetBucketForPath(path);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -102,7 +107,8 @@ public class SupabaseStorageService : IStorageService
     {
         try
         {
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{BucketName}/{path}";
+            var bucket = GetBucketForPath(path);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -127,7 +133,8 @@ public class SupabaseStorageService : IStorageService
     {
         try
         {
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{BucketName}/{path}";
+            var bucket = GetBucketForPath(path);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
 
             using var request = new HttpRequestMessage(HttpMethod.Delete, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -149,7 +156,8 @@ public class SupabaseStorageService : IStorageService
     {
         try
         {
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{BucketName}/{path}";
+            var bucket = GetBucketForPath(path);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
 
             using var request = new HttpRequestMessage(HttpMethod.Head, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -167,7 +175,8 @@ public class SupabaseStorageService : IStorageService
     /// <inheritdoc />
     public string GetPublicUrl(string path)
     {
-        return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{BucketName}/{path}";
+        var bucket = GetBucketForPath(path);
+        return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{bucket}/{path}";
     }
 
     /// <inheritdoc />
@@ -185,7 +194,7 @@ public class SupabaseStorageService : IStorageService
     private string? ExtractPathFromPublicUrl(string publicUrl)
     {
         var baseUrl = _config.Url.TrimEnd('/');
-        var suffix = $"/storage/v1/object/public/{BucketName}/";
+        var suffix = $"/storage/v1/object/public/{PrescriptionBucket}/";
         if (!publicUrl.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase)) return null;
         var idx = publicUrl.IndexOf(suffix, StringComparison.OrdinalIgnoreCase);
         if (idx < 0) return null;

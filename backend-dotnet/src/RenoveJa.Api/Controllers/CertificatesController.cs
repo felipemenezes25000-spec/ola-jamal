@@ -44,9 +44,9 @@ public class CertificatesController : ControllerBase
         if (!_currentUserService.IsDoctor())
             return Forbid("Apenas médicos podem cadastrar certificados digitais.");
 
-        var doctorProfileId = _currentUserService.GetDoctorProfileId();
+        var doctorProfileId = await _currentUserService.GetDoctorProfileIdAsync();
         if (doctorProfileId == null)
-            return BadRequest("Perfil de médico não encontrado.");
+            return BadRequest("Perfil de médico não encontrado. Complete seu cadastro como médico.");
 
         if (dto.PfxFile == null || dto.PfxFile.Length == 0)
             return BadRequest("Arquivo PFX é obrigatório.");
@@ -122,9 +122,9 @@ public class CertificatesController : ControllerBase
     [HttpGet("active")]
     public async Task<IActionResult> GetActiveCertificate(CancellationToken cancellationToken = default)
     {
-        var doctorProfileId = _currentUserService.GetDoctorProfileId();
+        var doctorProfileId = await _currentUserService.GetDoctorProfileIdAsync();
         if (doctorProfileId == null)
-            return BadRequest("Perfil de médico não encontrado.");
+            return BadRequest("Perfil de médico não encontrado. Complete seu cadastro como médico.");
 
         var certificate = await _certificateService.GetActiveCertificateAsync(
             doctorProfileId.Value,
@@ -150,9 +150,9 @@ public class CertificatesController : ControllerBase
     [HttpGet("status")]
     public async Task<IActionResult> GetCertificateStatus(CancellationToken cancellationToken = default)
     {
-        var doctorProfileId = _currentUserService.GetDoctorProfileId();
+        var doctorProfileId = await _currentUserService.GetDoctorProfileIdAsync();
         if (doctorProfileId == null)
-            return BadRequest("Perfil de médico não encontrado.");
+            return BadRequest("Perfil de médico não encontrado. Complete seu cadastro como médico.");
 
         var hasValid = await _certificateService.HasValidCertificateAsync(
             doctorProfileId.Value,

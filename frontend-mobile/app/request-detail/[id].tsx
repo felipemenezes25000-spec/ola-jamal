@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { StatusBadge, getStatusLabel } from '../../components/StatusBadge';
@@ -14,8 +17,9 @@ import { colors, spacing, typography, borderRadius, shadows } from '../../consta
 const TIMELINE_STEPS = [
   { key: 'submitted', label: 'Enviado', icon: 'paper-plane' },
   { key: 'analyzing', label: 'IA Analisando', icon: 'sparkles' },
-  { key: 'paid', label: 'Pago', icon: 'card' },
   { key: 'in_review', label: 'Médico Revisando', icon: 'eye' },
+  { key: 'approved_pending_payment', label: 'Aguardando Pagamento', icon: 'time' },
+  { key: 'paid', label: 'Pago', icon: 'card' },
   { key: 'signed', label: 'Assinado', icon: 'create' },
   { key: 'delivered', label: 'Entregue', icon: 'checkmark-done' },
 ];
@@ -26,8 +30,13 @@ export default function RequestDetailScreen() {
   const router = useRouter();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [payingPix, setPayingPix] = useState(false);
 
   useEffect(() => { load(); }, [requestId]);
+
+  useFocusEffect(useCallback(() => {
+    if (requestId) load();
+  }, [requestId]));
 
   const load = async () => {
     if (!requestId) {
@@ -41,10 +50,10 @@ export default function RequestDetailScreen() {
     finally { setLoading(false); }
   };
 
-  const handlePay = async () => {
-    if (!request) return;
+  const handlePayPix = async () => {
+    if (!request || payingPix) return;
+    setPayingPix(true);
     try {
-      // Check if payment already exists
       let payment;
       try { payment = await fetchPaymentByRequest(request.id); } catch {}
       if (!payment) {
@@ -52,13 +61,71 @@ export default function RequestDetailScreen() {
       }
       router.push(`/payment/${payment.id}`);
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao iniciar pagamento');
+      Alert.alert('Erro', error.message || 'Erro ao iniciar pagamento PIX');
+    } finally {
+      setPayingPix(false);
     }
   };
 
-  const handleDownload = () => {
+  const handlePayCard = () => {
+    if (!request) return;
+    router.push({ pathname: '/payment/card', params: { requestId: request.id } });
+  };
+
+  const handleViewDocument = async () => {
     if (request?.signedDocumentUrl) {
-      Linking.openURL(request.signedDocumentUrl);
+      try {
+        await WebBrowser.openBrowserAsync(request.signedDocumentUrl, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
+      } catch {
+        Alert.alert('Erro', 'Não foi possível abrir o documento.');
+      }
+    }
+  };
+
+  const handleSaveDocument = async () => {
+    if (!request?.signedDocumentUrl) return;
+    try {
+      // Web: abre o PDF no navegador (ou nova aba) para visualizar e baixar
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.open) {
+          window.open(request.signedDocumentUrl, '_blank', 'noopener');
+        } else {
+          await Linking.openURL(request.signedDocumentUrl);
+        }
+        return;
+      }
+
+      const fileName = `receita-${request.id}.pdf`;
+      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const downloadResult = await FileSystem.downloadAsync(request.signedDocumentUrl, fileUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error('Falha ao baixar o PDF. Verifique sua conexão e tente novamente.');
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Salvar ou compartilhar documento',
+        });
+      } else {
+        // Fallback: abre a URL para o usuário baixar pelo navegador
+        await Linking.openURL(request.signedDocumentUrl);
+      }
+    } catch (e: any) {
+      const msg = e.message || 'Não foi possível salvar o documento.';
+      Alert.alert(
+        'Erro',
+        msg,
+        [
+          { text: 'OK' },
+          {
+            text: 'Abrir no navegador',
+            onPress: () => request?.signedDocumentUrl && Linking.openURL(request.signedDocumentUrl),
+          },
+        ]
+      );
     }
   };
 
@@ -79,8 +146,8 @@ export default function RequestDetailScreen() {
     </SafeAreaView>
   );
 
-  const statusOrder = ['submitted', 'paid', 'in_review', 'approved', 'signed', 'delivered', 'completed'];
-  const currentIdx = statusOrder.indexOf(request.status);
+  const statusOrder = ['submitted', 'analyzing', 'in_review', 'approved_pending_payment', 'approved', 'pending_payment', 'paid', 'signed', 'delivered', 'completed'];
+  const currentIdx = Math.max(0, statusOrder.indexOf(request.status));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -157,10 +224,16 @@ export default function RequestDetailScreen() {
 
         {/* Actions */}
         {['pending_payment', 'approved_pending_payment', 'approved'].includes(request.status) && (
-          <Button title="Realizar Pagamento" onPress={handlePay} fullWidth icon={<Ionicons name="card" size={20} color={colors.white} />} />
+          <>
+            <Button title="Pagar com PIX" onPress={handlePayPix} fullWidth loading={payingPix} icon={<Ionicons name="qr-code" size={20} color={colors.white} />} />
+            <Button title="Pagar com Cartão" onPress={handlePayCard} variant="outline" fullWidth style={{ marginTop: spacing.sm }} icon={<Ionicons name="card" size={20} color={colors.primary} />} />
+          </>
         )}
         {request.signedDocumentUrl && (
-          <Button title="Baixar Documento Assinado" onPress={handleDownload} variant="outline" fullWidth style={{ marginTop: spacing.sm }} icon={<Ionicons name="download" size={20} color={colors.primary} />} />
+          <View style={styles.documentActions}>
+            <Button title="Visualizar Documento" onPress={handleViewDocument} variant="outline" fullWidth icon={<Ionicons name="eye" size={20} color={colors.primary} />} />
+            <Button title="Salvar / Compartilhar" onPress={handleSaveDocument} fullWidth style={{ marginTop: spacing.sm }} icon={<Ionicons name="download" size={20} color={colors.white} />} />
+          </View>
         )}
         {request.status === 'consultation_ready' && (
           <Button title="Entrar na Consulta" onPress={() => router.push(`/video/${request.id}`)} fullWidth style={{ marginTop: spacing.sm }} icon={<Ionicons name="videocam" size={20} color={colors.white} />} />
@@ -210,4 +283,5 @@ const styles = StyleSheet.create({
   timelineLabelActive: { color: colors.gray800, fontWeight: '500' },
   rejectCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md, backgroundColor: colors.errorLight },
   rejectText: { flex: 1, ...typography.bodySmall, color: colors.error },
+  documentActions: { marginTop: spacing.sm },
 });

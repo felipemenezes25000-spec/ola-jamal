@@ -39,4 +39,13 @@ public interface IPaymentService
     Task ProcessWebhookAsync(
         MercadoPagoWebhookDto? webhook,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtém URL do Checkout Pro para pagamento com cartão (e opcionalmente PIX na página do MP).
+    /// Cria um pagamento checkout_pro e retorna init_point + paymentId.
+    /// </summary>
+    Task<CheckoutProResponseDto> GetCheckoutProUrlAsync(
+        Guid requestId,
+        Guid userId,
+        CancellationToken cancellationToken = default);
 }

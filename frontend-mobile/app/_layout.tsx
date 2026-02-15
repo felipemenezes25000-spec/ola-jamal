@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import Constants from 'expo-constants';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -20,8 +21,9 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AuthProvider>
-      <PushNotificationProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <PushNotificationProvider>
         <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
@@ -31,6 +33,7 @@ export default function RootLayout() {
         <Stack.Screen name="request-detail/[id]" />
         <Stack.Screen name="doctor-request/[id]" />
         <Stack.Screen name="payment/[id]" />
+        <Stack.Screen name="payment/card" />
         <Stack.Screen name="certificate/upload" />
         <Stack.Screen name="video/[requestId]" />
         <Stack.Screen name="settings" />
@@ -40,7 +43,8 @@ export default function RootLayout() {
         <Stack.Screen name="about" />
         <Stack.Screen name="help-faq" />
       </Stack>
-      </PushNotificationProvider>
-    </AuthProvider>
+        </PushNotificationProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

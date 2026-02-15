@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -30,6 +31,20 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
         var payment = await paymentService.CreatePaymentAsync(request, userId, cancellationToken);
         logger.LogInformation("Payments CreatePayment OK: paymentId={PaymentId}", payment.Id);
         return Ok(payment);
+    }
+
+    /// <summary>
+    /// Obtém URL do Checkout Pro para pagamento com cartão. Abra a URL no navegador.
+    /// </summary>
+    [HttpGet("checkout-pro/{requestId}")]
+    [Authorize]
+    public async Task<IActionResult> GetCheckoutProUrl(
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await paymentService.GetCheckoutProUrlAsync(requestId, userId, cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>
@@ -104,6 +119,7 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
 
     /// <summary>
     /// Recebe webhooks do Mercado Pago. Valida assinatura HMAC-SHA256 quando WebhookSecret está configurado.
+    /// Aceita notificação por body JSON ou por query string (data.id/type ou id/topic), conforme documentação MP.
     /// </summary>
     [HttpPost("webhook")]
     [AllowAnonymous]
@@ -111,25 +127,100 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
         [FromBody] MercadoPagoWebhookDto? webhook,
         CancellationToken cancellationToken)
     {
-        var dataId = webhook?.Data != null && webhook.Data.TryGetValue("id", out var idVal) ? idVal?.ToString() : null;
-        logger.LogInformation("Payments Webhook: recebido, dataId={DataId}", dataId ?? "null");
+        // Id para HMAC: query (MP assina com parâmetros da URL) ou body (data.id)
+        var dataIdFromQuery = Request.Query["data.id"].FirstOrDefault() ?? Request.Query["id"].FirstOrDefault();
+        var dataIdFromBody = ExtractPaymentIdFromWebhook(webhook);
 
-        // Validar assinatura HMAC do Mercado Pago
+        // Fallback: ler body bruto se model binding falhou (ex: ngrok altera request)
+        if (string.IsNullOrWhiteSpace(dataIdFromBody) && string.IsNullOrWhiteSpace(dataIdFromQuery))
+        {
+            try
+            {
+                Request.EnableBuffering();
+                Request.Body.Position = 0;
+                using var reader = new StreamReader(Request.Body, leaveOpen: true);
+                var rawBody = await reader.ReadToEndAsync(cancellationToken);
+                Request.Body.Position = 0;
+                if (!string.IsNullOrWhiteSpace(rawBody))
+                {
+                    using var doc = JsonDocument.Parse(rawBody);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("data", out var dataEl) && dataEl.TryGetProperty("id", out var idEl))
+                    {
+                        dataIdFromBody = idEl.ValueKind == JsonValueKind.Number
+                            ? idEl.GetInt64().ToString()
+                            : idEl.GetString();
+                        if (webhook == null && !string.IsNullOrEmpty(dataIdFromBody))
+                        {
+                            var action = root.TryGetProperty("action", out var a) ? a.GetString() : "payment.updated";
+                            var data = new Dictionary<string, JsonElement> { ["id"] = idEl.Clone() };
+                            webhook = new MercadoPagoWebhookDto(action, dataIdFromBody, data);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Payments Webhook: falha ao parsear body bruto");
+            }
+        }
+
+        var dataIdForHmac = dataIdFromQuery ?? dataIdFromBody;
+        var dataIdForProcessing = dataIdFromQuery ?? dataIdFromBody;
+
+        logger.LogInformation("Payments Webhook: recebido, dataId={DataId}, fromQuery={FromQuery}",
+            dataIdForProcessing ?? "null", !string.IsNullOrEmpty(dataIdFromQuery));
+
+        if (string.IsNullOrWhiteSpace(dataIdForProcessing))
+        {
+            logger.LogWarning("Payments Webhook: sem id na query (data.id ou id) nem no body");
+            return BadRequest(new { error = "Missing payment id in query or body" });
+        }
+
+        // Montar DTO a partir da query quando o body vier vazio (alguns envios do MP só trazem query)
+        var topic = Request.Query["topic"].FirstOrDefault() ?? Request.Query["type"].FirstOrDefault();
+        if (webhook == null && !string.IsNullOrEmpty(dataIdForProcessing) && "payment".Equals(topic, StringComparison.OrdinalIgnoreCase))
+        {
+            using var doc = JsonDocument.Parse($"\"{dataIdForProcessing.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"");
+            var data = new Dictionary<string, JsonElement> { ["id"] = doc.RootElement.Clone() };
+            webhook = new MercadoPagoWebhookDto("payment.updated", dataIdForProcessing, data);
+        }
+
+        if (webhook == null)
+        {
+            using var doc = JsonDocument.Parse($"\"{dataIdForProcessing.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"");
+            var data = new Dictionary<string, JsonElement> { ["id"] = doc.RootElement.Clone() };
+            webhook = new MercadoPagoWebhookDto("payment.updated", dataIdForProcessing, data);
+        }
+
+        // Validar assinatura HMAC do Mercado Pago (usa id da URL quando presente, senão do body)
         var webhookSecret = mpConfig.Value.WebhookSecret;
         if (!string.IsNullOrWhiteSpace(webhookSecret) && !webhookSecret.Contains("YOUR_"))
         {
             var xSignature = Request.Headers["x-signature"].FirstOrDefault();
             var xRequestId = Request.Headers["x-request-id"].FirstOrDefault();
 
-            if (paymentService is PaymentService ps && !ps.ValidateWebhookSignature(xSignature, xRequestId, dataId))
+            if (paymentService is PaymentService ps && !ps.ValidateWebhookSignature(xSignature, xRequestId, dataIdForHmac))
             {
                 logger.LogWarning("Webhook MP rejeitado: assinatura HMAC inválida. x-signature={Sig}", xSignature);
                 return Unauthorized(new { error = "Invalid webhook signature" });
             }
         }
+
         await paymentService.ProcessWebhookAsync(webhook, cancellationToken);
         logger.LogInformation("Payments Webhook: processado com sucesso");
         return Ok();
+    }
+
+    private static string? ExtractPaymentIdFromWebhook(MercadoPagoWebhookDto? webhook)
+    {
+        if (webhook?.Data != null && webhook.Data.TryGetValue("id", out var idVal))
+        {
+            return idVal.ValueKind == JsonValueKind.Number
+                ? idVal.GetInt64().ToString()
+                : idVal.GetString();
+        }
+        return webhook?.Id;
     }
 
     private Guid GetUserId()

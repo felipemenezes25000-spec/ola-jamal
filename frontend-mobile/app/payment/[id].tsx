@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-linking';
+import * as Clipboard from 'expo-clipboard';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Loading } from '../../components/Loading';
@@ -45,12 +45,16 @@ export default function PaymentScreen() {
     finally { setLoading(false); }
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (payment?.pixCopyPaste) {
-      // Note: Clipboard API varies; using a simplified approach
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-      Alert.alert('Copiado!', 'Código PIX copiado para a área de transferência.');
+      try {
+        await Clipboard.setStringAsync(payment.pixCopyPaste);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+        Alert.alert('Copiado!', 'Código PIX copiado para a área de transferência.');
+      } catch {
+        Alert.alert('Erro', 'Não foi possível copiar o código.');
+      }
     }
   };
 
@@ -68,11 +72,17 @@ export default function PaymentScreen() {
   if (loading) return <SafeAreaView style={styles.container}><Loading color={colors.primary} message="Carregando pagamento..." /></SafeAreaView>;
   if (!payment) return <SafeAreaView style={styles.container}><Text style={styles.err}>Pagamento não encontrado</Text></SafeAreaView>;
 
+  const isCardPayment = ['checkout_pro', 'credit_card', 'debit_card'].includes(
+    (payment.paymentMethod || '').toLowerCase()
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.primaryDark} /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Pagamento PIX</Text>
+        <Text style={styles.headerTitle}>
+          {isCardPayment ? 'Pagamento com Cartão' : 'Pagamento PIX'}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -87,28 +97,44 @@ export default function PaymentScreen() {
           </View>
         </Card>
 
-        {/* QR Code area */}
+        {/* Content area */}
         {payment.status !== 'approved' && (
           <>
-            <Card style={styles.qrCard}>
-              <View style={styles.qrPlaceholder}>
-                {payment.pixQrCodeBase64 ? (
-                  <Text style={styles.qrHint}>QR Code disponível no app do banco</Text>
-                ) : (
-                  <View style={styles.qrBox}>
-                    <Ionicons name="qr-code" size={120} color={colors.gray300} />
+            {isCardPayment ? (
+              <Card style={styles.qrCard}>
+                <View style={styles.qrPlaceholder}>
+                  <Ionicons name="card" size={64} color={colors.primary} />
+                </View>
+                <Text style={styles.qrInstruction}>Complete o pagamento na janela do Mercado Pago que abriu.</Text>
+                <Text style={styles.checkoutHint}>Você pode fechar a janela e voltar aqui após pagar. O status será atualizado automaticamente.</Text>
+              </Card>
+            ) : (
+              <>
+                <Card style={styles.qrCard}>
+                  <View style={styles.qrPlaceholder}>
+                    {payment.pixQrCodeBase64 ? (
+                      <Image
+                        source={{ uri: `data:image/png;base64,${payment.pixQrCodeBase64}` }}
+                        style={styles.qrImage}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <View style={styles.qrBox}>
+                        <Ionicons name="qr-code" size={120} color={colors.gray300} />
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-              <Text style={styles.qrInstruction}>Escaneie o QR Code ou copie o código abaixo</Text>
-            </Card>
+                  <Text style={styles.qrInstruction}>Escaneie o QR Code ou copie o código abaixo</Text>
+                </Card>
 
             {/* PIX Copy-paste */}
             {payment.pixCopyPaste && (
               <Card style={styles.pixCard}>
                 <Text style={styles.pixLabel}>Código PIX Copia e Cola</Text>
                 <View style={styles.pixCodeBox}>
-                  <Text style={styles.pixCode} numberOfLines={3}>{payment.pixCopyPaste}</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.pixCodeScroll}>
+                    <Text style={styles.pixCode} selectable>{payment.pixCopyPaste}</Text>
+                  </ScrollView>
                 </View>
                 <Button
                   title={copied ? "Copiado!" : "Copiar Código"}
@@ -118,6 +144,8 @@ export default function PaymentScreen() {
                   icon={<Ionicons name={copied ? "checkmark" : "copy"} size={18} color={copied ? colors.white : colors.primary} />}
                 />
               </Card>
+            )}
+              </>
             )}
 
             <View style={styles.timerRow}>
@@ -168,7 +196,10 @@ const styles = StyleSheet.create({
   pixCard: { marginBottom: spacing.md },
   pixLabel: { ...typography.bodySmallMedium, color: colors.gray700, marginBottom: spacing.sm },
   pixCodeBox: { backgroundColor: colors.gray50, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md },
+  pixCodeScroll: { flexGrow: 0 },
   pixCode: { ...typography.caption, color: colors.gray600, fontFamily: 'monospace' },
+  qrImage: { width: 200, height: 200 },
+  checkoutHint: { ...typography.caption, color: colors.gray500, textAlign: 'center', marginTop: spacing.sm },
   timerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: spacing.lg },
   timerText: { ...typography.bodySmall, color: colors.gray500 },
   devBtn: { alignItems: 'center', padding: spacing.md, backgroundColor: colors.warningLight, borderRadius: borderRadius.lg },

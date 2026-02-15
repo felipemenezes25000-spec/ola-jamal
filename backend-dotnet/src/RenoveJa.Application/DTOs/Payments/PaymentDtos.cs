@@ -1,9 +1,11 @@
+using System.Text.Json;
+
 namespace RenoveJa.Application.DTOs.Payments;
 
 /// <summary>
 /// Requisição para criar pagamento. O valor é obtido da solicitação aprovada (não vem do cliente).
 /// PIX: envie apenas RequestId (ou PaymentMethod = "pix").
-/// Cartão: envie PaymentMethod = "credit_card" ou "debit_card", Token (do SDK do MP) e PaymentMethodId (ex: "visa", "master").
+/// Cartão: envie PaymentMethod, Token, PaymentMethodId. PayerEmail e PayerCpf vêm do formulário do Brick (qualquer pessoa pode pagar).
 /// </summary>
 public record CreatePaymentRequestDto(
     Guid RequestId,
@@ -11,7 +13,10 @@ public record CreatePaymentRequestDto(
     string? Token = null,
     int? Installments = 1,
     string? PaymentMethodId = null,
-    long? IssuerId = null);
+    long? IssuerId = null,
+    string? PayerEmail = null,
+    string? PayerCpf = null,
+    bool SaveCard = false);
 
 public record PaymentResponseDto(
     Guid Id,
@@ -29,8 +34,17 @@ public record PaymentResponseDto(
     DateTime UpdatedAt
 );
 
+/// <summary>
+/// Resposta do endpoint de Checkout Pro: URL para abrir no navegador e ID do pagamento para a tela.
+/// </summary>
+public record CheckoutProResponseDto(string InitPoint, Guid PaymentId);
+
+/// <summary>
+/// Payload do webhook do Mercado Pago. Aceita camelCase (action, id, data).
+/// MP pode enviar "action" (ex: "payment.created") ou "type" em algumas versões.
+/// </summary>
 public record MercadoPagoWebhookDto(
-    string Action,
+    string? Action,
     string? Id,
-    Dictionary<string, object>? Data
+    Dictionary<string, JsonElement>? Data
 );

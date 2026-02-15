@@ -209,6 +209,7 @@ public class DigitalCertificateService : IDigitalCertificateService
         Guid certificateId,
         byte[] pdfBytes,
         string outputFileName,
+        string? pfxPassword = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -231,11 +232,16 @@ public class DigitalCertificateService : IDigitalCertificateService
                 return new DigitalSignatureResult(false, "Arquivo do certificado não encontrado no storage.", null, null, null);
             }
 
-            // Descriptografa o PFX  
-            var pfxBytes = DecryptPfx(encryptedPfxData);
+            // Descriptografa o PFX (extrai bytes e senha armazenada)
+            var (pfxBytes, storedPassword) = DecryptPfxFull(encryptedPfxData);
+            var passwordToUse = !string.IsNullOrWhiteSpace(pfxPassword) ? pfxPassword : storedPassword;
+            if (string.IsNullOrWhiteSpace(passwordToUse))
+            {
+                return new DigitalSignatureResult(false, "Senha do certificado PFX é obrigatória para assinar. Envie PfxPassword no corpo da requisição.", null, null, null);
+            }
 
             // Assina o PDF com iText7 + BouncyCastle
-            var signedPdfBytes = SignPdfWithBouncyCastle(pfxBytes, pdfBytes, certificate);
+            var signedPdfBytes = SignPdfWithBouncyCastle(pfxBytes, passwordToUse, pdfBytes, certificate);
 
             // Upload do PDF assinado
             var signedPath = $"signed/{outputFileName}";
@@ -275,7 +281,7 @@ public class DigitalCertificateService : IDigitalCertificateService
         using var httpClient = new HttpClient();
         var pdfBytes = await httpClient.GetByteArrayAsync(pdfUrl, cancellationToken);
         
-        return await SignPdfAsync(certificateId, pdfBytes, outputFileName, cancellationToken);
+        return await SignPdfAsync(certificateId, pdfBytes, outputFileName, null, cancellationToken);
     }
 
     public async Task<bool> HasValidCertificateAsync(
@@ -337,15 +343,15 @@ public class DigitalCertificateService : IDigitalCertificateService
 
     /// <summary>
     /// Assina um PDF usando o PFX via iText7 BouncyCastle adapter.
-    /// Usa CAdES (ETSI.CAdES.detached) com SHA256, cadeia completa de certificados e timestamp TSA.
-    /// CAdES é aceito pelo validar.iti.gov.br para verificação de integridade.
+    /// Usa PAdES (padrão ISO/ETSI para assinatura de PDFs) com PKCS#7/CMS, SHA256, cadeia completa de certificados e timestamp TSA.
+    /// PAdES é aceito pelo validar.iti.gov.br para verificação de integridade.
     /// </summary>
-    private byte[] SignPdfWithBouncyCastle(byte[] pfxBytes, byte[] pdfBytes, DoctorCertificate certificate)
+    private byte[] SignPdfWithBouncyCastle(byte[] pfxBytes, string pfxPassword, byte[] pdfBytes, DoctorCertificate certificate)
     {
-        // Load PKCS12 store directly via BouncyCastle
+        // Load PKCS12 store with password (PFX is password-protected)
         using var pfxStream = new MemoryStream(pfxBytes);
         var store = new Pkcs12StoreBuilder().Build();
-        store.Load(pfxStream, Array.Empty<char>());
+        store.Load(pfxStream, (pfxPassword ?? "").ToCharArray());
 
         // Find the key alias
         string? keyAlias = null;
@@ -391,12 +397,13 @@ public class DigitalCertificateService : IDigitalCertificateService
         // Try to get a TSA client for timestamping
         ITSAClient? tsaClient = CreateTsaClient();
 
-        // Use CADES (ETSI.CAdES.detached) - accepted by validar.iti.gov.br
+        // PAdES (PKCS#7/CMS) - padrão ISO/ETSI para assinatura de PDFs.
+        // O validar.iti.gov.br aceita e valida. "Tipo: Destacada" no relatório ITI é normal; a assinatura é embedded e PAdES.
         // Estimated signature size: 8192 bytes to accommodate full chain + timestamp
-        signer.SignDetached(pks, certArray, null, null, tsaClient, 0, PdfSigner.CryptoStandard.CADES);
+        signer.SignDetached(pks, certArray, null, null, tsaClient, 0, PdfSigner.CryptoStandard.CMS);
 
         _logger.LogInformation(
-            "PDF assinado com CAdES (ETSI.CAdES.detached), SHA256, cadeia de {ChainLength} certificado(s){Tsa}",
+            "PDF assinado com PAdES (PKCS#7/CMS), SHA256, cadeia de {ChainLength} certificado(s){Tsa}",
             certArray.Length,
             tsaClient != null ? ", com timestamp TSA" : ", sem timestamp TSA");
 
@@ -519,10 +526,10 @@ public class DigitalCertificateService : IDigitalCertificateService
     }
 
     /// <summary>
-    /// Descriptografa para obter o PFX original.  
-    /// Retorna APENAS os bytes PFX (a senha é descartada; use DecryptPfxWithPassword se precisar).
+    /// Descriptografa para obter o PFX original e a senha armazenada.
+    /// Usado na assinatura: a senha é necessária para carregar o PKCS12.
     /// </summary>
-    private byte[] DecryptPfx(byte[] encryptedData)
+    private (byte[] PfxBytes, string? StoredPassword) DecryptPfxFull(byte[] encryptedData)
     {
         using var aes = Aes.Create();
         aes.Key = _encryptionKey;
@@ -533,11 +540,13 @@ public class DigitalCertificateService : IDigitalCertificateService
         var payload = decryptor.TransformFinalBlock(ciphertext, 0, ciphertext.Length);
 
         var passwordLen = BitConverter.ToInt32(payload, 0);
-        // skip password bytes; return PFX
+        var storedPassword = passwordLen > 0 && 4 + passwordLen <= payload.Length
+            ? Encoding.UTF8.GetString(payload, 4, passwordLen)
+            : null;
         var pfxStart = 4 + passwordLen;
         var pfxBytes = new byte[payload.Length - pfxStart];
         Buffer.BlockCopy(payload, pfxStart, pfxBytes, 0, pfxBytes.Length);
-        return pfxBytes;
+        return (pfxBytes, storedPassword);
     }
 
     #endregion

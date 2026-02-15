@@ -1,3 +1,4 @@
+using DotNetEnv;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Auth;
 using RenoveJa.Application.Services.Audit;
@@ -30,6 +31,9 @@ using Microsoft.Extensions.Logging;
 using System.Threading.RateLimiting;
 using Serilog;
 
+// Carrega .env da pasta do projeto (sobrescreve env vars; permite centralizar credenciais)
+Env.TraversePath().Load();
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
@@ -51,7 +55,11 @@ if (string.IsNullOrWhiteSpace(urlsEnv))
 builder.Host.UseSerilog();
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -110,6 +118,10 @@ builder.Services.Configure<DailyCoConfig>(
 // Configure Certificate Encryption
 builder.Services.Configure<CertificateEncryptionConfig>(
     builder.Configuration.GetSection(CertificateEncryptionConfig.SectionName));
+
+// Configure Verification (URL base do QR Code para validar.iti.gov.br)
+builder.Services.Configure<VerificationConfig>(
+    builder.Configuration.GetSection(VerificationConfig.SectionName));
 
 // In-memory cache
 builder.Services.AddMemoryCache();
@@ -272,6 +284,13 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+
+// Permite re-leitura do body em webhooks (ex.: Mercado Pago)
+app.Use(async (context, next) =>
+{
+    context.Request.EnableBuffering();
+    await next();
+});
 
 // Executa migrations no Postgres (ex.: password_reset_tokens) se Supabase:DatabaseUrl estiver configurada
 try
