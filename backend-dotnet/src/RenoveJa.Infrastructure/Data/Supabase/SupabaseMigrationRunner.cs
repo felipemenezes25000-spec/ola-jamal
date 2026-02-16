@@ -105,9 +105,9 @@ public static class SupabaseMigrationRunner
         """,
         "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON public.audit_logs(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON public.audit_logs(entity_type, entity_id)",
-        "CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(event_timestamp DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(created_at DESC)",
         "CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action)",
-        "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_timestamp ON public.audit_logs(user_id, event_timestamp DESC)"
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_timestamp ON public.audit_logs(user_id, created_at DESC)"
     };
 
     private static readonly string[] NotificationsMigrations =
@@ -173,7 +173,7 @@ public static class SupabaseMigrationRunner
             product_type TEXT NOT NULL,
             subtype TEXT NOT NULL DEFAULT 'default',
             price_brl DECIMAL(10,2) NOT NULL,
-            description TEXT,
+            name TEXT,
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -182,7 +182,7 @@ public static class SupabaseMigrationRunner
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_product_prices_unique ON public.product_prices(product_type, subtype)",
         "CREATE INDEX IF NOT EXISTS idx_product_prices_active ON public.product_prices(is_active)",
         """
-        INSERT INTO public.product_prices (product_type, subtype, price_brl, description, is_active)
+        INSERT INTO public.product_prices (product_type, subtype, price_brl, name, is_active)
         VALUES
             ('prescription', 'simples', 49.90, 'Receita simples', TRUE),
             ('prescription', 'controlado', 79.90, 'Receita controlada', TRUE),

@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  useWindowDimensions,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,9 +22,24 @@ import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
 import { ActionCard } from '../../components/ActionCard';
 
+const MIN_TOUCH = 44;
+const BP_SMALL = 376; // 2x2 em 320–375px, 4 cols acima
+
+const HEADER_TOP_EXTRA = 12;
+const HEADER_BOTTOM_BASE = 20;
+
 export default function PatientHome() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const [user, setUser] = useState<UserDto | null>(null);
+
+  const isSmall = screenWidth < BP_SMALL;
+  const statsGap = spacing.sm;
+  const horizontalPad = Math.max(spacing.md, screenWidth * 0.04);
+  const compact = screenWidth < 400;
+  const headerPaddingTop = insets.top + HEADER_TOP_EXTRA;
+  const headerPaddingBottom = compact ? HEADER_BOTTOM_BASE : spacing.lg;
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,55 +97,103 @@ export default function PatientHome() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
     >
-      {/* Gradient Header */}
-      <LinearGradient colors={['#0EA5E9', '#38BDF8', '#7DD3FC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+      {/* Gradient Header - safe area + respiro no topo */}
+      <LinearGradient colors={['#0EA5E9', '#38BDF8', '#7DD3FC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.header, { paddingHorizontal: horizontalPad, paddingTop: headerPaddingTop, paddingBottom: headerPaddingBottom }]}>
         <View style={styles.headerContent}>
-          <View style={styles.headerText}>
-            <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0] || 'Paciente'}! 👋</Text>
-            <Text style={styles.subtitle}>Gerencie suas solicitações médicas</Text>
+          <View style={[styles.headerText, { flex: 1, marginRight: spacing.md }]}>
+            <Text style={[styles.greeting, { fontSize: Math.min(24, Math.max(18, screenWidth * 0.06)) }]}>
+              Olá, {user?.name?.split(' ')[0] || 'Paciente'}! 👋
+            </Text>
+            <Text style={[styles.subtitle, { fontSize: Math.max(12, Math.min(14, screenWidth * 0.035)) }]}>
+              Gerencie suas solicitações médicas
+            </Text>
           </View>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={28} color={colors.primary} />
-          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.avatar,
+              { minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, width: Math.max(MIN_TOUCH, screenWidth * 0.12), height: Math.max(MIN_TOUCH, screenWidth * 0.12), borderRadius: Math.max(22, screenWidth * 0.06), opacity: pressed ? 0.8 : 1 },
+            ]}
+            onPress={() => router.push('/(patient)/profile')}
+            hitSlop={8}
+          >
+            <Ionicons name="person" size={isSmall ? 24 : 28} color={colors.primary} />
+          </Pressable>
         </View>
       </LinearGradient>
 
-      {/* Stats Row */}
-      <View style={styles.statsRow}>
-        <StatsCard icon="folder-open" iconColor="#3B82F6" label="Total" value={stats.total} />
-        <StatsCard icon="time" iconColor="#F59E0B" label="Pendente" value={stats.pending} />
-        <StatsCard icon="card" iconColor="#F97316" label="A Pagar" value={stats.toPay} />
-        <StatsCard icon="checkmark-circle" iconColor="#10B981" label="Prontos" value={stats.ready} />
+      {/* Stats Grid - 2x2 em 320–375px, 4 cols acima */}
+      <View style={[styles.statsRow, { paddingHorizontal: horizontalPad, gap: statsGap, marginTop: compact ? -spacing.sm : -spacing.md, flexWrap: 'wrap', flexDirection: 'row' }]}>
+        {[
+          { icon: 'folder-open' as const, iconColor: '#3B82F6', label: 'Total', value: stats.total },
+          { icon: 'time' as const, iconColor: '#F59E0B', label: 'Pendente', value: stats.pending },
+          { icon: 'card' as const, iconColor: '#F97316', label: 'A Pagar', value: stats.toPay },
+          { icon: 'checkmark-circle' as const, iconColor: '#10B981', label: 'Prontos', value: stats.ready },
+        ].map((s) => (
+          <View
+            key={s.label}
+            style={{
+              flexBasis: isSmall ? '47%' : '23%',
+              flexGrow: isSmall ? 0 : 1,
+              flexShrink: 0,
+              minWidth: 0,
+            }}
+          >
+            <StatsCard icon={s.icon} iconColor={s.iconColor} label={s.label} value={s.value} />
+          </View>
+        ))}
       </View>
 
-      {/* New Request Actions */}
-      <Text style={styles.sectionTitle}>Nova Solicitação</Text>
-      <View style={styles.actionsRow}>
-        <ActionCard
-          icon="document-text"
-          iconColor="#0EA5E9"
-          label="Nova Receita"
-          onPress={() => router.push('/new-request/prescription')}
-        />
-        <ActionCard
-          icon="flask"
-          iconColor="#8B5CF6"
-          label="Novo Exame"
-          onPress={() => router.push('/new-request/exam')}
-        />
-        <ActionCard
-          icon="videocam"
-          iconColor="#10B981"
-          label="Consulta Online"
-          onPress={() => router.push('/new-request/consultation')}
-        />
+      {/* Nova Solicitação - above the fold */}
+      <Text
+        style={[
+          styles.sectionTitle,
+          {
+            marginHorizontal: horizontalPad,
+            marginTop: compact ? spacing.md : spacing.lg,
+            marginBottom: compact ? spacing.sm : spacing.md,
+            fontSize: Math.max(16, Math.min(18, screenWidth * 0.048)),
+          },
+        ]}
+      >
+        Nova Solicitação
+      </Text>
+      <View style={[styles.actionsRow, { paddingHorizontal: horizontalPad, flexDirection: 'row', gap: spacing.sm, flexWrap: 'nowrap' }]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <ActionCard
+            compact
+            icon="document-text"
+            iconColor="#0EA5E9"
+            label="Nova Receita"
+            onPress={() => router.push('/new-request/prescription')}
+          />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <ActionCard
+            compact
+            icon="flask"
+            iconColor="#8B5CF6"
+            label="Novo Exame"
+            onPress={() => router.push('/new-request/exam')}
+          />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <ActionCard
+            compact
+            icon="videocam"
+            iconColor="#10B981"
+            label="Consulta Online"
+            onPress={() => router.push('/new-request/consultation')}
+          />
+        </View>
       </View>
 
       {/* Recent Requests */}
       {recentRequests.length > 0 && (
         <>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Solicitações Recentes</Text>
+          <View style={[styles.sectionHeader, { marginHorizontal: horizontalPad, marginBottom: spacing.md }]}>
+            <Text style={[styles.sectionTitle, { fontSize: Math.max(16, Math.min(18, screenWidth * 0.045)) }]}>
+              Solicitações Recentes
+            </Text>
             <TouchableOpacity onPress={() => router.push('/(patient)/requests')}>
               <Text style={styles.seeAll}>Ver todas</Text>
             </TouchableOpacity>
@@ -143,10 +209,14 @@ export default function PatientHome() {
       )}
 
       {requests.length === 0 && (
-        <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={64} color={colors.border} />
-          <Text style={styles.emptyTitle}>Nenhuma solicitação</Text>
-          <Text style={styles.emptySubtitle}>Crie sua primeira solicitação acima</Text>
+        <View style={[styles.emptyState, { paddingHorizontal: horizontalPad }]}>
+          <Ionicons name="document-text-outline" size={Math.min(64, Math.max(48, screenWidth * 0.15))} color={colors.border} />
+          <Text style={[styles.emptyTitle, { fontSize: Math.max(16, Math.min(18, screenWidth * 0.045)) }]}>
+            Nenhuma solicitação
+          </Text>
+          <Text style={[styles.emptySubtitle, { fontSize: Math.max(12, Math.min(14, screenWidth * 0.035)) }]}>
+            Crie sua primeira solicitação acima
+          </Text>
         </View>
       )}
     </ScrollView>
@@ -193,9 +263,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    borderRadius: 9999,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -207,12 +275,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 18,
     fontWeight: '700',
     color: colors.text,
     marginHorizontal: spacing.md,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -226,7 +291,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionsRow: {
-    flexDirection: 'row',
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },

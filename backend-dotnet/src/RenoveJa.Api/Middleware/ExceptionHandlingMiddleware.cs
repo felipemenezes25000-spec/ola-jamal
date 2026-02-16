@@ -22,7 +22,12 @@ public class ExceptionHandlingMiddleware(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred: {Message}", ex.Message);
+            var path = context.Request.Path.Value ?? "";
+            var method = context.Request.Method;
+            logger.LogError(ex,
+                "[EXCEPTION] {Method} {Path} | Tipo={ExceptionType} | Message={Message} | InnerException={Inner}",
+                method, path, ex.GetType().Name, ex.Message,
+                ex.InnerException?.Message ?? "-");
             await HandleExceptionAsync(context, ex);
         }
     }

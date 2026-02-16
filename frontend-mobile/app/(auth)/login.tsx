@@ -53,7 +53,16 @@ export default function Login() {
         router.replace('/(patient)/home');
       }
     } catch (error: any) {
-      Alert.alert('Erro no login', error?.message || 'Email ou senha incorretos.');
+      const status = error?.status;
+      const msg = error?.message || error?.toString?.() || 'Email ou senha incorretos.';
+      // Erro de rede (fetch falhou antes de receber resposta)
+      const isNetworkError = !status && (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network'));
+      const title = isNetworkError ? 'Erro de conexão' : 'Erro no login';
+      const detail = isNetworkError
+        ? `${msg}\n\nVerifique se a API está rodando e se o dispositivo alcança o servidor (em dispositivo físico use EXPO_PUBLIC_API_URL=http://SEU_IP:5000).`
+        : msg;
+      if (__DEV__) console.warn('[Login] Erro:', { status, message: msg, error });
+      Alert.alert(title, detail);
     } finally {
       setLoading(false);
     }

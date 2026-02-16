@@ -408,6 +408,80 @@ public class PaymentService(
     }
 
     /// <summary>
+    /// Sincroniza o status de um pagamento com a API do Mercado Pago. Útil quando o webhook falha.
+    /// </summary>
+    public async Task<PaymentResponseDto?> SyncPaymentStatusAsync(
+        Guid requestId,
+        CancellationToken cancellationToken = default)
+    {
+        var payment = await paymentRepository.GetByRequestIdAsync(requestId, cancellationToken);
+        if (payment == null)
+            return null;
+
+        if (!payment.IsPending())
+            return MapToDto(payment);
+
+        // Se não tem externalId, tenta buscar pelos detalhes do pagamento
+        if (string.IsNullOrEmpty(payment.ExternalId))
+        {
+            logger.LogWarning("SyncPaymentStatus: pagamento {PaymentId} não tem ExternalId do Mercado Pago", payment.Id);
+            return MapToDto(payment);
+        }
+
+        // Verifica status real na API do Mercado Pago
+        var realStatus = await mercadoPagoService.GetPaymentStatusAsync(payment.ExternalId, cancellationToken);
+        if (string.IsNullOrEmpty(realStatus))
+        {
+            logger.LogWarning("SyncPaymentStatus: não foi possível verificar status do pagamento {PaymentId} na API do MP", payment.ExternalId);
+            return MapToDto(payment);
+        }
+
+        logger.LogInformation("SyncPaymentStatus: pagamento {PaymentId} status real = {Status}", payment.ExternalId, realStatus);
+
+        if (realStatus.Equals("approved", StringComparison.OrdinalIgnoreCase))
+        {
+            payment.Approve();
+            await paymentRepository.UpdateAsync(payment, cancellationToken);
+
+            var request = await requestRepository.GetByIdAsync(payment.RequestId, cancellationToken);
+            if (request != null)
+            {
+                request.MarkAsPaid();
+                await requestRepository.UpdateAsync(request, cancellationToken);
+
+                await CreateNotificationAsync(
+                    payment.UserId,
+                    "Pagamento Confirmado",
+                    "Seu pagamento foi confirmado!",
+                    cancellationToken);
+
+                if (request.DoctorId.HasValue)
+                {
+                    await CreateNotificationAsync(
+                        request.DoctorId.Value,
+                        "Pagamento Recebido",
+                        $"O paciente pagou a solicitação. Valor: R$ {payment.Amount.Amount:F2}.",
+                        cancellationToken);
+                }
+            }
+        }
+        else if (realStatus.Equals("rejected", StringComparison.OrdinalIgnoreCase) ||
+                 realStatus.Equals("cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            payment.Reject();
+            await paymentRepository.UpdateAsync(payment, cancellationToken);
+
+            await CreateNotificationAsync(
+                payment.UserId,
+                "Pagamento não aprovado",
+                "Seu pagamento não foi aprovado. Tente outro cartão ou forma de pagamento.",
+                cancellationToken);
+        }
+
+        return MapToDto(payment);
+    }
+
+    /// <summary>
     /// Validates the HMAC-SHA256 signature from MercadoPago webhook.
     /// </summary>
     public bool ValidateWebhookSignature(string? xSignature, string? xRequestId, string? dataId)

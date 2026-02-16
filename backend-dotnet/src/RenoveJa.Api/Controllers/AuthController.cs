@@ -30,6 +30,7 @@ public class AuthController(IAuthService authService, ILogger<AuthController> lo
         }
         catch (Exception e)
         {
+            Console.WriteLine(e.Message);
             logger.LogError(e, "Auth Register falhou: {Email}", request.Email);
             throw;
         }
@@ -55,8 +56,19 @@ public class AuthController(IAuthService authService, ILogger<AuthController> lo
         [FromBody] LoginRequestDto request,
         CancellationToken cancellationToken)
     {
-        var response = await authService.LoginAsync(request, cancellationToken);
-        return Ok(response);
+        try
+        {
+            logger.LogInformation("[Auth] Login attempt: Email={Email}", request?.Email ?? "(null)");
+            var response = await authService.LoginAsync(request!, cancellationToken);
+            logger.LogInformation("[Auth] Login success: Email={Email} UserId={UserId}", request!.Email, response.User.Id);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[Auth] Login failed: Email={Email} | Exception={Type} | Message={Message}",
+                request?.Email ?? "(null)", ex.GetType().Name, ex.Message);
+            throw;
+        }
     }
 
     /// <summary>

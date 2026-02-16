@@ -93,6 +93,9 @@ public record ReanalyzePrescriptionDto(IReadOnlyList<string> PrescriptionImageUr
 /// <summary>Reanalisar pedido de exame com novas imagens e/ou texto.</summary>
 public record ReanalyzeExamDto(IReadOnlyList<string>? ExamImageUrls = null, string? TextDescription = null);
 
+/// <summary>Encerrar consulta: notas clínicas opcionais.</summary>
+public record FinishConsultationDto(string? ClinicalNotes = null);
+
 /// <summary>Resposta do accept-consultation. video_room em snake_case para compatibilidade com frontend.</summary>
 public record AcceptConsultationResponseDto(
     RequestResponseDto Request,

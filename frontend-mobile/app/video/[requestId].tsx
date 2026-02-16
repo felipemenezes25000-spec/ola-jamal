@@ -1,21 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { colors, spacing, borderRadius } from '../../lib/theme';
-import { createVideoRoom } from '../../lib/api';
+import { createVideoRoom, startConsultation, finishConsultation } from '../../lib/api';
 import { VideoRoomResponseDto } from '../../types/database';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function VideoCallScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
+  const { user } = useAuth();
   const [room, setRoom] = useState<VideoRoomResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ending, setEnding] = useState(false);
+  const startCalledRef = useRef(false);
 
   useEffect(() => { initRoom(); }, [requestId]);
+
+  useEffect(() => {
+    if (room && user?.role === 'doctor' && requestId && !startCalledRef.current) {
+      startCalledRef.current = true;
+      startConsultation(requestId).catch(() => {});
+    }
+  }, [room, user?.role, requestId]);
 
   const initRoom = async () => {
     try {
@@ -32,7 +43,23 @@ export default function VideoCallScreen() {
   const handleEnd = () => {
     Alert.alert('Encerrar', 'Deseja encerrar a videochamada?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Encerrar', style: 'destructive', onPress: () => router.back() },
+      {
+        text: 'Encerrar',
+        style: 'destructive',
+        onPress: async () => {
+          if (user?.role === 'doctor' && requestId) {
+            setEnding(true);
+            try {
+              await finishConsultation(requestId);
+            } catch (e: any) {
+              Alert.alert('Erro', e?.message || 'Não foi possível encerrar.');
+            } finally {
+              setEnding(false);
+            }
+          }
+          router.back();
+        },
+      },
     ]);
   };
 
@@ -66,8 +93,8 @@ export default function VideoCallScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Consulta em Andamento</Text>
-        <TouchableOpacity style={styles.endBtn} onPress={handleEnd}>
-          <Ionicons name="call" size={20} color="#fff" />
+        <TouchableOpacity style={styles.endBtn} onPress={handleEnd} disabled={ending}>
+          {ending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="call" size={20} color="#fff" />}
         </TouchableOpacity>
       </View>
       <View style={styles.webviewContainer}>

@@ -35,18 +35,33 @@ class ApiClient {
     return {};
   }
 
+  /** Headers comuns a todas as requisições (ex.: ngrok exige header para não devolver página HTML no browser). */
+  private getCommonHeaders(): Record<string, string> {
+    const isNgrok = this.baseUrl.includes('ngrok');
+    return isNgrok ? { 'ngrok-skip-browser-warning': 'true' } : {};
+  }
+
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      let errorMessage = 'Ocorreu um erro na requisição';
+      let errorMessage = `Erro ${response.status}: Ocorreu um erro na requisição`;
       let errors: Record<string, string[]> | undefined;
 
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorData.title || errorMessage;
-        errors = errorData.errors;
+        const text = await response.text();
+        if (text) {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorData.title || errorData.detail || `${response.status} ${response.statusText}`;
+          errors = errorData.errors;
+        } else {
+          errorMessage = `${response.status} ${response.statusText}`;
+        }
       } catch {
-        // If parsing fails, use status text
-        errorMessage = response.statusText || errorMessage;
+        errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}`;
+      }
+
+      // Log para debug (aparece no console do Metro/Expo)
+      if (__DEV__) {
+        console.warn('[API] Erro:', response.status, errorMessage);
       }
 
       const error: ApiError = {
@@ -63,11 +78,14 @@ class ApiClient {
       return {} as T;
     }
 
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
       return await response.json();
     }
-
+    // Ngrok (ou outro proxy) pode devolver HTML de "browser warning" em vez do JSON; o header ngrok-skip-browser-warning evita isso.
+    if (contentType.includes('text/html') && __DEV__) {
+      console.warn('[API] Resposta 200 com content-type text/html (possível página ngrok). Use baseUrl com ngrok-skip-browser-warning.');
+    }
     // For text responses (like PIX code)
     return (await response.text()) as unknown as T;
   }
@@ -92,7 +110,7 @@ class ApiClient {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: { ...authHeaders },
+      headers: { ...this.getCommonHeaders(), ...authHeaders },
     });
 
     return this.handleResponse<T>(response);
@@ -103,7 +121,7 @@ class ApiClient {
     const authHeaders = await this.getAuthHeader();
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'GET',
-      headers: { ...authHeaders },
+      headers: { ...this.getCommonHeaders(), ...authHeaders },
     });
     if (!response.ok) {
       let msg = 'Erro ao obter recurso';
@@ -120,6 +138,7 @@ class ApiClient {
     const authHeaders = await this.getAuthHeader();
 
     const headers: Record<string, string> = {
+      ...this.getCommonHeaders(),
       ...authHeaders,
     };
 
@@ -148,6 +167,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'PUT',
       headers: {
+        ...this.getCommonHeaders(),
         'Content-Type': 'application/json',
         ...authHeaders,
       },
@@ -163,6 +183,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'PATCH',
       headers: {
+        ...this.getCommonHeaders(),
         'Content-Type': 'application/json',
         ...authHeaders,
       },
@@ -178,6 +199,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'DELETE',
       headers: {
+        ...this.getCommonHeaders(),
         ...authHeaders,
       },
     });

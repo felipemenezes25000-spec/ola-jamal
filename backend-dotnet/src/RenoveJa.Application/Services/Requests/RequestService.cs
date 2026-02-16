@@ -185,12 +185,22 @@ public class RequestService(
         string? type = null,
         CancellationToken cancellationToken = default)
     {
+        logger.LogInformation("[GetUserRequests] userId={UserId}", userId);
+        Console.WriteLine($"[GetUserRequests] userId={userId}");
+
         // Check if user is a doctor
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
+        logger.LogInformation("[GetUserRequests] user from DB: Id={UserId}, Role={Role}, Email={Email}",
+            user?.Id, user?.Role.ToString(), user?.Email ?? "(null)");
+        Console.WriteLine($"[GetUserRequests] user from DB: Id={user?.Id}, Role={user?.Role}, Email={user?.Email ?? "(null)"}");
+
         List<MedicalRequest> requests;
 
         if (user?.Role == UserRole.Doctor)
         {
+            logger.LogInformation("[GetUserRequests] branch: Doctor - fetching assigned + available (submitted/paid, no doctor_id)");
+            Console.WriteLine("[GetUserRequests] branch: Doctor - fetching assigned + available");
+
             // For doctors: get requests assigned to them + available requests (no doctor, paid/submitted)
             var doctorRequests = await requestRepository.GetByDoctorIdAsync(userId, cancellationToken);
             var availableRequests = await requestRepository.GetByStatusAsync(RequestStatus.Paid, cancellationToken);
@@ -200,14 +210,26 @@ public class RequestService(
                 .Where(r => r.DoctorId == null || r.DoctorId == Guid.Empty)
                 .ToList();
 
+            logger.LogInformation("[GetUserRequests] doctor: assignedCount={Assigned}, paidAvailable={Paid}, submittedAvailable={Submitted}, availableAfterFilter={Available}",
+                doctorRequests.Count, availableRequests.Count, submittedRequests.Count, available.Count);
+            Console.WriteLine($"[GetUserRequests] doctor: assigned={doctorRequests.Count}, paidAvailable={availableRequests.Count}, submittedAvailable={submittedRequests.Count}, availableAfterFilter={available.Count}");
+
             requests = doctorRequests.Concat(available)
                 .DistinctBy(r => r.Id)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToList();
+
+            logger.LogInformation("[GetUserRequests] doctor: totalRequests={Total}, requestIds={Ids}",
+                requests.Count, string.Join(", ", requests.Take(5).Select(r => r.Id.ToString())));
+            Console.WriteLine($"[GetUserRequests] doctor: totalRequests={requests.Count}, requestIds={string.Join(", ", requests.Take(5).Select(r => r.Id.ToString()))}");
         }
         else
         {
+            logger.LogInformation("[GetUserRequests] branch: Patient (or user not found) - fetching by patient_id");
+            Console.WriteLine("[GetUserRequests] branch: Patient (or user not found)");
             requests = await requestRepository.GetByPatientIdAsync(userId, cancellationToken);
+            logger.LogInformation("[GetUserRequests] patient: totalRequests={Total}", requests.Count);
+            Console.WriteLine($"[GetUserRequests] patient: totalRequests={requests.Count}");
         }
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -222,7 +244,10 @@ public class RequestService(
             requests = requests.Where(r => r.RequestType == typeEnum).ToList();
         }
 
-        return requests.Select(MapRequestToDto).ToList();
+        var result = requests.Select(MapRequestToDto).ToList();
+        logger.LogInformation("[GetUserRequests] final count after filters: {Count}", result.Count);
+        Console.WriteLine($"[GetUserRequests] final count after filters: {result.Count}");
+        return result;
     }
 
     /// <summary>
@@ -474,6 +499,72 @@ public class RequestService(
             cancellationToken);
 
         return (MapRequestToDto(request), MapVideoRoomToDto(videoRoom));
+    }
+
+    /// <summary>
+    /// Médico inicia a consulta (status Paid → InConsultation).
+    /// </summary>
+    public async Task<RequestResponseDto> StartConsultationAsync(Guid id, Guid doctorId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null)
+            throw new KeyNotFoundException("Request not found");
+
+        if (request.RequestType != RequestType.Consultation)
+            throw new InvalidOperationException("Only consultation requests can be started");
+
+        if (request.DoctorId != doctorId)
+            throw new UnauthorizedAccessException("Only the assigned doctor can start this consultation");
+
+        if (request.Status != RequestStatus.Paid)
+            throw new InvalidOperationException("Consultation can only be started after payment is confirmed");
+
+        request.StartConsultation();
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+        await CreateNotificationAsync(
+            request.PatientId,
+            "Consulta Iniciada",
+            "A consulta começou! Entre na sala de vídeo.",
+            cancellationToken);
+
+        return MapRequestToDto(request);
+    }
+
+    /// <summary>
+    /// Médico encerra a consulta: persiste notas, deleta sala Daily e notifica paciente.
+    /// </summary>
+    public async Task<RequestResponseDto> FinishConsultationAsync(Guid id, Guid doctorId, FinishConsultationDto? dto, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null)
+            throw new KeyNotFoundException("Request not found");
+
+        if (request.RequestType != RequestType.Consultation)
+            throw new InvalidOperationException("Only consultation requests can be finished");
+
+        if (request.DoctorId != doctorId)
+            throw new UnauthorizedAccessException("Only the assigned doctor can finish this consultation");
+
+        if (request.Status != RequestStatus.InConsultation)
+            throw new InvalidOperationException("Consultation must be in progress to be finished");
+
+        request.FinishConsultation(dto?.ClinicalNotes);
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+        var videoRoom = await videoRoomRepository.GetByRequestIdAsync(id, cancellationToken);
+        if (videoRoom != null && !string.IsNullOrWhiteSpace(videoRoom.RoomName))
+        {
+            await dailyVideoService.DeleteRoomAsync(videoRoom.RoomName, cancellationToken);
+        }
+
+        await CreateNotificationAsync(
+            request.PatientId,
+            "Consulta Finalizada",
+            "Sua consulta foi encerrada. Obrigado!",
+            cancellationToken);
+
+        return MapRequestToDto(request);
     }
 
     /// <summary>
@@ -850,6 +941,64 @@ public class RequestService(
 
         var result = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
         return result.Success ? result.PdfBytes : null;
+    }
+
+    /// <summary>
+    /// Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF.
+    /// </summary>
+    public async Task<RequestResponseDto> MarkDeliveredAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null)
+            throw new KeyNotFoundException("Request not found");
+
+        if (request.PatientId != userId)
+            throw new UnauthorizedAccessException("Only the patient can mark the document as delivered");
+
+        request.Deliver();
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+        return MapRequestToDto(request);
+    }
+
+    private static readonly HashSet<RequestStatus> CancellableStatuses =
+    [
+        RequestStatus.Submitted,
+        RequestStatus.InReview,
+        RequestStatus.ApprovedPendingPayment,
+        RequestStatus.PendingPayment,
+        RequestStatus.SearchingDoctor,
+        RequestStatus.ConsultationReady
+    ];
+
+    /// <summary>
+    /// Paciente cancela o pedido. Só é permitido antes do pagamento (submitted, in_review, approved_pending_payment, searching_doctor, consultation_ready).
+    /// </summary>
+    public async Task<RequestResponseDto> CancelAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null)
+            throw new KeyNotFoundException("Request not found");
+
+        if (request.PatientId != userId)
+            throw new UnauthorizedAccessException("Only the patient can cancel this request");
+
+        if (!CancellableStatuses.Contains(request.Status))
+            throw new InvalidOperationException("Request can only be cancelled before payment is confirmed");
+
+        request.Cancel();
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+        if (request.DoctorId.HasValue)
+        {
+            await CreateNotificationAsync(
+                request.DoctorId.Value,
+                "Pedido Cancelado",
+                "O paciente cancelou o pedido.",
+                cancellationToken);
+        }
+
+        return MapRequestToDto(request);
     }
 
     private async Task CreateNotificationAsync(

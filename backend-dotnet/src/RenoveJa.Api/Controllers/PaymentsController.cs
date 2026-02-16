@@ -118,6 +118,22 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
     }
 
     /// <summary>
+    /// Sincroniza o status do pagamento com a API do Mercado Pago. Útil quando o webhook falha.
+    /// Use o ID da solicitação (requestId), não o ID do pagamento.
+    /// </summary>
+    [HttpPost("sync-status/{requestId}")]
+    [Authorize]
+    public async Task<IActionResult> SyncPaymentStatus(
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        var payment = await paymentService.SyncPaymentStatusAsync(requestId, cancellationToken);
+        if (payment == null)
+            return NotFound(new { message = "Nenhum pagamento encontrado para esta solicitação" });
+        return Ok(payment);
+    }
+
+    /// <summary>
     /// Recebe webhooks do Mercado Pago. Valida assinatura HMAC-SHA256 quando WebhookSecret está configurado.
     /// Aceita notificação por body JSON ou por query string (data.id/type ou id/topic), conforme documentação MP.
     /// </summary>
@@ -127,75 +143,193 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
         [FromBody] MercadoPagoWebhookDto? webhook,
         CancellationToken cancellationToken)
     {
-        // Id para HMAC: query (MP assina com parâmetros da URL) ou body (data.id)
-        var dataIdFromQuery = Request.Query["data.id"].FirstOrDefault() ?? Request.Query["id"].FirstOrDefault();
-        var dataIdFromBody = ExtractPaymentIdFromWebhook(webhook);
+        // LOG INICIAL: capturar informações antes de qualquer processamento
+        var queryStringRaw = Request.QueryString.Value ?? "";
+        var contentType = Request.ContentType ?? "null";
+        var contentLength = Request.ContentLength ?? 0;
+        var queryKeys = string.Join(", ", Request.Query.Keys);
+        
+        Console.WriteLine($"[WEBHOOK-IN] QueryString={queryStringRaw}, ContentType={contentType}, ContentLength={contentLength}, QueryKeys=[{queryKeys}]");
+        logger.LogInformation("[WEBHOOK-IN] QueryString={QueryString}, ContentType={ContentType}, ContentLength={ContentLength}, QueryKeys=[{QueryKeys}]",
+            queryStringRaw, contentType, contentLength, queryKeys);
+        
+        // DIAGNÓSTICO CORRIGIDO: O Mercado Pago envia webhook com body JSON completo:
+        // { "action": "payment.updated", "data": { "id": "145782442303" }, ... }
+        // O model binding [FromBody] pode falhar se o body já foi consumido ou se há problemas de encoding.
+        // Por isso SEMPRE lemos o body bruto primeiro para garantir que conseguimos extrair o data.id.
+        
+        string? dataIdFromBody = null;
+        string? actionFromBody = null;
+        MercadoPagoWebhookDto? parsedWebhook = webhook;
 
-        // Fallback: ler body bruto se model binding falhou (ex: ngrok altera request)
-        if (string.IsNullOrWhiteSpace(dataIdFromBody) && string.IsNullOrWhiteSpace(dataIdFromQuery))
+        // SEMPRE ler body bruto primeiro (EnableBuffering já foi chamado no middleware)
+        try
         {
-            try
+            Console.WriteLine($"[WEBHOOK-BODY] Tentando ler body. Body.Position antes: {Request.Body.Position}, CanSeek: {Request.Body.CanSeek}");
+            Request.Body.Position = 0;
+            using var reader = new StreamReader(Request.Body, System.Text.Encoding.UTF8);
+            var rawBody = await reader.ReadToEndAsync(cancellationToken);
+            Request.Body.Position = 0;
+
+            var bodyPreview = rawBody != null && rawBody.Length > 0 
+                ? rawBody.Substring(0, Math.Min(500, rawBody.Length))
+                : "(vazio)";
+            
+            Console.WriteLine($"[WEBHOOK-BODY] Body lido. Length={rawBody?.Length ?? 0}, Preview={bodyPreview}");
+            logger.LogInformation("Payments Webhook: body length={Length}, contentType={ContentType}, preview={Preview}", 
+                rawBody?.Length ?? 0, Request.ContentType ?? "null", bodyPreview);
+
+            if (!string.IsNullOrWhiteSpace(rawBody))
             {
-                Request.EnableBuffering();
-                Request.Body.Position = 0;
-                using var reader = new StreamReader(Request.Body, leaveOpen: true);
-                var rawBody = await reader.ReadToEndAsync(cancellationToken);
-                Request.Body.Position = 0;
-                if (!string.IsNullOrWhiteSpace(rawBody))
+                try
                 {
                     using var doc = JsonDocument.Parse(rawBody);
                     var root = doc.RootElement;
-                    if (root.TryGetProperty("data", out var dataEl) && dataEl.TryGetProperty("id", out var idEl))
+                    
+                    JsonElement dataEl = default;
+                    JsonElement idEl = default;
+                    
+                    // Extrair data.id do JSON (formato: { "data": { "id": "145782442303" } })
+                    if (root.TryGetProperty("data", out dataEl) && dataEl.TryGetProperty("id", out idEl))
                     {
                         dataIdFromBody = idEl.ValueKind == JsonValueKind.Number
                             ? idEl.GetInt64().ToString()
                             : idEl.GetString();
-                        if (webhook == null && !string.IsNullOrEmpty(dataIdFromBody))
+                    }
+                    
+                    // Extrair action (formato: { "action": "payment.updated" })
+                    if (root.TryGetProperty("action", out var actionEl))
+                    {
+                        actionFromBody = actionEl.GetString();
+                    }
+                    else if (root.TryGetProperty("type", out var typeEl))
+                    {
+                        // Fallback: alguns webhooks usam "type" ao invés de "action"
+                        var type = typeEl.GetString();
+                        if (type?.Equals("payment", StringComparison.OrdinalIgnoreCase) == true)
+                            actionFromBody = "payment.updated";
+                    }
+
+                    // Construir DTO se model binding falhou ou se queremos garantir que temos os dados corretos
+                    if (parsedWebhook == null && !string.IsNullOrEmpty(dataIdFromBody))
+                    {
+                        var dataDict = new Dictionary<string, JsonElement>();
+                        if (dataEl.ValueKind == JsonValueKind.Object)
                         {
-                            var action = root.TryGetProperty("action", out var a) ? a.GetString() : "payment.updated";
-                            var data = new Dictionary<string, JsonElement> { ["id"] = idEl.Clone() };
-                            webhook = new MercadoPagoWebhookDto(action, dataIdFromBody, data);
+                            foreach (var prop in dataEl.EnumerateObject())
+                                dataDict[prop.Name] = prop.Value.Clone();
                         }
+                        else if (idEl.ValueKind != JsonValueKind.Null && idEl.ValueKind != JsonValueKind.Undefined)
+                        {
+                            dataDict["id"] = idEl.Clone();
+                        }
+                        
+                        parsedWebhook = new MercadoPagoWebhookDto(
+                            actionFromBody ?? "payment.updated",
+                            dataIdFromBody,
+                            dataDict
+                        );
+                    }
+                    else if (parsedWebhook != null && string.IsNullOrEmpty(dataIdFromBody))
+                    {
+                        // Se model binding funcionou mas não extraímos data.id, tentar do DTO
+                        dataIdFromBody = ExtractPaymentIdFromWebhook(parsedWebhook);
                     }
                 }
+                catch (JsonException jsonEx)
+                {
+                    bodyPreview = rawBody != null && rawBody.Length > 0 
+                        ? rawBody.Substring(0, Math.Min(200, rawBody.Length))
+                        : "(vazio)";
+                    logger.LogWarning(jsonEx, "Payments Webhook: body não é JSON válido. Body: {Body}", bodyPreview);
+                }
             }
-            catch (Exception ex)
+            else
             {
-                logger.LogWarning(ex, "Payments Webhook: falha ao parsear body bruto");
+                logger.LogInformation("Payments Webhook: body vazio ou nulo");
             }
         }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Payments Webhook: falha ao ler body bruto. Tentando usar model binding.");
+            // Se falhar, usar o que veio do model binding
+            if (parsedWebhook == null)
+                parsedWebhook = webhook;
+            if (string.IsNullOrEmpty(dataIdFromBody))
+                dataIdFromBody = ExtractPaymentIdFromWebhook(parsedWebhook);
+        }
+
+        // Fallback: tentar query string (alguns webhooks antigos do MP podem usar query)
+        var dataIdFromQuery = GetPaymentIdFromQuery();
+        
+        Console.WriteLine($"[WEBHOOK-QUERY] dataIdFromQuery={dataIdFromQuery ?? "null"}, dataIdFromBody={dataIdFromBody ?? "null"}");
+        logger.LogInformation("[WEBHOOK-QUERY] dataIdFromQuery={FromQuery}, dataIdFromBody={FromBody}", 
+            dataIdFromQuery ?? "null", dataIdFromBody ?? "null");
 
         var dataIdForHmac = dataIdFromQuery ?? dataIdFromBody;
         var dataIdForProcessing = dataIdFromQuery ?? dataIdFromBody;
 
-        logger.LogInformation("Payments Webhook: recebido, dataId={DataId}, fromQuery={FromQuery}",
-            dataIdForProcessing ?? "null", !string.IsNullOrEmpty(dataIdFromQuery));
+        logger.LogInformation("Payments Webhook: recebido, dataId={DataId}, fromQuery={FromQuery}, fromBody={FromBody}, action={Action}, parsedWebhook={HasWebhook}",
+            dataIdForProcessing ?? "null", !string.IsNullOrEmpty(dataIdFromQuery), !string.IsNullOrEmpty(dataIdFromBody), actionFromBody ?? "null", parsedWebhook != null);
 
         if (string.IsNullOrWhiteSpace(dataIdForProcessing))
         {
-            logger.LogWarning("Payments Webhook: sem id na query (data.id ou id) nem no body");
+            queryKeys = string.Join(", ", Request.Query.Keys);
+            var errorMsg = $"Missing payment id in query or body. QueryString={Request.QueryString.Value ?? "null"}, QueryKeys=[{queryKeys}], ContentType={Request.ContentType ?? "null"}, ContentLength={Request.ContentLength ?? 0}, dataIdFromQuery={dataIdFromQuery ?? "null"}, dataIdFromBody={dataIdFromBody ?? "null"}";
+            Console.WriteLine($"[WEBHOOK-ERROR] {errorMsg}");
+            logger.LogWarning("Payments Webhook: sem id na query nem no body. QueryString={QueryString}, QueryKeys=[{Keys}], ContentType={ContentType}, ContentLength={Length}, dataIdFromQuery={FromQuery}, dataIdFromBody={FromBody}",
+                Request.QueryString.Value ?? "null", queryKeys, Request.ContentType ?? "null", Request.ContentLength ?? 0, dataIdFromQuery ?? "null", dataIdFromBody ?? "null");
             return BadRequest(new { error = "Missing payment id in query or body" });
         }
 
-        // Montar DTO a partir da query quando o body vier vazio (alguns envios do MP só trazem query)
-        var topic = Request.Query["topic"].FirstOrDefault() ?? Request.Query["type"].FirstOrDefault();
-        if (webhook == null && !string.IsNullOrEmpty(dataIdForProcessing) && "payment".Equals(topic, StringComparison.OrdinalIgnoreCase))
+        // Garantir que temos um webhook válido para processar
+        if (parsedWebhook == null && !string.IsNullOrEmpty(dataIdForProcessing))
         {
-            using var doc = JsonDocument.Parse($"\"{dataIdForProcessing.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"");
-            var data = new Dictionary<string, JsonElement> { ["id"] = doc.RootElement.Clone() };
-            webhook = new MercadoPagoWebhookDto("payment.updated", dataIdForProcessing, data);
+            logger.LogInformation("Payments Webhook: construindo DTO a partir do ID encontrado. dataId={DataId}, action={Action}",
+                dataIdForProcessing, actionFromBody ?? "payment.updated");
+            
+            // Fallback: construir DTO a partir do ID encontrado (query string ou body parseado)
+            try
+            {
+                using var doc = JsonDocument.Parse($"\"{dataIdForProcessing.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"");
+                var data = new Dictionary<string, JsonElement> { ["id"] = doc.RootElement.Clone() };
+                parsedWebhook = new MercadoPagoWebhookDto(
+                    actionFromBody ?? "payment.updated",
+                    dataIdForProcessing,
+                    data
+                );
+                logger.LogInformation("Payments Webhook: DTO construído com sucesso");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Payments Webhook: falha ao construir DTO a partir do ID. dataId={DataId}", dataIdForProcessing);
+                // Tentar construir de forma mais simples
+                var data = new Dictionary<string, JsonElement>();
+                using (var doc = JsonDocument.Parse($"\"{dataIdForProcessing}\""))
+                {
+                    data["id"] = doc.RootElement.Clone();
+                }
+                parsedWebhook = new MercadoPagoWebhookDto(
+                    actionFromBody ?? "payment.updated",
+                    dataIdForProcessing,
+                    data
+                );
+            }
         }
 
-        if (webhook == null)
+        if (parsedWebhook == null)
         {
-            using var doc = JsonDocument.Parse($"\"{dataIdForProcessing.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"");
-            var data = new Dictionary<string, JsonElement> { ["id"] = doc.RootElement.Clone() };
-            webhook = new MercadoPagoWebhookDto("payment.updated", dataIdForProcessing, data);
+            logger.LogError("Payments Webhook: não foi possível construir DTO do webhook. dataId={DataId}, fromQuery={FromQuery}, fromBody={FromBody}",
+                dataIdForProcessing ?? "null", !string.IsNullOrEmpty(dataIdFromQuery), !string.IsNullOrEmpty(dataIdFromBody));
+            return BadRequest(new { error = "Invalid webhook payload" });
         }
 
         // Validar assinatura HMAC do Mercado Pago (usa id da URL quando presente, senão do body)
+        // Em Development, pula validação HMAC para facilitar testes com ngrok
         var webhookSecret = mpConfig.Value.WebhookSecret;
-        if (!string.IsNullOrWhiteSpace(webhookSecret) && !webhookSecret.Contains("YOUR_"))
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")?.Equals("Development", StringComparison.OrdinalIgnoreCase) == true;
+        
+        if (!isDevelopment && !string.IsNullOrWhiteSpace(webhookSecret) && !webhookSecret.Contains("YOUR_"))
         {
             var xSignature = Request.Headers["x-signature"].FirstOrDefault();
             var xRequestId = Request.Headers["x-request-id"].FirstOrDefault();
@@ -206,10 +340,92 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
                 return Unauthorized(new { error = "Invalid webhook signature" });
             }
         }
+        else if (isDevelopment)
+        {
+            logger.LogInformation("Webhook: validação HMAC desabilitada em Development");
+        }
 
-        await paymentService.ProcessWebhookAsync(webhook, cancellationToken);
+        await paymentService.ProcessWebhookAsync(parsedWebhook, cancellationToken);
         logger.LogInformation("Payments Webhook: processado com sucesso");
         return Ok();
+    }
+
+    /// <summary>
+    /// Obtém o ID do pagamento da query string. O Mercado Pago envia data.id=XXX&amp;type=payment.
+    /// Em ASP.NET Core, Request.Query["data.id"] pode falhar (ponto tratado como hierarquia).
+    /// Por isso tentamos: (1) Query collection, (2) iteração nas chaves, (3) parse do QueryString bruto.
+    /// </summary>
+    private string? GetPaymentIdFromQuery()
+    {
+        var queryStringRaw = Request.QueryString.Value ?? "";
+        Console.WriteLine($"[GET-PAYMENT-ID] QueryString bruto: {queryStringRaw}");
+        Console.WriteLine($"[GET-PAYMENT-ID] Query.Keys: [{string.Join(", ", Request.Query.Keys)}]");
+        
+        // 1) Acesso direto (funciona na maioria dos casos)
+        var dataIdDirect = Request.Query["data.id"].FirstOrDefault();
+        var dataIdUnderscore = Request.Query["data_id"].FirstOrDefault();
+        var idDirect = Request.Query["id"].FirstOrDefault();
+        
+        Console.WriteLine($"[GET-PAYMENT-ID] Tentativa 1 - data.id={dataIdDirect ?? "null"}, data_id={dataIdUnderscore ?? "null"}, id={idDirect ?? "null"}");
+        
+        var fromCollection = dataIdDirect ?? dataIdUnderscore ?? idDirect;
+        if (!string.IsNullOrWhiteSpace(fromCollection) && fromCollection.All(char.IsDigit))
+        {
+            Console.WriteLine($"[GET-PAYMENT-ID] Encontrado via collection: {fromCollection}");
+            return fromCollection;
+        }
+
+        // 2) Fallback: iterar chaves (ex.: chave "data.id" com valor numérico)
+        var fromKeys = GetDataIdFromQueryFallback();
+        if (!string.IsNullOrWhiteSpace(fromKeys))
+        {
+            Console.WriteLine($"[GET-PAYMENT-ID] Encontrado via fallback keys: {fromKeys}");
+            return fromKeys;
+        }
+
+        // 3) Parse do QueryString bruto (?data.id=145782054455&amp;type=payment) para não depender do IQueryCollection
+        var raw = Request.QueryString.Value;
+        if (string.IsNullOrWhiteSpace(raw) || raw.Length < 10)
+        {
+            Console.WriteLine($"[GET-PAYMENT-ID] QueryString muito curto ou vazio: {raw ?? "null"}");
+            return null;
+        }
+        var query = raw.TrimStart('?');
+        Console.WriteLine($"[GET-PAYMENT-ID] Tentativa 3 - Parse manual do QueryString: {query}");
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = pair.IndexOf('=');
+            if (eq <= 0)
+                continue;
+            var key = Uri.UnescapeDataString(pair[..eq].Trim());
+            var value = Uri.UnescapeDataString(pair[(eq + 1)..].Trim());
+            Console.WriteLine($"[GET-PAYMENT-ID] Par chave-valor: {key}={value}");
+            if ((key.Equals("data.id", StringComparison.OrdinalIgnoreCase) || key.Equals("data_id", StringComparison.OrdinalIgnoreCase) || key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                && value.Length > 0 && value.Length < 20 && value.All(char.IsDigit))
+            {
+                Console.WriteLine($"[GET-PAYMENT-ID] Encontrado via parse manual: {value}");
+                return value;
+            }
+        }
+        Console.WriteLine($"[GET-PAYMENT-ID] Nenhum ID encontrado em nenhuma tentativa");
+        return null;
+    }
+
+    /// <summary>
+    /// Fallback: percorre as chaves da Query e retorna o primeiro valor numérico cuja chave contenha "id".
+    /// </summary>
+    private string? GetDataIdFromQueryFallback()
+    {
+        foreach (var key in Request.Query.Keys)
+        {
+            if (key.IndexOf("id", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var val = Request.Query[key].FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(val) && val.Length < 20 && val.All(c => char.IsDigit(c)))
+                    return val;
+            }
+        }
+        return null;
     }
 
     private static string? ExtractPaymentIdFromWebhook(MercadoPagoWebhookDto? webhook)

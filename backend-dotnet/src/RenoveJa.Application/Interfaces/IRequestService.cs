@@ -73,6 +73,12 @@ public interface IRequestService
         Guid doctorId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Médico inicia a consulta (status Paid → InConsultation).</summary>
+    Task<RequestResponseDto> StartConsultationAsync(Guid id, Guid doctorId, CancellationToken cancellationToken = default);
+
+    /// <summary>Médico encerra a consulta, persiste notas, deleta sala Daily e notifica paciente.</summary>
+    Task<RequestResponseDto> FinishConsultationAsync(Guid id, Guid doctorId, FinishConsultationDto? dto, CancellationToken cancellationToken = default);
+
     Task<RequestResponseDto> SignAsync(
         Guid id,
         SignRequestDto dto,
@@ -95,4 +101,10 @@ public interface IRequestService
 
     /// <summary>Gera preview do PDF da receita (base64) para o médico visualizar antes de assinar.</summary>
     Task<byte[]?> GetPrescriptionPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF.</summary>
+    Task<RequestResponseDto> MarkDeliveredAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Paciente cancela o pedido (apenas antes do pagamento).</summary>
+    Task<RequestResponseDto> CancelAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
 }

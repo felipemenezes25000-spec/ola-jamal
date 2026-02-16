@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
-import { fetchRequestById, createPayment, fetchPaymentByRequest } from '../../lib/api';
+import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
@@ -78,14 +78,24 @@ export default function RequestDetailScreen() {
     }
   };
 
+  const markAsDeliveredIfSigned = async () => {
+    if (!requestId || !request || request.status !== 'signed') return;
+    try {
+      const updated = await markRequestDelivered(requestId);
+      setRequest(updated);
+    } catch {
+      // Ignore; status may already be delivered
+    }
+  };
+
   const handleDownload = async () => {
     if (!request?.signedDocumentUrl) return;
     try {
+      await markAsDeliveredIfSigned();
       if (Platform.OS === 'web') {
         window?.open?.(request.signedDocumentUrl, '_blank');
         return;
       }
-      // Open PDF in browser for download/sharing
       await Linking.openURL(request.signedDocumentUrl);
     } catch (e: any) {
       Alert.alert('Erro', e.message || 'Não foi possível baixar o documento');
@@ -95,15 +105,42 @@ export default function RequestDetailScreen() {
   const handleViewDocument = async () => {
     if (!request?.signedDocumentUrl) return;
     try {
+      await markAsDeliveredIfSigned();
       await WebBrowser.openBrowserAsync(request.signedDocumentUrl);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível abrir o documento.');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Não foi possível abrir o documento.');
     }
   };
 
   const handleEnterConsultation = () => {
     if (!request) return;
     router.push(`/video/${request.id}`);
+  };
+
+  const handleCancel = () => {
+    if (!requestId || !request) return;
+    Alert.alert(
+      'Cancelar pedido',
+      'Tem certeza? Esta ação não pode ser desfeita.',
+      [
+        { text: 'Não', style: 'cancel' },
+        {
+          text: 'Sim, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const updated = await cancelRequest(requestId);
+              setRequest(updated);
+            } catch (e: any) {
+              Alert.alert('Erro', e?.message || 'Não foi possível cancelar.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -141,6 +178,7 @@ export default function RequestDetailScreen() {
   const canPay = ['pending_payment', 'approved_pending_payment', 'approved', 'consultation_ready'].includes(request.status);
   const canDownload = !!request.signedDocumentUrl;
   const canJoinVideo = ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
+  const canCancel = ['submitted', 'in_review', 'approved_pending_payment', 'pending_payment', 'searching_doctor', 'consultation_ready'].includes(request.status);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -311,6 +349,13 @@ export default function RequestDetailScreen() {
             <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: colors.success }]} onPress={handleEnterConsultation} activeOpacity={0.8}>
               <Ionicons name="videocam" size={20} color="#fff" />
               <Text style={styles.primaryBtnText}>Entrar na Consulta</Text>
+            </TouchableOpacity>
+          )}
+
+          {canCancel && (
+            <TouchableOpacity style={[styles.outlineBtn, { borderColor: colors.textMuted }]} onPress={handleCancel} disabled={actionLoading} activeOpacity={0.8}>
+              <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
+              <Text style={[styles.outlineBtnText, { color: colors.textMuted }]}>Cancelar pedido</Text>
             </TouchableOpacity>
           )}
         </View>

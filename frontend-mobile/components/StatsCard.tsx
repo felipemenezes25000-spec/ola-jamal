@@ -1,7 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../lib/theme';
+
+const MIN_TOUCH = 44;
+const CARD_HEIGHT = 100;
+const ICON_SIZE = 40;
 
 interface StatsCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -20,49 +24,81 @@ export function StatsCard({
   iconBgColor = theme.colors.primary.lighter,
   onPress,
 }: StatsCardProps) {
-  const Container = onPress ? TouchableOpacity : View;
+  const { width } = useWindowDimensions();
+  const scale = Math.min(1.15, Math.max(0.9, width / 375));
+  const valueSize = Math.round(Math.max(18, 22 * scale));
+  const labelSize = Math.round(Math.max(11, 12 * scale));
 
-  return (
-    <Container
-      style={styles.container}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.7 : 1}
-    >
+  const content = (
+    <View style={styles.inner}>
       <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
-        <Ionicons name={icon} size={24} color={iconColor} />
+        <Ionicons name={icon} size={Math.round(22 * scale)} color={iconColor} />
       </View>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
-    </Container>
+      <Text style={[styles.value, { fontSize: valueSize }]}>{value}</Text>
+      <View style={styles.labelWrap}>
+        <Text style={[styles.label, { fontSize: labelSize }]} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    </View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.container, { opacity: pressed ? 0.8 : 1 }]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value}`}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={styles.container}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: CARD_HEIGHT,
+    minWidth: 0,
     backgroundColor: theme.colors.background.paper,
     borderRadius: theme.borderRadius.card,
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
+    justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 80,
+    overflow: 'hidden',
     ...theme.shadows.card,
   },
+  inner: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
   iconContainer: {
-    width: 48,
-    height: 48,
+    width: ICON_SIZE,
+    height: ICON_SIZE,
     borderRadius: theme.borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+    overflow: 'hidden',
   },
   value: {
-    fontSize: theme.typography.fontSize.xxl,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.text.primary,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
+  },
+  labelWrap: {
+    minHeight: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   label: {
-    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.text.secondary,
     textAlign: 'center',
   },

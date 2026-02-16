@@ -248,7 +248,11 @@ public class RequestsController(
         pageSize = Math.Clamp(pageSize, 1, 100);
         if (page < 1) page = 1;
         var userId = GetUserId();
+        logger.LogInformation("[GetRequests] GET /api/requests userId={UserId} (from token), page={Page}, pageSize={PageSize}", userId, page, pageSize);
+        Console.WriteLine($"[GetRequests] GET /api/requests userId={userId}, page={page}, pageSize={pageSize}");
         var requests = await requestService.GetUserRequestsPagedAsync(userId, status, type, page, pageSize, cancellationToken);
+        logger.LogInformation("[GetRequests] returning TotalCount={TotalCount}", requests.TotalCount);
+        Console.WriteLine($"[GetRequests] returning TotalCount={requests.TotalCount}");
         return Ok(requests);
     }
 
@@ -334,6 +338,35 @@ public class RequestsController(
         var doctorId = GetUserId();
         var result = await requestService.AcceptConsultationAsync(id, doctorId, cancellationToken);
         return Ok(new AcceptConsultationResponseDto(result.Request, result.VideoRoom));
+    }
+
+    /// <summary>
+    /// Médico inicia a consulta (status Paid → InConsultation).
+    /// </summary>
+    [HttpPost("{id}/start-consultation")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> StartConsultation(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var request = await requestService.StartConsultationAsync(id, doctorId, cancellationToken);
+        return Ok(request);
+    }
+
+    /// <summary>
+    /// Médico encerra a consulta: persiste notas clínicas, deleta sala Daily e notifica paciente.
+    /// </summary>
+    [HttpPost("{id}/finish-consultation")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> FinishConsultation(
+        Guid id,
+        [FromBody] FinishConsultationDto? dto,
+        CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var request = await requestService.FinishConsultationAsync(id, doctorId, dto, cancellationToken);
+        return Ok(request);
     }
 
     /// <summary>
@@ -439,6 +472,28 @@ public class RequestsController(
         if (bytes == null || bytes.Length == 0)
             return BadRequest(new { error = "Não foi possível gerar o preview. Verifique se há medicamentos informados ou extraídos pela IA." });
         return File(bytes, "application/pdf", $"preview-receita-{id}.pdf");
+    }
+
+    /// <summary>
+    /// Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF.
+    /// </summary>
+    [HttpPost("{id}/mark-delivered")]
+    public async Task<IActionResult> MarkDelivered(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var request = await requestService.MarkDeliveredAsync(id, userId, cancellationToken);
+        return Ok(request);
+    }
+
+    /// <summary>
+    /// Paciente cancela o pedido (apenas antes do pagamento).
+    /// </summary>
+    [HttpPost("{id}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var request = await requestService.CancelAsync(id, userId, cancellationToken);
+        return Ok(request);
     }
 
     /// <summary>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../lib/theme';
+import { colors, spacing } from '../lib/theme';
 import { RequestType, RequestStatus } from '../types/database';
 
 interface Step {
@@ -39,6 +39,10 @@ interface Props {
   requestType: RequestType;
 }
 
+const DOT_SIZE = 20;
+const LINE_WIDTH = 2;
+const ROW_MIN_HEIGHT = 40;
+
 export default function StatusTracker({ currentStatus, requestType }: Props) {
   const steps = requestType === 'consultation' ? CONSULTATION_STEPS : PRESCRIPTION_STEPS;
 
@@ -65,26 +69,35 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
         const isCompleted = index < currentIndex;
         const isCurrent = index === currentIndex;
         const isPending = index > currentIndex;
+        const isLast = index === steps.length - 1;
 
         return (
-          <React.Fragment key={step.key}>
-            <View style={styles.stepContainer}>
+          <View key={step.key} style={styles.row}>
+            <View style={styles.leftColumn}>
               <View
                 style={[
-                  styles.circle,
-                  isCompleted && styles.circleCompleted,
-                  isCurrent && styles.circleCurrent,
-                  isPending && styles.circlePending,
+                  styles.dot,
+                  isCompleted && styles.dotCompleted,
+                  isCurrent && styles.dotCurrent,
+                  isPending && styles.dotPending,
                 ]}
               >
                 {isCompleted ? (
                   <Ionicons name="checkmark" size={12} color="#fff" />
                 ) : isCurrent ? (
-                  <View style={styles.currentDot} />
-                ) : (
-                  <View style={styles.pendingDot} />
-                )}
+                  <View style={styles.currentInner} />
+                ) : null}
               </View>
+              {!isLast && (
+                <View
+                  style={[
+                    styles.line,
+                    index < currentIndex ? styles.lineCompleted : styles.linePending,
+                  ]}
+                />
+              )}
+            </View>
+            <View style={styles.labelWrap}>
               <Text
                 style={[
                   styles.label,
@@ -92,20 +105,11 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
                   isCurrent && styles.labelCurrent,
                   isPending && styles.labelPending,
                 ]}
-                numberOfLines={1}
               >
                 {step.label}
               </Text>
             </View>
-            {index < steps.length - 1 && (
-              <View
-                style={[
-                  styles.line,
-                  index < currentIndex ? styles.lineCompleted : styles.linePending,
-                ]}
-              />
-            )}
-          </React.Fragment>
+          </View>
         );
       })}
     </View>
@@ -114,49 +118,64 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
 
 const styles = StyleSheet.create({
   container: {
+    paddingVertical: spacing.xs,
+    paddingLeft: spacing.xs,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.md,
+    minHeight: ROW_MIN_HEIGHT,
   },
-  stepContainer: {
+  leftColumn: {
     alignItems: 'center',
-    flex: 0,
-    minWidth: 50,
+    width: 28,
   },
-  circle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  dot: {
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: DOT_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
   },
-  circleCompleted: {
+  dotCompleted: {
     backgroundColor: colors.success,
+    borderColor: colors.success,
   },
-  circleCurrent: {
+  dotCurrent: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  circlePending: {
-    backgroundColor: colors.border,
+  dotPending: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
   },
-  currentDot: {
+  currentInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#fff',
   },
-  pendingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.textMuted,
+  line: {
+    width: LINE_WIDTH,
+    flex: 1,
+    minHeight: 16,
+    marginVertical: 2,
+  },
+  lineCompleted: {
+    backgroundColor: colors.success,
+  },
+  linePending: {
+    backgroundColor: colors.border,
+  },
+  labelWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingLeft: spacing.sm,
+    paddingVertical: 4,
   },
   label: {
-    fontSize: 10,
-    marginTop: 4,
-    textAlign: 'center',
-    maxWidth: 60,
+    fontSize: 14,
   },
   labelCompleted: {
     color: colors.success,
@@ -168,18 +187,6 @@ const styles = StyleSheet.create({
   },
   labelPending: {
     color: colors.textMuted,
-  },
-  line: {
-    height: 2,
-    flex: 1,
-    marginTop: 11,
-    minWidth: 12,
-  },
-  lineCompleted: {
-    backgroundColor: colors.success,
-  },
-  linePending: {
-    backgroundColor: colors.border,
   },
   rejectedContainer: {
     flexDirection: 'row',

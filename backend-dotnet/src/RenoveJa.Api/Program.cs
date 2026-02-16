@@ -206,12 +206,25 @@ builder.Services.AddCors(options =>
         }
     });
 
-    // Policy aberta para desenvolvimento
+    // Policy para desenvolvimento: origens explícitas para permitir credentials e preflight (web + Expo)
     options.AddPolicy("Development", policy =>
     {
-        policy.AllowAnyOrigin()
+        var devOrigins = new[]
+        {
+            "http://localhost:8081",
+            "http://127.0.0.1:8081",
+            "http://localhost:19006",
+            "http://127.0.0.1:19006",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        };
+        var configOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        var origins = devOrigins.Concat(configOrigins).Distinct().ToArray();
+
+        policy.WithOrigins(origins)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -283,6 +296,12 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// CORS primeiro: preflight OPTIONS precisa receber 200 com headers antes de qualquer outro middleware
+if (app.Environment.IsDevelopment())
+    app.UseCors("Development");
+else
+    app.UseCors();
+
 app.UseSerilogRequestLogging();
 
 // Permite re-leitura do body em webhooks (ex.: Mercado Pago)
@@ -292,26 +311,8 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// Executa migrations no Postgres (ex.: password_reset_tokens) se Supabase:DatabaseUrl estiver configurada
-try
-{
-    SupabaseMigrationRunner.RunAsync(app.Services).GetAwaiter().GetResult();
-}
-catch (Exception ex)
-{
-    var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogWarning(ex, "Supabase migration skipped or failed (configure Supabase:DatabaseUrl to run migrations).");
-}
-
-// Configure the HTTP request pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
-
-// Use CORS: Development policy in Development, default (restrictive) in Production
-if (app.Environment.IsDevelopment())
-    app.UseCors("Development");
-else
-    app.UseCors();
 
 app.UseRateLimiter();
 
@@ -325,5 +326,16 @@ app.UseAuthorization();
 app.UseMiddleware<AuditMiddleware>();
 
 app.MapControllers();
+
+// Log para debug: IP da máquina (dispositivo físico precisa disso em vez de localhost)
+try
+{
+    var hostName = System.Net.Dns.GetHostName();
+    var addresses = System.Net.Dns.GetHostAddresses(hostName);
+    var lanIp = addresses.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString();
+    if (!string.IsNullOrEmpty(lanIp))
+        Log.Information("[Startup] Para dispositivo físico/emulador: EXPO_PUBLIC_API_URL=http://{LanIp}:5000", lanIp);
+}
+catch { /* best effort */ }
 
 app.Run();

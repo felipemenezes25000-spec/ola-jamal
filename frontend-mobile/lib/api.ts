@@ -184,6 +184,19 @@ export async function acceptConsultation(
   return apiClient.post(`/api/requests/${requestId}/accept-consultation`, {});
 }
 
+/** Médico inicia a consulta (status Paid → InConsultation). */
+export async function startConsultation(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/start-consultation`, {});
+}
+
+/** Médico encerra a consulta; opcionalmente envia notas clínicas. */
+export async function finishConsultation(
+  requestId: string,
+  data?: { clinicalNotes?: string }
+): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/finish-consultation`, data ?? {});
+}
+
 export async function signRequest(
   requestId: string,
   options?: { pfxPassword?: string; signatureData?: string; signedDocumentUrl?: string }
@@ -226,6 +239,11 @@ export async function generatePdf(requestId: string): Promise<{ success: boolean
 /** Retorna o PDF em blob para preview (receita). */
 export async function getPreviewPdf(requestId: string): Promise<Blob> {
   return apiClient.getBlob(`/api/requests/${requestId}/preview-pdf`);
+}
+
+/** Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF. */
+export async function markRequestDelivered(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/mark-delivered`, {});
 }
 
 export async function updatePrescriptionContent(
@@ -505,5 +523,7 @@ export const markNotificationAsRead = markNotificationRead;
 export const markAllNotificationsAsRead = markAllNotificationsRead;
 export const getDoctorQueue = (specialty?: string) =>
   fetchDoctorQueue(specialty);
-export const cancelRequest = (requestId: string) =>
-  updateRequestStatus(requestId, 'CANCELLED');
+/** Paciente cancela o pedido (apenas antes do pagamento). */
+export async function cancelRequest(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/cancel`, {});
+}

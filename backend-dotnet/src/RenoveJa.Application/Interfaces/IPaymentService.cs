@@ -48,4 +48,11 @@ public interface IPaymentService
         Guid requestId,
         Guid userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sincroniza o status de um pagamento com a API do Mercado Pago. Útil quando o webhook falha.
+    /// </summary>
+    Task<PaymentResponseDto?> SyncPaymentStatusAsync(
+        Guid requestId,
+        CancellationToken cancellationToken = default);
 }

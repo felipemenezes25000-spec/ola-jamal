@@ -9,6 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Platform,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +25,8 @@ import {
 import { RequestResponseDto } from '../../types/database';
 import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
+import { ZoomableImage } from '../../components/ZoomableImage';
+import { CompatibleImage } from '../../components/CompatibleImage';
 
 const TYPE_LABELS: Record<string, string> = { prescription: 'Receita', exam: 'Exame', consultation: 'Consulta' };
 const RISK_COLORS: Record<string, { bg: string; text: string }> = {
@@ -34,6 +38,7 @@ const RISK_COLORS: Record<string, { bg: string; text: string }> = {
 export default function DoctorRequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -41,41 +46,58 @@ export default function DoctorRequestDetail() {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [certPassword, setCertPassword] = useState('');
   const [showSignForm, setShowSignForm] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    if (!id) return;
-    try { setRequest(await getRequestById(id)); }
+    if (!requestId) return;
+    try { setRequest(await getRequestById(requestId)); }
     catch { console.error('Error loading request'); }
     finally { setLoading(false); }
-  }, [id]);
+  }, [requestId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const executeApprove = async () => {
+    if (!requestId) return;
+    setActionLoading(true);
+    try {
+      await approveRequest(requestId);
+      await loadData();
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Falha ao aprovar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleApprove = () => {
-    Alert.alert('Aprovar', 'Confirma a aprovação?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Aprovar', onPress: async () => {
-        setActionLoading(true);
-        try { await approveRequest(id!); loadData(); }
-        catch (e: any) { Alert.alert('Erro', e?.message || 'Falha ao aprovar.'); }
-        finally { setActionLoading(false); }
-      }},
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Confirma a aprovação?')) {
+        executeApprove();
+      }
+    } else {
+      Alert.alert('Aprovar', 'Confirma a aprovação?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Aprovar', onPress: executeApprove },
+      ]);
+    }
   };
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) { Alert.alert('Obrigatório', 'Informe o motivo.'); return; }
+    if (!requestId) return;
     setActionLoading(true);
-    try { await rejectRequest(id!, rejectionReason.trim()); loadData(); setShowRejectForm(false); }
+    try { await rejectRequest(requestId, rejectionReason.trim()); loadData(); setShowRejectForm(false); }
     catch (e: any) { Alert.alert('Erro', e?.message || 'Falha.'); }
     finally { setActionLoading(false); }
   };
 
   const handleSign = async () => {
     if (!certPassword.trim()) { Alert.alert('Obrigatório', 'Digite a senha do certificado.'); return; }
+    if (!requestId) return;
     setActionLoading(true);
     try {
-      await signRequest(id!, { pfxPassword: certPassword });
+      await signRequest(requestId, { pfxPassword: certPassword });
       loadData(); setShowSignForm(false); setCertPassword('');
       Alert.alert('Sucesso!', 'Documento assinado digitalmente.');
     } catch (e: any) { Alert.alert('Erro', e?.message || 'Senha incorreta ou erro na assinatura.'); }
@@ -83,19 +105,22 @@ export default function DoctorRequestDetail() {
   };
 
   const handleAcceptConsultation = async () => {
+    if (!requestId) return;
     setActionLoading(true);
-    try { await acceptConsultation(id!); loadData(); }
+    try { await acceptConsultation(requestId); loadData(); }
     catch (e: any) { Alert.alert('Erro', e?.message || 'Falha.'); }
     finally { setActionLoading(false); }
   };
 
   const fmt = (d: string) => { const dt = new Date(d); return `${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`; };
 
-  const canApprove = request && request.status === 'in_review' && request.requestType !== 'consultation';
-  const canReject = request && request.status === 'in_review';
+  // Médico pode aprovar a partir de "Enviado" (submitted): backend atribui o médico e gera aprovação → pagamento.
+  const canApprove = request && (request.status === 'submitted' || request.status === 'in_review') && request.requestType !== 'consultation';
+  const canReject = request && (request.status === 'submitted' || request.status === 'in_review');
   const canSign = request && request.status === 'paid' && request.requestType !== 'consultation';
   const canAccept = request && request.status === 'searching_doctor' && request.requestType === 'consultation';
   const canVideo = request && ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
+  const isInQueue = request && request.status === 'submitted' && !request.doctorId;
 
   if (loading) return <View style={s.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
   if (!request) return <View style={s.center}><Text style={{ color: colors.textSecondary }}>Pedido não encontrado</Text></View>;
@@ -114,7 +139,6 @@ export default function DoctorRequestDetail() {
       <View style={s.card}>
         <Text style={s.section}>PACIENTE</Text>
         <Row k="Nome" v={request.patientName || 'N/A'} />
-        <View style={s.row}><Text style={s.rk}>ID</Text><View style={s.idBadge}><Text style={s.idText}>{request.id.slice(0, 8)}</Text></View></View>
         <Row k="Criado em" v={fmt(request.createdAt)} />
       </View>
 
@@ -143,15 +167,60 @@ export default function DoctorRequestDetail() {
         </View>
       )}
 
-      {/* Images */}
+      {/* Prescription Images */}
       {request.prescriptionImages && request.prescriptionImages.length > 0 && (
         <View style={s.card}>
-          <Text style={s.section}>IMAGENS</Text>
+          <Text style={s.section}>IMAGENS DA RECEITA</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {request.prescriptionImages.map((img, i) => <Image key={i} source={{ uri: img }} style={s.img} resizeMode="cover" />)}
+            {request.prescriptionImages.map((img, i) => (
+              <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8}>
+                <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
       )}
+
+      {/* Exam Images */}
+      {request.examImages && request.examImages.length > 0 && (
+        <View style={s.card}>
+          <Text style={s.section}>IMAGENS DO EXAME</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {request.examImages.map((img, i) => (
+              <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8}>
+                <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Image Modal with Zoom */}
+      <Modal
+        visible={selectedImageUri !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedImageUri(null)}
+      >
+        <View style={s.modalContainer}>
+          <TouchableOpacity
+            style={s.modalCloseButton}
+            onPress={() => setSelectedImageUri(null)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={32} color="#fff" />
+          </TouchableOpacity>
+          {selectedImageUri && (
+            Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%' }} />
+              </View>
+            ) : (
+              <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />
+            )
+          )}
+        </View>
+      </Modal>
 
       {/* Meds */}
       {request.medications && request.medications.length > 0 && (
@@ -194,6 +263,14 @@ export default function DoctorRequestDetail() {
             <TouchableOpacity style={s.cancelBtn} onPress={() => setShowRejectForm(false)}><Text style={s.cancelT}>Cancelar</Text></TouchableOpacity>
             <TouchableOpacity style={s.rejBtn} onPress={handleReject} disabled={actionLoading}>{actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnT}>Rejeitar</Text>}</TouchableOpacity>
           </View>
+        </View>
+      )}
+
+      {/* Aviso quando pedido está na fila (sem médico atribuído) */}
+      {isInQueue && (
+        <View style={s.queueHint}>
+          <Ionicons name="information-circle" size={20} color={colors.primary} />
+          <Text style={s.queueHintText}>Pedido na fila. Aprove para enviar ao pagamento ou rejeite informando o motivo.</Text>
         </View>
       )}
 
@@ -259,9 +336,9 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   rk: { fontSize: 14, color: colors.textSecondary },
   rv: { fontSize: 14, fontWeight: '500', color: colors.text },
-  idBadge: { backgroundColor: colors.primaryLight, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 6 },
-  idText: { fontSize: 12, fontWeight: '600', color: colors.primary, fontFamily: 'monospace' },
   aiCard: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
+  modalCloseButton: { position: 'absolute', top: Platform.OS === 'web' ? 20 : 60, right: spacing.md, zIndex: 10, backgroundColor: 'rgba(0, 0, 0, 0.7)', borderRadius: 25, padding: 10, width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
   aiH: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
   aiT: { fontSize: 16, fontWeight: '600', color: colors.text, flex: 1 },
   riskB: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 6 },
@@ -271,6 +348,8 @@ const s = StyleSheet.create({
   urgT: { fontSize: 13, color: colors.textSecondary },
   img: { width: 180, height: 180, borderRadius: borderRadius.sm, marginRight: spacing.sm },
   sym: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
+  queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primaryLight, borderRadius: borderRadius.md },
+  queueHintText: { flex: 1, fontSize: 14, color: colors.textSecondary },
   actions: { marginHorizontal: spacing.md, marginTop: spacing.lg, gap: spacing.sm },
   pBtn: { flexDirection: 'row', padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52 },
   btnT: { fontSize: 16, fontWeight: '700', color: '#fff' },

@@ -375,12 +375,14 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void FinishConsultation()
+    public void FinishConsultation(string? clinicalNotes = null)
     {
         if (RequestType != Enums.RequestType.Consultation)
             throw new DomainException("Only consultation requests can be finished");
 
         Status = RequestStatus.ConsultationFinished;
+        if (clinicalNotes != null)
+            Notes = clinicalNotes;
         UpdatedAt = DateTime.UtcNow;
     }
 }
