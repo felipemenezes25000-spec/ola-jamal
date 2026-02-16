@@ -1,195 +1,205 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, AppState, AppStateStatus } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/Card';
-import { StatusBadge } from '../../components/StatusBadge';
-import { EmptyState } from '../../components/EmptyState';
-import { usePushNotification } from '../../contexts/PushNotificationContext';
-import { fetchRequests } from '../../lib/api';
-import { RequestResponseDto } from '../../types/database';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { getRequests } from '../../lib/api';
+import { RequestResponseDto, RequestType } from '../../types/database';
+import RequestCard from '../../components/RequestCard';
 
-const FILTERS = [
+const FILTERS: { key: string; label: string; type?: RequestType }[] = [
   { key: 'all', label: 'Todos' },
-  { key: 'prescription', label: 'Receitas' },
-  { key: 'exam', label: 'Exames' },
-  { key: 'consultation', label: 'Consultas' },
+  { key: 'prescription', label: 'Receitas', type: 'prescription' },
+  { key: 'exam', label: 'Exames', type: 'exam' },
+  { key: 'consultation', label: 'Consultas', type: 'consultation' },
 ];
 
-export default function PatientRequestsScreen() {
+export default function PatientRequests() {
   const router = useRouter();
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
+  const [filteredRequests, setFilteredRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const { lastNotificationAt } = usePushNotification();
+  const [search, setSearch] = useState('');
 
-  useEffect(() => { loadRequests(true); }, [activeFilter]);
-  useEffect(() => { if (lastNotificationAt > 0) loadRequests(true); }, [lastNotificationAt]);
-
-  // Auto-refresh ao voltar para a tela, ao retornar o app ao primeiro plano e a cada 5s (polling)
-  useFocusEffect(useCallback(() => {
-    loadRequests(true);
-    const interval = setInterval(() => loadRequests(true), 5000);
-    return () => clearInterval(interval);
-  }, [activeFilter]));
-  const appState = useRef(AppState.currentState);
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && next === 'active') {
-        loadRequests(true);
-      }
-      appState.current = next;
-    });
-    return () => sub.remove();
-  }, [activeFilter]);
-
-  const loadRequests = async (reset = false) => {
-    const currentPage = reset ? 1 : page;
+  const loadData = useCallback(async () => {
     try {
-      const response = await fetchRequests({
-        type: activeFilter === 'all' ? undefined : activeFilter,
-        page: currentPage,
-        pageSize: 20,
-      });
-      const newItems = response.items.filter((r, i, arr) => arr.findIndex(x => x.id === r.id) === i);
-      if (reset) {
-        setRequests(newItems);
-        setPage(2);
-      } else {
-        setRequests(prev => {
-          const seen = new Set(prev.map(r => r.id));
-          const toAdd = newItems.filter(r => !seen.has(r.id));
-          return [...prev, ...toAdd];
-        });
-        setPage(currentPage + 1);
-      }
-      setHasMore(response.items.length === 20 && currentPage * 20 < response.totalCount);
+      const response = await getRequests({ page: 1, pageSize: 100 });
+      setRequests(response.items || []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error loading requests:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    let result = requests;
+    const filter = FILTERS.find(f => f.key === activeFilter);
+    if (filter?.type) {
+      result = result.filter(r => r.requestType === filter.type);
+    }
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      result = result.filter(r =>
+        r.doctorName?.toLowerCase().includes(s) ||
+        r.medications?.some(m => m.toLowerCase().includes(s)) ||
+        r.requestType.toLowerCase().includes(s)
+      );
+    }
+    setFilteredRequests(result);
+  }, [requests, activeFilter, search]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadRequests(true);
+    loadData();
   };
-
-  const getIcon = (type: string): keyof typeof Ionicons.glyphMap => {
-    switch (type) {
-      case 'prescription': return 'medical';
-      case 'exam': return 'flask';
-      case 'consultation': return 'videocam';
-      default: return 'document';
-    }
-  };
-
-  const getLabel = (type: string) => {
-    switch (type) {
-      case 'prescription': return 'Receita';
-      case 'exam': return 'Exame';
-      case 'consultation': return 'Consulta';
-      default: return type;
-    }
-  };
-
-  const renderItem = ({ item }: { item: RequestResponseDto }) => (
-    <TouchableOpacity onPress={() => router.push(`/request-detail/${item.id}`)}>
-      <Card style={styles.card}>
-        <View style={styles.cardRow}>
-          <View style={styles.iconBg}>
-            <Ionicons name={getIcon(item.requestType)} size={22} color={colors.primary} />
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle}>{getLabel(item.requestType)}</Text>
-            <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</Text>
-            {item.prescriptionType && (
-              <Text style={styles.cardSub}>Tipo: {item.prescriptionType}</Text>
-            )}
-          </View>
-          <StatusBadge status={item.status} size="sm" />
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Minhas Solicitações</Text>
       </View>
 
-      <View style={styles.filtersRow}>
-        {FILTERS.map(f => (
+      {/* Search */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color={colors.textMuted} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar solicitações..."
+          placeholderTextColor={colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterRow}>
+        {FILTERS.map(filter => (
           <TouchableOpacity
-            key={f.key}
-            style={[styles.filterChip, activeFilter === f.key && styles.filterActive]}
-            onPress={() => setActiveFilter(f.key)}
+            key={filter.key}
+            style={[styles.filterTab, activeFilter === filter.key && styles.filterTabActive]}
+            onPress={() => setActiveFilter(filter.key)}
           >
-            <Text style={[styles.filterText, activeFilter === f.key && styles.filterTextActive]}>
-              {f.label}
+            <Text style={[styles.filterText, activeFilter === filter.key && styles.filterTextActive]}>
+              {filter.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <FlatList
-        data={requests}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        onEndReached={() => hasMore && loadRequests()}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          !loading ? (
-            <EmptyState
-              icon="document-text-outline"
-              title="Nenhuma solicitação"
-              description="Suas solicitações aparecerão aqui"
-              actionLabel="Nova Solicitação"
-              onAction={() => router.push('/new-request/prescription')}
+      {/* List */}
+      {loading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={filteredRequests}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <RequestCard
+              request={item}
+              onPress={() => router.push(`/request-detail/${item.id}`)}
             />
-          ) : null
-        }
-      />
-    </SafeAreaView>
+          )}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="document-text-outline" size={48} color={colors.border} />
+              <Text style={styles.emptyText}>Nenhuma solicitação encontrada</Text>
+            </View>
+          }
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  title: { ...typography.h2, color: colors.primaryDarker },
-  filtersRow: {
-    flexDirection: 'row', paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md, gap: spacing.sm,
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
-  filterChip: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: borderRadius.full, backgroundColor: colors.white,
-    borderWidth: 1, borderColor: colors.gray200,
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
-  filterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterText: { ...typography.caption, color: colors.gray600 },
-  filterTextActive: { color: colors.white },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
-  card: { marginBottom: spacing.sm },
-  cardRow: { flexDirection: 'row', alignItems: 'center' },
-  iconBg: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: colors.primaryPaler, justifyContent: 'center', alignItems: 'center',
-    marginRight: spacing.md,
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
   },
-  cardInfo: { flex: 1 },
-  cardTitle: { ...typography.bodySmallMedium, color: colors.gray800 },
-  cardDate: { ...typography.caption, color: colors.gray400, marginTop: 2 },
-  cardSub: { ...typography.caption, color: colors.gray500, marginTop: 1 },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    height: 44,
+    ...shadows.card,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.text,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  filterTab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  filterTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  filterTextActive: {
+    color: '#fff',
+  },
+  listContent: {
+    paddingBottom: 100,
+  },
+  empty: {
+    alignItems: 'center',
+    paddingTop: 60,
+    gap: spacing.sm,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: colors.textMuted,
+  },
 });

@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
-import { Loading } from '../../components/Loading';
-import { Button } from '../../components/Button';
+import { colors, spacing, borderRadius } from '../../lib/theme';
 import { createVideoRoom } from '../../lib/api';
 import { VideoRoomResponseDto } from '../../types/database';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
 
 export default function VideoCallScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
@@ -22,7 +20,6 @@ export default function VideoCallScreen() {
   const initRoom = async () => {
     try {
       if (!requestId) throw new Error('ID inválido');
-      // Backend createVideoRoom is idempotent - creates or returns existing room
       const videoRoom = await createVideoRoom(requestId);
       setRoom(videoRoom);
     } catch (e: any) {
@@ -39,29 +36,38 @@ export default function VideoCallScreen() {
     ]);
   };
 
-  if (loading) return (
-    <SafeAreaView style={styles.container}>
-      <Loading color={colors.primary} message="Conectando à sala..." />
-    </SafeAreaView>
-  );
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Conectando à sala...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  if (error || !room?.roomUrl) return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.errorContainer}>
-        <Ionicons name="videocam-off" size={56} color={colors.gray300} />
-        <Text style={styles.errorTitle}>Sala não disponível</Text>
-        <Text style={styles.errorDesc}>{error || 'A sala de vídeo ainda não foi criada.'}</Text>
-        <Button title="Voltar" onPress={() => router.back()} variant="outline" style={{ marginTop: spacing.lg }} />
-      </View>
-    </SafeAreaView>
-  );
+  if (error || !room?.roomUrl) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <Ionicons name="videocam-off" size={56} color="#475569" />
+          <Text style={styles.errorTitle}>Sala não disponível</Text>
+          <Text style={styles.errorDesc}>{error || 'A sala de vídeo ainda não foi criada.'}</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.backBtnText}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Consulta em Andamento</Text>
         <TouchableOpacity style={styles.endBtn} onPress={handleEnd}>
-          <Ionicons name="call" size={20} color={colors.white} />
+          <Ionicons name="call" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
       <View style={styles.webviewContainer}>
@@ -79,13 +85,25 @@ export default function VideoCallScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray900 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md },
-  headerTitle: { ...typography.bodySemiBold, color: colors.white },
-  endBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center' },
-  webviewContainer: { flex: 1, borderRadius: borderRadius.xl, overflow: 'hidden', margin: spacing.sm },
+  container: { flex: 1, backgroundColor: '#0F172A' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: spacing.md },
+  loadingText: { fontSize: 14, color: '#94A3B8' },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: spacing.md,
+  },
+  headerTitle: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  endBtn: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.error,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  webviewContainer: { flex: 1, borderRadius: borderRadius.lg, overflow: 'hidden', margin: spacing.sm },
   webview: { flex: 1 },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
-  errorTitle: { ...typography.h4, color: colors.gray400, marginTop: spacing.md },
-  errorDesc: { ...typography.bodySmall, color: colors.gray500, textAlign: 'center', marginTop: spacing.xs },
+  errorTitle: { fontSize: 18, fontWeight: '600', color: '#94A3B8' },
+  errorDesc: { fontSize: 14, color: '#64748B', textAlign: 'center' },
+  backBtn: {
+    borderWidth: 2, borderColor: colors.primary, borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, marginTop: spacing.md,
+  },
+  backBtnText: { fontSize: 15, fontWeight: '600', color: colors.primary },
 });

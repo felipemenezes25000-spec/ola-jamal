@@ -1,28 +1,42 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Linking,
+} from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import { Card } from '../../components/Card';
-import { Button } from '../../components/Button';
-import { StatusBadge, getStatusLabel } from '../../components/StatusBadge';
-import { Loading } from '../../components/Loading';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { fetchRequestById, createPayment, fetchPaymentByRequest } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { StatusBadge } from '../../components/StatusBadge';
+import StatusTracker from '../../components/StatusTracker';
 
-const TIMELINE_STEPS = [
-  { key: 'submitted', label: 'Enviado', icon: 'paper-plane' },
-  { key: 'analyzing', label: 'IA Analisando', icon: 'sparkles' },
-  { key: 'in_review', label: 'Médico Revisando', icon: 'eye' },
-  { key: 'approved_pending_payment', label: 'Aguardando Pagamento', icon: 'time' },
-  { key: 'paid', label: 'Pago', icon: 'card' },
-  { key: 'signed', label: 'Assinado', icon: 'create' },
-  { key: 'delivered', label: 'Entregue', icon: 'checkmark-done' },
-];
+function getTypeLabel(type: string): string {
+  switch (type) {
+    case 'prescription': return 'Receita';
+    case 'exam': return 'Exame';
+    case 'consultation': return 'Consulta';
+    default: return type;
+  }
+}
+
+function getPrescriptionTypeLabel(type: string | null): string {
+  switch (type) {
+    case 'simples': return 'Receita Simples';
+    case 'controlado': return 'Receita Controlada';
+    case 'azul': return 'Receita Azul';
+    default: return '';
+  }
+}
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,29 +44,26 @@ export default function RequestDetailScreen() {
   const router = useRouter();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [payingPix, setPayingPix] = useState(false);
-
-  useEffect(() => { load(); }, [requestId]);
-
-  useFocusEffect(useCallback(() => {
-    if (requestId) load();
-  }, [requestId]));
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = async () => {
-    if (!requestId) {
-      setLoading(false);
-      return;
-    }
+    if (!requestId) { setLoading(false); return; }
     try {
       const data = await fetchRequestById(requestId);
       setRequest(data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePayPix = async () => {
-    if (!request || payingPix) return;
-    setPayingPix(true);
+  useEffect(() => { load(); }, [requestId]);
+  useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId]));
+
+  const handlePay = async () => {
+    if (!request || actionLoading) return;
+    setActionLoading(true);
     try {
       let payment;
       try { payment = await fetchPaymentByRequest(request.id); } catch {}
@@ -61,227 +72,328 @@ export default function RequestDetailScreen() {
       }
       router.push(`/payment/${payment.id}`);
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao iniciar pagamento PIX');
+      Alert.alert('Erro', error.message || 'Erro ao iniciar pagamento');
     } finally {
-      setPayingPix(false);
+      setActionLoading(false);
     }
   };
 
-  const handlePayCard = () => {
-    if (!request) return;
-    router.push({ pathname: '/payment/card', params: { requestId: request.id } });
+  const handleDownload = async () => {
+    if (!request?.signedDocumentUrl) return;
+    try {
+      if (Platform.OS === 'web') {
+        window?.open?.(request.signedDocumentUrl, '_blank');
+        return;
+      }
+      // Open PDF in browser for download/sharing
+      await Linking.openURL(request.signedDocumentUrl);
+    } catch (e: any) {
+      Alert.alert('Erro', e.message || 'Não foi possível baixar o documento');
+    }
   };
 
   const handleViewDocument = async () => {
-    if (request?.signedDocumentUrl) {
-      try {
-        await WebBrowser.openBrowserAsync(request.signedDocumentUrl, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
-      } catch {
-        Alert.alert('Erro', 'Não foi possível abrir o documento.');
-      }
-    }
-  };
-
-  const handleSaveDocument = async () => {
     if (!request?.signedDocumentUrl) return;
     try {
-      // Web: abre o PDF no navegador (ou nova aba) para visualizar e baixar
-      if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined' && window.open) {
-          window.open(request.signedDocumentUrl, '_blank', 'noopener');
-        } else {
-          await Linking.openURL(request.signedDocumentUrl);
-        }
-        return;
-      }
-
-      const fileName = `receita-${request.id}.pdf`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-      const downloadResult = await FileSystem.downloadAsync(request.signedDocumentUrl, fileUri);
-
-      if (downloadResult.status !== 200) {
-        throw new Error('Falha ao baixar o PDF. Verifique sua conexão e tente novamente.');
-      }
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Salvar ou compartilhar documento',
-        });
-      } else {
-        // Fallback: abre a URL para o usuário baixar pelo navegador
-        await Linking.openURL(request.signedDocumentUrl);
-      }
-    } catch (e: any) {
-      const msg = e.message || 'Não foi possível salvar o documento.';
-      Alert.alert(
-        'Erro',
-        msg,
-        [
-          { text: 'OK' },
-          {
-            text: 'Abrir no navegador',
-            onPress: () => request?.signedDocumentUrl && Linking.openURL(request.signedDocumentUrl),
-          },
-        ]
-      );
+      await WebBrowser.openBrowserAsync(request.signedDocumentUrl);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível abrir o documento.');
     }
   };
 
-  if (loading) return <SafeAreaView style={styles.container}><Loading color={colors.primary} message="Carregando..." /></SafeAreaView>;
-  if (!request) return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.primaryDark} /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Detalhes</Text>
-        <View style={{ width: 24 }} />
-      </View>
-      <View style={styles.errorContainer}>
-        <Ionicons name="document-text-outline" size={48} color={colors.gray400} style={styles.errorIcon} />
-        <Text style={styles.errorTitle}>Solicitação não encontrada</Text>
-        <Text style={styles.errorText}>A solicitação não foi encontrada ou você não tem acesso a ela.</Text>
-        <Button title="Voltar" onPress={() => router.back()} variant="outline" style={styles.errorButton} />
-      </View>
-    </SafeAreaView>
-  );
+  const handleEnterConsultation = () => {
+    if (!request) return;
+    router.push(`/video/${request.id}`);
+  };
 
-  const statusOrder = ['submitted', 'analyzing', 'in_review', 'approved_pending_payment', 'approved', 'pending_payment', 'paid', 'signed', 'delivered', 'completed'];
-  const currentIdx = Math.max(0, statusOrder.indexOf(request.status));
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Carregando...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!request) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Detalhes</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.center}>
+          <Ionicons name="document-text-outline" size={64} color={colors.border} />
+          <Text style={styles.errorTitle}>Solicitação não encontrada</Text>
+          <TouchableOpacity style={styles.errorBtn} onPress={() => router.back()}>
+            <Text style={styles.errorBtnText}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const canPay = ['pending_payment', 'approved_pending_payment', 'approved', 'consultation_ready'].includes(request.status);
+  const canDownload = !!request.signedDocumentUrl;
+  const canJoinVideo = ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.primaryDark} /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Detalhes</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{getTypeLabel(request.requestType)}</Text>
+        <StatusBadge status={request.status} />
       </View>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Status card */}
-        <Card style={styles.statusCard}>
-          <View style={styles.statusRow}>
-            <View>
-              <Text style={styles.typeLabel}>{request.requestType === 'prescription' ? 'Receita' : request.requestType === 'exam' ? 'Exame' : 'Consulta'}</Text>
-              {request.prescriptionType && <Text style={styles.subType}>Tipo: {request.prescriptionType}</Text>}
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Status Tracker */}
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>STATUS DO PEDIDO</Text>
+          <StatusTracker currentStatus={request.status} requestType={request.requestType} />
+        </View>
+
+        {/* Details Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="document-text" size={20} color={colors.primary} />
+            <Text style={styles.cardTitle}>Detalhes da Solicitação</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Tipo</Text>
+            <Text style={styles.detailValue}>{getTypeLabel(request.requestType)}</Text>
+          </View>
+          {request.prescriptionType && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Controle</Text>
+              <Text style={styles.detailValue}>{getPrescriptionTypeLabel(request.prescriptionType)}</Text>
             </View>
-            <StatusBadge status={request.status} />
+          )}
+          {request.doctorName && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Médico</Text>
+              <View style={styles.doctorInfo}>
+                <View style={styles.doctorAvatarSmall}>
+                  <Ionicons name="person" size={14} color="#fff" />
+                </View>
+                <Text style={styles.detailValue}>{request.doctorName}</Text>
+              </View>
+            </View>
+          )}
+          {request.price != null && request.price > 0 && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Valor</Text>
+              <Text style={[styles.detailValue, { color: colors.success, fontWeight: '700' }]}>
+                R$ {request.price.toFixed(2)}
+              </Text>
+            </View>
+          )}
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Criado em</Text>
+            <Text style={styles.detailValue}>
+              {new Date(request.createdAt).toLocaleDateString('pt-BR')} {new Date(request.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
           </View>
-          <View style={styles.metaRow}>
-            <Text style={styles.meta}>Criado em {new Date(request.createdAt).toLocaleDateString('pt-BR')}</Text>
-            {request.price != null && request.price > 0 && <Text style={styles.price}>R$ {request.price.toFixed(2)}</Text>}
+        </View>
+
+        {/* Medications */}
+        {request.medications && request.medications.length > 0 && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="medical" size={20} color={colors.primary} />
+              <Text style={styles.cardTitle}>Medicamentos</Text>
+            </View>
+            {request.medications.map((med, i) => (
+              <View key={i} style={styles.medItem}>
+                <View style={styles.medIcon}>
+                  <Ionicons name="ellipse" size={8} color={colors.primary} />
+                </View>
+                <Text style={styles.medName}>{med}</Text>
+              </View>
+            ))}
           </View>
-        </Card>
+        )}
+
+        {/* Exams */}
+        {request.exams && request.exams.length > 0 && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="flask" size={20} color="#8B5CF6" />
+              <Text style={styles.cardTitle}>Exames</Text>
+            </View>
+            {request.exams.map((exam, i) => (
+              <View key={i} style={styles.medItem}>
+                <View style={styles.medIcon}>
+                  <Ionicons name="ellipse" size={8} color="#8B5CF6" />
+                </View>
+                <Text style={styles.medName}>{exam}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Symptoms */}
+        {request.symptoms && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="chatbubble-ellipses" size={20} color={colors.warning} />
+              <Text style={styles.cardTitle}>Sintomas</Text>
+            </View>
+            <Text style={styles.symptomsText}>{request.symptoms}</Text>
+          </View>
+        )}
 
         {/* AI Analysis */}
         {request.aiSummaryForDoctor && (
-          <Card style={styles.aiCard}>
-            <View style={styles.aiHeader}><Ionicons name="sparkles" size={18} color={colors.secondary} /><Text style={styles.aiTitle}>Análise da IA</Text></View>
-            <Text style={styles.aiText}>{request.aiSummaryForDoctor}</Text>
-            {request.aiRiskLevel && <Text style={styles.aiMeta}>Risco: {request.aiRiskLevel} | Urgência: {request.aiUrgency || 'Normal'}</Text>}
-          </Card>
-        )}
-
-        {/* Doctor info */}
-        {request.doctorName && (
-          <Card style={styles.doctorCard}>
-            <View style={styles.doctorRow}>
-              <View style={styles.doctorAvatar}><Ionicons name="person" size={24} color={colors.white} /></View>
-              <View>
-                <Text style={styles.doctorName}>{request.doctorName}</Text>
-                <Text style={styles.doctorDetail}>Médico responsável</Text>
-              </View>
-            </View>
-          </Card>
-        )}
-
-        {/* Timeline */}
-        <Card style={styles.timelineCard}>
-          <Text style={styles.timelineTitle}>Progresso</Text>
-          {TIMELINE_STEPS.map((step, idx) => {
-            const isCompleted = currentIdx >= idx;
-            const isCurrent = currentIdx === idx;
-            return (
-              <View key={step.key} style={styles.timelineItem}>
-                <View style={styles.timelineLine}>
-                  <View style={[styles.timelineDot, isCompleted && styles.timelineDotActive, isCurrent && styles.timelineDotCurrent]} >
-                    <Ionicons name={step.icon as any} size={14} color={isCompleted ? colors.white : colors.gray400} />
-                  </View>
-                  {idx < TIMELINE_STEPS.length - 1 && <View style={[styles.timelineConnector, isCompleted && styles.connectorActive]} />}
+          <View style={[styles.card, { backgroundColor: '#FFFBEB' }]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="sparkles" size={20} color="#F59E0B" />
+              <Text style={styles.cardTitle}>Análise IA</Text>
+              {request.aiRiskLevel && (
+                <View style={[styles.riskBadge, { backgroundColor: request.aiRiskLevel === 'high' ? '#FEE2E2' : request.aiRiskLevel === 'medium' ? '#FEF3C7' : '#D1FAE5' }]}>
+                  <Text style={[styles.riskText, { color: request.aiRiskLevel === 'high' ? '#EF4444' : request.aiRiskLevel === 'medium' ? '#D97706' : '#059669' }]}>
+                    {request.aiRiskLevel === 'high' ? 'ALTO RISCO' : request.aiRiskLevel === 'medium' ? 'RISCO MÉDIO' : 'BAIXO RISCO'}
+                  </Text>
                 </View>
-                <Text style={[styles.timelineLabel, isCompleted && styles.timelineLabelActive]}>{step.label}</Text>
-              </View>
-            );
-          })}
-        </Card>
-
-        {/* Rejection reason */}
-        {request.rejectionReason && (
-          <Card style={styles.rejectCard}>
-            <Ionicons name="close-circle" size={20} color={colors.error} />
-            <Text style={styles.rejectText}>Motivo: {request.rejectionReason}</Text>
-          </Card>
-        )}
-
-        {/* Actions */}
-        {['pending_payment', 'approved_pending_payment', 'approved'].includes(request.status) && (
-          <>
-            <Button title="Pagar com PIX" onPress={handlePayPix} fullWidth loading={payingPix} icon={<Ionicons name="qr-code" size={20} color={colors.white} />} />
-            <Button title="Pagar com Cartão" onPress={handlePayCard} variant="outline" fullWidth style={{ marginTop: spacing.sm }} icon={<Ionicons name="card" size={20} color={colors.primary} />} />
-          </>
-        )}
-        {request.signedDocumentUrl && (
-          <View style={styles.documentActions}>
-            <Button title="Visualizar Documento" onPress={handleViewDocument} variant="outline" fullWidth icon={<Ionicons name="eye" size={20} color={colors.primary} />} />
-            <Button title="Salvar / Compartilhar" onPress={handleSaveDocument} fullWidth style={{ marginTop: spacing.sm }} icon={<Ionicons name="download" size={20} color={colors.white} />} />
+              )}
+            </View>
+            <Text style={styles.aiSummary}>{request.aiSummaryForDoctor}</Text>
           </View>
         )}
-        {request.status === 'consultation_ready' && (
-          <Button title="Entrar na Consulta" onPress={() => router.push(`/video/${request.id}`)} fullWidth style={{ marginTop: spacing.sm }} icon={<Ionicons name="videocam" size={20} color={colors.white} />} />
+
+        {/* Rejection */}
+        {request.rejectionReason && (
+          <View style={[styles.card, { backgroundColor: '#FEE2E2' }]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="close-circle" size={20} color={colors.error} />
+              <Text style={[styles.cardTitle, { color: colors.error }]}>Motivo da Rejeição</Text>
+            </View>
+            <Text style={[styles.symptomsText, { color: '#991B1B' }]}>{request.rejectionReason}</Text>
+          </View>
         )}
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          {canPay && (
+            <TouchableOpacity style={styles.primaryBtn} onPress={handlePay} disabled={actionLoading} activeOpacity={0.8}>
+              {actionLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="qr-code" size={20} color="#fff" />
+                  <Text style={styles.primaryBtnText}>Pagar</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {canDownload && (
+            <>
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleDownload} activeOpacity={0.8}>
+                <Ionicons name="download" size={20} color="#fff" />
+                <Text style={styles.primaryBtnText}>Baixar Receita</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.outlineBtn} onPress={handleViewDocument} activeOpacity={0.8}>
+                <Ionicons name="eye" size={20} color={colors.primary} />
+                <Text style={styles.outlineBtnText}>Visualizar</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {canJoinVideo && (
+            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: colors.success }]} onPress={handleEnterConsultation} activeOpacity={0.8}>
+              <Ionicons name="videocam" size={20} color="#fff" />
+              <Text style={styles.primaryBtnText}>Entrar na Consulta</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  headerTitle: { ...typography.h4, color: colors.primaryDarker },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
-  errorIcon: { marginBottom: spacing.md },
-  errorTitle: { ...typography.h4, color: colors.gray800, textAlign: 'center', marginBottom: spacing.sm },
-  errorText: { ...typography.bodySmall, color: colors.gray500, textAlign: 'center', marginBottom: spacing.xl },
-  errorButton: { minWidth: 120 },
-  statusCard: { marginBottom: spacing.md },
-  statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm },
-  typeLabel: { ...typography.h4, color: colors.gray800 },
-  subType: { ...typography.caption, color: colors.gray500, marginTop: 2 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  meta: { ...typography.caption, color: colors.gray400 },
-  price: { ...typography.bodySemiBold, color: colors.primary },
-  aiCard: { marginBottom: spacing.md, backgroundColor: '#FFF7ED' },
-  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs },
-  aiTitle: { ...typography.bodySmallMedium, color: colors.secondaryDark },
-  aiText: { ...typography.bodySmall, color: colors.gray700 },
-  aiMeta: { ...typography.caption, color: colors.gray500, marginTop: spacing.xs },
-  doctorCard: { marginBottom: spacing.md },
-  doctorRow: { flexDirection: 'row', alignItems: 'center' },
-  doctorAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
-  doctorName: { ...typography.bodySemiBold, color: colors.gray800 },
-  doctorDetail: { ...typography.caption, color: colors.gray500 },
-  timelineCard: { marginBottom: spacing.md },
-  timelineTitle: { ...typography.bodySemiBold, color: colors.primaryDarker, marginBottom: spacing.md },
-  timelineItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
-  timelineLine: { alignItems: 'center', marginRight: spacing.md, width: 28 },
-  timelineDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.gray200, justifyContent: 'center', alignItems: 'center' },
-  timelineDotActive: { backgroundColor: colors.success },
-  timelineDotCurrent: { backgroundColor: colors.primary },
-  timelineConnector: { width: 2, height: 20, backgroundColor: colors.gray200 },
-  connectorActive: { backgroundColor: colors.success },
-  timelineLabel: { ...typography.bodySmall, color: colors.gray400, paddingTop: 4 },
-  timelineLabelActive: { color: colors.gray800, fontWeight: '500' },
-  rejectCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md, backgroundColor: colors.errorLight },
-  rejectText: { flex: 1, ...typography.bodySmall, color: colors.error },
-  documentActions: { marginTop: spacing.sm },
+  container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  loadingText: { fontSize: 14, color: colors.textMuted },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  scroll: { padding: spacing.md, paddingBottom: spacing.xl * 3 },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  cardLabel: { fontSize: 11, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.xs },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  detailLabel: { fontSize: 14, color: colors.textSecondary },
+  detailValue: { fontSize: 14, fontWeight: '500', color: colors.text },
+  doctorInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  doctorAvatarSmall: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+  },
+  medItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, gap: spacing.sm },
+  medIcon: { width: 24, alignItems: 'center' },
+  medName: { fontSize: 15, color: colors.text, fontWeight: '500' },
+  symptomsText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
+  aiSummary: { fontSize: 14, color: '#92400E', lineHeight: 20 },
+  riskBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.sm },
+  riskText: { fontSize: 11, fontWeight: '700' },
+  actions: { gap: spacing.sm, marginTop: spacing.md },
+  primaryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  outlineBtn: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  outlineBtnText: { fontSize: 16, fontWeight: '700', color: colors.primary },
+  errorTitle: { fontSize: 18, fontWeight: '600', color: colors.textSecondary },
+  errorBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+  },
+  errorBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
 });

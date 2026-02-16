@@ -1,15 +1,18 @@
-export const colors = {
-  primary: '#0077B6',
-  primaryLight: '#00A8E8',
-  primaryLighter: '#90E0EF',
-  primaryDark: '#005F8A',
-  primaryDarker: '#023E58',
-  primaryPale: '#CAF0F8',
-  primaryPaler: '#E8F8FF',
+// Legacy theme - re-exports from lib/theme.ts with backward-compatible API
+// New code should import from '../lib/theme' directly
 
-  secondary: '#F4A261',
-  secondaryLight: '#F4C089',
-  secondaryDark: '#E07B3C',
+export const colors = {
+  primary: '#0EA5E9',
+  primaryLight: '#38BDF8',
+  primaryLighter: '#7DD3FC',
+  primaryDark: '#0284C7',
+  primaryDarker: '#075985',
+  primaryPale: '#BAE6FD',
+  primaryPaler: '#E0F2FE',
+
+  secondary: '#10B981',
+  secondaryLight: '#34D399',
+  secondaryDark: '#059669',
 
   white: '#FFFFFF',
   black: '#000000',
@@ -31,8 +34,8 @@ export const colors = {
   errorLight: '#FEE2E2',
   warning: '#F59E0B',
   warningLight: '#FEF3C7',
-  info: '#0077B6',
-  infoLight: '#E8F8FF',
+  info: '#3B82F6',
+  infoLight: '#DBEAFE',
 
   transparent: 'transparent',
 };
@@ -47,35 +50,35 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 20,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
   xxl: 28,
   full: 9999,
 };
 
 export const shadows = {
   sm: {
-    shadowColor: '#0077B6',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   md: {
-    shadowColor: '#0077B6',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   lg: {
-    shadowColor: '#0077B6',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
 };
 
@@ -95,11 +98,11 @@ export const typography = {
 };
 
 export const gradients = {
-  primary: [colors.primary, colors.primaryDark] as const,
-  primaryLight: [colors.primaryLight, colors.primary] as const,
-  light: [colors.primaryPaler, colors.primaryPale] as const,
-  pale: [colors.primaryPaler, '#F0F9FF'] as const,
-  warm: [colors.secondary, colors.secondaryDark] as const,
-  dark: [colors.primaryDark, colors.primaryDarker] as const,
+  primary: ['#0EA5E9', '#0284C7'] as const,
+  primaryLight: ['#38BDF8', '#0EA5E9'] as const,
+  light: ['#E0F2FE', '#BAE6FD'] as const,
+  pale: ['#E0F2FE', '#F0F8FF'] as const,
+  warm: ['#10B981', '#059669'] as const,
+  dark: ['#0284C7', '#075985'] as const,
   success: ['#10B981', '#059669'] as const,
 };

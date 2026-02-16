@@ -1,270 +1,247 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/Card';
-import { StatusBadge } from '../../components/StatusBadge';
-import { useAuth } from '../../contexts/AuthContext';
-import { fetchRequests } from '../../lib/api';
-import { RequestResponseDto } from '../../types/database';
-import { colors, spacing, typography, borderRadius, shadows, gradients } from '../../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { getRequests } from '../../lib/api';
+import { RequestResponseDto, UserDto } from '../../types/database';
+import RequestCard from '../../components/RequestCard';
+import { StatsCard } from '../../components/StatsCard';
+import { ActionCard } from '../../components/ActionCard';
 
-interface ServiceCardProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-  price: string;
-  onPress: () => void;
-  gradientColors: readonly [string, string, ...string[]];
-}
-
-function ServiceCard({ icon, title, description, price, onPress, gradientColors }: ServiceCardProps) {
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.serviceCard}
-      >
-        <View style={styles.serviceIcon}>
-          <Ionicons name={icon} size={28} color={colors.white} />
-        </View>
-        <View style={styles.serviceContent}>
-          <Text style={styles.serviceTitle}>{title}</Text>
-          <Text style={styles.serviceDesc}>{description}</Text>
-        </View>
-        <View style={styles.servicePriceBadge}>
-          <Text style={styles.servicePrice}>{price}</Text>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-}
-
-export default function PatientHomeScreen() {
-  const { user } = useAuth();
+export default function PatientHome() {
   const router = useRouter();
-  const [recentRequests, setRecentRequests] = useState<RequestResponseDto[]>([]);
+  const [user, setUser] = useState<UserDto | null>(null);
+  const [requests, setRequests] = useState<RequestResponseDto[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadRecentRequests(); }, []);
-
-  const loadRecentRequests = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const response = await fetchRequests({ page: 1, pageSize: 5 });
-      setRecentRequests(response.items);
+      const userData = await AsyncStorage.getItem('@renoveja:user');
+      if (userData) setUser(JSON.parse(userData));
+
+      const response = await getRequests({ page: 1, pageSize: 50 });
+      setRequests(response.items || []);
     } catch (error) {
-      console.error('Error loading requests:', error);
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
     setRefreshing(true);
-    await loadRecentRequests();
-    setRefreshing(false);
+    loadData();
   };
 
-  const getRequestIcon = (type: string): keyof typeof Ionicons.glyphMap => {
-    switch (type) {
-      case 'prescription': return 'medical';
-      case 'exam': return 'flask';
-      case 'consultation': return 'videocam';
-      default: return 'document';
-    }
+  const stats = {
+    total: requests.length,
+    pending: requests.filter(r =>
+      ['submitted', 'in_review', 'analyzing', 'searching_doctor'].includes(r.status)
+    ).length,
+    toPay: requests.filter(r =>
+      ['approved_pending_payment', 'pending_payment', 'consultation_ready'].includes(r.status)
+    ).length,
+    ready: requests.filter(r =>
+      ['signed', 'delivered', 'consultation_finished'].includes(r.status)
+    ).length,
   };
 
-  const getRequestLabel = (type: string) => {
-    switch (type) {
-      case 'prescription': return 'Receita';
-      case 'exam': return 'Exame';
-      case 'consultation': return 'Consulta';
-      default: return type;
-    }
-  };
+  const recentRequests = requests.slice(0, 5);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
-        {/* Header */}
-        <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Olá,</Text>
-            <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'Usuário'} 👋</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+    >
+      {/* Gradient Header */}
+      <LinearGradient colors={['#0EA5E9', '#38BDF8', '#7DD3FC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerText}>
+            <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0] || 'Paciente'}! 👋</Text>
+            <Text style={styles.subtitle}>Gerencie suas solicitações médicas</Text>
           </View>
-          <TouchableOpacity
-            style={styles.settingsBtn}
-            onPress={() => router.push('/settings')}
-          >
-            <Ionicons name="settings-outline" size={22} color={colors.white} />
-          </TouchableOpacity>
-        </LinearGradient>
-
-        {/* AI Banner */}
-        <View style={styles.bannerContainer}>
-          <LinearGradient
-            colors={[colors.secondary, colors.secondaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.aiBanner}
-          >
-            <View style={styles.aiIcon}>
-              <Ionicons name="sparkles" size={24} color={colors.secondary} />
-            </View>
-            <View style={styles.aiBannerContent}>
-              <Text style={styles.aiBannerTitle}>Triagem com IA</Text>
-              <Text style={styles.aiBannerDesc}>Análise inteligente da sua receita em segundos</Text>
-            </View>
-          </LinearGradient>
-        </View>
-
-        {/* Services */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Nossos Serviços</Text>
-
-          <ServiceCard
-            icon="medical"
-            title="Renovar Receita"
-            description="Renove suas receitas médicas com praticidade"
-            price="A partir de R$ 29,90"
-            onPress={() => router.push('/new-request/prescription')}
-            gradientColors={[colors.primary, colors.primaryDark]}
-          />
-          <ServiceCard
-            icon="flask"
-            title="Pedir Exame"
-            description="Solicite pedidos de exames laboratoriais"
-            price="A partir de R$ 19,90"
-            onPress={() => router.push('/new-request/exam')}
-            gradientColors={[colors.primaryLight, colors.primary]}
-          />
-          <ServiceCard
-            icon="videocam"
-            title="Consulta Online"
-            description="Atendimento médico por videochamada"
-            price="A partir de R$ 99,90"
-            onPress={() => router.push('/new-request/consultation')}
-            gradientColors={[colors.primaryDark, colors.primaryDarker]}
-          />
-        </View>
-
-        {/* Recent requests */}
-        {recentRequests.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recentes</Text>
-              <TouchableOpacity onPress={() => router.push('/(patient)/requests')}>
-                <Text style={styles.seeAll}>Ver todas</Text>
-              </TouchableOpacity>
-            </View>
-
-            {recentRequests.map((req) => (
-              <TouchableOpacity key={req.id} onPress={() => router.push(`/request-detail/${req.id}`)}>
-                <Card style={styles.requestCard}>
-                  <View style={styles.requestRow}>
-                    <View style={[styles.requestIconBg, { backgroundColor: colors.primaryPaler }]}>
-                      <Ionicons name={getRequestIcon(req.requestType)} size={20} color={colors.primary} />
-                    </View>
-                    <View style={styles.requestInfo}>
-                      <Text style={styles.requestType}>{getRequestLabel(req.requestType)}</Text>
-                      <Text style={styles.requestDate}>
-                        {new Date(req.createdAt).toLocaleDateString('pt-BR')}
-                      </Text>
-                    </View>
-                    <StatusBadge status={req.status} size="sm" />
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={28} color={colors.primary} />
           </View>
-        )}
-
-        {/* WhatsApp support */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.whatsappCard}>
-            <Ionicons name="logo-whatsapp" size={28} color="#25D366" />
-            <View style={styles.whatsappContent}>
-              <Text style={styles.whatsappTitle}>Precisa de ajuda?</Text>
-              <Text style={styles.whatsappDesc}>Fale conosco pelo WhatsApp</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
-          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </LinearGradient>
+
+      {/* Stats Row */}
+      <View style={styles.statsRow}>
+        <StatsCard icon="folder-open" iconColor="#3B82F6" label="Total" value={stats.total} />
+        <StatsCard icon="time" iconColor="#F59E0B" label="Pendente" value={stats.pending} />
+        <StatsCard icon="card" iconColor="#F97316" label="A Pagar" value={stats.toPay} />
+        <StatsCard icon="checkmark-circle" iconColor="#10B981" label="Prontos" value={stats.ready} />
+      </View>
+
+      {/* New Request Actions */}
+      <Text style={styles.sectionTitle}>Nova Solicitação</Text>
+      <View style={styles.actionsRow}>
+        <ActionCard
+          icon="document-text"
+          iconColor="#0EA5E9"
+          label="Nova Receita"
+          onPress={() => router.push('/new-request/prescription')}
+        />
+        <ActionCard
+          icon="flask"
+          iconColor="#8B5CF6"
+          label="Novo Exame"
+          onPress={() => router.push('/new-request/exam')}
+        />
+        <ActionCard
+          icon="videocam"
+          iconColor="#10B981"
+          label="Consulta Online"
+          onPress={() => router.push('/new-request/consultation')}
+        />
+      </View>
+
+      {/* Recent Requests */}
+      {recentRequests.length > 0 && (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Solicitações Recentes</Text>
+            <TouchableOpacity onPress={() => router.push('/(patient)/requests')}>
+              <Text style={styles.seeAll}>Ver todas</Text>
+            </TouchableOpacity>
+          </View>
+          {recentRequests.map((req) => (
+            <RequestCard
+              key={req.id}
+              request={req}
+              onPress={() => router.push(`/request-detail/${req.id}`)}
+            />
+          ))}
+        </>
+      )}
+
+      {requests.length === 0 && (
+        <View style={styles.emptyState}>
+          <Ionicons name="document-text-outline" size={64} color={colors.border} />
+          <Text style={styles.emptyTitle}>Nenhuma solicitação</Text>
+          <Text style={styles.emptySubtitle}>Crie sua primeira solicitação acima</Text>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  scrollContent: { paddingBottom: spacing.xxl },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl + 20,
+    paddingTop: 60,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderBottomLeftRadius: borderRadius.xl,
+    borderBottomRightRadius: borderRadius.xl,
   },
-  greeting: { ...typography.body, color: 'rgba(255,255,255,0.8)' },
-  userName: { ...typography.h1, color: colors.white },
-  settingsBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center',
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  bannerContainer: { paddingHorizontal: spacing.lg, marginTop: -spacing.xxl },
-  aiBanner: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: spacing.md, borderRadius: borderRadius.xl, ...shadows.md,
+  headerText: {
+    flex: 1,
   },
-  aiIcon: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center', alignItems: 'center', marginRight: spacing.md,
+  greeting: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
   },
-  aiBannerContent: { flex: 1 },
-  aiBannerTitle: { ...typography.bodySemiBold, color: colors.white },
-  aiBannerDesc: { ...typography.bodySmall, color: 'rgba(255,255,255,0.85)' },
-  section: { padding: spacing.lg, paddingBottom: 0 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-  sectionTitle: { ...typography.h3, color: colors.primaryDarker, marginBottom: spacing.md },
-  seeAll: { ...typography.bodySmallMedium, color: colors.primary },
-  serviceCard: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: spacing.md, borderRadius: borderRadius.xl, marginBottom: spacing.sm, ...shadows.sm,
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 4,
   },
-  serviceIcon: {
-    width: 52, height: 52, borderRadius: borderRadius.lg,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center', marginRight: spacing.md,
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  serviceContent: { flex: 1 },
-  serviceTitle: { ...typography.bodySemiBold, color: colors.white, marginBottom: 2 },
-  serviceDesc: { ...typography.caption, color: 'rgba(255,255,255,0.85)' },
-  servicePriceBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: borderRadius.full,
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    marginTop: -spacing.md,
+    gap: spacing.sm,
   },
-  servicePrice: { ...typography.captionSmall, color: colors.white },
-  requestCard: { marginBottom: spacing.sm },
-  requestRow: { flexDirection: 'row', alignItems: 'center' },
-  requestIconBg: {
-    width: 42, height: 42, borderRadius: 21,
-    justifyContent: 'center', alignItems: 'center', marginRight: spacing.md,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
-  requestInfo: { flex: 1 },
-  requestType: { ...typography.bodySmallMedium, color: colors.gray800 },
-  requestDate: { ...typography.caption, color: colors.gray400, marginTop: 2 },
-  whatsappCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.white, borderRadius: borderRadius.xl,
-    padding: spacing.md, ...shadows.sm,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginRight: spacing.md,
   },
-  whatsappContent: { flex: 1, marginLeft: spacing.md },
-  whatsappTitle: { ...typography.bodySmallMedium, color: colors.gray800 },
-  whatsappDesc: { ...typography.caption, color: colors.gray500 },
+  seeAll: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
 });

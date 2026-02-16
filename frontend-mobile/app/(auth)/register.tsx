@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
-  TouchableOpacity, Alert,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Input } from '../../components/Input';
-import { Button } from '../../components/Button';
-import { useAuth } from '../../contexts/AuthContext';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors, spacing, borderRadius } from '../../lib/theme';
+import { apiClient } from '../../lib/api-client';
+import { AuthResponseDto } from '../../types/database';
 
-export default function RegisterScreen() {
-  const [isDoctor, setIsDoctor] = useState(false);
+export default function Register() {
+  const router = useRouter();
+  const [role, setRole] = useState<'patient' | 'doctor'>('patient');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,145 +30,137 @@ export default function RegisterScreen() {
   const [crmState, setCrmState] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp, signUpDoctor } = useAuth();
-  const router = useRouter();
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !phone || !cpf) {
-      Alert.alert('Atenção', 'Preencha todos os campos obrigatórios');
+    if (!name.trim() || !email.trim() || !password.trim() || !phone.trim() || !cpf.trim()) {
+      Alert.alert('Campos obrigatórios', 'Preencha todos os campos.');
       return;
     }
-    if (isDoctor && (!crm || !crmState || !specialty)) {
-      Alert.alert('Atenção', 'Preencha os dados profissionais');
+    if (role === 'doctor' && (!crm.trim() || !crmState.trim() || !specialty.trim())) {
+      Alert.alert('Campos obrigatórios', 'Preencha CRM, estado e especialidade.');
       return;
     }
 
     setLoading(true);
     try {
-      if (isDoctor) {
-        const user = await signUpDoctor({ name, email, password, phone, cpf, crm, crmState, specialty });
-        router.replace('/(doctor)/dashboard');
-      } else {
-        const user = await signUp({ name, email, password, phone, cpf });
-        router.replace('/(patient)/home');
-      }
+      const endpoint = role === 'doctor' ? '/api/auth/register-doctor' : '/api/auth/register';
+      const body: any = { name: name.trim(), email: email.trim().toLowerCase(), password, phone: phone.trim(), cpf: cpf.trim() };
+      if (role === 'doctor') { body.crm = crm.trim(); body.crmState = crmState.trim(); body.specialty = specialty.trim(); }
+
+      const response = await apiClient.post<AuthResponseDto>(endpoint, body);
+      await AsyncStorage.setItem('@renoveja:auth_token', response.token);
+      await AsyncStorage.setItem('@renoveja:user', JSON.stringify(response.user));
+      if (response.doctorProfile) await AsyncStorage.setItem('@renoveja:doctor_profile', JSON.stringify(response.doctorProfile));
+
+      if (response.user.role === 'doctor') router.replace('/(doctor)/dashboard');
+      else router.replace('/(patient)/home');
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao criar conta');
+      Alert.alert('Erro', error?.message || 'Não foi possível criar a conta.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <LinearGradient colors={[colors.primaryPaler, '#F0F9FF']} style={styles.gradient}>
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color={colors.primaryDark} />
-            </TouchableOpacity>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+            <Ionicons name="chevron-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Criar Conta</Text>
+          <View style={{ width: 32 }} />
+        </View>
 
-            <Text style={styles.title}>Criar Conta</Text>
-            <Text style={styles.subtitle}>Preencha seus dados para começar</Text>
+        {/* Role Toggle */}
+        <View style={styles.roleRow}>
+          <TouchableOpacity style={[styles.roleBtn, role === 'patient' && styles.roleBtnActive]} onPress={() => setRole('patient')}>
+            <Ionicons name="person" size={20} color={role === 'patient' ? '#fff' : colors.textSecondary} />
+            <Text style={[styles.roleText, role === 'patient' && styles.roleTextActive]}>Paciente</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.roleBtn, role === 'doctor' && styles.roleBtnActive]} onPress={() => setRole('doctor')}>
+            <Ionicons name="medical" size={20} color={role === 'doctor' ? '#fff' : colors.textSecondary} />
+            <Text style={[styles.roleText, role === 'doctor' && styles.roleTextActive]}>Médico</Text>
+          </TouchableOpacity>
+        </View>
 
-            {/* Role toggle */}
-            <View style={styles.toggleContainer}>
-              <TouchableOpacity
-                style={[styles.toggleBtn, !isDoctor && styles.toggleActive]}
-                onPress={() => setIsDoctor(false)}
-              >
-                <Ionicons name="person" size={18} color={!isDoctor ? colors.white : colors.gray500} />
-                <Text style={[styles.toggleText, !isDoctor && styles.toggleTextActive]}>Paciente</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleBtn, isDoctor && styles.toggleActive]}
-                onPress={() => setIsDoctor(true)}
-              >
-                <Ionicons name="medical" size={18} color={isDoctor ? colors.white : colors.gray500} />
-                <Text style={[styles.toggleText, isDoctor && styles.toggleTextActive]}>Médico</Text>
-              </TouchableOpacity>
-            </View>
+        <Field label="Nome completo" value={name} onChangeText={setName} icon="person-outline" />
+        <Field label="Email" value={email} onChangeText={setEmail} icon="mail-outline" keyboard="email-address" />
+        <Field label="Senha" value={password} onChangeText={setPassword} icon="lock-closed-outline" secure />
+        <Field label="Telefone" value={phone} onChangeText={setPhone} icon="call-outline" keyboard="phone-pad" />
+        <Field label="CPF" value={cpf} onChangeText={setCpf} icon="card-outline" keyboard="numeric" />
 
-            <View style={styles.formCard}>
-              <Input label="Nome Completo" placeholder="Seu nome" value={name} onChangeText={setName} leftIcon="person-outline" />
-              <Input label="E-mail" placeholder="seu@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" leftIcon="mail-outline" />
-              <Input label="Senha" placeholder="Mínimo 6 caracteres" value={password} onChangeText={setPassword} secureTextEntry leftIcon="lock-closed-outline" />
-              <Input label="Telefone" placeholder="(11) 99999-9999" value={phone} onChangeText={setPhone} keyboardType="phone-pad" leftIcon="call-outline" />
-              <Input label="CPF" placeholder="000.000.000-00" value={cpf} onChangeText={setCpf} keyboardType="numeric" leftIcon="card-outline" />
+        {role === 'doctor' && (
+          <>
+            <Field label="CRM" value={crm} onChangeText={setCrm} icon="shield-checkmark-outline" />
+            <Field label="Estado do CRM" value={crmState} onChangeText={setCrmState} icon="location-outline" placeholder="SP" />
+            <Field label="Especialidade" value={specialty} onChangeText={setSpecialty} icon="medkit-outline" />
+          </>
+        )}
 
-              {isDoctor && (
-                <>
-                  <View style={styles.sectionDivider}>
-                    <View style={styles.sectionLine} />
-                    <Text style={styles.sectionLabel}>Dados Profissionais</Text>
-                    <View style={styles.sectionLine} />
-                  </View>
-                  <Input label="CRM" placeholder="123456" value={crm} onChangeText={setCrm} leftIcon="shield-checkmark-outline" />
-                  <Input label="Estado do CRM (UF)" placeholder="SP" value={crmState} onChangeText={setCrmState} autoCapitalize="characters" leftIcon="location-outline" />
-                  <Input label="Especialidade" placeholder="Ex: Clínico Geral" value={specialty} onChangeText={setSpecialty} leftIcon="medkit-outline" />
-                </>
-              )}
+        <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Cadastrar</Text>}
+        </TouchableOpacity>
 
-              <Button title="Criar Conta" onPress={handleRegister} loading={loading} fullWidth />
+        <View style={styles.loginRow}>
+          <Text style={styles.loginText}>Já tem conta? </Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+            <Text style={styles.loginLink}>Entrar</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
 
-              <View style={styles.loginRow}>
-                <Text style={styles.loginText}>Já tem uma conta? </Text>
-                <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-                  <Text style={styles.loginLink}>Entrar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+function Field({ label, value, onChangeText, icon, secure, keyboard, placeholder }: any) {
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.inputRow}>
+        <Ionicons name={icon} size={20} color={colors.textMuted} />
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secure}
+          keyboardType={keyboard}
+          autoCapitalize={secure || keyboard === 'email-address' ? 'none' : 'words'}
+          placeholder={placeholder || label}
+          placeholderTextColor={colors.textMuted}
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
-  container: { flex: 1 },
-  flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, padding: spacing.lg, paddingTop: spacing.md },
-  backBtn: { marginBottom: spacing.md },
-  title: { ...typography.h1, color: colors.primaryDark, marginBottom: spacing.xs },
-  subtitle: { ...typography.body, color: colors.gray500, marginBottom: spacing.lg },
-  toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.gray100,
-    borderRadius: borderRadius.lg,
-    padding: 4,
-    marginBottom: spacing.lg,
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: 40 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  back: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text },
+  roleRow: { flexDirection: 'row', marginHorizontal: spacing.md, marginTop: spacing.md, gap: spacing.sm },
+  roleBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    padding: spacing.md, borderRadius: borderRadius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
   },
-  toggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: borderRadius.md,
-    gap: 6,
+  roleBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  roleText: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },
+  roleTextActive: { color: '#fff' },
+  fieldContainer: { marginHorizontal: spacing.md },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+    borderRadius: borderRadius.md, paddingHorizontal: spacing.md, height: 50, borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
   },
-  toggleActive: {
-    backgroundColor: colors.primary,
-    ...shadows.sm,
+  input: { flex: 1, fontSize: 15, color: colors.text },
+  submitBtn: {
+    backgroundColor: colors.primary, height: 52, borderRadius: borderRadius.md,
+    alignItems: 'center', justifyContent: 'center', marginHorizontal: spacing.md, marginTop: spacing.lg,
   },
-  toggleText: { ...typography.bodySmallMedium, color: colors.gray500 },
-  toggleTextActive: { color: colors.white },
-  formCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xxl,
-    padding: spacing.lg,
-    ...shadows.md,
-  },
-  sectionDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.md,
-  },
-  sectionLine: { flex: 1, height: 1, backgroundColor: colors.gray200 },
-  sectionLabel: { ...typography.caption, color: colors.gray400, marginHorizontal: spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
+  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
-  loginText: { ...typography.body, color: colors.gray500 },
-  loginLink: { ...typography.bodySemiBold, color: colors.primary },
+  loginText: { fontSize: 14, color: colors.textSecondary },
+  loginLink: { fontSize: 14, color: colors.primary, fontWeight: '600' },
 });

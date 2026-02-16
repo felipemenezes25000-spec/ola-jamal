@@ -79,7 +79,7 @@ export default function CertificateUploadScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Info banner */}
-        <Card style={[styles.infoBanner, { backgroundColor: colors.primaryPaler }]}>
+        <Card style={[styles.infoBanner, { backgroundColor: colors.primaryPaler } as any]}>
           <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
           <Text style={styles.infoTitle}>Certificado ICP-Brasil</Text>
           <Text style={styles.infoDesc}>Necessário para assinatura digital de receitas e documentos médicos.</Text>

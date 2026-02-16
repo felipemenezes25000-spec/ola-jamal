@@ -489,3 +489,21 @@ export async function fetchVideoRoomByRequest(requestId: string): Promise<VideoR
     throw error;
   }
 }
+
+// ============================================
+// ALIASES (for convenience in screens)
+// ============================================
+export const getRequests = (params?: { page?: number; pageSize?: number; status?: string; type?: string }) =>
+  fetchRequests(params);
+export const getRequestById = fetchRequestById;
+export const getPaymentByRequest = fetchPaymentByRequest;
+export const getPaymentById = fetchPayment;
+export const getPixCode = fetchPixCode;
+export const getNotifications = (params?: { page?: number; pageSize?: number }) =>
+  fetchNotifications(params?.page, params?.pageSize);
+export const markNotificationAsRead = markNotificationRead;
+export const markAllNotificationsAsRead = markAllNotificationsRead;
+export const getDoctorQueue = (specialty?: string) =>
+  fetchDoctorQueue(specialty);
+export const cancelRequest = (requestId: string) =>
+  updateRequestStatus(requestId, 'CANCELLED');

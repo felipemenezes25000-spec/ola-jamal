@@ -1,26 +1,27 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, typography, borderRadius } from '../constants/theme';
+import { theme } from '../lib/theme';
 
 // Status config matching EXACT backend snake_case values from EnumHelper.ToSnakeCase()
+// Following spec: submitted=yellow, in_review=blue, approved_pending_payment=orange, paid=green, signed=purple, delivered=green, rejected=red, cancelled=gray
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  submitted: { label: 'Enviado', color: '#6B7280', bg: '#F3F4F6' },
-  pending: { label: 'Pendente', color: '#6B7280', bg: '#F3F4F6' },
-  analyzing: { label: 'Analisando', color: '#8B5CF6', bg: '#EDE9FE' },
-  in_review: { label: 'Em Análise', color: '#8B5CF6', bg: '#EDE9FE' },
-  approved: { label: 'Aprovado', color: colors.success, bg: '#D1FAE5' },
-  approved_pending_payment: { label: 'Aguardando Pgto', color: colors.warning, bg: '#FEF3C7' },
-  pending_payment: { label: 'Aguardando Pgto', color: colors.warning, bg: '#FEF3C7' },
-  paid: { label: 'Pago', color: colors.primary, bg: '#DBEAFE' },
-  signed: { label: 'Assinado', color: '#059669', bg: '#D1FAE5' },
-  delivered: { label: 'Entregue', color: '#059669', bg: '#D1FAE5' },
-  completed: { label: 'Concluído', color: '#059669', bg: '#D1FAE5' },
-  rejected: { label: 'Rejeitado', color: colors.error, bg: '#FEE2E2' },
-  cancelled: { label: 'Cancelado', color: colors.error, bg: '#FEE2E2' },
-  searching_doctor: { label: 'Buscando Médico', color: colors.secondary, bg: '#FFF7ED' },
-  consultation_ready: { label: 'Consulta Pronta', color: colors.primary, bg: '#DBEAFE' },
-  in_consultation: { label: 'Em Consulta', color: '#059669', bg: '#D1FAE5' },
-  consultation_finished: { label: 'Consulta Finalizada', color: '#059669', bg: '#D1FAE5' },
+  submitted: { label: 'Enviado', color: theme.colors.status.warning, bg: theme.colors.status.warningLight },
+  pending: { label: 'Pendente', color: theme.colors.text.tertiary, bg: theme.colors.background.secondary },
+  analyzing: { label: 'Analisando', color: theme.colors.status.info, bg: theme.colors.status.infoLight },
+  in_review: { label: 'Em Análise', color: theme.colors.status.info, bg: theme.colors.status.infoLight },
+  approved: { label: 'Aprovado', color: theme.colors.status.success, bg: theme.colors.status.successLight },
+  approved_pending_payment: { label: 'A Pagar', color: theme.colors.status.warning, bg: theme.colors.status.warningLight },
+  pending_payment: { label: 'Aguardando Pgto', color: theme.colors.status.warning, bg: theme.colors.status.warningLight },
+  paid: { label: 'Pago', color: theme.colors.status.success, bg: theme.colors.status.successLight },
+  signed: { label: 'Assinado', color: theme.colors.medical.exam, bg: theme.colors.medical.examLight },
+  delivered: { label: 'Entregue', color: theme.colors.status.success, bg: theme.colors.status.successLight },
+  completed: { label: 'Concluído', color: theme.colors.status.success, bg: theme.colors.status.successLight },
+  rejected: { label: 'Rejeitado', color: theme.colors.status.error, bg: theme.colors.status.errorLight },
+  cancelled: { label: 'Cancelado', color: theme.colors.text.tertiary, bg: theme.colors.background.secondary },
+  searching_doctor: { label: 'Buscando Médico', color: theme.colors.status.warning, bg: theme.colors.status.warningLight },
+  consultation_ready: { label: 'Consulta Pronta', color: theme.colors.status.info, bg: theme.colors.status.infoLight },
+  in_consultation: { label: 'Em Consulta', color: theme.colors.status.info, bg: theme.colors.status.infoLight },
+  consultation_finished: { label: 'Finalizada', color: theme.colors.status.success, bg: theme.colors.status.successLight },
 };
 
 const FALLBACK_LABEL = 'Em processamento';
@@ -30,7 +31,7 @@ export function getStatusLabel(status: string): string {
 }
 
 export function getStatusColor(status: string): string {
-  return STATUS_CONFIG[status]?.color || '#6B7280';
+  return STATUS_CONFIG[status]?.color || theme.colors.text.tertiary;
 }
 
 interface StatusBadgeProps {
@@ -39,7 +40,11 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
-  const config = STATUS_CONFIG[status] ?? { label: FALLBACK_LABEL, color: '#6B7280', bg: '#F3F4F6' };
+  const config = STATUS_CONFIG[status] ?? {
+    label: FALLBACK_LABEL,
+    color: theme.colors.text.tertiary,
+    bg: theme.colors.background.secondary,
+  };
 
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }, size === 'sm' && styles.badgeSm]}>
@@ -57,7 +62,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: borderRadius.full,
+    borderRadius: theme.borderRadius.full,
     gap: 5,
   },
   badgeSm: {
@@ -70,8 +75,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   text: {
-    ...typography.caption,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: theme.typography.fontWeight.semibold,
   },
   textSm: {
     fontSize: 10,

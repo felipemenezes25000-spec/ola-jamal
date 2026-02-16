@@ -1,202 +1,257 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
-import { ZoomableImage } from '../../components/ZoomableImage';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { createExamRequest } from '../../lib/api';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 
-const MAX_IMAGES = 5;
-const MAX_TOTAL_BYTES = 10 * 1024 * 1024; // 10 MB
+const EXAM_TYPES = [
+  { key: 'laboratorial', label: 'Laboratorial', desc: 'Exames de sangue, urina, etc.', icon: 'flask' as const },
+  { key: 'imagem', label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia, etc.', icon: 'scan' as const },
+];
 
-export default function ExamScreen() {
+export default function NewExam() {
   const router = useRouter();
   const [examType, setExamType] = useState('laboratorial');
-  const [exams, setExams] = useState('');
+  const [exams, setExams] = useState<string[]>([]);
+  const [examInput, setExamInput] = useState('');
   const [symptoms, setSymptoms] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
-  const addImages = (newUris: string[]) => {
-    setImages(prev => {
-      const combined = [...prev, ...newUris].slice(0, MAX_IMAGES);
-      if (combined.length > MAX_IMAGES) Alert.alert('Limite de imagens', `Máximo de ${MAX_IMAGES} imagens permitidas.`);
-      return combined.slice(0, MAX_IMAGES);
-    });
+  const addExam = () => {
+    const exam = examInput.trim();
+    if (exam && !exams.includes(exam)) {
+      setExams([...exams, exam]);
+      setExamInput('');
+    }
+  };
+
+  const removeExam = (index: number) => {
+    setExams(exams.filter((_, i) => i !== index));
   };
 
   const pickImage = async () => {
-    if (images.length >= MAX_IMAGES) {
-      Alert.alert('Limite atingido', `Máximo de ${MAX_IMAGES} imagens (10 MB no total).`);
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsMultipleSelection: true });
-    if (!result.canceled) {
-      const toAdd = result.assets.slice(0, MAX_IMAGES - images.length).map(a => a.uri);
-      addImages(toAdd);
-    }
-  };
-
-  const pickDocument = async () => {
-    if (images.length >= MAX_IMAGES) {
-      Alert.alert('Limite atingido', `Máximo de ${MAX_IMAGES} arquivos (10 MB no total).`);
-      return;
-    }
-    const result = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
-    if (result.canceled) return;
-    addImages([result.assets[0].uri]);
-  };
-
-  const takePhoto = async () => {
-    if (images.length >= MAX_IMAGES) {
-      Alert.alert('Limite atingido', `Máximo de ${MAX_IMAGES} imagens (10 MB no total).`);
-      return;
-    }
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permissão necessária', 'Permita o acesso à câmera.'); return; }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-    if (!result.canceled) addImages([result.assets[0].uri]);
+    if (!result.canceled && result.assets[0]) {
+      setImages([...images, result.assets[0].uri]);
+    }
   };
 
-  const getTotalSize = async (uris: string[]): Promise<number> => {
-    let total = 0;
-    for (const uri of uris) {
-      try {
-        const info = await FileSystem.getInfoAsync(uri, { size: true });
-        if (info.exists && 'size' in info) total += info.size;
-      } catch { /* backend validará */ }
+  const pickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+    if (!result.canceled && result.assets[0]) {
+      setImages([...images, result.assets[0].uri]);
     }
-    return total;
   };
 
   const handleSubmit = async () => {
-    const examList = exams.split('\n').map(e => e.trim()).filter(Boolean);
-    if (examList.length === 0 && images.length === 0 && !symptoms) {
-      Alert.alert('Atenção', 'Informe pelo menos um exame, imagem ou sintoma');
+    if (exams.length === 0) {
+      Alert.alert('Exames necessários', 'Informe pelo menos um exame desejado.');
       return;
     }
-    if (images.length > MAX_IMAGES) {
-      Alert.alert('Limite de imagens', `Máximo de ${MAX_IMAGES} imagens permitidas.`);
-      return;
-    }
-    if (images.length > 0) {
-      const totalSize = await getTotalSize(images);
-      if (totalSize > MAX_TOTAL_BYTES) {
-        Alert.alert('Tamanho excedido', `O total das imagens (${(totalSize / (1024 * 1024)).toFixed(1)} MB) excede 10 MB. Remova alguma imagem ou use imagens menores.`);
-        return;
-      }
-    }
+
     setLoading(true);
     try {
-      const result = await createExamRequest({ examType, exams: examList, symptoms: symptoms || undefined, images: images.length > 0 ? images : undefined });
-      if (result.payment) router.replace(`/payment/${result.payment.id}`);
-      else Alert.alert('Sucesso', 'Solicitação enviada!', [{ text: 'OK', onPress: () => router.replace('/(patient)/requests') }]);
+      await createExamRequest({
+        examType,
+        exams,
+        symptoms: symptoms.trim() || undefined,
+        images: images.length > 0 ? images : undefined,
+      });
+      Alert.alert('Sucesso!', 'Seu pedido de exame foi enviado.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao criar solicitação');
-    } finally { setLoading(false); }
+      Alert.alert('Erro', error?.message || 'Não foi possível enviar o pedido.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const types = [
-    { key: 'laboratorial', label: 'Laboratorial', icon: 'flask' as const },
-    { key: 'imagem', label: 'Imagem', icon: 'scan' as const },
-  ];
-
   return (
-    <SafeAreaView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.primaryDark} /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Novo Exame</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Novo Exame</Text>
+        <View style={{ width: 32 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.stepLabel}>Tipo de Exame</Text>
-        <View style={styles.typeRow}>
-          {types.map(t => (
-            <TouchableOpacity key={t.key} style={[styles.typeBtn, examType === t.key && styles.typeBtnActive]} onPress={() => setExamType(t.key)}>
-              <Ionicons name={t.icon} size={22} color={examType === t.key ? colors.white : colors.primary} />
-              <Text style={[styles.typeText, examType === t.key && { color: colors.white }]}>{t.label}</Text>
-            </TouchableOpacity>
+
+      {/* Exam Type */}
+      <Text style={styles.label}>Tipo de Exame *</Text>
+      <View style={styles.typeRow}>
+        {EXAM_TYPES.map(type => (
+          <TouchableOpacity
+            key={type.key}
+            style={[styles.typeCard, examType === type.key && styles.typeCardSelected]}
+            onPress={() => setExamType(type.key)}
+          >
+            <Ionicons name={type.icon} size={28} color={examType === type.key ? colors.primary : colors.textSecondary} />
+            <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]}>{type.label}</Text>
+            <Text style={styles.typeDesc}>{type.desc}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Exams List */}
+      <Text style={styles.label}>Exames Desejados *</Text>
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: Hemograma completo"
+          placeholderTextColor={colors.textMuted}
+          value={examInput}
+          onChangeText={setExamInput}
+          onSubmitEditing={addExam}
+          returnKeyType="done"
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addExam}>
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
+      {exams.length > 0 && (
+        <View style={styles.tags}>
+          {exams.map((exam, index) => (
+            <View key={index} style={styles.tag}>
+              <Text style={styles.tagText}>{exam}</Text>
+              <TouchableOpacity onPress={() => removeExam(index)}>
+                <Ionicons name="close" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
+      )}
 
-        <Input label="Exames desejados (um por linha)" placeholder="Hemograma&#10;Glicemia&#10;TSH" value={exams} onChangeText={setExams} multiline numberOfLines={4} style={{ minHeight: 100, textAlignVertical: 'top' }} />
-        <Input label="Sintomas ou indicação (opcional)" placeholder="Descreva seus sintomas..." value={symptoms} onChangeText={setSymptoms} multiline numberOfLines={3} style={{ minHeight: 80, textAlignVertical: 'top' }} />
+      {/* Symptoms */}
+      <Text style={styles.label}>Sintomas (opcional)</Text>
+      <TextInput
+        style={styles.textarea}
+        placeholder="Descreva seus sintomas..."
+        placeholderTextColor={colors.textMuted}
+        value={symptoms}
+        onChangeText={setSymptoms}
+        multiline
+        numberOfLines={4}
+        textAlignVertical="top"
+      />
 
-        <Text style={[styles.stepLabel, { marginTop: spacing.lg }]}>Imagens do pedido anterior (opcional, máx. 5 arquivos: PNG, JPG, HEIC, PDF – 10 MB total)</Text>
-        <View style={styles.uploadRow}>
-          <TouchableOpacity style={styles.uploadBtn} onPress={takePhoto}>
-            <Ionicons name="camera" size={28} color={colors.primary} />
-            <Text style={styles.uploadText}>Câmera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-            <Ionicons name="images" size={28} color={colors.primary} />
-            <Text style={styles.uploadText}>Galeria</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
-            <Ionicons name="document" size={28} color={colors.primary} />
-            <Text style={styles.uploadText}>PDF</Text>
-          </TouchableOpacity>
-        </View>
-        {images.length > 0 && (
-          <View style={styles.previewRow}>
-            {images.map((uri, i) => (
-              <View key={i} style={styles.previewItem}>
-                <TouchableOpacity onPress={() => setFullScreenImage(uri)} activeOpacity={0.9}>
-                  <Image source={{ uri }} style={styles.previewImg} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.removeBtn} onPress={() => setImages(prev => prev.filter((_, idx) => idx !== i))}>
-                  <Ionicons name="close-circle" size={22} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <Modal visible={!!fullScreenImage} transparent animationType="fade">
-          <GestureHandlerRootView style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              {fullScreenImage && <ZoomableImage uri={fullScreenImage} key={fullScreenImage} />}
+      {/* Photo */}
+      <Text style={styles.label}>Foto de pedido anterior (opcional)</Text>
+      <View style={styles.photoRow}>
+        <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+          <Ionicons name="camera" size={24} color={colors.primary} />
+          <Text style={styles.photoText}>Câmera</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
+          <Ionicons name="image" size={24} color={colors.primary} />
+          <Text style={styles.photoText}>Galeria</Text>
+        </TouchableOpacity>
+      </View>
+      {images.length > 0 && (
+        <View style={styles.imagesRow}>
+          {images.map((uri, i) => (
+            <View key={i} style={styles.imgWrap}>
+              <Image source={{ uri }} style={styles.imgPreview} />
+              <TouchableOpacity style={styles.imgRemove} onPress={() => setImages(images.filter((_, j) => j !== i))}>
+                <Ionicons name="close-circle" size={20} color={colors.error} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setFullScreenImage(null)}>
-              <Ionicons name="close-circle" size={40} color={colors.white} />
-            </TouchableOpacity>
-            <Text style={styles.modalHint}>Pinch para zoom • Duplo toque para ampliar</Text>
-          </GestureHandlerRootView>
-        </Modal>
+          ))}
+        </View>
+      )}
 
-        <Button title="Enviar Solicitação" onPress={handleSubmit} loading={loading} fullWidth style={{ marginTop: spacing.lg }} />
-      </ScrollView>
-    </SafeAreaView>
+      {/* Price Info */}
+      <View style={styles.priceBox}>
+        <Ionicons name="pricetag" size={18} color={colors.success} />
+        <Text style={styles.priceText}>Valor do pedido de exame: <Text style={styles.priceValue}>R$ 60,00</Text></Text>
+      </View>
+
+      {/* Submit */}
+      <TouchableOpacity
+        style={[styles.submitButton, loading && { opacity: 0.6 }]}
+        onPress={handleSubmit}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="send" size={20} color="#fff" />
+            <Text style={styles.submitText}>Enviar Pedido</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  headerTitle: { ...typography.h4, color: colors.primaryDarker },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  stepLabel: { ...typography.bodySemiBold, color: colors.primaryDarker, marginBottom: spacing.sm },
-  typeRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
-  typeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: spacing.md, borderRadius: borderRadius.lg, backgroundColor: colors.white, borderWidth: 2, borderColor: colors.gray200 },
-  typeBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  typeText: { ...typography.bodySmallMedium, color: colors.gray700 },
-  uploadRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
-  uploadBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white, borderWidth: 2, borderColor: colors.gray200, borderStyle: 'dashed', borderRadius: borderRadius.xl, paddingVertical: spacing.xl, ...shadows.sm },
-  uploadText: { ...typography.caption, color: colors.primary, marginTop: spacing.xs },
-  previewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-  previewItem: { position: 'relative' },
-  previewImg: { width: 80, height: 80, borderRadius: borderRadius.md },
-  removeBtn: { position: 'absolute', top: -6, right: -6 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { flex: 1, width: '100%', justifyContent: 'center' },
-  modalCloseBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
-  modalHint: { ...typography.caption, color: colors.gray400, position: 'absolute', bottom: 40 },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: 40 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 60, paddingHorizontal: spacing.md, paddingBottom: spacing.md,
+  },
+  backButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 18, fontWeight: '700', color: colors.text },
+  label: { fontSize: 15, fontWeight: '600', color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
+  typeRow: { flexDirection: 'row', marginHorizontal: spacing.md, gap: spacing.sm },
+  typeCard: {
+    flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md,
+    alignItems: 'center', borderWidth: 2, borderColor: 'transparent', ...shadows.card,
+  },
+  typeCardSelected: { borderColor: colors.primary, backgroundColor: '#EFF6FF' },
+  typeName: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: spacing.sm },
+  typeNameSelected: { color: colors.primary },
+  typeDesc: { fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 2 },
+  inputRow: { flexDirection: 'row', marginHorizontal: spacing.md, gap: spacing.sm },
+  input: {
+    flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, paddingHorizontal: spacing.md,
+    height: 44, fontSize: 15, color: colors.text, ...shadows.card,
+  },
+  addButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: spacing.md, marginTop: spacing.sm, gap: spacing.sm },
+  tag: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EDE9FE', paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs, borderRadius: borderRadius.xl, gap: spacing.xs,
+  },
+  tagText: { fontSize: 13, color: '#7C3AED', fontWeight: '500' },
+  textarea: {
+    backgroundColor: colors.surface, marginHorizontal: spacing.md, borderRadius: borderRadius.md,
+    padding: spacing.md, fontSize: 15, color: colors.text, minHeight: 100, ...shadows.card,
+  },
+  photoRow: { flexDirection: 'row', marginHorizontal: spacing.md, gap: spacing.md },
+  photoButton: {
+    flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.lg,
+    alignItems: 'center', borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed', gap: spacing.xs,
+  },
+  photoText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  imagesRow: { flexDirection: 'row', marginHorizontal: spacing.md, marginTop: spacing.sm, gap: spacing.sm },
+  imgWrap: { position: 'relative' },
+  imgPreview: { width: 70, height: 70, borderRadius: borderRadius.sm },
+  imgRemove: { position: 'absolute', top: -6, right: -6, backgroundColor: colors.surface, borderRadius: 10 },
+  priceBox: {
+    flexDirection: 'row', backgroundColor: '#D1FAE5', marginHorizontal: spacing.md, marginTop: spacing.lg,
+    padding: spacing.md, borderRadius: borderRadius.md, gap: spacing.sm, alignItems: 'center',
+  },
+  priceText: { fontSize: 14, color: colors.text },
+  priceValue: { fontWeight: '700', color: colors.success },
+  submitButton: {
+    flexDirection: 'row', backgroundColor: colors.primary, marginHorizontal: spacing.md, marginTop: spacing.lg,
+    padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52,
+  },
+  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

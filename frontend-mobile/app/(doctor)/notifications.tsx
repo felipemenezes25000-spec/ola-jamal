@@ -1,65 +1,151 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/Card';
-import { EmptyState } from '../../components/EmptyState';
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
-import { colors, spacing, typography } from '../../constants/theme';
 
-export default function DoctorNotificationsScreen() {
+function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
+  switch (type) {
+    case 'success': return 'checkmark-circle';
+    case 'warning': return 'warning';
+    case 'error': return 'alert-circle';
+    default: return 'information-circle';
+  }
+}
+
+function getNotificationColor(type: string): string {
+  switch (type) {
+    case 'success': return colors.success;
+    case 'warning': return '#F59E0B';
+    case 'error': return colors.error;
+    default: return colors.primary;
+  }
+}
+
+function timeAgo(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diff < 60) return 'Agora';
+  if (diff < 3600) return `${Math.floor(diff / 60)}min`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+export default function DoctorNotifications() {
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { load(); }, []);
-  const load = async () => { try { const res = await fetchNotifications(1, 50); setNotifications(res.items); } catch {} finally { setLoading(false); setRefreshing(false); } };
-  const handleMarkRead = async (id: string) => { try { await markNotificationRead(id); setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n)); } catch {} };
-  const handleMarkAll = async () => { try { await markAllNotificationsRead(); setNotifications(prev => prev.map(n => ({ ...n, read: true }))); } catch {} };
+  const loadData = useCallback(async () => {
+    try {
+      const data = await getNotifications({ page: 1, pageSize: 50 });
+      setNotifications(data.items || []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); setRefreshing(false); }
+  }, []);
 
-  const renderItem = ({ item }: { item: NotificationResponseDto }) => (
-    <TouchableOpacity onPress={() => !item.read && handleMarkRead(item.id)}>
-      <Card style={[styles.card, !item.read && styles.unread]}>
-        <View style={styles.row}>
-          <View style={styles.iconBg}><Ionicons name="notifications" size={20} color={colors.primary} /></View>
-          <View style={styles.content}>
-            <Text style={[styles.title, !item.read && { fontWeight: '700' }]}>{item.title}</Text>
-            <Text style={styles.msg} numberOfLines={2}>{item.message}</Text>
-            <Text style={styles.time}>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</Text>
-          </View>
-          {!item.read && <View style={styles.dot} />}
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = () => { setRefreshing(true); loadData(); };
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch {}
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch {}
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.screenTitle}>Notificações</Text>
-        {notifications.some(n => !n.read) && <TouchableOpacity onPress={handleMarkAll}><Text style={styles.markAll}>Marcar lidas</Text></TouchableOpacity>}
+        <Text style={styles.title}>Notificações</Text>
+        {unreadCount > 0 && (
+          <TouchableOpacity onPress={handleMarkAllRead}>
+            <Text style={styles.markAll}>Marcar todas como lidas</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      <FlatList data={notifications} renderItem={renderItem} keyExtractor={i => i.id} contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.primary} />}
-        ListEmptyComponent={!loading ? <EmptyState icon="notifications-off-outline" title="Sem notificações" /> : null} />
-    </SafeAreaView>
+
+      {loading ? (
+        <ActivityIndicator size="large" color={colors.secondary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.notifCard, !item.read && styles.notifUnread]}
+              onPress={() => handleMarkRead(item.id)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.notifIcon, { backgroundColor: `${getNotificationColor(item.notificationType)}15` }]}>
+                <Ionicons name={getNotificationIcon(item.notificationType)} size={20} color={getNotificationColor(item.notificationType)} />
+              </View>
+              <View style={styles.notifContent}>
+                <Text style={styles.notifTitle}>{item.title}</Text>
+                <Text style={styles.notifMessage} numberOfLines={2}>{item.message}</Text>
+                <Text style={styles.notifTime}>{timeAgo(item.createdAt)}</Text>
+              </View>
+              {!item.read && <View style={styles.unreadDot} />}
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.secondary]} />}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="notifications-off-outline" size={48} color={colors.border} />
+              <Text style={styles.emptyText}>Nenhuma notificação</Text>
+            </View>
+          }
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  screenTitle: { ...typography.h2, color: colors.primaryDarker },
-  markAll: { ...typography.caption, color: colors.primary },
-  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl },
-  card: { marginBottom: spacing.sm },
-  unread: { borderLeftWidth: 3, borderLeftColor: colors.primary },
-  row: { flexDirection: 'row', alignItems: 'flex-start' },
-  iconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primaryPaler, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
-  content: { flex: 1 },
-  title: { ...typography.bodySmallMedium, color: colors.gray800 },
-  msg: { ...typography.caption, color: colors.gray500, marginTop: 2 },
-  time: { ...typography.captionSmall, color: colors.gray400, marginTop: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 6 },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: {
+    paddingTop: 60, paddingHorizontal: spacing.md, paddingBottom: spacing.sm,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
+  },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text },
+  markAll: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  listContent: { paddingBottom: 100 },
+  notifCard: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: colors.surface, marginHorizontal: spacing.md, marginBottom: spacing.sm,
+    borderRadius: borderRadius.md, padding: spacing.md, ...shadows.card,
+  },
+  notifUnread: { backgroundColor: '#F0F9FF' },
+  notifIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center', marginRight: spacing.md,
+  },
+  notifContent: { flex: 1 },
+  notifTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  notifMessage: { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+  notifTime: { fontSize: 11, color: colors.textMuted, marginTop: spacing.xs },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 4 },
+  empty: { alignItems: 'center', paddingTop: 60, gap: spacing.sm },
+  emptyText: { fontSize: 15, color: colors.textMuted },
 });

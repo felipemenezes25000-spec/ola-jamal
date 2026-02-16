@@ -1,97 +1,131 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../components/Card';
-import { useAuth } from '../../contexts/AuthContext';
-import { updateDoctorAvailability, getActiveCertificate } from '../../lib/api';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { UserDto, DoctorProfileDto } from '../../types/database';
 
-export default function DoctorProfileScreen() {
-  const { user, doctorProfile, signOut } = useAuth();
+export default function DoctorProfile() {
   const router = useRouter();
-  const [available, setAvailable] = useState(doctorProfile?.available ?? false);
-  const [certInfo, setCertInfo] = useState<any>(null);
+  const [user, setUser] = useState<UserDto | null>(null);
+  const [doctor, setDoctor] = useState<DoctorProfileDto | null>(null);
 
   useEffect(() => {
-    getActiveCertificate().then(c => setCertInfo(c)).catch(() => {});
+    (async () => {
+      const userData = await AsyncStorage.getItem('@renoveja:user');
+      const doctorData = await AsyncStorage.getItem('@renoveja:doctor');
+      if (userData) setUser(JSON.parse(userData));
+      if (doctorData) setDoctor(JSON.parse(doctorData));
+    })();
   }, []);
 
-  const toggleAvail = async (val: boolean) => {
-    setAvailable(val);
-    try { if (doctorProfile) await updateDoctorAvailability(doctorProfile.id, val); } catch { setAvailable(!val); }
-  };
-
   const handleLogout = () => {
-    Alert.alert('Sair', 'Deseja sair?', [
+    Alert.alert('Sair', 'Deseja realmente sair?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: async () => { await signOut(); router.replace('/(auth)/login'); } },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.multiRemove(['@renoveja:auth_token', '@renoveja:user', '@renoveja:doctor']);
+          router.replace('/');
+        },
+      },
     ]);
   };
 
-  const MenuItem = ({ icon, label, onPress, danger, right }: any) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      <View style={[styles.menuIcon, danger && { backgroundColor: colors.errorLight }]}>
-        <Ionicons name={icon} size={20} color={danger ? colors.error : colors.primary} />
-      </View>
-      <Text style={[styles.menuLabel, danger && { color: colors.error }]}>{label}</Text>
-      {right || <Ionicons name="chevron-forward" size={16} color={colors.gray300} />}
-    </TouchableOpacity>
-  );
+  const menuItems = [
+    { icon: 'shield-checkmark' as const, label: 'Certificado Digital', route: '/certificate/upload', color: colors.success },
+    { icon: 'lock-closed' as const, label: 'Alterar Senha', route: '/change-password', color: colors.primary },
+    { icon: 'settings' as const, label: 'Configurações', route: '/settings', color: colors.textSecondary },
+    { icon: 'help-circle' as const, label: 'Ajuda e FAQ', route: '/help-faq', color: '#F59E0B' },
+    { icon: 'information-circle' as const, label: 'Sobre', route: '/about', color: colors.primary },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.screenTitle}>Meu Perfil</Text>
+        {/* Avatar + Info */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={32} color={colors.secondary} />
+          </View>
+          <Text style={styles.name}>Dr. {user?.name || 'Médico'}</Text>
+          <Text style={styles.email}>{user?.email || ''}</Text>
+          {doctor && (
+            <View style={styles.doctorBadge}>
+              <Text style={styles.doctorBadgeText}>CRM {doctor.crm}/{doctor.crmState} • {doctor.specialty}</Text>
+            </View>
+          )}
+        </View>
 
-        <Card style={styles.profileCard}>
-          <View style={styles.avatar}><Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase()}</Text></View>
-          <Text style={styles.name}>Dr(a). {user?.name}</Text>
-          <Text style={styles.detail}>{doctorProfile?.specialty || 'Especialidade'}</Text>
-          <Text style={styles.detail}>CRM {doctorProfile?.crm}/{doctorProfile?.crmState}</Text>
-        </Card>
+        {/* Menu */}
+        <View style={styles.menuCard}>
+          {menuItems.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.menuItem, i < menuItems.length - 1 && styles.menuItemBorder]}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: `${item.color}15` }]}>
+                <Ionicons name={item.icon} size={20} color={item.color} />
+              </View>
+              <Text style={styles.menuLabel}>{item.label}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        <Card style={styles.section}>
-          <MenuItem icon="toggle-outline" label="Disponibilidade" onPress={() => {}} right={
-            <Switch value={available} onValueChange={toggleAvail} trackColor={{ true: colors.success, false: colors.gray300 }} thumbColor={colors.white} />
-          } />
-          <View style={styles.divider} />
-          <MenuItem icon="shield-checkmark-outline" label="Certificado Digital" onPress={() => router.push('/certificate/upload')} right={
-            <View style={styles.certBadge}><Text style={styles.certBadgeText}>{certInfo ? 'Ativo' : 'Pendente'}</Text></View>
-          } />
-        </Card>
-
-        <Card style={styles.section}>
-          <MenuItem icon="person-outline" label="Dados Pessoais" onPress={() => {}} />
-          <View style={styles.divider} />
-          <MenuItem icon="settings-outline" label="Configurações" onPress={() => router.push('/settings')} />
-          <View style={styles.divider} />
-          <MenuItem icon="help-circle-outline" label="Ajuda" onPress={() => {}} />
-        </Card>
-
-        <Card style={styles.section}>
-          <MenuItem icon="log-out-outline" label="Sair" onPress={handleLogout} danger />
-        </Card>
+        {/* Logout */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
+          <Ionicons name="log-out" size={20} color={colors.error} />
+          <Text style={styles.logoutText}>Sair da conta</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  screenTitle: { ...typography.h2, color: colors.primaryDarker, marginBottom: spacing.lg },
-  profileCard: { alignItems: 'center', paddingVertical: spacing.xl, marginBottom: spacing.md },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
-  avatarText: { ...typography.h1, color: colors.white },
-  name: { ...typography.h4, color: colors.gray800, marginBottom: 4 },
-  detail: { ...typography.bodySmall, color: colors.gray500 },
-  section: { marginBottom: spacing.md },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm },
-  menuIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primaryPaler, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
-  menuLabel: { flex: 1, ...typography.bodySmallMedium, color: colors.gray800 },
-  divider: { height: 1, backgroundColor: colors.gray100, marginVertical: spacing.xs },
-  certBadge: { backgroundColor: colors.warningLight, paddingHorizontal: 10, paddingVertical: 3, borderRadius: borderRadius.full },
-  certBadgeText: { ...typography.captionSmall, color: colors.warning },
+  container: { flex: 1, backgroundColor: colors.background },
+  scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+  profileCard: {
+    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+    padding: spacing.lg, alignItems: 'center', marginBottom: spacing.md, ...shadows.card,
+  },
+  avatar: {
+    width: 72, height: 72, borderRadius: 36, backgroundColor: '#D1FAE5',
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,
+  },
+  name: { fontSize: 20, fontWeight: '700', color: colors.text },
+  email: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
+  doctorBadge: {
+    marginTop: spacing.sm, backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.xl,
+  },
+  doctorBadgeText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  menuCard: {
+    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+    marginBottom: spacing.md, ...shadows.card, overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row', alignItems: 'center', padding: spacing.md, gap: spacing.md,
+  },
+  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  menuIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  menuLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.text },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.sm, paddingVertical: spacing.md,
+  },
+  logoutText: { fontSize: 15, fontWeight: '600', color: colors.error },
 });

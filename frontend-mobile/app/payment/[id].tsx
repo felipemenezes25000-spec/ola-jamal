@@ -1,210 +1,336 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Image,
+  Platform,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { Card } from '../../components/Card';
-import { Button } from '../../components/Button';
-import { Loading } from '../../components/Loading';
-import { fetchPayment, confirmPayment } from '../../lib/api';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { fetchPayment, fetchPixCode } from '../../lib/api';
 import { PaymentResponseDto } from '../../types/database';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+
+type PayScreen = 'selection' | 'pix';
 
 export default function PaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const paymentId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const [payment, setPayment] = useState<PaymentResponseDto | null>(null);
+  const [pixCode, setPixCode] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [screen, setScreen] = useState<PayScreen>('selection');
+  const [polling, setPolling] = useState(false);
   const [copied, setCopied] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    load();
-    // Poll for payment status every 5 seconds
-    pollRef.current = setInterval(async () => {
-      try {
-        if (id) {
-          const p = await fetchPayment(id);
-          setPayment(p);
-          if (p.status === 'approved' || p.paidAt) {
-            clearInterval(pollRef.current!);
-            Alert.alert('Pagamento Confirmado!', 'Seu pagamento foi aprovado.', [
-              { text: 'OK', onPress: () => router.replace('/(patient)/requests') }
-            ]);
-          }
-        }
-      } catch {}
-    }, 5000);
+    loadPayment();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [id]);
+  }, [paymentId]);
 
-  const load = async () => {
-    try { if (id) setPayment(await fetchPayment(id)); }
-    catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  const handleCopy = async () => {
-    if (payment?.pixCopyPaste) {
-      try {
-        await Clipboard.setStringAsync(payment.pixCopyPaste);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 3000);
-        Alert.alert('Copiado!', 'Código PIX copiado para a área de transferência.');
-      } catch {
-        Alert.alert('Erro', 'Não foi possível copiar o código.');
+  const loadPayment = async () => {
+    if (!paymentId) return;
+    try {
+      const data = await fetchPayment(paymentId);
+      setPayment(data);
+      if (data.status === 'approved') {
+        Alert.alert('✅ Pagamento confirmado!', 'Seu pagamento já foi aprovado.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
       }
+    } catch (e: any) {
+      Alert.alert('Erro', e.message || 'Erro ao carregar pagamento');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Dev helper: confirm payment manually
-  const handleDevConfirm = async () => {
-    if (!payment) return;
+  const handleSelectPix = async () => {
+    setScreen('pix');
     try {
-      await confirmPayment(payment.id);
-      Alert.alert('Pagamento Confirmado (Dev)', 'Pagamento confirmado manualmente.', [
-        { text: 'OK', onPress: () => router.replace('/(patient)/requests') }
-      ]);
-    } catch (e: any) { Alert.alert('Erro', e.message); }
+      if (payment) {
+        const code = await fetchPixCode(payment.id);
+        setPixCode(code);
+      }
+    } catch (e) {
+      console.error('Error fetching PIX code:', e);
+    }
+    startPolling();
   };
 
-  if (loading) return <SafeAreaView style={styles.container}><Loading color={colors.primary} message="Carregando pagamento..." /></SafeAreaView>;
-  if (!payment) return <SafeAreaView style={styles.container}><Text style={styles.err}>Pagamento não encontrado</Text></SafeAreaView>;
+  const handleSelectCard = () => {
+    if (!payment) return;
+    router.push({ pathname: '/payment/card', params: { requestId: payment.requestId } });
+  };
 
-  const isCardPayment = ['checkout_pro', 'credit_card', 'debit_card'].includes(
-    (payment.paymentMethod || '').toLowerCase()
-  );
+  const startPolling = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    setPolling(true);
+    pollRef.current = setInterval(async () => {
+      try {
+        const updated = await fetchPayment(paymentId!);
+        setPayment(updated);
+        if (updated.status === 'approved') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setPolling(false);
+          Alert.alert('✅ Pagamento confirmado!', 'Seu pagamento foi aprovado com sucesso.', [
+            { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${updated.requestId}`) },
+          ]);
+        }
+      } catch {}
+    }, 5000);
+  };
+
+  const handleCopyPix = async () => {
+    const code = payment?.pixCopyPaste || pixCode;
+    if (code) {
+      await Clipboard.setStringAsync(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    }
+  };
+
+  const handleCheckStatus = async () => {
+    setPolling(true);
+    try {
+      const updated = await fetchPayment(paymentId!);
+      setPayment(updated);
+      if (updated.status === 'approved') {
+        if (pollRef.current) clearInterval(pollRef.current);
+        Alert.alert('✅ Pagamento confirmado!', '', [
+          { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${updated.requestId}`) },
+        ]);
+      } else {
+        Alert.alert('Aguardando', 'Pagamento ainda não confirmado. Tente novamente em alguns segundos.');
+      }
+    } catch (e: any) {
+      Alert.alert('Erro', e.message || 'Erro ao verificar status');
+    } finally {
+      setPolling(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Selection screen
+  if (screen === 'selection') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Pagamento</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <View style={styles.selectionCard}>
+            <View style={styles.selectionIcon}>
+              <Ionicons name="qr-code" size={40} color={colors.primary} />
+            </View>
+            <Text style={styles.selectionTitle}>Escolha a forma de pagamento</Text>
+            <Text style={styles.selectionDesc}>
+              Selecione o método de sua preferência para realizar o pagamento.
+            </Text>
+
+            <TouchableOpacity style={styles.pixButton} onPress={handleSelectPix} activeOpacity={0.8}>
+              <Ionicons name="qr-code" size={20} color="#fff" />
+              <Text style={styles.pixButtonText}>Pagar com PIX</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cardButton} onPress={handleSelectCard} activeOpacity={0.8}>
+              <Ionicons name="card" size={20} color={colors.primary} />
+              <Text style={styles.cardButtonText}>Pagar com Cartão</Text>
+            </TouchableOpacity>
+
+            <View style={styles.priceDivider} />
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Valor</Text>
+              <Text style={styles.priceValue}>R$ {payment?.amount?.toFixed(2) || '0,00'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.securityRow}>
+            <Ionicons name="shield-checkmark" size={16} color={colors.success} />
+            <Text style={styles.securityText}>Pagamento 100% seguro</Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // PIX screen
+  const pixCopyPaste = payment?.pixCopyPaste || pixCode;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.primaryDark} /></TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isCardPayment ? 'Pagamento com Cartão' : 'Pagamento PIX'}
-        </Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => setScreen('selection')} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Pagamento</Text>
+        <View style={{ width: 40 }} />
       </View>
+
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Amount */}
-        <Card style={styles.amountCard}>
-          <Text style={styles.amountLabel}>Valor</Text>
-          <Text style={styles.amount}>R$ {payment.amount.toFixed(2)}</Text>
-          <View style={[styles.statusBadge, payment.status === 'approved' ? styles.approvedBadge : styles.pendingBadge]}>
-            <Text style={[styles.statusText, payment.status === 'approved' ? styles.approvedText : styles.pendingText]}>
-              {payment.status === 'approved' ? 'Pago' : 'Aguardando'}
+        <View style={styles.pixCard}>
+          <Text style={styles.pixLabel}>PAGUE VIA PIX</Text>
+          <Text style={styles.pixAmount}>R$ {payment?.amount?.toFixed(2) || '0,00'}</Text>
+
+          {/* QR Code */}
+          {payment?.pixQrCodeBase64 ? (
+            <View style={styles.qrContainer}>
+              <Image
+                source={{ uri: `data:image/png;base64,${payment.pixQrCodeBase64}` }}
+                style={styles.qrImage}
+                resizeMode="contain"
+              />
+            </View>
+          ) : (
+            <View style={[styles.qrContainer, styles.qrPlaceholder]}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.qrLoadingText}>Gerando QR Code...</Text>
+            </View>
+          )}
+
+          {/* Copy-paste code */}
+          {pixCopyPaste && (
+            <>
+              <Text style={styles.copyLabel}>Código PIX Copia e Cola:</Text>
+              <TouchableOpacity style={styles.copyRow} onPress={handleCopyPix} activeOpacity={0.7}>
+                <Text style={styles.copyCode} numberOfLines={1}>{pixCopyPaste}</Text>
+                <Ionicons name={copied ? 'checkmark' : 'copy'} size={20} color={copied ? colors.success : colors.primary} />
+              </TouchableOpacity>
+              {copied && <Text style={styles.copiedText}>Código copiado!</Text>}
+            </>
+          )}
+
+          {/* Instructions */}
+          <View style={styles.instructionRow}>
+            <Ionicons name="information-circle" size={18} color={colors.textMuted} />
+            <Text style={styles.instructionText}>
+              Abra o app do seu banco, escolha a opção PIX, e selecione "Ler QR Code" ou "Copia e Cola". O pagamento é confirmado instantaneamente.
             </Text>
           </View>
-        </Card>
+        </View>
 
-        {/* Content area */}
-        {payment.status !== 'approved' && (
-          <>
-            {isCardPayment ? (
-              <Card style={styles.qrCard}>
-                <View style={styles.qrPlaceholder}>
-                  <Ionicons name="card" size={64} color={colors.primary} />
-                </View>
-                <Text style={styles.qrInstruction}>Complete o pagamento na janela do Mercado Pago que abriu.</Text>
-                <Text style={styles.checkoutHint}>Você pode fechar a janela e voltar aqui após pagar. O status será atualizado automaticamente.</Text>
-              </Card>
-            ) : (
-              <>
-                <Card style={styles.qrCard}>
-                  <View style={styles.qrPlaceholder}>
-                    {payment.pixQrCodeBase64 ? (
-                      <Image
-                        source={{ uri: `data:image/png;base64,${payment.pixQrCodeBase64}` }}
-                        style={styles.qrImage}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <View style={styles.qrBox}>
-                        <Ionicons name="qr-code" size={120} color={colors.gray300} />
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.qrInstruction}>Escaneie o QR Code ou copie o código abaixo</Text>
-                </Card>
+        <View style={styles.securityRow}>
+          <Ionicons name="shield-checkmark" size={16} color={colors.success} />
+          <Text style={styles.securityText}>PAGAMENTO 100% SEGURO</Text>
+        </View>
 
-            {/* PIX Copy-paste */}
-            {payment.pixCopyPaste && (
-              <Card style={styles.pixCard}>
-                <Text style={styles.pixLabel}>Código PIX Copia e Cola</Text>
-                <View style={styles.pixCodeBox}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.pixCodeScroll}>
-                    <Text style={styles.pixCode} selectable>{payment.pixCopyPaste}</Text>
-                  </ScrollView>
-                </View>
-                <Button
-                  title={copied ? "Copiado!" : "Copiar Código"}
-                  onPress={handleCopy}
-                  variant={copied ? "secondary" : "outline"}
-                  fullWidth
-                  icon={<Ionicons name={copied ? "checkmark" : "copy"} size={18} color={copied ? colors.white : colors.primary} />}
-                />
-              </Card>
-            )}
-              </>
-            )}
-
-            <View style={styles.timerRow}>
-              <Ionicons name="time-outline" size={16} color={colors.gray500} />
-              <Text style={styles.timerText}>O pagamento expira em 30 minutos</Text>
-            </View>
-
-            {/* Dev confirm button */}
-            <TouchableOpacity style={styles.devBtn} onPress={handleDevConfirm}>
-              <Text style={styles.devBtnText}>🧪 Confirmar Pagamento (Teste)</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {payment.status === 'approved' && (
-          <Card style={styles.successCard}>
-            <Ionicons name="checkmark-circle" size={56} color={colors.success} />
-            <Text style={styles.successTitle}>Pagamento Confirmado!</Text>
-            <Text style={styles.successDesc}>Sua solicitação está sendo processada.</Text>
-            <Button title="Ver Solicitações" onPress={() => router.replace('/(patient)/requests')} fullWidth style={{ marginTop: spacing.lg }} />
-          </Card>
-        )}
+        {/* Check button */}
+        <TouchableOpacity style={styles.checkButton} onPress={handleCheckStatus} disabled={polling} activeOpacity={0.8}>
+          {polling ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="refresh" size={20} color="#fff" />
+              <Text style={styles.checkButtonText}>Já Paguei — Verificar Status</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  headerTitle: { ...typography.h4, color: colors.primaryDarker },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  err: { ...typography.body, color: colors.error, textAlign: 'center', marginTop: 100 },
-  amountCard: { alignItems: 'center', paddingVertical: spacing.xl, marginBottom: spacing.md },
-  amountLabel: { ...typography.bodySmall, color: colors.gray500 },
-  amount: { ...typography.h1, color: colors.primaryDark, marginVertical: spacing.xs },
-  statusBadge: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: borderRadius.full },
-  pendingBadge: { backgroundColor: colors.warningLight },
-  approvedBadge: { backgroundColor: colors.successLight },
-  statusText: { ...typography.caption, fontWeight: '600' },
-  pendingText: { color: colors.warning },
-  approvedText: { color: colors.success },
-  qrCard: { alignItems: 'center', paddingVertical: spacing.xl, marginBottom: spacing.md },
-  qrPlaceholder: { marginBottom: spacing.md },
-  qrBox: { width: 180, height: 180, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.gray50, borderRadius: borderRadius.lg },
-  qrHint: { ...typography.bodySmall, color: colors.gray500 },
-  qrInstruction: { ...typography.bodySmall, color: colors.gray500, textAlign: 'center' },
-  pixCard: { marginBottom: spacing.md },
-  pixLabel: { ...typography.bodySmallMedium, color: colors.gray700, marginBottom: spacing.sm },
-  pixCodeBox: { backgroundColor: colors.gray50, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md },
-  pixCodeScroll: { flexGrow: 0 },
-  pixCode: { ...typography.caption, color: colors.gray600, fontFamily: 'monospace' },
-  qrImage: { width: 200, height: 200 },
-  checkoutHint: { ...typography.caption, color: colors.gray500, textAlign: 'center', marginTop: spacing.sm },
-  timerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: spacing.lg },
-  timerText: { ...typography.bodySmall, color: colors.gray500 },
-  devBtn: { alignItems: 'center', padding: spacing.md, backgroundColor: colors.warningLight, borderRadius: borderRadius.lg },
-  devBtnText: { ...typography.bodySmallMedium, color: colors.warning },
-  successCard: { alignItems: 'center', paddingVertical: spacing.xxl },
-  successTitle: { ...typography.h3, color: colors.success, marginTop: spacing.md },
-  successDesc: { ...typography.bodySmall, color: colors.gray500, marginTop: spacing.xs },
+  container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+  },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+
+  // Selection
+  selectionCard: {
+    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+    padding: spacing.lg, alignItems: 'center', ...shadows.card,
+  },
+  selectionIcon: {
+    width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primaryLight,
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,
+  },
+  selectionTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
+  selectionDesc: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.lg, lineHeight: 20 },
+  pixButton: {
+    backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    width: '100%', marginBottom: spacing.sm,
+  },
+  pixButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  cardButton: {
+    borderWidth: 2, borderColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, width: '100%',
+  },
+  cardButtonText: { fontSize: 16, fontWeight: '700', color: colors.primary },
+  priceDivider: { height: 1, backgroundColor: colors.border, width: '100%', marginVertical: spacing.md },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
+  priceLabel: { fontSize: 14, color: colors.textSecondary },
+  priceValue: { fontSize: 20, fontWeight: '700', color: colors.text },
+
+  // PIX
+  pixCard: {
+    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+    padding: spacing.lg, alignItems: 'center', ...shadows.card, marginBottom: spacing.md,
+  },
+  pixLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
+  pixAmount: { fontSize: 32, fontWeight: '700', color: colors.text, marginVertical: spacing.sm },
+  qrContainer: {
+    width: 200, height: 200, borderRadius: borderRadius.md,
+    borderWidth: 2, borderColor: colors.primary, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center', marginVertical: spacing.md,
+    overflow: 'hidden',
+  },
+  qrImage: { width: 180, height: 180 },
+  qrPlaceholder: { gap: spacing.sm },
+  qrLoadingText: { fontSize: 12, color: colors.textMuted },
+  copyLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, alignSelf: 'flex-start', marginBottom: spacing.xs },
+  copyRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC',
+    borderRadius: borderRadius.sm, padding: spacing.sm, width: '100%', gap: spacing.sm,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  copyCode: { flex: 1, fontSize: 13, color: colors.textSecondary, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  copiedText: { fontSize: 12, color: colors.success, marginTop: spacing.xs },
+  instructionRow: {
+    flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md,
+    backgroundColor: colors.primaryLight, borderRadius: borderRadius.sm, padding: spacing.sm,
+  },
+  instructionText: { flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
+
+  // Security
+  securityRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.xs, paddingVertical: spacing.md,
+  },
+  securityText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+
+  // Check button
+  checkButton: {
+    backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+  },
+  checkButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

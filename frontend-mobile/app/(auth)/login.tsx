@@ -1,239 +1,154 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
-  TouchableOpacity, Alert, Image,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
-import { Logo } from '../../components/Logo';
-import { Input } from '../../components/Input';
-import { Button } from '../../components/Button';
-import { useAuth } from '../../contexts/AuthContext';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { apiClient } from '../../lib/api-client';
+import { AuthResponseDto } from '../../types/database';
 
-WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_CLIENT_ID = '393882962431-141i571c0527230j11q544rvhm1633af.apps.googleusercontent.com';
-
-// Redirect URI - deve corresponder ao scheme em app.json (renoveja)
-// IMPORTANTE: Adicione em Google Cloud Console > Credentials > OAuth 2.0 Client ID > Authorized redirect URIs:
-//   - renoveja://auth
-//   - com.renoveja.app:/auth (para Android)
-const getGoogleRedirectUri = () => {
-  const uri = AuthSession.makeRedirectUri({
-    scheme: 'renoveja',
-    path: 'auth',
-    native: 'renoveja://auth',
-  });
-  // Expo Go gera exp://... que o Google rejeita - use build de desenvolvimento (expo run:android)
-  if (uri.startsWith('exp://') || uri.includes('192.168') || uri.includes('localhost')) {
-    return 'renoveja://auth';
-  }
-  return uri || 'renoveja://auth';
-};
-
-export default function LoginScreen() {
+export default function Login() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
-  const router = useRouter();
-
-  const redirectUri = React.useMemo(() => getGoogleRedirectUri(), []);
-
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: GOOGLE_CLIENT_ID,
-      scopes: ['openid', 'profile', 'email'],
-      redirectUri,
-    },
-    {
-      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-      tokenEndpoint: 'https://oauth2.googleapis.com/token',
-      revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
-    }
-  );
-
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.idToken) {
-        handleGoogleLogin(authentication.idToken);
-      }
-    }
-  }, [response]);
-
-  const navigateByRole = (role: 'patient' | 'doctor') => {
-    if (role === 'patient') router.replace('/(patient)/home');
-    else router.replace('/(doctor)/dashboard');
-  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Atenção', 'Preencha todos os campos');
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Campos obrigatórios', 'Preencha email e senha.');
       return;
     }
+
     setLoading(true);
     try {
-      const user = await signIn(email, password);
-      navigateByRole(user.role);
+      const response = await apiClient.post<AuthResponseDto>('/api/auth/login', {
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      await AsyncStorage.setItem('@renoveja:auth_token', response.token);
+      await AsyncStorage.setItem('@renoveja:user', JSON.stringify(response.user));
+      if (response.doctorProfile) {
+        await AsyncStorage.setItem('@renoveja:doctor_profile', JSON.stringify(response.doctorProfile));
+      }
+
+      if (!response.profileComplete) {
+        router.replace('/(auth)/complete-profile');
+      } else if (response.user.role === 'doctor') {
+        router.replace('/(doctor)/dashboard');
+      } else {
+        router.replace('/(patient)/home');
+      }
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao fazer login');
+      Alert.alert('Erro no login', error?.message || 'Email ou senha incorretos.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async (googleToken: string) => {
-    setGoogleLoading(true);
-    try {
-      const user = await signInWithGoogle(googleToken);
-      navigateByRole(user.role);
-    } catch (error: any) {
-      if (error.message === 'PROFILE_INCOMPLETE') {
-        router.replace('/(auth)/complete-profile');
-      } else {
-        Alert.alert('Erro', error.message || 'Erro ao fazer login com Google');
-      }
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
   return (
-    <LinearGradient colors={[colors.primaryPaler, '#F0F9FF']} style={styles.gradient}>
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.flex}
-        >
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-            <View style={styles.logoContainer}>
-              <View style={styles.logoBg}>
-                <Logo size="large" color={colors.primaryDark} />
-              </View>
-            </View>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Logo Section */}
+        <LinearGradient colors={['#0EA5E9', '#38BDF8']} style={styles.logoSection}>
+          <Ionicons name="medical" size={48} color="#fff" />
+          <Text style={styles.logoText}>RenoveJá+</Text>
+          <Text style={styles.logoSub}>Telemedicina simplificada</Text>
+        </LinearGradient>
 
-            <View style={styles.formCard}>
-              <Text style={styles.title}>Bem-vindo de volta!</Text>
-              <Text style={styles.subtitle}>Entre com sua conta para continuar</Text>
+        {/* Form */}
+        <View style={styles.form}>
+          <Text style={styles.formTitle}>Entrar</Text>
 
-              <Input
-                label="E-mail"
-                placeholder="seu@email.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                leftIcon="mail-outline"
-              />
+          <Text style={styles.label}>Email</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="mail-outline" size={20} color={colors.textMuted} />
+            <TextInput
+              style={styles.input}
+              placeholder="seu@email.com"
+              placeholderTextColor={colors.textMuted}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
 
-              <Input
-                label="Senha"
-                placeholder="••••••••"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                leftIcon="lock-closed-outline"
-              />
+          <Text style={styles.label}>Senha</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} />
+            <TextInput
+              style={styles.input}
+              placeholder="Sua senha"
+              placeholderTextColor={colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
 
-              <TouchableOpacity
-                onPress={() => router.push('/(auth)/forgot-password')}
-                style={styles.forgotBtn}
-              >
-                <Text style={styles.forgotText}>Esqueci minha senha</Text>
-              </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
+            <Text style={styles.forgotText}>Esqueceu a senha?</Text>
+          </TouchableOpacity>
 
-              <Button title="Entrar" onPress={handleLogin} loading={loading} fullWidth />
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginButtonText}>Entrar</Text>}
+          </TouchableOpacity>
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>ou</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
-              <TouchableOpacity
-                style={styles.googleBtn}
-                onPress={() => promptAsync()}
-                disabled={googleLoading || !request}
-              >
-                <Ionicons name="logo-google" size={20} color={colors.gray700} />
-                <Text style={styles.googleText}>
-                  {googleLoading ? 'Entrando...' : 'Entrar com Google'}
-                </Text>
-              </TouchableOpacity>
-
-              <View style={styles.registerRow}>
-                <Text style={styles.registerText}>Não tem uma conta? </Text>
-                <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-                  <Text style={styles.registerLink}>Cadastre-se</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+          <View style={styles.registerRow}>
+            <Text style={styles.registerText}>Não tem conta? </Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+              <Text style={styles.registerLink}>Cadastre-se</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
-  container: { flex: 1 },
-  flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg },
-  logoContainer: { alignItems: 'center', marginBottom: spacing.xl },
-  logoBg: { alignItems: 'center' },
-  formCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xxl,
-    padding: spacing.lg,
-    ...shadows.lg,
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { flexGrow: 1 },
+  logoSection: {
+    paddingTop: 80, paddingBottom: 40, alignItems: 'center',
+    borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl,
   },
-  title: {
-    ...typography.h2,
-    color: colors.primaryDark,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
+  logoText: { fontSize: 32, fontWeight: '700', color: '#fff', marginTop: spacing.sm },
+  logoSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
+  form: { padding: spacing.lg, flex: 1 },
+  formTitle: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },
+  inputContainer: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+    borderRadius: borderRadius.md, paddingHorizontal: spacing.md, height: 50,
+    borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
   },
-  subtitle: {
-    ...typography.body,
-    color: colors.gray500,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
+  input: { flex: 1, fontSize: 15, color: colors.text },
+  forgotText: { fontSize: 13, color: colors.primary, fontWeight: '600', textAlign: 'right', marginTop: spacing.sm },
+  loginButton: {
+    backgroundColor: colors.primary, height: 52, borderRadius: borderRadius.md,
+    alignItems: 'center', justifyContent: 'center', marginTop: spacing.lg,
   },
-  forgotBtn: { alignSelf: 'flex-end', marginBottom: spacing.lg },
-  forgotText: { ...typography.bodySmallMedium, color: colors.primary },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.lg,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.gray200 },
-  dividerText: { ...typography.bodySmall, color: colors.gray400, marginHorizontal: spacing.md },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.gray200,
-    borderRadius: borderRadius.lg,
-    paddingVertical: 14,
-    minHeight: 52,
-    marginBottom: spacing.md,
-  },
-  googleText: { ...typography.bodySemiBold, color: colors.gray700, marginLeft: spacing.sm },
-  registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing.md,
-  },
-  registerText: { ...typography.body, color: colors.gray500 },
-  registerLink: { ...typography.bodySemiBold, color: colors.primary },
+  loginButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  registerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
+  registerText: { fontSize: 14, color: colors.textSecondary },
+  registerLink: { fontSize: 14, color: colors.primary, fontWeight: '600' },
 });
