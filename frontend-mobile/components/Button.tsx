@@ -77,7 +77,7 @@ export function Button({
           ) : (
             <>
               {icon}
-              <Text style={[styles.primaryText, sizeStyles[size].text, icon && { marginLeft: 8 }]}>
+              <Text style={[styles.primaryText, sizeStyles[size].text, icon ? { marginLeft: 8 } : undefined]}>
                 {title}
               </Text>
             </>
@@ -134,7 +134,7 @@ export function Button({
               styles.baseText,
               sizeStyles[size].text,
               variantStyles[variant].text,
-              icon && { marginLeft: 8 },
+              icon ? { marginLeft: 8 } : undefined,
             ]}
           >
             {title}
