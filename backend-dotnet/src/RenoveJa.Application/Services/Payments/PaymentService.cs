@@ -22,6 +22,8 @@ public class PaymentService(
     IPushNotificationSender pushNotificationSender,
     IMercadoPagoService mercadoPagoService,
     IUserRepository userRepository,
+    IPaymentAttemptRepository paymentAttemptRepository,
+    IWebhookEventRepository webhookEventRepository,
     IOptions<MercadoPagoConfig> mercadoPagoConfig,
     ILogger<PaymentService> logger) : IPaymentService
 {
@@ -76,28 +78,114 @@ public class PaymentService(
         var patient = await userRepository.GetByIdAsync(userId, cancellationToken);
         var patientEmail = patient?.Email?.Value ?? "pagador@renoveja.com.br";
 
-        var pixResult = await mercadoPagoService.CreatePixPaymentAsync(
-            amount,
-            $"RenoveJá - Solicitação {medicalRequestId:N}",
-            patientEmail,
-            medicalRequestId.ToString(),
-            cancellationToken);
+        // Gerar correlationId único para esta tentativa
+        var correlationId = Guid.NewGuid().ToString("N");
+        var requestUrl = "https://api.mercadopago.com/v1/payments";
+        var requestPayload = JsonSerializer.Serialize(new
+        {
+            transaction_amount = Math.Round(amount, 2),
+            description = $"RenoveJá - Solicitação {medicalRequestId:N}",
+            payment_method_id = "pix",
+            payer = new { email = patientEmail },
+            external_reference = medicalRequestId.ToString(),
+            notification_url = mercadoPagoConfig.Value.NotificationUrl
+        }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
 
-        var payment = Payment.CreatePixPayment(requestId, userId, amount);
-        payment.SetPixData(
-            pixResult.ExternalId,
-            pixResult.QrCode,
-            pixResult.QrCodeBase64,
-            pixResult.CopyPaste);
-        payment = await paymentRepository.CreateAsync(payment, cancellationToken);
+        logger.LogInformation("[PAYMENT-ATTEMPT] Iniciando criação de pagamento PIX. CorrelationId={CorrelationId}, RequestId={RequestId}, UserId={UserId}, Amount={Amount}",
+            correlationId, requestId, userId, amount);
+        Console.WriteLine($"[PAYMENT-ATTEMPT] CorrelationId={correlationId}, RequestId={requestId}, UserId={userId}, Amount={amount}");
 
-        await CreateNotificationAsync(
-            userId,
-            "Pagamento Criado",
-            $"Pagamento de R$ {amount:F2} criado. Use o QR Code ou copia e cola para pagar.",
-            cancellationToken);
+        PaymentAttempt? attempt = null;
+        try
+        {
+            var pixResult = await mercadoPagoService.CreatePixPaymentAsync(
+                amount,
+                $"RenoveJá - Solicitação {medicalRequestId:N}",
+                patientEmail,
+                medicalRequestId.ToString(),
+                correlationId,
+                cancellationToken);
 
-        return MapToDto(payment);
+            var payment = Payment.CreatePixPayment(requestId, userId, amount);
+            payment.SetPixData(
+                pixResult.ExternalId,
+                pixResult.QrCode,
+                pixResult.QrCodeBase64,
+                pixResult.CopyPaste);
+            payment = await paymentRepository.CreateAsync(payment, cancellationToken);
+
+            // Persistir PaymentAttempt com sucesso (opcional - pode falhar se tabela não existe ainda)
+            try
+            {
+                attempt = new PaymentAttempt(
+                    payment.Id,
+                    requestId,
+                    userId,
+                    correlationId,
+                    "pix",
+                    amount,
+                    requestUrl,
+                    requestPayload);
+                attempt.RecordSuccess(
+                    pixResult.ExternalId,
+                    null,
+                    pixResult.ResponsePayload,
+                    pixResult.ResponseStatusCode,
+                    pixResult.ResponseStatusDetail,
+                    pixResult.ResponseHeaders);
+                attempt = await paymentAttemptRepository.CreateAsync(attempt, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[PAYMENT-ATTEMPT] Falha ao persistir PaymentAttempt (tabela pode não existir ainda). CorrelationId={CorrelationId}", correlationId);
+                // Não falha o fluxo se a persistência falhar
+            }
+
+            logger.LogInformation("[PAYMENT-ATTEMPT] Pagamento PIX criado com sucesso. CorrelationId={CorrelationId}, PaymentId={PaymentId}, MercadoPagoPaymentId={MpPaymentId}",
+                correlationId, payment.Id, pixResult.ExternalId);
+            Console.WriteLine($"[PAYMENT-ATTEMPT] Sucesso. CorrelationId={correlationId}, PaymentId={payment.Id}, MpPaymentId={pixResult.ExternalId}");
+
+            await CreateNotificationAsync(
+                userId,
+                "Pagamento Criado",
+                $"Pagamento de R$ {amount:F2} criado. Use o QR Code ou copia e cola para pagar.",
+                cancellationToken);
+
+            return MapToDto(payment);
+        }
+        catch (Exception ex)
+        {
+            // Persistir PaymentAttempt com falha
+            if (attempt == null)
+            {
+                var tempPayment = Payment.CreatePixPayment(requestId, userId, amount);
+                tempPayment = await paymentRepository.CreateAsync(tempPayment, cancellationToken);
+                attempt = new PaymentAttempt(
+                    tempPayment.Id,
+                    requestId,
+                    userId,
+                    correlationId,
+                    "pix",
+                    amount,
+                    requestUrl,
+                    requestPayload);
+            }
+            attempt.RecordFailure(null, null, ex.Message, null);
+            try
+            {
+                await paymentAttemptRepository.CreateAsync(attempt, cancellationToken);
+            }
+            catch (Exception persistEx)
+            {
+                logger.LogWarning(persistEx, "[PAYMENT-ATTEMPT] Falha ao persistir PaymentAttempt com erro. CorrelationId={CorrelationId}", correlationId);
+                // Não falha o fluxo se a persistência falhar
+            }
+
+            logger.LogError(ex, "[PAYMENT-ATTEMPT] Falha ao criar pagamento PIX. CorrelationId={CorrelationId}, RequestId={RequestId}",
+                correlationId, requestId);
+            Console.WriteLine($"[PAYMENT-ATTEMPT] Falha. CorrelationId={correlationId}, Error={ex.Message}");
+            throw;
+        }
     }
 
     private async Task<PaymentResponseDto> CreateCardPaymentInternalAsync(
@@ -116,6 +204,8 @@ public class PaymentService(
             : (patient?.Email?.Value ?? "pagador@renoveja.com.br");
         var payerCpf = !string.IsNullOrWhiteSpace(request.PayerCpf) ? request.PayerCpf : patient?.Cpf;
 
+        // Gerar correlationId único para esta tentativa
+        var correlationId = Guid.NewGuid().ToString("N");
         var paymentTypeId = request.PaymentMethod?.Trim().ToLowerInvariant();
         var cardResult = await mercadoPagoService.CreateCardPaymentAsync(
             amount,
@@ -128,6 +218,7 @@ public class PaymentService(
             request.PaymentMethodId.Trim(),
             request.IssuerId,
             paymentTypeId: paymentTypeId is "credit_card" or "debit_card" ? paymentTypeId : null,
+            correlationId,
             cancellationToken);
 
         var payment = Payment.CreateCardPayment(
@@ -298,12 +389,15 @@ public class PaymentService(
         var patient = await userRepository.GetByIdAsync(userId, cancellationToken);
         var patientEmail = patient?.Email?.Value ?? "pagador@renoveja.com.br";
 
+        // Gerar correlationId único para esta tentativa
+        var correlationId = Guid.NewGuid().ToString("N");
         var initPoint = await mercadoPagoService.CreateCheckoutProPreferenceAsync(
             amount,
             $"RenoveJá - Solicitação {medicalRequest.Id:N}",
             medicalRequest.Id.ToString(),
             patientEmail,
             mercadoPagoConfig.Value.RedirectBaseUrl,
+            correlationId,
             cancellationToken);
 
         var payment = Payment.CreateCheckoutProPayment(requestId, userId, amount);
@@ -325,7 +419,13 @@ public class PaymentService(
         MercadoPagoWebhookDto? webhook,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(webhook?.Action) || !webhook.Action.StartsWith("payment.", StringComparison.OrdinalIgnoreCase))
+        if (webhook == null)
+            return;
+
+        // Aceitar webhooks com Action "payment.*" OU sem action (formato antigo do MP: id/topic)
+        // O formato antigo envia ?id=X&topic=payment sem action no body
+        var action = webhook.Action;
+        if (!string.IsNullOrEmpty(action) && !action.StartsWith("payment.", StringComparison.OrdinalIgnoreCase))
             return;
 
         var mpPaymentId = NormalizeWebhookId(webhook.Data != null && webhook.Data.TryGetValue("id", out var dataId) ? dataId : null)
@@ -333,15 +433,26 @@ public class PaymentService(
         if (string.IsNullOrEmpty(mpPaymentId))
             return;
 
+        logger.LogInformation("[WEBHOOK-PROCESS] Processando webhook. Action={Action}, PaymentId={PaymentId}", action ?? "(null/topic)", mpPaymentId);
+        Console.WriteLine($"[WEBHOOK-PROCESS] Action={action ?? "(null/topic)"}, PaymentId={mpPaymentId}");
+
         var payment = await paymentRepository.GetByExternalIdAsync(mpPaymentId, cancellationToken);
+        logger.LogInformation("[WEBHOOK-PROCESS] GetByExternalId({MpPaymentId}) => {Found}", mpPaymentId, payment != null ? $"PaymentId={payment.Id}" : "null");
+        Console.WriteLine($"[WEBHOOK-PROCESS] GetByExternalId({mpPaymentId}) => {(payment != null ? $"PaymentId={payment.Id}" : "null")}");
 
         if (payment == null)
         {
+            logger.LogInformation("[WEBHOOK-PROCESS] Buscando detalhes do pagamento no MP para encontrar external_reference...");
+            Console.WriteLine("[WEBHOOK-PROCESS] Buscando detalhes no MP...");
             var details = await mercadoPagoService.GetPaymentDetailsAsync(mpPaymentId, cancellationToken);
+            logger.LogInformation("[WEBHOOK-PROCESS] MP details: ExternalReference={ExtRef}", details?.ExternalReference ?? "null");
+            Console.WriteLine($"[WEBHOOK-PROCESS] MP details: ExternalReference={details?.ExternalReference ?? "null"}");
             if (details != null && !string.IsNullOrEmpty(details.ExternalReference) &&
                 Guid.TryParse(details.ExternalReference, out var requestIdFromExt))
             {
                 payment = await paymentRepository.GetByRequestIdAsync(requestIdFromExt, cancellationToken);
+                logger.LogInformation("[WEBHOOK-PROCESS] GetByRequestId({RequestId}) => {Found}", requestIdFromExt, payment != null ? $"PaymentId={payment.Id}" : "null");
+                Console.WriteLine($"[WEBHOOK-PROCESS] GetByRequestId({requestIdFromExt}) => {(payment != null ? $"PaymentId={payment.Id}" : "null")}");
                 if (payment != null)
                 {
                     payment.SetExternalId(mpPaymentId);
@@ -351,20 +462,32 @@ public class PaymentService(
         }
 
         if (payment == null)
-            return;
-
-        if (!payment.IsPending())
-            return;
-
-        // Verify payment status with MercadoPago API
-        var realStatus = await mercadoPagoService.GetPaymentStatusAsync(mpPaymentId, cancellationToken);
-        if (string.IsNullOrEmpty(realStatus))
         {
-            logger.LogWarning("Webhook: não foi possível verificar status do pagamento {PaymentId} na API do MP", mpPaymentId);
+            logger.LogWarning("[WEBHOOK-PROCESS] Pagamento NÃO encontrado para MpPaymentId={MpPaymentId}. Ignorando.", mpPaymentId);
+            Console.WriteLine($"[WEBHOOK-PROCESS] Pagamento NÃO encontrado para {mpPaymentId}. Ignorando.");
             return;
         }
 
-        logger.LogInformation("Webhook: pagamento {PaymentId} status real = {Status}", mpPaymentId, realStatus);
+        if (!payment.IsPending())
+        {
+            logger.LogInformation("[WEBHOOK-PROCESS] Pagamento já não está pendente. Status atual. PaymentId={PaymentId}", payment.Id);
+            Console.WriteLine($"[WEBHOOK-PROCESS] Pagamento já não pendente. PaymentId={payment.Id}");
+            return;
+        }
+
+        // Verify payment status with MercadoPago API
+        logger.LogInformation("[WEBHOOK-PROCESS] Verificando status real no MP API para pagamento {MpPaymentId}...", mpPaymentId);
+        Console.WriteLine($"[WEBHOOK-PROCESS] Verificando status no MP para {mpPaymentId}...");
+        var realStatus = await mercadoPagoService.GetPaymentStatusAsync(mpPaymentId, cancellationToken);
+        if (string.IsNullOrEmpty(realStatus))
+        {
+            logger.LogWarning("[WEBHOOK-PROCESS] Não foi possível verificar status do pagamento {PaymentId} na API do MP", mpPaymentId);
+            Console.WriteLine($"[WEBHOOK-PROCESS] FALHA ao verificar status no MP para {mpPaymentId}");
+            return;
+        }
+
+        logger.LogInformation("[WEBHOOK-PROCESS] Pagamento {PaymentId} status real do MP = {Status}", mpPaymentId, realStatus);
+        Console.WriteLine($"[WEBHOOK-PROCESS] Status real do MP para {mpPaymentId} = {realStatus}");
 
         if (realStatus.Equals("approved", StringComparison.OrdinalIgnoreCase))
         {

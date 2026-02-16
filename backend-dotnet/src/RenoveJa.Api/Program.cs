@@ -146,6 +146,8 @@ builder.Services.AddScoped<IPushTokenRepository, PushTokenRepository>();
 builder.Services.AddScoped<IProductPriceRepository, ProductPriceRepository>();
 builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
+builder.Services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
 
 // Register Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -295,6 +297,17 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// Executar migrations do Supabase na inicialização
+try
+{
+    await RenoveJa.Infrastructure.Data.Supabase.SupabaseMigrationRunner.RunAsync(app.Services);
+    Log.Information("Supabase migrations executadas com sucesso");
+}
+catch (Exception ex)
+{
+    Log.Warning(ex, "Falha ao executar migrations do Supabase (pode ser normal se DatabaseUrl não estiver configurada)");
+}
 
 // CORS primeiro: preflight OPTIONS precisa receber 200 com headers antes de qualquer outro middleware
 if (app.Environment.IsDevelopment())

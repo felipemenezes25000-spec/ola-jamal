@@ -105,6 +105,36 @@ public class VerificationController(IVerificationService verificationService, IL
         return Content(html, "text/html");
     }
 
+    /// <summary>
+    /// Redireciona para o documento (PDF) da receita. Não exige autenticação — apenas o código de acesso (ex.: lido do QR Code).
+    /// Quem escaneia o QR Code pode abrir o PDF sem estar logado.
+    /// </summary>
+    [HttpGet("{id:guid}/document")]
+    public async Task<IActionResult> GetDocument(
+        Guid id,
+        [FromQuery] string? code,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return BadRequest(new { error = "Código de acesso é obrigatório. Informe o parâmetro code (ex.: o código exibido no QR Code ou na receita)." });
+
+        try
+        {
+            var full = await verificationService.GetFullVerificationAsync(id, code.Trim(), cancellationToken);
+            if (full == null)
+                return NotFound(new { error = "Receita não encontrada." });
+            if (string.IsNullOrWhiteSpace(full.SignedDocumentUrl))
+                return NotFound(new { error = "Documento assinado não disponível para esta receita." });
+
+            logger.LogInformation("Verify GetDocument: requestId={RequestId}, redirect to document (sem autenticação)", id);
+            return Redirect(full.SignedDocumentUrl);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(403, new { error = "Código de acesso inválido." });
+        }
+    }
+
     private static string GenerateVerificationHtml(Guid requestId)
     {
         return $@"<!DOCTYPE html>
@@ -559,10 +589,12 @@ public class VerificationController(IVerificationService verificationService, IL
                     document.getElementById('notesText').textContent = data.notes;
                 }}
 
-                // Esconder seção de código após sucesso
+                // Esconder seção de código e mostrar link para abrir o documento (sem precisar de login)
+                var docUrl = BASE_URL + '/api/verify/' + REQUEST_ID + '/document?code=' + encodeURIComponent(code);
                 document.querySelector('.access-code-section').innerHTML =
                     '<h3 style=""color:#008C52;font-size:14px;text-transform:uppercase;letter-spacing:0.5px"">🔓 Dados Completos</h3>' +
-                    '<p style=""color:#008C52;font-size:14px;font-weight:500"">✅ Código verificado — exibindo dados completos.</p>';
+                    '<p style=""color:#008C52;font-size:14px;font-weight:500"">✅ Código verificado — exibindo dados completos.</p>' +
+                    (data.signedDocumentUrl ? '<p style=""margin-top:12px""><a href=""' + docUrl + '"" target=""_blank"" rel=""noopener"" class=""code-btn"" style=""display:inline-block;text-decoration:none;color:white"">📄 Abrir documento (PDF)</a></p>' : '');
 
             }} catch (err) {{
                 errEl.textContent = err.message || 'Erro ao verificar código.';

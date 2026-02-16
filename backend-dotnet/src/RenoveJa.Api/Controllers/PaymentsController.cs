@@ -6,6 +6,7 @@ using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Payments;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Payments;
+using RenoveJa.Domain.Interfaces;
 using System.Security.Claims;
 
 namespace RenoveJa.Api.Controllers;
@@ -15,7 +16,11 @@ namespace RenoveJa.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/payments")]
-public class PaymentsController(IPaymentService paymentService, IOptions<MercadoPagoConfig> mpConfig, ILogger<PaymentsController> logger) : ControllerBase
+public class PaymentsController(
+    IPaymentService paymentService,
+    IWebhookEventRepository webhookEventRepository,
+    IOptions<MercadoPagoConfig> mpConfig,
+    ILogger<PaymentsController> logger) : ControllerBase
 {
     /// <summary>
     /// Cria um novo pagamento para uma solicitação.
@@ -136,11 +141,11 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
     /// <summary>
     /// Recebe webhooks do Mercado Pago. Valida assinatura HMAC-SHA256 quando WebhookSecret está configurado.
     /// Aceita notificação por body JSON ou por query string (data.id/type ou id/topic), conforme documentação MP.
+    /// NÃO usa [FromBody] porque query strings como ?data.id=X causam falha no model binding (ASP.NET retorna 400).
     /// </summary>
     [HttpPost("webhook")]
     [AllowAnonymous]
     public async Task<IActionResult> Webhook(
-        [FromBody] MercadoPagoWebhookDto? webhook,
         CancellationToken cancellationToken)
     {
         // LOG INICIAL: capturar informações antes de qualquer processamento
@@ -153,14 +158,9 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
         logger.LogInformation("[WEBHOOK-IN] QueryString={QueryString}, ContentType={ContentType}, ContentLength={ContentLength}, QueryKeys=[{QueryKeys}]",
             queryStringRaw, contentType, contentLength, queryKeys);
         
-        // DIAGNÓSTICO CORRIGIDO: O Mercado Pago envia webhook com body JSON completo:
-        // { "action": "payment.updated", "data": { "id": "145782442303" }, ... }
-        // O model binding [FromBody] pode falhar se o body já foi consumido ou se há problemas de encoding.
-        // Por isso SEMPRE lemos o body bruto primeiro para garantir que conseguimos extrair o data.id.
-        
         string? dataIdFromBody = null;
         string? actionFromBody = null;
-        MercadoPagoWebhookDto? parsedWebhook = webhook;
+        MercadoPagoWebhookDto? parsedWebhook = null;
 
         // SEMPRE ler body bruto primeiro (EnableBuffering já foi chamado no middleware)
         try
@@ -204,13 +204,26 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
                     }
                     else if (root.TryGetProperty("type", out var typeEl))
                     {
-                        // Fallback: alguns webhooks usam "type" ao invés de "action"
                         var type = typeEl.GetString();
                         if (type?.Equals("payment", StringComparison.OrdinalIgnoreCase) == true)
                             actionFromBody = "payment.updated";
                     }
+                    else if (root.TryGetProperty("topic", out var topicEl))
+                    {
+                        var topic = topicEl.GetString();
+                        if (topic?.Equals("payment", StringComparison.OrdinalIgnoreCase) == true)
+                            actionFromBody = "payment.updated";
+                    }
 
-                    // Construir DTO se model binding falhou ou se queremos garantir que temos os dados corretos
+                    // Formato antigo: { "resource": "146517732918", "topic": "payment" }
+                    if (string.IsNullOrEmpty(dataIdFromBody) && root.TryGetProperty("resource", out var resourceEl))
+                    {
+                        dataIdFromBody = resourceEl.ValueKind == JsonValueKind.Number
+                            ? resourceEl.GetInt64().ToString()
+                            : resourceEl.GetString();
+                    }
+
+                    // Construir DTO se body parse deu dados mas parsedWebhook está null
                     if (parsedWebhook == null && !string.IsNullOrEmpty(dataIdFromBody))
                     {
                         var dataDict = new Dictionary<string, JsonElement>();
@@ -251,12 +264,7 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Payments Webhook: falha ao ler body bruto. Tentando usar model binding.");
-            // Se falhar, usar o que veio do model binding
-            if (parsedWebhook == null)
-                parsedWebhook = webhook;
-            if (string.IsNullOrEmpty(dataIdFromBody))
-                dataIdFromBody = ExtractPaymentIdFromWebhook(parsedWebhook);
+            logger.LogWarning(ex, "Payments Webhook: falha ao ler body bruto.");
         }
 
         // Fallback: tentar query string (alguns webhooks antigos do MP podem usar query)
@@ -328,11 +336,11 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
         // Em Development, pula validação HMAC para facilitar testes com ngrok
         var webhookSecret = mpConfig.Value.WebhookSecret;
         var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")?.Equals("Development", StringComparison.OrdinalIgnoreCase) == true;
+        var xRequestId = Request.Headers["x-request-id"].FirstOrDefault();
         
         if (!isDevelopment && !string.IsNullOrWhiteSpace(webhookSecret) && !webhookSecret.Contains("YOUR_"))
         {
             var xSignature = Request.Headers["x-signature"].FirstOrDefault();
-            var xRequestId = Request.Headers["x-request-id"].FirstOrDefault();
 
             if (paymentService is PaymentService ps && !ps.ValidateWebhookSignature(xSignature, xRequestId, dataIdForHmac))
             {
@@ -345,7 +353,125 @@ public class PaymentsController(IPaymentService paymentService, IOptions<Mercado
             logger.LogInformation("Webhook: validação HMAC desabilitada em Development");
         }
 
-        await paymentService.ProcessWebhookAsync(parsedWebhook, cancellationToken);
+        // Persistir WebhookEvent antes do processamento para rastreamento completo
+        string? rawBodyForEvent = null;
+        try
+        {
+            Request.Body.Position = 0;
+            using var reader = new StreamReader(Request.Body, System.Text.Encoding.UTF8);
+            rawBodyForEvent = await reader.ReadToEndAsync(cancellationToken);
+            Request.Body.Position = 0;
+        }
+        catch { /* best effort */ }
+        var sourceIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var requestHeaders = string.Join("; ", Request.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
+
+        // Verificar idempotência: se já existe webhook com mesmo x-request-id, marcar como duplicado
+        Domain.Entities.WebhookEvent? webhookEvent = null;
+        if (!string.IsNullOrEmpty(xRequestId))
+        {
+            try
+            {
+                var existing = await webhookEventRepository.GetByMercadoPagoRequestIdAsync(xRequestId, cancellationToken);
+                if (existing != null)
+                {
+                    existing.MarkAsDuplicate();
+                    await webhookEventRepository.UpdateAsync(existing, cancellationToken);
+                    logger.LogWarning("[WEBHOOK-EVENT] Webhook duplicado detectado. X-Request-Id={RequestId}, PaymentId={PaymentId}",
+                        xRequestId, dataIdForProcessing);
+                    Console.WriteLine($"[WEBHOOK-EVENT] Duplicado. X-Request-Id={xRequestId}");
+                    return Ok(new { message = "Webhook já processado (duplicado)", duplicate = true });
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[WEBHOOK-EVENT] Falha ao verificar duplicidade (tabela pode não existir ainda). X-Request-Id={RequestId}", xRequestId);
+                // Continua o processamento mesmo se a verificação de duplicidade falhar
+            }
+        }
+
+        // Criar novo WebhookEvent
+        webhookEvent = new Domain.Entities.WebhookEvent(
+            correlationId: null, // Será preenchido se encontrarmos PaymentAttempt relacionado
+            mercadoPagoPaymentId: dataIdForProcessing,
+            mercadoPagoRequestId: xRequestId,
+            webhookType: actionFromBody?.Split('.').FirstOrDefault(),
+            webhookAction: actionFromBody,
+            rawPayload: rawBodyForEvent,
+            queryString: queryStringRaw,
+            requestHeaders: requestHeaders,
+            contentType: contentType,
+            contentLength: contentLength > 0 ? (int)contentLength : null,
+            sourceIp: sourceIp);
+
+        // Tentar encontrar correlationId através do PaymentAttempt
+        if (!string.IsNullOrEmpty(dataIdForProcessing))
+        {
+            // Buscar PaymentAttempt pelo MercadoPagoPaymentId para obter correlationId
+            // Nota: precisamos adicionar método no repositório ou buscar via Payment
+            // Por enquanto, deixamos null e preenchemos depois se necessário
+        }
+
+        try
+        {
+            webhookEvent = await webhookEventRepository.CreateAsync(webhookEvent, cancellationToken);
+            logger.LogInformation("[WEBHOOK-EVENT] Evento persistido. EventId={EventId}, PaymentId={PaymentId}, X-Request-Id={RequestId}",
+                webhookEvent.Id, dataIdForProcessing, xRequestId ?? "null");
+            Console.WriteLine($"[WEBHOOK-EVENT] Persistido. EventId={webhookEvent.Id}, PaymentId={dataIdForProcessing}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[WEBHOOK-EVENT] Falha ao persistir WebhookEvent (tabela pode não existir ainda). PaymentId={PaymentId}", dataIdForProcessing);
+            // Continua o processamento mesmo se a persistência falhar
+        }
+
+        try
+        {
+            await paymentService.ProcessWebhookAsync(parsedWebhook, cancellationToken);
+            
+            // Marcar como processado com sucesso (se webhookEvent foi criado)
+            if (webhookEvent != null)
+            {
+                try
+                {
+                    webhookEvent.MarkAsProcessed(
+                        processedPayload: JsonSerializer.Serialize(parsedWebhook),
+                        paymentStatus: "processed",
+                        paymentStatusDetail: null);
+                    var updated = await webhookEventRepository.UpdateAsync(webhookEvent, cancellationToken);
+                    if (updated != null)
+                    {
+                        logger.LogInformation("[WEBHOOK-EVENT] Processado com sucesso. EventId={EventId}, PaymentId={PaymentId}",
+                            webhookEvent.Id, dataIdForProcessing);
+                        Console.WriteLine($"[WEBHOOK-EVENT] Processado. EventId={webhookEvent.Id}");
+                    }
+                }
+                catch (Exception persistEx)
+                {
+                    logger.LogWarning(persistEx, "[WEBHOOK-EVENT] Falha ao atualizar WebhookEvent. EventId={EventId}", webhookEvent?.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (webhookEvent != null)
+            {
+                try
+                {
+                    webhookEvent.MarkAsFailed(ex.Message);
+                    await webhookEventRepository.UpdateAsync(webhookEvent, cancellationToken);
+                }
+                catch (Exception persistEx)
+                {
+                    logger.LogWarning(persistEx, "[WEBHOOK-EVENT] Falha ao marcar WebhookEvent como falho. EventId={EventId}", webhookEvent.Id);
+                }
+            }
+            logger.LogError(ex, "[WEBHOOK-EVENT] Erro ao processar webhook. PaymentId={PaymentId}",
+                dataIdForProcessing);
+            Console.WriteLine($"[WEBHOOK-EVENT] Erro. PaymentId={dataIdForProcessing}, Error={ex.Message}");
+            throw;
+        }
+
         logger.LogInformation("Payments Webhook: processado com sucesso");
         return Ok();
     }

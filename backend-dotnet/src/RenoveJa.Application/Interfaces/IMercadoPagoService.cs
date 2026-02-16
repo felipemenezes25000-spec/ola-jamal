@@ -13,6 +13,7 @@ public interface IMercadoPagoService
         string description,
         string payerEmail,
         string externalReference,
+        string? correlationId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -29,6 +30,7 @@ public interface IMercadoPagoService
         string paymentMethodId,
         long? issuerId,
         string? paymentTypeId = null,
+        string? correlationId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -50,6 +52,7 @@ public interface IMercadoPagoService
         string externalReference,
         string payerEmail,
         string? redirectBaseUrl,
+        string? correlationId = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -59,6 +62,22 @@ public record MercadoPagoPixResult(
     string ExternalId,
     string QrCodeBase64,
     string QrCode,
-    string CopyPaste);
+    string CopyPaste,
+    string? CorrelationId = null,
+    string? RequestUrl = null,
+    string? RequestPayload = null,
+    string? ResponsePayload = null,
+    int? ResponseStatusCode = null,
+    string? ResponseStatusDetail = null,
+    string? ResponseHeaders = null);
 
-public record MercadoPagoCardResult(string ExternalId, string Status);
+public record MercadoPagoCardResult(
+    string ExternalId,
+    string Status,
+    string? CorrelationId = null,
+    string? RequestUrl = null,
+    string? RequestPayload = null,
+    string? ResponsePayload = null,
+    int? ResponseStatusCode = null,
+    string? ResponseStatusDetail = null,
+    string? ResponseHeaders = null);

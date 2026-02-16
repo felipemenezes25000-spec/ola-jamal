@@ -160,13 +160,19 @@ public class SupabaseClient
         request.Headers.Add("Prefer", "return=representation");
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                $"Insert failed: {response.StatusCode}. Table: {table}. Error: {errorContent}. Payload: {json.Substring(0, Math.Min(500, json.Length))}");
+        }
 
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
         var result = JsonSerializer.Deserialize<List<T>>(responseContent, _jsonOptions);
         
         if (result is null || result.Count == 0)
-            throw new InvalidOperationException("Insert failed");
+            throw new InvalidOperationException($"Insert failed: no data returned. Table: {table}. Payload: {json.Substring(0, Math.Min(500, json.Length))}");
         return result[0];
     }
 

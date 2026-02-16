@@ -24,6 +24,7 @@ public class MercadoPagoService(
         string description,
         string payerEmail,
         string externalReference,
+        string? correlationId = null,
         CancellationToken cancellationToken = default)
     {
         var accessToken = config.Value.AccessToken;
@@ -50,25 +51,38 @@ public class MercadoPagoService(
             WriteIndented = false
         });
 
+        var requestUrl = $"{ApiBaseUrl}/v1/payments";
         var client = httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        client.DefaultRequestHeaders.Add("X-Idempotency-Key", Guid.NewGuid().ToString());
+        var idempotencyKey = Guid.NewGuid().ToString();
+        client.DefaultRequestHeaders.Add("X-Idempotency-Key", idempotencyKey);
+
+        // Log request completo
+        logger.LogInformation("[MP-REQUEST] POST {Url}, CorrelationId={CorrelationId}, IdempotencyKey={IdempotencyKey}, Payload={Payload}",
+            requestUrl, correlationId ?? "null", idempotencyKey, json);
+        Console.WriteLine($"[MP-REQUEST] CorrelationId={correlationId ?? "null"}, Url={requestUrl}, Payload={json}");
 
         var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await client.PostAsync($"{ApiBaseUrl}/v1/payments", content, cancellationToken);
+        var response = await client.PostAsync(requestUrl, content, cancellationToken);
+
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        var responseHeaders = string.Join("; ", response.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
+        var statusDetail = response.IsSuccessStatusCode ? "success" : "error";
+
+        logger.LogInformation("[MP-RESPONSE] Status={Status}, CorrelationId={CorrelationId}, BodyLength={Length}, Headers={Headers}",
+            (int)response.StatusCode, correlationId ?? "null", responseBody.Length, responseHeaders);
+        Console.WriteLine($"[MP-RESPONSE] CorrelationId={correlationId ?? "null"}, Status={(int)response.StatusCode}, BodyLength={responseBody.Length}");
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             var isUnauth = response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-                           (errorBody.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) || errorBody.Contains("invalid access token", StringComparison.OrdinalIgnoreCase));
+                           (responseBody.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) || responseBody.Contains("invalid access token", StringComparison.OrdinalIgnoreCase));
             var msg = isUnauth
                 ? "Access Token do Mercado Pago inválido ou expirado. Obtenha um novo em: https://www.mercadopago.com.br/developers/panel/app → sua aplicação → Credenciais → Copiar Access Token de Teste. Atualize MercadoPago:AccessToken no appsettings.json e reinicie a API."
-                : $"Mercado Pago PIX falhou: {response.StatusCode}. {errorBody}";
+                : $"Mercado Pago PIX falhou: {response.StatusCode}. {responseBody}";
             throw new InvalidOperationException(msg);
         }
 
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(responseBody);
         var root = doc.RootElement;
 
@@ -78,10 +92,22 @@ public class MercadoPagoService(
 
         var qrCodeBase64 = txData.ValueKind != JsonValueKind.Undefined && txData.TryGetProperty("qr_code_base64", out var qr64) ? qr64.GetString() ?? "" : "";
         var qrCode = txData.ValueKind != JsonValueKind.Undefined && txData.TryGetProperty("qr_code", out var qr) ? qr.GetString() ?? "" : "";
-        // PIX copia e cola = qr_code (EMV). ticket_url = link para página de pagamento.
         var copyPaste = !string.IsNullOrEmpty(qrCode) ? qrCode : (txData.ValueKind != JsonValueKind.Undefined && txData.TryGetProperty("ticket_url", out var ticket) ? ticket.GetString() ?? "" : "");
 
-        return new MercadoPagoPixResult(id, qrCodeBase64, qrCode, copyPaste);
+        var statusDetailFromResponse = root.TryGetProperty("status_detail", out var sd) ? sd.GetString() : null;
+
+        return new MercadoPagoPixResult(
+            id,
+            qrCodeBase64,
+            qrCode,
+            copyPaste,
+            correlationId,
+            requestUrl,
+            json,
+            responseBody,
+            (int)response.StatusCode,
+            statusDetailFromResponse ?? statusDetail,
+            responseHeaders);
     }
 
     public async Task<MercadoPagoCardResult> CreateCardPaymentAsync(
@@ -95,6 +121,7 @@ public class MercadoPagoService(
         string paymentMethodId,
         long? issuerId,
         string? paymentTypeId = null,
+        string? correlationId = null,
         CancellationToken cancellationToken = default)
     {
         var accessToken = config.Value.AccessToken;
@@ -137,32 +164,55 @@ public class MercadoPagoService(
             WriteIndented = false
         });
 
+        var requestUrl = $"{ApiBaseUrl}/v1/payments";
         var client = httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        client.DefaultRequestHeaders.Add("X-Idempotency-Key", Guid.NewGuid().ToString());
+        var idempotencyKey = Guid.NewGuid().ToString();
+        client.DefaultRequestHeaders.Add("X-Idempotency-Key", idempotencyKey);
+
+        // Log request completo
+        logger.LogInformation("[MP-REQUEST] POST {Url}, CorrelationId={CorrelationId}, IdempotencyKey={IdempotencyKey}, Payload={Payload}",
+            requestUrl, correlationId ?? "null", idempotencyKey, json);
+        Console.WriteLine($"[MP-REQUEST] CorrelationId={correlationId ?? "null"}, Url={requestUrl}, Payload={json}");
 
         var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await client.PostAsync($"{ApiBaseUrl}/v1/payments", content, cancellationToken);
+        var response = await client.PostAsync(requestUrl, content, cancellationToken);
+
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        var responseHeaders = string.Join("; ", response.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
+        var statusDetail = response.IsSuccessStatusCode ? "success" : "error";
+
+        logger.LogInformation("[MP-RESPONSE] Status={Status}, CorrelationId={CorrelationId}, BodyLength={Length}, Headers={Headers}",
+            (int)response.StatusCode, correlationId ?? "null", responseBody.Length, responseHeaders);
+        Console.WriteLine($"[MP-RESPONSE] CorrelationId={correlationId ?? "null"}, Status={(int)response.StatusCode}, BodyLength={responseBody.Length}");
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             var isUnauth = response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-                           (errorBody.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) || errorBody.Contains("invalid access token", StringComparison.OrdinalIgnoreCase));
+                           (responseBody.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) || responseBody.Contains("invalid access token", StringComparison.OrdinalIgnoreCase));
             var msg = isUnauth
                 ? "Access Token do Mercado Pago inválido ou expirado. Obtenha um novo em: https://www.mercadopago.com.br/developers/panel/app → Credenciais."
-                : $"Mercado Pago (cartão) falhou: {response.StatusCode}. {errorBody}";
+                : $"Mercado Pago (cartão) falhou: {response.StatusCode}. {responseBody}";
             throw new InvalidOperationException(msg);
         }
 
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(responseBody);
         var root = doc.RootElement;
 
         var id = root.TryGetProperty("id", out var idProp) ? idProp.GetInt64().ToString() : throw new InvalidOperationException("Resposta MP sem id");
         var status = root.TryGetProperty("status", out var statusProp) ? statusProp.GetString() ?? "pending" : "pending";
+        var statusDetailFromResponse = root.TryGetProperty("status_detail", out var sd) ? sd.GetString() : null;
 
-        return new MercadoPagoCardResult(id, status);
+        return new MercadoPagoCardResult(
+            id,
+            status,
+            correlationId,
+            requestUrl,
+            json,
+            responseBody,
+            (int)response.StatusCode,
+            statusDetailFromResponse ?? statusDetail,
+            responseHeaders);
     }
 
     /// <summary>
@@ -213,6 +263,7 @@ public class MercadoPagoService(
         string externalReference,
         string payerEmail,
         string? redirectBaseUrl,
+        string? correlationId = null,
         CancellationToken cancellationToken = default)
     {
         var accessToken = config.Value.AccessToken;
@@ -248,11 +299,24 @@ public class MercadoPagoService(
             WriteIndented = false
         });
 
+        var requestUrl = $"{ApiBaseUrl}/checkout/preferences";
         var client = httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
+        // Log request completo
+        logger.LogInformation("[MP-REQUEST] POST {Url}, CorrelationId={CorrelationId}, Payload={Payload}",
+            requestUrl, correlationId ?? "null", json);
+        Console.WriteLine($"[MP-REQUEST] CorrelationId={correlationId ?? "null"}, Url={requestUrl}, Payload={json}");
+
         var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await client.PostAsync($"{ApiBaseUrl}/checkout/preferences", content, cancellationToken);
+        var response = await client.PostAsync(requestUrl, content, cancellationToken);
+
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        var responseHeaders = string.Join("; ", response.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
+
+        logger.LogInformation("[MP-RESPONSE] Status={Status}, CorrelationId={CorrelationId}, BodyLength={Length}, Headers={Headers}",
+            (int)response.StatusCode, correlationId ?? "null", responseBody.Length, responseHeaders);
+        Console.WriteLine($"[MP-RESPONSE] CorrelationId={correlationId ?? "null"}, Status={(int)response.StatusCode}, BodyLength={responseBody.Length}");
 
         if (!response.IsSuccessStatusCode)
         {
@@ -260,7 +324,6 @@ public class MercadoPagoService(
             throw new InvalidOperationException($"Mercado Pago Checkout Pro falhou: {response.StatusCode}. {errorBody}");
         }
 
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(responseBody);
         var root = doc.RootElement;
 

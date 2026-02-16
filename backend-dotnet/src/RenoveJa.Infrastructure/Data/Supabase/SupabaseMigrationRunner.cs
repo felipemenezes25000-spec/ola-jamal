@@ -193,6 +193,124 @@ public static class SupabaseMigrationRunner
         """
     };
 
+    private static readonly string[] PaymentAttemptsMigrations =
+    {
+        """
+        CREATE TABLE IF NOT EXISTS public.payment_attempts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            payment_id UUID NOT NULL REFERENCES public.payments(id) ON DELETE CASCADE,
+            request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+            correlation_id TEXT NOT NULL,
+            payment_method TEXT NOT NULL,
+            amount DECIMAL(10,2) NOT NULL,
+            mercado_pago_payment_id TEXT,
+            mercado_pago_preference_id TEXT,
+            request_url TEXT,
+            request_payload TEXT,
+            response_payload TEXT,
+            response_status_code INTEGER,
+            response_status_detail TEXT,
+            response_headers TEXT,
+            error_message TEXT,
+            is_success BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_payment_attempts_correlation_id ON public.payment_attempts(correlation_id)",
+        "CREATE INDEX IF NOT EXISTS idx_payment_attempts_payment_id ON public.payment_attempts(payment_id)",
+        "CREATE INDEX IF NOT EXISTS idx_payment_attempts_request_id ON public.payment_attempts(request_id)",
+        "CREATE INDEX IF NOT EXISTS idx_payment_attempts_mp_payment_id ON public.payment_attempts(mercado_pago_payment_id)",
+        "CREATE INDEX IF NOT EXISTS idx_payment_attempts_mp_preference_id ON public.payment_attempts(mercado_pago_preference_id)",
+        "CREATE INDEX IF NOT EXISTS idx_payment_attempts_created_at ON public.payment_attempts(created_at DESC)"
+    };
+
+    private static readonly string[] WebhookEventsMigrations =
+    {
+        // Criar tabela com schema completo (inclui colunas legadas: event_id, event_type, source, payload, status, error_message)
+        """
+        CREATE TABLE IF NOT EXISTS public.webhook_events (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            event_id TEXT,
+            event_type TEXT DEFAULT 'payment',
+            source VARCHAR DEFAULT 'mercadopago',
+            payload JSONB,
+            status VARCHAR DEFAULT 'processed',
+            error_message TEXT,
+            correlation_id TEXT,
+            mercado_pago_payment_id TEXT,
+            mercado_pago_request_id TEXT,
+            webhook_type TEXT,
+            webhook_action TEXT,
+            raw_payload TEXT,
+            processed_payload TEXT,
+            query_string TEXT,
+            request_headers TEXT,
+            content_type TEXT,
+            content_length INTEGER,
+            source_ip TEXT,
+            is_duplicate BOOLEAN NOT NULL DEFAULT FALSE,
+            is_processed BOOLEAN NOT NULL DEFAULT FALSE,
+            processing_error TEXT,
+            payment_status TEXT,
+            payment_status_detail TEXT,
+            processed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        // Se a tabela já existia, garantir que colunas NOT NULL problemáticas tenham default ou sejam nullable
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='webhook_events' AND column_name='event_type' AND is_nullable='NO') THEN
+                ALTER TABLE public.webhook_events ALTER COLUMN event_type SET DEFAULT 'payment';
+                ALTER TABLE public.webhook_events ALTER COLUMN event_type DROP NOT NULL;
+            END IF;
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='webhook_events' AND column_name='event_id' AND is_nullable='NO') THEN
+                ALTER TABLE public.webhook_events ALTER COLUMN event_id DROP NOT NULL;
+            END IF;
+        END $$;
+        """,
+        // Adicionar colunas do nosso modelo que podem não existir na tabela legada
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS event_id TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'payment'",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS source VARCHAR DEFAULT 'mercadopago'",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS payload JSONB",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'processed'",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS error_message TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS correlation_id TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS mercado_pago_payment_id TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS mercado_pago_request_id TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS webhook_type TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS webhook_action TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS raw_payload TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS processed_payload TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS query_string TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS request_headers TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS content_type TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS content_length INTEGER",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS source_ip TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS is_duplicate BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS is_processed BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS processing_error TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS payment_status TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS payment_status_detail TEXT",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()",
+        "ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+        // Corrigir constraints legadas que podem impedir inserts
+        "ALTER TABLE public.webhook_events DROP CONSTRAINT IF EXISTS webhook_events_status_check",
+        "ALTER TABLE public.webhook_events ADD CONSTRAINT webhook_events_status_check CHECK (status IN ('processed', 'failed', 'ignored', 'pending', 'duplicate'))",
+        "ALTER TABLE public.webhook_events DROP CONSTRAINT IF EXISTS webhook_events_event_id_key",
+        // Índices
+        "CREATE INDEX IF NOT EXISTS idx_webhook_events_correlation_id ON public.webhook_events(correlation_id)",
+        "CREATE INDEX IF NOT EXISTS idx_webhook_events_mp_payment_id ON public.webhook_events(mercado_pago_payment_id)",
+        "CREATE INDEX IF NOT EXISTS idx_webhook_events_mp_request_id ON public.webhook_events(mercado_pago_request_id)",
+        "CREATE INDEX IF NOT EXISTS idx_webhook_events_created_at ON public.webhook_events(created_at DESC)"
+    };
+
     /// <summary>
     /// Executa todas as migrations. Só roda se Supabase:DatabaseUrl estiver definida.
     /// </summary>
@@ -222,7 +340,9 @@ public static class SupabaseMigrationRunner
             ("notifications", NotificationsMigrations),
             ("video_rooms", VideoRoomsMigrations),
             ("push_tokens", PushTokensMigrations),
-            ("product_prices", ProductPricesMigrations)
+            ("product_prices", ProductPricesMigrations),
+            ("payment_attempts", PaymentAttemptsMigrations),
+            ("webhook_events", WebhookEventsMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)
