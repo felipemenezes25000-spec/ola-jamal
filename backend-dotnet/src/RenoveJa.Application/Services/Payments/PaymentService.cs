@@ -23,7 +23,7 @@ public class PaymentService(
     IMercadoPagoService mercadoPagoService,
     IUserRepository userRepository,
     IPaymentAttemptRepository paymentAttemptRepository,
-    IWebhookEventRepository webhookEventRepository,
+    ISavedCardRepository savedCardRepository,
     IOptions<MercadoPagoConfig> mercadoPagoConfig,
     ILogger<PaymentService> logger) : IPaymentService
 {
@@ -149,7 +149,8 @@ public class PaymentService(
                 userId,
                 "Pagamento Criado",
                 $"Pagamento de R$ {amount:F2} criado. Use o QR Code ou copia e cola para pagar.",
-                cancellationToken);
+                cancellationToken,
+                requestId);
 
             return MapToDto(payment);
         }
@@ -260,7 +261,8 @@ public class PaymentService(
             userId,
             "Pagamento com cartão",
             $"R$ {amount:F2} - {message}",
-            cancellationToken);
+            cancellationToken,
+            request.RequestId);
 
         return MapToDto(payment);
     }
@@ -329,7 +331,8 @@ public class PaymentService(
                 payment.UserId,
                 "Pagamento Confirmado",
                 "Seu pagamento foi confirmado! Sua solicitação está sendo processada.",
-                cancellationToken);
+                cancellationToken,
+                payment.RequestId);
 
             if (request.DoctorId.HasValue)
             {
@@ -337,7 +340,8 @@ public class PaymentService(
                     request.DoctorId.Value,
                     "Pagamento Recebido",
                     $"O paciente pagou a solicitação de {request.PatientName ?? "paciente"}. Valor: R$ {payment.Amount.Amount:F2}.",
-                    cancellationToken);
+                    cancellationToken,
+                    payment.RequestId);
             }
         }
 
@@ -407,7 +411,8 @@ public class PaymentService(
             userId,
             "Checkout Pro",
             "Abra o link para pagar com cartão ou PIX na página do Mercado Pago.",
-            cancellationToken);
+            cancellationToken,
+            requestId);
 
         return new CheckoutProResponseDto(initPoint, payment.Id);
     }
@@ -504,7 +509,8 @@ public class PaymentService(
                     payment.UserId,
                     "Pagamento Confirmado",
                     "Seu pagamento foi confirmado automaticamente!",
-                    cancellationToken);
+                    cancellationToken,
+                    payment.RequestId);
 
                 if (request.DoctorId.HasValue)
                 {
@@ -512,7 +518,8 @@ public class PaymentService(
                         request.DoctorId.Value,
                         "Pagamento Recebido",
                         $"O paciente pagou a solicitação. Valor: R$ {payment.Amount.Amount:F2}.",
-                        cancellationToken);
+                        cancellationToken,
+                        payment.RequestId);
                 }
             }
         }
@@ -526,7 +533,8 @@ public class PaymentService(
                 payment.UserId,
                 "Pagamento não aprovado",
                 "Seu pagamento não foi aprovado. Tente outro cartão ou forma de pagamento.",
-                cancellationToken);
+                cancellationToken,
+                payment.RequestId);
         }
     }
 
@@ -576,7 +584,8 @@ public class PaymentService(
                     payment.UserId,
                     "Pagamento Confirmado",
                     "Seu pagamento foi confirmado!",
-                    cancellationToken);
+                    cancellationToken,
+                    payment.RequestId);
 
                 if (request.DoctorId.HasValue)
                 {
@@ -584,7 +593,8 @@ public class PaymentService(
                         request.DoctorId.Value,
                         "Pagamento Recebido",
                         $"O paciente pagou a solicitação. Valor: R$ {payment.Amount.Amount:F2}.",
-                        cancellationToken);
+                        cancellationToken,
+                        payment.RequestId);
                 }
             }
         }
@@ -598,10 +608,144 @@ public class PaymentService(
                 payment.UserId,
                 "Pagamento não aprovado",
                 "Seu pagamento não foi aprovado. Tente outro cartão ou forma de pagamento.",
-                cancellationToken);
+                cancellationToken,
+                payment.RequestId);
         }
 
         return MapToDto(payment);
+    }
+
+    /// <summary>
+    /// Lista cartões salvos do usuário.
+    /// </summary>
+    public async Task<IReadOnlyList<SavedCardDto>> GetSavedCardsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var cards = await savedCardRepository.GetByUserIdAsync(userId, cancellationToken);
+        return cards.Select(c => new SavedCardDto(
+            c.Id.ToString(),
+            c.MpCardId,
+            c.LastFour,
+            c.Brand)).ToList();
+    }
+
+    /// <summary>
+    /// Paga com cartão salvo. O token deve ser criado no frontend via mp.fields.createCardToken({ cardId }) com o CVV.
+    /// </summary>
+    public async Task<PaymentResponseDto> PayWithSavedCardAsync(
+        PayWithSavedCardRequestDto request,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Token))
+            throw new InvalidOperationException("Token do cartão é obrigatório. Use mp.fields.createCardToken({ cardId }) no frontend.");
+
+        if (!Guid.TryParse(request.SavedCardId, out var savedCardGuid))
+            throw new InvalidOperationException("SavedCardId inválido.");
+
+        var savedCard = await savedCardRepository.GetByIdAsync(savedCardGuid, cancellationToken);
+        if (savedCard == null)
+            throw new KeyNotFoundException("Cartão salvo não encontrado.");
+
+        if (savedCard.UserId != userId)
+            throw new UnauthorizedAccessException("Este cartão não pertence ao usuário.");
+
+        var medicalRequest = await requestRepository.GetByIdAsync(request.RequestId, cancellationToken);
+        if (medicalRequest == null)
+            throw new KeyNotFoundException("Solicitação não encontrada");
+
+        if (medicalRequest.PatientId != userId)
+            throw new UnauthorizedAccessException("Somente o paciente da solicitação pode pagar");
+
+        if (medicalRequest.Status != RequestStatus.ApprovedPendingPayment)
+            throw new InvalidOperationException("Solicitação deve estar aprovada e aguardando pagamento");
+
+        if (medicalRequest.Price == null || medicalRequest.Price.Amount <= 0)
+            throw new InvalidOperationException("Solicitação sem valor definido");
+
+        var amount = medicalRequest.Price.Amount;
+        var correlationId = Guid.NewGuid().ToString("N");
+
+        var cardResult = await mercadoPagoService.CreateCardPaymentWithCustomerAsync(
+            amount,
+            $"RenoveJá - Solicitação {medicalRequest.Id:N}",
+            savedCard.MpCustomerId,
+            request.Token,
+            savedCard.Brand,
+            1,
+            medicalRequest.Id.ToString(),
+            correlationId,
+            cancellationToken);
+
+        var payment = Payment.CreateCardPayment(request.RequestId, userId, amount, "credit_card");
+        payment.SetExternalId(cardResult.ExternalId);
+
+        var statusLower = cardResult.Status.Trim().ToLowerInvariant();
+        if (statusLower == "approved")
+        {
+            payment.Approve();
+            medicalRequest.MarkAsPaid();
+            await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        }
+        else if (statusLower is "rejected" or "cancelled")
+        {
+            payment.Reject();
+        }
+
+        payment = await paymentRepository.CreateAsync(payment, cancellationToken);
+
+        var message = statusLower == "approved"
+            ? "Pagamento aprovado."
+            : statusLower is "rejected" or "cancelled"
+                ? "Pagamento não aprovado. Tente outro cartão ou forma de pagamento."
+                : "Pagamento em processamento. Você será notificado quando for confirmado.";
+
+        await CreateNotificationAsync(userId, "Pagamento com cartão salvo", $"R$ {amount:F2} - {message}", cancellationToken, request.RequestId);
+
+        return MapToDto(payment);
+    }
+
+    /// <summary>
+    /// Adiciona um cartão ao customer do MP e persiste em saved_cards.
+    /// </summary>
+    public async Task AddCardAsync(Guid userId, string token, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Token do cartão é obrigatório.");
+
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
+        if (user == null)
+            throw new KeyNotFoundException("Usuário não encontrado.");
+
+        var email = user.Email?.Value ?? "usuario@renoveja.com.br";
+        var nameParts = (user.Name ?? "Usuário").Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var firstName = nameParts.Length > 0 ? nameParts[0] : "Usuário";
+        var lastName = nameParts.Length > 1 ? nameParts[1] : "";
+
+        string mpCustomerId;
+        var existingCards = await savedCardRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (existingCards.Count > 0)
+        {
+            mpCustomerId = existingCards[0].MpCustomerId;
+        }
+        else
+        {
+            mpCustomerId = await mercadoPagoService.CreateCustomerAsync(
+                email,
+                firstName,
+                lastName,
+                "55",
+                user.Phone ?? "999999999",
+                cancellationToken);
+        }
+
+        var (cardId, lastFour, brand) = await mercadoPagoService.AddCardToCustomerAsync(mpCustomerId, token, cancellationToken);
+
+        var savedCard = SavedCard.Create(userId, mpCustomerId, cardId, lastFour, brand);
+        await savedCardRepository.CreateAsync(savedCard, cancellationToken);
+
+        logger.LogInformation("Cartão salvo para userId={UserId}, mpCardId={CardId}, lastFour={LastFour}", userId, cardId, lastFour);
     }
 
     /// <summary>
@@ -658,9 +802,11 @@ public class PaymentService(
         Guid userId,
         string title,
         string message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? requestId = null)
     {
-        var notification = Notification.Create(userId, title, message, NotificationType.Success);
+        var data = requestId.HasValue ? new Dictionary<string, object> { ["requestId"] = requestId.Value.ToString() } : null;
+        var notification = Notification.Create(userId, title, message, NotificationType.Success, data);
         await notificationRepository.CreateAsync(notification, cancellationToken);
         await pushNotificationSender.SendAsync(userId, title, message, ct: cancellationToken);
     }

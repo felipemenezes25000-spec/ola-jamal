@@ -17,6 +17,30 @@ public interface IMercadoPagoService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Cria um customer no Mercado Pago (para salvar cartões).
+    /// </summary>
+    Task<string> CreateCustomerAsync(
+        string email,
+        string firstName,
+        string lastName,
+        string? phoneAreaCode = null,
+        string? phoneNumber = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Busca customer por email (quando CreateCustomer retorna 101 - já existe).
+    /// </summary>
+    Task<string?> SearchCustomerByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adiciona um cartão a um customer. Token deve ser obtido no frontend via Brick.
+    /// </summary>
+    Task<(string CardId, string LastFour, string Brand)> AddCardToCustomerAsync(
+        string customerId,
+        string token,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Cria um pagamento com cartão (crédito ou débito). Token deve ser obtido no frontend via SDK do MP.
     /// </summary>
     Task<MercadoPagoCardResult> CreateCardPaymentAsync(
@@ -42,6 +66,20 @@ public interface IMercadoPagoService
     /// Obtém status e external_reference de um pagamento (para webhook Checkout Pro).
     /// </summary>
     Task<MercadoPagoPaymentDetails?> GetPaymentDetailsAsync(string paymentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cria um pagamento com cartão salvo (payer type=customer). Token deve ser criado no frontend com mp.fields.createCardToken({ cardId }).
+    /// </summary>
+    Task<MercadoPagoCardResult> CreateCardPaymentWithCustomerAsync(
+        decimal amount,
+        string description,
+        string mpCustomerId,
+        string token,
+        string paymentMethodId,
+        int installments,
+        string externalReference,
+        string? correlationId = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Cria uma preferência do Checkout Pro e retorna a URL init_point.

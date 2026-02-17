@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import Constants from 'expo-constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from '../contexts/AuthContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Push notifications foram removidas do Expo Go no SDK 53 - carregar provider só em development build
@@ -24,6 +25,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <PushNotificationProvider>
+        <NotificationProvider>
         <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
@@ -32,6 +34,7 @@ export default function RootLayout() {
         <Stack.Screen name="new-request" options={{ presentation: 'modal' }} />
         <Stack.Screen name="request-detail/[id]" />
         <Stack.Screen name="doctor-request/[id]" />
+        <Stack.Screen name="doctor-request/editor/[id]" />
         <Stack.Screen name="payment/[id]" />
         <Stack.Screen name="payment/card" />
         <Stack.Screen name="certificate/upload" />
@@ -43,6 +46,7 @@ export default function RootLayout() {
         <Stack.Screen name="about" />
         <Stack.Screen name="help-faq" />
       </Stack>
+        </NotificationProvider>
         </PushNotificationProvider>
       </AuthProvider>
     </GestureHandlerRootView>

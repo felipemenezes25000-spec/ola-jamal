@@ -35,7 +35,7 @@ export default function SplashScreen() {
       style={styles.container}
     >
       <View style={styles.logoContainer}>
-        <Logo size="large" showIcon={true} />
+        <Logo size="large" />
       </View>
       <View style={styles.loadingContainer}>
         <Loading />

@@ -8,10 +8,12 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
   switch (type) {
@@ -42,6 +44,8 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function DoctorNotifications() {
+  const router = useRouter();
+  const { refreshUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,12 +60,24 @@ export default function DoctorNotifications() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+      refreshUnreadCount();
+    }, [loadData, refreshUnreadCount])
+  );
+
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
-  const handleMarkRead = async (id: string) => {
+  const handleMarkRead = async (id: string, item?: NotificationResponseDto) => {
     try {
       await markNotificationRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      refreshUnreadCount();
+      const requestId = item?.data?.requestId;
+      if (requestId) {
+        router.push(`/doctor-request/${requestId}`);
+      }
     } catch {}
   };
 
@@ -69,6 +85,7 @@ export default function DoctorNotifications() {
     try {
       await markAllNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      refreshUnreadCount();
     } catch {}
   };
 
@@ -94,7 +111,7 @@ export default function DoctorNotifications() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.notifCard, !item.read && styles.notifUnread]}
-              onPress={() => handleMarkRead(item.id)}
+              onPress={() => handleMarkRead(item.id, item)}
               activeOpacity={0.7}
             >
               <View style={[styles.notifIcon, { backgroundColor: `${getNotificationColor(item.notificationType)}15` }]}>

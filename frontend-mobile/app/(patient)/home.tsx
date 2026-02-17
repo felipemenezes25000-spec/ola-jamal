@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   Pressable,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -62,6 +62,8 @@ export default function PatientHome() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const onRefresh = () => {
     setRefreshing(true);

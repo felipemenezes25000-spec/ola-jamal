@@ -121,6 +121,23 @@ public class RequestModel
     public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de cartão salvo (tabela saved_cards).</summary>
+public class SavedCardModel
+{
+    public Guid Id { get; set; }
+    [JsonPropertyName("user_id")]
+    public Guid UserId { get; set; }
+    [JsonPropertyName("mp_customer_id")]
+    public string MpCustomerId { get; set; } = string.Empty;
+    [JsonPropertyName("mp_card_id")]
+    public string MpCardId { get; set; } = string.Empty;
+    [JsonPropertyName("last_four")]
+    public string LastFour { get; set; } = string.Empty;
+    public string Brand { get; set; } = string.Empty;
+    [JsonPropertyName("created_at")]
+    public DateTime CreatedAt { get; set; }
+}
+
 /// <summary>Modelo de persistência de pagamento (tabela payments).</summary>
 public class PaymentModel
 {

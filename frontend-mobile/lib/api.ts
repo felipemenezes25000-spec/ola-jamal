@@ -302,6 +302,31 @@ export async function getCheckoutProUrl(requestId: string): Promise<{ initPoint:
   return apiClient.get(`/api/payments/checkout-pro/${requestId}`);
 }
 
+export interface SavedCardDto {
+  id: string;
+  mpCardId: string;
+  lastFour: string;
+  brand: string;
+}
+
+/** Lista cartões salvos do usuário */
+export async function fetchSavedCards(): Promise<SavedCardDto[]> {
+  return apiClient.get<SavedCardDto[]>('/api/payments/saved-cards');
+}
+
+/** Pagar com cartão salvo (token criado via mp.fields.createCardToken no frontend) */
+export async function payWithSavedCard(
+  requestId: string,
+  savedCardId: string,
+  token: string
+): Promise<PaymentResponseDto> {
+  return apiClient.post('/api/payments/saved-card', {
+    requestId,
+    savedCardId,
+    token,
+  });
+}
+
 // ============================================
 // NOTIFICATIONS
 // ============================================
@@ -319,6 +344,11 @@ export async function markNotificationRead(notificationId: string): Promise<Noti
 
 export async function markAllNotificationsRead(): Promise<void> {
   return apiClient.put('/api/notifications/read-all', {});
+}
+
+export async function getUnreadNotificationsCount(): Promise<number> {
+  const res = await apiClient.get<{ count: number }>('/api/notifications/unread-count');
+  return res?.count ?? 0;
 }
 
 // ============================================

@@ -28,12 +28,13 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     private readonly ILogger<PrescriptionPdfService> _logger;
     private readonly VerificationConfig _verificationConfig;
 
-    // Cores institucionais RenoveJá
-    private static readonly Color RenovejaGreen = new DeviceRgb(0, 153, 102);   // #009966
-    private static readonly Color RenovejaBlue = new DeviceRgb(0, 102, 178);    // #0066B2
-    private static readonly Color LightGrayBg = new DeviceRgb(245, 245, 245);   // #F5F5F5
-    private static readonly Color MediumGray = new DeviceRgb(120, 120, 120);    // #787878
-    private static readonly Color DarkText = new DeviceRgb(33, 33, 33);         // #212121
+    // Identidade visual RenoveJá (alinhado ao app)
+    private static readonly Color RenovejaPrimary = new DeviceRgb(14, 165, 233);    // #0EA5E9
+    private static readonly Color RenovejaSecondary = new DeviceRgb(16, 185, 129);  // #10B981
+    private static readonly Color RenovejaPrimaryDark = new DeviceRgb(2, 132, 199); // #0284C7
+    private static readonly Color LightGrayBg = new DeviceRgb(248, 250, 252);       // #F8FAFC
+    private static readonly Color MediumGray = new DeviceRgb(100, 116, 139);        // #64748B
+    private static readonly Color DarkText = new DeviceRgb(30, 41, 59);             // #1E293B
 
     private const string DefaultVerificationBaseUrl = "https://renoveja.com/verificar";
     private const string DefaultPharmacyUrl = "https://farmacias.renovejasaude.com.br";
@@ -244,8 +245,8 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
         var logoCell = new Cell().SetBorder(Border.NO_BORDER).SetVerticalAlignment(VerticalAlignment.MIDDLE);
         var logoParagraph = new Paragraph();
-        logoParagraph.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaGreen));
-        logoParagraph.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaBlue));
+        logoParagraph.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaPrimary));
+        logoParagraph.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaSecondary));
         logoCell.Add(logoParagraph);
         logoTable.AddCell(logoCell);
 
@@ -378,12 +379,12 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         var logoParagraph = new Paragraph();
         logoParagraph.Add(new Text("RenoveJá")
             .SetFont(fontBold)
-            .SetFontSize(20)
-            .SetFontColor(RenovejaGreen));
+            .SetFontSize(22)
+            .SetFontColor(RenovejaPrimary));
         logoParagraph.Add(new Text(" Saúde")
             .SetFont(fontBold)
-            .SetFontSize(20)
-            .SetFontColor(RenovejaBlue));
+            .SetFontSize(22)
+            .SetFontColor(RenovejaSecondary));
         logoCell.Add(logoParagraph);
         logoTable.AddCell(logoCell);
 
@@ -416,7 +417,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             .SetMarginBottom(8);
         var sepCell = new Cell()
             .SetBorder(Border.NO_BORDER)
-            .SetBorderBottom(new SolidBorder(new DeviceRgb(200, 200, 200), 0.5f))
+            .SetBorderBottom(new SolidBorder(RenovejaPrimary, 0.8f))
             .SetHeight(1);
         separator.AddCell(sepCell);
         document.Add(separator);
@@ -519,8 +520,9 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         var medCell = new Cell()
             .SetBackgroundColor(LightGrayBg)
             .SetBorder(Border.NO_BORDER)
+            .SetBorderLeft(new SolidBorder(RenovejaPrimary, 3))
             .SetPadding(12)
-            .SetBorderRadius(new BorderRadius(4));
+            .SetBorderRadius(new BorderRadius(6));
 
         // Medication name + presentation
         var nameText = med.Name;
@@ -643,7 +645,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         instructionsCell.Add(new Paragraph(verificationUrl)
             .SetFont(font)
             .SetFontSize(7)
-            .SetFontColor(RenovejaBlue)
+            .SetFontColor(RenovejaSecondary)
             .SetMarginTop(4));
 
         qrTable.AddCell(instructionsCell);
@@ -693,7 +695,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         document.Add(new Paragraph($"Farmacêutico, valide a receita digital em {pharmacyUrl}")
             .SetFont(fontItalic)
             .SetFontSize(8)
-            .SetFontColor(RenovejaBlue)
+            .SetFontColor(RenovejaSecondary)
             .SetMarginBottom(10));
     }
 

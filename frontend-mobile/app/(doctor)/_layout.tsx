@@ -2,8 +2,12 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../lib/theme';
+import { useNotifications } from '../../contexts/NotificationContext';
+import { PulsingNotificationIcon } from '../../components/PulsingNotificationIcon';
 
 export default function DoctorLayout() {
+  const { unreadCount } = useNotifications();
+  const hasUnread = unreadCount > 0;
   return (
     <Tabs
       screenOptions={{
@@ -45,8 +49,9 @@ export default function DoctorLayout() {
         name="notifications"
         options={{
           title: 'Notificações',
+          tabBarBadge: hasUnread ? unreadCount : undefined,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" size={size} color={color} />
+            <PulsingNotificationIcon color={color} size={size} hasUnread={hasUnread} />
           ),
         }}
       />

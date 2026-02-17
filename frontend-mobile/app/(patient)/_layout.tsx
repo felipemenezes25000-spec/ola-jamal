@@ -2,8 +2,10 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../lib/theme';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function PatientLayout() {
+  const { unreadCount } = useNotifications();
   return (
     <Tabs
       screenOptions={{
@@ -45,6 +47,7 @@ export default function PatientLayout() {
         name="notifications"
         options={{
           title: 'Notificações',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications" size={size} color={color} />
           ),

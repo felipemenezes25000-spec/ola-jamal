@@ -8,12 +8,16 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function PatientNotifications() {
+  const router = useRouter();
+  const { refreshUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +38,13 @@ export default function PatientNotifications() {
     loadData();
   }, [loadData]);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+      refreshUnreadCount();
+    }, [loadData, refreshUnreadCount])
+  );
+
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -43,15 +54,21 @@ export default function PatientNotifications() {
     try {
       await markAllNotificationsAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      refreshUnreadCount();
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
   };
 
-  const handleMarkRead = async (id: string) => {
+  const handleMarkRead = async (id: string, item?: NotificationResponseDto) => {
     try {
       await markNotificationAsRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      refreshUnreadCount();
+      const requestId = item?.data?.requestId;
+      if (requestId) {
+        router.push(`/request-detail/${requestId}`);
+      }
     } catch (error) {
       console.error('Error marking as read:', error);
     }
@@ -83,7 +100,7 @@ export default function PatientNotifications() {
     return (
       <TouchableOpacity
         style={[styles.card, !item.read && styles.cardUnread]}
-        onPress={() => handleMarkRead(item.id)}
+        onPress={() => handleMarkRead(item.id, item)}
         activeOpacity={0.7}
       >
         <View style={[styles.iconContainer, { backgroundColor: icon.color + '15' }]}>

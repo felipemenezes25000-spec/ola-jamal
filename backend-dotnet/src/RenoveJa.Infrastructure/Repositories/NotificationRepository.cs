@@ -58,6 +58,14 @@ public class NotificationRepository(SupabaseClient supabase) : INotificationRepo
         return MapToDomain(updated);
     }
 
+    public async Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await supabase.CountAsync(
+            TableName,
+            $"user_id=eq.{userId}&read=eq.false",
+            cancellationToken);
+    }
+
     public async Task MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         await supabase.UpdateAsync<NotificationModel>(

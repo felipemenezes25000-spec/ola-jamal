@@ -94,7 +94,8 @@ public class RequestService(
             userId,
             "Solicitação Criada",
             "Sua solicitação de receita foi enviada. Aguardando análise do médico.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = (latest ?? medicalRequest).Id.ToString() });
 
         await NotifyAvailableDoctorsOfNewRequestAsync("receita", latest ?? medicalRequest, cancellationToken);
 
@@ -138,7 +139,8 @@ public class RequestService(
             userId,
             "Solicitação Criada",
             "Sua solicitação de exame foi enviada. Aguardando análise do médico.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = (latest ?? medicalRequest).Id.ToString() });
 
         await NotifyAvailableDoctorsOfNewRequestAsync("exame", latest ?? medicalRequest, cancellationToken);
 
@@ -168,7 +170,8 @@ public class RequestService(
             userId,
             "Solicitação Criada",
             "Sua solicitação de consulta foi enviada. Aguardando médico.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = medicalRequest.Id.ToString() });
 
         await NotifyAvailableDoctorsOfNewRequestAsync("consulta", medicalRequest, cancellationToken);
 
@@ -328,7 +331,8 @@ public class RequestService(
             request.PatientId,
             "Status Atualizado",
             $"Sua solicitação foi atualizada para: {dto.Status}",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -370,7 +374,8 @@ public class RequestService(
                 request.PatientId,
                 "Solicitação Aprovada",
                 $"Sua solicitação foi aprovada. Valor: R$ {price:F2}. Acesse o app para realizar o pagamento.",
-                cancellationToken);
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
             return MapRequestToDto(request);
         }
@@ -412,7 +417,8 @@ public class RequestService(
             request.PatientId,
             "Solicitação Rejeitada",
             $"Sua solicitação foi rejeitada. Motivo: {dto.RejectionReason}",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -445,13 +451,15 @@ public class RequestService(
                 request.PatientId,
                 "Médico Atribuído",
                 $"Sua solicitação foi atribuída ao Dr(a). {doctorUser.Name}",
-                cancellationToken);
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
             await CreateNotificationAsync(
                 doctorUser.Id,
                 "Nova Solicitação",
                 $"Você recebeu uma nova solicitação de {request.PatientName}",
-                cancellationToken);
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
         }
 
         return MapRequestToDto(request);
@@ -496,7 +504,8 @@ public class RequestService(
             request.PatientId,
             "Consulta Pronta",
             "Sua consulta está pronta. Entre na sala de vídeo.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
         return (MapRequestToDto(request), MapVideoRoomToDto(videoRoom));
     }
@@ -526,7 +535,8 @@ public class RequestService(
             request.PatientId,
             "Consulta Iniciada",
             "A consulta começou! Entre na sala de vídeo.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -562,7 +572,8 @@ public class RequestService(
             request.PatientId,
             "Consulta Finalizada",
             "Sua consulta foi encerrada. Obrigado!",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -700,7 +711,8 @@ public class RequestService(
                                     request.PatientId,
                                     "Documento Assinado",
                                     $"Sua {docTipo} foi assinada digitalmente e está disponível para download.",
-                                    cancellationToken);
+                                    cancellationToken,
+                                    new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
                                 return MapRequestToDto(request);
                             }
@@ -733,7 +745,8 @@ public class RequestService(
             request.PatientId,
             "Documento Assinado",
             "Sua solicitação foi assinada digitalmente e está disponível para download.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -751,16 +764,27 @@ public class RequestService(
         {
             logger.LogInformation("IA reanálise receita (paciente): request {RequestId}, {UrlCount} URL(s)", id, urls.Count);
             var result = await aiReadingService.AnalyzePrescriptionAsync(urls, cancellationToken);
-            request.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, result.RiskLevel, null, result.ReadabilityOk, result.MessageToUser);
-            request = await requestRepository.UpdateAsync(request, cancellationToken);
-            logger.LogInformation("IA reanálise receita: sucesso para request {RequestId}", id);
-            if (request.DoctorId.HasValue)
+            if (!result.ReadabilityOk)
             {
-                await CreateNotificationAsync(
-                    request.DoctorId.Value,
-                    "Reanálise Solicitada",
-                    "O paciente solicitou reanálise da receita. Nova análise da IA disponível.",
-                    cancellationToken);
+                var msg = result.MessageToUser ?? "As imagens não parecem ser de receita médica. Envie apenas fotos do documento.";
+                request.Reject(msg);
+                request = await requestRepository.UpdateAsync(request, cancellationToken);
+                logger.LogInformation("IA reanálise receita: request {RequestId} REJEITADO - imagens inválidas", id);
+            }
+            else
+            {
+                request.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, result.RiskLevel, null, true, null);
+                request = await requestRepository.UpdateAsync(request, cancellationToken);
+                logger.LogInformation("IA reanálise receita: sucesso para request {RequestId}", id);
+                if (request.DoctorId.HasValue)
+                {
+                    await CreateNotificationAsync(
+                        request.DoctorId.Value,
+                        "Reanálise Solicitada",
+                        "O paciente solicitou reanálise da receita. Nova análise da IA disponível.",
+                        cancellationToken,
+                        new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                }
             }
         }
         catch (Exception ex)
@@ -772,7 +796,8 @@ public class RequestService(
                 request.PatientId,
                 "Reanálise não concluída",
                 "Não foi possível concluir a reanálise da IA. Tente novamente ou entre em contato com o suporte.",
-                cancellationToken);
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
         }
         return MapRequestToDto(request);
     }
@@ -827,7 +852,8 @@ public class RequestService(
             doctorId,
             "Reanálise concluída",
             "A reanálise da IA foi concluída. A nova análise está disponível.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
         return MapRequestToDto(request);
     }
 
@@ -845,16 +871,27 @@ public class RequestService(
         {
             logger.LogInformation("IA reanálise exame (paciente): request {RequestId}, Imagens={ImageCount}, TextoLen={TextLen}", id, imageUrls.Count, textDescription?.Length ?? 0);
             var result = await aiReadingService.AnalyzeExamAsync(imageUrls, textDescription, cancellationToken);
-            request.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, null, result.Urgency, result.ReadabilityOk, result.MessageToUser);
-            request = await requestRepository.UpdateAsync(request, cancellationToken);
-            logger.LogInformation("IA reanálise exame (paciente): sucesso para request {RequestId}", id);
-            if (request.DoctorId.HasValue)
+            if (imageUrls.Count > 0 && !result.ReadabilityOk)
             {
-                await CreateNotificationAsync(
-                    request.DoctorId.Value,
-                    "Reanálise Solicitada",
-                    "O paciente solicitou reanálise do pedido de exame. Nova análise da IA disponível.",
-                    cancellationToken);
+                var msg = result.MessageToUser ?? "As imagens não parecem ser de pedido de exame. Envie apenas imagens do documento médico.";
+                request.Reject(msg);
+                request = await requestRepository.UpdateAsync(request, cancellationToken);
+                logger.LogInformation("IA reanálise exame: request {RequestId} REJEITADO - imagens inválidas", id);
+            }
+            else
+            {
+                request.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, null, result.Urgency, result.ReadabilityOk, result.MessageToUser);
+                request = await requestRepository.UpdateAsync(request, cancellationToken);
+                logger.LogInformation("IA reanálise exame (paciente): sucesso para request {RequestId}", id);
+                if (request.DoctorId.HasValue)
+                {
+                    await CreateNotificationAsync(
+                        request.DoctorId.Value,
+                        "Reanálise Solicitada",
+                        "O paciente solicitou reanálise do pedido de exame. Nova análise da IA disponível.",
+                        cancellationToken,
+                        new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                }
             }
         }
         catch (Exception ex)
@@ -866,7 +903,8 @@ public class RequestService(
                 request.PatientId,
                 "Reanálise não concluída",
                 "Não foi possível concluir a reanálise da IA. Tente novamente ou entre em contato com o suporte.",
-                cancellationToken);
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
         }
         return MapRequestToDto(request);
     }
@@ -885,7 +923,8 @@ public class RequestService(
             request.PatientId,
             "Receita atualizada",
             "O médico atualizou sua receita. O documento está disponível para assinatura.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
         return MapRequestToDto(request);
     }
 
@@ -903,7 +942,8 @@ public class RequestService(
             request.PatientId,
             "Pedido de exame atualizado",
             "O médico atualizou seu pedido de exame. O documento está disponível para assinatura.",
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
         return MapRequestToDto(request);
     }
 
@@ -995,7 +1035,8 @@ public class RequestService(
                 request.DoctorId.Value,
                 "Pedido Cancelado",
                 "O paciente cancelou o pedido.",
-                cancellationToken);
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
         }
 
         return MapRequestToDto(request);
@@ -1005,9 +1046,10 @@ public class RequestService(
         Guid userId,
         string title,
         string message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Dictionary<string, object>? data = null)
     {
-        var notification = Notification.Create(userId, title, message, NotificationType.Info);
+        var notification = Notification.Create(userId, title, message, NotificationType.Info, data);
         await notificationRepository.CreateAsync(notification, cancellationToken);
         await pushNotificationSender.SendAsync(userId, title, message, ct: cancellationToken);
     }
@@ -1029,7 +1071,8 @@ public class RequestService(
                     doc.UserId,
                     "Nova solicitação na fila",
                     $"Nova solicitação de {tipoSolicitacao} disponível: {request.PatientName ?? "paciente"}.",
-                    cancellationToken);
+                    cancellationToken,
+                    new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
             }
         }
         catch (Exception ex)
@@ -1050,10 +1093,17 @@ public class RequestService(
         try
         {
             var result = await aiReadingService.AnalyzePrescriptionAsync(medicalRequest.PrescriptionImages, cancellationToken);
-            medicalRequest.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, result.RiskLevel, null, result.ReadabilityOk, result.MessageToUser);
+            if (!result.ReadabilityOk)
+            {
+                var msg = result.MessageToUser ?? "A imagem não parece ser de uma receita médica. Envie apenas fotos do documento da receita.";
+                medicalRequest.Reject(msg);
+                await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+                logger.LogInformation("IA receita: request {RequestId} REJEITADO - imagens inválidas. Mensagem: {Msg}", medicalRequest.Id, msg);
+                return;
+            }
+            medicalRequest.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, result.RiskLevel, null, true, null);
             await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
-            logger.LogInformation("IA receita: análise concluída para request {RequestId}. ReadabilityOk={ReadabilityOk}, SummaryLength={Len}",
-                medicalRequest.Id, result.ReadabilityOk, result.SummaryForDoctor?.Length ?? 0);
+            logger.LogInformation("IA receita: análise concluída para request {RequestId}. SummaryLength={Len}", medicalRequest.Id, result.SummaryForDoctor?.Length ?? 0);
         }
         catch (Exception ex)
         {
@@ -1089,10 +1139,17 @@ public class RequestService(
         try
         {
             var result = await aiReadingService.AnalyzeExamAsync(imageUrls, textDescription, cancellationToken);
+            if (imageUrls != null && imageUrls.Count > 0 && !result.ReadabilityOk)
+            {
+                var msg = result.MessageToUser ?? "A imagem não parece ser de pedido de exame ou documento médico. Envie apenas imagens do documento.";
+                medicalRequest.Reject(msg);
+                await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+                logger.LogInformation("IA exame: request {RequestId} REJEITADO - imagens inválidas. Mensagem: {Msg}", medicalRequest.Id, msg);
+                return;
+            }
             medicalRequest.SetAiAnalysis(result.SummaryForDoctor, result.ExtractedJson, null, result.Urgency, result.ReadabilityOk, result.MessageToUser);
             await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
-            logger.LogInformation("IA exame: análise concluída para request {RequestId}. ReadabilityOk={ReadabilityOk}, SummaryLength={Len}",
-                medicalRequest.Id, result.ReadabilityOk, result.SummaryForDoctor?.Length ?? 0);
+            logger.LogInformation("IA exame: análise concluída para request {RequestId}. SummaryLength={Len}", medicalRequest.Id, result.SummaryForDoctor?.Length ?? 0);
         }
         catch (Exception ex)
         {

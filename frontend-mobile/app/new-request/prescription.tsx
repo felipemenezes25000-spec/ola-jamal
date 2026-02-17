@@ -78,11 +78,24 @@ export default function NewPrescription() {
 
     setLoading(true);
     try {
-      await createPrescriptionRequest({
+      const result = await createPrescriptionRequest({
         prescriptionType: selectedType,
         medications: medications.length > 0 ? medications : undefined,
         images,
       });
+      // A IA analisa na hora – se rejeitou, avisar imediatamente (não dizer sucesso)
+      if (result.request?.status === 'rejected') {
+        const msg =
+          result.request.aiMessageToUser ||
+          result.request.rejectionReason ||
+          'A imagem não parece ser de uma receita médica. Envie apenas fotos do documento da receita (papel ou tela com medicamentos).';
+        Alert.alert(
+          'Imagem não reconhecida',
+          msg,
+          [{ text: 'Entendi', style: 'default' }]
+        );
+        return;
+      }
       Alert.alert('Sucesso!', 'Sua solicitação foi enviada. Acompanhe o status na lista de pedidos.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -170,6 +183,7 @@ export default function NewPrescription() {
 
       {/* Photo */}
       <Text style={styles.label}>Foto da Receita Antiga *</Text>
+      <Text style={styles.photoHint}>Envie APENAS fotos do documento da receita (papel ou tela com medicamentos). Fotos de pessoas, animais ou outros objetos serão rejeitadas automaticamente.</Text>
       <View style={styles.photoRow}>
         <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
           <Ionicons name="camera" size={28} color={colors.primary} />
@@ -257,6 +271,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginHorizontal: spacing.md,
     marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  photoHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
   typeCard: {

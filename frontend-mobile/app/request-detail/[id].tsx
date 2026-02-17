@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
   Linking,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,8 @@ import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDeli
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
+import { ZoomableImage } from '../../components/ZoomableImage';
+import { CompatibleImage } from '../../components/CompatibleImage';
 
 function getTypeLabel(type: string): string {
   switch (type) {
@@ -45,6 +48,7 @@ export default function RequestDetailScreen() {
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
   const load = async () => {
     if (!requestId) { setLoading(false); return; }
@@ -259,6 +263,40 @@ export default function RequestDetailScreen() {
           </View>
         )}
 
+        {/* Prescription Images */}
+        {request.prescriptionImages && request.prescriptionImages.length > 0 && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="images" size={20} color={colors.primary} />
+              <Text style={styles.cardTitle}>Imagens da Receita</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.sm }}>
+              {request.prescriptionImages.map((img, i) => (
+                <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
+                  <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Exam Images */}
+        {request.examImages && request.examImages.length > 0 && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="images" size={20} color="#8B5CF6" />
+              <Text style={styles.cardTitle}>Imagens do Exame</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.sm }}>
+              {request.examImages.map((img, i) => (
+                <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
+                  <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Exams */}
         {request.exams && request.exams.length > 0 && (
           <View style={styles.card}>
@@ -360,6 +398,29 @@ export default function RequestDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Modal com zoom nas imagens */}
+      <Modal
+        visible={selectedImageUri !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedImageUri(null)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedImageUri(null)} activeOpacity={0.7}>
+            <Ionicons name="close" size={32} color="#fff" />
+          </TouchableOpacity>
+          {selectedImageUri && (
+            Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
+              <View style={{ flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' }}>
+                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%', maxHeight: '80vh' }} resizeMode="contain" />
+              </View>
+            ) : (
+              <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />
+            )
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -441,4 +502,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   errorBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+  thumbWrap: { marginHorizontal: spacing.sm },
+  thumbImg: { width: 120, height: 120, borderRadius: borderRadius.sm },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 20 : 60,
+    right: spacing.md,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 25,
+    padding: 10,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

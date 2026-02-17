@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,8 +74,7 @@ export default function Login() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* Logo Section */}
         <LinearGradient colors={['#0EA5E9', '#38BDF8']} style={styles.logoSection}>
-          <Ionicons name="medical" size={48} color="#fff" />
-          <Text style={styles.logoText}>RenoveJá+</Text>
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.logoSub}>Telemedicina simplificada</Text>
         </LinearGradient>
 
@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
     paddingTop: 80, paddingBottom: 40, alignItems: 'center',
     borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl,
   },
-  logoText: { fontSize: 32, fontWeight: '700', color: '#fff', marginTop: spacing.sm },
-  logoSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
+  logoImage: { width: 180, height: 100 },
+  logoSub: { fontSize: 14, color: 'rgba(255,255,255,0.9)', marginTop: spacing.sm },
   form: { padding: spacing.lg, flex: 1 },
   formTitle: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   label: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },

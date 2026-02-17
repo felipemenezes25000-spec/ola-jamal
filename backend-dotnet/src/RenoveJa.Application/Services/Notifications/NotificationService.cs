@@ -14,6 +14,7 @@ public interface INotificationService
     Task<PagedResponse<NotificationResponseDto>> GetUserNotificationsPagedAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<NotificationResponseDto> MarkAsReadAsync(Guid id, CancellationToken cancellationToken = default);
     Task MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -74,6 +75,13 @@ public class NotificationService(INotificationRepository notificationRepository)
         CancellationToken cancellationToken = default)
     {
         await notificationRepository.MarkAllAsReadAsync(userId, cancellationToken);
+    }
+
+    public async Task<int> GetUnreadCountAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await notificationRepository.GetUnreadCountAsync(userId, cancellationToken);
     }
 
     private static NotificationResponseDto MapToDto(Notification notification)

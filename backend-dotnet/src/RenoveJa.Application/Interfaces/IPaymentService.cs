@@ -55,4 +55,25 @@ public interface IPaymentService
     Task<PaymentResponseDto?> SyncPaymentStatusAsync(
         Guid requestId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lista cartões salvos do usuário.
+    /// </summary>
+    Task<IReadOnlyList<SavedCardDto>> GetSavedCardsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Paga com cartão salvo (requer CVV).
+    /// </summary>
+    /// <summary>
+    /// Adiciona um cartão ao customer do MP e persiste em saved_cards.
+    /// O token vem do Brick (modo somente cartão, sem pagamento).
+    /// </summary>
+    Task AddCardAsync(Guid userId, string token, CancellationToken cancellationToken = default);
+
+    Task<PaymentResponseDto> PayWithSavedCardAsync(
+        PayWithSavedCardRequestDto request,
+        Guid userId,
+        CancellationToken cancellationToken = default);
 }

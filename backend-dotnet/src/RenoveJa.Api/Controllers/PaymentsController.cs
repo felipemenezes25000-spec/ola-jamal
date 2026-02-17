@@ -123,6 +123,46 @@ public class PaymentsController(
     }
 
     /// <summary>
+    /// Lista cartões salvos do usuário.
+    /// </summary>
+    [HttpGet("saved-cards")]
+    [Authorize]
+    public async Task<IActionResult> GetSavedCards(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var cards = await paymentService.GetSavedCardsAsync(userId, cancellationToken);
+        return Ok(cards);
+    }
+
+    /// <summary>
+    /// Adiciona um cartão salvo (token do Brick em modo somente cartão).
+    /// </summary>
+    [HttpPost("add-card")]
+    [Authorize]
+    public async Task<IActionResult> AddCard(
+        [FromBody] AddCardRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        await paymentService.AddCardAsync(userId, request.Token, cancellationToken);
+        return Ok(new { message = "Cartão adicionado com sucesso." });
+    }
+
+    /// <summary>
+    /// Pagar com cartão salvo (token criado via mp.fields.createCardToken com CVV).
+    /// </summary>
+    [HttpPost("saved-card")]
+    [Authorize]
+    public async Task<IActionResult> PayWithSavedCard(
+        [FromBody] PayWithSavedCardRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var payment = await paymentService.PayWithSavedCardAsync(request, userId, cancellationToken);
+        return Ok(payment);
+    }
+
+    /// <summary>
     /// Sincroniza o status do pagamento com a API do Mercado Pago. Útil quando o webhook falha.
     /// Use o ID da solicitação (requestId), não o ID do pagamento.
     /// </summary>

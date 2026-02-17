@@ -12,7 +12,7 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import {
@@ -56,6 +56,7 @@ export default function DoctorRequestDetail() {
   }, [requestId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(useCallback(() => { if (requestId) loadData(); }, [requestId, loadData]));
 
   const executeApprove = async () => {
     if (!requestId) return;
@@ -198,9 +199,10 @@ export default function DoctorRequestDetail() {
       {/* Image Modal with Zoom */}
       <Modal
         visible={selectedImageUri !== null}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setSelectedImageUri(null)}
+        statusBarTranslucent
       >
         <View style={s.modalContainer}>
           <TouchableOpacity
@@ -211,13 +213,13 @@ export default function DoctorRequestDetail() {
             <Ionicons name="close" size={32} color="#fff" />
           </TouchableOpacity>
           {selectedImageUri && (
-            Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
-              <View style={{ padding: 20, alignItems: 'center' }}>
-                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%' }} />
-              </View>
-            ) : (
-              <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />
-            )
+            <View style={s.modalImageWrapper}>
+              {Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
+                <CompatibleImage uri={selectedImageUri} style={s.modalImageFull} resizeMode="contain" />
+              ) : (
+                <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />
+              )}
+            </View>
           )}
         </View>
       </Modal>
@@ -279,7 +281,17 @@ export default function DoctorRequestDetail() {
         <View style={s.actions}>
           {canAccept && <Btn bg={colors.secondary} icon="checkmark" text="Aceitar Consulta" onPress={handleAcceptConsultation} loading={actionLoading} />}
           {canApprove && <Btn bg={colors.primary} icon="checkmark-circle" text="Aprovar" onPress={handleApprove} loading={actionLoading} />}
-          {canSign && <Btn bg="#8B5CF6" icon="create" text="Assinar Digitalmente" onPress={() => setShowSignForm(true)} />}
+          {canSign && request.requestType === 'prescription' && (
+            <Btn
+              bg="#8B5CF6"
+              icon="document-text"
+              text="Visualizar e Assinar"
+              onPress={() => router.push(`/doctor-request/editor/${requestId}`)}
+            />
+          )}
+          {canSign && request.requestType !== 'prescription' && (
+            <Btn bg="#8B5CF6" icon="create" text="Assinar Digitalmente" onPress={() => setShowSignForm(true)} />
+          )}
           {canVideo && <Btn bg={colors.secondary} icon="videocam" text="Iniciar Consulta" onPress={() => router.push(`/video/${request.id}`)} />}
           {canReject && (
             <TouchableOpacity style={s.rejOutline} onPress={() => setShowRejectForm(true)}>
@@ -337,13 +349,15 @@ const s = StyleSheet.create({
   rk: { fontSize: 14, color: colors.textSecondary },
   rv: { fontSize: 14, fontWeight: '500', color: colors.text },
   aiCard: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  modalImageWrapper: { flex: 1, width: '100%', alignSelf: 'stretch' },
+  modalImageFull: { flex: 1, width: '100%', minHeight: 300 },
   modalCloseButton: { position: 'absolute', top: Platform.OS === 'web' ? 20 : 60, right: spacing.md, zIndex: 10, backgroundColor: 'rgba(0, 0, 0, 0.7)', borderRadius: 25, padding: 10, width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
   aiH: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  aiT: { fontSize: 16, fontWeight: '600', color: colors.text, flex: 1 },
+  aiT: { fontSize: 17, fontWeight: '700', color: colors.text, flex: 1 },
   riskB: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 6 },
   riskT: { fontSize: 11, fontWeight: '700' },
-  aiS: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginBottom: spacing.sm },
+  aiS: { fontSize: 16, color: colors.text, lineHeight: 26, marginBottom: spacing.sm, letterSpacing: 0.2 },
   urgR: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   urgT: { fontSize: 13, color: colors.textSecondary },
   img: { width: 180, height: 180, borderRadius: borderRadius.sm, marginRight: spacing.sm },

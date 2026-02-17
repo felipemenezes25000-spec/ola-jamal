@@ -64,12 +64,25 @@ export default function NewExam() {
 
     setLoading(true);
     try {
-      await createExamRequest({
+      const result = await createExamRequest({
         examType,
         exams,
         symptoms: symptoms.trim() || undefined,
         images: images.length > 0 ? images : undefined,
       });
+      // A IA analisa na hora – se rejeitou (imagem incoerente), avisar imediatamente
+      if (result.request?.status === 'rejected') {
+        const msg =
+          result.request.aiMessageToUser ||
+          result.request.rejectionReason ||
+          'A imagem não parece ser de pedido de exame ou laudo médico. Envie apenas fotos do documento.';
+        Alert.alert(
+          'Imagem não reconhecida',
+          msg,
+          [{ text: 'Entendi', style: 'default' }]
+        );
+        return;
+      }
       Alert.alert('Sucesso!', 'Seu pedido de exame foi enviado.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -150,6 +163,7 @@ export default function NewExam() {
 
       {/* Photo */}
       <Text style={styles.label}>Foto de pedido anterior (opcional)</Text>
+      <Text style={styles.photoHint}>Envie apenas fotos do documento (pedido de exame ou laudo). Fotos de pessoas, animais ou outros objetos serão rejeitadas.</Text>
       <View style={styles.photoRow}>
         <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
           <Ionicons name="camera" size={24} color={colors.primary} />
@@ -233,6 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, marginHorizontal: spacing.md, borderRadius: borderRadius.md,
     padding: spacing.md, fontSize: 15, color: colors.text, minHeight: 100, ...shadows.card,
   },
+  photoHint: { fontSize: 12, color: colors.textMuted, marginHorizontal: spacing.md, marginBottom: spacing.sm },
   photoRow: { flexDirection: 'row', marginHorizontal: spacing.md, gap: spacing.md },
   photoButton: {
     flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.lg,

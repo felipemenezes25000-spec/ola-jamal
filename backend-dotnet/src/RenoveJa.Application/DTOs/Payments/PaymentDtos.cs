@@ -40,6 +40,23 @@ public record PaymentResponseDto(
 public record CheckoutProResponseDto(string InitPoint, Guid PaymentId);
 
 /// <summary>
+/// Requisição para adicionar cartão (token do Brick em modo somente cartão).
+/// </summary>
+public record AddCardRequestDto(string Token);
+
+/// <summary>
+/// Requisição para pagar com cartão salvo.
+/// Token deve ser criado no frontend via mp.fields.createCardToken({ cardId }) com o CVV.
+/// </summary>
+public record PayWithSavedCardRequestDto(Guid RequestId, string SavedCardId, string Token);
+
+/// <summary>
+/// Cartão salvo do usuário (resposta para o cliente).
+/// MpCardId é necessário para o frontend chamar createCardToken({ cardId }).
+/// </summary>
+public record SavedCardDto(string Id, string MpCardId, string LastFour, string Brand);
+
+/// <summary>
 /// Payload do webhook do Mercado Pago. Aceita camelCase (action, id, data).
 /// MP pode enviar "action" (ex: "payment.created") ou "type" em algumas versões.
 /// </summary>

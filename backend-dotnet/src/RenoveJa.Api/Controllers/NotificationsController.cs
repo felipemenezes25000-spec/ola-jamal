@@ -31,6 +31,17 @@ public class NotificationsController(INotificationService notificationService, I
     }
 
     /// <summary>
+    /// Retorna a quantidade de notificações não lidas do usuário.
+    /// </summary>
+    [HttpGet("unread-count")]
+    public async Task<IActionResult> GetUnreadCount(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var count = await notificationService.GetUnreadCountAsync(userId, cancellationToken);
+        return Ok(new { count });
+    }
+
+    /// <summary>
     /// Marca uma notificação como lida.
     /// </summary>
     [HttpPut("{id}/read")]

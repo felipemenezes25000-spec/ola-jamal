@@ -9,7 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { getRequests } from '../../lib/api';
@@ -47,6 +47,8 @@ export default function PatientRequests() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   useEffect(() => {
     let result = requests;
