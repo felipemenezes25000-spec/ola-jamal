@@ -3,17 +3,29 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
+
+function getDateGroup(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'Hoje';
+  if (days === 1) return 'Ontem';
+  if (days < 7) return 'Esta semana';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+}
 
 export default function PatientNotifications() {
   const router = useRouter();
@@ -116,30 +128,53 @@ export default function PatientNotifications() {
     );
   };
 
+  const sections = Object.entries(
+    notifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
+      const g = getDateGroup(n.createdAt);
+      if (!acc[g]) acc[g] = [];
+      acc[g].push(n);
+      return acc;
+    }, {})
+  ).map(([title, data]) => ({ title, data }));
+
+  const insets = useSafeAreaInsets();
+  const headerPaddingTop = insets.top + 12;
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: headerPaddingTop }]}>
         <Text style={styles.title}>Notificações</Text>
         {notifications.some(n => !n.read) && (
-          <TouchableOpacity onPress={handleMarkAllRead}>
-            <Text style={styles.markAll}>Marcar todas como lidas</Text>
+          <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
+            <Text style={styles.markAll}>Marcar lidas</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       ) : (
-        <FlatList
-          data={notifications}
+        <SectionList
+          sections={sections}
           keyExtractor={item => item.id}
-          renderItem={renderItem}
+          renderItem={({ item }) => renderItem({ item })}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={styles.groupLabel}>{title}</Text>
+          )}
           contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="notifications-off-outline" size={48} color={colors.border} />
-              <Text style={styles.emptyText}>Nenhuma notificação</Text>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="notifications-off-outline" size={40} color={colors.textMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>Você está em dia!</Text>
+              <Text style={styles.emptySubtitle}>Nenhuma novidade no momento</Text>
             </View>
           }
         />
@@ -154,35 +189,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingTop: 60,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: 20,
+    paddingBottom: spacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
+  title: { fontSize: 22, fontWeight: '700', color: colors.text },
+  markAllBtn: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
+  markAll: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listContent: { paddingHorizontal: 20, paddingBottom: 120 },
+  groupLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
-  markAll: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  listContent: {
-    paddingBottom: 100,
-  },
+  sectionGap: { height: spacing.sm },
+  separator: { height: spacing.sm },
   card: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.xs,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.card,
     padding: spacing.md,
     alignItems: 'center',
-    ...shadows.card,
   },
   cardUnread: {
     backgroundColor: '#EFF6FF',
@@ -192,7 +226,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -227,11 +261,17 @@ const styles = StyleSheet.create({
   },
   empty: {
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 64,
     gap: spacing.sm,
   },
-  emptyText: {
-    fontSize: 15,
-    color: colors.textMuted,
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.textSecondary },
+  emptySubtitle: { fontSize: 14, color: colors.textMuted },
 });

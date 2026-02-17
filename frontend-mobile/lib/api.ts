@@ -132,18 +132,23 @@ export async function fetchRequests(
     type?: string;
     page?: number;
     pageSize?: number;
-  }
+  },
+  options?: { signal?: AbortSignal }
 ): Promise<PagedResponse<RequestResponseDto>> {
-  return apiClient.get('/api/requests', {
-    status: filters?.status,
-    type: filters?.type,
-    page: filters?.page || 1,
-    pageSize: filters?.pageSize || 20,
-  });
+  return apiClient.get(
+    '/api/requests',
+    {
+      status: filters?.status,
+      type: filters?.type,
+      page: filters?.page || 1,
+      pageSize: filters?.pageSize || 20,
+    },
+    options
+  );
 }
 
-export async function fetchRequestById(requestId: string): Promise<RequestResponseDto> {
-  return apiClient.get(`/api/requests/${requestId}`);
+export async function fetchRequestById(requestId: string, options?: { signal?: AbortSignal }): Promise<RequestResponseDto> {
+  return apiClient.get(`/api/requests/${requestId}`, undefined, options);
 }
 
 export async function updateRequestStatus(
@@ -539,10 +544,19 @@ export async function fetchVideoRoomByRequest(requestId: string): Promise<VideoR
 }
 
 // ============================================
+export async function getPatientRequests(patientId: string): Promise<RequestResponseDto[]> {
+  const data = await apiClient.get<RequestResponseDto[]>(`/api/requests/by-patient/${patientId}`);
+  return Array.isArray(data) ? data : [];
+}
+
 // ALIASES (for convenience in screens)
 // ============================================
-export const getRequests = (params?: { page?: number; pageSize?: number; status?: string; type?: string }) =>
-  fetchRequests(params);
+export function getRequests(
+  params?: { page?: number; pageSize?: number; status?: string; type?: string },
+  options?: { signal?: AbortSignal }
+) {
+  return fetchRequests(params, options);
+}
 export const getRequestById = fetchRequestById;
 export const getPaymentByRequest = fetchPaymentByRequest;
 export const getPaymentById = fetchPayment;
@@ -556,4 +570,16 @@ export const getDoctorQueue = (specialty?: string) =>
 /** Paciente cancela o pedido (apenas antes do pagamento). */
 export async function cancelRequest(requestId: string): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/cancel`, {});
+}
+
+/** Ordena pedidos do mais recente para o mais antigo (createdAt desc, desempate updatedAt desc). */
+export function sortRequestsByNewestFirst(items: RequestResponseDto[]): RequestResponseDto[] {
+  return [...items].sort((a, b) => {
+    const ta = new Date(a.createdAt ?? 0).getTime();
+    const tb = new Date(b.createdAt ?? 0).getTime();
+    if (tb !== ta) return tb - ta;
+    const ua = new Date(a.updatedAt ?? 0).getTime();
+    const ub = new Date(b.updatedAt ?? 0).getTime();
+    return ub - ua;
+  });
 }

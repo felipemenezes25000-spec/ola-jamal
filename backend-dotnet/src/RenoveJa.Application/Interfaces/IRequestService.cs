@@ -34,6 +34,12 @@ public interface IRequestService
         string? type = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Médico obtém histórico de solicitações do paciente (prontuário). Somente role doctor.</summary>
+    Task<List<RequestResponseDto>> GetPatientRequestsAsync(
+        Guid doctorId,
+        Guid patientId,
+        CancellationToken cancellationToken = default);
+
     Task<PagedResponse<RequestResponseDto>> GetUserRequestsPagedAsync(
         Guid userId,
         string? status = null,

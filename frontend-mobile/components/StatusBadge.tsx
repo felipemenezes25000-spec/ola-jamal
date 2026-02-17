@@ -49,7 +49,11 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }, size === 'sm' && styles.badgeSm]}>
       <View style={[styles.dot, { backgroundColor: config.color }]} />
-      <Text style={[styles.text, { color: config.color }, size === 'sm' && styles.textSm]}>
+      <Text
+        style={[styles.text, { color: config.color }, size === 'sm' && styles.textSm]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
         {config.label}
       </Text>
     </View>
@@ -64,6 +68,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: theme.borderRadius.full,
     gap: 5,
+    flexShrink: 1,
+    minWidth: 0,
   },
   badgeSm: {
     paddingHorizontal: 8,

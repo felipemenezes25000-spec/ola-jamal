@@ -13,13 +13,14 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../../contexts/AuthContext';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { getRequests, getActiveCertificate } from '../../lib/api';
-import { RequestResponseDto, UserDto, DoctorProfileDto } from '../../types/database';
+import { RequestResponseDto } from '../../types/database';
 import { StatsCard } from '../../components/StatsCard';
 import RequestCard from '../../components/RequestCard';
+import { EmptyState } from '../../components/EmptyState';
 
 const MIN_TOUCH = 44;
 const BP_SMALL = 376;
@@ -29,8 +30,7 @@ export default function DoctorDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const [user, setUser] = useState<UserDto | null>(null);
-  const [doctor, setDoctor] = useState<DoctorProfileDto | null>(null);
+  const { user, doctorProfile: doctor } = useAuth();
   const [queue, setQueue] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,11 +45,6 @@ export default function DoctorDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const userData = await AsyncStorage.getItem('@renoveja:user');
-      const doctorData = await AsyncStorage.getItem('@renoveja:doctor');
-      if (userData) setUser(JSON.parse(userData));
-      if (doctorData) setDoctor(JSON.parse(doctorData));
-
       try {
         const cert = await getActiveCertificate();
         setHasCertificate(!!cert);
@@ -108,16 +103,16 @@ export default function DoctorDashboard() {
 
   const statsConfig = [
     {
-      icon: 'list' as const,
+      icon: 'time' as const,
       iconColor: '#F59E0B',
-      label: 'Fila',
+      label: 'Aguardando',
       value: stats.queue,
       onPress: () => router.push({ pathname: '/(doctor)/requests', params: { status: 'submitted' } }),
     },
     {
       icon: 'search' as const,
       iconColor: '#3B82F6',
-      label: 'Em análise',
+      label: 'Analisando',
       value: stats.inReview,
       onPress: () => router.push({ pathname: '/(doctor)/requests', params: { status: 'in_review' } }),
     },
@@ -156,8 +151,8 @@ export default function DoctorDashboard() {
             <Text style={[styles.greeting, { fontSize: Math.min(24, Math.max(18, screenWidth * 0.06)) }]}>
               Dr. {user?.name?.split(' ')[0] || 'Médico'} 👋
             </Text>
-            <Text style={[styles.subtitle, { fontSize: Math.max(12, Math.min(14, screenWidth * 0.035)) }]}>
-              Painel do médico
+            <Text style={[styles.subtitle, { fontSize: Math.max(13, Math.min(15, screenWidth * 0.038)) }]}>
+              Seu painel de trabalho
             </Text>
           </View>
           <Pressable
@@ -168,7 +163,7 @@ export default function DoctorDashboard() {
                 minHeight: MIN_TOUCH,
                 width: Math.max(MIN_TOUCH, screenWidth * 0.12),
                 height: Math.max(MIN_TOUCH, screenWidth * 0.12),
-                borderRadius: Math.max(22, screenWidth * 0.06),
+                borderRadius: borderRadius.full,
                 opacity: pressed ? 0.8 : 1,
               },
             ]}
@@ -189,12 +184,14 @@ export default function DoctorDashboard() {
             onPress={() => router.push('/certificate/upload')}
             activeOpacity={0.8}
           >
-            <Ionicons name="warning" size={22} color="#B45309" />
-            <View style={styles.alertText}>
-              <Text style={styles.alertTitle}>Certificado digital não encontrado</Text>
-              <Text style={styles.alertDesc}>Faça o upload para poder assinar documentos</Text>
+            <View style={styles.alertIconWrap}>
+              <Ionicons name="warning-outline" size={18} color="#B45309" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            <View style={styles.alertText}>
+              <Text style={styles.alertTitle}>Certificado digital</Text>
+              <Text style={styles.alertDesc}>Faça o upload para assinar documentos</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
 
@@ -202,30 +199,30 @@ export default function DoctorDashboard() {
         <Text style={styles.sectionLabel}>Resumo</Text>
         <View style={[styles.statsRow, { gap: statsGap, marginBottom: spacing.lg }]}>
           {statsConfig.map(s => (
-            <View key={s.label} style={{ flexBasis: isSmall ? '47%' : '23%', flexGrow: isSmall ? 0 : 1, flexShrink: 0, minWidth: 0 }}>
+            <View key={s.label} style={{ flexBasis: isSmall ? '47%' : '23%', flexGrow: isSmall ? 0 : 1, flexShrink: 0, minWidth: 0, minHeight: 110 }}>
               <StatsCard icon={s.icon} iconColor={s.iconColor} label={s.label} value={s.value} onPress={s.onPress} />
             </View>
           ))}
         </View>
 
-        {/* Fila de Atendimento */}
+        {/* Pedidos recentes */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { fontSize: Math.max(16, Math.min(18, screenWidth * 0.045)) }]}>
-            Fila de Atendimento
+            Pedidos recentes
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/(doctor)/requests')}
             style={styles.seeAllButton}
             activeOpacity={0.7}
           >
-            <Text style={styles.seeAll}>Ver todas</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            <Text style={styles.seeAll}>Ver todos</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.secondary} />
           </TouchableOpacity>
         </View>
 
         {queuePreview.length > 0 ? (
           <View style={styles.queueList}>
-            {queuePreview.map((req, idx) => (
+            {queuePreview.map((req) => (
               <RequestCard
                 key={req.id}
                 request={req}
@@ -235,23 +232,13 @@ export default function DoctorDashboard() {
             ))}
           </View>
         ) : (
-          <View style={styles.empty}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="document-text-outline" size={48} color={colors.border} />
-            </View>
-            <Text style={styles.emptyTitle}>Nenhum pedido na fila</Text>
-            <Text style={styles.emptySubtitle}>
-              Pedidos enviados pelos pacientes aparecem aqui para análise e aprovação.
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyCta}
-              onPress={() => router.push('/(doctor)/requests')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.emptyCtaText}>Ir para solicitações</Text>
-              <Ionicons name="arrow-forward" size={16} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon="document-text-outline"
+            title="Nenhum pedido no momento"
+            subtitle="Novos pedidos aparecerão aqui. Toque em Ver todos para acessar a fila completa."
+            actionLabel="Ir para solicitações"
+            onAction={() => router.push('/(doctor)/requests')}
+          />
         )}
       </View>
     </ScrollView>
@@ -273,8 +260,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerContent: {
     flexDirection: 'row',
@@ -301,10 +288,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ECFDF5',
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.card,
     padding: spacing.md,
     gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  alertIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   alertText: { flex: 1 },
   alertTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
@@ -342,50 +337,10 @@ const styles = StyleSheet.create({
   },
   seeAll: {
     fontSize: 14,
-    color: colors.primary,
+    color: colors.secondary,
     fontWeight: '600',
   },
   queueList: {
     gap: 0,
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 1.5,
-    gap: spacing.md,
-  },
-  emptyIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.sm,
-  },
-  emptyCtaText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
   },
 });

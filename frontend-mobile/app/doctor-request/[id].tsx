@@ -64,8 +64,8 @@ export default function DoctorRequestDetail() {
     try {
       await approveRequest(requestId);
       await loadData();
-    } catch (e: any) {
-      Alert.alert('Erro', e?.message || 'Falha ao aprovar.');
+    } catch (e: unknown) {
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Falha ao aprovar.');
     } finally {
       setActionLoading(false);
     }
@@ -89,7 +89,7 @@ export default function DoctorRequestDetail() {
     if (!requestId) return;
     setActionLoading(true);
     try { await rejectRequest(requestId, rejectionReason.trim()); loadData(); setShowRejectForm(false); }
-    catch (e: any) { Alert.alert('Erro', e?.message || 'Falha.'); }
+    catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e) || 'Falha.'); }
     finally { setActionLoading(false); }
   };
 
@@ -101,7 +101,7 @@ export default function DoctorRequestDetail() {
       await signRequest(requestId, { pfxPassword: certPassword });
       loadData(); setShowSignForm(false); setCertPassword('');
       Alert.alert('Sucesso!', 'Documento assinado digitalmente.');
-    } catch (e: any) { Alert.alert('Erro', e?.message || 'Senha incorreta ou erro na assinatura.'); }
+    } catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e) || 'Senha incorreta ou erro na assinatura.'); }
     finally { setActionLoading(false); }
   };
 
@@ -109,7 +109,7 @@ export default function DoctorRequestDetail() {
     if (!requestId) return;
     setActionLoading(true);
     try { await acceptConsultation(requestId); loadData(); }
-    catch (e: any) { Alert.alert('Erro', e?.message || 'Falha.'); }
+    catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e) || 'Falha.'); }
     finally { setActionLoading(false); }
   };
 
@@ -139,7 +139,15 @@ export default function DoctorRequestDetail() {
       {/* Patient */}
       <View style={s.card}>
         <Text style={s.section}>PACIENTE</Text>
-        <Row k="Nome" v={request.patientName || 'N/A'} />
+        <TouchableOpacity onPress={() => request.patientId && router.push(`/doctor-patient/${request.patientId}` as any)} activeOpacity={0.7}>
+          <Row k="Nome" v={request.patientName || 'N/A'} />
+          {request.patientId && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 }}>
+              <Ionicons name="folder-open-outline" size={14} color={colors.primary} />
+              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Ver histórico (prontuário)</Text>
+            </View>
+          )}
+        </TouchableOpacity>
         <Row k="Criado em" v={fmt(request.createdAt)} />
       </View>
 

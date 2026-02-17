@@ -47,8 +47,8 @@ export default function PaymentScreen() {
           { text: 'OK', onPress: () => router.back() },
         ]);
       }
-    } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Erro ao carregar pagamento');
+    } catch (e: unknown) {
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Erro ao carregar pagamento');
     } finally {
       setLoading(false);
     }
@@ -112,8 +112,8 @@ export default function PaymentScreen() {
       } else {
         Alert.alert('Aguardando', 'Pagamento ainda não confirmado. Tente novamente em alguns segundos.');
       }
-    } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Erro ao verificar status');
+    } catch (e: unknown) {
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Erro ao verificar status');
     } finally {
       setPolling(false);
     }

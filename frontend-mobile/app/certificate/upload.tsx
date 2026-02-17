@@ -52,8 +52,8 @@ export default function CertificateUploadScreen() {
       } else {
         Alert.alert('Erro', result.message || 'Certificado inválido');
       }
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao fazer upload do certificado');
+    } catch (error: unknown) {
+      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Erro ao fazer upload do certificado');
     } finally { setUploading(false); }
   };
 
@@ -63,7 +63,7 @@ export default function CertificateUploadScreen() {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Revogar', style: 'destructive', onPress: async () => {
         try { await revokeCertificate(certificate.id, 'Substituição pelo médico'); loadCert(); }
-        catch (e: any) { Alert.alert('Erro', e.message); }
+        catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e)); }
       }},
     ]);
   };

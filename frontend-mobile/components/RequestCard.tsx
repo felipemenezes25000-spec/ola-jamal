@@ -94,6 +94,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 15,
@@ -109,6 +110,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: spacing.xs,
     marginLeft: spacing.sm,
+    flexShrink: 0,
   },
   price: {
     fontSize: 14,

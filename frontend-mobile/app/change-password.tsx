@@ -8,6 +8,8 @@ import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { changePassword } from '../lib/api';
+import { validate } from '../lib/validation';
+import { changePasswordSchema } from '../lib/validation/schemas';
 import { colors, spacing, typography } from '../constants/theme';
 
 export default function ChangePasswordScreen() {
@@ -20,27 +22,24 @@ export default function ChangePasswordScreen() {
 
   const handleSubmit = async () => {
     setError('');
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('Preencha todos os campos');
-      return;
-    }
-    if (newPassword.length < 8) {
-      setError('A nova senha deve ter no mínimo 8 caracteres');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('A nova senha e a confirmação não coincidem');
+    const result = validate(changePasswordSchema, {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    });
+    if (!result.success) {
+      setError(result.firstError ?? 'Preencha todos os campos');
       return;
     }
 
     setLoading(true);
     try {
-      await changePassword(currentPassword, newPassword);
+      await changePassword(result.data!.currentPassword, result.data!.newPassword);
       Alert.alert('Sucesso', 'Senha alterada com sucesso.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e: any) {
-      setError(e.message || 'Erro ao alterar senha. Verifique a senha atual.');
+      setError(e?.message || String(e) || 'Erro ao alterar senha. Verifique a senha atual.');
     } finally {
       setLoading(false);
     }
@@ -55,7 +54,10 @@ export default function ChangePasswordScreen() {
         <Text style={styles.headerTitle}>Alterar Senha</Text>
         <View style={{ width: 24 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="always"
+      >
         <Card style={styles.card}>
           <Text style={styles.hint}>Para sua segurança, informe a senha atual e defina uma nova senha com no mínimo 8 caracteres.</Text>
           <Input

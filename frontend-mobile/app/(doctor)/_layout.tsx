@@ -1,13 +1,22 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../lib/theme';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { PulsingNotificationIcon } from '../../components/PulsingNotificationIcon';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function DoctorLayout() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const { unreadCount } = useNotifications();
   const hasUnread = unreadCount > 0;
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/(auth)/login');
+    }
+  }, [loading, user]);
   return (
     <Tabs
       screenOptions={{

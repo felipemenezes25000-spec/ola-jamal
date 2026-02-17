@@ -13,14 +13,15 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { colors, spacing } from '../../lib/theme';
 import { getRequests } from '../../lib/api';
-import { RequestResponseDto, UserDto } from '../../types/database';
+import { RequestResponseDto } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
 import { ActionCard } from '../../components/ActionCard';
+import { EmptyState } from '../../components/EmptyState';
 
 const MIN_TOUCH = 44;
 const BP_SMALL = 376; // 2x2 em 320–375px, 4 cols acima
@@ -32,11 +33,11 @@ export default function PatientHome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const [user, setUser] = useState<UserDto | null>(null);
+  const { user } = useAuth();
 
   const isSmall = screenWidth < BP_SMALL;
   const statsGap = spacing.sm;
-  const horizontalPad = Math.max(spacing.md, screenWidth * 0.04);
+  const horizontalPad = Math.max(20, spacing.md, screenWidth * 0.04);
   const compact = screenWidth < 400;
   const headerPaddingTop = insets.top + HEADER_TOP_EXTRA;
   const headerPaddingBottom = compact ? HEADER_BOTTOM_BASE : spacing.lg;
@@ -46,9 +47,6 @@ export default function PatientHome() {
 
   const loadData = useCallback(async () => {
     try {
-      const userData = await AsyncStorage.getItem('@renoveja:user');
-      if (userData) setUser(JSON.parse(userData));
-
       const response = await getRequests({ page: 1, pageSize: 50 });
       setRequests(response.items || []);
     } catch (error) {
@@ -113,7 +111,7 @@ export default function PatientHome() {
           <Pressable
             style={({ pressed }) => [
               styles.avatar,
-              { minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, width: Math.max(MIN_TOUCH, screenWidth * 0.12), height: Math.max(MIN_TOUCH, screenWidth * 0.12), borderRadius: Math.max(22, screenWidth * 0.06), opacity: pressed ? 0.8 : 1 },
+              { minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, width: Math.max(MIN_TOUCH, screenWidth * 0.12), height: Math.max(MIN_TOUCH, screenWidth * 0.12), opacity: pressed ? 0.8 : 1 },
             ]}
             onPress={() => router.push('/(patient)/profile')}
             hitSlop={8}
@@ -123,29 +121,7 @@ export default function PatientHome() {
         </View>
       </LinearGradient>
 
-      {/* Stats Grid - 2x2 em 320–375px, 4 cols acima */}
-      <View style={[styles.statsRow, { paddingHorizontal: horizontalPad, gap: statsGap, marginTop: compact ? -spacing.sm : -spacing.md, flexWrap: 'wrap', flexDirection: 'row' }]}>
-        {[
-          { icon: 'folder-open' as const, iconColor: '#3B82F6', label: 'Total', value: stats.total },
-          { icon: 'time' as const, iconColor: '#F59E0B', label: 'Pendente', value: stats.pending },
-          { icon: 'card' as const, iconColor: '#F97316', label: 'A Pagar', value: stats.toPay },
-          { icon: 'checkmark-circle' as const, iconColor: '#10B981', label: 'Prontos', value: stats.ready },
-        ].map((s) => (
-          <View
-            key={s.label}
-            style={{
-              flexBasis: isSmall ? '47%' : '23%',
-              flexGrow: isSmall ? 0 : 1,
-              flexShrink: 0,
-              minWidth: 0,
-            }}
-          >
-            <StatsCard icon={s.icon} iconColor={s.iconColor} label={s.label} value={s.value} />
-          </View>
-        ))}
-      </View>
-
-      {/* Nova Solicitação - above the fold */}
+      {/* O que deseja fazer - ação principal */}
       <Text
         style={[
           styles.sectionTitle,
@@ -153,11 +129,11 @@ export default function PatientHome() {
             marginHorizontal: horizontalPad,
             marginTop: compact ? spacing.md : spacing.lg,
             marginBottom: compact ? spacing.sm : spacing.md,
-            fontSize: Math.max(16, Math.min(18, screenWidth * 0.048)),
+            fontSize: Math.max(17, Math.min(19, screenWidth * 0.048)),
           },
         ]}
       >
-        Nova Solicitação
+        O que deseja fazer?
       </Text>
       <View style={[styles.actionsRow, { paddingHorizontal: horizontalPad, flexDirection: 'row', gap: spacing.sm, flexWrap: 'nowrap' }]}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -194,7 +170,7 @@ export default function PatientHome() {
         <>
           <View style={[styles.sectionHeader, { marginHorizontal: horizontalPad, marginBottom: spacing.md }]}>
             <Text style={[styles.sectionTitle, { fontSize: Math.max(16, Math.min(18, screenWidth * 0.045)) }]}>
-              Solicitações Recentes
+              Seus pedidos recentes
             </Text>
             <TouchableOpacity onPress={() => router.push('/(patient)/requests')}>
               <Text style={styles.seeAll}>Ver todas</Text>
@@ -211,14 +187,12 @@ export default function PatientHome() {
       )}
 
       {requests.length === 0 && (
-        <View style={[styles.emptyState, { paddingHorizontal: horizontalPad }]}>
-          <Ionicons name="document-text-outline" size={Math.min(64, Math.max(48, screenWidth * 0.15))} color={colors.border} />
-          <Text style={[styles.emptyTitle, { fontSize: Math.max(16, Math.min(18, screenWidth * 0.045)) }]}>
-            Nenhuma solicitação
-          </Text>
-          <Text style={[styles.emptySubtitle, { fontSize: Math.max(12, Math.min(14, screenWidth * 0.035)) }]}>
-            Crie sua primeira solicitação acima
-          </Text>
+        <View style={{ paddingHorizontal: horizontalPad }}>
+          <EmptyState
+            icon="document-text-outline"
+            title="Ainda não há pedidos"
+            subtitle="Comece criando uma receita, exame ou consulta acima"
+          />
         </View>
       )}
     </ScrollView>
@@ -243,8 +217,8 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerContent: {
     flexDirection: 'row',

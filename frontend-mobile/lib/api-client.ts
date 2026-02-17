@@ -20,11 +20,18 @@ export interface ApiError {
   errors?: Record<string, string[]>;
 }
 
+type OnUnauthorizedCallback = () => void | Promise<void>;
+
 class ApiClient {
   private baseUrl: string;
+  private onUnauthorized: OnUnauthorizedCallback | null = null;
 
   constructor(baseUrl: string = BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  setOnUnauthorized(cb: OnUnauthorizedCallback | null) {
+    this.onUnauthorized = cb;
   }
 
   private async getAuthHeader(): Promise<Record<string, string>> {
@@ -64,6 +71,10 @@ class ApiClient {
         console.warn('[API] Erro:', response.status, errorMessage);
       }
 
+      if (response.status === 401 && this.onUnauthorized) {
+        this.onUnauthorized();
+      }
+
       const error: ApiError = {
         message: errorMessage,
         status: response.status,
@@ -90,7 +101,7 @@ class ApiClient {
     return (await response.text()) as unknown as T;
   }
 
-  async get<T>(path: string, params?: Record<string, any>): Promise<T> {
+  async get<T>(path: string, params?: Record<string, any>, options?: { signal?: AbortSignal }): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
     // Build query string
@@ -111,6 +122,7 @@ class ApiClient {
     const response = await fetch(url, {
       method: 'GET',
       headers: { ...this.getCommonHeaders(), ...authHeaders },
+      signal: options?.signal,
     });
 
     return this.handleResponse<T>(response);

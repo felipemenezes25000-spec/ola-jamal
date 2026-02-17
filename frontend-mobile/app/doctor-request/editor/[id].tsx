@@ -268,7 +268,7 @@ export default function PrescriptionEditorScreen() {
             <View style={[s.pdfContainer, { height: pdfViewHeight }]}>
               {Platform.OS === 'web' ? (
                 <View style={s.iframeWrapper}>
-                  {/* @ts-expect-error - iframe is valid on web */}
+                  {/* @ts-ignore - iframe is valid on web */}
                   <iframe
                     src={pdfUri}
                     title="Preview da receita"

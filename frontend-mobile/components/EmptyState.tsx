@@ -1,27 +1,41 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography } from '../constants/theme';
-import { Button } from './Button';
+import { colors, spacing, borderRadius } from '../lib/theme';
+
+type IconName = keyof typeof Ionicons.glyphMap;
 
 interface EmptyStateProps {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   title: string;
-  description?: string;
+  subtitle?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
 
-export function EmptyState({ icon, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <Ionicons name={icon} size={48} color={colors.gray300} />
+      <View style={styles.iconWrap}>
+        <Ionicons name={icon} size={44} color={colors.textMuted} />
       </View>
       <Text style={styles.title}>{title}</Text>
-      {description && <Text style={styles.description}>{description}</Text>}
+      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {actionLabel && onAction && (
-        <Button title={actionLabel} onPress={onAction} variant="outline" size="sm" style={{ marginTop: spacing.md }} />
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={onAction}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionText}>{actionLabel}</Text>
+          <Ionicons name="arrow-forward" size={16} color="#fff" />
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -30,28 +44,42 @@ export function EmptyState({ icon, title, description, actionLabel, onAction }: 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xxl,
+    paddingVertical: spacing.xl * 1.5,
+    gap: spacing.sm,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.gray100,
+  iconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
   title: {
-    ...typography.h4,
-    color: colors.gray700,
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.xs,
   },
-  description: {
-    ...typography.bodySmall,
-    color: colors.gray500,
+  subtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
     textAlign: 'center',
-    maxWidth: 260,
+    paddingHorizontal: spacing.lg,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+  },
+  actionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

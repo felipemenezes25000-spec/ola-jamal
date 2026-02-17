@@ -35,6 +35,7 @@ export default function RootLayout() {
         <Stack.Screen name="request-detail/[id]" />
         <Stack.Screen name="doctor-request/[id]" />
         <Stack.Screen name="doctor-request/editor/[id]" />
+        <Stack.Screen name="doctor-patient/[patientId]" />
         <Stack.Screen name="payment/[id]" />
         <Stack.Screen name="payment/card" />
         <Stack.Screen name="certificate/upload" />

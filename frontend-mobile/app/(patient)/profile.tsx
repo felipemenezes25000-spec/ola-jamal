@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,22 +8,15 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
-import { UserDto } from '../../types/database';
+import { colors, spacing, borderRadius } from '../../lib/theme';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function PatientProfile() {
   const router = useRouter();
-  const [user, setUser] = useState<UserDto | null>(null);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      const userData = await AsyncStorage.getItem('@renoveja:user');
-      if (userData) setUser(JSON.parse(userData));
-    };
-    loadUser();
-  }, []);
+  const insets = useSafeAreaInsets();
+  const { user, signOut } = useAuth();
 
   const handleLogout = () => {
     Alert.alert('Sair', 'Tem certeza que deseja sair?', [
@@ -32,8 +25,8 @@ export default function PatientProfile() {
         text: 'Sair',
         style: 'destructive',
         onPress: async () => {
-          await AsyncStorage.multiRemove(['@renoveja:auth_token', '@renoveja:user']);
-          router.replace('/(auth)/login');
+          await signOut();
+          setTimeout(() => router.replace('/(auth)/login'), 0);
         },
       },
     ]);
@@ -49,11 +42,11 @@ export default function PatientProfile() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg }]}>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarLarge}>
-          <Ionicons name="person" size={40} color={colors.primary} />
+          <Ionicons name="person" size={48} color={colors.primary} />
         </View>
         <Text style={styles.userName}>{user?.name || 'Carregando...'}</Text>
         <Text style={styles.userEmail}>{user?.email || ''}</Text>
@@ -68,7 +61,7 @@ export default function PatientProfile() {
         <View style={styles.divider} />
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>CPF</Text>
-          <Text style={styles.infoValue}>{user?.cpf ? `***.***.${user.cpf.slice(-6)}` : 'Não informado'}</Text>
+          <Text style={styles.infoValue}>{user?.cpf ? `***.***.${String(user.cpf).replace(/\D/g, '').slice(-6)}` : 'Não informado'}</Text>
         </View>
       </View>
 
@@ -105,13 +98,12 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     alignItems: 'center',
-    paddingTop: 70,
     paddingBottom: spacing.lg,
   },
   avatarLarge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -129,10 +121,9 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    ...shadows.card,
+    marginHorizontal: 20,
+    borderRadius: borderRadius.card,
+    padding: spacing.lg,
   },
   infoRow: {
     flexDirection: 'row',
@@ -154,11 +145,10 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    borderRadius: borderRadius.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    borderRadius: borderRadius.lg,
     padding: spacing.xs,
-    ...shadows.card,
   },
   menuItem: {
     flexDirection: 'row',
@@ -176,12 +166,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
     padding: spacing.md,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.error + '08',
     borderWidth: 1,
-    borderColor: colors.error,
+    borderColor: colors.error + '40',
   },
   logoutText: {
     fontSize: 15,

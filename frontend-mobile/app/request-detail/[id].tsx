@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   Linking,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,29 +42,58 @@ function getPrescriptionTypeLabel(type: string | null): string {
   }
 }
 
+const LOG_DETAIL = __DEV__ && false;
+
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
-  const load = async () => {
-    if (!requestId) { setLoading(false); return; }
-    try {
-      const data = await fetchRequestById(requestId);
-      setRequest(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => { load(); }, [requestId]);
-  useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId]));
+  const load = useCallback(async () => {
+    if (!requestId) { setLoading(false); return; }
+    const fid = ++fetchIdRef.current;
+    const abort = new AbortController();
+    abortRef.current = abort;
+
+    setLoading(true);
+    setDetailError(null);
+    const start = Date.now();
+    if (LOG_DETAIL) console.info('[DETAIL_FETCH] start', { requestId, fid });
+
+    try {
+      const data = await fetchRequestById(requestId, { signal: abort.signal });
+      if (fid !== fetchIdRef.current) return;
+      setRequest(data);
+      if (LOG_DETAIL) console.info('[DETAIL_FETCH] success', { requestId, fid, ms: Date.now() - start });
+    } catch (e: unknown) {
+      if (fid !== fetchIdRef.current) return;
+      if ((e as { name?: string })?.name === 'AbortError') return;
+      const msg = (e as Error)?.message ?? String(e);
+      setDetailError(msg);
+      setRequest(null);
+      if (LOG_DETAIL) console.info('[DETAIL_FETCH] error', { requestId, fid, msg });
+    } finally {
+      if (fid === fetchIdRef.current) {
+        setLoading(false);
+        abortRef.current = null;
+      }
+    }
+  }, [requestId]);
+
+  useEffect(() => {
+    load();
+    return () => { abortRef.current?.abort(); };
+  }, [load]);
+
+  useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId, load]));
 
   const handlePay = async () => {
     if (!request || actionLoading) return;
@@ -75,8 +105,8 @@ export default function RequestDetailScreen() {
         payment = await createPayment({ requestId: request.id, paymentMethod: 'pix' });
       }
       router.push(`/payment/${payment.id}`);
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao iniciar pagamento');
+    } catch (error: unknown) {
+      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Erro ao iniciar pagamento');
     } finally {
       setActionLoading(false);
     }
@@ -101,8 +131,8 @@ export default function RequestDetailScreen() {
         return;
       }
       await Linking.openURL(request.signedDocumentUrl);
-    } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Não foi possível baixar o documento');
+    } catch (e: unknown) {
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
     }
   };
 
@@ -111,8 +141,8 @@ export default function RequestDetailScreen() {
     try {
       await markAsDeliveredIfSigned();
       await WebBrowser.openBrowserAsync(request.signedDocumentUrl);
-    } catch (e: any) {
-      Alert.alert('Erro', e?.message || 'Não foi possível abrir o documento.');
+    } catch (e: unknown) {
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível abrir o documento.');
     }
   };
 
@@ -136,8 +166,8 @@ export default function RequestDetailScreen() {
             try {
               const updated = await cancelRequest(requestId);
               setRequest(updated);
-            } catch (e: any) {
-              Alert.alert('Erro', e?.message || 'Não foi possível cancelar.');
+            } catch (e: unknown) {
+              Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível cancelar.');
             } finally {
               setActionLoading(false);
             }
@@ -158,7 +188,7 @@ export default function RequestDetailScreen() {
     );
   }
 
-  if (!request) {
+  if (!request && !detailError) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -178,6 +208,30 @@ export default function RequestDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  if (detailError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Detalhes</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.center}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
+          <Text style={styles.errorTitle}>Erro ao carregar</Text>
+          <Text style={styles.errorMsg}>{detailError}</Text>
+          <TouchableOpacity style={styles.errorBtn} onPress={() => load()}>
+            <Text style={styles.errorBtnText}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!request) return null;
 
   const canPay = ['pending_payment', 'approved_pending_payment', 'approved', 'consultation_ready'].includes(request.status);
   const canDownload = !!request.signedDocumentUrl;
@@ -413,7 +467,7 @@ export default function RequestDetailScreen() {
           {selectedImageUri && (
             Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
               <View style={{ flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' }}>
-                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%', maxHeight: '80vh' }} resizeMode="contain" />
+                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%', maxHeight: Dimensions.get('window').height * 0.8 }} resizeMode="contain" />
               </View>
             ) : (
               <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />
@@ -494,6 +548,7 @@ const styles = StyleSheet.create({
   },
   outlineBtnText: { fontSize: 16, fontWeight: '700', color: colors.primary },
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.textSecondary },
+  errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
   errorBtn: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,

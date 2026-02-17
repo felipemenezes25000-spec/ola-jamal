@@ -35,7 +35,7 @@ export default function SettingsScreen() {
   const handleLogout = () => {
     Alert.alert('Sair', 'Deseja sair da conta?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: async () => { await signOut(); router.replace('/(auth)/login'); } },
+      { text: 'Sair', style: 'destructive', onPress: async () => { await signOut(); setTimeout(() => router.replace('/(auth)/login'), 0); } },
     ]);
   };
 

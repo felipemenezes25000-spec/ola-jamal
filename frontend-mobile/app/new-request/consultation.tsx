@@ -3,17 +3,24 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { theme } from '../../lib/theme';
 import { createConsultationRequest } from '../../lib/api';
+import { validate } from '../../lib/validation';
+import { createConsultationSchema } from '../../lib/validation/schemas';
+import { Screen } from '../../components/ui/Screen';
+import { AppHeader } from '../../components/ui/AppHeader';
+import { AppCard } from '../../components/ui/AppCard';
+import { AppButton } from '../../components/ui/AppButton';
+
+const c = theme.colors;
+const s = theme.spacing;
+const r = theme.borderRadius;
+const t = theme.typography;
 
 export default function ConsultationScreen() {
   const router = useRouter();
@@ -21,13 +28,14 @@ export default function ConsultationScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!symptoms.trim()) {
-      Alert.alert('Atenção', 'Descreva seus sintomas para continuar.');
+    const validation = validate(createConsultationSchema, { symptoms });
+    if (!validation.success) {
+      Alert.alert('Atenção', validation.firstError ?? 'Descreva seus sintomas para continuar.');
       return;
     }
     setLoading(true);
     try {
-      const result = await createConsultationRequest({ symptoms });
+      const result = await createConsultationRequest(validation.data!);
       if (result.payment) {
         router.replace(`/payment/${result.payment.id}`);
       } else {
@@ -35,42 +43,35 @@ export default function ConsultationScreen() {
           { text: 'OK', onPress: () => router.replace('/(patient)/requests') },
         ]);
       }
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao criar solicitação');
+    } catch (error: unknown) {
+      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Erro ao criar solicitação');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nova Consulta</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen scroll edges={['bottom']}>
+      <AppHeader title="Nova Consulta" />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
         {/* Info Banner */}
-        <View style={styles.infoBanner}>
+        <AppCard style={styles.infoBanner}>
           <View style={styles.iconCircle}>
-            <Ionicons name="videocam" size={28} color={colors.primary} />
+            <Ionicons name="videocam" size={28} color={c.primary.main} />
           </View>
           <Text style={styles.bannerTitle}>Consulta por Videochamada</Text>
           <Text style={styles.bannerDesc}>
             Um médico atenderá você em poucos minutos após o pagamento.
           </Text>
-        </View>
+        </AppCard>
 
         {/* Symptoms Input */}
-        <Text style={styles.label}>Descreva seus sintomas *</Text>
+        <Text style={styles.overline}>DESCREVA SEUS SINTOMAS</Text>
         <TextInput
           style={styles.textArea}
           placeholder="O que você está sentindo? Desde quando? Há quanto tempo?..."
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={c.text.tertiary}
           value={symptoms}
           onChangeText={setSymptoms}
           multiline
@@ -80,161 +81,103 @@ export default function ConsultationScreen() {
 
         {/* Info notice */}
         <View style={styles.infoNotice}>
-          <Ionicons name="information-circle" size={20} color={colors.primary} />
+          <Ionicons name="information-circle" size={20} color={c.status.info} />
           <Text style={styles.infoText}>
             Sua solicitação será analisada por um médico disponível. Após a aceitação, você receberá uma notificação para efetuar o pagamento.
           </Text>
         </View>
 
         {/* Price Card */}
-        <View style={styles.priceCard}>
+        <AppCard style={styles.priceCard}>
           <Text style={styles.priceLabel}>Valor da consulta</Text>
           <Text style={styles.priceValue}>R$ 120,00</Text>
-        </View>
+        </AppCard>
 
         {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+        <AppButton
+          title="Solicitar Consulta"
           onPress={handleSubmit}
+          loading={loading}
           disabled={loading}
-          activeOpacity={0.8}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="videocam" size={20} color="#fff" />
-              <Text style={styles.submitText}>Solicitar Consulta</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+          fullWidth
+          icon="videocam"
+        />
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  scroll: {
-    padding: spacing.md,
-    paddingBottom: spacing.xl * 2,
+  content: {
+    paddingHorizontal: s.md,
+    paddingBottom: s.xl,
   },
   infoBanner: {
     alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: s.lg,
   },
   iconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.surface,
+    backgroundColor: c.primary.soft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: s.sm,
   },
   bannerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    marginTop: spacing.xs,
+    ...t.variants.h3,
+    color: c.text.primary,
+    marginTop: s.xs,
   },
   bannerDesc: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...t.variants.body2,
+    color: c.text.secondary,
     textAlign: 'center',
-    marginTop: spacing.xs,
-    lineHeight: 20,
+    marginTop: s.xs,
   },
-  label: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.sm,
+  overline: {
+    ...t.variants.overline,
+    color: c.text.secondary,
+    marginBottom: s.sm,
   },
   textArea: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    backgroundColor: c.background.secondary,
+    borderRadius: r.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    fontSize: 15,
-    color: colors.text,
+    borderColor: c.border.main,
+    padding: s.md,
+    fontSize: t.fontSize.md,
+    color: c.text.primary,
     minHeight: 140,
-    marginBottom: spacing.md,
+    marginBottom: s.md,
   },
   infoNotice: {
     flexDirection: 'row',
-    backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    backgroundColor: c.status.infoLight,
+    borderRadius: r.md,
+    padding: s.md,
+    gap: s.sm,
+    marginBottom: s.lg,
   },
   infoText: {
     flex: 1,
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: t.fontSize.sm,
+    color: c.text.secondary,
     lineHeight: 18,
   },
   priceCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    ...shadows.card,
+    marginBottom: s.lg,
   },
   priceLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...t.variants.body2,
+    color: c.text.secondary,
   },
   priceValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
+    ...t.variants.h2,
+    color: c.primary.main,
   },
 });

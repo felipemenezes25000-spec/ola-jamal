@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,51 +13,89 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
 import { Screen, AppInput, AppButton } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
+import { validate } from '../../lib/validation';
+import { loginSchema } from '../../lib/validation/schemas';
 
 const c = theme.colors;
 const s = theme.spacing;
+
+const LOG_RENDER = __DEV__ && false;
 
 export default function Login() {
   const router = useRouter();
   const { signIn } = useAuth();
   const passwordRef = useRef<TextInput>(null);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  const handleLogin = async () => {
-    const e = (email || '').trim().toLowerCase();
-    const p = (password || '').trim();
-    if (!e || !p) {
-      Alert.alert('Campos obrigatórios', 'Preencha email e senha.');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
-      Alert.alert('Email inválido', 'Informe um email válido.');
-      return;
-    }
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  if (LOG_RENDER) console.log('[Login] render #', renderCount.current);
 
+  const handleEmailChange = useCallback((text: string) => {
+    setEmail(text);
+    setErrors((prev) => (prev.email ? { ...prev, email: undefined } : prev));
+  }, []);
+
+  const handlePasswordChange = useCallback((text: string) => {
+    setPassword(text);
+    setErrors((prev) => (prev.password ? { ...prev, password: undefined } : prev));
+  }, []);
+
+  const handleLogin = useCallback(async () => {
     Keyboard.dismiss();
+
+    const result = validate(loginSchema, { email, password });
+    if (!result.success) {
+      setErrors((result.errors as { email?: string; password?: string }) ?? {});
+      Alert.alert('Campos obrigatórios', result.firstError ?? 'Preencha email e senha.');
+      return;
+    }
+
+    setErrors({});
     setLoading(true);
     try {
-      const user = await signIn(e, p);
-      const dest = !user.profileComplete ? '/(auth)/complete-profile' : user.role === 'doctor' ? '/(doctor)/dashboard' : '/(patient)/home';
+      const user = await signIn(result.data!.email, result.data!.password);
+      const dest = !user.profileComplete
+        ? '/(auth)/complete-profile'
+        : user.role === 'doctor'
+        ? '/(doctor)/dashboard'
+        : '/(patient)/home';
       setTimeout(() => router.replace(dest as any), 0);
-    } catch (error: any) {
-      const status = (error as any)?.status;
-      const msg = error?.message || String(error) || 'Email ou senha incorretos.';
-      // Erro de rede (fetch falhou antes de receber resposta)
-      const isNetworkError = !status && (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network'));
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      const msg = err?.message || String(error) || 'Email ou senha incorretos.';
+      const isNetworkError =
+        !err?.status && (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network'));
       const title = isNetworkError ? 'Erro de conexão' : 'Erro no login';
       const detail = isNetworkError
-        ? `${msg}\n\nVerifique se a API está rodando e se o dispositivo alcança o servidor (em dispositivo físico use EXPO_PUBLIC_API_URL=http://SEU_IP:5000).`
+        ? `${msg}\n\nVerifique se a API está rodando e se o dispositivo alcança o servidor.`
         : msg;
-      if (__DEV__) console.warn('[Login] Erro:', { status, message: msg, error });
+      if (__DEV__) console.warn('[Login] Erro:', { status: err?.status, message: msg });
       Alert.alert(title, detail);
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, password, signIn, router]);
+
+  const handleForgotPassword = useCallback(() => {
+    router.push('/(auth)/forgot-password');
+  }, [router]);
+
+  const handleRegister = useCallback(() => {
+    router.push('/(auth)/register');
+  }, [router]);
+
+  const focusPassword = useCallback(() => {
+    passwordRef.current?.focus();
+  }, []);
+
+  const dismissKeyboard = useCallback(() => {
+    Keyboard.dismiss();
+  }, []);
 
   return (
     <Screen variant="gradient" scroll contentStyle={styles.content}>
@@ -69,20 +107,21 @@ export default function Login() {
         </Text>
       </View>
 
-      {/* Form */}
+      {/* Form - inputs always mounted, no conditional rendering, no key changes */}
       <View style={styles.form}>
         <AppInput
           label="Email"
           leftIcon="mail-outline"
           placeholder="seu@email.com"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={handleEmailChange}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="next"
           blurOnSubmit={false}
-          onSubmitEditing={() => passwordRef.current?.focus()}
+          onSubmitEditing={focusPassword}
+          error={errors.email}
         />
 
         <AppInput
@@ -91,15 +130,16 @@ export default function Login() {
           leftIcon="lock-closed-outline"
           placeholder="Sua senha"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={handlePasswordChange}
           secureTextEntry
           returnKeyType="done"
           blurOnSubmit={true}
-          onSubmitEditing={() => Keyboard.dismiss()}
+          onSubmitEditing={dismissKeyboard}
+          error={errors.password}
         />
 
         <TouchableOpacity
-          onPress={() => router.push('/(auth)/forgot-password')}
+          onPress={handleForgotPassword}
           style={styles.forgotRow}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -132,7 +172,7 @@ export default function Login() {
       {/* Register Link */}
       <View style={styles.registerRow}>
         <Text style={styles.registerText}>Não tem uma conta? </Text>
-        <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+        <TouchableOpacity onPress={handleRegister}>
           <Text style={styles.registerLink}>Crie agora!</Text>
         </TouchableOpacity>
       </View>

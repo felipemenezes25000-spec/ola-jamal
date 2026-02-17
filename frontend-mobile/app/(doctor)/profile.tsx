@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -10,23 +10,12 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
-import { UserDto, DoctorProfileDto } from '../../types/database';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function DoctorProfile() {
   const router = useRouter();
-  const [user, setUser] = useState<UserDto | null>(null);
-  const [doctor, setDoctor] = useState<DoctorProfileDto | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const userData = await AsyncStorage.getItem('@renoveja:user');
-      const doctorData = await AsyncStorage.getItem('@renoveja:doctor');
-      if (userData) setUser(JSON.parse(userData));
-      if (doctorData) setDoctor(JSON.parse(doctorData));
-    })();
-  }, []);
+  const { user, doctorProfile: doctor, signOut } = useAuth();
 
   const handleLogout = () => {
     Alert.alert('Sair', 'Deseja realmente sair?', [
@@ -35,8 +24,8 @@ export default function DoctorProfile() {
         text: 'Sair',
         style: 'destructive',
         onPress: async () => {
-          await AsyncStorage.multiRemove(['@renoveja:auth_token', '@renoveja:user', '@renoveja:doctor']);
-          router.replace('/');
+          await signOut();
+          setTimeout(() => router.replace('/'), 0);
         },
       },
     ]);

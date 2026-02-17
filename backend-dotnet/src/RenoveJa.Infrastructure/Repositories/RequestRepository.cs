@@ -41,6 +41,7 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         var models = await supabase.GetAllAsync<RequestModel>(
             TableName,
             filter: $"patient_id=eq.{patientId}",
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();

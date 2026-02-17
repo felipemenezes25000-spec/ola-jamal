@@ -127,8 +127,9 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
           </TouchableOpacity>
         )}
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      {hint && !error && <Text style={styles.hintText}>{hint}</Text>}
+      <View style={styles.errorContainer}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : hint ? <Text style={styles.hintText}>{hint}</Text> : null}
+      </View>
     </View>
   );
 });
@@ -178,6 +179,10 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: c.text.primary,
     paddingVertical: 14,
+  },
+  errorContainer: {
+    minHeight: 20,
+    justifyContent: 'flex-end',
   },
   errorText: {
     fontSize: 12,

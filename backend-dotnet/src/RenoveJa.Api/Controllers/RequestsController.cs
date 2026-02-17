@@ -257,6 +257,20 @@ public class RequestsController(
     }
 
     /// <summary>
+    /// Médico obtém histórico de solicitações do paciente (prontuário).
+    /// </summary>
+    [HttpGet("by-patient/{patientId}")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> GetPatientRequests(
+        Guid patientId,
+        CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var requests = await requestService.GetPatientRequestsAsync(doctorId, patientId, cancellationToken);
+        return Ok(requests);
+    }
+
+    /// <summary>
     /// Obtém uma solicitação pelo ID. Somente o paciente ou o médico da solicitação podem acessar.
     /// </summary>
     [HttpGet("{id}")]

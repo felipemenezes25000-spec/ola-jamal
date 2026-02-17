@@ -13,7 +13,7 @@ interface AuthContextType {
   signInWithGoogle: (googleToken: string, role?: UserRole) => Promise<UserDto>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  completeProfile: (data: CompleteProfileData) => Promise<void>;
+  completeProfile: (data: CompleteProfileData) => Promise<UserDto>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
 }
@@ -241,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const completeProfile = async (data: CompleteProfileData) => {
+  const completeProfile = async (data: CompleteProfileData): Promise<UserDto> => {
     try {
       const updatedUser = await apiClient.patch<UserDto>(
         '/api/auth/complete-profile',
@@ -250,6 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
       setUser(updatedUser);
+      return updatedUser;
     } catch (error: any) {
       console.error('Complete profile error:', error);
       throw new Error(error.message || 'Erro ao completar perfil');
@@ -281,6 +282,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setDoctorProfile(null);
   };
+
+  useEffect(() => {
+    apiClient.setOnUnauthorized(() => {
+      clearAuth();
+    });
+    return () => apiClient.setOnUnauthorized(null);
+  }, []);
 
   return (
     <AuthContext.Provider

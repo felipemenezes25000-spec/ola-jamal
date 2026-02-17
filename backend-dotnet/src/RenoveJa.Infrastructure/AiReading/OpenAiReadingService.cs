@@ -59,16 +59,18 @@ public class OpenAiReadingService : IAiReadingService
         var systemPrompt = """
 Você é um assistente que analisa imagens de receitas médicas vencidas para renovação.
 
-VALIDAÇÃO OBRIGATÓRIA: A imagem DEVE conter APENAS um documento de receita médica (papel, tela ou PDF) com medicamentos e/ou dosagens legíveis.
-RETORNE readability_ok: false E message_to_user com a mensagem adequada se a imagem contiver QUALQUER um dos seguintes:
-- ROSTOS DE PESSOAS, SELFIES, FOTOS PESSOAIS, RETRATOS
-- ANIMAIS (cães, gatos, pássaros, etc.)
-- PAISAGENS, NATUREZA, OBJETOS COMUNS
-- COMIDA, BEBIDAS, EMBALAGENS DE MEDICAMENTOS (sem receita)
-- TELAS DE CELULAR/COMPUTADOR que não sejam documento médico
-- QUALQUER conteúdo que NÃO seja um documento de receita médica com medicamentos e dosagem
-Mensagem exemplo: "A imagem não parece ser de uma receita médica. Envie APENAS fotos do documento da receita (papel ou tela com medicamentos e dosagem). Não envie fotos de pessoas, animais, selfies ou outros objetos."
-Só prossiga com a análise SE e SOMENTE SE a imagem for claramente um documento médico (receituário com medicamentos).
+REGRAS CRÍTICAS - REJEITE (readability_ok: false) SE QUALQUER uma das condições for verdadeira:
+• A imagem contém ROSTOS, SELFIES, RETRATOS ou partes do corpo (mãos segurando documento ok, mas rosto/corpo em destaque NÃO)
+• A imagem contém ANIMAIS (cães, gatos, pássaros, etc.)
+• A imagem contém PAISAGENS, NATUREZA, OBJETOS, COMIDA, BEBIDAS
+• A imagem mostra EMBALAGENS DE MEDICAMENTOS sem o documento de receita visível
+• A imagem é de TELA de celular/computador que NÃO seja documento médico (menu, app, foto etc.)
+• A imagem está BORRADA, ESCURA ou ilegível
+• NÃO há medicamentos ou dosagens identificáveis na imagem
+• Qualquer conteúdo que NÃO seja claramente um receituário médico com medicamentos e posologia
+
+OBRIGATÓRIO: A imagem deve ser UNICAMENTE um documento de receita médica legível (papel, PDF ou tela) com medicamentos e dosagens. Na dúvida, REJEITE.
+Mensagem para o usuário: "A imagem não parece ser de uma receita médica. Envie APENAS fotos do documento da receita (papel ou tela com medicamentos e dosagem). Não envie fotos de pessoas, animais, selfies ou outros objetos."
 
 Analise a(s) imagem(ns) e responda em JSON com exatamente estes campos:
 
@@ -129,14 +131,16 @@ Você é um assistente que analisa pedidos de exame (imagem e/ou texto) para o m
 - Se receber imagem(ns): extraia tipo de exame, indicação clínica e classifique urgência.
 - Se receber só texto: ajuste e estruture o texto para o médico (ortografia, clareza), sem inventar dados.
 
-VALIDAÇÃO OBRIGATÓRIA (quando houver imagens): A(s) imagem(ns) DEVE(m) conter APENAS documento de pedido de exame, requisição médica ou laudo.
-RETORNE readability_ok: false E message_to_user se a imagem contiver QUALQUER um dos seguintes:
-- ROSTOS DE PESSOAS, SELFIES, FOTOS PESSOAIS, RETRATOS
-- ANIMAIS (cães, gatos, pássaros, etc.)
-- PAISAGENS, NATUREZA, OBJETOS, COMIDA
-- TELAS que não sejam documento médico
+REGRAS CRÍTICAS (quando houver imagens) - REJEITE (readability_ok: false) SE:
+• ROSTOS, SELFIES, RETRATOS ou partes do corpo em destaque
+• ANIMAIS, PAISAGENS, NATUREZA, OBJETOS, COMIDA
+• TELA de celular/computador que não seja documento médico
+• EMBALAGENS ou frascos sem requisição/laudo visível
+• Imagem BORRADA, ESCURA ou sem texto de exame legível
+• Qualquer conteúdo que NÃO seja pedido de exame, requisição médica ou laudo
+
+OBRIGATÓRIO: A imagem deve ser UNICAMENTE um documento médico (pedido de exame, requisição ou laudo) legível. Na dúvida, REJEITE.
 Mensagem: "A imagem não parece ser de pedido de exame ou documento médico. Envie APENAS imagens do pedido de exame, requisição ou laudo. Não envie fotos de pessoas, animais ou outros objetos."
-Só prossiga SE a imagem for claramente um documento médico (pedido de exame, laudo ou requisição).
 
 Responda em JSON com exatamente:
 - readability_ok (boolean): false se houver imagem mas estiver ilegível ou NÃO for documento médico; true caso contrário.

@@ -89,17 +89,20 @@ public class RequestService(
         }
 
         var latest = await requestRepository.GetByIdAsync(medicalRequest.Id, cancellationToken);
+        var req = latest ?? medicalRequest;
 
-        await CreateNotificationAsync(
-            userId,
-            "Solicitação Criada",
-            "Sua solicitação de receita foi enviada. Aguardando análise do médico.",
-            cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = (latest ?? medicalRequest).Id.ToString() });
+        if (req.Status != RequestStatus.Rejected)
+        {
+            await CreateNotificationAsync(
+                userId,
+                "Solicitação Criada",
+                "Sua solicitação de receita foi enviada. Aguardando análise do médico.",
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = req.Id.ToString() });
+            await NotifyAvailableDoctorsOfNewRequestAsync("receita", req, cancellationToken);
+        }
 
-        await NotifyAvailableDoctorsOfNewRequestAsync("receita", latest ?? medicalRequest, cancellationToken);
-
-        return (MapRequestToDto(latest ?? medicalRequest), null);
+        return (MapRequestToDto(req), null);
     }
 
     /// <summary>
@@ -134,17 +137,20 @@ public class RequestService(
         }
 
         var latest = await requestRepository.GetByIdAsync(medicalRequest.Id, cancellationToken);
+        var req = latest ?? medicalRequest;
 
-        await CreateNotificationAsync(
-            userId,
-            "Solicitação Criada",
-            "Sua solicitação de exame foi enviada. Aguardando análise do médico.",
-            cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = (latest ?? medicalRequest).Id.ToString() });
+        if (req.Status != RequestStatus.Rejected)
+        {
+            await CreateNotificationAsync(
+                userId,
+                "Solicitação Criada",
+                "Sua solicitação de exame foi enviada. Aguardando análise do médico.",
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = req.Id.ToString() });
+            await NotifyAvailableDoctorsOfNewRequestAsync("exame", req, cancellationToken);
+        }
 
-        await NotifyAvailableDoctorsOfNewRequestAsync("exame", latest ?? medicalRequest, cancellationToken);
-
-        return (MapRequestToDto(latest ?? medicalRequest), null);
+        return (MapRequestToDto(req), null);
     }
 
     /// <summary>
@@ -251,6 +257,28 @@ public class RequestService(
         logger.LogInformation("[GetUserRequests] final count after filters: {Count}", result.Count);
         Console.WriteLine($"[GetUserRequests] final count after filters: {result.Count}");
         return result;
+    }
+
+    /// <summary>
+    /// Médico obtém histórico de solicitações do paciente (prontuário).
+    /// Retorna solicitações em que o médico está atribuído ou que estão disponíveis na fila.
+    /// </summary>
+    public async Task<List<RequestResponseDto>> GetPatientRequestsAsync(
+        Guid doctorId,
+        Guid patientId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await userRepository.GetByIdAsync(doctorId, cancellationToken);
+        if (user?.Role != UserRole.Doctor)
+            throw new UnauthorizedAccessException("Apenas médicos podem acessar o prontuário do paciente.");
+
+        var requests = await requestRepository.GetByPatientIdAsync(patientId, cancellationToken);
+        requests = requests
+            .Where(r => r.DoctorId == null || r.DoctorId == Guid.Empty || r.DoctorId == doctorId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToList();
+
+        return requests.Select(MapRequestToDto).ToList();
     }
 
     /// <summary>

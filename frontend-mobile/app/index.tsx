@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Logo } from '../components/Logo';
 import { Loading } from '../components/Loading';
 import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../constants/theme';
+import { gradients } from '../lib/theme';
 
 export default function SplashScreen() {
   const { user, loading } = useAuth();
@@ -29,7 +29,7 @@ export default function SplashScreen() {
 
   return (
     <LinearGradient
-      colors={[colors.primary, colors.primaryDarker]}
+      colors={gradients.splash as any}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}

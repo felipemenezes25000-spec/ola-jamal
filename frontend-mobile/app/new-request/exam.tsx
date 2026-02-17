@@ -3,18 +3,28 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { theme } from '../../lib/theme';
 import { createExamRequest } from '../../lib/api';
+import { validate } from '../../lib/validation';
+import { createExamSchema } from '../../lib/validation/schemas';
+import { Screen } from '../../components/ui/Screen';
+import { AppHeader } from '../../components/ui/AppHeader';
+import { AppCard } from '../../components/ui/AppCard';
+import { AppButton } from '../../components/ui/AppButton';
+import { AppInput } from '../../components/ui/AppInput';
+
+const c = theme.colors;
+const s = theme.spacing;
+const r = theme.borderRadius;
+const ty = theme.typography;
 
 const EXAM_TYPES = [
   { key: 'laboratorial', label: 'Laboratorial', desc: 'Exames de sangue, urina, etc.', icon: 'flask' as const },
@@ -57,18 +67,24 @@ export default function NewExam() {
   };
 
   const handleSubmit = async () => {
-    if (exams.length === 0) {
-      Alert.alert('Exames necessários', 'Informe pelo menos um exame desejado.');
+    const validation = validate(createExamSchema, {
+      examType,
+      exams,
+      symptoms,
+      images,
+    });
+    if (!validation.success) {
+      Alert.alert('Exames necessários', validation.firstError ?? 'Informe pelo menos um exame desejado.');
       return;
     }
 
     setLoading(true);
     try {
       const result = await createExamRequest({
-        examType,
-        exams,
-        symptoms: symptoms.trim() || undefined,
-        images: images.length > 0 ? images : undefined,
+        examType: validation.data!.examType ?? 'laboratorial',
+        exams: validation.data!.exams ?? [],
+        symptoms: validation.data!.symptoms || undefined,
+        images: (validation.data!.images?.length ?? 0) > 0 ? validation.data!.images : undefined,
       });
       // A IA analisa na hora – se rejeitou (imagem incoerente), avisar imediatamente
       if (result.request?.status === 'rejected') {
@@ -86,187 +102,284 @@ export default function NewExam() {
       Alert.alert('Sucesso!', 'Seu pedido de exame foi enviado.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert('Erro', error?.message || 'Não foi possível enviar o pedido.');
+    } catch (error: unknown) {
+      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Não foi possível enviar o pedido.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Novo Exame</Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <Screen scroll padding={false} edges={['bottom']}>
+      <AppHeader title="Novo Exame" />
 
-      {/* Exam Type */}
-      <Text style={styles.label}>Tipo de Exame *</Text>
-      <View style={styles.typeRow}>
-        {EXAM_TYPES.map(type => (
-          <TouchableOpacity
-            key={type.key}
-            style={[styles.typeCard, examType === type.key && styles.typeCardSelected]}
-            onPress={() => setExamType(type.key)}
-          >
-            <Ionicons name={type.icon} size={28} color={examType === type.key ? colors.primary : colors.textSecondary} />
-            <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]}>{type.label}</Text>
-            <Text style={styles.typeDesc}>{type.desc}</Text>
+      <View style={styles.body}>
+        {/* Exam Type */}
+        <Text style={styles.overline}>TIPO DE EXAME</Text>
+        <View style={styles.typeRow}>
+          {EXAM_TYPES.map(type => (
+            <AppCard
+              key={type.key}
+              selected={examType === type.key}
+              onPress={() => setExamType(type.key)}
+              style={styles.typeCard}
+            >
+              <Ionicons
+                name={type.icon}
+                size={28}
+                color={examType === type.key ? c.primary.main : c.text.tertiary}
+              />
+              <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]}>
+                {type.label}
+              </Text>
+              <Text style={styles.typeDesc}>{type.desc}</Text>
+            </AppCard>
+          ))}
+        </View>
+
+        {/* Exams List */}
+        <Text style={styles.overline}>EXAMES DESEJADOS</Text>
+        <View style={styles.inputRow}>
+          <AppInput
+            placeholder="Ex: Hemograma completo"
+            value={examInput}
+            onChangeText={setExamInput}
+            onSubmitEditing={addExam}
+            returnKeyType="done"
+            containerStyle={styles.inputContainer}
+          />
+          <TouchableOpacity style={styles.addButton} onPress={addExam}>
+            <Ionicons name="add" size={24} color="#fff" />
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Exams List */}
-      <Text style={styles.label}>Exames Desejados *</Text>
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Hemograma completo"
-          placeholderTextColor={colors.textMuted}
-          value={examInput}
-          onChangeText={setExamInput}
-          onSubmitEditing={addExam}
-          returnKeyType="done"
-        />
-        <TouchableOpacity style={styles.addButton} onPress={addExam}>
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-      {exams.length > 0 && (
-        <View style={styles.tags}>
-          {exams.map((exam, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{exam}</Text>
-              <TouchableOpacity onPress={() => removeExam(index)}>
-                <Ionicons name="close" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          ))}
         </View>
-      )}
-
-      {/* Symptoms */}
-      <Text style={styles.label}>Sintomas (opcional)</Text>
-      <TextInput
-        style={styles.textarea}
-        placeholder="Descreva seus sintomas..."
-        placeholderTextColor={colors.textMuted}
-        value={symptoms}
-        onChangeText={setSymptoms}
-        multiline
-        numberOfLines={4}
-        textAlignVertical="top"
-      />
-
-      {/* Photo */}
-      <Text style={styles.label}>Foto de pedido anterior (opcional)</Text>
-      <Text style={styles.photoHint}>Envie apenas fotos do documento (pedido de exame ou laudo). Fotos de pessoas, animais ou outros objetos serão rejeitadas.</Text>
-      <View style={styles.photoRow}>
-        <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
-          <Ionicons name="camera" size={24} color={colors.primary} />
-          <Text style={styles.photoText}>Câmera</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
-          <Ionicons name="image" size={24} color={colors.primary} />
-          <Text style={styles.photoText}>Galeria</Text>
-        </TouchableOpacity>
-      </View>
-      {images.length > 0 && (
-        <View style={styles.imagesRow}>
-          {images.map((uri, i) => (
-            <View key={i} style={styles.imgWrap}>
-              <Image source={{ uri }} style={styles.imgPreview} />
-              <TouchableOpacity style={styles.imgRemove} onPress={() => setImages(images.filter((_, j) => j !== i))}>
-                <Ionicons name="close-circle" size={20} color={colors.error} />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Price Info */}
-      <View style={styles.priceBox}>
-        <Ionicons name="pricetag" size={18} color={colors.success} />
-        <Text style={styles.priceText}>Valor do pedido de exame: <Text style={styles.priceValue}>R$ 60,00</Text></Text>
-      </View>
-
-      {/* Submit */}
-      <TouchableOpacity
-        style={[styles.submitButton, loading && { opacity: 0.6 }]}
-        onPress={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="send" size={20} color="#fff" />
-            <Text style={styles.submitText}>Enviar Pedido</Text>
-          </>
+        {exams.length > 0 && (
+          <View style={styles.tags}>
+            {exams.map((exam, index) => (
+              <View key={index} style={styles.tag}>
+                <Text style={styles.tagText}>{exam}</Text>
+                <TouchableOpacity onPress={() => removeExam(index)}>
+                  <Ionicons name="close" size={16} color={c.accent.dark} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
         )}
-      </TouchableOpacity>
-    </ScrollView>
+
+        {/* Symptoms */}
+        <Text style={styles.overline}>SINTOMAS</Text>
+        <TextInput
+          style={styles.textarea}
+          placeholder="Descreva seus sintomas (opcional)..."
+          placeholderTextColor={c.text.tertiary}
+          value={symptoms}
+          onChangeText={setSymptoms}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+
+        {/* Photo */}
+        <Text style={styles.overline}>FOTO</Text>
+        <Text style={styles.photoHint}>
+          Envie apenas fotos do documento (pedido de exame ou laudo). Fotos de pessoas, animais ou outros objetos serão rejeitadas.
+        </Text>
+        <View style={styles.photoRow}>
+          <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+            <Ionicons name="camera" size={28} color={c.primary.main} />
+            <Text style={styles.photoText}>Câmera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
+            <Ionicons name="image" size={28} color={c.primary.main} />
+            <Text style={styles.photoText}>Galeria</Text>
+          </TouchableOpacity>
+        </View>
+        {images.length > 0 && (
+          <View style={styles.imagesRow}>
+            {images.map((uri, i) => (
+              <View key={i} style={styles.imgWrap}>
+                <Image source={{ uri }} style={styles.imgPreview} />
+                <TouchableOpacity
+                  style={styles.imgRemove}
+                  onPress={() => setImages(images.filter((_, j) => j !== i))}
+                >
+                  <Ionicons name="close-circle" size={20} color={c.status.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Price Info */}
+        <View style={styles.priceBox}>
+          <Ionicons name="pricetag" size={18} color={c.secondary.main} />
+          <Text style={styles.priceText}>
+            Valor do pedido de exame:{' '}
+            <Text style={styles.priceValue}>R$ 60,00</Text>
+          </Text>
+        </View>
+
+        {/* Submit */}
+        <AppButton
+          title="Enviar Pedido"
+          onPress={handleSubmit}
+          loading={loading}
+          disabled={loading}
+          fullWidth
+          icon="send"
+          style={styles.submitButton}
+        />
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: 40 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.md, paddingBottom: spacing.md,
+  body: {
+    paddingHorizontal: theme.layout.screen.paddingHorizontal,
   },
-  backButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text },
-  label: { fontSize: 15, fontWeight: '600', color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
-  typeRow: { flexDirection: 'row', marginHorizontal: spacing.md, gap: spacing.sm },
+  overline: {
+    fontSize: ty.fontSize.xs,
+    lineHeight: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    color: c.text.secondary,
+    marginTop: s.lg,
+    marginBottom: s.sm,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    gap: s.sm,
+  },
   typeCard: {
-    flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md,
-    alignItems: 'center', borderWidth: 2, borderColor: 'transparent', ...shadows.card,
+    flex: 1,
+    alignItems: 'center',
   },
-  typeCardSelected: { borderColor: colors.primary, backgroundColor: '#EFF6FF' },
-  typeName: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: spacing.sm },
-  typeNameSelected: { color: colors.primary },
-  typeDesc: { fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 2 },
-  inputRow: { flexDirection: 'row', marginHorizontal: spacing.md, gap: spacing.sm },
-  input: {
-    flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, paddingHorizontal: spacing.md,
-    height: 44, fontSize: 15, color: colors.text, ...shadows.card,
+  typeName: {
+    fontSize: ty.fontSize.sm,
+    fontWeight: '600',
+    color: c.text.primary,
+    marginTop: s.sm,
   },
-  addButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: spacing.md, marginTop: spacing.sm, gap: spacing.sm },
+  typeNameSelected: {
+    color: c.primary.main,
+  },
+  typeDesc: {
+    fontSize: ty.fontSize.xs,
+    color: c.text.tertiary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.sm,
+  },
+  inputContainer: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  addButton: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: c.primary.main,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.button,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: s.sm,
+    gap: s.sm,
+  },
   tag: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EDE9FE', paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs, borderRadius: borderRadius.xl, gap: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: c.accent.soft,
+    paddingHorizontal: s.md,
+    paddingVertical: s.xs,
+    borderRadius: r.pill,
+    gap: s.xs,
   },
-  tagText: { fontSize: 13, color: '#7C3AED', fontWeight: '500' },
+  tagText: {
+    fontSize: 13,
+    color: c.accent.dark,
+    fontWeight: '500',
+  },
   textarea: {
-    backgroundColor: colors.surface, marginHorizontal: spacing.md, borderRadius: borderRadius.md,
-    padding: spacing.md, fontSize: 15, color: colors.text, minHeight: 100, ...shadows.card,
+    backgroundColor: c.background.paper,
+    borderRadius: r.md,
+    padding: s.md,
+    fontSize: ty.fontSize.md,
+    color: c.text.primary,
+    minHeight: 100,
+    ...theme.shadows.card,
   },
-  photoHint: { fontSize: 12, color: colors.textMuted, marginHorizontal: spacing.md, marginBottom: spacing.sm },
-  photoRow: { flexDirection: 'row', marginHorizontal: spacing.md, gap: spacing.md },
+  photoHint: {
+    fontSize: 12,
+    color: c.text.tertiary,
+    marginBottom: s.sm,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    gap: s.md,
+  },
   photoButton: {
-    flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.lg,
-    alignItems: 'center', borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed', gap: spacing.xs,
+    flex: 1,
+    backgroundColor: c.background.paper,
+    borderRadius: r.lg,
+    paddingVertical: s.lg,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: c.border.main,
+    borderStyle: 'dashed',
+    gap: s.xs,
   },
-  photoText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
-  imagesRow: { flexDirection: 'row', marginHorizontal: spacing.md, marginTop: spacing.sm, gap: spacing.sm },
-  imgWrap: { position: 'relative' },
-  imgPreview: { width: 70, height: 70, borderRadius: borderRadius.sm },
-  imgRemove: { position: 'absolute', top: -6, right: -6, backgroundColor: colors.surface, borderRadius: 10 },
+  photoText: {
+    fontSize: 13,
+    color: c.primary.main,
+    fontWeight: '600',
+  },
+  imagesRow: {
+    flexDirection: 'row',
+    marginTop: s.sm,
+    gap: s.sm,
+  },
+  imgWrap: {
+    position: 'relative',
+  },
+  imgPreview: {
+    width: 70,
+    height: 70,
+    borderRadius: r.sm,
+  },
+  imgRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: c.background.paper,
+    borderRadius: 10,
+  },
   priceBox: {
-    flexDirection: 'row', backgroundColor: '#D1FAE5', marginHorizontal: spacing.md, marginTop: spacing.lg,
-    padding: spacing.md, borderRadius: borderRadius.md, gap: spacing.sm, alignItems: 'center',
+    flexDirection: 'row',
+    backgroundColor: c.secondary.soft,
+    marginTop: s.lg,
+    padding: s.md,
+    borderRadius: r.lg,
+    gap: s.sm,
+    alignItems: 'center',
   },
-  priceText: { fontSize: 14, color: colors.text },
-  priceValue: { fontWeight: '700', color: colors.success },
+  priceText: {
+    fontSize: ty.fontSize.sm,
+    color: c.text.primary,
+  },
+  priceValue: {
+    fontWeight: '700',
+    color: c.secondary.main,
+  },
   submitButton: {
-    flexDirection: 'row', backgroundColor: colors.primary, marginHorizontal: spacing.md, marginTop: spacing.lg,
-    padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52,
+    marginTop: s.lg,
   },
-  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

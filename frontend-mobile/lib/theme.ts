@@ -5,45 +5,50 @@
 
 export const theme = {
   colors: {
-    // Primary colors
     primary: {
       main: '#0EA5E9',
       light: '#38BDF8',
       dark: '#0284C7',
       lighter: '#7DD3FC',
       darker: '#075985',
+      soft: '#E0F2FE',
+      ghost: 'rgba(14,165,233,0.08)',
       contrast: '#FFFFFF',
     },
 
-    // Secondary colors
     secondary: {
       main: '#10B981',
       light: '#34D399',
       dark: '#059669',
       lighter: '#6EE7B7',
       darker: '#047857',
+      soft: '#D1FAE5',
       contrast: '#FFFFFF',
     },
 
-    // Background colors
+    accent: {
+      main: '#8B5CF6',
+      light: '#A78BFA',
+      dark: '#7C3AED',
+      soft: '#EDE9FE',
+    },
+
     background: {
-      default: '#F0F8FF',
+      default: '#F8FAFC',
       paper: '#FFFFFF',
-      secondary: '#F8FAFC',
+      secondary: '#F1F5F9',
       tertiary: '#EFF6FF',
       modal: 'rgba(0, 0, 0, 0.5)',
     },
 
-    // Text colors
     text: {
-      primary: '#1E293B',
-      secondary: '#64748B',
+      primary: '#0F172A',
+      secondary: '#475569',
       tertiary: '#94A3B8',
       disabled: '#CBD5E1',
       inverse: '#FFFFFF',
     },
 
-    // Status colors
     status: {
       success: '#10B981',
       successLight: '#D1FAE5',
@@ -55,7 +60,6 @@ export const theme = {
       infoLight: '#DBEAFE',
     },
 
-    // Medical-specific colors
     medical: {
       exam: '#8B5CF6',
       examLight: '#EDE9FE',
@@ -67,7 +71,6 @@ export const theme = {
       appointmentLight: '#FEF3C7',
     },
 
-    // Border colors
     border: {
       main: '#E2E8F0',
       light: '#F1F5F9',
@@ -75,10 +78,8 @@ export const theme = {
       focus: '#0EA5E9',
     },
 
-    // Divider
     divider: '#E2E8F0',
 
-    // Overlay
     overlay: {
       light: 'rgba(0, 0, 0, 0.05)',
       medium: 'rgba(0, 0, 0, 0.1)',
@@ -86,12 +87,15 @@ export const theme = {
       darker: 'rgba(0, 0, 0, 0.4)',
     },
 
-    // Gradients
     gradients: {
       primary: ['#0EA5E9', '#0284C7'],
       secondary: ['#10B981', '#059669'],
       accent: ['#8B5CF6', '#7C3AED'],
       warm: ['#F59E0B', '#D97706'],
+      authBackground: ['#FFFFFF', '#E8F4FE', '#B8DFFB', '#38BDF8'],
+      splash: ['#0284C7', '#0EA5E9', '#38BDF8'],
+      doctorHeader: ['#059669', '#10B981', '#34D399'],
+      patientHeader: ['#0EA5E9', '#38BDF8', '#7DD3FC'],
     },
   },
 
@@ -107,17 +111,19 @@ export const theme = {
 
   borderRadius: {
     none: 0,
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 20,
-    xxl: 24,
+    xs: 6,
+    sm: 10,
+    md: 14,
+    lg: 18,
+    xl: 22,
+    xxl: 26,
     full: 9999,
-    button: 12,
-    card: 16,
-    modal: 20,
-    input: 8,
+    pill: 26,
+    pillLg: 30,
+    card: 18,
+    button: 26,
+    modal: 22,
+    input: 26,
   },
 
   shadows: {
@@ -131,49 +137,69 @@ export const theme = {
     sm: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
       elevation: 1,
     },
     md: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
       elevation: 2,
     },
     lg: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
       elevation: 4,
     },
     xl: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.12,
-      shadowRadius: 16,
+      shadowOpacity: 0.1,
+      shadowRadius: 24,
       elevation: 8,
     },
     card: {
-      shadowColor: '#0EA5E9',
+      shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
       elevation: 3,
+    },
+    elevated: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+      elevation: 5,
     },
     button: {
       shadowColor: '#0EA5E9',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    buttonSuccess: {
+      shadowColor: '#10B981',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    buttonDanger: {
+      shadowColor: '#EF4444',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
       elevation: 4,
     },
   },
 
   typography: {
-    // Font families
     fontFamily: {
       regular: 'System',
       medium: 'System',
@@ -181,9 +207,8 @@ export const theme = {
       bold: 'System',
     },
 
-    // Font sizes
     fontSize: {
-      xs: 12,
+      xs: 11,
       sm: 14,
       md: 16,
       lg: 18,
@@ -194,7 +219,6 @@ export const theme = {
       hero: 36,
     },
 
-    // Line heights
     lineHeight: {
       tight: 1.2,
       normal: 1.5,
@@ -202,7 +226,6 @@ export const theme = {
       loose: 2,
     },
 
-    // Font weights
     fontWeight: {
       regular: '400',
       medium: '500',
@@ -211,34 +234,30 @@ export const theme = {
       extrabold: '800',
     },
 
-    // Text variants
     variants: {
-      h1: {
+      hero: {
         fontSize: 32,
         lineHeight: 40,
-        fontWeight: '700',
+        fontWeight: '800',
+        letterSpacing: -0.5,
       },
-      h2: {
+      h1: {
         fontSize: 28,
         lineHeight: 36,
         fontWeight: '700',
+        letterSpacing: -0.3,
+      },
+      h2: {
+        fontSize: 22,
+        lineHeight: 30,
+        fontWeight: '700',
       },
       h3: {
-        fontSize: 24,
-        lineHeight: 32,
+        fontSize: 18,
+        lineHeight: 26,
         fontWeight: '600',
       },
       h4: {
-        fontSize: 20,
-        lineHeight: 28,
-        fontWeight: '600',
-      },
-      h5: {
-        fontSize: 18,
-        lineHeight: 24,
-        fontWeight: '600',
-      },
-      h6: {
         fontSize: 16,
         lineHeight: 24,
         fontWeight: '600',
@@ -256,17 +275,22 @@ export const theme = {
       button: {
         fontSize: 16,
         lineHeight: 24,
+        fontWeight: '700',
+      },
+      buttonSmall: {
+        fontSize: 14,
+        lineHeight: 20,
         fontWeight: '600',
       },
       caption: {
         fontSize: 12,
         lineHeight: 16,
-        fontWeight: '400',
+        fontWeight: '500',
       },
       overline: {
-        fontSize: 12,
+        fontSize: 11,
         lineHeight: 16,
-        fontWeight: '600',
+        fontWeight: '700',
         textTransform: 'uppercase' as const,
         letterSpacing: 1.2,
       },
@@ -274,34 +298,27 @@ export const theme = {
   },
 
   layout: {
-    // Container padding
     container: {
-      padding: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 16,
-    },
-
-    // Screen padding
-    screen: {
-      padding: 16,
+      padding: 20,
       paddingHorizontal: 20,
       paddingVertical: 16,
     },
-
-    // Component heights
+    screen: {
+      padding: 20,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+    },
     height: {
-      button: 48,
-      buttonSmall: 36,
-      buttonLarge: 56,
-      input: 48,
-      inputSmall: 40,
-      inputLarge: 56,
+      button: 54,
+      buttonSmall: 44,
+      buttonLarge: 60,
+      input: 54,
+      inputSmall: 44,
+      inputLarge: 60,
       header: 56,
       tabBar: 60,
       card: 'auto',
     },
-
-    // Icon sizes
     icon: {
       xs: 16,
       sm: 20,
@@ -310,8 +327,6 @@ export const theme = {
       xl: 40,
       xxl: 48,
     },
-
-    // Avatar sizes
     avatar: {
       xs: 24,
       sm: 32,
@@ -323,14 +338,11 @@ export const theme = {
   },
 
   animations: {
-    // Duration
     duration: {
       fast: 150,
       normal: 250,
       slow: 350,
     },
-
-    // Easing
     easing: {
       linear: 'linear',
       easeIn: 'ease-in',
@@ -340,9 +352,9 @@ export const theme = {
   },
 
   opacity: {
-    disabled: 0.4,
+    disabled: 0.5,
     hover: 0.8,
-    pressed: 0.6,
+    pressed: 0.7,
     overlay: 0.5,
   },
 
@@ -358,7 +370,7 @@ export const theme = {
   },
 } as const;
 
-// Type exports for TypeScript
+// Type exports
 export type Theme = typeof theme;
 export type ThemeColors = typeof theme.colors;
 export type ThemeSpacing = typeof theme.spacing;
@@ -368,7 +380,6 @@ export type ThemeTypography = typeof theme.typography;
 export const getColor = (path: string): string => {
   const keys = path.split('.');
   let value: any = theme.colors;
-
   for (const key of keys) {
     value = value[key];
     if (value === undefined) {
@@ -376,23 +387,16 @@ export const getColor = (path: string): string => {
       return theme.colors.primary.main;
     }
   }
-
   return value as string;
 };
 
 export const getSpacing = (...multipliers: number[]): number | number[] => {
   const baseSpacing = theme.spacing.md;
-
-  if (multipliers.length === 1) {
-    return baseSpacing * multipliers[0];
-  }
-
+  if (multipliers.length === 1) return baseSpacing * multipliers[0];
   return multipliers.map(m => baseSpacing * m);
 };
 
-export const getShadow = (level: keyof typeof theme.shadows) => {
-  return theme.shadows[level];
-};
+export const getShadow = (level: keyof typeof theme.shadows) => theme.shadows[level];
 
 // ============================================
 // FLAT EXPORTS for easy component usage
@@ -400,19 +404,28 @@ export const getShadow = (level: keyof typeof theme.shadows) => {
 export const colors = {
   primary: theme.colors.primary.main,
   primaryDark: theme.colors.primary.dark,
-  primaryLight: '#E0F2FE',
+  primaryLight: theme.colors.primary.soft,
+  primaryGhost: theme.colors.primary.ghost,
   secondary: theme.colors.secondary.main,
   secondaryDark: theme.colors.secondary.dark,
+  accent: theme.colors.accent.main,
+  accentSoft: theme.colors.accent.soft,
   background: theme.colors.background.default,
   surface: theme.colors.background.paper,
+  surfaceSecondary: theme.colors.background.secondary,
   text: theme.colors.text.primary,
   textSecondary: theme.colors.text.secondary,
   textMuted: theme.colors.text.tertiary,
-  border: '#E2E8F0',
+  border: theme.colors.border.main,
+  borderLight: theme.colors.border.light,
   error: theme.colors.status.error,
+  errorLight: theme.colors.status.errorLight,
   warning: theme.colors.status.warning,
+  warningLight: theme.colors.status.warningLight,
   success: theme.colors.status.success,
+  successLight: theme.colors.status.successLight,
   info: theme.colors.status.info,
+  infoLight: theme.colors.status.infoLight,
   white: '#FFFFFF',
   // Status-specific
   statusSubmitted: '#F59E0B',
@@ -430,37 +443,39 @@ export const colors = {
 };
 
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
+  xs: theme.spacing.xs,
+  sm: theme.spacing.sm,
+  md: theme.spacing.md,
+  lg: theme.spacing.lg,
+  xl: theme.spacing.xl,
+  xxl: theme.spacing.xxl,
 };
 
 export const borderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  full: 999,
+  xs: theme.borderRadius.xs,
+  sm: theme.borderRadius.sm,
+  md: theme.borderRadius.md,
+  lg: theme.borderRadius.lg,
+  xl: theme.borderRadius.xl,
+  pill: theme.borderRadius.pill,
+  card: theme.borderRadius.card,
+  full: theme.borderRadius.full,
 };
 
 export const shadows = {
-  card: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardLg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 5,
-  },
+  card: theme.shadows.card,
+  cardLg: theme.shadows.elevated,
+  button: theme.shadows.button,
+  sm: theme.shadows.sm,
+};
+
+export const gradients = {
+  auth: theme.colors.gradients.authBackground as unknown as string[],
+  splash: theme.colors.gradients.splash as unknown as string[],
+  doctorHeader: theme.colors.gradients.doctorHeader as unknown as string[],
+  patientHeader: theme.colors.gradients.patientHeader as unknown as string[],
+  primary: theme.colors.gradients.primary as unknown as string[],
+  secondary: theme.colors.gradients.secondary as unknown as string[],
 };
 
 export default theme;
