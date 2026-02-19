@@ -61,7 +61,13 @@ class ApiClient {
         const text = await response.text();
         if (text) {
           const errorData = JSON.parse(text);
-          errorMessage = errorData.message || errorData.title || errorData.detail || `${response.status} ${response.statusText}`;
+          const firstError = Array.isArray(errorData.errors) && errorData.errors.length > 0 ? errorData.errors[0] : null;
+          errorMessage =
+            errorData.message ||
+            errorData.title ||
+            errorData.detail ||
+            firstError ||
+            `${response.status} ${response.statusText}`;
           errors = typeof errorData.errors === 'object' && !Array.isArray(errorData.errors) ? errorData.errors : undefined;
           const err: ApiError = {
             message: errorMessage,

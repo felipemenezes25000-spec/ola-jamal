@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Certificates;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Interfaces;
 
 namespace RenoveJa.Api.Controllers;
 
@@ -15,15 +16,18 @@ public class CertificatesController : ControllerBase
 {
     private readonly IDigitalCertificateService _certificateService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<CertificatesController> _logger;
 
     public CertificatesController(
         IDigitalCertificateService certificateService,
         ICurrentUserService currentUserService,
+        IUserRepository userRepository,
         ILogger<CertificatesController> logger)
     {
         _certificateService = certificateService;
         _currentUserService = currentUserService;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -78,6 +82,15 @@ public class CertificatesController : ControllerBase
                 validation.ErrorMessage,
                 null,
                 validation));
+        }
+
+        // Marca perfil do médico como completo (certificado obrigatório no cadastro)
+        var user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
+        if (user != null && !user.ProfileComplete)
+        {
+            user.MarkProfileComplete();
+            await _userRepository.UpdateAsync(user, cancellationToken);
+            _logger.LogInformation("Certificates Upload: User {UserId} profile marked complete after first certificate.", userId);
         }
 
         return Ok(new UploadCertificateResponseDto(

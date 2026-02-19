@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   Alert,
   Keyboard,
+  ScrollView,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { theme } from '../../lib/theme';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
@@ -17,6 +20,7 @@ import { Logo } from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchAddressByCep } from '../../lib/viacep';
 import { isValidCpf } from '../../lib/validation/cpf';
+import { fetchSpecialties, uploadCertificate } from '../../lib/api';
 
 const c = theme.colors;
 const s = theme.spacing;
@@ -34,7 +38,7 @@ function formatCep(value: string) {
 
 export default function Register() {
   const router = useRouter();
-  const { signUp, signUpDoctor } = useAuth();
+  const { signUp, signUpDoctor, refreshUser } = useAuth();
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -54,6 +58,19 @@ export default function Register() {
   const [state, setState] = useState('');
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [specialtiesList, setSpecialtiesList] = useState<string[]>([]);
+  const [specialtyOpen, setSpecialtyOpen] = useState(false);
+  const [specialtySearch, setSpecialtySearch] = useState('');
+  const [certFile, setCertFile] = useState<any>(null);
+  const [certPassword, setCertPassword] = useState('');
+
+  useEffect(() => {
+    if (role === 'doctor') {
+      fetchSpecialties()
+        .then(setSpecialtiesList)
+        .catch(() => setSpecialtiesList([]));
+    }
+  }, [role]);
 
   const clearError = (field: string) => {
     setFieldErrors((prev) => {
@@ -131,6 +148,9 @@ export default function Register() {
       if (!cs) err.crmState = 'Estado do CRM é obrigatório.';
       else if (cs.length !== 2) err.crmState = 'Informe 2 letras (ex.: SP).';
       if (!sp) err.specialty = 'Especialidade é obrigatória.';
+      else if (specialtiesList.length > 0 && !specialtiesList.includes(sp)) {
+        err.specialty = 'Selecione uma especialidade da lista.';
+      }
     }
 
     if (role === 'patient') {
@@ -183,10 +203,34 @@ export default function Register() {
         ? await signUpDoctor({ ...data, crm: crm.trim().replace(/\D/g, ''), crmState: crmState.trim().toUpperCase().slice(0, 2), specialty: specialty.trim() } as any)
         : await signUp(data as any);
 
-      const dest = user.role === 'doctor' ? '/(doctor)/dashboard' : '/(patient)/home';
+      if (user.role === 'doctor' && certFile && certPassword.trim()) {
+        try {
+          const upload = await uploadCertificate(certFile.uri, certPassword.trim());
+          if (upload?.success) {
+            await refreshUser();
+            setTimeout(() => router.replace('/(doctor)/dashboard' as any), 0);
+            return;
+          }
+        } catch (uploadErr: any) {
+          Alert.alert(
+            'Cadastro concluído',
+            'Conta criada. O certificado não pôde ser enviado. Você será direcionado para concluir o cadastro.',
+            [{ text: 'OK', onPress: () => router.replace('/(auth)/complete-doctor' as any) }]
+          );
+          return;
+        }
+      }
+
+      const dest = user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(patient)/home';
       setTimeout(() => router.replace(dest as any), 0);
     } catch (error: any) {
-      Alert.alert('Erro', error?.message || String(error) || 'Não foi possível criar a conta.');
+      const msg =
+        error?.message ||
+        (Array.isArray(error?.errors) ? error.errors[0] : null) ||
+        (error?.messages?.[0]) ||
+        String(error) ||
+        'Não foi possível criar a conta.';
+      Alert.alert('Erro', msg);
     } finally {
       setLoading(false);
     }
@@ -393,15 +437,166 @@ export default function Register() {
               onChangeText={(t) => { setCrmState(t); clearError('crmState'); }}
               error={fieldErrors.crmState}
             />
-            <AppInput
-              label="Especialidade"
-              required
-              leftIcon="medkit-outline"
-              placeholder="Sua especialidade"
-              value={specialty}
-              onChangeText={(t) => { setSpecialty(t); clearError('specialty'); }}
-              error={fieldErrors.specialty}
-            />
+            {specialtiesList.length > 0 ? (
+              <View style={styles.specialtyBlock}>
+                <Text style={styles.specialtyLabel}>Especialidade *</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.specialtyTrigger,
+                    fieldErrors.specialty && styles.specialtyTriggerError,
+                  ]}
+                  onPress={() => setSpecialtyOpen((o) => !o)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.specialtyTriggerText,
+                      !specialty.trim() && styles.specialtyTriggerPlaceholder,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {specialty.trim() || 'Buscar ou selecionar especialidade...'}
+                  </Text>
+                  <Ionicons
+                    name={specialtyOpen ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={c.text.tertiary}
+                  />
+                </TouchableOpacity>
+                {specialtyOpen && (
+                  <View style={styles.specialtyDropdown}>
+                    <View style={styles.specialtySearchWrap}>
+                      <Ionicons name="search-outline" size={20} color={c.text.tertiary} />
+                      <TextInput
+                        style={styles.specialtySearchInput}
+                        placeholder="Pesquisar pelo nome"
+                        placeholderTextColor={c.text.tertiary}
+                        value={specialtySearch}
+                        onChangeText={setSpecialtySearch}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      {specialtySearch.length > 0 ? (
+                        <TouchableOpacity
+                          onPress={() => setSpecialtySearch('')}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="close-circle" size={20} color={c.text.tertiary} />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    <ScrollView
+                      style={styles.specialtyOptionsScroll}
+                      keyboardShouldPersistTaps="handled"
+                      nestedScrollEnabled
+                    >
+                      {(() => {
+                        const filtered = specialtiesList.filter((s) =>
+                          s.toLowerCase().includes(specialtySearch.trim().toLowerCase())
+                        );
+                        if (filtered.length === 0) {
+                          return (
+                            <View style={styles.specialtyOption}>
+                              <Text style={styles.specialtyOptionEmpty}>
+                                Nenhuma especialidade encontrada
+                              </Text>
+                            </View>
+                          );
+                        }
+                        return filtered.map((s) => {
+                          const isSelected = specialty.trim() === s;
+                          return (
+                            <TouchableOpacity
+                              key={s}
+                              style={[
+                                styles.specialtyOption,
+                                isSelected && styles.specialtyOptionSelected,
+                              ]}
+                              onPress={() => {
+                                setSpecialty(s);
+                                setSpecialtySearch('');
+                                setSpecialtyOpen(false);
+                                clearError('specialty');
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.specialtyOptionText,
+                                  isSelected && styles.specialtyOptionTextSelected,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {s}
+                              </Text>
+                              {isSelected ? (
+                                <Ionicons name="checkmark" size={20} color={c.primary.main} />
+                              ) : null}
+                            </TouchableOpacity>
+                          );
+                        });
+                      })()}
+                    </ScrollView>
+                  </View>
+                )}
+                {fieldErrors.specialty ? (
+                  <Text style={styles.fieldErrorText}>{fieldErrors.specialty}</Text>
+                ) : null}
+              </View>
+            ) : (
+              <AppInput
+                label="Especialidade"
+                required
+                leftIcon="medkit-outline"
+                placeholder="Carregando..."
+                value={specialty}
+                onChangeText={(t) => { setSpecialty(t); clearError('specialty'); }}
+                error={fieldErrors.specialty}
+                editable={false}
+              />
+            )}
+
+            {/* Certificado digital (opcional na tela; sem preencher vai para complete-doctor) */}
+            <View style={styles.certSection}>
+              <Text style={styles.certSectionTitle}>Certificado digital</Text>
+              <Text style={styles.certSectionDesc}>
+                Adicione aqui para concluir o cadastro de uma vez. Se não tiver agora, você poderá
+                cadastrar na próxima tela.
+              </Text>
+              <TouchableOpacity
+                style={styles.certFileBtn}
+                onPress={async () => {
+                  try {
+                    const result = await DocumentPicker.getDocumentAsync({
+                      type: ['application/x-pkcs12', 'application/octet-stream'],
+                      copyToCacheDirectory: true,
+                    });
+                    if (!result.canceled && result.assets?.[0]) setCertFile(result.assets[0]);
+                  } catch {
+                    Alert.alert('Erro', 'Não foi possível selecionar o arquivo.');
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={certFile ? 'document-attach' : 'cloud-upload-outline'}
+                  size={24}
+                  color={c.primary.main}
+                />
+                <Text style={styles.certFileBtnText}>
+                  {certFile ? certFile.name : 'Selecionar arquivo .PFX'}
+                </Text>
+              </TouchableOpacity>
+              {certFile ? (
+                <AppInput
+                  label="Senha do certificado"
+                  placeholder="Senha do PFX"
+                  value={certPassword}
+                  onChangeText={setCertPassword}
+                  secureTextEntry
+                />
+              ) : null}
+            </View>
           </>
         )}
 
@@ -576,5 +771,133 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: c.text.tertiary,
     fontWeight: '500',
+  },
+  specialtyBlock: {
+    marginBottom: s.md,
+  },
+  specialtyLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.text.primary,
+    marginBottom: s.xs,
+  },
+  specialtyTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: c.background.paper,
+    borderWidth: 1.5,
+    borderColor: c.border.main,
+    minHeight: 52,
+  },
+  specialtyTriggerError: {
+    borderColor: c.status.error,
+  },
+  specialtyTriggerText: {
+    flex: 1,
+    fontSize: 16,
+    color: c.text.primary,
+    marginRight: s.sm,
+  },
+  specialtyTriggerPlaceholder: {
+    color: c.text.tertiary,
+  },
+  specialtyDropdown: {
+    marginTop: 4,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: c.border.main,
+    backgroundColor: c.background.paper,
+    maxHeight: 220,
+    overflow: 'hidden',
+  },
+  specialtySearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s.sm,
+    paddingVertical: s.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border.light,
+    gap: s.xs,
+  },
+  specialtySearchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: c.text.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  specialtyOptionsScroll: {
+    maxHeight: 180,
+  },
+  specialtyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border.light,
+  },
+  specialtyOptionSelected: {
+    backgroundColor: c.primary.ghost,
+  },
+  specialtyOptionText: {
+    flex: 1,
+    fontSize: 15,
+    color: c.text.primary,
+    marginRight: s.sm,
+  },
+  specialtyOptionTextSelected: {
+    fontWeight: '600',
+    color: c.primary.main,
+  },
+  specialtyOptionEmpty: {
+    fontSize: 14,
+    color: c.text.tertiary,
+    fontStyle: 'italic',
+  },
+  fieldErrorText: {
+    fontSize: 12,
+    color: c.status.error,
+    marginTop: 4,
+  },
+  certSection: {
+    marginTop: s.md,
+    marginBottom: s.sm,
+    paddingTop: s.md,
+    borderTopWidth: 1,
+    borderTopColor: c.border.main,
+  },
+  certSectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: c.text.primary,
+    marginBottom: 4,
+  },
+  certSectionDesc: {
+    fontSize: 13,
+    color: c.text.secondary,
+    marginBottom: s.sm,
+  },
+  certFileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.sm,
+    paddingVertical: s.sm,
+    paddingHorizontal: s.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 2,
+    borderColor: c.primary.main,
+    borderStyle: 'dashed',
+    backgroundColor: c.primary.ghost,
+  },
+  certFileBtnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: c.primary.main,
   },
 });

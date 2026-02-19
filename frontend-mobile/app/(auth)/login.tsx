@@ -60,7 +60,7 @@ export default function Login() {
     try {
       const user = await signIn(result.data!.email, result.data!.password);
       const dest = !user.profileComplete
-        ? '/(auth)/complete-profile'
+        ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
         : user.role === 'doctor'
         ? '/(doctor)/dashboard'
         : '/(patient)/home';

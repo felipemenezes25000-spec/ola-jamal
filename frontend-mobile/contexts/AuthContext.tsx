@@ -254,7 +254,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return response.user;
     } catch (error: any) {
       console.error('Doctor sign up error:', error);
-      throw new Error(error.message || 'Erro ao criar conta de médico');
+      const msg =
+        error?.message ||
+        (Array.isArray(error?.errors) ? error.errors[0] : null) ||
+        (error?.messages?.[0]) ||
+        'Erro ao criar conta de médico';
+      throw new Error(typeof msg === 'string' ? msg : 'Erro ao criar conta de médico');
     }
   };
 

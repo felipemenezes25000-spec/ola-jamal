@@ -178,6 +178,7 @@ public class User : AggregateRoot
             profileComplete: true);
     }
 
+    /// <summary>Cria médico com perfil incompleto até cadastrar certificado digital.</summary>
     public static User CreateDoctor(
         string name,
         string email,
@@ -212,7 +213,7 @@ public class User : AggregateRoot
             avatarUrl: null,
             createdAt: null,
             updatedAt: null,
-            profileComplete: true);
+            profileComplete: false);
     }
 
     /// <summary>
