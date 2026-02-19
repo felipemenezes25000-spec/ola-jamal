@@ -4,15 +4,10 @@ using RenoveJa.Application.DTOs;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.DTOs.Payments;
 using RenoveJa.Application.DTOs.Video;
-<<<<<<< HEAD
 using RenoveJa.Application.Exceptions;
 using RenoveJa.Application.Helpers;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Validators;
-=======
-using RenoveJa.Application.Helpers;
-using RenoveJa.Application.Interfaces;
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -53,6 +48,36 @@ public class RequestService(
         };
     }
 
+    /// <summary>Monta o endereço do paciente para o PDF (rua, número, complemento - bairro, cidade - UF).</summary>
+    private static string? FormatPatientAddress(User? user)
+    {
+        if (user == null) return null;
+        // Campos separados (rua, número, bairro, complemento)
+        if (!string.IsNullOrWhiteSpace(user.Street) || !string.IsNullOrWhiteSpace(user.Number) || !string.IsNullOrWhiteSpace(user.Neighborhood))
+        {
+            var logradouro = new List<string>();
+            if (!string.IsNullOrWhiteSpace(user.Street)) logradouro.Add(user.Street.Trim());
+            if (!string.IsNullOrWhiteSpace(user.Number)) logradouro.Add(user.Number.Trim());
+            if (!string.IsNullOrWhiteSpace(user.Complement)) logradouro.Add(user.Complement.Trim());
+            var linha1 = string.Join(", ", logradouro);
+            var resto = new List<string>();
+            if (!string.IsNullOrWhiteSpace(user.Neighborhood)) resto.Add(user.Neighborhood.Trim());
+            if (!string.IsNullOrWhiteSpace(user.City)) resto.Add(user.City.Trim());
+            if (!string.IsNullOrWhiteSpace(user.State)) resto.Add(user.State.Trim().ToUpperInvariant());
+            var s = string.IsNullOrEmpty(linha1) ? string.Join(", ", resto) : resto.Count > 0 ? $"{linha1} - {string.Join(", ", resto)}" : linha1;
+            return string.IsNullOrWhiteSpace(s) ? null : s;
+        }
+        // Fallback: Address legado + cidade - UF
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(user.Address)) parts.Add(user.Address.Trim());
+        if (!string.IsNullOrWhiteSpace(user.City)) parts.Add(user.City.Trim());
+        if (!string.IsNullOrWhiteSpace(user.State)) parts.Add(user.State.Trim().ToUpperInvariant());
+        if (parts.Count == 0) return null;
+        if (parts.Count == 1) return parts[0];
+        if (parts.Count == 2) return $"{parts[0]}, {parts[1]}";
+        return $"{parts[0]}, {parts[1]} - {parts[2]}";
+    }
+
     private static string? PrescriptionTypeToDisplay(PrescriptionType? type) => type switch
     {
         PrescriptionType.Simple => "simples",
@@ -61,7 +86,6 @@ public class RequestService(
         _ => null
     };
 
-<<<<<<< HEAD
     private static PrescriptionKind? ParsePrescriptionKind(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
@@ -76,8 +100,6 @@ public class RequestService(
         }
     }
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     /// <summary>
     /// Cria uma solicitação de receita médica (tipo + foto + medicamentos). Status Submitted.
     /// O pagamento só é criado quando o médico aprovar (POST /approve); então o paciente paga e o médico assina.
@@ -92,22 +114,15 @@ public class RequestService(
             throw new InvalidOperationException("User not found");
 
         var prescriptionType = ParsePrescriptionType(request.PrescriptionType);
-<<<<<<< HEAD
         var prescriptionKind = ParsePrescriptionKind(request.PrescriptionKind);
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
         var medicalRequest = MedicalRequest.CreatePrescription(
             userId,
             user.Name,
             prescriptionType,
             request.Medications ?? new List<string>(),
-<<<<<<< HEAD
             request.PrescriptionImages,
             prescriptionKind);
-=======
-            request.PrescriptionImages);
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
 
@@ -699,7 +714,6 @@ public class RequestService(
                                 "A receita deve ter ao menos um medicamento informado para gerar o PDF. Copie a análise da IA e adicione os medicamentos ao aprovar, ou use o botão Reanalisar com IA.");
                         }
 
-<<<<<<< HEAD
                         var kind = request.PrescriptionKind ?? PrescriptionKind.Simple;
                         var validationResult = PrescriptionComplianceValidator.Validate(
                             kind,
@@ -717,8 +731,6 @@ public class RequestService(
                         if (!validationResult.IsValid)
                             throw new PrescriptionValidationException(validationResult.MissingFields, validationResult.Messages);
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
                         var pdfData = new PrescriptionPdfData(
                             RequestId: request.Id,
                             PatientName: request.PatientName ?? "Paciente",
@@ -730,17 +742,13 @@ public class RequestService(
                             Medications: medications,
                             PrescriptionType: PrescriptionTypeToDisplay(request.PrescriptionType) ?? "simples",
                             EmissionDate: DateTime.UtcNow,
-<<<<<<< HEAD
                             AccessCode: request.AccessCode,
                             PrescriptionKind: kind,
                             PatientGender: patientUser?.Gender,
-                            PatientAddress: patientUser?.Address,
+                            PatientAddress: FormatPatientAddress(patientUser),
                             PatientBirthDate: patientUser?.BirthDate,
                             DoctorAddress: doctorProfile.ProfessionalAddress,
                             DoctorPhone: doctorProfile.ProfessionalPhone);
-=======
-                            AccessCode: request.AccessCode);
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
                         var pdfResult = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
@@ -1000,11 +1008,7 @@ public class RequestService(
         return MapRequestToDto(request);
     }
 
-<<<<<<< HEAD
     public async Task<RequestResponseDto> UpdatePrescriptionContentAsync(Guid id, List<string>? medications, string? notes, Guid doctorId, CancellationToken cancellationToken = default, string? prescriptionKind = null)
-=======
-    public async Task<RequestResponseDto> UpdatePrescriptionContentAsync(Guid id, List<string>? medications, string? notes, Guid doctorId, CancellationToken cancellationToken = default)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null) throw new KeyNotFoundException("Solicitação não encontrada");
@@ -1012,12 +1016,8 @@ public class RequestService(
         if (request.RequestType != RequestType.Prescription) throw new InvalidOperationException("Apenas receitas podem ter medicamentos atualizados.");
         if (request.Status != RequestStatus.Paid)
             throw new InvalidOperationException("Só é possível editar medicamentos/notas após o pagamento. O paciente deve pagar antes de editar e assinar.");
-<<<<<<< HEAD
         var pk = prescriptionKind != null ? ParsePrescriptionKind(prescriptionKind) : null;
         request.UpdatePrescriptionContent(medications, notes, pk);
-=======
-        request.UpdatePrescriptionContent(medications, notes);
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         request = await requestRepository.UpdateAsync(request, cancellationToken);
         await CreateNotificationAsync(
             request.PatientId,
@@ -1047,7 +1047,6 @@ public class RequestService(
         return MapRequestToDto(request);
     }
 
-<<<<<<< HEAD
     public async Task<(bool IsValid, IReadOnlyList<string> MissingFields, IReadOnlyList<string> Messages)> ValidatePrescriptionAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
     {
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
@@ -1085,8 +1084,6 @@ public class RequestService(
         return (result.IsValid, result.MissingFields, result.Messages);
     }
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public async Task<byte[]?> GetPrescriptionPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
     {
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
@@ -1106,10 +1103,7 @@ public class RequestService(
         var doctorUser = request.DoctorId.HasValue ? await userRepository.GetByIdAsync(request.DoctorId.Value, cancellationToken) : null;
         var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
 
-<<<<<<< HEAD
         var kind = request.PrescriptionKind ?? PrescriptionKind.Simple;
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         var pdfData = new PrescriptionPdfData(
             request.Id,
             request.PatientName ?? "Paciente",
@@ -1121,17 +1115,13 @@ public class RequestService(
             medications,
             PrescriptionTypeToDisplay(request.PrescriptionType) ?? "simples",
             DateTime.UtcNow,
-<<<<<<< HEAD
             AdditionalNotes: request.Notes,
             PrescriptionKind: kind,
             PatientGender: patientUser?.Gender,
-            PatientAddress: patientUser?.Address,
+            PatientAddress: FormatPatientAddress(patientUser),
             PatientBirthDate: patientUser?.BirthDate,
             DoctorAddress: doctorProfile?.ProfessionalAddress,
             DoctorPhone: doctorProfile?.ProfessionalPhone);
-=======
-            AdditionalNotes: request.Notes);
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
         var result = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
         return result.Success ? result.PdfBytes : null;
@@ -1354,10 +1344,7 @@ public class RequestService(
             EnumHelper.ToSnakeCase(request.RequestType),
             EnumHelper.ToSnakeCase(request.Status),
             PrescriptionTypeToDisplay(request.PrescriptionType),
-<<<<<<< HEAD
             request.PrescriptionKind.HasValue ? EnumHelper.ToSnakeCase(request.PrescriptionKind.Value) : null,
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             request.Medications.Count > 0 ? request.Medications : null,
             request.PrescriptionImages.Count > 0 ? request.PrescriptionImages : null,
             request.ExamType,

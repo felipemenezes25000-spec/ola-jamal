@@ -54,6 +54,13 @@ export const completeProfileSchema = z.object({
         .length(11, 'CPF deve ter 11 dígitos')
         .regex(/^\d{11}$/, 'CPF deve conter apenas números')
     ),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  neighborhood: z.string().optional(),
+  complement: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().max(2, 'UF deve ter 2 letras').optional(),
+  postalCode: z.string().optional(),
 });
 
 export const changePasswordSchema = z

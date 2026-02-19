@@ -6,13 +6,9 @@ namespace RenoveJa.Application.DTOs.Requests;
 public record CreatePrescriptionRequestDto(
     string PrescriptionType,
     List<string>? Medications = null,
-<<<<<<< HEAD
     List<string>? PrescriptionImages = null,
     /// <summary>Tipo de receita: simple, antimicrobial, controlled_special.</summary>
     string? PrescriptionKind = null
-=======
-    List<string>? PrescriptionImages = null
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 );
 
 public record CreateExamRequestDto(
@@ -64,10 +60,7 @@ public record RequestResponseDto(
     string RequestType,
     string Status,
     string? PrescriptionType,
-<<<<<<< HEAD
     string? PrescriptionKind,
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     List<string>? Medications,
     List<string>? PrescriptionImages,
     string? ExamType,
@@ -91,13 +84,8 @@ public record RequestResponseDto(
     string? AiMessageToUser = null
 );
 
-<<<<<<< HEAD
 /// <summary>Médico atualiza medicamentos, notas e tipo de receita antes da assinatura.</summary>
 public record UpdatePrescriptionContentDto(List<string>? Medications = null, string? Notes = null, string? PrescriptionKind = null);
-=======
-/// <summary>Médico atualiza medicamentos e notas da receita antes da assinatura.</summary>
-public record UpdatePrescriptionContentDto(List<string>? Medications = null, string? Notes = null);
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 /// <summary>Médico atualiza exames e notas do pedido antes da assinatura.</summary>
 public record UpdateExamContentDto(List<string>? Exams = null, string? Notes = null);

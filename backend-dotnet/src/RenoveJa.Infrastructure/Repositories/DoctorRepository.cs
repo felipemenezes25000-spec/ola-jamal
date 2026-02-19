@@ -114,13 +114,9 @@ public class DoctorRepository(SupabaseClient supabase) : IDoctorRepository
             model.ActiveCertificateId,
             model.CrmValidated,
             model.CrmValidatedAt,
-<<<<<<< HEAD
             model.CreatedAt,
             model.ProfessionalAddress,
             model.ProfessionalPhone);
-=======
-            model.CreatedAt);
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 
     private static DoctorProfileModel MapToModel(DoctorProfile profile)

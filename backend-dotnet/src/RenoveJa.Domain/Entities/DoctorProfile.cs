@@ -8,40 +8,26 @@ public class DoctorProfile : Entity
     public string Crm { get; private set; }
     public string CrmState { get; private set; }
     public string Specialty { get; private set; }
-<<<<<<< HEAD
     public string? ProfessionalAddress { get; private set; }
     public string? ProfessionalPhone { get; private set; }
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public string? Bio { get; private set; }
     public decimal Rating { get; private set; }
     public int TotalConsultations { get; private set; }
     public bool Available { get; private set; }
-<<<<<<< HEAD
 
     // Referência ao certificado digital ativo
     public Guid? ActiveCertificateId { get; private set; }
 
-=======
-    
-    // Referência ao certificado digital ativo
-    public Guid? ActiveCertificateId { get; private set; }
-    
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     // Validação CRM
     public bool CrmValidated { get; private set; }
     public DateTime? CrmValidatedAt { get; private set; }
 
-<<<<<<< HEAD
     private DoctorProfile() : base()
     {
         Crm = null!;
         CrmState = null!;
         Specialty = null!;
     }
-=======
-    private DoctorProfile() : base() { }
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private DoctorProfile(
         Guid id,
@@ -113,11 +99,7 @@ public class DoctorProfile : Entity
             false);
     }
 
-<<<<<<< HEAD
     public void UpdateProfile(string? bio = null, string? specialty = null, string? professionalAddress = null, string? professionalPhone = null)
-=======
-    public void UpdateProfile(string? bio = null, string? specialty = null)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         if (!string.IsNullOrWhiteSpace(bio))
         {
@@ -132,14 +114,11 @@ public class DoctorProfile : Entity
                 throw new DomainException($"Specialty cannot exceed {SpecialtyMaxLength} characters");
             Specialty = specialty;
         }
-<<<<<<< HEAD
 
         if (professionalAddress != null)
             ProfessionalAddress = professionalAddress;
         if (professionalPhone != null)
             ProfessionalPhone = professionalPhone;
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 
     public void SetAvailability(bool available)
@@ -189,13 +168,9 @@ public class DoctorProfile : Entity
         Guid? activeCertificateId,
         bool crmValidated,
         DateTime? crmValidatedAt,
-<<<<<<< HEAD
         DateTime createdAt,
         string? professionalAddress = null,
         string? professionalPhone = null)
-=======
-        DateTime createdAt)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         return new DoctorProfile(
             id,
@@ -211,13 +186,9 @@ public class DoctorProfile : Entity
         {
             ActiveCertificateId = activeCertificateId,
             CrmValidated = crmValidated,
-<<<<<<< HEAD
             CrmValidatedAt = crmValidatedAt,
             ProfessionalAddress = professionalAddress,
             ProfessionalPhone = professionalPhone
-=======
-            CrmValidatedAt = crmValidatedAt
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         };
     }
 }

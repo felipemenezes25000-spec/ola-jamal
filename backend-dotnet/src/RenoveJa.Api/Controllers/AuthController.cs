@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -12,7 +13,11 @@ namespace RenoveJa.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService authService, ILogger<AuthController> logger) : ControllerBase
+public class AuthController(
+    IAuthService authService,
+    IValidator<RegisterRequestDto> registerValidator,
+    IValidator<RegisterDoctorRequestDto> registerDoctorValidator,
+    ILogger<AuthController> logger) : ControllerBase
 {
     /// <summary>
     /// Registra um novo paciente na plataforma.
@@ -23,6 +28,10 @@ public class AuthController(IAuthService authService, ILogger<AuthController> lo
         [FromBody] RegisterRequestDto request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await registerValidator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+            throw new ValidationException(validationResult.Errors);
+
         try
         {
             var response = await authService.RegisterAsync(request, cancellationToken);
@@ -30,7 +39,6 @@ public class AuthController(IAuthService authService, ILogger<AuthController> lo
         }
         catch (Exception e)
         {
-            Console.WriteLine(e.Message);
             logger.LogError(e, "Auth Register falhou: {Email}", request.Email);
             throw;
         }
@@ -44,6 +52,10 @@ public class AuthController(IAuthService authService, ILogger<AuthController> lo
         [FromBody] RegisterDoctorRequestDto request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await registerDoctorValidator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+            throw new ValidationException(validationResult.Errors);
+
         var response = await authService.RegisterDoctorAsync(request, cancellationToken);
         return Ok(response);
     }

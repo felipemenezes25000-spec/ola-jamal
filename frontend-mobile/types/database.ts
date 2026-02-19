@@ -16,6 +16,13 @@ export interface UserDto {
   profileComplete: boolean;
   createdAt: string;
   updatedAt: string;
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  complement?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
 }
 
 export interface AuthResponseDto {

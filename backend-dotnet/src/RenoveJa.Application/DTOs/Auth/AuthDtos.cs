@@ -5,9 +5,17 @@ public record RegisterRequestDto(
     string Name,
     string Email,
     string Password,
+    string ConfirmPassword,
     string Phone,
     string Cpf,
-    DateTime? BirthDate = null
+    DateTime? BirthDate = null,
+    string? Street = null,
+    string? Number = null,
+    string? Neighborhood = null,
+    string? Complement = null,
+    string? City = null,
+    string? State = null,
+    string? PostalCode = null
 );
 
 /// <summary>DTO de registro de médico.</summary>
@@ -15,6 +23,7 @@ public record RegisterDoctorRequestDto(
     string Name,
     string Email,
     string Password,
+    string ConfirmPassword,
     string Phone,
     string Cpf,
     string Crm,
@@ -63,7 +72,14 @@ public record UserDto(
     string Role,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    bool ProfileComplete = true
+    bool ProfileComplete = true,
+    string? Street = null,
+    string? Number = null,
+    string? Neighborhood = null,
+    string? Complement = null,
+    string? City = null,
+    string? State = null,
+    string? PostalCode = null
 );
 
 /// <summary>DTO para concluir cadastro (usuários criados via Google). Para médico, preencher também Crm, CrmState e Specialty.</summary>
@@ -74,7 +90,14 @@ public record CompleteProfileRequestDto(
     string? Crm = null,
     string? CrmState = null,
     string? Specialty = null,
-    string? Bio = null
+    string? Bio = null,
+    string? Street = null,
+    string? Number = null,
+    string? Neighborhood = null,
+    string? Complement = null,
+    string? City = null,
+    string? State = null,
+    string? PostalCode = null
 );
 
 /// <summary>DTO de perfil de médico.</summary>

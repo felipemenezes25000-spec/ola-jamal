@@ -22,15 +22,24 @@ interface SignUpData {
   name: string;
   email: string;
   password: string;
+  confirmPassword: string;
   phone: string;
   cpf: string;
   birthDate?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  complement?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
 }
 
 interface DoctorSignUpData {
   name: string;
   email: string;
   password: string;
+  confirmPassword: string;
   phone: string;
   cpf: string;
   crm: string;
@@ -44,6 +53,13 @@ interface CompleteProfileData {
   phone?: string;
   cpf?: string;
   birthDate?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  complement?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
   crm?: string;
   crmState?: string;
   specialty?: string;
@@ -179,9 +195,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: data.name,
         email: data.email,
         password: data.password,
+        confirmPassword: data.confirmPassword,
         phone: data.phone,
         cpf: data.cpf,
         birthDate: data.birthDate,
+        street: data.street,
+        number: data.number,
+        neighborhood: data.neighborhood,
+        complement: data.complement,
+        city: data.city,
+        state: data.state,
+        postalCode: data.postalCode,
       });
 
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
@@ -203,6 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: data.name,
           email: data.email,
           password: data.password,
+          confirmPassword: data.confirmPassword,
           phone: data.phone,
           cpf: data.cpf,
           crm: data.crm,

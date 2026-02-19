@@ -12,15 +12,11 @@ public class Notification : Entity
     public bool Read { get; private set; }
     public Dictionary<string, object>? Data { get; private set; }
 
-<<<<<<< HEAD
     private Notification() : base()
     {
         Title = null!;
         Message = null!;
     }
-=======
-    private Notification() : base() { }
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private Notification(
         Guid id,

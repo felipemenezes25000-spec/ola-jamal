@@ -6,6 +6,7 @@ using RenoveJa.Application.Configuration;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Auth;
 using RenoveJa.Application.DTOs.Auth;
+using RenoveJa.Application.Exceptions;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Domain.Entities;
 
@@ -48,6 +49,7 @@ public class AuthServiceTests
             "John Doe",
             "john@example.com",
             "password123",
+            "password123",
             "11987654321",
             "12345678901");
 
@@ -78,6 +80,7 @@ public class AuthServiceTests
             "John Doe",
             "john@example.com",
             "password123",
+            "password123",
             "11987654321",
             "12345678901");
 
@@ -86,8 +89,8 @@ public class AuthServiceTests
 
         Func<Task> act = async () => await _authService.RegisterAsync(request);
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Email already registered");
+        await act.Should().ThrowAsync<AuthConflictException>()
+            .WithMessage("*Este e-mail já está cadastrado*");
     }
 
     [Fact]

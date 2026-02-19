@@ -1,42 +1,61 @@
 namespace RenoveJa.Application.Helpers;
 
-/// <summary>Utilitários para validação e normalização de CPF.</summary>
+/// <summary>
+/// Validação de CPF brasileiro (algoritmo módulo 11).
+/// </summary>
 public static class CpfHelper
 {
-    /// <summary>Valida CPF pelo algoritmo módulo 11. Rejeita sequências como 11111111111.</summary>
-    /// <param name="cpf">CPF com 11 dígitos (somente números).</param>
-    public static bool IsValid(string cpf)
+    /// <summary>
+    /// Extrai apenas os dígitos do CPF (11 caracteres).
+    /// </summary>
+    public static string ExtractDigits(string cpf)
     {
-        if (string.IsNullOrEmpty(cpf) || cpf.Length != 11)
-            return false;
-        if (cpf.Distinct().Count() == 1)
-            return false;
-        var sum = 0;
-        for (var i = 0; i < 9; i++)
-            sum += (cpf[i] - '0') * (10 - i);
-        var rem = sum % 11;
-        var d1 = rem < 2 ? 0 : 11 - rem;
-        if (cpf[9] - '0' != d1) return false;
-        sum = 0;
-        for (var i = 0; i < 10; i++)
-            sum += (cpf[i] - '0') * (11 - i);
-        rem = sum % 11;
-        var d2 = rem < 2 ? 0 : 11 - rem;
-        return cpf[10] - '0' == d2;
-    }
-
-    /// <summary>Extrai 11 dígitos do CPF e retorna null se insuficientes.</summary>
-    public static string? ExtractDigits(string? cpf)
-    {
-        if (string.IsNullOrWhiteSpace(cpf)) return null;
+        if (string.IsNullOrWhiteSpace(cpf)) return string.Empty;
         var digits = new string(cpf.Where(char.IsDigit).ToArray());
-        return digits.Length >= 11 ? digits.Length > 11 ? digits[..11] : digits : null;
+        return digits.Length >= 11 ? digits[..11] : digits;
     }
 
-    /// <summary>Verifica se o CPF é válido para envio ao Mercado Pago (11 dígitos + algoritmo).</summary>
+    /// <summary>
+    /// Valida CPF para uso em pagamentos (Mercado Pago etc).
+    /// </summary>
     public static bool IsValidForPayment(string? cpf)
     {
-        var digits = ExtractDigits(cpf);
-        return digits != null && IsValid(digits);
+        return !string.IsNullOrWhiteSpace(cpf) && IsValid(cpf);
+    }
+
+    /// <summary>
+    /// Valida se o CPF (11 dígitos) é válido.
+    /// Rejeita CPFs com todos os dígitos iguais.
+    /// </summary>
+    public static bool IsValid(string cpf)
+    {
+        if (string.IsNullOrWhiteSpace(cpf)) return false;
+
+        var digits = new string(cpf.Where(char.IsDigit).ToArray());
+        if (digits.Length != 11) return false;
+
+        // Rejeita CPFs com todos os dígitos iguais
+        if (digits.Distinct().Count() == 1) return false;
+
+        var multiplicador1 = new[] { 10, 9, 8, 7, 6, 5, 4, 3, 2 };
+        var multiplicador2 = new[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2 };
+
+        var tempCpf = digits[..9];
+        var soma = 0;
+        for (var i = 0; i < 9; i++)
+            soma += (tempCpf[i] - '0') * multiplicador1[i];
+
+        var resto = soma % 11;
+        resto = resto < 2 ? 0 : 11 - resto;
+        tempCpf += (char)('0' + resto);
+
+        soma = 0;
+        for (var i = 0; i < 10; i++)
+            soma += (tempCpf[i] - '0') * multiplicador2[i];
+
+        resto = soma % 11;
+        resto = resto < 2 ? 0 : 11 - resto;
+
+        return digits.EndsWith(tempCpf[9..] + (char)('0' + resto));
     }
 }

@@ -6,10 +6,7 @@ using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Payments;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Payments;
-<<<<<<< HEAD
 using RenoveJa.Domain.Entities;
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 using RenoveJa.Domain.Interfaces;
 using System.Security.Claims;
 
@@ -197,19 +194,11 @@ public class PaymentsController(
         var contentType = Request.ContentType ?? "null";
         var contentLength = Request.ContentLength ?? 0;
         var queryKeys = string.Join(", ", Request.Query.Keys);
-<<<<<<< HEAD
 
         Console.WriteLine($"[WEBHOOK-IN] QueryString={queryStringRaw}, ContentType={contentType}, ContentLength={contentLength}, QueryKeys=[{queryKeys}]");
         logger.LogInformation("[WEBHOOK-IN] QueryString={QueryString}, ContentType={ContentType}, ContentLength={ContentLength}, QueryKeys=[{QueryKeys}]",
             queryStringRaw, contentType, contentLength, queryKeys);
 
-=======
-        
-        Console.WriteLine($"[WEBHOOK-IN] QueryString={queryStringRaw}, ContentType={contentType}, ContentLength={contentLength}, QueryKeys=[{queryKeys}]");
-        logger.LogInformation("[WEBHOOK-IN] QueryString={QueryString}, ContentType={ContentType}, ContentLength={ContentLength}, QueryKeys=[{QueryKeys}]",
-            queryStringRaw, contentType, contentLength, queryKeys);
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         string? dataIdFromBody = null;
         string? actionFromBody = null;
         MercadoPagoWebhookDto? parsedWebhook = null;
@@ -223,21 +212,12 @@ public class PaymentsController(
             var rawBody = await reader.ReadToEndAsync(cancellationToken);
             Request.Body.Position = 0;
 
-<<<<<<< HEAD
             var bodyPreview = rawBody != null && rawBody.Length > 0
                 ? rawBody.Substring(0, Math.Min(500, rawBody.Length))
                 : "(vazio)";
 
             Console.WriteLine($"[WEBHOOK-BODY] Body lido. Length={rawBody?.Length ?? 0}, Preview={bodyPreview}");
             logger.LogInformation("Payments Webhook: body length={Length}, contentType={ContentType}, preview={Preview}",
-=======
-            var bodyPreview = rawBody != null && rawBody.Length > 0 
-                ? rawBody.Substring(0, Math.Min(500, rawBody.Length))
-                : "(vazio)";
-            
-            Console.WriteLine($"[WEBHOOK-BODY] Body lido. Length={rawBody?.Length ?? 0}, Preview={bodyPreview}");
-            logger.LogInformation("Payments Webhook: body length={Length}, contentType={ContentType}, preview={Preview}", 
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
                 rawBody?.Length ?? 0, Request.ContentType ?? "null", bodyPreview);
 
             if (!string.IsNullOrWhiteSpace(rawBody))
@@ -246,17 +226,10 @@ public class PaymentsController(
                 {
                     using var doc = JsonDocument.Parse(rawBody);
                     var root = doc.RootElement;
-<<<<<<< HEAD
 
                     JsonElement dataEl = default;
                     JsonElement idEl = default;
 
-=======
-                    
-                    JsonElement dataEl = default;
-                    JsonElement idEl = default;
-                    
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
                     // Extrair data.id do JSON (formato: { "data": { "id": "145782442303" } })
                     if (root.TryGetProperty("data", out dataEl) && dataEl.TryGetProperty("id", out idEl))
                     {
@@ -264,11 +237,7 @@ public class PaymentsController(
                             ? idEl.GetInt64().ToString()
                             : idEl.GetString();
                     }
-<<<<<<< HEAD
 
-=======
-                    
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
                     // Extrair action (formato: { "action": "payment.updated" })
                     if (root.TryGetProperty("action", out var actionEl))
                     {
@@ -308,11 +277,7 @@ public class PaymentsController(
                         {
                             dataDict["id"] = idEl.Clone();
                         }
-<<<<<<< HEAD
 
-=======
-                        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
                         parsedWebhook = new MercadoPagoWebhookDto(
                             actionFromBody ?? "payment.updated",
                             dataIdFromBody,
@@ -327,11 +292,7 @@ public class PaymentsController(
                 }
                 catch (JsonException jsonEx)
                 {
-<<<<<<< HEAD
                     bodyPreview = rawBody != null && rawBody.Length > 0
-=======
-                    bodyPreview = rawBody != null && rawBody.Length > 0 
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
                         ? rawBody.Substring(0, Math.Min(200, rawBody.Length))
                         : "(vazio)";
                     logger.LogWarning(jsonEx, "Payments Webhook: body não é JSON válido. Body: {Body}", bodyPreview);
@@ -349,15 +310,9 @@ public class PaymentsController(
 
         // Fallback: tentar query string (alguns webhooks antigos do MP podem usar query)
         var dataIdFromQuery = GetPaymentIdFromQuery();
-<<<<<<< HEAD
 
         Console.WriteLine($"[WEBHOOK-QUERY] dataIdFromQuery={dataIdFromQuery ?? "null"}, dataIdFromBody={dataIdFromBody ?? "null"}");
         logger.LogInformation("[WEBHOOK-QUERY] dataIdFromQuery={FromQuery}, dataIdFromBody={FromBody}",
-=======
-        
-        Console.WriteLine($"[WEBHOOK-QUERY] dataIdFromQuery={dataIdFromQuery ?? "null"}, dataIdFromBody={dataIdFromBody ?? "null"}");
-        logger.LogInformation("[WEBHOOK-QUERY] dataIdFromQuery={FromQuery}, dataIdFromBody={FromBody}", 
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             dataIdFromQuery ?? "null", dataIdFromBody ?? "null");
 
         var dataIdForHmac = dataIdFromQuery ?? dataIdFromBody;
@@ -381,11 +336,7 @@ public class PaymentsController(
         {
             logger.LogInformation("Payments Webhook: construindo DTO a partir do ID encontrado. dataId={DataId}, action={Action}",
                 dataIdForProcessing, actionFromBody ?? "payment.updated");
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             // Fallback: construir DTO a partir do ID encontrado (query string ou body parseado)
             try
             {
@@ -427,11 +378,7 @@ public class PaymentsController(
         var webhookSecret = mpConfig.Value.WebhookSecret;
         var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")?.Equals("Development", StringComparison.OrdinalIgnoreCase) == true;
         var xRequestId = Request.Headers["x-request-id"].FirstOrDefault();
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         if (!isDevelopment && !string.IsNullOrWhiteSpace(webhookSecret) && !webhookSecret.Contains("YOUR_"))
         {
             var xSignature = Request.Headers["x-signature"].FirstOrDefault();
@@ -458,17 +405,10 @@ public class PaymentsController(
         }
         catch { /* best effort */ }
         var sourceIp = HttpContext.Connection.RemoteIpAddress?.ToString();
-<<<<<<< HEAD
         var requestHeaders = string.Join("; ", Request.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value.ToArray() ?? Array.Empty<string>())}"));
 
         // Verificar idempotência: se já existe webhook com mesmo x-request-id, marcar como duplicado
         WebhookEvent? webhookEvent = null;
-=======
-        var requestHeaders = string.Join("; ", Request.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
-
-        // Verificar idempotência: se já existe webhook com mesmo x-request-id, marcar como duplicado
-        Domain.Entities.WebhookEvent? webhookEvent = null;
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         if (!string.IsNullOrEmpty(xRequestId))
         {
             try
@@ -492,11 +432,7 @@ public class PaymentsController(
         }
 
         // Criar novo WebhookEvent
-<<<<<<< HEAD
         webhookEvent = new WebhookEvent(
-=======
-        webhookEvent = new Domain.Entities.WebhookEvent(
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             correlationId: null, // Será preenchido se encontrarmos PaymentAttempt relacionado
             mercadoPagoPaymentId: dataIdForProcessing,
             mercadoPagoRequestId: xRequestId,
@@ -533,11 +469,7 @@ public class PaymentsController(
         try
         {
             await paymentService.ProcessWebhookAsync(parsedWebhook, cancellationToken);
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             // Marcar como processado com sucesso (se webhookEvent foi criado)
             if (webhookEvent != null)
             {
@@ -595,24 +527,14 @@ public class PaymentsController(
         var queryStringRaw = Request.QueryString.Value ?? "";
         Console.WriteLine($"[GET-PAYMENT-ID] QueryString bruto: {queryStringRaw}");
         Console.WriteLine($"[GET-PAYMENT-ID] Query.Keys: [{string.Join(", ", Request.Query.Keys)}]");
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         // 1) Acesso direto (funciona na maioria dos casos)
         var dataIdDirect = Request.Query["data.id"].FirstOrDefault();
         var dataIdUnderscore = Request.Query["data_id"].FirstOrDefault();
         var idDirect = Request.Query["id"].FirstOrDefault();
-<<<<<<< HEAD
 
         Console.WriteLine($"[GET-PAYMENT-ID] Tentativa 1 - data.id={dataIdDirect ?? "null"}, data_id={dataIdUnderscore ?? "null"}, id={idDirect ?? "null"}");
 
-=======
-        
-        Console.WriteLine($"[GET-PAYMENT-ID] Tentativa 1 - data.id={dataIdDirect ?? "null"}, data_id={dataIdUnderscore ?? "null"}, id={idDirect ?? "null"}");
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         var fromCollection = dataIdDirect ?? dataIdUnderscore ?? idDirect;
         if (!string.IsNullOrWhiteSpace(fromCollection) && fromCollection.All(char.IsDigit))
         {

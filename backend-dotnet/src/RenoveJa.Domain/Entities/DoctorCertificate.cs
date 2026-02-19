@@ -9,11 +9,7 @@ namespace RenoveJa.Domain.Entities;
 public class DoctorCertificate : Entity
 {
     public Guid DoctorProfileId { get; private set; }
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     // Dados do certificado
     public string SubjectName { get; private set; } // CN=MEDICO NOME, OU=CRM, O=ICP-Brasil...
     public string? Cpf { get; private set; }
@@ -22,44 +18,27 @@ public class DoctorCertificate : Entity
     public string SerialNumber { get; private set; }
     public DateTime NotBefore { get; private set; }
     public DateTime NotAfter { get; private set; }
-<<<<<<< HEAD
 
     // Referência ao arquivo PFX criptografado
     public string PfxStoragePath { get; private set; } // Caminho no storage (ex: Supabase)
     public string PfxFileName { get; private set; }
 
-=======
-    
-    // Referência ao arquivo PFX criptografado
-    public string PfxStoragePath { get; private set; } // Caminho no storage (ex: Supabase)
-    public string PfxFileName { get; private set; }
-    
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     // Status
     public bool IsValid { get; private set; }
     public bool IsExpired => DateTime.UtcNow > NotAfter;
     public bool IsRevoked { get; private set; }
     public DateTime? RevokedAt { get; private set; }
     public string? RevocationReason { get; private set; }
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     // Validação
     public bool ValidatedAtRegistration { get; private set; }
     public DateTime? LastValidationDate { get; private set; }
     public string? LastValidationResult { get; private set; }
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     // Auditoria
     public DateTime UploadedAt { get; private set; }
     public string? UploadedByIp { get; private set; }
 
-<<<<<<< HEAD
     private DoctorCertificate() : base()
     {
         SubjectName = null!;
@@ -68,9 +47,6 @@ public class DoctorCertificate : Entity
         PfxStoragePath = null!;
         PfxFileName = null!;
     }
-=======
-    private DoctorCertificate() : base() { }
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private DoctorCertificate(
         Guid id,
@@ -118,7 +94,6 @@ public class DoctorCertificate : Entity
     {
         if (doctorProfileId == Guid.Empty)
             throw new DomainException("Doctor profile ID is required");
-<<<<<<< HEAD
 
         if (string.IsNullOrWhiteSpace(subjectName))
             throw new DomainException("Subject name is required");
@@ -126,15 +101,6 @@ public class DoctorCertificate : Entity
         if (string.IsNullOrWhiteSpace(pfxStoragePath))
             throw new DomainException("PFX storage path is required");
 
-=======
-        
-        if (string.IsNullOrWhiteSpace(subjectName))
-            throw new DomainException("Subject name is required");
-        
-        if (string.IsNullOrWhiteSpace(pfxStoragePath))
-            throw new DomainException("PFX storage path is required");
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         if (notAfter <= DateTime.UtcNow)
             throw new DomainException("Certificate is expired and cannot be registered");
 
@@ -228,11 +194,7 @@ public class DoctorCertificate : Entity
     {
         if (IsRevoked)
             return;
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         IsRevoked = true;
         RevokedAt = DateTime.UtcNow;
         RevocationReason = reason;
@@ -254,11 +216,7 @@ public class DoctorCertificate : Entity
     {
         if (IsExpired)
             return TimeSpan.Zero;
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         return NotAfter - DateTime.UtcNow;
     }
 

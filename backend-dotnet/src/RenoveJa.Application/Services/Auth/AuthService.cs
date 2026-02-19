@@ -3,6 +3,7 @@ using Google.Apis.Auth;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Auth;
+using RenoveJa.Application.Exceptions;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
@@ -31,7 +32,7 @@ public class AuthService(
         CancellationToken cancellationToken = default)
     {
         if (await userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
-            throw new InvalidOperationException("Email already registered");
+            throw new AuthConflictException("Este e-mail já está cadastrado. Use outro ou faça login.");
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreatePatient(
@@ -40,7 +41,14 @@ public class AuthService(
             passwordHash,
             request.Cpf,
             request.Phone,
-            request.BirthDate);
+            request.BirthDate,
+            request.Street,
+            request.Number,
+            request.Neighborhood,
+            request.Complement,
+            request.City,
+            request.State,
+            request.PostalCode);
 
         user = await userRepository.CreateAsync(user, cancellationToken);
 
@@ -66,7 +74,7 @@ public class AuthService(
         CancellationToken cancellationToken = default)
     {
         if (await userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
-            throw new InvalidOperationException("Email already registered");
+            throw new AuthConflictException("Este e-mail já está cadastrado. Use outro ou faça login.");
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreateDoctor(
@@ -293,7 +301,7 @@ public class AuthService(
             if (!MedicalSpecialtyDisplay.IsValid(request.Specialty))
                 throw new InvalidOperationException("Invalid specialty. Use GET /api/specialties for valid values.");
 
-            user.SetContactInfo(request.Phone, request.Cpf, request.BirthDate);
+            user.SetContactInfo(request.Phone, request.Cpf, request.BirthDate, street: request.Street, number: request.Number, neighborhood: request.Neighborhood, complement: request.Complement, city: request.City, state: request.State, postalCode: request.PostalCode);
             user = await userRepository.UpdateAsync(user, cancellationToken);
 
             try
@@ -312,7 +320,7 @@ public class AuthService(
         }
         else
         {
-            user.CompleteProfile(request.Phone, request.Cpf, request.BirthDate);
+            user.CompleteProfile(request.Phone, request.Cpf, request.BirthDate, request.Street, request.Number, request.Neighborhood, request.Complement, request.City, request.State, request.PostalCode);
             user = await userRepository.UpdateAsync(user, cancellationToken);
         }
 
@@ -447,7 +455,14 @@ public class AuthService(
             user.Role.ToString().ToLowerInvariant(),
             user.CreatedAt,
             user.UpdatedAt,
-            user.ProfileComplete);
+            user.ProfileComplete,
+            user.Street,
+            user.Number,
+            user.Neighborhood,
+            user.Complement,
+            user.City,
+            user.State,
+            user.PostalCode);
     }
 
     private static DoctorProfileDto MapDoctorProfileToDto(DoctorProfile profile)

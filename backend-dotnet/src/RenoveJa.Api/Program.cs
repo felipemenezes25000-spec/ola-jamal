@@ -31,7 +31,6 @@ using Microsoft.Extensions.Logging;
 using System.Threading.RateLimiting;
 using Serilog;
 
-<<<<<<< HEAD
 // Carrega .env da pasta do projeto e garante Supabase no Environment (evita 400 por ServiceKey)
 static string? FindEnvPath()
 {
@@ -91,10 +90,6 @@ if (!string.IsNullOrEmpty(envPath))
 }
 else
     Env.TraversePath().Load();
-=======
-// Carrega .env da pasta do projeto (sobrescreve env vars; permite centralizar credenciais)
-Env.TraversePath().Load();
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -149,7 +144,6 @@ builder.Services.AddSwaggerGen(options =>
 // Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
-<<<<<<< HEAD
 // Configure Supabase: usar _envVars lido do .env (garante que a ServiceKey venha do arquivo)
 builder.Services.Configure<SupabaseConfig>(options =>
 {
@@ -158,11 +152,6 @@ builder.Services.Configure<SupabaseConfig>(options =>
     options.ServiceKey = (_envVars.GetValueOrDefault("Supabase__ServiceKey") ?? Environment.GetEnvironmentVariable("Supabase__ServiceKey") ?? section["ServiceKey"])?.Trim() ?? string.Empty;
     options.DatabaseUrl = (_envVars.GetValueOrDefault("Supabase__DatabaseUrl") ?? Environment.GetEnvironmentVariable("Supabase__DatabaseUrl") ?? section["DatabaseUrl"])?.Trim();
 });
-=======
-// Configure Supabase
-builder.Services.Configure<SupabaseConfig>(
-    builder.Configuration.GetSection("Supabase"));
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 // Configure Google Auth (login com Google)
 builder.Services.Configure<GoogleAuthConfig>(
@@ -287,17 +276,12 @@ builder.Services.AddCors(options =>
     {
         var devOrigins = new[]
         {
-<<<<<<< HEAD
             "http://localhost:5173",
             "http://127.0.0.1:5173",
             "http://localhost:8081",
             "http://127.0.0.1:8081",
             "http://localhost:8082",
             "http://127.0.0.1:8082",
-=======
-            "http://localhost:8081",
-            "http://127.0.0.1:8081",
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             "http://localhost:19006",
             "http://127.0.0.1:19006",
             "http://localhost:3000",

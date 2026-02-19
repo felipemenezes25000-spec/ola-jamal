@@ -19,6 +19,8 @@ const LOGIN_FOCUS_DEBUG = __DEV__ && false;
 
 interface AppInputProps extends TextInputProps {
   label?: string;
+  /** Exibe asterisco vermelho ao lado do label (campo obrigatório). */
+  required?: boolean;
   error?: string;
   hint?: string;
   leftIcon?: keyof typeof Ionicons.glyphMap;
@@ -29,6 +31,7 @@ interface AppInputProps extends TextInputProps {
 
 export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
   label,
+  required,
   error,
   hint,
   leftIcon,
@@ -90,7 +93,12 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label ? (
+        <Text style={styles.label}>
+          {label}
+          {required ? <Text style={styles.requiredAsterisk}> *</Text> : null}
+        </Text>
+      ) : null}
       <View
         style={[
           styles.inputContainer,
@@ -143,6 +151,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: c.text.primary,
     marginBottom: 6,
+  },
+  requiredAsterisk: {
+    color: c.status.error,
+    fontWeight: '700',
   },
   inputContainer: {
     flexDirection: 'row',

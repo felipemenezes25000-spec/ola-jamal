@@ -23,10 +23,7 @@ public class RequestDtosTests
             "prescription",       // RequestType
             "submitted",          // Status
             "simple",             // PrescriptionType
-<<<<<<< HEAD
             null,                 // PrescriptionKind
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             new List<string> { "Med1" }, // Medications
             null,                 // PrescriptionImages
             null,                 // ExamType

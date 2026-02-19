@@ -17,20 +17,30 @@ public class User : AggregateRoot
     public Phone? Phone { get; private set; }
     public string? Cpf { get; private set; }
     public DateTime? BirthDate { get; private set; }
-<<<<<<< HEAD
     /// <summary>Sexo: M, F, Outro, Não informado. Obrigatório para receita antimicrobiana.</summary>
     public string? Gender { get; private set; }
-    /// <summary>Endereço completo. Obrigatório para receita de controle especial.</summary>
+    /// <summary>Endereço completo (legado). Use Street/Number/Neighborhood/Complement quando disponível.</summary>
     public string? Address { get; private set; }
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+    /// <summary>Rua (logradouro).</summary>
+    public string? Street { get; private set; }
+    /// <summary>Número.</summary>
+    public string? Number { get; private set; }
+    /// <summary>Bairro.</summary>
+    public string? Neighborhood { get; private set; }
+    /// <summary>Complemento.</summary>
+    public string? Complement { get; private set; }
+    /// <summary>Cidade.</summary>
+    public string? City { get; private set; }
+    /// <summary>UF (2 caracteres).</summary>
+    public string? State { get; private set; }
+    /// <summary>CEP.</summary>
+    public string? PostalCode { get; private set; }
     public string? AvatarUrl { get; private set; }
     public UserRole Role { get; private set; }
     public DateTime UpdatedAt { get; private set; }
     /// <summary>Indica se o cadastro foi concluído (phone, CPF etc.). Usuários criados via Google iniciam com false.</summary>
     public bool ProfileComplete { get; private set; }
 
-<<<<<<< HEAD
     private User() : base()
     {
         Name = null!;
@@ -38,9 +48,6 @@ public class User : AggregateRoot
         PasswordHash = null!;
         Role = default; // Enum
     }
-=======
-    private User() : base() { }
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private User(
         Guid id,
@@ -51,11 +58,15 @@ public class User : AggregateRoot
         Phone? phone = null,
         string? cpf = null,
         DateTime? birthDate = null,
-<<<<<<< HEAD
         string? gender = null,
         string? address = null,
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+        string? street = null,
+        string? number = null,
+        string? neighborhood = null,
+        string? complement = null,
+        string? city = null,
+        string? state = null,
+        string? postalCode = null,
         string? avatarUrl = null,
         DateTime? createdAt = null,
         DateTime? updatedAt = null,
@@ -69,11 +80,15 @@ public class User : AggregateRoot
         Phone = phone;
         Cpf = cpf;
         BirthDate = birthDate;
-<<<<<<< HEAD
         Gender = gender;
         Address = address;
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+        Street = street;
+        Number = number;
+        Neighborhood = neighborhood;
+        Complement = complement;
+        City = city;
+        State = state;
+        PostalCode = postalCode;
         AvatarUrl = avatarUrl;
         UpdatedAt = updatedAt ?? DateTime.UtcNow;
         ProfileComplete = profileComplete;
@@ -91,21 +106,13 @@ public class User : AggregateRoot
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Name is required");
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         ValidateNameHasAtLeastTwoWords(name);
 
         var normalizedEmail = Email.Create(email);
         var normalizedPhone = Phone.Create(phone);
         var cpfNormalized = NormalizeAndValidateCpf(cpf);
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         return (normalizedEmail, normalizedPhone, cpfNormalized);
     }
 
@@ -133,7 +140,14 @@ public class User : AggregateRoot
         string passwordHash,
         string cpf,
         string phone,
-        DateTime? birthDate = null)
+        DateTime? birthDate = null,
+        string? street = null,
+        string? number = null,
+        string? neighborhood = null,
+        string? complement = null,
+        string? city = null,
+        string? state = null,
+        string? postalCode = null)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Password hash is required");
@@ -149,6 +163,18 @@ public class User : AggregateRoot
             normalizedPhone,
             cpfNormalized,
             birthDate,
+            gender: null,
+            address: null,
+            street,
+            number,
+            neighborhood,
+            complement,
+            city,
+            state,
+            postalCode,
+            avatarUrl: null,
+            createdAt: null,
+            updatedAt: null,
             profileComplete: true);
     }
 
@@ -174,6 +200,18 @@ public class User : AggregateRoot
             phoneVo,
             cpfNormalized,
             birthDate,
+            gender: null,
+            address: null,
+            street: null,
+            number: null,
+            neighborhood: null,
+            complement: null,
+            city: null,
+            state: null,
+            postalCode: null,
+            avatarUrl: null,
+            createdAt: null,
+            updatedAt: null,
             profileComplete: true);
     }
 
@@ -198,15 +236,27 @@ public class User : AggregateRoot
             phone: null,
             cpf: null,
             birthDate: null,
+            gender: null,
+            address: null,
+            street: null,
+            number: null,
+            neighborhood: null,
+            complement: null,
+            city: null,
+            state: null,
+            postalCode: null,
+            avatarUrl: null,
+            createdAt: null,
+            updatedAt: null,
             profileComplete: false);
     }
 
     /// <summary>
     /// Conclui o cadastro com phone, CPF e data de nascimento (usado após login com Google – paciente).
     /// </summary>
-    public void CompleteProfile(string phone, string cpf, DateTime? birthDate = null)
+    public void CompleteProfile(string phone, string cpf, DateTime? birthDate = null, string? street = null, string? number = null, string? neighborhood = null, string? complement = null, string? city = null, string? state = null, string? postalCode = null)
     {
-        SetContactInfo(phone, cpf, birthDate);
+        SetContactInfo(phone, cpf, birthDate, gender: null, street, number, neighborhood, complement, city, state, postalCode);
         ProfileComplete = true;
         UpdatedAt = DateTime.UtcNow;
     }
@@ -214,11 +264,7 @@ public class User : AggregateRoot
     /// <summary>
     /// Preenche apenas phone, CPF e birth date (sem marcar perfil completo). Usado no fluxo do médico antes de criar DoctorProfile.
     /// </summary>
-<<<<<<< HEAD
-    public void SetContactInfo(string phone, string cpf, DateTime? birthDate = null, string? gender = null, string? address = null)
-=======
-    public void SetContactInfo(string phone, string cpf, DateTime? birthDate = null)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+    public void SetContactInfo(string phone, string cpf, DateTime? birthDate = null, string? gender = null, string? street = null, string? number = null, string? neighborhood = null, string? complement = null, string? city = null, string? state = null, string? postalCode = null)
     {
         var phoneVo = Phone.Create(phone);
         var cpfNormalized = NormalizeAndValidateCpf(cpf);
@@ -226,13 +272,22 @@ public class User : AggregateRoot
         Cpf = cpfNormalized;
         if (birthDate.HasValue)
             BirthDate = birthDate;
-<<<<<<< HEAD
         if (gender != null)
             Gender = gender;
-        if (address != null)
-            Address = address;
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+        if (street != null)
+            Street = street;
+        if (number != null)
+            Number = number;
+        if (neighborhood != null)
+            Neighborhood = neighborhood;
+        if (complement != null)
+            Complement = complement;
+        if (city != null)
+            City = city;
+        if (state != null)
+            State = state;
+        if (postalCode != null)
+            PostalCode = postalCode;
         UpdatedAt = DateTime.UtcNow;
     }
 
@@ -266,13 +321,16 @@ public class User : AggregateRoot
         string? avatarUrl,
         DateTime createdAt,
         DateTime updatedAt,
-<<<<<<< HEAD
         bool profileComplete = true,
         string? gender = null,
-        string? address = null)
-=======
-        bool profileComplete = true)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+        string? address = null,
+        string? street = null,
+        string? number = null,
+        string? neighborhood = null,
+        string? complement = null,
+        string? city = null,
+        string? state = null,
+        string? postalCode = null)
     {
         var emailVo = Email.Create(email);
         var phoneVo = phone != null ? Phone.Create(phone) : null;
@@ -287,11 +345,15 @@ public class User : AggregateRoot
             phoneVo,
             cpf,
             birthDate,
-<<<<<<< HEAD
             gender,
             address,
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+            street,
+            number,
+            neighborhood,
+            complement,
+            city,
+            state,
+            postalCode,
             avatarUrl,
             createdAt,
             updatedAt,
@@ -303,11 +365,14 @@ public class User : AggregateRoot
         string? phone = null,
         string? cpf = null,
         DateTime? birthDate = null,
-<<<<<<< HEAD
         string? gender = null,
-        string? address = null,
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+        string? street = null,
+        string? number = null,
+        string? neighborhood = null,
+        string? complement = null,
+        string? city = null,
+        string? state = null,
+        string? postalCode = null,
         string? avatarUrl = null)
     {
         if (!string.IsNullOrWhiteSpace(name))
@@ -322,15 +387,30 @@ public class User : AggregateRoot
         if (birthDate.HasValue)
             BirthDate = birthDate;
 
-<<<<<<< HEAD
         if (gender != null)
             Gender = gender;
 
-        if (address != null)
-            Address = address;
+        if (street != null)
+            Street = street;
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
+        if (number != null)
+            Number = number;
+
+        if (neighborhood != null)
+            Neighborhood = neighborhood;
+
+        if (complement != null)
+            Complement = complement;
+
+        if (city != null)
+            City = city;
+
+        if (state != null)
+            State = state;
+
+        if (postalCode != null)
+            PostalCode = postalCode;
+
         if (!string.IsNullOrWhiteSpace(avatarUrl))
             AvatarUrl = avatarUrl;
 

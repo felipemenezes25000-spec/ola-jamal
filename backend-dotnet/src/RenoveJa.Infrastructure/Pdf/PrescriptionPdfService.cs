@@ -12,10 +12,7 @@ using Microsoft.Extensions.Options;
 using QRCoder;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.Interfaces;
-<<<<<<< HEAD
 using RenoveJa.Domain.Enums;
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 namespace RenoveJa.Infrastructure.Pdf;
 
@@ -61,11 +58,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     {
         try
         {
-<<<<<<< HEAD
             var kind = data.PrescriptionKind ?? PrescriptionKind.Simple;
-=======
-            // Build medication items list (backward compat: use old Medications list if MedicationItems is null)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             var medicationItems = BuildMedicationItems(data);
 
             if (medicationItems.Count == 0)
@@ -73,7 +66,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
                 medicationItems = new List<PrescriptionMedicationItem> { new("Prescrição a critério médico", null, "Conforme orientação médica", null, null) };
             }
 
-<<<<<<< HEAD
             byte[] pdfBytes;
             using (var ms = new MemoryStream())
             {
@@ -93,78 +85,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             }
 
             return Task.FromResult(new PrescriptionPdfResult(true, pdfBytes, null, null));
-=======
-            var accessCode = data.AccessCode ?? GenerateAccessCode(data.RequestId);
-            var baseUrl = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl)
-                ? _verificationConfig.BaseUrl.TrimEnd('/')
-                : DefaultVerificationBaseUrl;
-            var verificationUrl = data.VerificationUrl ?? $"{baseUrl}/{data.RequestId}";
-            var pharmacyUrl = data.PharmacyValidationUrl ?? DefaultPharmacyUrl;
-
-            using var ms = new MemoryStream();
-            using var writer = new PdfWriter(ms);
-            using var pdf = new PdfDocument(writer);
-
-            // PDF Metadata
-            var info = pdf.GetDocumentInfo();
-            info.SetTitle($"Receita Digital - {data.PatientName} - {data.EmissionDate:dd/MM/yyyy}");
-            info.SetAuthor($"Dr(a). {data.DoctorName} | CRM {data.DoctorCrm}/{data.DoctorCrmState}");
-            info.SetCreator("RenoveJá Saúde - Sistema de Receitas Digitais");
-            info.SetSubject($"Receita médica digital - {data.PrescriptionType}");
-            info.SetKeywords("receita digital, ICP-Brasil, RenoveJá Saúde, prescrição médica");
-
-            using var document = new Document(pdf, PageSize.A4);
-            document.SetMargins(40, 40, 60, 40); // top, right, bottom, left
-
-            var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
-            var fontBold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
-            var fontItalic = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
-
-            // Generate one page per medication
-            for (int i = 0; i < medicationItems.Count; i++)
-            {
-                if (i > 0)
-                {
-                    document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
-                }
-
-                var med = medicationItems[i];
-
-                // === HEADER: Logo text + prescription type ===
-                AddHeader(document, data, fontBold, font, i + 1, medicationItems.Count);
-
-                // === SEPARATOR LINE ===
-                AddSeparator(document);
-
-                // === PATIENT DATA SECTION ===
-                AddPatientSection(document, data, fontBold, font);
-
-                // === SEPARATOR LINE ===
-                AddSeparator(document);
-
-                // === MEDICATION SECTION (main content) ===
-                AddMedicationSection(document, med, fontBold, font, fontItalic, i + 1);
-
-                // === OBSERVATION SECTION ===
-                AddObservationSection(document, med, data, font, fontBold, fontItalic);
-
-                // === QR CODE + VERIFICATION INSTRUCTIONS ===
-                AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
-
-                // === DOCTOR INFO ===
-                AddDoctorSection(document, data, fontBold, font);
-
-                // === PHARMACY LINK ===
-                AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
-
-                // === LEGAL FOOTER ===
-                AddLegalFooter(document, data, font, fontItalic);
-            }
-
-            document.Close();
-
-            return Task.FromResult(new PrescriptionPdfResult(true, ms.ToArray(), null, null));
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         }
         catch (Exception ex)
         {
@@ -173,7 +93,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         }
     }
 
-<<<<<<< HEAD
     private (string verificationUrl, string accessCode, string pharmacyUrl) GetPdfUrls(PrescriptionPdfData data)
     {
         var baseUrl = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl)
@@ -354,8 +273,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         document.Add(new Paragraph($"Assinatura: Dr(a). {data.DoctorName}").SetFont(fontBold).SetFontSize(10).SetFontColor(DarkText).SetMarginTop(4));
     }
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public async Task<PrescriptionPdfResult> GenerateAndUploadAsync(
         PrescriptionPdfData data,
         CancellationToken cancellationToken = default)
@@ -577,11 +494,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     #region Page Sections
 
-<<<<<<< HEAD
     private static void AddHeader(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font, int pageNum, int totalPages, string? typeLabelOverride = null)
-=======
-    private static void AddHeader(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font, int pageNum, int totalPages)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         // Logo text "RenoveJá Saúde" in green/blue
         var logoTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 }))
@@ -606,11 +519,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         logoTable.AddCell(logoCell);
 
         // Right: Prescription type label + page counter
-<<<<<<< HEAD
         var typeLabel = typeLabelOverride ?? GetPrescriptionTypeLabel(data.PrescriptionType);
-=======
-        var typeLabel = GetPrescriptionTypeLabel(data.PrescriptionType);
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         var rightCell = new Cell()
             .SetBorder(Border.NO_BORDER)
             .SetTextAlignment(TextAlignment.RIGHT)
@@ -644,11 +553,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         document.Add(separator);
     }
 
-<<<<<<< HEAD
     private static void AddPatientSection(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font, bool includeGenderAge = false)
-=======
-    private static void AddPatientSection(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font)
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         var sectionTitle = new Paragraph("DADOS DO PACIENTE")
             .SetFont(fontBold)
@@ -682,7 +587,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddPatientInfoCell(patientTable, "CPF:", "Não informado", fontBold, font);
         }
 
-<<<<<<< HEAD
         // Sexo e idade (antimicrobiano - RDC 471/2021)
         if (includeGenderAge)
         {
@@ -694,18 +598,12 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddPatientInfoCell(patientTable, "Idade:", ageDisplay, fontBold, font);
         }
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         // Birth date
         if (data.PatientBirthDate.HasValue)
         {
             AddPatientInfoCell(patientTable, "Nascimento:", data.PatientBirthDate.Value.ToString("dd/MM/yyyy"), fontBold, font);
         }
-<<<<<<< HEAD
         else if (!includeGenderAge)
-=======
-        else
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         {
             AddPatientInfoCell(patientTable, "Nascimento:", "Não informado", fontBold, font);
         }
@@ -929,17 +827,12 @@ public class PrescriptionPdfService : IPrescriptionPdfService
                 .SetFontSize(9)
                 .SetFontColor(MediumGray));
         }
-<<<<<<< HEAD
         var hasExtra = !string.IsNullOrWhiteSpace(data.DoctorAddress) || !string.IsNullOrWhiteSpace(data.DoctorPhone);
         document.Add(doctorInfo.SetMarginBottom(hasExtra ? 2 : 6));
         if (!string.IsNullOrWhiteSpace(data.DoctorAddress))
             document.Add(new Paragraph($"Endereço: {data.DoctorAddress}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray).SetMarginBottom(!string.IsNullOrWhiteSpace(data.DoctorPhone) ? 2 : 6));
         if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
             document.Add(new Paragraph($"Telefone: {data.DoctorPhone}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray).SetMarginBottom(6));
-=======
-
-        document.Add(doctorInfo.SetMarginBottom(6));
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 
     private static void AddPharmacyLink(Document document, string pharmacyUrl, PdfFont font, PdfFont fontItalic)
@@ -1035,7 +928,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         }
     }
 
-<<<<<<< HEAD
     private static int CalculateAge(DateTime birthDate)
     {
         var today = DateTime.Today;
@@ -1044,8 +936,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         return age;
     }
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     private static string FormatCpf(string cpf)
     {
         cpf = cpf.Replace(".", "").Replace("-", "");

@@ -44,5 +44,20 @@ public class CompleteProfileRequestValidator : AbstractValidator<CompleteProfile
             .MaximumLength(5000)
             .When(x => !string.IsNullOrEmpty(x.Bio))
             .WithMessage("Bio cannot exceed 5000 characters");
+
+        RuleFor(x => x.State)
+            .Length(2)
+            .When(x => !string.IsNullOrEmpty(x.State))
+            .WithMessage("State (UF) must be exactly 2 characters");
+
+        RuleFor(x => x.Number)
+            .MaximumLength(20)
+            .When(x => !string.IsNullOrEmpty(x.Number))
+            .WithMessage("Number cannot exceed 20 characters");
+
+        RuleFor(x => x.PostalCode)
+            .MaximumLength(10)
+            .When(x => !string.IsNullOrEmpty(x.PostalCode))
+            .WithMessage("PostalCode cannot exceed 10 characters");
     }
 }

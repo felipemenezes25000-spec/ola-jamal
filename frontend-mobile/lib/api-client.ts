@@ -62,7 +62,7 @@ class ApiClient {
         if (text) {
           const errorData = JSON.parse(text);
           errorMessage = errorData.message || errorData.title || errorData.detail || `${response.status} ${response.statusText}`;
-          errors = errorData.errors;
+          errors = typeof errorData.errors === 'object' && !Array.isArray(errorData.errors) ? errorData.errors : undefined;
           const err: ApiError = {
             message: errorMessage,
             status: response.status,

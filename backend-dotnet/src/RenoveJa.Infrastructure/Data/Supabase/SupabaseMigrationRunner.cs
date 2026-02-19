@@ -46,18 +46,22 @@ public static class SupabaseMigrationRunner
         "ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS access_code TEXT"
     };
 
-<<<<<<< HEAD
     private static readonly string[] PrescriptionProfileFieldsMigrations =
     {
         "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS gender VARCHAR(20)",
         "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS address TEXT",
+        "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS city VARCHAR(100)",
+        "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS state VARCHAR(2)",
+        "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS postal_code VARCHAR(10)",
+        "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS street VARCHAR(200)",
+        "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS number VARCHAR(20)",
+        "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS neighborhood VARCHAR(100)",
+        "ALTER TABLE public.users ADD COLUMN IF NOT EXISTS complement VARCHAR(100)",
         "ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS professional_address TEXT",
         "ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS professional_phone VARCHAR(30)",
         "ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS prescription_kind VARCHAR(30)"
     };
 
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     private static readonly string[] DoctorCertificatesMigrations =
     {
         """
@@ -347,10 +351,7 @@ public static class SupabaseMigrationRunner
         {
             ("password_reset_tokens", PasswordResetTokensMigrations),
             ("request_ai_columns", RequestAiColumns),
-<<<<<<< HEAD
             ("prescription_profile_fields", PrescriptionProfileFieldsMigrations),
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             ("doctor_certificates", DoctorCertificatesMigrations),
             ("audit_logs", AuditLogsMigrations),
             ("notifications", NotificationsMigrations),

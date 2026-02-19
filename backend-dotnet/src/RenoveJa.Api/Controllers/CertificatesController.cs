@@ -46,7 +46,6 @@ public class CertificatesController : ControllerBase
 
         var doctorProfileId = await _currentUserService.GetDoctorProfileIdAsync();
         if (doctorProfileId == null)
-<<<<<<< HEAD
         {
             _logger.LogWarning("Certificates Upload 400: Perfil de médico não encontrado para UserId={UserId}", userId);
             return BadRequest("Perfil de médico não encontrado. Complete seu cadastro como médico.");
@@ -57,12 +56,6 @@ public class CertificatesController : ControllerBase
             _logger.LogWarning("Certificates Upload 400: Arquivo PFX ausente ou vazio.");
             return BadRequest("Arquivo PFX é obrigatório.");
         }
-=======
-            return BadRequest("Perfil de médico não encontrado. Complete seu cadastro como médico.");
-
-        if (dto.PfxFile == null || dto.PfxFile.Length == 0)
-            return BadRequest("Arquivo PFX é obrigatório.");
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
         using var stream = dto.PfxFile.OpenReadStream();
         using var ms = new MemoryStream();
@@ -79,10 +72,7 @@ public class CertificatesController : ControllerBase
 
         if (!validation.IsValid)
         {
-<<<<<<< HEAD
             _logger.LogWarning("Certificates Upload validation failed: {Error}", validation.ErrorMessage);
-=======
->>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             return BadRequest(new UploadCertificateResponseDto(
                 false,
                 validation.ErrorMessage,
