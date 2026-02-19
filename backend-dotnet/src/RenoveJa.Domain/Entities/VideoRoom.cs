@@ -13,7 +13,14 @@ public class VideoRoom : Entity
     public DateTime? EndedAt { get; private set; }
     public int? DurationSeconds { get; private set; }
 
+<<<<<<< HEAD
+    private VideoRoom() : base()
+    {
+        RoomName = null!;
+    }
+=======
     private VideoRoom() : base() { }
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private VideoRoom(
         Guid id,

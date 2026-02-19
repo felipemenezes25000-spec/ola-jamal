@@ -19,6 +19,11 @@ public class MedicalRequest : AggregateRoot
     
     // Prescription fields
     public PrescriptionType? PrescriptionType { get; private set; }
+<<<<<<< HEAD
+    /// <summary>Tipo de receita para conformidade: simple, antimicrobial, controlled_special.</summary>
+    public PrescriptionKind? PrescriptionKind { get; private set; }
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public List<string> Medications { get; private set; }
     public List<string> PrescriptionImages { get; private set; }
     
@@ -86,7 +91,12 @@ public class MedicalRequest : AggregateRoot
         string patientName,
         PrescriptionType prescriptionType,
         List<string> medications,
+<<<<<<< HEAD
+        List<string>? prescriptionImages = null,
+        PrescriptionKind? prescriptionKind = null)
+=======
         List<string>? prescriptionImages = null)
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         if (patientId == Guid.Empty)
             throw new DomainException("Patient ID is required");
@@ -99,6 +109,10 @@ public class MedicalRequest : AggregateRoot
             RequestStatus.Submitted);
 
         request.PrescriptionType = prescriptionType;
+<<<<<<< HEAD
+        request.PrescriptionKind = prescriptionKind ?? DerivePrescriptionKind(prescriptionType);
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         request.Medications = medications ?? new List<string>();
         request.PrescriptionImages = prescriptionImages ?? new List<string>();
         request.AccessCode = GenerateAccessCode();
@@ -106,6 +120,20 @@ public class MedicalRequest : AggregateRoot
         return request;
     }
 
+<<<<<<< HEAD
+    private static PrescriptionKind DerivePrescriptionKind(PrescriptionType pt)
+    {
+        return pt switch
+        {
+            RenoveJa.Domain.Enums.PrescriptionType.Simple => RenoveJa.Domain.Enums.PrescriptionKind.Simple,
+            RenoveJa.Domain.Enums.PrescriptionType.Controlled => RenoveJa.Domain.Enums.PrescriptionKind.ControlledSpecial,
+            RenoveJa.Domain.Enums.PrescriptionType.Blue => RenoveJa.Domain.Enums.PrescriptionKind.ControlledSpecial,
+            _ => RenoveJa.Domain.Enums.PrescriptionKind.Simple
+        };
+    }
+
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public static MedicalRequest CreateExam(
         Guid patientId,
         string patientName,
@@ -197,7 +225,12 @@ public class MedicalRequest : AggregateRoot
         string? aiUrgency = null,
         bool? aiReadabilityOk = null,
         string? aiMessageToUser = null,
+<<<<<<< HEAD
+        string? accessCode = null,
+        string? prescriptionKind = null)
+=======
         string? accessCode = null)
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         var request = new MedicalRequest(
             id,
@@ -213,7 +246,15 @@ public class MedicalRequest : AggregateRoot
         
         if (!string.IsNullOrWhiteSpace(prescriptionType))
             request.PrescriptionType = Enum.Parse<PrescriptionType>(prescriptionType, true);
+<<<<<<< HEAD
+        if (!string.IsNullOrWhiteSpace(prescriptionKind) && Enum.TryParse<PrescriptionKind>(prescriptionKind, true, out var pk))
+            request.PrescriptionKind = pk;
+        else if (request.PrescriptionType.HasValue)
+            request.PrescriptionKind = DerivePrescriptionKind(request.PrescriptionType.Value);
+
+=======
         
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         request.Medications = medications ?? new List<string>();
         request.PrescriptionImages = prescriptionImages ?? new List<string>();
         request.ExamType = examType;
@@ -277,11 +318,21 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
+<<<<<<< HEAD
+    /// <summary>Permite o médico atualizar medicamentos, notas e tipo de receita antes da assinatura.</summary>
+    public void UpdatePrescriptionContent(List<string>? medications = null, string? notes = null, PrescriptionKind? prescriptionKind = null)
+    {
+        if (RequestType != Enums.RequestType.Prescription)
+            throw new DomainException("Apenas solicitações de receita podem ter medicamentos atualizados.");
+        if (prescriptionKind.HasValue)
+            PrescriptionKind = prescriptionKind.Value;
+=======
     /// <summary>Permite o médico atualizar medicamentos e/ou notas antes da assinatura.</summary>
     public void UpdatePrescriptionContent(List<string>? medications = null, string? notes = null)
     {
         if (RequestType != Enums.RequestType.Prescription)
             throw new DomainException("Apenas solicitações de receita podem ter medicamentos atualizados.");
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         if (medications != null)
             Medications = medications;
         if (notes != null)

@@ -246,6 +246,34 @@ export async function getPreviewPdf(requestId: string): Promise<Blob> {
   return apiClient.getBlob(`/api/requests/${requestId}/preview-pdf`);
 }
 
+/** Valida conformidade da receita (campos obrigatórios por tipo). Retorna { valid, missingFields?, messages? }. */
+/** Valida conformidade da receita (campos obrigatórios por tipo). */
+export async function validatePrescription(
+  requestId: string
+): Promise<{ valid: true } | { valid: false; missingFields: string[]; messages: string[] }> {
+  try {
+    const res = await apiClient.post<{ valid?: boolean; missingFields?: string[]; messages?: string[] }>(
+      `/api/requests/${requestId}/validate-prescription`,
+      {}
+    );
+    if (res?.valid) return { valid: true };
+    return {
+      valid: false,
+      missingFields: res?.missingFields ?? [],
+      messages: res?.messages ?? [],
+    };
+  } catch (e: any) {
+    if (e?.status === 400 && (e?.missingFields ?? e?.messages)) {
+      return {
+        valid: false,
+        missingFields: e.missingFields ?? [],
+        messages: e.messages ?? [e.message],
+      };
+    }
+    throw e;
+  }
+}
+
 /** Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF. */
 export async function markRequestDelivered(requestId: string): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/mark-delivered`, {});
@@ -253,7 +281,7 @@ export async function markRequestDelivered(requestId: string): Promise<RequestRe
 
 export async function updatePrescriptionContent(
   requestId: string,
-  data: { medications?: string[]; notes?: string }
+  data: { medications?: string[]; notes?: string; prescriptionKind?: string }
 ): Promise<RequestResponseDto> {
   return apiClient.patch(`/api/requests/${requestId}/prescription-content`, data);
 }

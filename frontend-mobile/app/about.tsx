@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { colors, spacing, typography } from '../constants/theme';
+import { Logo } from '../components/Logo';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -22,7 +23,9 @@ export default function AboutScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.logoSection}>
-          <Image source={require('../assets/logo.png')} style={styles.logoImage} resizeMode="contain" />
+          <View style={styles.logoImage}>
+            <Logo size="medium" variant="dark" />
+          </View>
           <Text style={styles.tagline}>Telemedicina para sua saúde</Text>
           <Text style={styles.version}>Versão {APP_VERSION}</Text>
         </View>

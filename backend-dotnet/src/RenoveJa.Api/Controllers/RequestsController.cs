@@ -384,6 +384,25 @@ public class RequestsController(
     }
 
     /// <summary>
+<<<<<<< HEAD
+    /// Valida conformidade da receita (campos obrigatórios por tipo). Médico ou paciente.
+    /// Retorna 200 com valid: true ou 400 com valid: false, missingFields e messages.
+    /// </summary>
+    [HttpPost("{id}/validate-prescription")]
+    public async Task<IActionResult> ValidatePrescription(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var (isValid, missingFields, messages) = await requestService.ValidatePrescriptionAsync(id, userId, cancellationToken);
+        if (isValid)
+            return Ok(new { valid = true });
+        return BadRequest(new { valid = false, missingFields, messages });
+    }
+
+    /// <summary>
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     /// Assina digitalmente a solicitação (médico).
     /// </summary>
     [HttpPost("{id}/sign")]
@@ -455,6 +474,13 @@ public class RequestsController(
         if (request.RequestType != "prescription")
             return BadRequest(new { error = "Apenas solicitações de receita podem gerar PDF." });
 
+<<<<<<< HEAD
+        var kindStr = (request.PrescriptionKind ?? "simple").Replace("_", "");
+        var kind = Enum.TryParse<RenoveJa.Domain.Enums.PrescriptionKind>(kindStr, true, out var pk)
+            ? pk
+            : (RenoveJa.Domain.Enums.PrescriptionKind?)null;
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         var pdfData = new PrescriptionPdfData(
             request.Id,
             request.PatientName ?? "Paciente",
@@ -465,7 +491,12 @@ public class RequestsController(
             "Clínica Geral",
             request.Medications ?? new List<string>(),
             request.PrescriptionType ?? "simples",
+<<<<<<< HEAD
+            DateTime.UtcNow,
+            PrescriptionKind: kind);
+=======
             DateTime.UtcNow);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
         var result = await pdfService.GenerateAndUploadAsync(pdfData, cancellationToken);
 
@@ -521,7 +552,11 @@ public class RequestsController(
         CancellationToken cancellationToken)
     {
         var doctorId = GetUserId();
+<<<<<<< HEAD
+        var request = await requestService.UpdatePrescriptionContentAsync(id, dto.Medications, dto.Notes, doctorId, cancellationToken, dto.PrescriptionKind);
+=======
         var request = await requestService.UpdatePrescriptionContentAsync(id, dto.Medications, dto.Notes, doctorId, cancellationToken);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         return Ok(request);
     }
 

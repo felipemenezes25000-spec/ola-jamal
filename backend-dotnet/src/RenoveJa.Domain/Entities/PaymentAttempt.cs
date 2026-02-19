@@ -24,7 +24,15 @@ public class PaymentAttempt : Entity
     public bool IsSuccess { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
+<<<<<<< HEAD
+    private PaymentAttempt() : base()
+    {
+        CorrelationId = null!;
+        PaymentMethod = null!;
+    }
+=======
     private PaymentAttempt() : base() { }
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     public PaymentAttempt(
         Guid paymentId,
@@ -111,7 +119,11 @@ public class PaymentAttempt : Entity
             amount,
             requestUrl,
             requestPayload);
+<<<<<<< HEAD
+
+=======
         
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         attempt.Id = id;
         attempt.CreatedAt = createdAt;
         attempt.MercadoPagoPaymentId = mercadoPagoPaymentId;
@@ -123,7 +135,11 @@ public class PaymentAttempt : Entity
         attempt.ErrorMessage = errorMessage;
         attempt.IsSuccess = isSuccess;
         attempt.UpdatedAt = updatedAt;
+<<<<<<< HEAD
+
+=======
         
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         return attempt;
     }
 }

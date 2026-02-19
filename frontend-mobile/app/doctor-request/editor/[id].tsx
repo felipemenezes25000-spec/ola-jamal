@@ -10,26 +10,41 @@ import {
   ActivityIndicator,
   Platform,
   Dimensions,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, shadows } from '../../../lib/theme';
+import { colors, spacing, borderRadius, shadows, typography } from '../../../lib/themeDoctor';
 import {
   getRequestById,
   signRequest,
   getPreviewPdf,
   updatePrescriptionContent,
+  validatePrescription,
 } from '../../../lib/api';
-import { RequestResponseDto } from '../../../types/database';
+import { RequestResponseDto, PrescriptionKind } from '../../../types/database';
 import { searchCid } from '../../../lib/cid-medications';
 import { ZoomablePdfView } from '../../../components/ZoomablePdfView';
+import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
+import { showToast } from '../../../components/ui/Toast';
 
 const RISK_COLORS: Record<string, { bg: string; text: string }> = {
-  low: { bg: '#D1FAE5', text: '#059669' },
-  medium: { bg: '#FEF3C7', text: '#D97706' },
-  high: { bg: '#FEE2E2', text: '#DC2626' },
+  low: { bg: colors.successLight, text: colors.success },
+  medium: { bg: colors.warningLight, text: '#D97706' },
+  high: { bg: colors.errorLight, text: colors.destructive },
+};
+const RISK_LABELS_PT: Record<string, string> = {
+  low: 'Risco baixo',
+  medium: 'Risco médio',
+  high: 'Risco alto',
+};
+const URGENCY_LABELS_PT: Record<string, string> = {
+  routine: 'Rotina',
+  urgent: 'Urgente',
+  emergency: 'Emergência',
 };
 
 function parseAiMedications(aiExtractedJson: string | null): string[] {
@@ -40,7 +55,7 @@ function parseAiMedications(aiExtractedJson: string | null): string[] {
     if (Array.isArray(arr)) {
       return arr.map((m: any) => String(m || '').trim()).filter(Boolean);
     }
-  } catch {}
+  } catch { }
   return [];
 }
 
@@ -60,9 +75,11 @@ export default function PrescriptionEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [medications, setMedications] = useState<string[]>([]);
+  const [prescriptionKind, setPrescriptionKind] = useState<PrescriptionKind>('simple');
   const [rejectedSuggestions, setRejectedSuggestions] = useState<Set<string>>(new Set());
   const [cidQuery, setCidQuery] = useState('');
   const [notes, setNotes] = useState('');
@@ -82,6 +99,7 @@ export default function PrescriptionEditorScreen() {
       const meds = data.medications?.filter(Boolean) ?? [];
       setMedications(meds.length > 0 ? meds : []);
       setNotes(data.notes ?? '');
+      setPrescriptionKind((data.prescriptionKind as PrescriptionKind) || 'simple');
     } catch (e) {
       console.error(e);
     } finally {
@@ -133,7 +151,7 @@ export default function PrescriptionEditorScreen() {
   const handleSave = async () => {
     const meds = medications.map((m) => m.trim()).filter(Boolean);
     if (meds.length === 0) {
-      Alert.alert('Obrigatório', 'Adicione ao menos um medicamento à receita.');
+      showToast({ message: 'Adicione ao menos um medicamento à receita.', type: 'warning' });
       return;
     }
     setSaving(true);
@@ -141,16 +159,13 @@ export default function PrescriptionEditorScreen() {
       await updatePrescriptionContent(requestId, {
         medications: meds,
         notes: notes.trim() || undefined,
+        prescriptionKind,
       });
       await loadRequest();
       await loadPdfPreview();
-      if (Platform.OS === 'web') {
-        alert('Alterações salvas. O preview foi atualizado.');
-      } else {
-        Alert.alert('Salvo', 'Alterações salvas. O preview foi atualizado.');
-      }
+      showToast({ message: 'Alterações salvas. Preview atualizado.', type: 'success' });
     } catch (e: any) {
-      Alert.alert('Erro', e?.message || 'Falha ao salvar.');
+      showToast({ message: e?.message || 'Falha ao salvar.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -158,22 +173,67 @@ export default function PrescriptionEditorScreen() {
 
   const handleSign = async () => {
     if (!certPassword.trim()) {
-      Alert.alert('Obrigatório', 'Digite a senha do certificado.');
+      showToast({ message: 'Digite a senha do certificado.', type: 'warning' });
       return;
     }
     setSigning(true);
     try {
+      await updatePrescriptionContent(requestId, {
+        medications: medications.map((m) => m.trim()).filter(Boolean),
+        notes: notes.trim() || undefined,
+        prescriptionKind,
+      });
+      const validation = await validatePrescription(requestId);
+      if (!validation.valid) {
+        const needsPatientProfile = (validation.missingFields ?? []).some(
+          (f) => f.includes('paciente.sexo') || f.includes('paciente.data_nascimento') || f.includes('paciente.endereço')
+        );
+        const needsDoctorProfile = (validation.missingFields ?? []).some(
+          (f) => f.includes('médico.endereço') || f.includes('médico.telefone')
+        );
+        const checklist = (validation.messages ?? []).join('\n• ');
+        const action = needsPatientProfile
+          ? 'O paciente precisa completar sexo, data de nascimento ou endereço no perfil.'
+          : needsDoctorProfile
+            ? 'Complete seu endereço e telefone profissional no perfil do médico.'
+            : 'Corrija os campos indicados antes de assinar.';
+        Alert.alert(
+          'Receita incompleta',
+          `${action}\n\n• ${checklist}`,
+          [
+            { text: 'OK' },
+            ...(needsDoctorProfile
+              ? [{ text: 'Ir ao meu perfil', onPress: () => router.push('/(doctor)/profile' as any) }]
+              : []),
+          ]
+        );
+        setSigning(false);
+        return;
+      }
       await signRequest(requestId, { pfxPassword: certPassword });
       setShowSignForm(false);
       setCertPassword('');
-      if (Platform.OS === 'web') {
-        alert('Documento assinado com sucesso!');
-      } else {
-        Alert.alert('Sucesso', 'Documento assinado digitalmente.');
-      }
+      showToast({ message: 'Documento assinado digitalmente!', type: 'success' });
       router.back();
     } catch (e: any) {
-      Alert.alert('Erro', e?.message || 'Senha incorreta ou erro na assinatura.');
+      if (e?.missingFields?.length || e?.messages?.length) {
+        const checklist = (e.messages ?? [e.message]).join('\n• ');
+        const needsDoctorProfile = (e.missingFields ?? []).some(
+          (f: string) => f.includes('médico.endereço') || f.includes('médico.telefone')
+        );
+        Alert.alert(
+          'Receita incompleta',
+          `Verifique os campos obrigatórios:\n\n• ${checklist}`,
+          needsDoctorProfile
+            ? [
+              { text: 'OK' },
+              { text: 'Ir ao meu perfil', onPress: () => router.push('/(doctor)/profile' as any) },
+            ]
+            : [{ text: 'OK' }]
+        );
+      } else {
+        showToast({ message: e?.message || 'Senha incorreta ou erro na assinatura.', type: 'error' });
+      }
     } finally {
       setSigning(false);
     }
@@ -208,10 +268,17 @@ export default function PrescriptionEditorScreen() {
 
   if (loading || !request) {
     return (
-      <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textSecondary, marginTop: spacing.md }}>Carregando...</Text>
+      <SafeAreaView style={st.container} edges={['top']}>
+        <View style={[st.navHeader, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={st.backBtn} hitSlop={12}>
+            <Ionicons name="chevron-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={st.navTitle}>Carregando...</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ padding: spacing.md }}>
+          <SkeletonLoader width="60%" height={20} style={{ marginBottom: 12 }} />
+          <SkeletonList count={3} />
         </View>
       </SafeAreaView>
     );
@@ -219,15 +286,19 @@ export default function PrescriptionEditorScreen() {
 
   if (request.requestType !== 'prescription') {
     return (
-      <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+      <SafeAreaView style={st.container} edges={['top']}>
+        <View style={[st.navHeader, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={st.backBtn} hitSlop={12}>
             <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={s.title}>Editor</Text>
+          <Text style={st.navTitle}>Editor</Text>
+          <View style={{ width: 40 }} />
         </View>
-        <View style={s.center}>
-          <Text style={{ color: colors.textSecondary }}>Editor disponível apenas para receitas.</Text>
+        <View style={st.center}>
+          <Ionicons name="document-text-outline" size={56} color={colors.textMuted} />
+          <Text style={{ color: colors.textSecondary, marginTop: spacing.sm, fontFamily: typography.fontFamily.regular }}>
+            Editor disponível apenas para receitas.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -236,417 +307,484 @@ export default function PrescriptionEditorScreen() {
   const pdfViewHeight = Math.min(500, Dimensions.get('window').height - 180);
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+    <SafeAreaView style={st.container} edges={['top']}>
+      {/* Nav Header */}
+      <View style={[st.navHeader, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={st.backBtn} hitSlop={12}>
           <Ionicons name="chevron-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={s.title}>Visualizar e Editar Receita</Text>
+        <Text style={st.navTitle}>Editar Receita</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* PREVIEW PDF - em destaque no topo */}
-        <View style={[s.card, s.pdfCard]}>
-          <View style={s.pdfHeader}>
-            <Ionicons name="document-text" size={22} color={colors.primary} />
-            <Text style={s.pdfSectionTitle}>Preview da Receita (PDF)</Text>
-            <TouchableOpacity onPress={loadPdfPreview} disabled={pdfLoading} style={s.refreshBtn}>
-              <Ionicons name="refresh" size={20} color={colors.primary} />
-              <Text style={s.refreshBtnText}>Atualizar</Text>
-            </TouchableOpacity>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={st.scroll}
+          contentContainerStyle={st.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Prescription Kind */}
+          <View style={st.card}>
+            <Text style={st.sectionTitle}>TIPO DE RECEITA</Text>
+            <Text style={st.hint}>Selecione o modelo (CFM, RDC 471/2021, ANVISA/SNCR)</Text>
+            <View style={st.kindRow}>
+              {(['simple', 'antimicrobial', 'controlled_special'] as PrescriptionKind[]).map((k) => (
+                <TouchableOpacity
+                  key={k}
+                  style={[st.kindOption, prescriptionKind === k && st.kindOptionActive]}
+                  onPress={() => setPrescriptionKind(k)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[st.kindOptionText, prescriptionKind === k && st.kindOptionTextActive]}>
+                    {k === 'simple' ? 'Simples' : k === 'antimicrobial' ? 'Antimicrobiano' : 'Controle especial'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          {pdfLoading ? (
-            <View style={[s.pdfPlaceholder, { minHeight: pdfViewHeight }]}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={s.pdfPlaceholderText}>Gerando preview...</Text>
-            </View>
-          ) : pdfUri ? (
-            <View style={[s.pdfContainer, { height: pdfViewHeight }]}>
-              {Platform.OS === 'web' ? (
-                <View style={s.iframeWrapper}>
-                  {/* @ts-ignore - iframe is valid on web */}
-                  <iframe
-                    src={pdfUri}
-                    title="Preview da receita"
-                    style={{
-                      width: '100%',
-                      height: pdfViewHeight,
-                      border: 'none',
-                      borderRadius: 8,
-                      backgroundColor: '#f1f5f9',
-                    }}
-                  />
-                </View>
-              ) : (
-                <ZoomablePdfView>
-                  <WebView
-                    source={{ uri: pdfUri }}
-                    style={[s.webview, { height: pdfViewHeight }]}
-                    scrollEnabled
-                    originWhitelist={['*']}
-                  />
-                </ZoomablePdfView>
-              )}
-            </View>
-          ) : (
-            <View style={[s.pdfPlaceholder, { minHeight: 160 }]}>
-              <Ionicons name="document-outline" size={40} color={colors.textMuted} />
-              <Text style={s.pdfPlaceholderText}>
-                Adicione medicamentos e salve para gerar o preview.
-              </Text>
-              <TouchableOpacity onPress={loadPdfPreview} style={s.retryBtn}>
-                <Text style={s.retryBtnText}>Tentar novamente</Text>
+
+          {/* PDF Preview */}
+          <View style={[st.card, st.pdfCard]}>
+            <View style={st.pdfHeader}>
+              <Ionicons name="document-text" size={22} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={st.pdfTitle}>Preview da Receita</Text>
+                {prescriptionKind === 'antimicrobial' && (
+                  <Text style={st.validityText}>Validade: 10 dias (RDC 471/2021)</Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={loadPdfPreview} disabled={pdfLoading} style={st.refreshBtn} activeOpacity={0.7}>
+                <Ionicons name="refresh" size={18} color={colors.primary} />
+                <Text style={st.refreshBtnText}>Atualizar</Text>
               </TouchableOpacity>
             </View>
-          )}
-        </View>
-
-        {/* Análise IA – legível e destacada */}
-        {request.aiSummaryForDoctor && (
-          <View style={[s.card, s.aiCard]}>
-            <View style={s.aiHeader}>
-              <Ionicons name="sparkles" size={22} color={colors.primary} />
-              <Text style={s.aiTitle}>Análise da IA – apoio à prescrição</Text>
-              {request.aiRiskLevel && (
-                <View
-                  style={[
-                    s.riskBadge,
-                    { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || '#E2E8F0' },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      s.riskText,
-                      { color: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text },
-                    ]}
-                  >
-                    {request.aiRiskLevel.toUpperCase()}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text style={s.aiSummary}>
-              {String(request.aiSummaryForDoctor || '')
-                .split(/\n+/)
-                .map((p, i) => (p.trim() ? p.trim() : null))
-                .filter(Boolean)
-                .join('\n\n')}
-            </Text>
-            {request.aiUrgency && (
-              <View style={s.urgencyRow}>
-                <Ionicons name="time" size={16} color={colors.textSecondary} />
-                <Text style={s.urgencyText}>Urgência: {request.aiUrgency}</Text>
+            {pdfLoading ? (
+              <View style={[st.pdfPlaceholder, { minHeight: pdfViewHeight }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={st.pdfPlaceholderText}>Gerando preview...</Text>
+              </View>
+            ) : pdfUri ? (
+              <View style={[st.pdfContainer, { height: pdfViewHeight }]}>
+                {Platform.OS === 'web' ? (
+                  <View style={st.iframeWrapper}>
+                    {/* @ts-ignore - iframe is valid on web */}
+                    <iframe
+                      src={pdfUri}
+                      title="Preview da receita"
+                      style={{
+                        width: '100%',
+                        height: pdfViewHeight,
+                        border: 'none',
+                        borderRadius: 8,
+                        backgroundColor: colors.background,
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <ZoomablePdfView>
+                    <WebView
+                      source={{ uri: pdfUri }}
+                      style={[st.webview, { height: pdfViewHeight }]}
+                      scrollEnabled
+                      originWhitelist={['*']}
+                    />
+                  </ZoomablePdfView>
+                )}
+              </View>
+            ) : (
+              <View style={[st.pdfPlaceholder, { minHeight: 160 }]}>
+                <Ionicons name="document-outline" size={40} color={colors.textMuted} />
+                <Text style={st.pdfPlaceholderText}>
+                  Adicione medicamentos e salve para gerar o preview.
+                </Text>
+                <TouchableOpacity onPress={loadPdfPreview} style={st.retryBtn} activeOpacity={0.7}>
+                  <Text style={st.retryBtnText}>Tentar novamente</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
-        )}
 
-        {/* Sugestões da IA – aceitar (+) ou rejeitar (−) */}
-        {suggestedFromAi.length > 0 && (
-          <View style={s.card}>
-            <Text style={s.sectionTitle}>SUGESTÕES DA IA</Text>
-            <Text style={s.hint}>Clique + para adicionar ao PDF ou − para rejeitar</Text>
-            {suggestedFromAi.map((med, i) => (
-              <View key={`sug-${i}`} style={s.suggestionRow}>
-                <Text style={s.suggestionText} numberOfLines={2}>{med}</Text>
-                <View style={s.plusMinusRow}>
-                  <TouchableOpacity onPress={() => acceptSuggestion(med)} style={s.plusMinusBtn}>
-                    <Ionicons name="add-circle" size={28} color={colors.success} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => rejectSuggestion(med)} style={s.plusMinusBtn}>
-                    <Ionicons name="remove-circle" size={28} color={colors.error} />
-                  </TouchableOpacity>
-                </View>
+          {/* AI Analysis */}
+          {request.aiSummaryForDoctor && (
+            <View style={[st.card, st.aiCard]}>
+              <View style={st.aiHeader}>
+                <Ionicons name="sparkles" size={20} color={colors.primary} />
+                <Text style={st.aiTitle}>AI Copilot — apoio à prescrição</Text>
+                {request.aiRiskLevel && (
+                  <View style={[st.riskBadge, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || colors.muted }]}>
+                    <Text style={[st.riskText, { color: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text }]}>
+                      {RISK_LABELS_PT[request.aiRiskLevel.toLowerCase()] || request.aiRiskLevel}
+                    </Text>
+                  </View>
+                )}
               </View>
-            ))}
-          </View>
-        )}
+              {/* AI Disclaimer */}
+              <View style={st.aiDisclaimer}>
+                <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+                <Text style={st.aiDisclaimerText}>Conteúdo gerado automaticamente. Revise e confirme.</Text>
+              </View>
+              <Text style={st.aiSummary}>
+                {String(request.aiSummaryForDoctor || '')
+                  .split(/\n+/)
+                  .map((p) => (p.trim() ? p.trim() : null))
+                  .filter(Boolean)
+                  .join('\n\n')}
+              </Text>
+              {request.aiUrgency && (
+                <View style={st.urgencyRow}>
+                  <Ionicons name="time" size={16} color={colors.textSecondary} />
+                  <Text style={st.urgencyText}>Urgência: {URGENCY_LABELS_PT[request.aiUrgency.toLowerCase()] || request.aiUrgency}</Text>
+                </View>
+              )}
+            </View>
+          )}
 
-        {/* Buscar por CID – medicamentos compatíveis */}
-        <View style={s.card}>
-          <Text style={s.sectionTitle}>BUSCAR POR CID</Text>
-          <Text style={s.hint}>Digite o CID ou nome da condição para ver medicamentos sugeridos</Text>
-          <TextInput
-            style={s.cidInput}
-            value={cidQuery}
-            onChangeText={setCidQuery}
-            placeholder="Ex: J00, G43, gastrite..."
-            placeholderTextColor={colors.textMuted}
-          />
-          {cidResults.length > 0 && (
-            <View style={s.cidResults}>
-              {cidResults.map((cid) => (
-                <View key={cid.cid} style={s.cidItem}>
-                  <Text style={s.cidLabel}>{cid.cid} – {cid.description}</Text>
-                  {cid.medications.map((med, j) => (
-                    <View key={j} style={s.cidMedRow}>
-                      <Text style={s.cidMedText} numberOfLines={1}>{med}</Text>
-                      <TouchableOpacity onPress={() => addFromCid(med)} style={s.plusBtn}>
-                        <Ionicons name="add-circle" size={24} color={colors.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+          {/* AI Suggestions */}
+          {suggestedFromAi.length > 0 && (
+            <View style={st.card}>
+              <Text style={st.sectionTitle}>SUGESTÕES DA IA</Text>
+              <View style={st.aiDisclaimer}>
+                <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+                <Text style={st.aiDisclaimerText}>Sugestões — decisão final do médico.</Text>
+              </View>
+              {suggestedFromAi.map((med, i) => (
+                <View key={`sug-${i}`} style={st.suggestionRow}>
+                  <Text style={st.suggestionText} numberOfLines={2}>{med}</Text>
+                  <View style={st.plusMinusRow}>
+                    <TouchableOpacity onPress={() => acceptSuggestion(med)} style={st.plusMinusBtn} hitSlop={8}>
+                      <Ionicons name="add-circle" size={28} color={colors.success} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => rejectSuggestion(med)} style={st.plusMinusBtn} hitSlop={8}>
+                      <Ionicons name="remove-circle" size={28} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </View>
           )}
-        </View>
 
-        {/* Medicamentos na receita (vão para o PDF) */}
-        <View style={s.card}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>MEDICAMENTOS NA RECEITA (PDF)</Text>
-            <TouchableOpacity onPress={addCustom} style={s.addBtn}>
-              <Ionicons name="add-circle" size={22} color={colors.primary} />
-              <Text style={s.addBtnText}>Adicionar outro</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={s.hint}>
-            Formato: Nome — posologia — quantidade (ex: Dipirona 500mg — 1cp 6/6h — 20 comprimidos)
-          </Text>
-          {medications.length === 0 ? (
-            <Text style={s.emptyHint}>Nenhum medicamento. Use + nas sugestões, busque por CID ou adicione outro.</Text>
-          ) : (
-            medications.map((med, i) => (
-              <View key={i} style={s.medRow}>
-                <TextInput
-                  style={s.medInput}
-                  value={med}
-                  onChangeText={(v) => updateMedication(i, v)}
-                  placeholder={`Medicamento ${i + 1}`}
-                  placeholderTextColor={colors.textMuted}
-                />
-                <TouchableOpacity onPress={() => removeMedication(i)} style={s.removeBtn}>
-                  <Ionicons name="remove-circle" size={24} color={colors.error} />
-                </TouchableOpacity>
+          {/* CID Search */}
+          <View style={st.card}>
+            <Text style={st.sectionTitle}>BUSCAR POR CID</Text>
+            <Text style={st.hint}>Digite o CID ou nome da condição para ver medicamentos sugeridos</Text>
+            <TextInput
+              style={st.input}
+              value={cidQuery}
+              onChangeText={setCidQuery}
+              placeholder="Ex: J00, G43, gastrite..."
+              placeholderTextColor={colors.textMuted}
+            />
+            {cidResults.length > 0 && (
+              <View style={st.cidResults}>
+                {cidResults.map((cid) => (
+                  <View key={cid.cid} style={st.cidItem}>
+                    <Text style={st.cidLabel}>{cid.cid} – {cid.description}</Text>
+                    {cid.medications.map((med, j) => (
+                      <View key={j} style={st.cidMedRow}>
+                        <Text style={st.cidMedText} numberOfLines={1}>{med}</Text>
+                        <TouchableOpacity onPress={() => addFromCid(med)} style={st.plusBtn} hitSlop={8}>
+                          <Ionicons name="add-circle" size={24} color={colors.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ))}
               </View>
-            ))
-          )}
-        </View>
-
-        {/* Observações */}
-        <View style={s.card}>
-          <Text style={s.sectionTitle}>OBSERVAÇÕES GERAIS</Text>
-          <TextInput
-            style={s.notesInput}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Ex: Uso contínuo, evitar álcool, etc."
-            placeholderTextColor={colors.textMuted}
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
-
-        {/* Botões Salvar e Assinar */}
-        <View style={s.actions}>
-          <TouchableOpacity
-            style={[s.btn, s.saveBtn]}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="save-outline" size={20} color="#fff" />
-                <Text style={s.btnText}>Salvar e atualizar preview</Text>
-              </>
             )}
-          </TouchableOpacity>
+          </View>
 
-          {showSignForm ? (
-            <View style={s.signForm}>
-              <Text style={s.signLabel}>Senha do certificado A1:</Text>
+          {/* Medications List */}
+          <View style={st.card}>
+            <View style={st.sectionHeader}>
+              <Text style={st.sectionTitle}>MEDICAMENTOS NA RECEITA</Text>
+              <TouchableOpacity onPress={addCustom} style={st.addBtn} activeOpacity={0.7}>
+                <Ionicons name="add-circle" size={22} color={colors.primary} />
+                <Text style={st.addBtnText}>Adicionar</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={st.hint}>
+              Formato: Nome — posologia — quantidade (ex: Dipirona 500mg — 1cp 6/6h — 20 comprimidos)
+            </Text>
+            {medications.length === 0 ? (
+              <Text style={st.emptyHint}>Nenhum medicamento. Use + nas sugestões, busque por CID ou adicione.</Text>
+            ) : (
+              medications.map((med, i) => (
+                <View key={i} style={st.medRow}>
+                  <TextInput
+                    style={st.medInput}
+                    value={med}
+                    onChangeText={(v) => updateMedication(i, v)}
+                    placeholder={`Medicamento ${i + 1}`}
+                    placeholderTextColor={colors.textMuted}
+                  />
+                  <TouchableOpacity onPress={() => removeMedication(i)} style={st.removeBtn} hitSlop={8}>
+                    <Ionicons name="remove-circle" size={24} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+
+          {/* Notes */}
+          <View style={st.card}>
+            <Text style={st.sectionTitle}>OBSERVAÇÕES GERAIS</Text>
+            <TextInput
+              style={st.notesInput}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Ex: Uso contínuo, evitar álcool, etc."
+              placeholderTextColor={colors.textMuted}
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Sign Form */}
+          {showSignForm && (
+            <View style={[st.card, st.signFormCard]}>
+              <View style={st.signFormHeader}>
+                <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+                <Text style={st.signFormTitle}>ASSINATURA DIGITAL</Text>
+              </View>
+              <Text style={st.signFormDesc}>
+                Ao assinar, você confirma que revisou toda a receita. A assinatura digital é válida conforme ITI/ICP-Brasil.
+              </Text>
+              <Text style={st.signLabel}>Senha do certificado A1:</Text>
               <TextInput
-                style={s.certInput}
+                style={st.input}
                 value={certPassword}
                 onChangeText={setCertPassword}
                 placeholder="Senha"
                 secureTextEntry
                 placeholderTextColor={colors.textMuted}
+                autoFocus
               />
-              <View style={s.signBtns}>
+              <View style={st.signBtns}>
                 <TouchableOpacity
-                  style={[s.btn, s.cancelSignBtn]}
-                  onPress={() => {
-                    setShowSignForm(false);
-                    setCertPassword('');
-                  }}
+                  style={st.cancelSignBtn}
+                  onPress={() => { setShowSignForm(false); setCertPassword(''); }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={s.cancelSignText}>Cancelar</Text>
+                  <Text style={st.cancelSignText}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[s.btn, s.signBtn]}
+                  style={st.signConfirmBtn}
                   onPress={handleSign}
                   disabled={signing}
+                  activeOpacity={0.8}
                 >
                   {signing ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <>
-                      <Ionicons name="create" size={20} color="#fff" />
-                      <Text style={s.btnText}>Assinar e enviar</Text>
+                      <Ionicons name="shield-checkmark" size={18} color="#fff" />
+                      <Text style={st.btnText}>Assinar e enviar</Text>
                     </>
                   )}
                 </TouchableOpacity>
               </View>
             </View>
-          ) : (
-            <TouchableOpacity
-              style={[s.btn, s.signPrimaryBtn]}
-              onPress={() => setShowSignForm(true)}
-            >
-              <Ionicons name="create" size={20} color="#fff" />
-              <Text style={s.btnText}>Assinar Digitalmente</Text>
-            </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
 
-      </ScrollView>
+        {/* Bottom Action Bar */}
+        {!showSignForm && (
+          <View style={[st.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+            <TouchableOpacity
+              style={[st.actionBtn, st.saveBtn]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="save-outline" size={20} color="#fff" />
+                  <Text style={st.btnText}>Salvar e atualizar preview</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[st.actionBtn, st.signPrimaryBtn]}
+              onPress={() => setShowSignForm(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="shield-checkmark" size={20} color="#fff" />
+              <Text style={st.btnText}>Assinar Digitalmente</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const s = StyleSheet.create({
+const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
-  header: {
+
+  navHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text, flex: 1 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1, textAlign: 'center' },
+
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.card,
     padding: spacing.md,
     marginBottom: spacing.md,
     ...shadows.card,
   },
-  pdfCard: { borderWidth: 2, borderColor: colors.primary + '30' },
+
+  // PDF Preview
+  pdfCard: { borderWidth: 1.5, borderColor: colors.primary + '30' },
   pdfHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  pdfSectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text, flex: 1 },
-  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6 },
-  refreshBtnText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  pdfTitle: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
+  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, backgroundColor: colors.primarySoft, borderRadius: borderRadius.sm },
+  refreshBtnText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
+  pdfContainer: { marginTop: spacing.sm, overflow: 'hidden', borderRadius: 8 },
   iframeWrapper: { width: '100%', flex: 1, overflow: 'hidden', borderRadius: 8 },
-  retryBtn: { marginTop: spacing.sm, paddingVertical: 8, paddingHorizontal: spacing.md, backgroundColor: colors.primary + '20', borderRadius: 8 },
-  retryBtnText: { fontSize: 14, fontWeight: '600', color: colors.primary },
-  aiCard: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' },
-  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md, flexWrap: 'wrap' },
-  aiTitle: { fontSize: 17, fontWeight: '700', color: colors.text, flex: 1 },
+  webview: { width: '100%', height: Math.min(600, Dimensions.get('window').height - 200) },
+  pdfPlaceholder: { height: 200, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8 },
+  pdfPlaceholderText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' },
+  retryBtn: { marginTop: spacing.sm, paddingVertical: 8, paddingHorizontal: spacing.md, backgroundColor: colors.primarySoft, borderRadius: 8 },
+  retryBtnText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
+  validityText: { fontSize: 12, fontFamily: typography.fontFamily.semibold, color: colors.success, marginTop: 2, fontWeight: '600' },
+
+  // AI Card
+  aiCard: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.accent },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs, flexWrap: 'wrap' },
+  aiTitle: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1 },
   riskBadge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 8 },
-  riskText: { fontSize: 12, fontWeight: '700' },
-  aiSummary: { fontSize: 16, color: colors.text, lineHeight: 26, letterSpacing: 0.2 },
+  riskText: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700' },
+  aiDisclaimer: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.sm, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: 'rgba(0,119,182,0.06)', borderRadius: 6 },
+  aiDisclaimerText: { fontSize: 11, fontFamily: typography.fontFamily.regular, color: colors.textMuted, fontStyle: 'italic' },
+  aiSummary: { fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text, lineHeight: 24, letterSpacing: 0.2 },
   urgencyRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm },
-  urgencyText: { fontSize: 13, color: colors.textSecondary },
+  urgencyText: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
+
+  // Sections
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5, marginBottom: spacing.sm },
+  sectionTitle: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, marginBottom: spacing.sm, textTransform: 'uppercase' as any },
+  hint: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginBottom: spacing.sm },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addBtnText: { fontSize: 14, fontWeight: '600', color: colors.primary },
-  hint: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
-  suggestionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  suggestionText: { flex: 1, fontSize: 14, color: colors.text, marginRight: spacing.sm },
+  addBtnText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
+
+  // Suggestions
+  suggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  suggestionText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, marginRight: spacing.sm },
   plusMinusRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   plusMinusBtn: { padding: 4 },
-  cidInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  cidResults: { marginTop: spacing.xs },
-  cidItem: { marginBottom: spacing.md },
-  cidLabel: { fontSize: 13, fontWeight: '600', color: colors.primary, marginBottom: spacing.xs },
-  cidMedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
-  cidMedText: { flex: 1, fontSize: 13, color: colors.textSecondary },
-  plusBtn: { padding: 4 },
-  emptyHint: { fontSize: 13, color: colors.textMuted, fontStyle: 'italic', marginTop: spacing.sm },
-  medRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  medInput: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+
+  // CID
+  input: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
     fontSize: 15,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cidResults: { marginTop: spacing.xs },
+  cidItem: { marginBottom: spacing.md },
+  cidLabel: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary, marginBottom: spacing.xs },
+  cidMedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
+  cidMedText: { flex: 1, fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
+  plusBtn: { padding: 4 },
+
+  // Medications
+  emptyHint: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textMuted, fontStyle: 'italic', marginTop: spacing.sm },
+  medRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  medInput: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+    fontFamily: typography.fontFamily.regular,
     color: colors.text,
     borderWidth: 1,
     borderColor: colors.border,
   },
   removeBtn: { padding: 8 },
+
+  // Notes
   notesInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.sm,
     padding: spacing.md,
     fontSize: 15,
+    fontFamily: typography.fontFamily.regular,
     color: colors.text,
     minHeight: 80,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  actions: { gap: spacing.sm, marginBottom: spacing.md },
-  btn: {
+
+  // Kind selector
+  kindRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  kindOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  kindOptionActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  kindOptionText: { fontSize: 14, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text },
+  kindOptionTextActive: { color: colors.primary, fontWeight: '700', fontFamily: typography.fontFamily.bold },
+
+  // Sign Form
+  signFormCard: { borderWidth: 1.5, borderColor: colors.primary + '40' },
+  signFormHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  signFormTitle: { fontSize: 12, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
+  signFormDesc: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginBottom: spacing.md, lineHeight: 20 },
+  signLabel: { fontSize: 14, fontFamily: typography.fontFamily.medium, color: colors.textSecondary, marginBottom: spacing.sm },
+  signBtns: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  cancelSignBtn: { flex: 1, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  cancelSignText: { fontFamily: typography.fontFamily.semibold, color: colors.textSecondary, fontWeight: '600', fontSize: 15 },
+  signConfirmBtn: { flex: 1, flexDirection: 'row', backgroundColor: colors.primary, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: 6, ...shadows.button },
+
+  // Bottom Action Bar
+  bottomBar: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     paddingVertical: 14,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.card,
+    ...shadows.button,
   },
   saveBtn: { backgroundColor: colors.primary },
-  signPrimaryBtn: { backgroundColor: '#8B5CF6' },
-  signBtn: { backgroundColor: '#8B5CF6' },
-  cancelSignBtn: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  cancelSignText: { color: colors.textSecondary, fontWeight: '600' },
-  btnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  signForm: { gap: spacing.sm },
-  signLabel: { fontSize: 14, color: colors.textSecondary },
-  certInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  signBtns: { flexDirection: 'row', gap: spacing.sm },
-  pdfContainer: { marginTop: spacing.sm, overflow: 'hidden', borderRadius: 8 },
-  webview: {
-    width: '100%',
-    height: Math.min(600, Dimensions.get('window').height - 200),
-  },
-  pdfPlaceholder: {
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-  },
-  pdfPlaceholderText: { fontSize: 14, color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' },
+  signPrimaryBtn: { backgroundColor: colors.primaryDark },
+  btnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
 });

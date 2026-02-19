@@ -56,6 +56,15 @@ const TOKEN_KEY = '@renoveja:auth_token';
 const USER_KEY = '@renoveja:user';
 const DOCTOR_PROFILE_KEY = '@renoveja:doctor_profile';
 
+/** AsyncStorage não aceita undefined/null; usa setItem só se tiver valor, senão removeItem. */
+async function setItemSafe(key: string, value: string | undefined | null): Promise<void> {
+  if (value != null && value !== '') {
+    await AsyncStorage.setItem(key, value);
+  } else {
+    await AsyncStorage.removeItem(key);
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
@@ -65,38 +74,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadStoredUser();
   }, []);
 
+  // Timeout de segurança: se após 2s ainda estiver loading, libera a tela (evita loading infinito)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading((prev) => (prev ? false : prev));
+    }, 2000);
+    return () => clearTimeout(t);
+  }, []);
+
   const loadStoredUser = async () => {
+    // Fallback: se AsyncStorage/rede travar, libera a tela em no máximo 2.5s
+    const guard = setTimeout(() => setLoading(false), 2500);
     try {
       const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
       const storedUser = await AsyncStorage.getItem(USER_KEY);
       const storedDoctorProfile = await AsyncStorage.getItem(DOCTOR_PROFILE_KEY);
 
       if (storedToken && storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        const parsedDoctorProfile = storedDoctorProfile
-          ? JSON.parse(storedDoctorProfile)
-          : null;
-
-        // Verify token is still valid by calling /api/auth/me
+        let parsedUser: UserDto;
+        let parsedDoctorProfile: DoctorProfileDto | null = null;
         try {
-          const currentUser = await apiClient.get<UserDto>('/api/auth/me');
-          setUser(currentUser);
+          parsedUser = JSON.parse(storedUser) as UserDto;
+          if (storedDoctorProfile) {
+            parsedDoctorProfile = JSON.parse(storedDoctorProfile) as DoctorProfileDto | null;
+          }
+        } catch {
+          clearTimeout(guard);
+          await clearAuth();
+          setLoading(false);
+          return;
+        }
 
-          // If doctor, get doctor profile from stored data or fetch if needed
+        // Mostra o app na hora com usuário em cache; valida token em background
+        clearTimeout(guard);
+        setUser(parsedUser);
+        if (parsedDoctorProfile) setDoctorProfile(parsedDoctorProfile);
+        setLoading(false);
+
+        // Valida token em background (sem travar a abertura). Se falhar, desloga.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        try {
+          const currentUser = await apiClient.get<UserDto>('/api/auth/me', undefined, {
+            signal: controller.signal,
+          });
+          setUser(currentUser);
           if (currentUser.role === 'doctor' && parsedDoctorProfile) {
             setDoctorProfile(parsedDoctorProfile);
           }
-        } catch (error) {
-          // Token is invalid, clear auth
+        } catch {
           await clearAuth();
+        } finally {
+          clearTimeout(timeoutId);
         }
+        return;
       }
     } catch (error) {
       console.error('Error loading stored user:', error);
       await clearAuth();
     } finally {
-      setLoading(false);
+      clearTimeout(guard);
     }
+    setLoading(false);
   };
 
   const signIn = async (email: string, password: string): Promise<UserDto> => {
@@ -106,22 +145,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
 
-      await AsyncStorage.setItem(TOKEN_KEY, response.token);
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      if (!response?.user) {
+        throw new Error('Resposta inválida do servidor. Tente novamente.');
+      }
+      if (response.token == null || response.token === '') {
+        throw new Error('Servidor não retornou token de acesso. Tente novamente.');
+      }
+
+      await setItemSafe(TOKEN_KEY, response.token);
+      await setItemSafe(USER_KEY, JSON.stringify(response.user));
 
       if (response.doctorProfile) {
-        await AsyncStorage.setItem(
+        await setItemSafe(
           DOCTOR_PROFILE_KEY,
           JSON.stringify(response.doctorProfile)
         );
         setDoctorProfile(response.doctorProfile);
+      } else {
+        await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
       }
 
       setUser(response.user);
       return response.user;
     } catch (error: any) {
       console.error('Sign in error:', error);
-      throw new Error(error.message || 'Erro ao fazer login');
+      throw new Error(error?.message || 'Erro ao fazer login');
     }
   };
 
@@ -136,13 +184,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         birthDate: data.birthDate,
       });
 
-      await AsyncStorage.setItem(TOKEN_KEY, response.token);
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      if (!response?.user) throw new Error('Resposta inválida do servidor.');
+      await setItemSafe(TOKEN_KEY, response.token ?? undefined);
+      await setItemSafe(USER_KEY, JSON.stringify(response.user));
       setUser(response.user);
       return response.user;
     } catch (error: any) {
       console.error('Sign up error:', error);
-      throw new Error(error.message || 'Erro ao criar conta');
+      throw new Error(error?.message || 'Erro ao criar conta');
     }
   };
 
@@ -164,14 +213,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       );
 
-      await AsyncStorage.setItem(TOKEN_KEY, response.token);
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      if (!response?.user) throw new Error('Resposta inválida do servidor.');
+      await setItemSafe(TOKEN_KEY, response.token ?? undefined);
+      await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
-        await AsyncStorage.setItem(
+        await setItemSafe(
           DOCTOR_PROFILE_KEY,
           JSON.stringify(response.doctorProfile)
         );
         setDoctorProfile(response.doctorProfile);
+      } else {
+        await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
       }
       setUser(response.user);
       return response.user;
@@ -188,15 +240,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
       });
 
-      await AsyncStorage.setItem(TOKEN_KEY, response.token);
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      if (!response?.user) throw new Error('Resposta inválida do servidor.');
+      await setItemSafe(TOKEN_KEY, response.token ?? undefined);
+      await setItemSafe(USER_KEY, JSON.stringify(response.user));
 
       if (response.doctorProfile) {
-        await AsyncStorage.setItem(
+        await setItemSafe(
           DOCTOR_PROFILE_KEY,
           JSON.stringify(response.doctorProfile)
         );
         setDoctorProfile(response.doctorProfile);
+      } else {
+        await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
       }
 
       setUser(response.user);
@@ -232,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const currentUser = await apiClient.get<UserDto>('/api/auth/me');
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+      await setItemSafe(USER_KEY, currentUser ? JSON.stringify(currentUser) : undefined);
       setUser(currentUser);
     } catch (error) {
       console.error('Error refreshing user:', error);
@@ -248,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data
       );
 
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+      await setItemSafe(USER_KEY, updatedUser ? JSON.stringify(updatedUser) : undefined);
       setUser(updatedUser);
       return updatedUser;
     } catch (error: any) {

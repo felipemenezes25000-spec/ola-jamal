@@ -18,6 +18,10 @@
   <ItemGroup>
     <ProjectReference Include="..\RenoveJa.Application\RenoveJa.Application.csproj" />
     <ProjectReference Include="..\RenoveJa.Infrastructure\RenoveJa.Infrastructure.csproj" />
+<<<<<<< HEAD
+    <ProjectReference Include="..\RenoveJa.Domain\RenoveJa.Domain.csproj" />
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
   </ItemGroup>
 
 </Project>

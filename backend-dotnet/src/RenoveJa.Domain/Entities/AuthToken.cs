@@ -8,7 +8,14 @@ public class AuthToken : Entity
     public string Token { get; private set; }
     public DateTime ExpiresAt { get; private set; }
 
+<<<<<<< HEAD
+    private AuthToken() : base()
+    {
+        Token = null!;
+    }
+=======
     private AuthToken() : base() { }
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private AuthToken(
         Guid id,
@@ -50,7 +57,11 @@ public class AuthToken : Entity
 
     private static string GenerateToken()
     {
+<<<<<<< HEAD
+        return Convert.ToBase64String(Guid.NewGuid().ToByteArray()) +
+=======
         return Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + 
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
                Convert.ToBase64String(Guid.NewGuid().ToByteArray());
     }
 

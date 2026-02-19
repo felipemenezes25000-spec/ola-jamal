@@ -13,7 +13,7 @@ export default function SplashScreen() {
 
   useEffect(() => {
     if (!loading) {
-      setTimeout(() => {
+      const t = setTimeout(() => {
         if (user) {
           if (user.role === 'patient') {
             router.replace('/(patient)/home');
@@ -23,7 +23,8 @@ export default function SplashScreen() {
         } else {
           router.replace('/(auth)/login');
         }
-      }, 1500);
+      }, 600);
+      return () => clearTimeout(t);
     }
   }, [user, loading]);
 

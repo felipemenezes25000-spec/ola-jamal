@@ -5,6 +5,12 @@ import { colors, spacing, borderRadius, shadows } from '../lib/theme';
 import { StatusBadge } from './StatusBadge';
 import { RequestResponseDto } from '../types/database';
 
+const RISK_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  high: { label: 'Alto Risco', color: '#DC2626', bg: '#FEE2E2' },
+  medium: { label: 'Risco Médio', color: '#D97706', bg: '#FEF3C7' },
+  low: { label: 'Baixo Risco', color: '#059669', bg: '#D1FAE5' },
+};
+
 function getRequestIcon(type: string): keyof typeof Ionicons.glyphMap {
   switch (type) {
     case 'prescription': return 'document-text';
@@ -25,9 +31,9 @@ function getRequestIconColor(type: string): string {
 
 function getRequestTitle(request: RequestResponseDto): string {
   switch (request.requestType) {
-    case 'prescription': return 'Renovação de Receita';
-    case 'exam': return 'Pedido de Exames';
-    case 'consultation': return 'Consulta Online';
+    case 'prescription': return 'Receita';
+    case 'exam': return 'Exames';
+    case 'consultation': return 'Consulta';
     default: return 'Solicitação';
   }
 }
@@ -59,12 +65,20 @@ export default function RequestCard({ request, onPress, showPatientName }: Props
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>{getRequestTitle(request)}</Text>
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{getRequestTitle(request)}</Text>
         <Text style={styles.subtitle} numberOfLines={1}>{getRequestSubtitle(request, showPatientName)}</Text>
       </View>
 
       <View style={styles.rightSide}>
         <StatusBadge status={request.status} size="sm" />
+        {request.aiRiskLevel && RISK_CONFIG[request.aiRiskLevel] && (
+          <View style={[styles.riskBadge, { backgroundColor: RISK_CONFIG[request.aiRiskLevel].bg }]}>
+            <View style={[styles.riskDot, { backgroundColor: RISK_CONFIG[request.aiRiskLevel].color }]} />
+            <Text style={[styles.riskText, { color: RISK_CONFIG[request.aiRiskLevel].color }]}>
+              {RISK_CONFIG[request.aiRiskLevel].label}
+            </Text>
+          </View>
+        )}
         {request.price != null && request.price > 0 && (
           <Text style={styles.price}>R$ {request.price.toFixed(2)}</Text>
         )}
@@ -116,5 +130,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.primary,
+  },
+  riskBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4,
+  },
+  riskDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  riskText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

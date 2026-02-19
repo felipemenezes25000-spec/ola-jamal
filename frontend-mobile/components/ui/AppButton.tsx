@@ -9,11 +9,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
+import { colors as doctorColors } from '../../lib/themeDoctor';
 
 const c = theme.colors;
 const r = theme.borderRadius;
 
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'doctorPrimary' | 'doctorSecondary';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface AppButtonProps {
@@ -43,6 +44,16 @@ const VARIANT_CONFIG: Record<ButtonVariant, {
   outline: { bg: 'transparent', text: c.primary.main, border: c.primary.main, shadow: theme.shadows.none },
   ghost: { bg: 'transparent', text: c.primary.main, shadow: theme.shadows.none },
   danger: { bg: c.status.error, text: '#FFFFFF', shadow: theme.shadows.buttonDanger },
+  doctorPrimary: {
+    bg: doctorColors.primary,
+    text: '#FFFFFF',
+    shadow: { shadowColor: doctorColors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
+  },
+  doctorSecondary: {
+    bg: doctorColors.secondary,
+    text: '#FFFFFF',
+    shadow: { shadowColor: doctorColors.secondary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
+  },
 };
 
 export function AppButton({

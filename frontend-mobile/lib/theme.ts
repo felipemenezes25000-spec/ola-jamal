@@ -1,6 +1,6 @@
 /**
  * RenoveJá+ Design System
- * Complete theme configuration for the telemedicine mobile app
+ * Tema global (light). Telas do médico usam lib/themeDoctor.ts (Stitch Ocean Blue).
  */
 
 export const theme = {
@@ -94,7 +94,7 @@ export const theme = {
       warm: ['#F59E0B', '#D97706'],
       authBackground: ['#FFFFFF', '#E8F4FE', '#B8DFFB', '#38BDF8'],
       splash: ['#0284C7', '#0EA5E9', '#38BDF8'],
-      doctorHeader: ['#059669', '#10B981', '#34D399'],
+      doctorHeader: ['#005F8A', '#0077B6', '#0096D6'],
       patientHeader: ['#0EA5E9', '#38BDF8', '#7DD3FC'],
     },
   },

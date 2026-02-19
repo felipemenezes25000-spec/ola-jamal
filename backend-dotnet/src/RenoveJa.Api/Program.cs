@@ -31,8 +31,70 @@ using Microsoft.Extensions.Logging;
 using System.Threading.RateLimiting;
 using Serilog;
 
+<<<<<<< HEAD
+// Carrega .env da pasta do projeto e garante Supabase no Environment (evita 400 por ServiceKey)
+static string? FindEnvPath()
+{
+    var baseDir = AppContext.BaseDirectory;
+    var currentDir = Directory.GetCurrentDirectory();
+            // Se BaseDirectory contém "RenoveJa.Api", subir até essa pasta e procurar .env
+    foreach (var startDir in new[] { baseDir, currentDir })
+    {
+        if (string.IsNullOrEmpty(startDir)) continue;
+        var dir = startDir;
+        for (var i = 0; i < 8 && !string.IsNullOrEmpty(dir); i++)
+        {
+            var envPath = Path.Combine(dir, ".env");
+            if (File.Exists(envPath)) return envPath;
+            var parent = Path.GetDirectoryName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrEmpty(parent) || parent == dir) break;
+            dir = parent;
+        }
+    }
+            // Último recurso: pasta do assembly, procurar "RenoveJa.Api" no caminho
+    if (baseDir.Contains("RenoveJa.Api", StringComparison.OrdinalIgnoreCase))
+    {
+        var idx = baseDir.IndexOf("RenoveJa.Api", StringComparison.OrdinalIgnoreCase);
+        var projectDir = baseDir[..(idx + "RenoveJa.Api".Length)];
+        var envPath = Path.Combine(projectDir, ".env");
+        if (File.Exists(envPath)) return envPath;
+    }
+    return null;
+}
+
+// Dicionário preenchido ao ler .env; usado para SupabaseConfig (evita depender de Environment)
+var _envVars = new Dictionary<string, string>();
+
+void ApplyEnvFile(string envPath)
+{
+    foreach (var line in File.ReadAllLines(envPath))
+    {
+        var s = line.Trim();
+        if (s.Length == 0 || s[0] == '#') continue;
+        var eq = s.IndexOf('=');
+        if (eq <= 0) continue;
+        var key = s[0..eq].Trim();
+        var value = s[(eq + 1)..].Trim();
+        if (string.IsNullOrEmpty(key)) continue;
+        if (value.Length >= 2 && ((value.StartsWith('"') && value.EndsWith('"')) || (value.StartsWith('\'') && value.EndsWith('\''))))
+            value = value[1..^1];
+        _envVars[key] = value;
+        Environment.SetEnvironmentVariable(key, value, EnvironmentVariableTarget.Process);
+    }
+}
+
+var envPath = FindEnvPath();
+if (!string.IsNullOrEmpty(envPath))
+{
+    Env.Load(envPath);
+    ApplyEnvFile(envPath);
+}
+else
+    Env.TraversePath().Load();
+=======
 // Carrega .env da pasta do projeto (sobrescreve env vars; permite centralizar credenciais)
 Env.TraversePath().Load();
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -87,9 +149,20 @@ builder.Services.AddSwaggerGen(options =>
 // Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
+<<<<<<< HEAD
+// Configure Supabase: usar _envVars lido do .env (garante que a ServiceKey venha do arquivo)
+builder.Services.Configure<SupabaseConfig>(options =>
+{
+    var section = builder.Configuration.GetSection("Supabase");
+    options.Url = (_envVars.GetValueOrDefault("Supabase__Url") ?? Environment.GetEnvironmentVariable("Supabase__Url") ?? section["Url"])?.Trim() ?? string.Empty;
+    options.ServiceKey = (_envVars.GetValueOrDefault("Supabase__ServiceKey") ?? Environment.GetEnvironmentVariable("Supabase__ServiceKey") ?? section["ServiceKey"])?.Trim() ?? string.Empty;
+    options.DatabaseUrl = (_envVars.GetValueOrDefault("Supabase__DatabaseUrl") ?? Environment.GetEnvironmentVariable("Supabase__DatabaseUrl") ?? section["DatabaseUrl"])?.Trim();
+});
+=======
 // Configure Supabase
 builder.Services.Configure<SupabaseConfig>(
     builder.Configuration.GetSection("Supabase"));
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 // Configure Google Auth (login com Google)
 builder.Services.Configure<GoogleAuthConfig>(
@@ -214,8 +287,17 @@ builder.Services.AddCors(options =>
     {
         var devOrigins = new[]
         {
+<<<<<<< HEAD
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
             "http://localhost:8081",
             "http://127.0.0.1:8081",
+            "http://localhost:8082",
+            "http://127.0.0.1:8082",
+=======
+            "http://localhost:8081",
+            "http://127.0.0.1:8081",
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             "http://localhost:19006",
             "http://127.0.0.1:19006",
             "http://localhost:3000",

@@ -13,6 +13,11 @@ public class UserModel
     public string? Cpf { get; set; }
     [JsonPropertyName("birth_date")]
     public DateTime? BirthDate { get; set; }
+<<<<<<< HEAD
+    public string? Gender { get; set; }
+    public string? Address { get; set; }
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public string? AvatarUrl { get; set; }
     public string Role { get; set; } = "patient";
     public DateTime CreatedAt { get; set; }
@@ -28,6 +33,13 @@ public class DoctorProfileModel
     public string Crm { get; set; } = string.Empty;
     public string CrmState { get; set; } = string.Empty;
     public string Specialty { get; set; } = string.Empty;
+<<<<<<< HEAD
+    [JsonPropertyName("professional_address")]
+    public string? ProfessionalAddress { get; set; }
+    [JsonPropertyName("professional_phone")]
+    public string? ProfessionalPhone { get; set; }
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public string? Bio { get; set; }
     public decimal Rating { get; set; }
     public int TotalConsultations { get; set; }
@@ -46,6 +58,11 @@ public class DoctorProfileModel
             Crm = profile.Crm,
             CrmState = profile.CrmState,
             Specialty = profile.Specialty,
+<<<<<<< HEAD
+            ProfessionalAddress = profile.ProfessionalAddress,
+            ProfessionalPhone = profile.ProfessionalPhone,
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             Bio = profile.Bio,
             Rating = profile.Rating,
             TotalConsultations = profile.TotalConsultations,
@@ -62,7 +79,12 @@ public class DoctorProfileModel
         return RenoveJa.Domain.Entities.DoctorProfile.Reconstitute(
             Id, UserId, Crm, CrmState, Specialty, Bio,
             Rating, TotalConsultations, Available,
+<<<<<<< HEAD
+            ActiveCertificateId, CrmValidated, CrmValidatedAt, CreatedAt,
+            ProfessionalAddress, ProfessionalPhone);
+=======
             ActiveCertificateId, CrmValidated, CrmValidatedAt, CreatedAt);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 }
 
@@ -98,6 +120,11 @@ public class RequestModel
     public string RequestType { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string? PrescriptionType { get; set; }
+<<<<<<< HEAD
+    [JsonPropertyName("prescription_kind")]
+    public string? PrescriptionKind { get; set; }
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public List<string> Medications { get; set; } = new();
     public List<string> PrescriptionImages { get; set; } = new();
     public string? ExamType { get; set; }

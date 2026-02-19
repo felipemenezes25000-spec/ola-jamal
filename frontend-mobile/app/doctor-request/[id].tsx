@@ -8,13 +8,14 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Image,
   Platform,
   Modal,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { colors, spacing, borderRadius, shadows, typography } from '../../lib/themeDoctor';
 import {
   getRequestById,
   approveRequest,
@@ -27,17 +28,36 @@ import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { showToast } from '../../components/ui/Toast';
 
 const TYPE_LABELS: Record<string, string> = { prescription: 'Receita', exam: 'Exame', consultation: 'Consulta' };
-const RISK_COLORS: Record<string, { bg: string; text: string }> = {
-  low: { bg: '#D1FAE5', text: '#059669' },
-  medium: { bg: '#FEF3C7', text: '#D97706' },
-  high: { bg: '#FEE2E2', text: '#DC2626' },
+const RISK_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
+  low: { bg: colors.successLight, text: colors.success, icon: 'shield-checkmark' },
+  medium: { bg: colors.warningLight, text: '#D97706', icon: 'alert-circle' },
+  high: { bg: colors.errorLight, text: colors.destructive, icon: 'warning' },
 };
+const RISK_LABELS_PT: Record<string, string> = {
+  low: 'Risco baixo',
+  medium: 'Risco médio',
+  high: 'Risco alto',
+};
+const URGENCY_LABELS_PT: Record<string, string> = {
+  routine: 'Rotina',
+  urgent: 'Urgente',
+  emergency: 'Emergência',
+};
+
+function hasUsefulAiContent(aiSummary: string | null | undefined, aiRisk?: string | null, aiUrgency?: string | null): boolean {
+  if (aiRisk || aiUrgency) return true;
+  if (!aiSummary || !aiSummary.trim()) return false;
+  return aiSummary.replace(/\s/g, '').length > 50;
+}
 
 export default function DoctorRequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,8 +84,9 @@ export default function DoctorRequestDetail() {
     try {
       await approveRequest(requestId);
       await loadData();
+      showToast({ message: 'Solicitação aprovada com sucesso!', type: 'success' });
     } catch (e: unknown) {
-      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Falha ao aprovar.');
+      showToast({ message: (e as Error)?.message || 'Falha ao aprovar.', type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -73,9 +94,7 @@ export default function DoctorRequestDetail() {
 
   const handleApprove = () => {
     if (Platform.OS === 'web') {
-      if (window.confirm('Confirma a aprovação?')) {
-        executeApprove();
-      }
+      if (window.confirm('Confirma a aprovação?')) executeApprove();
     } else {
       Alert.alert('Aprovar', 'Confirma a aprovação?', [
         { text: 'Cancelar', style: 'cancel' },
@@ -85,37 +104,43 @@ export default function DoctorRequestDetail() {
   };
 
   const handleReject = async () => {
-    if (!rejectionReason.trim()) { Alert.alert('Obrigatório', 'Informe o motivo.'); return; }
+    if (!rejectionReason.trim()) { showToast({ message: 'Informe o motivo da rejeição.', type: 'warning' }); return; }
     if (!requestId) return;
     setActionLoading(true);
-    try { await rejectRequest(requestId, rejectionReason.trim()); loadData(); setShowRejectForm(false); }
-    catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e) || 'Falha.'); }
+    try { await rejectRequest(requestId, rejectionReason.trim()); loadData(); setShowRejectForm(false); showToast({ message: 'Pedido rejeitado.', type: 'info' }); }
+    catch (e: unknown) { showToast({ message: (e as Error)?.message || 'Falha ao rejeitar.', type: 'error' }); }
     finally { setActionLoading(false); }
   };
 
   const handleSign = async () => {
-    if (!certPassword.trim()) { Alert.alert('Obrigatório', 'Digite a senha do certificado.'); return; }
+    if (!certPassword.trim()) { showToast({ message: 'Digite a senha do certificado.', type: 'warning' }); return; }
     if (!requestId) return;
     setActionLoading(true);
     try {
       await signRequest(requestId, { pfxPassword: certPassword });
       loadData(); setShowSignForm(false); setCertPassword('');
-      Alert.alert('Sucesso!', 'Documento assinado digitalmente.');
-    } catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e) || 'Senha incorreta ou erro na assinatura.'); }
-    finally { setActionLoading(false); }
+      showToast({ message: 'Documento assinado digitalmente!', type: 'success' });
+    } catch (e: unknown) {
+      setCertPassword('');
+      showToast({ message: (e as Error)?.message || 'Senha incorreta ou erro na assinatura.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleAcceptConsultation = async () => {
     if (!requestId) return;
     setActionLoading(true);
-    try { await acceptConsultation(requestId); loadData(); }
-    catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e) || 'Falha.'); }
+    try { await acceptConsultation(requestId); loadData(); showToast({ message: 'Consulta aceita!', type: 'success' }); }
+    catch (e: unknown) { showToast({ message: (e as Error)?.message || 'Falha ao aceitar.', type: 'error' }); }
     finally { setActionLoading(false); }
   };
 
-  const fmt = (d: string) => { const dt = new Date(d); return `${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`; };
+  const fmt = (d: string) => {
+    const dt = new Date(d);
+    return `${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  };
 
-  // Médico pode aprovar a partir de "Enviado" (submitted): backend atribui o médico e gera aprovação → pagamento.
   const canApprove = request && (request.status === 'submitted' || request.status === 'in_review') && request.requestType !== 'consultation';
   const canReject = request && (request.status === 'submitted' || request.status === 'in_review');
   const canSign = request && request.status === 'paid' && request.requestType !== 'consultation';
@@ -123,266 +148,377 @@ export default function DoctorRequestDetail() {
   const canVideo = request && ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
   const isInQueue = request && request.status === 'submitted' && !request.doctorId;
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
-  if (!request) return <View style={s.center}><Text style={{ color: colors.textSecondary }}>Pedido não encontrado</Text></View>;
+  if (loading) return (
+    <View style={s.loadingContainer}>
+      <View style={[s.navHeader, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={s.back} hitSlop={12}>
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={s.navTitle}>Carregando...</Text>
+        <View style={s.navSpacer} />
+      </View>
+      <View style={{ padding: spacing.md }}><SkeletonList count={4} /></View>
+    </View>
+  );
+
+  if (!request) return (
+    <View style={s.center}>
+      <Ionicons name="document-text-outline" size={56} color={colors.textMuted} />
+      <Text style={s.emptyTitle}>Pedido não encontrado</Text>
+      <TouchableOpacity onPress={() => router.back()} style={s.emptyAction}>
+        <Text style={s.emptyActionText}>Voltar</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.back}><Ionicons name="chevron-back" size={24} color={colors.primary} /></TouchableOpacity>
-        <Text style={s.title}>{TYPE_LABELS[request.requestType] || 'Pedido'}</Text>
-        <StatusBadge status={request.status} />
-      </View>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+        {/* Nav Header */}
+        <View style={[s.navHeader, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={s.back} hitSlop={12}>
+            <Ionicons name="chevron-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={s.navTitle}>{TYPE_LABELS[request.requestType] || 'Pedido'}</Text>
+          <StatusBadge status={request.status} />
+        </View>
 
-      <View style={s.card}><StatusTracker currentStatus={request.status} requestType={request.requestType} /></View>
+        {/* Status tracker */}
+        <View style={s.card}><StatusTracker currentStatus={request.status} requestType={request.requestType} /></View>
 
-      {/* Patient */}
-      <View style={s.card}>
-        <Text style={s.section}>PACIENTE</Text>
-        <TouchableOpacity onPress={() => request.patientId && router.push(`/doctor-patient/${request.patientId}` as any)} activeOpacity={0.7}>
-          <Row k="Nome" v={request.patientName || 'N/A'} />
-          {request.patientId && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 }}>
-              <Ionicons name="folder-open-outline" size={14} color={colors.primary} />
-              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Ver histórico (prontuário)</Text>
+        {/* Patient */}
+        <View style={s.card}>
+          <Text style={s.sectionLabel}>PACIENTE</Text>
+          <TouchableOpacity onPress={() => request.patientId && router.push(`/doctor-patient/${request.patientId}` as any)} activeOpacity={0.7}>
+            <Row k="Nome" v={request.patientName || 'N/A'} />
+            {request.patientId && (
+              <View style={s.patientLink}>
+                <Ionicons name="folder-open-outline" size={14} color={colors.primary} />
+                <Text style={s.patientLinkText}>Ver histórico (prontuário)</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <Row k="Criado em" v={fmt(request.createdAt)} />
+        </View>
+
+        {/* Details */}
+        <View style={s.card}>
+          <Text style={s.sectionLabel}>DETALHES</Text>
+          <Row k="Tipo" v={TYPE_LABELS[request.requestType]} />
+          {request.prescriptionType && <Row k="Modalidade" v={request.prescriptionType === 'simples' ? 'Simples' : request.prescriptionType === 'controlado' ? 'Controlada' : 'Azul'} warn={request.prescriptionType === 'controlado'} />}
+          {request.price != null && <Row k="Valor" v={`R$ ${request.price.toFixed(2).replace('.', ',')}`} accent />}
+        </View>
+
+        {/* AI Copilot */}
+        {hasUsefulAiContent(request.aiSummaryForDoctor, request.aiRiskLevel, request.aiUrgency) && (
+          <View style={[s.card, s.aiCard]}>
+            <View style={s.aiHeader}>
+              <Ionicons name="sparkles" size={18} color={colors.primary} />
+              <Text style={s.aiTitle}>AI Copilot</Text>
+              {request.aiRiskLevel && (
+                <View style={[s.riskBadge, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || colors.muted }]}>
+                  <Ionicons name={(RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.icon || 'alert-circle') as any} size={12} color={RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text} />
+                  <Text style={[s.riskText, { color: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text }]}>
+                    {RISK_LABELS_PT[request.aiRiskLevel.toLowerCase()] || request.aiRiskLevel}
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
-        </TouchableOpacity>
-        <Row k="Criado em" v={fmt(request.createdAt)} />
-      </View>
-
-      {/* Details */}
-      <View style={s.card}>
-        <Text style={s.section}>DETALHES</Text>
-        <Row k="Tipo" v={TYPE_LABELS[request.requestType]} />
-        {request.prescriptionType && <Row k="Modalidade" v={request.prescriptionType === 'simples' ? 'Simples' : request.prescriptionType === 'controlado' ? 'Controlada' : 'Azul'} warn={request.prescriptionType === 'controlado'} />}
-        {request.price != null && <Row k="Valor" v={`R$ ${request.price.toFixed(2).replace('.', ',')}`} green />}
-      </View>
-
-      {/* AI */}
-      {request.aiSummaryForDoctor && (
-        <View style={[s.card, s.aiCard]}>
-          <View style={s.aiH}>
-            <Ionicons name="sparkles" size={18} color={colors.primary} />
-            <Text style={s.aiT}>Análise IA</Text>
-            {request.aiRiskLevel && (
-              <View style={[s.riskB, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || '#E2E8F0' }]}>
-                <Text style={[s.riskT, { color: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text }]}>{request.aiRiskLevel.toUpperCase()} RISK</Text>
+            {/* AI Disclaimer */}
+            <View style={s.aiDisclaimer}>
+              <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+              <Text style={s.aiDisclaimerText}>Sugestões geradas por IA — decisão final do médico.</Text>
+            </View>
+            {request.aiSummaryForDoctor && request.aiSummaryForDoctor.trim().length > 0 && (
+              <Text style={s.aiSummary}>{request.aiSummaryForDoctor}</Text>
+            )}
+            {request.aiUrgency && (
+              <View style={s.urgencyRow}>
+                <Ionicons name="time" size={14} color={colors.textSecondary} />
+                <Text style={s.urgencyText}>Urgência: {URGENCY_LABELS_PT[request.aiUrgency.toLowerCase()] || request.aiUrgency}</Text>
               </View>
             )}
           </View>
-          <Text style={s.aiS}>{request.aiSummaryForDoctor}</Text>
-          {request.aiUrgency && <View style={s.urgR}><Ionicons name="time" size={14} color={colors.textSecondary} /><Text style={s.urgT}>Urgência: {request.aiUrgency}</Text></View>}
-        </View>
-      )}
+        )}
 
-      {/* Prescription Images */}
-      {request.prescriptionImages && request.prescriptionImages.length > 0 && (
-        <View style={s.card}>
-          <Text style={s.section}>IMAGENS DA RECEITA</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {request.prescriptionImages.map((img, i) => (
-              <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8}>
-                <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Exam Images */}
-      {request.examImages && request.examImages.length > 0 && (
-        <View style={s.card}>
-          <Text style={s.section}>IMAGENS DO EXAME</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {request.examImages.map((img, i) => (
-              <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8}>
-                <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Image Modal with Zoom */}
-      <Modal
-        visible={selectedImageUri !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedImageUri(null)}
-        statusBarTranslucent
-      >
-        <View style={s.modalContainer}>
-          <TouchableOpacity
-            style={s.modalCloseButton}
-            onPress={() => setSelectedImageUri(null)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close" size={32} color="#fff" />
-          </TouchableOpacity>
-          {selectedImageUri && (
-            <View style={s.modalImageWrapper}>
-              {Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
-                <CompatibleImage uri={selectedImageUri} style={s.modalImageFull} resizeMode="contain" />
-              ) : (
-                <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />
-              )}
-            </View>
-          )}
-        </View>
-      </Modal>
-
-      {/* Meds */}
-      {request.medications && request.medications.length > 0 && (
-        <View style={s.card}>
-          <Text style={s.section}>MEDICAMENTOS</Text>
-          {request.medications.map((m, i) => <MedItem key={i} text={m} color={colors.primary} bg={colors.primaryLight} />)}
-        </View>
-      )}
-
-      {/* Exams */}
-      {request.exams && request.exams.length > 0 && (
-        <View style={s.card}>
-          <Text style={s.section}>EXAMES</Text>
-          {request.exams.map((e, i) => <MedItem key={i} text={e} color="#7C3AED" bg="#EDE9FE" />)}
-        </View>
-      )}
-
-      {/* Symptoms */}
-      {request.symptoms && <View style={s.card}><Text style={s.section}>SINTOMAS</Text><Text style={s.sym}>{request.symptoms}</Text></View>}
-
-      {/* Sign Form */}
-      {showSignForm && (
-        <View style={s.card}>
-          <Text style={s.section}>ASSINATURA DIGITAL</Text>
-          <Text style={s.formDesc}>Digite a senha do certificado A1:</Text>
-          <TextInput style={s.formInput} placeholder="Senha" secureTextEntry value={certPassword} onChangeText={setCertPassword} placeholderTextColor={colors.textMuted} />
-          <View style={s.formBtns}>
-            <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowSignForm(false); setCertPassword(''); }}><Text style={s.cancelT}>Cancelar</Text></TouchableOpacity>
-            <TouchableOpacity style={s.signBtn} onPress={handleSign} disabled={actionLoading}>{actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnT}>Assinar</Text>}</TouchableOpacity>
+        {/* Prescription Images */}
+        {request.prescriptionImages && request.prescriptionImages.length > 0 && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>IMAGENS DA RECEITA</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {request.prescriptionImages.map((img, i) => (
+                <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8}>
+                  <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Reject Form */}
-      {showRejectForm && (
-        <View style={s.card}>
-          <Text style={s.section}>REJEIÇÃO</Text>
-          <TextInput style={s.formArea} placeholder="Motivo..." value={rejectionReason} onChangeText={setRejectionReason} multiline textAlignVertical="top" placeholderTextColor={colors.textMuted} />
-          <View style={s.formBtns}>
-            <TouchableOpacity style={s.cancelBtn} onPress={() => setShowRejectForm(false)}><Text style={s.cancelT}>Cancelar</Text></TouchableOpacity>
-            <TouchableOpacity style={s.rejBtn} onPress={handleReject} disabled={actionLoading}>{actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnT}>Rejeitar</Text>}</TouchableOpacity>
+        {/* Exam Images */}
+        {request.examImages && request.examImages.length > 0 && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>IMAGENS DO EXAME</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {request.examImages.map((img, i) => (
+                <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8}>
+                  <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Aviso quando pedido está na fila (sem médico atribuído) */}
-      {isInQueue && (
-        <View style={s.queueHint}>
-          <Ionicons name="information-circle" size={20} color={colors.primary} />
-          <Text style={s.queueHintText}>Pedido na fila. Aprove para enviar ao pagamento ou rejeite informando o motivo.</Text>
-        </View>
-      )}
-
-      {/* Actions */}
-      {!showSignForm && !showRejectForm && (
-        <View style={s.actions}>
-          {canAccept && <Btn bg={colors.secondary} icon="checkmark" text="Aceitar Consulta" onPress={handleAcceptConsultation} loading={actionLoading} />}
-          {canApprove && <Btn bg={colors.primary} icon="checkmark-circle" text="Aprovar" onPress={handleApprove} loading={actionLoading} />}
-          {canSign && request.requestType === 'prescription' && (
-            <Btn
-              bg="#8B5CF6"
-              icon="document-text"
-              text="Visualizar e Assinar"
-              onPress={() => router.push(`/doctor-request/editor/${requestId}`)}
-            />
-          )}
-          {canSign && request.requestType !== 'prescription' && (
-            <Btn bg="#8B5CF6" icon="create" text="Assinar Digitalmente" onPress={() => setShowSignForm(true)} />
-          )}
-          {canVideo && <Btn bg={colors.secondary} icon="videocam" text="Iniciar Consulta" onPress={() => router.push(`/video/${request.id}`)} />}
-          {canReject && (
-            <TouchableOpacity style={s.rejOutline} onPress={() => setShowRejectForm(true)}>
-              <Ionicons name="close-circle-outline" size={20} color={colors.error} />
-              <Text style={s.rejOutText}>Rejeitar</Text>
+        {/* Zoomable Image Modal */}
+        <Modal
+          visible={selectedImageUri !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedImageUri(null)}
+          statusBarTranslucent
+        >
+          <View style={s.modalContainer}>
+            <TouchableOpacity style={s.modalCloseButton} onPress={() => setSelectedImageUri(null)} activeOpacity={0.7}>
+              <Ionicons name="close" size={32} color="#fff" />
             </TouchableOpacity>
-          )}
-        </View>
-      )}
-    </ScrollView>
+            {selectedImageUri && (
+              <View style={s.modalImageWrapper}>
+                {Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
+                  <CompatibleImage uri={selectedImageUri} style={s.modalImageFull} resizeMode="contain" />
+                ) : (
+                  <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />
+                )}
+              </View>
+            )}
+          </View>
+        </Modal>
+
+        {/* Medications */}
+        {request.medications && request.medications.length > 0 && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>MEDICAMENTOS</Text>
+            {request.medications.map((m, i) => <MedItem key={i} text={m} icon="medical" iconColor={colors.primary} iconBg={colors.primarySoft} />)}
+          </View>
+        )}
+
+        {/* Exams */}
+        {request.exams && request.exams.length > 0 && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>EXAMES SOLICITADOS</Text>
+            {request.exams.map((e, i) => <MedItem key={i} text={e} icon="flask" iconColor={colors.primary} iconBg={colors.accentSoft} />)}
+          </View>
+        )}
+
+        {/* Symptoms */}
+        {request.symptoms && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>SINTOMAS</Text>
+            <Text style={s.symptomsText}>{request.symptoms}</Text>
+          </View>
+        )}
+
+        {/* Sign Form */}
+        {showSignForm && (
+          <View style={[s.card, s.formCard]}>
+            <View style={s.formHeader}>
+              <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+              <Text style={s.formTitle}>ASSINATURA DIGITAL</Text>
+            </View>
+            <Text style={s.formDesc}>Digite a senha do seu certificado A1 para assinar:</Text>
+            <TextInput
+              style={s.formInput}
+              placeholder="Senha do certificado"
+              secureTextEntry
+              value={certPassword}
+              onChangeText={setCertPassword}
+              placeholderTextColor={colors.textMuted}
+              autoFocus
+            />
+            <View style={s.formBtns}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowSignForm(false); setCertPassword(''); }}>
+                <Text style={s.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.signBtn} onPress={handleSign} disabled={actionLoading}>
+                {actionLoading ? <ActivityIndicator color="#fff" /> : (
+                  <><Ionicons name="shield-checkmark" size={18} color="#fff" /><Text style={s.actionBtnText}>Assinar</Text></>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Reject Form */}
+        {showRejectForm && (
+          <View style={[s.card, s.formCard]}>
+            <Text style={s.formTitle}>REJEIÇÃO</Text>
+            <TextInput
+              style={s.formTextArea}
+              placeholder="Descreva o motivo da rejeição..."
+              value={rejectionReason}
+              onChangeText={setRejectionReason}
+              multiline
+              textAlignVertical="top"
+              placeholderTextColor={colors.textMuted}
+              autoFocus
+            />
+            <View style={s.formBtns}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => setShowRejectForm(false)}>
+                <Text style={s.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.rejectBtn} onPress={handleReject} disabled={actionLoading}>
+                {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.actionBtnText}>Rejeitar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Queue hint */}
+        {isInQueue && (
+          <View style={s.queueHint}>
+            <Ionicons name="information-circle" size={20} color={colors.primary} />
+            <Text style={s.queueHintText}>Pedido na fila. Aprove para enviar ao pagamento ou rejeite informando o motivo.</Text>
+          </View>
+        )}
+
+        {/* Actions */}
+        {!showSignForm && !showRejectForm && (
+          <View style={s.actions}>
+            {canAccept && <ActionBtn bg={colors.secondary} icon="checkmark" text="Aceitar Consulta" onPress={handleAcceptConsultation} loading={actionLoading} />}
+            {canApprove && <ActionBtn bg={colors.primary} icon="checkmark-circle" text="Aprovar" onPress={handleApprove} loading={actionLoading} />}
+            {canSign && request.requestType === 'prescription' && (
+              <ActionBtn bg={colors.primary} icon="document-text" text="Visualizar e Assinar" onPress={() => router.push(`/doctor-request/editor/${requestId}`)} />
+            )}
+            {canSign && request.requestType !== 'prescription' && (
+              <ActionBtn bg={colors.primary} icon="shield-checkmark" text="Assinar Digitalmente" onPress={() => setShowSignForm(true)} />
+            )}
+            {canVideo && <ActionBtn bg={colors.secondary} icon="videocam" text="Iniciar Consulta" onPress={() => router.push(`/video/${request.id}`)} />}
+            {canReject && (
+              <TouchableOpacity style={s.rejectOutline} onPress={() => setShowRejectForm(true)} activeOpacity={0.7}>
+                <Ionicons name="close-circle-outline" size={20} color={colors.error} />
+                <Text style={s.rejectOutlineText}>Rejeitar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-function Row({ k, v, green, warn }: { k: string; v: string; green?: boolean; warn?: boolean }) {
+/* ---- Sub-components ---- */
+
+function Row({ k, v, accent, warn }: { k: string; v: string; accent?: boolean; warn?: boolean }) {
   return (
     <View style={s.row}>
-      <Text style={s.rk}>{k}</Text>
+      <Text style={s.rowKey}>{k}</Text>
       {warn ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-          <Ionicons name="warning" size={12} color="#D97706" /><Text style={{ fontSize: 13, fontWeight: '600', color: '#D97706' }}>{v}</Text>
+        <View style={s.warnBadge}>
+          <Ionicons name="warning" size={12} color="#D97706" /><Text style={s.warnText}>{v}</Text>
         </View>
-      ) : <Text style={[s.rv, green && { color: colors.success, fontWeight: '700' }]}>{v}</Text>}
+      ) : <Text style={[s.rowValue, accent && { color: colors.primary, fontWeight: '700' }]}>{v}</Text>}
     </View>
   );
 }
 
-function MedItem({ text, color, bg }: { text: string; color: string; bg: string }) {
+function MedItem({ text, icon, iconColor, iconBg }: { text: string; icon: string; iconColor: string; iconBg: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 8 }}>
-      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="medical" size={14} color={color} />
+    <View style={s.medItem}>
+      <View style={[s.medIcon, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon as any} size={14} color={iconColor} />
       </View>
-      <Text style={{ fontSize: 14, fontWeight: '500', color: colors.text }}>{text}</Text>
+      <Text style={s.medText}>{text}</Text>
     </View>
   );
 }
 
-function Btn({ bg, icon, text, onPress, loading }: { bg: string; icon: string; text: string; onPress: () => void; loading?: boolean }) {
+function ActionBtn({ bg, icon, text, onPress, loading }: { bg: string; icon: string; text: string; onPress: () => void; loading?: boolean }) {
   return (
-    <TouchableOpacity style={[s.pBtn, { backgroundColor: bg }]} onPress={onPress} disabled={loading}>
-      {loading ? <ActivityIndicator color="#fff" /> : <><Ionicons name={icon as any} size={20} color="#fff" /><Text style={s.btnT}>{text}</Text></>}
+    <TouchableOpacity style={[s.actionBtn, { backgroundColor: bg }]} onPress={onPress} disabled={loading} activeOpacity={0.8}>
+      {loading ? <ActivityIndicator color="#fff" /> : (
+        <>
+          <Ionicons name={icon as any} size={20} color="#fff" />
+          <Text style={s.actionBtnText}>{text}</Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 }
 
+/* ---- Styles ---- */
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
-  back: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text },
-  card: { backgroundColor: colors.surface, marginHorizontal: spacing.md, marginTop: spacing.md, borderRadius: borderRadius.md, padding: spacing.md, ...shadows.card },
-  section: { fontSize: 12, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.5, marginBottom: spacing.sm },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  rk: { fontSize: 14, color: colors.textSecondary },
-  rv: { fontSize: 14, fontWeight: '500', color: colors.text },
-  aiCard: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  loadingContainer: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, gap: spacing.md },
+  emptyTitle: { fontSize: 16, fontFamily: typography.fontFamily.medium, color: colors.textSecondary },
+  emptyAction: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md, marginTop: spacing.sm },
+  emptyActionText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#fff' },
+
+  navHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingBottom: spacing.md, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  back: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
+  navSpacer: { width: 40 },
+
+  card: { backgroundColor: colors.surface, marginHorizontal: spacing.md, marginTop: spacing.md, borderRadius: borderRadius.card, padding: spacing.md, ...shadows.card },
+  sectionLabel: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, marginBottom: spacing.sm, textTransform: 'uppercase' },
+
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  rowKey: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
+  rowValue: { fontSize: 14, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text },
+  warnBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.warningLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  warnText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#D97706' },
+
+  patientLink: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
+  patientLinkText: { fontSize: 12, fontFamily: typography.fontFamily.semibold, color: colors.primary, fontWeight: '600' },
+
+  // AI Copilot
+  aiCard: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.accent },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+  aiTitle: { fontSize: 17, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1 },
+  riskBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 8 },
+  riskText: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700' },
+  aiDisclaimer: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.sm, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: 'rgba(0,119,182,0.06)', borderRadius: 6 },
+  aiDisclaimerText: { fontSize: 11, fontFamily: typography.fontFamily.regular, color: colors.textMuted, fontStyle: 'italic' },
+  aiSummary: { fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text, lineHeight: 24, marginBottom: spacing.sm },
+  urgencyRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  urgencyText: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
+
+  // Images
+  img: { width: 180, height: 180, borderRadius: borderRadius.sm, marginRight: spacing.sm },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
   modalImageWrapper: { flex: 1, width: '100%', alignSelf: 'stretch' },
   modalImageFull: { flex: 1, width: '100%', minHeight: 300 },
-  modalCloseButton: { position: 'absolute', top: Platform.OS === 'web' ? 20 : 60, right: spacing.md, zIndex: 10, backgroundColor: 'rgba(0, 0, 0, 0.7)', borderRadius: 25, padding: 10, width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
-  aiH: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  aiT: { fontSize: 17, fontWeight: '700', color: colors.text, flex: 1 },
-  riskB: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 6 },
-  riskT: { fontSize: 11, fontWeight: '700' },
-  aiS: { fontSize: 16, color: colors.text, lineHeight: 26, marginBottom: spacing.sm, letterSpacing: 0.2 },
-  urgR: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  urgT: { fontSize: 13, color: colors.textSecondary },
-  img: { width: 180, height: 180, borderRadius: borderRadius.sm, marginRight: spacing.sm },
-  sym: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
-  queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primaryLight, borderRadius: borderRadius.md },
-  queueHintText: { flex: 1, fontSize: 14, color: colors.textSecondary },
+  modalCloseButton: { position: 'absolute', top: Platform.OS === 'web' ? 20 : 60, right: spacing.md, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 25, padding: 10, width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
+
+  // Medications/Exams
+  medItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 8 },
+  medIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  medText: { fontSize: 14, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text, flex: 1 },
+
+  // Symptoms
+  symptomsText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, lineHeight: 20 },
+
+  // Queue hint
+  queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primarySoft, borderRadius: borderRadius.card },
+  queueHintText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
+
+  // Actions
   actions: { marginHorizontal: spacing.md, marginTop: spacing.lg, gap: spacing.sm },
-  pBtn: { flexDirection: 'row', padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52 },
-  btnT: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  rejOutline: { flexDirection: 'row', padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.error },
-  rejOutText: { fontSize: 15, fontWeight: '600', color: colors.error },
-  formDesc: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
-  formInput: { backgroundColor: '#F8FAFC', borderRadius: 8, paddingHorizontal: spacing.md, height: 44, fontSize: 15, color: colors.text, borderWidth: 1, borderColor: colors.border },
-  formArea: { backgroundColor: '#F8FAFC', borderRadius: 8, padding: spacing.md, fontSize: 15, color: colors.text, minHeight: 100, borderWidth: 1, borderColor: colors.border },
+  actionBtn: { flexDirection: 'row', padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52, ...shadows.button },
+  actionBtnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
+  rejectOutline: { flexDirection: 'row', padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1.5, borderColor: colors.error },
+  rejectOutlineText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.error },
+
+  // Forms
+  formCard: { borderWidth: 1, borderColor: colors.border },
+  formHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  formTitle: { fontSize: 12, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
+  formDesc: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginBottom: spacing.md },
+  formInput: { backgroundColor: colors.background, borderRadius: borderRadius.sm, paddingHorizontal: spacing.md, height: 48, fontSize: 15, color: colors.text, borderWidth: 1, borderColor: colors.border, fontFamily: typography.fontFamily.regular },
+  formTextArea: { backgroundColor: colors.background, borderRadius: borderRadius.sm, padding: spacing.md, fontSize: 15, color: colors.text, minHeight: 100, borderWidth: 1, borderColor: colors.border, fontFamily: typography.fontFamily.regular },
   formBtns: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-  cancelBtn: { flex: 1, padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
-  cancelT: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },
-  signBtn: { flex: 1, backgroundColor: '#8B5CF6', padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center' },
-  rejBtn: { flex: 1, backgroundColor: colors.error, padding: spacing.md, borderRadius: borderRadius.md, alignItems: 'center' },
+  cancelBtn: { flex: 1, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  cancelBtnText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.textSecondary },
+  signBtn: { flex: 1, flexDirection: 'row', backgroundColor: colors.primary, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  rejectBtn: { flex: 1, backgroundColor: colors.error, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center' },
 });

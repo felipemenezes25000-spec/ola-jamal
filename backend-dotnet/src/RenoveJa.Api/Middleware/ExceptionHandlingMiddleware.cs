@@ -1,5 +1,9 @@
 using System.Net;
 using System.Text.Json;
+<<<<<<< HEAD
+using RenoveJa.Application.Exceptions;
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 using RenoveJa.Domain.Exceptions;
 
 namespace RenoveJa.Api.Middleware;
@@ -34,6 +38,27 @@ public class ExceptionHandlingMiddleware(
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+<<<<<<< HEAD
+        if (exception is PrescriptionValidationException pve)
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            var response = new
+            {
+                status = 400,
+                message = "Receita incompleta: verifique os campos obrigatórios.",
+                missingFields = pve.MissingFields,
+                messages = pve.Messages
+            };
+            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+            return context.Response.WriteAsync(json);
+        }
+
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         var (statusCode, message) = exception switch
         {
             DomainException => (HttpStatusCode.BadRequest, exception.Message),
@@ -46,18 +71,30 @@ public class ExceptionHandlingMiddleware(
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;
 
+<<<<<<< HEAD
+        var defaultResponse = new
+=======
         var response = new
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         {
             status = (int)statusCode,
             message,
             details = context.Request.Path.Value
         };
 
+<<<<<<< HEAD
+        var jsonDefault = JsonSerializer.Serialize(defaultResponse, new JsonSerializerOptions
+=======
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
+<<<<<<< HEAD
+        return context.Response.WriteAsync(jsonDefault);
+=======
         return context.Response.WriteAsync(json);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 }

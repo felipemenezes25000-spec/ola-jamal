@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../lib/theme';
 
 const c = theme.colors;
@@ -10,38 +11,81 @@ const s = theme.spacing;
 
 interface AppHeaderProps {
   title: string;
+  subtitle?: string;
   onBack?: () => void;
+  left?: React.ReactNode;
   right?: React.ReactNode;
   transparent?: boolean;
+  /** Pass gradient colors array to render a gradient background with white text */
+  gradient?: readonly string[] | string[];
 }
 
-export function AppHeader({ title, onBack, right, transparent }: AppHeaderProps) {
+export function AppHeader({
+  title,
+  subtitle,
+  onBack,
+  left,
+  right,
+  transparent,
+  gradient,
+}: AppHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const handleBack = onBack || (() => router.back());
 
-  return (
+  const isGradient = !!gradient;
+  const textColor = isGradient ? '#FFFFFF' : c.text.primary;
+  const backBgColor = isGradient ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)';
+
+  const content = (
     <View
       style={[
         styles.container,
         { paddingTop: insets.top + 8 },
         transparent && styles.transparent,
+        !isGradient && !transparent && styles.defaultBg,
       ]}
     >
-      <TouchableOpacity
-        onPress={handleBack}
-        style={styles.backButton}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        accessibilityLabel="Voltar"
-      >
-        <Ionicons name="chevron-back" size={24} color={c.text.primary} />
-      </TouchableOpacity>
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
+      {left || (
+        <TouchableOpacity
+          onPress={handleBack}
+          style={[styles.backButton, { backgroundColor: backBgColor }]}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Voltar"
+        >
+          <Ionicons name="chevron-back" size={24} color={textColor} />
+        </TouchableOpacity>
+      )}
+      <View style={styles.titleWrap}>
+        <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text
+            style={[styles.subtitle, { color: isGradient ? 'rgba(255,255,255,0.85)' : c.text.secondary }]}
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+        )}
+      </View>
       <View style={styles.rightSlot}>{right || <View style={styles.placeholder} />}</View>
     </View>
   );
+
+  if (isGradient) {
+    return (
+      <LinearGradient
+        colors={gradient as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        {content}
+      </LinearGradient>
+    );
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({
@@ -50,6 +94,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 12,
+  },
+  defaultBg: {
     backgroundColor: theme.colors.background.default,
   },
   transparent: {
@@ -59,17 +105,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
+  titleWrap: {
     flex: 1,
+    alignItems: 'center',
+    marginHorizontal: s.sm,
+  },
+  title: {
     fontSize: 18,
     fontWeight: '700',
-    color: c.text.primary,
     textAlign: 'center',
-    marginHorizontal: s.sm,
+  },
+  subtitle: {
+    fontSize: 13,
+    marginTop: 2,
+    textAlign: 'center',
   },
   rightSlot: {
     minWidth: 40,

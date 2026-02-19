@@ -11,10 +11,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme, gradients } from '../../lib/theme';
+import { colors as doctorColors, gradients as doctorGradients } from '../../lib/themeDoctor';
 
 interface ScreenProps extends ScrollViewProps {
   children: React.ReactNode;
-  variant?: 'default' | 'gradient';
+  variant?: 'default' | 'gradient' | 'doctor' | 'doctor-gradient';
   scroll?: boolean;
   padding?: boolean;
   style?: ViewStyle;
@@ -36,10 +37,21 @@ export function Screen({
     ? { paddingHorizontal: theme.layout.screen.paddingHorizontal }
     : undefined;
 
-  if (variant === 'gradient') {
+  const isGradient = variant === 'gradient' || variant === 'doctor-gradient';
+  const isDoctor = variant === 'doctor' || variant === 'doctor-gradient';
+
+  const gradientColors = isDoctor
+    ? (doctorGradients.doctorHeader as unknown as [string, string, ...string[]])
+    : (gradients.auth as any);
+
+  const bgColor = isDoctor
+    ? doctorColors.background
+    : theme.colors.background.default;
+
+  if (isGradient) {
     return (
       <LinearGradient
-        colors={gradients.auth as any}
+        colors={gradientColors}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={[styles.flex, style]}
@@ -78,7 +90,7 @@ export function Screen({
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, style]} edges={edges}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }, style]} edges={edges}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

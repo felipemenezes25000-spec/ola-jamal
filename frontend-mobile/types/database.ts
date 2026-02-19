@@ -44,6 +44,8 @@ export interface DoctorProfileDto {
 
 export type RequestType = 'prescription' | 'exam' | 'consultation';
 export type PrescriptionType = 'simples' | 'controlado' | 'azul';
+/** Tipo de receita para conformidade: simple, antimicrobial, controlled_special */
+export type PrescriptionKind = 'simple' | 'antimicrobial' | 'controlled_special';
 
 export type RequestStatus =
   | 'submitted'
@@ -73,6 +75,7 @@ export interface RequestResponseDto {
   requestType: RequestType;
   status: RequestStatus;
   prescriptionType: PrescriptionType | null;
+  prescriptionKind: PrescriptionKind | null;
   medications: string[] | null;
   prescriptionImages: string[] | null;
   examType: string | null;

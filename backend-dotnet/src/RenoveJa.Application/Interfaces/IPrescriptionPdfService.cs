@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+using RenoveJa.Domain.Enums;
+
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 namespace RenoveJa.Application.Interfaces;
 
 /// <summary>
@@ -33,7 +38,15 @@ public record PrescriptionPdfData(
     string? AccessCode = null,
     List<PrescriptionMedicationItem>? MedicationItems = null,
     string? VerificationUrl = null,
+<<<<<<< HEAD
+    string? PharmacyValidationUrl = null,
+    PrescriptionKind? PrescriptionKind = null,
+    string? PatientGender = null,
+    string? DoctorAddress = null,
+    string? DoctorPhone = null);
+=======
     string? PharmacyValidationUrl = null);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 /// <summary>
 /// Resultado da geração do PDF.

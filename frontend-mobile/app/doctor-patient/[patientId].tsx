@@ -12,7 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../../lib/theme';
+import { colors, spacing, borderRadius, gradients, typography } from '../../lib/themeDoctor';
 import { getPatientRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -30,9 +30,9 @@ const TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  prescription: '#0EA5E9',
-  exam: '#8B5CF6',
-  consultation: '#10B981',
+  prescription: colors.primary,
+  exam: colors.info,
+  consultation: colors.success,
 };
 
 function fmtDate(d: string): string {
@@ -82,7 +82,7 @@ export default function DoctorPatientProntuario() {
   if (loading) {
     return (
       <View style={styles.loadingWrap}>
-        <ActivityIndicator size="large" color={colors.secondary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -90,7 +90,7 @@ export default function DoctorPatientProntuario() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#10B981', '#34D399', '#6EE7B7']}
+        colors={gradients.doctorHeader as unknown as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: headerPaddingTop }]}
@@ -115,7 +115,7 @@ export default function DoctorPatientProntuario() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.secondary]}
+            colors={[colors.primary]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -124,7 +124,7 @@ export default function DoctorPatientProntuario() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryIconWrap}>
-              <Ionicons name="person" size={24} color={colors.secondary} />
+              <Ionicons name="person" size={24} color={colors.primary} />
             </View>
             <View style={styles.summaryBody}>
               <Text style={styles.summaryLabel}>Total de pedidos</Text>
@@ -225,14 +225,14 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: colors.secondary,
+    borderLeftColor: colors.primary,
   },
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   summaryIconWrap: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.secondary + '20',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,

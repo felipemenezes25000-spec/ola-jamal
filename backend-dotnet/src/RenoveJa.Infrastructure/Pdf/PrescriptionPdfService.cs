@@ -12,6 +12,10 @@ using Microsoft.Extensions.Options;
 using QRCoder;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.Interfaces;
+<<<<<<< HEAD
+using RenoveJa.Domain.Enums;
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
 namespace RenoveJa.Infrastructure.Pdf;
 
@@ -57,7 +61,11 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     {
         try
         {
+<<<<<<< HEAD
+            var kind = data.PrescriptionKind ?? PrescriptionKind.Simple;
+=======
             // Build medication items list (backward compat: use old Medications list if MedicationItems is null)
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             var medicationItems = BuildMedicationItems(data);
 
             if (medicationItems.Count == 0)
@@ -65,6 +73,27 @@ public class PrescriptionPdfService : IPrescriptionPdfService
                 medicationItems = new List<PrescriptionMedicationItem> { new("Prescrição a critério médico", null, "Conforme orientação médica", null, null) };
             }
 
+<<<<<<< HEAD
+            byte[] pdfBytes;
+            using (var ms = new MemoryStream())
+            {
+                switch (kind)
+                {
+                    case PrescriptionKind.Antimicrobial:
+                        RenderAntimicrobialPdf(ms, data, medicationItems);
+                        break;
+                    case PrescriptionKind.ControlledSpecial:
+                        RenderControlledSpecialPdf(ms, data, medicationItems);
+                        break;
+                    default:
+                        RenderSimplePdf(ms, data, medicationItems);
+                        break;
+                }
+                pdfBytes = ms.ToArray();
+            }
+
+            return Task.FromResult(new PrescriptionPdfResult(true, pdfBytes, null, null));
+=======
             var accessCode = data.AccessCode ?? GenerateAccessCode(data.RequestId);
             var baseUrl = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl)
                 ? _verificationConfig.BaseUrl.TrimEnd('/')
@@ -135,6 +164,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             document.Close();
 
             return Task.FromResult(new PrescriptionPdfResult(true, ms.ToArray(), null, null));
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         }
         catch (Exception ex)
         {
@@ -143,6 +173,189 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         }
     }
 
+<<<<<<< HEAD
+    private (string verificationUrl, string accessCode, string pharmacyUrl) GetPdfUrls(PrescriptionPdfData data)
+    {
+        var baseUrl = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl)
+            ? _verificationConfig.BaseUrl.TrimEnd('/')
+            : DefaultVerificationBaseUrl;
+        var verificationUrl = data.VerificationUrl ?? $"{baseUrl}/{data.RequestId}";
+        var accessCode = data.AccessCode ?? GenerateAccessCode(data.RequestId);
+        var pharmacyUrl = data.PharmacyValidationUrl ?? DefaultPharmacyUrl;
+        return (verificationUrl, accessCode, pharmacyUrl);
+    }
+
+    private void RenderSimplePdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> medicationItems)
+    {
+        var (verificationUrl, accessCode, pharmacyUrl) = GetPdfUrls(data);
+        using var writer = new PdfWriter(ms);
+        using var pdf = new PdfDocument(writer);
+        SetPdfMetadata(pdf, data, "simples");
+
+        using var document = new Document(pdf, PageSize.A4);
+        document.SetMargins(40, 40, 60, 40);
+
+        var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+        var fontBold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+        var fontItalic = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
+
+        for (int i = 0; i < medicationItems.Count; i++)
+        {
+            if (i > 0) document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+            AddHeader(document, data, fontBold, font, i + 1, medicationItems.Count, "RECEITA SIMPLES");
+            AddSeparator(document);
+            AddPatientSection(document, data, fontBold, font, includeGenderAge: false);
+            AddSeparator(document);
+            AddMedicationSection(document, medicationItems[i], fontBold, font, fontItalic, i + 1);
+            AddObservationSection(document, medicationItems[i], data, font, fontBold, fontItalic);
+            AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
+            AddDoctorSection(document, data, fontBold, font);
+            AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
+            AddLegalFooter(document, data, font, fontItalic);
+        }
+        document.Close();
+    }
+
+    private void RenderAntimicrobialPdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> medicationItems)
+    {
+        var (verificationUrl, accessCode, pharmacyUrl) = GetPdfUrls(data);
+        using var writer = new PdfWriter(ms);
+        using var pdf = new PdfDocument(writer);
+        SetPdfMetadata(pdf, data, "antimicrobiana");
+
+        using var document = new Document(pdf, PageSize.A4);
+        document.SetMargins(40, 40, 60, 40);
+
+        var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+        var fontBold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+        var fontItalic = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
+
+        var validityDate = data.EmissionDate.AddDays(10);
+        var validityText = $"VALIDADE: 10 dias a contar da data de emissão (válida até {validityDate:dd/MM/yyyy})";
+
+        for (int i = 0; i < medicationItems.Count; i++)
+        {
+            if (i > 0) document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+            AddHeader(document, data, fontBold, font, i + 1, medicationItems.Count, "RECEITA DE ANTIMICROBIANO - RDC 471/2021");
+            AddSeparator(document);
+            AddValidityNotice(document, validityText, fontBold, font);
+            AddSeparator(document);
+            AddPatientSection(document, data, fontBold, font, includeGenderAge: true);
+            AddSeparator(document);
+            AddMedicationSection(document, medicationItems[i], fontBold, font, fontItalic, i + 1);
+            AddObservationSection(document, medicationItems[i], data, font, fontBold, fontItalic);
+            AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
+            AddDoctorSection(document, data, fontBold, font);
+            AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
+            AddLegalFooter(document, data, font, fontItalic);
+        }
+        document.Close();
+    }
+
+    private void RenderControlledSpecialPdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> medicationItems)
+    {
+        var (verificationUrl, accessCode, pharmacyUrl) = GetPdfUrls(data);
+        using var writer = new PdfWriter(ms);
+        using var pdf = new PdfDocument(writer);
+        SetPdfMetadata(pdf, data, "controle especial");
+
+        using var document = new Document(pdf, PageSize.A4);
+        document.SetMargins(40, 40, 60, 40);
+
+        var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+        var fontBold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+        var fontItalic = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
+
+        AddSncrHeader(document, fontBold, font);
+        AddSncrEmitenteSection(document, data, fontBold, font);
+        AddSncrPatientSection(document, data, fontBold, font);
+        AddSncrPrescriptionSection(document, data, medicationItems, fontBold, font, fontItalic);
+        AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
+        AddSncrDataSignatureSection(document, data, fontBold, font);
+        AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
+        AddLegalFooter(document, data, font, fontItalic);
+
+        document.Close();
+    }
+
+    private static void SetPdfMetadata(PdfDocument pdf, PrescriptionPdfData data, string tipo)
+    {
+        var info = pdf.GetDocumentInfo();
+        info.SetTitle($"Receita Digital - {data.PatientName} - {data.EmissionDate:dd/MM/yyyy}");
+        info.SetAuthor($"Dr(a). {data.DoctorName} | CRM {data.DoctorCrm}/{data.DoctorCrmState}");
+        info.SetCreator("RenoveJá Saúde - Sistema de Receitas Digitais");
+        info.SetSubject($"Receita médica digital - {tipo}");
+        info.SetKeywords("receita digital, ICP-Brasil, RenoveJá Saúde, prescrição médica");
+    }
+
+    private void AddValidityNotice(Document document, string text, PdfFont fontBold, PdfFont font)
+    {
+        var p = new Paragraph(text).SetFont(fontBold).SetFontSize(10).SetFontColor(RenovejaPrimary).SetMarginBottom(6);
+        document.Add(p);
+    }
+
+    private static void AddSncrHeader(Document document, PdfFont fontBold, PdfFont font)
+    {
+        var logoTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 })).UseAllAvailableWidth().SetMarginBottom(8);
+        var logoCell = new Cell().SetBorder(Border.NO_BORDER).SetVerticalAlignment(VerticalAlignment.MIDDLE);
+        var logoP = new Paragraph();
+        logoP.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaPrimary));
+        logoP.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaSecondary));
+        logoCell.Add(logoP);
+        logoTable.AddCell(logoCell);
+        var rightCell = new Cell().SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE);
+        rightCell.Add(new Paragraph("RECEITA DE CONTROLE ESPECIAL").SetFont(fontBold).SetFontSize(11).SetFontColor(DarkText));
+        logoTable.AddCell(rightCell);
+        document.Add(logoTable);
+        AddSeparator(document);
+    }
+
+    private static void AddSncrEmitenteSection(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font)
+    {
+        document.Add(new Paragraph("IDENTIFICAÇÃO DO EMITENTE").SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(4));
+        var doctorLine = $"Dr(a). {data.DoctorName} | CRM {data.DoctorCrm}/{data.DoctorCrmState}";
+        if (!string.IsNullOrWhiteSpace(data.DoctorSpecialty))
+            doctorLine += $" | {data.DoctorSpecialty}";
+        document.Add(new Paragraph(doctorLine).SetFont(font).SetFontSize(10).SetFontColor(DarkText));
+        if (!string.IsNullOrWhiteSpace(data.DoctorAddress))
+            document.Add(new Paragraph($"Endereço: {data.DoctorAddress}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
+        if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
+            document.Add(new Paragraph($"Telefone: {data.DoctorPhone}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
+        AddSeparator(document);
+    }
+
+    private static void AddSncrPatientSection(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font)
+    {
+        document.Add(new Paragraph("IDENTIFICAÇÃO DO PACIENTE").SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(4));
+        document.Add(new Paragraph(data.PatientName.ToUpperInvariant()).SetFont(fontBold).SetFontSize(11).SetFontColor(DarkText));
+        if (!string.IsNullOrWhiteSpace(data.PatientCpf))
+            document.Add(new Paragraph($"CPF: {FormatCpf(data.PatientCpf)}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+        if (data.PatientBirthDate.HasValue)
+            document.Add(new Paragraph($"Nascimento: {data.PatientBirthDate.Value:dd/MM/yyyy}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+        if (!string.IsNullOrWhiteSpace(data.PatientAddress))
+            document.Add(new Paragraph($"Endereço: {data.PatientAddress}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+        AddSeparator(document);
+    }
+
+    private static void AddSncrPrescriptionSection(Document document, PrescriptionPdfData data, List<PrescriptionMedicationItem> items, PdfFont fontBold, PdfFont font, PdfFont fontItalic)
+    {
+        document.Add(new Paragraph("PRESCRIÇÃO").SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(6));
+        foreach (var med in items)
+        {
+            AddMedicationSection(document, med, fontBold, font, fontItalic, 0);
+        }
+        AddSeparator(document);
+    }
+
+    private static void AddSncrDataSignatureSection(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font)
+    {
+        AddSeparator(document);
+        document.Add(new Paragraph($"Data: {data.EmissionDate:dd/MM/yyyy 'às' HH:mm}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+        document.Add(new Paragraph($"Assinatura: Dr(a). {data.DoctorName}").SetFont(fontBold).SetFontSize(10).SetFontColor(DarkText).SetMarginTop(4));
+    }
+
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     public async Task<PrescriptionPdfResult> GenerateAndUploadAsync(
         PrescriptionPdfData data,
         CancellationToken cancellationToken = default)
@@ -364,7 +577,11 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     #region Page Sections
 
+<<<<<<< HEAD
+    private static void AddHeader(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font, int pageNum, int totalPages, string? typeLabelOverride = null)
+=======
     private static void AddHeader(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font, int pageNum, int totalPages)
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         // Logo text "RenoveJá Saúde" in green/blue
         var logoTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 }))
@@ -389,7 +606,11 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         logoTable.AddCell(logoCell);
 
         // Right: Prescription type label + page counter
+<<<<<<< HEAD
+        var typeLabel = typeLabelOverride ?? GetPrescriptionTypeLabel(data.PrescriptionType);
+=======
         var typeLabel = GetPrescriptionTypeLabel(data.PrescriptionType);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         var rightCell = new Cell()
             .SetBorder(Border.NO_BORDER)
             .SetTextAlignment(TextAlignment.RIGHT)
@@ -423,7 +644,11 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         document.Add(separator);
     }
 
+<<<<<<< HEAD
+    private static void AddPatientSection(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font, bool includeGenderAge = false)
+=======
     private static void AddPatientSection(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font)
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     {
         var sectionTitle = new Paragraph("DADOS DO PACIENTE")
             .SetFont(fontBold)
@@ -457,12 +682,30 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddPatientInfoCell(patientTable, "CPF:", "Não informado", fontBold, font);
         }
 
+<<<<<<< HEAD
+        // Sexo e idade (antimicrobiano - RDC 471/2021)
+        if (includeGenderAge)
+        {
+            var genderDisplay = !string.IsNullOrWhiteSpace(data.PatientGender) ? data.PatientGender : "Não informado";
+            AddPatientInfoCell(patientTable, "Sexo:", genderDisplay, fontBold, font);
+            var ageDisplay = data.PatientBirthDate.HasValue
+                ? $"{CalculateAge(data.PatientBirthDate.Value)} anos"
+                : "Não informado";
+            AddPatientInfoCell(patientTable, "Idade:", ageDisplay, fontBold, font);
+        }
+
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         // Birth date
         if (data.PatientBirthDate.HasValue)
         {
             AddPatientInfoCell(patientTable, "Nascimento:", data.PatientBirthDate.Value.ToString("dd/MM/yyyy"), fontBold, font);
         }
+<<<<<<< HEAD
+        else if (!includeGenderAge)
+=======
         else
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         {
             AddPatientInfoCell(patientTable, "Nascimento:", "Não informado", fontBold, font);
         }
@@ -686,8 +929,17 @@ public class PrescriptionPdfService : IPrescriptionPdfService
                 .SetFontSize(9)
                 .SetFontColor(MediumGray));
         }
+<<<<<<< HEAD
+        var hasExtra = !string.IsNullOrWhiteSpace(data.DoctorAddress) || !string.IsNullOrWhiteSpace(data.DoctorPhone);
+        document.Add(doctorInfo.SetMarginBottom(hasExtra ? 2 : 6));
+        if (!string.IsNullOrWhiteSpace(data.DoctorAddress))
+            document.Add(new Paragraph($"Endereço: {data.DoctorAddress}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray).SetMarginBottom(!string.IsNullOrWhiteSpace(data.DoctorPhone) ? 2 : 6));
+        if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
+            document.Add(new Paragraph($"Telefone: {data.DoctorPhone}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray).SetMarginBottom(6));
+=======
 
         document.Add(doctorInfo.SetMarginBottom(6));
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 
     private static void AddPharmacyLink(Document document, string pharmacyUrl, PdfFont font, PdfFont fontItalic)
@@ -783,6 +1035,17 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         }
     }
 
+<<<<<<< HEAD
+    private static int CalculateAge(DateTime birthDate)
+    {
+        var today = DateTime.Today;
+        var age = today.Year - birthDate.Year;
+        if (birthDate.Date > today.AddYears(-age)) age--;
+        return age;
+    }
+
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     private static string FormatCpf(string cpf)
     {
         cpf = cpf.Replace(".", "").Replace("-", "");

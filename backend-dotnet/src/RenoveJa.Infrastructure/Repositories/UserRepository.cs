@@ -113,7 +113,13 @@ public class UserRepository(SupabaseClient supabase) : IUserRepository
             model.AvatarUrl,
             model.CreatedAt,
             model.UpdatedAt,
+<<<<<<< HEAD
+            model.ProfileComplete,
+            model.Gender,
+            model.Address);
+=======
             model.ProfileComplete);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 
     private static UserModel MapToModel(User user)
@@ -127,6 +133,11 @@ public class UserRepository(SupabaseClient supabase) : IUserRepository
             Phone = user.Phone?.Value,
             Cpf = user.Cpf,
             BirthDate = user.BirthDate,
+<<<<<<< HEAD
+            Gender = user.Gender,
+            Address = user.Address,
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             AvatarUrl = user.AvatarUrl,
             Role = user.Role.ToString().ToLowerInvariant(),
             CreatedAt = user.CreatedAt,

@@ -11,7 +11,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../../lib/theme';
+import { colors, spacing, borderRadius, typography } from '../../lib/themeDoctor';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -30,7 +30,7 @@ function getNotificationColor(type: string): string {
     case 'success': return colors.success;
     case 'warning': return '#F59E0B';
     case 'error': return colors.error;
-    default: return colors.secondary;
+    default: return colors.primary;
   }
 }
 
@@ -95,7 +95,7 @@ export default function DoctorNotifications() {
       if (requestId) {
         router.push(`/doctor-request/${requestId}`);
       }
-    } catch {}
+    } catch { }
   };
 
   const handleMarkAllRead = async () => {
@@ -103,7 +103,7 @@ export default function DoctorNotifications() {
       await markAllNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       refreshUnreadCount();
-    } catch {}
+    } catch { }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -154,7 +154,7 @@ export default function DoctorNotifications() {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.secondary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <SectionList
@@ -167,7 +167,7 @@ export default function DoctorNotifications() {
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.secondary]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -192,12 +192,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: spacing.lg,
   },
-  title: { fontSize: 22, fontWeight: '700', color: colors.text },
+  title: { fontSize: 22, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
   markAllBtn: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
   },
-  markAllText: { fontSize: 13, color: colors.secondary, fontWeight: '600' },
+  markAllText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, color: colors.primary, fontWeight: '600' },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
@@ -210,9 +210,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   cardUnread: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.primarySoft,
     borderLeftWidth: 3,
-    borderLeftColor: colors.secondary,
+    borderLeftColor: colors.primary,
   },
   iconWrap: {
     width: 44,
@@ -223,15 +223,15 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   cardBody: { flex: 1, minWidth: 0 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  cardTitle: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.text },
   cardTitleUnread: { fontWeight: '700' },
-  cardMessage: { fontSize: 13, color: colors.textSecondary, marginTop: 2, lineHeight: 18 },
-  cardTime: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
+  cardMessage: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginTop: 2, lineHeight: 18 },
+  cardTime: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: 4 },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.primary,
     marginLeft: spacing.sm,
   },
   groupLabel: {
@@ -258,6 +258,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.textSecondary },
-  emptySubtitle: { fontSize: 14, color: colors.textMuted },
+  emptyTitle: { fontSize: 17, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.textSecondary },
+  emptySubtitle: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textMuted },
 });

@@ -102,6 +102,10 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             RequestType = model.RequestType,
             Status = model.Status,
             PrescriptionType = model.PrescriptionType,
+<<<<<<< HEAD
+            PrescriptionKind = model.PrescriptionKind,
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             Medications = model.Medications,
             PrescriptionImages = model.PrescriptionImages,
             ExamType = model.ExamType,
@@ -141,6 +145,10 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         public string RequestType { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public string? PrescriptionType { get; set; }
+<<<<<<< HEAD
+        public string? PrescriptionKind { get; set; }
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         public List<string> Medications { get; set; } = new();
         public List<string> PrescriptionImages { get; set; } = new();
         public string? ExamType { get; set; }
@@ -202,7 +210,12 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             model.AiUrgency,
             model.AiReadabilityOk,
             model.AiMessageToUser,
+<<<<<<< HEAD
+            model.AccessCode,
+            prescriptionKind: !string.IsNullOrWhiteSpace(model.PrescriptionKind) ? SnakeCaseHelper.ToPascalCase(model.PrescriptionKind) : null);
+=======
             model.AccessCode);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
     }
 
     private static RequestModel MapToModel(MedicalRequest request)
@@ -217,6 +230,10 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             RequestType = request.RequestType.ToString().ToLowerInvariant(),
             Status = SnakeCaseHelper.ToSnakeCase(request.Status.ToString()),
             PrescriptionType = request.PrescriptionType?.ToString().ToLowerInvariant(),
+<<<<<<< HEAD
+            PrescriptionKind = request.PrescriptionKind.HasValue ? SnakeCaseHelper.ToSnakeCase(request.PrescriptionKind.Value.ToString()) : null,
+=======
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
             Medications = request.Medications,
             PrescriptionImages = request.PrescriptionImages,
             ExamType = request.ExamType,

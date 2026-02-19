@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  Image,
   Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -14,6 +13,7 @@ import { theme } from '../../lib/theme';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
+import { Logo } from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 
 const c = theme.colors;
@@ -108,11 +108,7 @@ export default function Register() {
     <Screen variant="gradient" scroll>
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <Logo size="medium" />
       </View>
 
       {/* Title & Subtitle */}
@@ -271,10 +267,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: s.lg,
     marginBottom: s.md,
-  },
-  logo: {
-    width: 160,
-    height: 80,
   },
   title: {
     fontSize: t.variants.h1.fontSize,

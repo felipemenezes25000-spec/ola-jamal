@@ -10,7 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { colors, spacing, borderRadius, shadows, typography } from '../../lib/themeDoctor';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function DoctorProfile() {
@@ -35,7 +35,7 @@ export default function DoctorProfile() {
     { icon: 'shield-checkmark' as const, label: 'Certificado Digital', route: '/certificate/upload', color: colors.success },
     { icon: 'lock-closed' as const, label: 'Alterar Senha', route: '/change-password', color: colors.primary },
     { icon: 'settings' as const, label: 'Configurações', route: '/settings', color: colors.textSecondary },
-    { icon: 'help-circle' as const, label: 'Ajuda e FAQ', route: '/help-faq', color: '#F59E0B' },
+    { icon: 'help-circle' as const, label: 'Ajuda e FAQ', route: '/help-faq', color: colors.secondary },
     { icon: 'information-circle' as const, label: 'Sobre', route: '/about', color: colors.primary },
   ];
 
@@ -45,7 +45,7 @@ export default function DoctorProfile() {
         {/* Avatar + Info */}
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
-            <Ionicons name="person" size={32} color={colors.secondary} />
+            <Ionicons name="person" size={32} color={colors.primary} />
           </View>
           <Text style={styles.name}>Dr. {user?.name || 'Médico'}</Text>
           <Text style={styles.email}>{user?.email || ''}</Text>
@@ -92,16 +92,16 @@ const styles = StyleSheet.create({
     padding: spacing.lg, alignItems: 'center', marginBottom: spacing.md, ...shadows.card,
   },
   avatar: {
-    width: 72, height: 72, borderRadius: 36, backgroundColor: '#D1FAE5',
+    width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primarySoft,
     alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,
   },
-  name: { fontSize: 20, fontWeight: '700', color: colors.text },
-  email: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
+  name: { fontSize: 20, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
+  email: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginTop: 2 },
   doctorBadge: {
     marginTop: spacing.sm, backgroundColor: colors.primaryLight,
     paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.xl,
   },
-  doctorBadgeText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  doctorBadgeText: { fontSize: 12, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
   menuCard: {
     backgroundColor: colors.surface, borderRadius: borderRadius.lg,
     marginBottom: spacing.md, ...shadows.card, overflow: 'hidden',
@@ -111,10 +111,10 @@ const styles = StyleSheet.create({
   },
   menuItemBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   menuIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  menuLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.text },
+  menuLabel: { flex: 1, fontSize: 15, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: spacing.sm, paddingVertical: spacing.md,
   },
-  logoutText: { fontSize: 15, fontWeight: '600', color: colors.error },
+  logoutText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.error },
 });

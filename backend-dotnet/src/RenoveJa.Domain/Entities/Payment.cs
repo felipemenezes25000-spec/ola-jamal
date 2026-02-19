@@ -18,7 +18,15 @@ public class Payment : Entity
     public DateTime? PaidAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
+<<<<<<< HEAD
+    private Payment() : base()
+    {
+        Amount = null!;
+        PaymentMethod = null!;
+    }
+=======
     private Payment() : base() { }
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private Payment(
         Guid id,

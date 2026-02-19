@@ -6,36 +6,35 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../../lib/theme';
+import { colors, spacing, typography, gradients, borderRadius } from '../../lib/themeDoctor';
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
 import { EmptyState } from '../../components/EmptyState';
-import { RequestTypeFilter } from '../../components/RequestTypeFilter';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 
 const LOG_QUEUE = __DEV__ && false;
 
-/** Filtro de tipos: 4 opções, mesma linha (Todos / Receitas / Exames / Consultas). */
 const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
   { key: 'all', label: 'Todos' },
   { key: 'prescription', label: 'Receitas', type: 'prescription' },
   { key: 'exam', label: 'Exames', type: 'exam' },
-  { key: 'consultation', label: 'Consultas', type: 'consultation' },
+  { key: 'consultation', label: 'Consulta', type: 'consultation' },
 ];
 
 function getHeaderLabel(activeKey: string): { title: string; subtitle: string } {
   const item = TYPE_FILTER_ITEMS.find((c) => c.key === activeKey);
-  if (item?.key === 'all') return { title: 'Pedidos', subtitle: 'Todos os pedidos' };
+  if (item?.key === 'all') return { title: 'Fila de Pedidos', subtitle: 'Todos os pedidos' };
   if (item?.type === 'prescription') return { title: 'Receitas', subtitle: 'Pedidos de receita' };
   if (item?.type === 'exam') return { title: 'Exames', subtitle: 'Pedidos de exame' };
   if (item?.type === 'consultation') return { title: 'Consultas', subtitle: 'Solicitações de consulta' };
-  return { title: 'Pedidos', subtitle: 'Todos os pedidos' };
+  return { title: 'Fila de Pedidos', subtitle: 'Todos os pedidos' };
 }
 
 export default function DoctorQueue() {
@@ -122,40 +121,43 @@ export default function DoctorQueue() {
 
   return (
     <View style={styles.container}>
+      {/* Ocean Blue gradient header */}
       <LinearGradient
-        colors={['#10B981', '#34D399', '#6EE7B7']}
+        colors={gradients.doctorHeader as unknown as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, styles.headerGradient, { paddingTop: headerPaddingTop }]}
+        style={[styles.header, { paddingTop: headerPaddingTop }]}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>{label.title}</Text>
-          <Text style={styles.subtitle}>{label.subtitle}</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text style={styles.title}>{label.title}</Text>
+            <Text style={styles.subtitle}>{label.subtitle}</Text>
+          </View>
+          <View style={styles.countBadge}>
+            <Text style={styles.countText}>{requests.length}</Text>
+          </View>
         </View>
       </LinearGradient>
 
-      <RequestTypeFilter
+      {/* Segmented control */}
+      <SegmentedControl
         items={TYPE_FILTER_ITEMS.map((c) => ({ key: c.key, label: c.label }))}
         value={activeFilter}
         onValueChange={handleFilterChange}
         disabled={loading}
-        variant="doctor"
       />
 
+      {/* Content */}
       {loading && requests.length === 0 ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.secondary} />
-          <Text style={styles.loadingText}>Carregando pedidos...</Text>
+          <SkeletonList count={5} />
         </View>
       ) : error ? (
         <View style={styles.errorWrap}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.errorTitle}>Não foi possível carregar</Text>
           <Text style={styles.errorMsg}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.8}>
             <Text style={styles.retryText}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
@@ -173,7 +175,7 @@ export default function DoctorQueue() {
           contentContainerStyle={[styles.listContent, empty && styles.listContentEmpty]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.secondary]} />
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -195,20 +197,85 @@ export default function DoctorQueue() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
-  headerGradient: { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-  backBtn: { marginRight: spacing.sm },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   headerText: { flex: 1 },
-  title: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2 },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.sm },
-  loadingText: { fontSize: 14, color: colors.textMuted },
-  errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: spacing.sm },
-  errorTitle: { fontSize: 18, fontWeight: '600', color: colors.text },
-  errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
-  retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.secondary, borderRadius: 10 },
-  retryText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  listContent: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
+  title: {
+    fontSize: 22,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  subtitle: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.regular,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
+  },
+  countBadge: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: borderRadius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  loadingWrap: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  errorWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+    gap: spacing.sm,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  errorMsg: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+  },
+  retryText: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  listContent: {
+    paddingTop: spacing.sm,
+    paddingBottom: 100,
+  },
   listContentEmpty: { flexGrow: 1 },
-  separator: { height: spacing.sm },
+  separator: { height: spacing.xs },
 });

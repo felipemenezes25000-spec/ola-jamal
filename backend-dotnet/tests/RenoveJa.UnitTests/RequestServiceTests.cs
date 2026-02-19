@@ -185,7 +185,11 @@ public class RequestServiceTests
 
         // Assert
         result.Should().NotBeNull();
+<<<<<<< HEAD
+        result.Status.Should().Be("approved_pending_payment");
+=======
         result.Status.Should().Be("approvedpendingpayment");
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         result.Price.Should().Be(50.00m);
         result.DoctorId.Should().Be(doctorId);
         result.DoctorName.Should().Be("Dr. Médico Teste");

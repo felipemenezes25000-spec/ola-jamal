@@ -68,6 +68,7 @@ export function RequestTypeFilter({
                   isSelected && { color: accent, fontWeight: '700' },
                 ]}
                 numberOfLines={1}
+                ellipsizeMode="tail"
               >
                 {item.label}
               </Text>

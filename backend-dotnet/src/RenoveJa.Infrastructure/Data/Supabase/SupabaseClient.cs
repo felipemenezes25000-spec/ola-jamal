@@ -35,7 +35,11 @@ public class SupabaseClient
     /// </summary>
     private void EnsureServiceRoleKey()
     {
+<<<<<<< HEAD
+        var key = _config.ServiceKey?.Trim() ?? string.Empty;
+=======
         var key = _config.ServiceKey;
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
         if (string.IsNullOrWhiteSpace(key))
             throw new InvalidOperationException(
                 "Supabase:ServiceKey está vazia. Defina a chave secret em appsettings (Project Settings → API → Secret keys no Supabase).");
@@ -52,9 +56,16 @@ public class SupabaseClient
                 "Supabase:ServiceKey não pode ser a chave 'anon' (legacy). " +
                 "Use a chave 'secret' em Project Settings → API → Secret keys no Supabase.");
 
+<<<<<<< HEAD
+        // Validação positiva: secret (sb_secret_...), JWT (eyJ...) ou qualquer token longo com ponto (JWT)
+        var isValidSecret = key.StartsWith("sb_secret_", StringComparison.OrdinalIgnoreCase) ||
+                           key.StartsWith("eyJ", StringComparison.OrdinalIgnoreCase) ||
+                           (key.Length > 80 && key.Contains('.'));
+=======
         // Validação positiva: deve ser secret (sb_secret_...) ou service_role antigo (JWT eyJ...)
         var isValidSecret = key.StartsWith("sb_secret_", StringComparison.OrdinalIgnoreCase) ||
                            key.StartsWith("eyJ", StringComparison.OrdinalIgnoreCase);
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
         if (!isValidSecret)
             throw new InvalidOperationException(

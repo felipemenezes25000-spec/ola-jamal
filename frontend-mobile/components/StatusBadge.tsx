@@ -11,7 +11,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   in_review: { label: 'Em Análise', color: theme.colors.status.info, bg: theme.colors.status.infoLight },
   approved: { label: 'Aprovado', color: theme.colors.status.success, bg: theme.colors.status.successLight },
   approved_pending_payment: { label: 'A Pagar', color: theme.colors.status.warning, bg: theme.colors.status.warningLight },
-  pending_payment: { label: 'Aguardando Pgto', color: theme.colors.status.warning, bg: theme.colors.status.warningLight },
+  pending_payment: { label: 'Aguard. Pgto', color: theme.colors.status.warning, bg: theme.colors.status.warningLight },
   paid: { label: 'Pago', color: theme.colors.status.success, bg: theme.colors.status.successLight },
   signed: { label: 'Assinado', color: theme.colors.medical.exam, bg: theme.colors.medical.examLight },
   delivered: { label: 'Entregue', color: theme.colors.status.success, bg: theme.colors.status.successLight },

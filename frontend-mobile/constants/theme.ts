@@ -6,7 +6,6 @@ import { theme, colors as themeColors, spacing as themeSpacing, borderRadius as 
 
 export const colors = {
   ...themeColors,
-  // Legacy aliases used by existing components
   primaryLighter: '#7DD3FC',
   primaryPale: '#BAE6FD',
   primaryPaler: '#E0F2FE',

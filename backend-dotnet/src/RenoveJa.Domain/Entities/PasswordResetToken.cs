@@ -12,7 +12,14 @@ public class PasswordResetToken : Entity
     public DateTime ExpiresAt { get; private set; }
     public bool Used { get; private set; }
 
+<<<<<<< HEAD
+    private PasswordResetToken() : base()
+    {
+        Token = null!;
+    }
+=======
     private PasswordResetToken() : base() { }
+>>>>>>> 3f12f1391c26e4f9b258789282b7d52c83e95c55
 
     private PasswordResetToken(
         Guid id,

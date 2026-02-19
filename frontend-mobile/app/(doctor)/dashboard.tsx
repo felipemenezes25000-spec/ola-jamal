@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   useWindowDimensions,
   Pressable,
 } from 'react-native';
@@ -15,12 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { colors, spacing, borderRadius, shadows, gradients, typography } from '../../lib/themeDoctor';
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { StatsCard } from '../../components/StatsCard';
 import RequestCard from '../../components/RequestCard';
 import { EmptyState } from '../../components/EmptyState';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 
 const MIN_TOUCH = 44;
 const BP_SMALL = 376;
@@ -70,11 +70,10 @@ export default function DoctorDashboard() {
     loadData();
   }, [loadData]);
 
-  // Recarrega ao voltar para a tela e polling para novas solicitações (sem depender de notificação)
   useFocusEffect(
     useCallback(() => {
       loadData();
-      const interval = setInterval(loadData, 25000); // a cada 25s
+      const interval = setInterval(loadData, 25000);
       return () => clearInterval(interval);
     }, [loadData])
   );
@@ -93,14 +92,6 @@ export default function DoctorDashboard() {
 
   const queuePreview = queue.slice(0, 5);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.secondary} />
-      </View>
-    );
-  }
-
   const statsConfig = [
     {
       icon: 'time' as const,
@@ -118,14 +109,14 @@ export default function DoctorDashboard() {
     },
     {
       icon: 'checkmark-circle' as const,
-      iconColor: '#10B981',
+      iconColor: colors.primary,
       label: 'Assinados',
       value: stats.signed,
       onPress: () => router.push({ pathname: '/(doctor)/requests', params: { filter: 'signed_delivered' } }),
     },
     {
       icon: 'videocam' as const,
-      iconColor: '#0EA5E9',
+      iconColor: '#0096D6',
       label: 'Consultas',
       value: stats.consultations,
       onPress: () => router.push({ pathname: '/(doctor)/requests', params: { type: 'consultation' } }),
@@ -136,12 +127,12 @@ export default function DoctorDashboard() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.secondary]} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
+      {/* Header – Ocean Blue Gradient */}
       <LinearGradient
-        colors={['#10B981', '#34D399', '#6EE7B7']}
+        colors={gradients.doctorHeader as unknown as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingHorizontal: horizontalPad, paddingTop: headerPaddingTop, paddingBottom: headerPaddingBottom }]}
@@ -170,14 +161,14 @@ export default function DoctorDashboard() {
             onPress={() => router.push('/(doctor)/profile')}
             hitSlop={8}
           >
-            <Ionicons name="medkit" size={isSmall ? 24 : 28} color={colors.secondary} />
+            <Ionicons name="medkit" size={isSmall ? 24 : 28} color={colors.primary} />
           </Pressable>
         </View>
       </LinearGradient>
 
-      {/* Conteúdo principal - área organizada */}
+      {/* Main content */}
       <View style={[styles.mainContent, { paddingHorizontal: horizontalPad, paddingTop: spacing.lg }]}>
-        {/* Aviso de certificado */}
+        {/* Certificate alert */}
         {hasCertificate === false && (
           <TouchableOpacity
             style={styles.alertBanner}
@@ -195,17 +186,23 @@ export default function DoctorDashboard() {
           </TouchableOpacity>
         )}
 
-        {/* Resumo - cards clicáveis */}
+        {/* Stats summary */}
         <Text style={styles.sectionLabel}>Resumo</Text>
-        <View style={[styles.statsRow, { gap: statsGap, marginBottom: spacing.lg }]}>
-          {statsConfig.map(s => (
-            <View key={s.label} style={{ flexBasis: isSmall ? '47%' : '23%', flexGrow: isSmall ? 0 : 1, flexShrink: 0, minWidth: 0, minHeight: 110 }}>
-              <StatsCard icon={s.icon} iconColor={s.iconColor} label={s.label} value={s.value} onPress={s.onPress} />
-            </View>
-          ))}
-        </View>
+        {loading ? (
+          <View style={{ marginBottom: spacing.lg }}>
+            <SkeletonList count={2} />
+          </View>
+        ) : (
+          <View style={[styles.statsRow, { gap: statsGap, marginBottom: spacing.lg }]}>
+            {statsConfig.map(s => (
+              <View key={s.label} style={{ flexBasis: isSmall ? '47%' : '23%', flexGrow: isSmall ? 0 : 1, flexShrink: 0, minWidth: 0, minHeight: 110 }}>
+                <StatsCard icon={s.icon} iconColor={s.iconColor} label={s.label} value={s.value} onPress={s.onPress} />
+              </View>
+            ))}
+          </View>
+        )}
 
-        {/* Pedidos recentes */}
+        {/* Recent requests */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { fontSize: Math.max(16, Math.min(18, screenWidth * 0.045)) }]}>
             Pedidos recentes
@@ -216,11 +213,13 @@ export default function DoctorDashboard() {
             activeOpacity={0.7}
           >
             <Text style={styles.seeAll}>Ver todos</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.secondary} />
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
-        {queuePreview.length > 0 ? (
+        {loading ? (
+          <SkeletonList count={3} />
+        ) : queuePreview.length > 0 ? (
           <View style={styles.queueList}>
             {queuePreview.map((req) => (
               <RequestCard
@@ -253,12 +252,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 100,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
   header: {
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -272,10 +265,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
+    fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: '#fff',
   },
   subtitle: {
+    fontFamily: typography.fontFamily.regular,
     color: 'rgba(255,255,255,0.9)',
     marginTop: 4,
   },
@@ -287,7 +282,7 @@ const styles = StyleSheet.create({
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#FEF3C7',
     borderRadius: borderRadius.card,
     padding: spacing.md,
     gap: spacing.sm,
@@ -297,19 +292,20 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(16,185,129,0.15)',
+    backgroundColor: 'rgba(245,158,11,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   alertText: { flex: 1 },
-  alertTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
-  alertDesc: { fontSize: 12, color: colors.textSecondary },
+  alertTitle: { fontSize: 14, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
+  alertDesc: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
   mainContent: {
     flex: 1,
     backgroundColor: colors.background,
   },
   sectionLabel: {
     fontSize: 12,
+    fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: colors.textSecondary,
     letterSpacing: 0.5,
@@ -327,6 +323,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
+    fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: colors.text,
   },
@@ -337,7 +334,8 @@ const styles = StyleSheet.create({
   },
   seeAll: {
     fontSize: 14,
-    color: colors.secondary,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.primary,
     fontWeight: '600',
   },
   queueList: {
