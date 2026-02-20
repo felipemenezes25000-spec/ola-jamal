@@ -101,7 +101,13 @@ export default function Login() {
     <Screen variant="gradient" scroll contentStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>RenoveJá +</Text>
+        <View style={styles.logoRow}>
+          <Ionicons name="medical" size={32} color={c.primary.main} />
+        </View>
+        <Text style={styles.title}>
+          <Text style={{ color: c.primary.main }}>RenoveJá</Text>
+          <Text style={{ color: c.secondary.main }}>+</Text>
+        </Text>
         <Text style={styles.subtitle}>
           {'Renove sua receita e pedido de exames.\nRápido e sem burocracia.'}
         </Text>
@@ -190,10 +196,18 @@ const styles = StyleSheet.create({
     marginTop: s.xxl,
     marginBottom: s.xl,
   },
+  logoRow: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: c.primary.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.md,
+  },
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: c.text.primary,
     letterSpacing: -0.5,
   },
   subtitle: {
