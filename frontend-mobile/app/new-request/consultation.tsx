@@ -10,6 +10,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
 import { createConsultationRequest } from '../../lib/api';
+import { FALLBACK_CONSULTATION_PRICE } from '../../lib/config/pricing';
+import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
 import { createConsultationSchema } from '../../lib/validation/schemas';
 import { Screen } from '../../components/ui/Screen';
@@ -44,7 +46,7 @@ export default function ConsultationScreen() {
         ]);
       }
     } catch (error: unknown) {
-      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Erro ao criar solicitação');
+      Alert.alert('Erro', getApiErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -90,7 +92,7 @@ export default function ConsultationScreen() {
         {/* Price Card */}
         <AppCard style={styles.priceCard}>
           <Text style={styles.priceLabel}>Valor da consulta</Text>
-          <Text style={styles.priceValue}>R$ 120,00</Text>
+          <Text style={styles.priceValue}>R$ {FALLBACK_CONSULTATION_PRICE.toFixed(2).replace('.', ',')}</Text>
         </AppCard>
 
         {/* Submit Button */}

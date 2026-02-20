@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../lib/theme';
 import { StatusBadge } from './StatusBadge';
+import { getDisplayPrice } from '../lib/config/pricing';
 import { RequestResponseDto } from '../types/database';
 
 const RISK_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -79,9 +80,7 @@ export default function RequestCard({ request, onPress, showPatientName }: Props
             </Text>
           </View>
         )}
-        {request.price != null && request.price > 0 && (
-          <Text style={styles.price}>R$ {request.price.toFixed(2)}</Text>
-        )}
+        <Text style={styles.price}>R$ {getDisplayPrice(request.price, request.requestType).toFixed(2)}</Text>
       </View>
     </TouchableOpacity>
   );

@@ -1,4 +1,4 @@
-// RenoveJá+ Verify Edge Function — tabela receitas
+// RenoveJá+ Verify v2 — prescriptions + prescription_verification_logs + signed URL
 // POST body: { id: string, code: string, v?: string }
 // Usa SUPABASE_SERVICE_ROLE_KEY (nunca expor no frontend)
 
@@ -8,7 +8,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CODE_LENGTH = 6;
+const CODE_DIGITS_ONLY = /^[0-9]{6}$/;
 
 interface VerifyPayload {
   id: string;
@@ -16,15 +16,35 @@ interface VerifyPayload {
   v?: string;
 }
 
-interface ReceitaRow {
+interface PrescriptionRow {
   id: string;
-  codigo: string;
-  token_hash: string | null;
-  paciente_iniciais: string | null;
-  crm_uf: string | null;
-  emitida_em: string | null;
-  pdf_url: string | null;
   status: string;
+  issued_at: string;
+  issued_date_str: string | null;
+  patient_initials: string | null;
+  prescriber_crm_uf: string | null;
+  prescriber_crm_last4: string | null;
+  verify_code_hash: string | null;
+  qr_token_hash: string | null;
+  qr_token_expires_at: string | null;
+  pdf_storage_path: string | null;
+}
+
+type LogOutcome =
+  | "valid"
+  | "invalid_code"
+  | "invalid_token"
+  | "revoked"
+  | "expired"
+  | "not_found"
+  | "error";
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function corsHeaders(origin: string | null): Record<string, string> {
@@ -43,6 +63,14 @@ function jsonResponse(body: object, status: number, headers: Record<string, stri
   });
 }
 
+function getClientIp(req: Request): string | null {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-real-ip")
+  );
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin") ?? null;
 
@@ -51,92 +79,162 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return jsonResponse(
-      { error: "Method not allowed" },
-      405,
-      corsHeaders(origin)
-    );
+    return jsonResponse({ error: "Method not allowed" }, 405, corsHeaders(origin));
   }
 
   let payload: VerifyPayload;
   try {
     payload = (await req.json()) as VerifyPayload;
   } catch {
-    return jsonResponse(
-      { error: "Invalid JSON body" },
-      400,
-      corsHeaders(origin)
-    );
+    return jsonResponse({ error: "Invalid JSON body" }, 400, corsHeaders(origin));
   }
 
   const { id, code, v } = payload;
-
-  if (!id || typeof id !== "string" || !UUID_REGEX.test(id.trim())) {
-    return jsonResponse(
-      { status: "error", error: "invalid_id" },
-      400,
-      corsHeaders(origin)
-    );
-  }
-  if (!code || typeof code !== "string" || code.trim().length !== CODE_LENGTH) {
-    return jsonResponse(
-      { status: "error", error: "invalid_code" },
-      400,
-      corsHeaders(origin)
-    );
-  }
+  const idTrim = typeof id === "string" ? id.trim() : "";
+  const codeTrim = typeof code === "string" ? code.trim() : "";
+  const vTrim = typeof v === "string" ? v.trim() : undefined;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const ip = getClientIp(req);
+  const userAgent = req.headers.get("user-agent") ?? null;
+
+  const logAndReturn = async (
+    prescriptionId: string | null,
+    outcome: LogOutcome,
+    status: number,
+    body: object,
+    details?: Record<string, unknown>
+  ) => {
+    if (prescriptionId) {
+      await supabase.from("prescription_verification_logs").insert({
+        prescription_id: prescriptionId,
+        ip,
+        user_agent: userAgent,
+        outcome,
+        details: details ?? null,
+      });
+    }
+    return jsonResponse(body, status, corsHeaders(origin));
+  };
+
+  if (!idTrim || !UUID_REGEX.test(idTrim)) {
+    return jsonResponse(
+      { status: "invalid", error: "invalid_id" },
+      400,
+      corsHeaders(origin)
+    );
+  }
+  if (!CODE_DIGITS_ONLY.test(codeTrim)) {
+    return jsonResponse(
+      { status: "invalid", error: "invalid_code_format" },
+      400,
+      corsHeaders(origin)
+    );
+  }
 
   const { data: row, error: fetchError } = await supabase
-    .from("receitas")
-    .select("id, codigo, token_hash, paciente_iniciais, crm_uf, emitida_em, pdf_url, status")
-    .eq("id", id.trim())
+    .from("prescriptions")
+    .select(
+      "id, status, issued_at, issued_date_str, patient_initials, prescriber_crm_uf, prescriber_crm_last4, verify_code_hash, qr_token_hash, qr_token_expires_at, pdf_storage_path"
+    )
+    .eq("id", idTrim)
     .single();
 
   if (fetchError || !row) {
-    return jsonResponse(
-      { status: "invalid", error: "not_found" },
-      404,
-      corsHeaders(origin)
-    );
+    return logAndReturn(null, "not_found", 404, { status: "invalid", error: "not_found" });
   }
 
-  const r = row as ReceitaRow;
+  const r = row as PrescriptionRow;
 
   if (r.status !== "active") {
-    const err = r.status === "revoked" ? "revoked" : r.status === "expired" ? "expired" : "invalid";
-    return jsonResponse(
+    const err: LogOutcome = r.status === "revoked" ? "revoked" : r.status === "expired" ? "expired" : "error";
+    return logAndReturn(
+      r.id,
+      err,
+      403,
       { status: "invalid", error: err },
-      403,
-      corsHeaders(origin)
+      { hadStatus: r.status }
     );
   }
 
-  if (r.codigo.trim().toUpperCase() !== code.trim().toUpperCase()) {
-    return jsonResponse(
+  if (!r.verify_code_hash) {
+    return logAndReturn(r.id, "error", 403, { status: "invalid", error: "invalid_code" });
+  }
+
+  const codeHash = await sha256Hex(codeTrim);
+  if (codeHash !== r.verify_code_hash) {
+    return logAndReturn(
+      r.id,
+      "invalid_code",
+      403,
       { status: "invalid", error: "invalid_code" },
-      403,
-      corsHeaders(origin)
+      { vPresent: !!vTrim }
     );
   }
 
-  const emitidaIso = r.emitida_em ? new Date(r.emitida_em).toISOString() : undefined;
+  if (r.qr_token_hash) {
+    if (!vTrim) {
+      return logAndReturn(
+        r.id,
+        "invalid_token",
+        403,
+        { status: "invalid", error: "invalid_token" },
+        { vPresent: false }
+      );
+    }
+    const vHash = await sha256Hex(vTrim);
+    if (vHash !== r.qr_token_hash) {
+      return logAndReturn(
+        r.id,
+        "invalid_token",
+        403,
+        { status: "invalid", error: "invalid_token" },
+        { vPresent: true }
+      );
+    }
+    if (r.qr_token_expires_at) {
+      const expiresAt = new Date(r.qr_token_expires_at).getTime();
+      if (Date.now() > expiresAt) {
+        return logAndReturn(
+          r.id,
+          "expired",
+          403,
+          { status: "invalid", error: "expired" },
+          { vPresent: true }
+        );
+      }
+    }
+  }
 
-  return jsonResponse(
+  let downloadUrl: string | undefined;
+  if (r.pdf_storage_path) {
+    const { data: signed } = await supabase.storage
+      .from("prescriptions")
+      .createSignedUrl(r.pdf_storage_path, 120);
+    if (signed?.signedUrl) downloadUrl = signed.signedUrl;
+  }
+
+  const crmMasked =
+    r.prescriber_crm_uf && r.prescriber_crm_last4
+      ? `${r.prescriber_crm_uf} • ****${r.prescriber_crm_last4}`
+      : undefined;
+
+  return logAndReturn(
+    r.id,
+    "valid",
+    200,
     {
       status: "valid",
-      downloadUrl: r.pdf_url || undefined,
+      downloadUrl: downloadUrl ?? undefined,
       meta: {
-        paciente: r.paciente_iniciais ?? undefined,
-        crm: r.crm_uf ?? undefined,
-        emitida: emitidaIso,
-        patientInitials: r.paciente_iniciais ?? undefined,
-        crmMasked: r.crm_uf ?? undefined,
-        issuedAt: emitidaIso,
+        issuedAt: r.issued_at,
+        issuedDate: r.issued_date_str ?? undefined,
+        patientInitials: r.patient_initials ?? undefined,
+        crmMasked: crmMasked ?? undefined,
+        prescriberCrmUf: r.prescriber_crm_uf ?? undefined,
+        prescriberCrmLast4: r.prescriber_crm_last4 ?? undefined,
       },
     },
-    200,
-    corsHeaders(origin)
+    { vPresent: !!vTrim }
   );
 });

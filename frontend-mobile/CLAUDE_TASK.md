@@ -136,5 +136,4 @@ consultation_finished → "Finalizada" (green)
 - The API returns status in snake_case (submitted, in_review, etc.)
 - Prices: simples=50, controlado=80, azul=100, exam=60, consultation=120
 
-When completely finished, run this command to notify:
-openclaw system event --text "Done: Phase 1-3 complete - design system + patient screens refactored" --mode now
+When completely finished, commit and push your changes.

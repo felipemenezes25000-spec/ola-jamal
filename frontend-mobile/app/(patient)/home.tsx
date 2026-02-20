@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { colors, spacing } from '../../lib/theme';
 import { getRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
+import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/requestUiState';
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
 import { ActionCard } from '../../components/ActionCard';
@@ -70,15 +71,9 @@ export default function PatientHome() {
 
   const stats = {
     total: requests.length,
-    pending: requests.filter(r =>
-      ['submitted', 'in_review', 'analyzing', 'searching_doctor'].includes(r.status)
-    ).length,
-    toPay: requests.filter(r =>
-      ['approved_pending_payment', 'pending_payment', 'consultation_ready'].includes(r.status)
-    ).length,
-    ready: requests.filter(r =>
-      ['signed', 'delivered', 'consultation_finished'].includes(r.status)
-    ).length,
+    pending: requests.filter(r => ['in_review', 'waiting_doctor'].includes(getRequestUiState(r))).length,
+    toPay: requests.filter(r => needsPayment(getRequestUiState(r))).length,
+    ready: requests.filter(r => isSignedOrDelivered(getRequestUiState(r))).length,
   };
 
   const recentRequests = requests.slice(0, 5);

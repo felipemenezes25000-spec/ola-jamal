@@ -264,5 +264,18 @@ class ApiClient {
 // Export singleton instance
 export const apiClient = new ApiClient();
 
+/**
+ * Extrai mensagem de erro amigável para exibir na UI.
+ * Use em todas as telas que mostram erro de API (Alert, setError, etc.).
+ */
+export function getApiErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as ApiError).message === 'string') {
+    return (err as ApiError).message;
+  }
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return 'Ocorreu um erro. Tente novamente.';
+}
+
 // Export class for testing or multiple instances
 export default ApiClient;

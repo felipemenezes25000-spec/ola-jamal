@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../lib/theme';
 import { createExamRequest } from '../../lib/api';
+import { FALLBACK_EXAM_PRICE } from '../../lib/config/pricing';
+import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
 import { createExamSchema } from '../../lib/validation/schemas';
 import { Screen } from '../../components/ui/Screen';
@@ -103,7 +105,7 @@ export default function NewExam() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error: unknown) {
-      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Não foi possível enviar o pedido.');
+      Alert.alert('Erro', getApiErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -214,7 +216,7 @@ export default function NewExam() {
           <Ionicons name="pricetag" size={18} color={c.secondary.main} />
           <Text style={styles.priceText}>
             Valor do pedido de exame:{' '}
-            <Text style={styles.priceValue}>R$ 60,00</Text>
+            <Text style={styles.priceValue}>R$ {FALLBACK_EXAM_PRICE.toFixed(2).replace('.', ',')}</Text>
           </Text>
         </View>
 

@@ -14,6 +14,8 @@ import { theme } from '../../lib/theme';
 import { createPrescriptionRequest } from '../../lib/api';
 import { validate } from '../../lib/validation';
 import { createPrescriptionSchema } from '../../lib/validation/schemas';
+import { PRESCRIPTION_TYPE_PRICES } from '../../lib/config/pricing';
+import { getApiErrorMessage } from '../../lib/api-client';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppInput } from '../../components/ui/AppInput';
@@ -27,9 +29,9 @@ const r = t.borderRadius;
 const typo = t.typography;
 
 const TYPES = [
-  { key: 'simples' as const, label: 'Receita Simples', desc: 'Medicamentos sem retenção', price: 50 },
-  { key: 'controlado' as const, label: 'Receita Controlada', desc: 'Medicamentos com retenção', price: 80, popular: true },
-  { key: 'azul' as const, label: 'Receita Azul', desc: 'Controlados especiais B1 e B2', price: 100 },
+  { key: 'simples' as const, label: 'Receita Simples', desc: 'Medicamentos sem retenção', price: PRESCRIPTION_TYPE_PRICES.simples },
+  { key: 'controlado' as const, label: 'Receita Controlada', desc: 'Medicamentos com retenção', price: PRESCRIPTION_TYPE_PRICES.controlado, popular: true },
+  { key: 'azul' as const, label: 'Receita Azul', desc: 'Controlados especiais B1 e B2', price: PRESCRIPTION_TYPE_PRICES.azul },
 ];
 
 export default function NewPrescription() {
@@ -110,7 +112,7 @@ export default function NewPrescription() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error: unknown) {
-      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Não foi possível enviar a solicitação.');
+      Alert.alert('Erro', getApiErrorMessage(error));
     } finally {
       setLoading(false);
     }

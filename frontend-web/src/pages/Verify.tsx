@@ -5,7 +5,7 @@ import type { VerifySuccess } from '../api/verify';
 type VerifyState = 'idle' | 'loading' | 'success' | 'error';
 
 const GUARDRAIL_ALERT =
-  'Decisão e responsabilidade é do profissional que está atendendo. Esta verificação apenas confere autenticidade do documento.';
+  'Importante: Decisão e responsabilidade é do profissional. Conteúdo exibido para verificação.';
 
 async function verifyReceitaApi(args: { id: string; code: string; v?: string }) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -37,21 +37,25 @@ async function verifyReceitaApi(args: { id: string; code: string; v?: string }) 
     const msg =
       data?.error === 'invalid_code'
         ? 'Código inválido.'
+        : data?.error === 'invalid_code_format'
+          ? 'Código deve ter exatamente 6 dígitos.'
         : data?.error === 'invalid_token'
-          ? 'Token inválido.'
-          : data?.error === 'revoked'
-            ? 'Receita revogada.'
-            : data?.error === 'expired'
-              ? 'Receita expirada.'
-              : data?.error === 'not_found'
-                ? 'Receita não encontrada.'
-                : data?.error
-                  ? String(data.error)
-                  : 'Falha ao verificar. Tente novamente.';
+          ? 'Token inválido ou expirado.'
+        : data?.error === 'revoked'
+          ? 'Receita revogada.'
+        : data?.error === 'expired'
+          ? 'Receita expirada.'
+        : data?.error === 'not_found'
+          ? 'Receita não encontrada.'
+        : data?.error === 'invalid_id'
+          ? 'ID inválido na URL.'
+        : data?.error
+          ? String(data.error)
+          : 'Falha ao verificar. Tente novamente.';
     throw new Error(msg);
   }
 
-  return data as {
+  const body = data as {
     status: 'valid' | 'invalid' | 'revoked' | 'expired' | 'dispensed';
     downloadUrl?: string;
     meta?: {
@@ -65,6 +69,11 @@ async function verifyReceitaApi(args: { id: string; code: string; v?: string }) 
     };
     note?: string;
   };
+  if (body.status !== 'valid') {
+    const msg = body.status === 'revoked' ? 'Receita revogada.' : body.status === 'expired' ? 'Receita expirada.' : 'Receita inválida.';
+    throw new Error(msg);
+  }
+  return body;
 }
 
 export default function Verify() {
@@ -135,24 +144,28 @@ export default function Verify() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h1 style={styles.title}>RenoveJá+ — Verificar receita</h1>
-        <p style={styles.subtitle}>Informe o código de 6 caracteres da receita.</p>
+        <h1 style={styles.title}>Verificação de Receita</h1>
+        <p style={styles.subtitle}>
+          Use o código presente na receita para validar e obter a 2ª via (quando disponível).
+        </p>
 
         {state === 'idle' && (
           <form onSubmit={handleSubmit} style={styles.form}>
+            <label htmlFor="verify-code" style={styles.label}>Código de verificação</label>
             <input
+              id="verify-code"
               type="text"
-              inputMode="text"
+              inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}
-              placeholder="ABC123"
+              placeholder="000000"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase())}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               style={styles.input}
-              aria-label="Código de 6 caracteres"
+              aria-label="Código de 6 dígitos"
             />
             <button type="submit" disabled={code.length !== 6} style={styles.button}>
-              Verificar
+              Validar
             </button>
           </form>
         )}
@@ -164,14 +177,14 @@ export default function Verify() {
         {state === 'success' && result && (
           <div style={styles.success}>
             <p style={styles.validBadge}>✓ Receita válida</p>
+            {result.meta.issuedDate && (
+              <p><strong>Emitida em</strong> {result.meta.issuedDate}</p>
+            )}
             {result.meta.patientInitials && (
-              <p><strong>Paciente (iniciais):</strong> {result.meta.patientInitials}</p>
+              <p><strong>Paciente</strong> {result.meta.patientInitials}</p>
             )}
             {result.meta.crmMasked && (
-              <p><strong>Médico:</strong> {result.meta.crmMasked}</p>
-            )}
-            {result.meta.issuedDate && (
-              <p><strong>Data de emissão:</strong> {result.meta.issuedDate}</p>
+              <p><strong>Profissional</strong> {result.meta.crmMasked}</p>
             )}
             {downloadUrl ? (
               <button
@@ -243,6 +256,13 @@ const styles: Record<string, React.CSSProperties> = {
     marginLeft: 0,
     color: '#666',
     fontSize: 14,
+  },
+  label: {
+    display: 'block',
+    marginBottom: 6,
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#374151',
   },
   form: {
     display: 'flex',

@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDelivered, cancelRequest } from '../../lib/api';
+import { getApiErrorMessage } from '../../lib/api-client';
+import { getDisplayPrice } from '../../lib/config/pricing';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
@@ -106,7 +108,7 @@ export default function RequestDetailScreen() {
       }
       router.push(`/payment/${payment.id}`);
     } catch (error: unknown) {
-      Alert.alert('Erro', (error as Error)?.message || String(error) || 'Erro ao iniciar pagamento');
+      Alert.alert('Erro', getApiErrorMessage(error));
     } finally {
       setActionLoading(false);
     }
@@ -283,14 +285,12 @@ export default function RequestDetailScreen() {
               </View>
             </View>
           )}
-          {request.price != null && request.price > 0 && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Valor</Text>
-              <Text style={[styles.detailValue, { color: colors.success, fontWeight: '700' }]}>
-                R$ {request.price.toFixed(2)}
-              </Text>
-            </View>
-          )}
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Valor</Text>
+            <Text style={[styles.detailValue, { color: colors.success, fontWeight: '700' }]}>
+              R$ {getDisplayPrice(request.price, request.requestType).toFixed(2)}
+            </Text>
+          </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Criado em</Text>
             <Text style={styles.detailValue}>

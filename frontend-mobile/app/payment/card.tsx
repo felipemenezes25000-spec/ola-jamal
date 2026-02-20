@@ -8,6 +8,8 @@ import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMercadoPagoPublicKey, fetchRequestById, fetchSavedCards } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
+import { getDisplayPrice } from '../../lib/config/pricing';
+import { getApiErrorMessage } from '../../lib/api-client';
 import { colors, spacing, typography } from '../../constants/theme';
 
 const TOKEN_KEY = '@renoveja:auth_token';
@@ -211,13 +213,13 @@ export default function CardPaymentScreen() {
           fetchRequestById(rid),
           fetchSavedCards().catch(() => []),
         ]);
-        const amount = request?.price ?? 100;
+        const amount = getDisplayPrice(request?.price ?? undefined, request?.requestType);
         const apiBase = apiClient.getBaseUrl();
         const cards = Array.isArray(savedCards) ? savedCards : [];
         const htmlContent = buildCardPaymentHtml(publicKey, amount, rid, apiBase, token, cards);
         setHtml(htmlContent);
-      } catch (e: any) {
-        setError(e.message || 'Erro ao carregar formulário.');
+      } catch (e: unknown) {
+        setError(getApiErrorMessage(e));
       } finally {
         setLoading(false);
       }

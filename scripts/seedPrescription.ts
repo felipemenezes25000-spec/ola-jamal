@@ -1,14 +1,22 @@
 /**
  * Seed one prescription for verification testing.
- * Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
- * Run: npx tsx seedPrescription.ts (or npm run seed from scripts/)
+ * Env: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou do backend: Supabase__Url e Supabase__ServiceKey).
+ * Run: npm run seed (desde scripts/)
  */
 
+import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID, createHash } from "node:crypto";
+import { resolve } from "node:path";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Env do scripts/.env ou do backend (Supabase__Url, Supabase__ServiceKey)
+config({ path: resolve(process.cwd(), ".env") });
+config({ path: resolve(process.cwd(), "../backend-dotnet/src/RenoveJa.Api/.env") });
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ?? process.env["Supabase__Url"] ?? "";
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env["Supabase__ServiceKey"] ?? "";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");

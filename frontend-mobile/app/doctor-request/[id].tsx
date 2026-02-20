@@ -23,6 +23,7 @@ import {
   signRequest,
   acceptConsultation,
 } from '../../lib/api';
+import { getDisplayPrice } from '../../lib/config/pricing';
 import { RequestResponseDto } from '../../types/database';
 import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -206,7 +207,7 @@ export default function DoctorRequestDetail() {
           <Text style={s.sectionLabel}>DETALHES</Text>
           <Row k="Tipo" v={TYPE_LABELS[request.requestType]} />
           {request.prescriptionType && <Row k="Modalidade" v={request.prescriptionType === 'simples' ? 'Simples' : request.prescriptionType === 'controlado' ? 'Controlada' : 'Azul'} warn={request.prescriptionType === 'controlado'} />}
-          {request.price != null && <Row k="Valor" v={`R$ ${request.price.toFixed(2).replace('.', ',')}`} accent />}
+          <Row k="Valor" v={`R$ ${getDisplayPrice(request.price, request.requestType).toFixed(2).replace('.', ',')}`} accent />
         </View>
 
         {/* AI Copilot */}
