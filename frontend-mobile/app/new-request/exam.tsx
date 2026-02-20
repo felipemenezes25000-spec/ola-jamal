@@ -331,13 +331,14 @@ const styles = StyleSheet.create({
   photoButton: {
     flex: 1,
     backgroundColor: c.background.paper,
-    borderRadius: r.lg,
+    borderRadius: 18,
     paddingVertical: s.lg,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: c.border.main,
     borderStyle: 'dashed',
     gap: s.xs,
+    ...theme.shadows.sm,
   },
   photoText: {
     fontSize: 13,
@@ -353,9 +354,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   imgPreview: {
-    width: 70,
-    height: 70,
-    borderRadius: r.sm,
+    width: 80,
+    height: 80,
+    borderRadius: 14,
   },
   imgRemove: {
     position: 'absolute',

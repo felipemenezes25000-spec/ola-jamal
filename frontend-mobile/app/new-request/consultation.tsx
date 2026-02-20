@@ -119,9 +119,9 @@ const styles = StyleSheet.create({
     marginBottom: s.lg,
   },
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     backgroundColor: c.primary.soft,
     alignItems: 'center',
     justifyContent: 'center',

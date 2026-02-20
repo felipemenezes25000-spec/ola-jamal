@@ -456,7 +456,7 @@ const s = StyleSheet.create({
   emptyActionText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#fff' },
 
   navHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingBottom: spacing.md, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
-  back: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  back: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', ...shadows.card },
   navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
   navSpacer: { width: 40 },
 
@@ -485,7 +485,7 @@ const s = StyleSheet.create({
   urgencyText: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
 
   // Images
-  img: { width: 180, height: 180, borderRadius: borderRadius.sm, marginRight: spacing.sm },
+  img: { width: 180, height: 180, borderRadius: 14, marginRight: spacing.sm },
   modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
   modalImageWrapper: { flex: 1, width: '100%', alignSelf: 'stretch' },
   modalImageFull: { flex: 1, width: '100%', minHeight: 300 },
@@ -505,9 +505,9 @@ const s = StyleSheet.create({
 
   // Actions
   actions: { marginHorizontal: spacing.md, marginTop: spacing.lg, gap: spacing.sm },
-  actionBtn: { flexDirection: 'row', padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52, ...shadows.button },
+  actionBtn: { flexDirection: 'row', padding: spacing.md, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 54, ...shadows.button },
   actionBtnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
-  rejectOutline: { flexDirection: 'row', padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1.5, borderColor: colors.error },
+  rejectOutline: { flexDirection: 'row', padding: spacing.md, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1.5, borderColor: colors.error },
   rejectOutlineText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.error },
 
   // Forms

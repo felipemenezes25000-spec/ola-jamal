@@ -182,6 +182,7 @@ export default function DoctorQueue() {
             empty ? (
               <EmptyState
                 icon="checkmark-done-circle"
+                emoji="📭"
                 title="Nenhum pedido aqui"
                 subtitle="Ajuste os filtros ou volte ao painel para ver todos os pedidos"
                 actionLabel="Voltar ao painel"
@@ -261,10 +262,15 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     marginTop: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 12,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
+    borderRadius: 26,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
   },
   retryText: {
     fontSize: 15,

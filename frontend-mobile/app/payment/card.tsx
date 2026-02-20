@@ -321,6 +321,11 @@ const styles = StyleSheet.create({
   loadingText: { ...typography.body, color: colors.gray600 },
   errorBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', marginTop: spacing.md },
-  backBtn: { marginTop: spacing.xl, paddingVertical: spacing.md, paddingHorizontal: spacing.xl, backgroundColor: colors.primary, borderRadius: 8 },
+  backBtn: {
+    marginTop: spacing.xl, paddingVertical: 14, paddingHorizontal: spacing.xl,
+    backgroundColor: colors.primary, borderRadius: 26,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 12, elevation: 4,
+  },
   backBtnText: { ...typography.bodySemiBold, color: colors.white },
 });

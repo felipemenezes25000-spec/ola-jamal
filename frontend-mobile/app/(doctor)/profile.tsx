@@ -4,17 +4,19 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, shadows, typography } from '../../lib/themeDoctor';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function DoctorProfile() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, doctorProfile: doctor, signOut } = useAuth();
 
   const handleLogout = () => {
@@ -31,90 +33,227 @@ export default function DoctorProfile() {
     ]);
   };
 
-  const menuItems = [
-    { icon: 'shield-checkmark' as const, label: 'Certificado Digital', route: '/certificate/upload', color: colors.success },
-    { icon: 'lock-closed' as const, label: 'Alterar Senha', route: '/change-password', color: colors.primary },
-    { icon: 'settings' as const, label: 'Configurações', route: '/settings', color: colors.textSecondary },
-    { icon: 'help-circle' as const, label: 'Ajuda e FAQ', route: '/help-faq', color: colors.secondary },
-    { icon: 'information-circle' as const, label: 'Sobre', route: '/about', color: colors.primary },
+  const firstName = user?.name?.split(' ')[0] || 'Médico';
+  const initials = user?.name
+    ? user.name.split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('')
+    : '?';
+
+  const menuSections = [
+    {
+      title: 'Profissional',
+      items: [
+        { icon: 'shield-checkmark' as const, label: 'Certificado Digital', route: '/certificate/upload', color: colors.success },
+        { icon: 'medical' as const, label: 'Especialidade', route: '/settings', color: colors.primary },
+      ],
+    },
+    {
+      title: 'Conta',
+      items: [
+        { icon: 'lock-closed-outline' as const, label: 'Alterar Senha', route: '/change-password', color: colors.primary },
+        { icon: 'settings-outline' as const, label: 'Configurações', route: '/settings', color: colors.textSecondary },
+      ],
+    },
+    {
+      title: 'Suporte',
+      items: [
+        { icon: 'help-circle-outline' as const, label: 'Ajuda e FAQ', route: '/help-faq', color: colors.secondary },
+        { icon: 'document-text-outline' as const, label: 'Termos de Uso', route: '/terms', color: colors.textMuted },
+        { icon: 'information-circle-outline' as const, label: 'Sobre', route: '/about', color: colors.primary },
+      ],
+    },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Avatar + Info */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={32} color={colors.primary} />
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#004E7C', '#0077B6', '#0096D6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 20 }]}
+      >
+        <View style={styles.avatarCircle}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+        <Text style={styles.headerName}>Dr(a). {firstName}</Text>
+        <Text style={styles.headerEmail}>{user?.email || ''}</Text>
+        {doctor && (
+          <View style={styles.crmBadge}>
+            <Ionicons name="medical" size={12} color="#fff" />
+            <Text style={styles.crmText}>CRM {doctor.crm}/{doctor.crmState} • {doctor.specialty}</Text>
           </View>
-          <Text style={styles.name}>Dr. {user?.name || 'Médico'}</Text>
-          <Text style={styles.email}>{user?.email || ''}</Text>
-          {doctor && (
-            <View style={styles.doctorBadge}>
-              <Text style={styles.doctorBadgeText}>CRM {doctor.crm}/{doctor.crmState} • {doctor.specialty}</Text>
-            </View>
-          )}
-        </View>
+        )}
+      </LinearGradient>
 
-        {/* Menu */}
-        <View style={styles.menuCard}>
-          {menuItems.map((item, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[styles.menuItem, i < menuItems.length - 1 && styles.menuItemBorder]}
-              onPress={() => router.push(item.route as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: `${item.color}15` }]}>
-                <Ionicons name={item.icon} size={20} color={item.color} />
-              </View>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          ))}
+      {/* Menu Sections */}
+      {menuSections.map((section) => (
+        <View key={section.title} style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <View style={styles.menuCard}>
+            {section.items.map((item, idx) => (
+              <React.Fragment key={item.label}>
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                  onPress={() => router.push(item.route as any)}
+                >
+                  <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
+                    <Ionicons name={item.icon} size={20} color={item.color} />
+                  </View>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </Pressable>
+                {idx < section.items.length - 1 && <View style={styles.menuDivider} />}
+              </React.Fragment>
+            ))}
+          </View>
         </View>
+      ))}
 
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-          <Ionicons name="log-out" size={20} color={colors.error} />
-          <Text style={styles.logoutText}>Sair da conta</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      {/* Logout */}
+      <Pressable
+        style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.8 }]}
+        onPress={handleLogout}
+      >
+        <Ionicons name="log-out-outline" size={20} color={colors.error} />
+        <Text style={styles.logoutText}>Sair da Conta</Text>
+      </Pressable>
+
+      <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
+      <View style={{ height: 100 }} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
-  profileCard: {
-    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
-    padding: spacing.lg, alignItems: 'center', marginBottom: spacing.md, ...shadows.card,
+
+  // Header
+  header: {
+    alignItems: 'center',
+    paddingBottom: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  avatar: {
-    width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primarySoft,
-    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,
+  avatarCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  name: { fontSize: 20, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
-  email: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginTop: 2 },
-  doctorBadge: {
-    marginTop: spacing.sm, backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.xl,
+  avatarText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#fff',
   },
-  doctorBadgeText: { fontSize: 12, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
+  headerName: {
+    fontSize: 22,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  headerEmail: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.regular,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  crmBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
+  crmText: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  // Menu
+  menuSection: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
   menuCard: {
-    backgroundColor: colors.surface, borderRadius: borderRadius.lg,
-    marginBottom: spacing.md, ...shadows.card, overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...shadows.card,
   },
   menuItem: {
-    flexDirection: 'row', alignItems: 'center', padding: spacing.md, gap: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
   },
-  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  menuIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  menuLabel: { flex: 1, fontSize: 15, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text },
+  menuItemPressed: {
+    backgroundColor: colors.muted,
+  },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: typography.fontFamily.medium,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginLeft: 62,
+  },
+
+  // Logout
   logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: spacing.sm, paddingVertical: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginTop: 28,
+    paddingVertical: 14,
+    borderRadius: 26,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  logoutText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.error },
+  logoutText: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: '700',
+    color: colors.error,
+  },
+
+  version: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 16,
+  },
 });

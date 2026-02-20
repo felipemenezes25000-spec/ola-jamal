@@ -163,7 +163,12 @@ const styles = StyleSheet.create({
   certValue: { ...typography.bodySmallMedium, color: colors.gray800, marginTop: 2 },
   uploadCard: { marginBottom: spacing.md },
   uploadTitle: { ...typography.h4, color: colors.primaryDarker, marginBottom: spacing.md },
-  fileBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryPaler, borderWidth: 2, borderColor: colors.primary, borderStyle: 'dashed', borderRadius: borderRadius.xl, padding: spacing.xl, marginBottom: spacing.md },
+  fileBtn: {
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryPaler,
+    borderWidth: 2, borderColor: colors.primary, borderStyle: 'dashed', borderRadius: 18,
+    padding: spacing.xl, marginBottom: spacing.md,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
+  },
   fileText: { ...typography.bodySmallMedium, color: colors.primary, marginTop: spacing.sm },
   fileSize: { ...typography.caption, color: colors.gray500, marginTop: 2 },
   helpCard: { marginBottom: spacing.md },

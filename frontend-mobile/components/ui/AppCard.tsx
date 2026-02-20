@@ -68,6 +68,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.88,
+    transform: [{ scale: 0.98 }],
   },
 });
