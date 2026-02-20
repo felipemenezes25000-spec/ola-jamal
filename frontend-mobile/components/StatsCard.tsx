@@ -1,11 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../lib/theme';
-
-const MIN_TOUCH = 44;
-const CARD_HEIGHT = 100;
-const ICON_SIZE = 40;
 
 interface StatsCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -21,32 +17,26 @@ export function StatsCard({
   label,
   value,
   iconColor = theme.colors.primary.main,
-  iconBgColor = theme.colors.primary.lighter,
+  iconBgColor,
   onPress,
 }: StatsCardProps) {
-  const { width } = useWindowDimensions();
-  const scale = Math.min(1.15, Math.max(0.9, width / 375));
-  const valueSize = Math.round(Math.max(18, 22 * scale));
-  const labelSize = Math.round(Math.max(11, 12 * scale));
+  const softBg = iconBgColor || (iconColor + '18');
+  const displayValue = typeof value === 'number' && value === 0 ? '—' : value;
 
   const content = (
-    <View style={styles.inner}>
-      <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
-        <Ionicons name={icon} size={Math.round(22 * scale)} color={iconColor} />
+    <>
+      <View style={[styles.iconWrap, { backgroundColor: softBg }]}>
+        <Ionicons name={icon} size={20} color={iconColor} />
       </View>
-      <Text style={[styles.value, { fontSize: valueSize }]}>{value}</Text>
-      <View style={styles.labelWrap}>
-        <Text style={[styles.label, { fontSize: labelSize }]} numberOfLines={1}>
-          {label}
-        </Text>
-      </View>
-    </View>
+      <Text style={styles.value}>{displayValue}</Text>
+      <Text style={styles.label} numberOfLines={1}>{label}</Text>
+    </>
   );
 
   if (onPress) {
     return (
       <Pressable
-        style={({ pressed }) => [styles.container, { opacity: pressed ? 0.8 : 1 }]}
+        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value}`}
@@ -56,49 +46,42 @@ export function StatsCard({
     );
   }
 
-  return <View style={styles.container}>{content}</View>;
+  return <View style={styles.card}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
-  container: {
+  card: {
     flex: 1,
-    height: CARD_HEIGHT,
     minWidth: 0,
     backgroundColor: theme.colors.background.paper,
-    borderRadius: theme.borderRadius.card,
-    padding: theme.spacing.sm,
-    justifyContent: 'center',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    overflow: 'hidden',
+    justifyContent: 'center',
     ...theme.shadows.card,
   },
-  inner: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+  pressed: {
+    transform: [{ scale: 0.96 }],
+    opacity: 0.88,
   },
-  iconContainer: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-    borderRadius: theme.borderRadius.lg,
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-    overflow: 'hidden',
+    marginBottom: 8,
   },
   value: {
-    fontWeight: theme.typography.fontWeight.bold,
+    fontSize: 22,
+    fontWeight: '800',
     color: theme.colors.text.primary,
     marginBottom: 2,
   },
-  labelWrap: {
-    minHeight: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
   label: {
+    fontSize: 11,
+    fontWeight: '500',
     color: theme.colors.text.secondary,
     textAlign: 'center',
   },

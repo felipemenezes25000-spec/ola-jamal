@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../lib/theme';
+import { theme } from '../lib/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -9,6 +9,7 @@ interface EmptyStateProps {
   icon: IconName;
   title: string;
   subtitle?: string;
+  emoji?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
@@ -17,25 +18,29 @@ export function EmptyState({
   icon,
   title,
   subtitle,
+  emoji,
   actionLabel,
   onAction,
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={44} color={colors.textMuted} />
+      <View style={styles.iconCircle}>
+        {emoji ? (
+          <Text style={styles.emoji}>{emoji}</Text>
+        ) : (
+          <Ionicons name={icon} size={40} color={theme.colors.primary.main} />
+        )}
       </View>
       <Text style={styles.title}>{title}</Text>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {actionLabel && onAction && (
-        <TouchableOpacity
-          style={styles.actionBtn}
+        <Pressable
+          style={({ pressed }) => [styles.actionBtn, pressed && styles.actionPressed]}
           onPress={onAction}
-          activeOpacity={0.8}
         >
           <Text style={styles.actionText}>{actionLabel}</Text>
           <Ionicons name="arrow-forward" size={16} color="#fff" />
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );
@@ -44,42 +49,53 @@ export function EmptyState({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: spacing.xl * 1.5,
-    gap: spacing.sm,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    gap: 8,
   },
-  iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: colors.surface,
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: theme.colors.primary.soft,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emoji: {
+    fontSize: 44,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: colors.textMuted,
+    color: theme.colors.text.secondary,
     textAlign: 'center',
-    paddingHorizontal: spacing.lg,
+    lineHeight: 20,
+    maxWidth: 280,
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.sm,
+    gap: 8,
+    backgroundColor: theme.colors.primary.main,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: theme.borderRadius.pill,
+    marginTop: 12,
+    ...theme.shadows.button,
+  },
+  actionPressed: {
+    transform: [{ scale: 0.96 }],
+    opacity: 0.9,
   },
   actionText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#fff',
   },
 });

@@ -4,10 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  useWindowDimensions,
   Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -15,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, spacing } from '../../lib/theme';
+import { theme } from '../../lib/theme';
 import { getRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/requestUiState';
@@ -24,24 +22,28 @@ import { StatsCard } from '../../components/StatsCard';
 import { ActionCard } from '../../components/ActionCard';
 import { EmptyState } from '../../components/EmptyState';
 
-const MIN_TOUCH = 44;
-const BP_SMALL = 376; // 2x2 em 320–375px, 4 cols acima
+const c = theme.colors;
+const s = theme.spacing;
 
-const HEADER_TOP_EXTRA = 12;
-const HEADER_BOTTOM_BASE = 20;
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+function getGreetingEmoji(): string {
+  const h = new Date().getHours();
+  if (h < 12) return '☀️';
+  if (h < 18) return '🌤️';
+  return '🌙';
+}
 
 export default function PatientHome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
   const { user } = useAuth();
 
-  const isSmall = screenWidth < BP_SMALL;
-  const statsGap = spacing.sm;
-  const horizontalPad = Math.max(20, spacing.md, screenWidth * 0.04);
-  const compact = screenWidth < 400;
-  const headerPaddingTop = insets.top + HEADER_TOP_EXTRA;
-  const headerPaddingBottom = compact ? HEADER_BOTTOM_BASE : spacing.lg;
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -58,10 +60,7 @@ export default function PatientHome() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
+  useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const onRefresh = () => {
@@ -70,18 +69,18 @@ export default function PatientHome() {
   };
 
   const stats = {
-    total: requests.length,
     pending: requests.filter(r => ['in_review', 'waiting_doctor'].includes(getRequestUiState(r))).length,
     toPay: requests.filter(r => needsPayment(getRequestUiState(r))).length,
     ready: requests.filter(r => isSignedOrDelivered(getRequestUiState(r))).length,
   };
 
-  const recentRequests = requests.slice(0, 5);
+  const recentRequests = requests.slice(0, 4);
+  const firstName = user?.name?.split(' ')[0] || 'Paciente';
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={c.primary.main} />
       </View>
     );
   }
@@ -90,48 +89,67 @@ export default function PatientHome() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.primary.main]}
+          tintColor={c.primary.main}
+        />
+      }
     >
-      {/* Gradient Header - safe area + respiro no topo */}
-      <LinearGradient colors={['#0EA5E9', '#38BDF8', '#7DD3FC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.header, { paddingHorizontal: horizontalPad, paddingTop: headerPaddingTop, paddingBottom: headerPaddingBottom }]}>
-        <View style={styles.headerContent}>
-          <View style={[styles.headerText, { flex: 1, marginRight: spacing.md }]}>
-            <Text style={[styles.greeting, { fontSize: Math.min(24, Math.max(18, screenWidth * 0.06)) }]}>
-              Olá, {user?.name?.split(' ')[0] || 'Paciente'}! 👋
-            </Text>
-            <Text style={[styles.subtitle, { fontSize: Math.max(12, Math.min(14, screenWidth * 0.035)) }]}>
-              Gerencie suas solicitações médicas
-            </Text>
+      {/* ─── Hero Header ─── */}
+      <LinearGradient
+        colors={['#0284C7', '#0EA5E9', '#38BDF8']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text style={styles.greetingSmall}>{getGreeting()} {getGreetingEmoji()}</Text>
+            <Text style={styles.greetingName}>{firstName}</Text>
+            <Text style={styles.headerSubtitle}>Como posso te ajudar hoje?</Text>
           </View>
           <Pressable
-            style={({ pressed }) => [
-              styles.avatar,
-              { minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, width: Math.max(MIN_TOUCH, screenWidth * 0.12), height: Math.max(MIN_TOUCH, screenWidth * 0.12), opacity: pressed ? 0.8 : 1 },
-            ]}
+            style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8 }]}
             onPress={() => router.push('/(patient)/profile')}
-            hitSlop={8}
           >
-            <Ionicons name="person" size={isSmall ? 24 : 28} color={colors.primary} />
+            <Text style={styles.avatarInitial}>{firstName[0]?.toUpperCase()}</Text>
           </Pressable>
+        </View>
+
+        {/* Stats row - floats over header/content boundary */}
+        <View style={styles.statsRow}>
+          <StatsCard
+            icon="hourglass-outline"
+            label="Em análise"
+            value={stats.pending}
+            iconColor="#F59E0B"
+            onPress={() => router.push('/(patient)/requests')}
+          />
+          <StatsCard
+            icon="card-outline"
+            label="A pagar"
+            value={stats.toPay}
+            iconColor="#EF4444"
+            onPress={() => router.push('/(patient)/requests')}
+          />
+          <StatsCard
+            icon="checkmark-done-circle-outline"
+            label="Prontos"
+            value={stats.ready}
+            iconColor="#10B981"
+            onPress={() => router.push('/(patient)/requests')}
+          />
         </View>
       </LinearGradient>
 
-      {/* O que deseja fazer - ação principal */}
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            marginHorizontal: horizontalPad,
-            marginTop: compact ? spacing.md : spacing.lg,
-            marginBottom: compact ? spacing.sm : spacing.md,
-            fontSize: Math.max(17, Math.min(19, screenWidth * 0.048)),
-          },
-        ]}
-      >
-        O que deseja fazer?
-      </Text>
-      <View style={[styles.actionsRow, { paddingHorizontal: horizontalPad, flexDirection: 'row', gap: spacing.sm, flexWrap: 'nowrap' }]}>
-        <View style={{ flex: 1, minWidth: 0 }}>
+      {/* ─── Quick Actions ─── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>O que deseja fazer?</Text>
+        <View style={styles.actionsGrid}>
           <ActionCard
             compact
             icon="document-text"
@@ -139,37 +157,35 @@ export default function PatientHome() {
             label="Nova Receita"
             onPress={() => router.push('/new-request/prescription')}
           />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
           <ActionCard
             compact
             icon="flask"
             iconColor="#8B5CF6"
-            label="Novo Exame"
+            label="Pedir Exame"
             onPress={() => router.push('/new-request/exam')}
           />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
           <ActionCard
             compact
             icon="videocam"
             iconColor="#10B981"
-            label="Consulta Online"
+            label="Consulta"
             onPress={() => router.push('/new-request/consultation')}
           />
         </View>
       </View>
 
-      {/* Recent Requests */}
-      {recentRequests.length > 0 && (
-        <>
-          <View style={[styles.sectionHeader, { marginHorizontal: horizontalPad, marginBottom: spacing.md }]}>
-            <Text style={[styles.sectionTitle, { fontSize: Math.max(16, Math.min(18, screenWidth * 0.045)) }]}>
-              Seus pedidos recentes
-            </Text>
-            <TouchableOpacity onPress={() => router.push('/(patient)/requests')}>
-              <Text style={styles.seeAll}>Ver todas</Text>
-            </TouchableOpacity>
+      {/* ─── Recent Requests ─── */}
+      {recentRequests.length > 0 ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pedidos recentes</Text>
+            <Pressable
+              onPress={() => router.push('/(patient)/requests')}
+              style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.seeAllText}>Ver todos</Text>
+              <Ionicons name="chevron-forward" size={14} color={c.primary.main} />
+            </Pressable>
           </View>
           {recentRequests.map((req) => (
             <RequestCard
@@ -178,15 +194,14 @@ export default function PatientHome() {
               onPress={() => router.push(`/request-detail/${req.id}`)}
             />
           ))}
-        </>
-      )}
-
-      {requests.length === 0 && (
-        <View style={{ paddingHorizontal: horizontalPad }}>
+        </View>
+      ) : (
+        <View style={styles.section}>
           <EmptyState
             icon="document-text-outline"
-            title="Ainda não há pedidos"
-            subtitle="Comece criando uma receita, exame ou consulta acima"
+            emoji="📋"
+            title="Nenhum pedido ainda"
+            subtitle="Crie sua primeira solicitação usando as opções acima"
           />
         </View>
       )}
@@ -197,86 +212,106 @@ export default function PatientHome() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: c.background.default,
   },
   content: {
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: c.background.default,
   },
+
+  // ─── Header ───
   header: {
-    paddingTop: 60,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 80, // extra space for stats overlay
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  headerContent: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   headerText: {
     flex: 1,
+    marginRight: 16,
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  subtitle: {
+  greetingSmall: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 2,
+  },
+  greetingName: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 4,
   },
-  avatar: {
-    borderRadius: 9999,
-    backgroundColor: '#fff',
+  avatarBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarInitial: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  // ─── Stats ───
   statsRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    marginTop: -spacing.md,
-    gap: spacing.sm,
+    gap: 10,
+    marginTop: 20,
+    marginBottom: -60, // overlap into content area
   },
-  sectionTitle: {
-    fontWeight: '700',
-    color: colors.text,
-    marginHorizontal: spacing.md,
+
+  // ─── Sections ───
+  section: {
+    marginTop: 20,
+    paddingHorizontal: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginBottom: 14,
   },
-  seeAll: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  actionsRow: {
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
-    gap: spacing.sm,
-  },
-  emptyTitle: {
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontWeight: '700',
+    color: c.text.primary,
+    marginBottom: 14,
   },
-  emptySubtitle: {
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  seeAllText: {
     fontSize: 14,
-    color: colors.textMuted,
+    fontWeight: '600',
+    color: c.primary.main,
+  },
+
+  // ─── Actions Grid ───
+  actionsGrid: {
+    flexDirection: 'row',
+    gap: 10,
   },
 });

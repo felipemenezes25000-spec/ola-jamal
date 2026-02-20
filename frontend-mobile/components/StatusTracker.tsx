@@ -1,30 +1,33 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../lib/theme';
+import { theme } from '../lib/theme';
 import { RequestType, RequestStatus } from '../types/database';
+
+const c = theme.colors;
 
 interface Step {
   key: string;
   label: string;
+  icon: keyof typeof Ionicons.glyphMap;
   statuses: RequestStatus[];
 }
 
 const PRESCRIPTION_STEPS: Step[] = [
-  { key: 'submitted', label: 'Enviado', statuses: ['submitted'] },
-  { key: 'analysis', label: 'Análise', statuses: ['analyzing'] },
-  { key: 'review', label: 'Em Análise', statuses: ['in_review'] },
-  { key: 'payment', label: 'Pagamento', statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'signed', label: 'Assinado', statuses: ['paid', 'signed'] },
-  { key: 'delivered', label: 'Entregue', statuses: ['delivered'] },
+  { key: 'submitted', label: 'Enviado', icon: 'paper-plane', statuses: ['submitted'] },
+  { key: 'analysis', label: 'Análise IA', icon: 'sparkles', statuses: ['analyzing'] },
+  { key: 'review', label: 'Em Análise', icon: 'eye', statuses: ['in_review'] },
+  { key: 'payment', label: 'Pagamento', icon: 'card', statuses: ['approved_pending_payment', 'pending_payment'] },
+  { key: 'signed', label: 'Assinado', icon: 'shield-checkmark', statuses: ['paid', 'signed'] },
+  { key: 'delivered', label: 'Entregue', icon: 'checkmark-done-circle', statuses: ['delivered'] },
 ];
 
 const CONSULTATION_STEPS: Step[] = [
-  { key: 'searching', label: 'Buscando', statuses: ['searching_doctor'] },
-  { key: 'ready', label: 'Consulta Pronta', statuses: ['consultation_ready'] },
-  { key: 'payment', label: 'Pagamento', statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'in_consultation', label: 'Em Consulta', statuses: ['paid', 'in_consultation'] },
-  { key: 'finished', label: 'Finalizada', statuses: ['consultation_finished'] },
+  { key: 'searching', label: 'Buscando', icon: 'search', statuses: ['searching_doctor'] },
+  { key: 'ready', label: 'Pronta', icon: 'checkmark-circle', statuses: ['consultation_ready'] },
+  { key: 'payment', label: 'Pagamento', icon: 'card', statuses: ['approved_pending_payment', 'pending_payment'] },
+  { key: 'in_consultation', label: 'Em Consulta', icon: 'videocam', statuses: ['paid', 'in_consultation'] },
+  { key: 'finished', label: 'Finalizada', icon: 'checkmark-done-circle', statuses: ['consultation_finished'] },
 ];
 
 function getStepIndex(steps: Step[], status: RequestStatus): number {
@@ -39,23 +42,28 @@ interface Props {
   requestType: RequestType;
 }
 
-const DOT_SIZE = 20;
-const LINE_WIDTH = 2;
-const ROW_MIN_HEIGHT = 40;
+const DOT_SIZE = 28;
+const LINE_W = 3;
+const COMPLETED_COLOR = '#10B981';
+const CURRENT_COLOR = c.primary.main;
+const PENDING_COLOR = c.border.main;
 
 export default function StatusTracker({ currentStatus, requestType }: Props) {
   const steps = requestType === 'consultation' ? CONSULTATION_STEPS : PRESCRIPTION_STEPS;
 
   if (currentStatus === 'rejected' || currentStatus === 'cancelled') {
+    const isRejected = currentStatus === 'rejected';
     return (
-      <View style={styles.rejectedContainer}>
-        <Ionicons
-          name={currentStatus === 'rejected' ? 'close-circle' : 'ban'}
-          size={24}
-          color={currentStatus === 'rejected' ? colors.error : colors.textMuted}
-        />
-        <Text style={[styles.rejectedText, { color: currentStatus === 'rejected' ? colors.error : colors.textMuted }]}>
-          {currentStatus === 'rejected' ? 'Rejeitado' : 'Cancelado'}
+      <View style={styles.terminalContainer}>
+        <View style={[styles.terminalCircle, { backgroundColor: isRejected ? c.status.errorLight : c.background.secondary }]}>
+          <Ionicons
+            name={isRejected ? 'close-circle' : 'ban'}
+            size={28}
+            color={isRejected ? c.status.error : c.text.tertiary}
+          />
+        </View>
+        <Text style={[styles.terminalText, { color: isRejected ? c.status.error : c.text.tertiary }]}>
+          {isRejected ? 'Solicitação Rejeitada' : 'Solicitação Cancelada'}
         </Text>
       </View>
     );
@@ -68,46 +76,41 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
       {steps.map((step, index) => {
         const isCompleted = index < currentIndex;
         const isCurrent = index === currentIndex;
-        const isPending = index > currentIndex;
         const isLast = index === steps.length - 1;
+
+        const dotColor = isCompleted ? COMPLETED_COLOR : isCurrent ? CURRENT_COLOR : PENDING_COLOR;
+        const dotBg = isCompleted ? COMPLETED_COLOR : isCurrent ? CURRENT_COLOR : 'transparent';
+        const lineColor = index < currentIndex ? COMPLETED_COLOR : PENDING_COLOR;
+        const textColor = isCompleted ? COMPLETED_COLOR : isCurrent ? CURRENT_COLOR : c.text.tertiary;
+        const textWeight = isCurrent ? '700' : isCompleted ? '600' : '400';
 
         return (
           <View key={step.key} style={styles.row}>
-            <View style={styles.leftColumn}>
-              <View
-                style={[
-                  styles.dot,
-                  isCompleted && styles.dotCompleted,
-                  isCurrent && styles.dotCurrent,
-                  isPending && styles.dotPending,
-                ]}
-              >
+            {/* Dot column */}
+            <View style={styles.dotColumn}>
+              <View style={[styles.dot, { borderColor: dotColor, backgroundColor: dotBg }]}>
                 {isCompleted ? (
-                  <Ionicons name="checkmark" size={12} color="#fff" />
-                ) : isCurrent ? (
-                  <View style={styles.currentInner} />
-                ) : null}
+                  <Ionicons name="checkmark" size={14} color="#fff" />
+                ) : (
+                  <Ionicons name={step.icon} size={12} color={isCurrent ? '#fff' : c.text.tertiary} />
+                )}
               </View>
               {!isLast && (
-                <View
-                  style={[
-                    styles.line,
-                    index < currentIndex ? styles.lineCompleted : styles.linePending,
-                  ]}
-                />
+                <View style={[styles.line, { backgroundColor: lineColor }]} />
               )}
             </View>
+
+            {/* Label */}
             <View style={styles.labelWrap}>
-              <Text
-                style={[
-                  styles.label,
-                  isCompleted && styles.labelCompleted,
-                  isCurrent && styles.labelCurrent,
-                  isPending && styles.labelPending,
-                ]}
-              >
+              <Text style={[styles.label, { color: textColor, fontWeight: textWeight as any }]}>
                 {step.label}
               </Text>
+              {isCurrent && (
+                <View style={styles.currentBadge}>
+                  <View style={styles.pulsingDot} />
+                  <Text style={styles.currentText}>Etapa atual</Text>
+                </View>
+              )}
             </View>
           </View>
         );
@@ -118,84 +121,74 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.xs,
-    paddingLeft: spacing.xs,
+    paddingVertical: 4,
+    paddingLeft: 4,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    minHeight: ROW_MIN_HEIGHT,
+    minHeight: 48,
   },
-  leftColumn: {
+  dotColumn: {
     alignItems: 'center',
-    width: 28,
+    width: 36,
   },
   dot: {
     width: DOT_SIZE,
     height: DOT_SIZE,
     borderRadius: DOT_SIZE / 2,
+    borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-  },
-  dotCompleted: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  dotCurrent: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  dotPending: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-  currentInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#fff',
   },
   line: {
-    width: LINE_WIDTH,
+    width: LINE_W,
     flex: 1,
-    minHeight: 16,
+    minHeight: 18,
     marginVertical: 2,
-  },
-  lineCompleted: {
-    backgroundColor: colors.success,
-  },
-  linePending: {
-    backgroundColor: colors.border,
+    borderRadius: LINE_W / 2,
   },
   labelWrap: {
     flex: 1,
-    justifyContent: 'center',
-    paddingLeft: spacing.sm,
-    paddingVertical: 4,
+    paddingLeft: 12,
+    paddingTop: 3,
+    paddingBottom: 8,
   },
   label: {
     fontSize: 14,
+    lineHeight: 20,
   },
-  labelCompleted: {
-    color: colors.success,
-    fontWeight: '600',
-  },
-  labelCurrent: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  labelPending: {
-    color: colors.textMuted,
-  },
-  rejectedContainer: {
+  currentBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
+    gap: 5,
+    marginTop: 4,
   },
-  rejectedText: {
+  pulsingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: c.primary.main,
+  },
+  currentText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: c.primary.main,
+  },
+  terminalContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 10,
+  },
+  terminalCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  terminalText: {
     fontSize: 16,
     fontWeight: '700',
   },

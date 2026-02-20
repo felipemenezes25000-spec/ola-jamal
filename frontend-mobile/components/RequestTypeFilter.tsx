@@ -1,12 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '../lib/theme';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { theme } from '../lib/theme';
 
-const MIN_TOUCH_HEIGHT = 48;
-const H_PADDING = spacing.lg;
-const GAP = spacing.sm;
-/** Largura abaixo da qual reduzimos padding e fontSize para caber os 4 textos completos */
-const NARROW_BREAKPOINT = 360;
+const c = theme.colors;
+const s = theme.spacing;
 
 export interface RequestTypeFilterItem {
   key: string;
@@ -18,7 +15,6 @@ interface RequestTypeFilterProps {
   value: string;
   onValueChange: (key: string) => void;
   disabled?: boolean;
-  /** 'patient' = primary blue, 'doctor' = secondary green */
   variant?: 'patient' | 'doctor';
 }
 
@@ -29,80 +25,67 @@ export function RequestTypeFilter({
   disabled = false,
   variant = 'patient',
 }: RequestTypeFilterProps) {
-  const { width } = useWindowDimensions();
-  const isNarrow = width < NARROW_BREAKPOINT;
-  const paddingH = isNarrow ? spacing.xs : spacing.sm;
-  const fontSize = isNarrow ? 12 : 14;
-
-  const accent = variant === 'doctor' ? colors.secondary : colors.primary;
-  const accentSoft = variant === 'doctor' ? '#D1FAE5' : '#E0F2FE';
+  const accent = variant === 'doctor' ? '#0077B6' : c.primary.main;
+  const accentSoft = variant === 'doctor' ? '#E0F2FE' : c.primary.soft;
 
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.row, { gap: GAP }]} testID="request-type-filter">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {items.map((item) => {
           const isSelected = value === item.key;
           return (
             <Pressable
               key={item.key}
               style={[
-                styles.button,
-                {
-                  minHeight: MIN_TOUCH_HEIGHT,
-                  paddingHorizontal: paddingH,
-                  backgroundColor: isSelected ? accentSoft : colors.surface,
-                  borderWidth: isSelected ? 2 : 1,
-                  borderColor: isSelected ? accent : colors.border,
-                },
+                styles.chip,
+                isSelected && { backgroundColor: accentSoft, borderColor: accent },
               ]}
               onPress={() => !disabled && onValueChange(item.key)}
               disabled={disabled}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected, disabled }}
-              accessibilityLabel={item.label}
             >
               <Text
                 style={[
-                  styles.buttonText,
-                  { fontSize, letterSpacing: isNarrow ? -0.2 : 0 },
+                  styles.chipText,
                   isSelected && { color: accent, fontWeight: '700' },
                 ]}
                 numberOfLines={1}
-                ellipsizeMode="tail"
               >
                 {item.label}
               </Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingHorizontal: H_PADDING,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    ...shadows.sm,
+    paddingVertical: s.sm,
+    backgroundColor: c.background.default,
   },
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
+  scrollContent: {
+    paddingHorizontal: 20,
+    gap: 8,
   },
-  button: {
-    flex: 1,
-    flexShrink: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-    minHeight: MIN_TOUCH_HEIGHT,
+  chip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 100,
+    backgroundColor: c.background.paper,
+    borderWidth: 1.5,
+    borderColor: c.border.main,
   },
-  buttonText: {
+  chipText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: c.text.secondary,
   },
 });
