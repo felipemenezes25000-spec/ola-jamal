@@ -1,6 +1,16 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { colors, spacing, borderRadius, shadows } from '../constants/theme';
+
+// Web: react-native-web deprecia shadow*; usar boxShadow.
+const shadowDefault =
+  Platform.OS === 'web'
+    ? { boxShadow: '0px 1px 3px rgba(0,0,0,0.04)' }
+    : shadows.sm;
+const shadowElevated =
+  Platform.OS === 'web'
+    ? { boxShadow: '0px 4px 16px rgba(0,0,0,0.08)' }
+    : shadows.lg;
 
 interface CardProps {
   children: React.ReactNode;
@@ -15,9 +25,9 @@ export function Card({ children, style, variant = 'default', noPadding = false }
       style={[
         styles.base,
         !noPadding && styles.padding,
-        variant === 'elevated' && styles.elevated,
+        variant === 'elevated' && shadowElevated,
         variant === 'outlined' && styles.outlined,
-        variant === 'default' && shadows.sm,
+        variant === 'default' && shadowDefault,
         style,
       ]}
     >
@@ -34,9 +44,6 @@ const styles = StyleSheet.create({
   },
   padding: {
     padding: spacing.md,
-  },
-  elevated: {
-    ...shadows.lg,
   },
   outlined: {
     borderWidth: 1,

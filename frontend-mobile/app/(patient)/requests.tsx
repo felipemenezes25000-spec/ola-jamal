@@ -13,7 +13,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../../lib/theme';
+import { colors, spacing, borderRadius, gradients, doctorDS } from '../../lib/themeDoctor';
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto, RequestType } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
@@ -118,7 +118,7 @@ export default function PatientRequests() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#0EA5E9', '#38BDF8', '#7DD3FC']}
+        colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, styles.headerGradient, { paddingTop: headerPaddingTop }]}
@@ -126,6 +126,7 @@ export default function PatientRequests() {
         <Text style={styles.title}>Meus Pedidos</Text>
       </LinearGradient>
 
+      <Text style={styles.headerHint}>Toque em um pedido para ver detalhes e acompanhar o status. Use os filtros para encontrar o que precisa.</Text>
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={20} color={colors.textMuted} style={styles.searchIcon} />
         <TextInput
@@ -193,6 +194,13 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   headerGradient: { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   title: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  headerHint: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 6,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -212,7 +220,7 @@ const styles = StyleSheet.create({
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md },
   retryText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  listContent: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
+  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: spacing.lg, paddingBottom: 100 },
   listContentEmpty: { flexGrow: 1 },
   separator: { height: spacing.sm },
 });

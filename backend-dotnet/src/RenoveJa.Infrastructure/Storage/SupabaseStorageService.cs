@@ -13,9 +13,18 @@ public class SupabaseStorageService : IStorageService
     public const string HttpClientName = "SupabaseStorage";
     private const string PrescriptionBucket = "prescription-images";
     private const string CertificatesBucket = "certificates";
+    private const string VerifyPdfBucket = "prescriptions";
 
-    private static string GetBucketForPath(string path) =>
-        path.StartsWith("certificates/", StringComparison.OrdinalIgnoreCase) ? CertificatesBucket : PrescriptionBucket;
+    private static string GetBucketForPath(string path)
+    {
+        if (path.StartsWith("certificates/", StringComparison.OrdinalIgnoreCase))
+            return CertificatesBucket;
+        // PDFs de receita e assinados vão para o bucket 'prescriptions' (usado pela Edge Function verify)
+        if (path.StartsWith("receitas/", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("signed/", StringComparison.OrdinalIgnoreCase))
+            return VerifyPdfBucket;
+        return PrescriptionBucket;
+    }
     private readonly HttpClient _httpClient;
     private readonly SupabaseConfig _config;
 

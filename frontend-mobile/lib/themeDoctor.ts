@@ -1,33 +1,34 @@
 /**
- * RenoveJá+ Doctor Theme – Ocean Blue Medical
- * Primary: #0077B6, Secondary CTA: #F4A261, Background: #F0F9FF
+ * RenoveJá+ Doctor Theme – Design system oficial
+ * Primary (botões): #2CB1FF, Header gradient: #1A9DE0 → #2CB1FF, Background: #F4F6F9
+ * Status: azul ação, verde sucesso, amarelo aguardando, cinza histórico (sem roxo)
  * Plus Jakarta Sans
  */
 
 export const colors = {
-  // Primary – Ocean Blue
-  primary: '#0077B6',
-  primaryDark: '#005F8A',
-  primaryLight: '#0096D6',
-  primaryGhost: 'rgba(0, 119, 182, 0.10)',
-  primarySoft: '#E0F2FE',
+  // Primary – Azul principal (botões, CTAs) – tom #2CB1FF
+  primary: '#2CB1FF',
+  primaryDark: '#1A9DE0',
+  primaryLight: '#5EC5FF',
+  primaryGhost: 'rgba(44, 177, 255, 0.10)',
+  primarySoft: '#E3F4FF',
 
-  // Secondary CTA – warm amber
+  // Secondary CTA (uso restrito)
   secondary: '#F4A261',
   secondaryDark: '#E76F51',
   secondarySoft: '#FFF3E6',
 
   // Accent – light blue
   accent: '#B8DFFB',
-  accentSoft: '#E0F2FE',
+  accentSoft: '#E3F4FF',
 
   // Backgrounds
-  background: '#F0F9FF',
+  background: '#F4F6F9',
   surface: '#FFFFFF',
   surfaceSecondary: '#F1F5F9',
   muted: '#E2EDF6',
 
-  // Text (foreground = HSL 234 50% 14%)
+  // Text
   text: '#121A3E',
   textSecondary: '#475569',
   textMuted: '#64748B',
@@ -35,7 +36,7 @@ export const colors = {
   // Borders
   border: '#E2E8F0',
   borderLight: '#F1F5F9',
-  ring: '#0077B6',
+  ring: '#2CB1FF',
 
   // Status
   error: '#EF4444',
@@ -52,14 +53,14 @@ export const colors = {
   white: '#FFFFFF',
   black: '#0F172A',
 
-  // Request statuses (keep compat)
+  // Request statuses – design system: action/success/waiting/historical only
   statusSubmitted: '#F59E0B',
   statusInReview: '#3B82F6',
   statusApproved: '#059669',
   statusPaid: '#059669',
-  statusSigned: '#0077B6',
+  statusSigned: '#6B7280',
   statusDelivered: '#059669',
-  statusRejected: '#EF4444',
+  statusRejected: '#6B7280',
   statusCancelled: '#6B7280',
   statusSearching: '#F59E0B',
   statusConsultationReady: '#3B82F6',
@@ -84,28 +85,38 @@ export const borderRadius = {
   xl: 22,
   pill: 26,
   card: 14,
+  cardLg: 20,
   full: 9999,
+} as const;
+
+/** Design system: card radius 20, padding 16–20, section gap 24, button 52/16 */
+export const doctorDS = {
+  cardRadius: 20,
+  cardPadding: 18,
+  sectionGap: 24,
+  buttonHeight: 52,
+  buttonRadius: 16,
 } as const;
 
 export const shadows = {
   card: {
-    shadowColor: '#0077B6',
+    shadowColor: '#2CB1FF',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 3,
   },
   cardLg: {
-    shadowColor: '#0077B6',
+    shadowColor: '#2CB1FF',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 20,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 5,
   },
   button: {
-    shadowColor: '#0077B6',
+    shadowColor: '#2CB1FF',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -119,10 +130,11 @@ export const shadows = {
 } as const;
 
 export const gradients = {
-  doctorHeader: ['#005F8A', '#0077B6', '#0096D6'] as const,
-  primary: ['#0077B6', '#005F8A'] as unknown as string[],
+  /** Header padrão: #1A9DE0 → #2CB1FF */
+  doctorHeader: ['#1A9DE0', '#2CB1FF'] as const,
+  primary: ['#1A9DE0', '#2CB1FF'] as unknown as string[],
   secondary: ['#F4A261', '#E76F51'] as unknown as string[],
-  subtle: ['#E0F2FE', '#F0F9FF'] as unknown as string[],
+  subtle: ['#E3F2FC', '#F4F6F9'] as unknown as string[],
 } as const;
 
 export const typography = {

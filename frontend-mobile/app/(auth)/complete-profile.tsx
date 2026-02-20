@@ -31,7 +31,7 @@ export default function CompleteProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const { user, completeProfile, signOut } = useAuth();
+  const { user, completeProfile, cancelRegistration } = useAuth();
   const router = useRouter();
   const isPatient = user?.role === 'patient';
 
@@ -136,11 +136,7 @@ export default function CompleteProfileScreen() {
           text: 'Sim, cancelar',
           style: 'destructive',
           onPress: async () => {
-            try {
-              const { apiClient } = require('../../lib/api-client');
-              await apiClient.post('/api/auth/cancel-registration', {});
-            } catch { /* ignore */ }
-            await signOut();
+            await cancelRegistration();
             setTimeout(() => router.replace('/(auth)/login'), 0);
           },
         },
@@ -168,7 +164,7 @@ export default function CompleteProfileScreen() {
           required={isPatient}
           placeholder="Nome da rua"
           value={street}
-          onChangeText={(t) => { setStreet(t); clearError('street'); }}
+          onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
           leftIcon="home-outline"
           error={fieldErrors.street}
         />
@@ -178,7 +174,7 @@ export default function CompleteProfileScreen() {
             required={isPatient}
             placeholder="Nº"
             value={number}
-            onChangeText={(t) => { setNumber(t); clearError('number'); }}
+            onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
             keyboardType="numeric"
             containerStyle={styles.numberInput}
             error={fieldErrors.number}
@@ -196,7 +192,7 @@ export default function CompleteProfileScreen() {
           required={isPatient}
           placeholder="Bairro"
           value={neighborhood}
-          onChangeText={(t) => { setNeighborhood(t); clearError('neighborhood'); }}
+          onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
           leftIcon="business-outline"
           error={fieldErrors.neighborhood}
         />
@@ -206,7 +202,7 @@ export default function CompleteProfileScreen() {
             required={isPatient}
             placeholder="Cidade"
             value={city}
-            onChangeText={(t) => { setCity(t); clearError('city'); }}
+            onChangeText={(t: string) => { setCity(t); clearError('city'); }}
             containerStyle={styles.cityInput}
             error={fieldErrors.city}
           />
@@ -215,7 +211,7 @@ export default function CompleteProfileScreen() {
             required={isPatient}
             placeholder="UF"
             value={state}
-            onChangeText={(t) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
+            onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
             maxLength={2}
             containerStyle={styles.stateInput}
             error={fieldErrors.state}
@@ -226,7 +222,7 @@ export default function CompleteProfileScreen() {
           required
           placeholder="(11) 99999-9999"
           value={phone}
-          onChangeText={(t) => { setPhone(t); clearError('phone'); }}
+          onChangeText={(t: string) => { setPhone(t); clearError('phone'); }}
           keyboardType="phone-pad"
           leftIcon="call-outline"
           error={fieldErrors.phone}
@@ -236,7 +232,7 @@ export default function CompleteProfileScreen() {
           required
           placeholder="000.000.000-00"
           value={cpf}
-          onChangeText={(t) => { setCpf(t); clearError('cpf'); }}
+          onChangeText={(t: string) => { setCpf(t); clearError('cpf'); }}
           keyboardType="numeric"
           leftIcon="card-outline"
           error={fieldErrors.cpf}

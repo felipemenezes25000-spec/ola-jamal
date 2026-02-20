@@ -41,6 +41,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     if (!Notifications) return; // Expo Go: push não disponível
+    if (Platform.OS === 'web') return; // push token não suportado na web
     if (!user) {
       if (lastRegisteredToken.current) {
         unregisterPushToken(lastRegisteredToken.current).catch(() => {});

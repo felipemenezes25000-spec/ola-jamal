@@ -1,17 +1,23 @@
 import React, { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../lib/theme';
+import { colors } from '../../lib/themeDoctor';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
-const c = theme.colors;
+const TAB_BAR_BASE_HEIGHT = 56;
+const TAB_BAR_PADDING_TOP = 8;
 
 export default function PatientLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, loading } = useAuth();
   const { unreadCount } = useNotifications();
+
+  const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
+  const tabBarPaddingBottom = Math.max(10, insets.bottom + (Platform.OS === 'ios' ? 4 : 8));
 
   useEffect(() => {
     if (!loading && !user) {
@@ -23,15 +29,16 @@ export default function PatientLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: c.primary.main,
-        tabBarInactiveTintColor: c.text.tertiary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: c.background.paper,
-          borderTopColor: c.border.light,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.borderLight,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 68,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-          paddingTop: 8,
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
+          paddingTop: TAB_BAR_PADDING_TOP,
+          overflow: 'hidden',
           ...Platform.select({
             ios: {
               shadowColor: '#000',
@@ -48,7 +55,7 @@ export default function PatientLayout() {
           letterSpacing: 0.1,
         },
         tabBarBadgeStyle: {
-          backgroundColor: c.status.error,
+          backgroundColor: colors.error,
           fontSize: 10,
           fontWeight: '700',
           minWidth: 18,
@@ -101,7 +108,7 @@ export default function PatientLayout() {
 
 function TabIcon({ name, color, focused }: { name: keyof typeof Ionicons.glyphMap; color: string; focused: boolean }) {
   return (
-    <View style={{ alignItems: 'center' }}>
+    <View style={{ alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
       {focused && (
         <View style={{
           position: 'absolute',
@@ -109,7 +116,7 @@ function TabIcon({ name, color, focused }: { name: keyof typeof Ionicons.glyphMa
           width: 24,
           height: 3,
           borderRadius: 2,
-          backgroundColor: c.primary.main,
+          backgroundColor: colors.primary,
         }} />
       )}
       <Ionicons name={name} size={22} color={color} />

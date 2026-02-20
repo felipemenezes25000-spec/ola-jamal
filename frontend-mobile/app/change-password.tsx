@@ -57,6 +57,7 @@ export default function ChangePasswordScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="always"
+        showsVerticalScrollIndicator={false}
       >
         <Card style={styles.card}>
           <Text style={styles.hint}>Para sua segurança, informe a senha atual e defina uma nova senha com no mínimo 8 caracteres.</Text>

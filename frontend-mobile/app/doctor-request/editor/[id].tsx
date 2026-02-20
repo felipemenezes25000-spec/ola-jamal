@@ -28,6 +28,9 @@ import {
 import { RequestResponseDto, PrescriptionKind } from '../../../types/database';
 import { searchCid } from '../../../lib/cid-medications';
 import { ZoomablePdfView } from '../../../components/ZoomablePdfView';
+import { DoctorHeader } from '../../../components/ui/DoctorHeader';
+import { DoctorCard } from '../../../components/ui/DoctorCard';
+import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
 import { showToast } from '../../../components/ui/Toast';
 
@@ -269,13 +272,7 @@ export default function PrescriptionEditorScreen() {
   if (loading || !request) {
     return (
       <SafeAreaView style={st.container} edges={['top']}>
-        <View style={[st.navHeader, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={st.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={st.navTitle}>Carregando...</Text>
-          <View style={{ width: 40 }} />
-        </View>
+        <DoctorHeader title="Carregando..." onBack={() => router.back()} />
         <View style={{ padding: spacing.md }}>
           <SkeletonLoader width="60%" height={20} style={{ marginBottom: 12 }} />
           <SkeletonList count={3} />
@@ -287,13 +284,7 @@ export default function PrescriptionEditorScreen() {
   if (request.requestType !== 'prescription') {
     return (
       <SafeAreaView style={st.container} edges={['top']}>
-        <View style={[st.navHeader, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={st.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={st.navTitle}>Editor</Text>
-          <View style={{ width: 40 }} />
-        </View>
+        <DoctorHeader title="Editor" onBack={() => router.back()} />
         <View style={st.center}>
           <Ionicons name="document-text-outline" size={56} color={colors.textMuted} />
           <Text style={{ color: colors.textSecondary, marginTop: spacing.sm, fontFamily: typography.fontFamily.regular }}>
@@ -308,14 +299,7 @@ export default function PrescriptionEditorScreen() {
 
   return (
     <SafeAreaView style={st.container} edges={['top']}>
-      {/* Nav Header */}
-      <View style={[st.navHeader, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={st.backBtn} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={st.navTitle}>Editar Receita</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <DoctorHeader title="Editar Receita" onBack={() => router.back()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -325,7 +309,7 @@ export default function PrescriptionEditorScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Prescription Kind */}
-          <View style={st.card}>
+          <DoctorCard style={st.cardMargin}>
             <Text style={st.sectionTitle}>TIPO DE RECEITA</Text>
             <Text style={st.hint}>Selecione o modelo (CFM, RDC 471/2021, ANVISA/SNCR)</Text>
             <View style={st.kindRow}>
@@ -342,10 +326,10 @@ export default function PrescriptionEditorScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </DoctorCard>
 
           {/* PDF Preview */}
-          <View style={[st.card, st.pdfCard]}>
+          <DoctorCard style={[st.cardMargin, st.pdfCard]}>
             <View style={st.pdfHeader}>
               <Ionicons name="document-text" size={22} color={colors.primary} />
               <View style={{ flex: 1 }}>
@@ -403,11 +387,11 @@ export default function PrescriptionEditorScreen() {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
+          </DoctorCard>
 
           {/* AI Analysis */}
           {request.aiSummaryForDoctor && (
-            <View style={[st.card, st.aiCard]}>
+            <DoctorCard style={[st.cardMargin, st.aiCard]}>
               <View style={st.aiHeader}>
                 <Ionicons name="sparkles" size={20} color={colors.primary} />
                 <Text style={st.aiTitle}>AI Copilot — apoio à prescrição</Text>
@@ -437,12 +421,12 @@ export default function PrescriptionEditorScreen() {
                   <Text style={st.urgencyText}>Urgência: {URGENCY_LABELS_PT[request.aiUrgency.toLowerCase()] || request.aiUrgency}</Text>
                 </View>
               )}
-            </View>
+            </DoctorCard>
           )}
 
           {/* AI Suggestions */}
           {suggestedFromAi.length > 0 && (
-            <View style={st.card}>
+            <DoctorCard style={st.cardMargin}>
               <Text style={st.sectionTitle}>SUGESTÕES DA IA</Text>
               <View style={st.aiDisclaimer}>
                 <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
@@ -461,11 +445,11 @@ export default function PrescriptionEditorScreen() {
                   </View>
                 </View>
               ))}
-            </View>
+          </DoctorCard>
           )}
 
           {/* CID Search */}
-          <View style={st.card}>
+          <DoctorCard style={st.cardMargin}>
             <Text style={st.sectionTitle}>BUSCAR POR CID</Text>
             <Text style={st.hint}>Digite o CID ou nome da condição para ver medicamentos sugeridos</Text>
             <TextInput
@@ -492,10 +476,10 @@ export default function PrescriptionEditorScreen() {
                 ))}
               </View>
             )}
-          </View>
+          </DoctorCard>
 
           {/* Medications List */}
-          <View style={st.card}>
+          <DoctorCard style={st.cardMargin}>
             <View style={st.sectionHeader}>
               <Text style={st.sectionTitle}>MEDICAMENTOS NA RECEITA</Text>
               <TouchableOpacity onPress={addCustom} style={st.addBtn} activeOpacity={0.7}>
@@ -524,10 +508,10 @@ export default function PrescriptionEditorScreen() {
                 </View>
               ))
             )}
-          </View>
+          </DoctorCard>
 
           {/* Notes */}
-          <View style={st.card}>
+          <DoctorCard style={st.cardMargin}>
             <Text style={st.sectionTitle}>OBSERVAÇÕES GERAIS</Text>
             <TextInput
               style={st.notesInput}
@@ -538,11 +522,11 @@ export default function PrescriptionEditorScreen() {
               multiline
               textAlignVertical="top"
             />
-          </View>
+          </DoctorCard>
 
           {/* Sign Form */}
           {showSignForm && (
-            <View style={[st.card, st.signFormCard]}>
+            <DoctorCard style={[st.cardMargin, st.signFormCard]}>
               <View style={st.signFormHeader}>
                 <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
                 <Text style={st.signFormTitle}>ASSINATURA DIGITAL</Text>
@@ -568,52 +552,26 @@ export default function PrescriptionEditorScreen() {
                 >
                   <Text style={st.cancelSignText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={st.signConfirmBtn}
-                  onPress={handleSign}
-                  disabled={signing}
-                  activeOpacity={0.8}
-                >
-                  {signing ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="shield-checkmark" size={18} color="#fff" />
-                      <Text style={st.btnText}>Assinar e enviar</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                <PrimaryButton label="Assinar e enviar" onPress={handleSign} loading={signing} style={st.signConfirmBtn} />
               </View>
-            </View>
+            </DoctorCard>
           )}
         </ScrollView>
 
         {/* Bottom Action Bar */}
         {!showSignForm && (
           <View style={[st.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-            <TouchableOpacity
-              style={[st.actionBtn, st.saveBtn]}
+            <PrimaryButton
+              label="Salvar e atualizar preview"
               onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.8}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="save-outline" size={20} color="#fff" />
-                  <Text style={st.btnText}>Salvar e atualizar preview</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[st.actionBtn, st.signPrimaryBtn]}
+              loading={saving}
+              style={st.bottomPrimaryBtn}
+            />
+            <PrimaryButton
+              label="Assinar Digitalmente"
               onPress={() => setShowSignForm(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="shield-checkmark" size={20} color="#fff" />
-              <Text style={st.btnText}>Assinar Digitalmente</Text>
-            </TouchableOpacity>
+              style={st.bottomPrimaryBtn}
+            />
           </View>
         )}
       </KeyboardAvoidingView>
@@ -640,6 +598,7 @@ const st = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
 
+  cardMargin: { marginBottom: spacing.md },
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.card,
@@ -785,6 +744,7 @@ const st = StyleSheet.create({
     ...shadows.button,
   },
   saveBtn: { backgroundColor: colors.primary },
-  signPrimaryBtn: { backgroundColor: colors.primaryDark },
+  signPrimaryBtn: { flex: 1 },
+  bottomPrimaryBtn: { flex: 1 },
   btnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
 });

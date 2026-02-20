@@ -104,6 +104,12 @@ export interface RequestResponseDto {
   aiUrgency: string | null;
   aiReadabilityOk: boolean | null;
   aiMessageToUser: string | null;
+  /** Transcrição da consulta por vídeo (apenas solicitações tipo consultation). */
+  consultationTranscript?: string | null;
+  /** Anamnese estruturada da consulta (JSON). */
+  consultationAnamnesis?: string | null;
+  /** Sugestões da IA da consulta (JSON array de strings). */
+  consultationAiSuggestions?: string | null;
 }
 
 // ============================================

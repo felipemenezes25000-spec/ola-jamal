@@ -381,10 +381,7 @@ O backend acessa o Supabase via **PostgREST API** (HTTP):
 
 ### Video Service
 
-```csharp
-// TODO: Implementar VideoServiceProvider
-// Jitsi, Whereby ou Agora.io
-```
+Vídeo 1:1 para consultas via WebRTC próprio: signaling com SignalR (`/hubs/video`), página de chamada em `GET /api/video/call-page` (WebView no app). STUN: `stun.l.google.com:19302`.
 
 ---
 

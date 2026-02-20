@@ -233,9 +233,17 @@ public class PaymentService(
         if (statusLower == "approved")
         {
             payment.Approve();
-            if (request.SaveCard)
+            if (request.SaveCard && !string.IsNullOrWhiteSpace(request.Token))
             {
-                logger.LogInformation("SaveCard solicitado para userId={UserId} (MP Customers API em implementação futura)", userId);
+                try
+                {
+                    await AddCardAsync(userId, request.Token!, cancellationToken);
+                    logger.LogInformation("Cartão salvo com sucesso após pagamento aprovado. UserId={UserId}", userId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Falha ao salvar cartão após pagamento aprovado. UserId={UserId}. Pagamento NÃO é revertido.", userId);
+                }
             }
             var medicalRequest = await requestRepository.GetByIdAsync(request.RequestId, cancellationToken);
             if (medicalRequest != null)

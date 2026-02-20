@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.DTOs;
@@ -23,12 +25,15 @@ public class RequestService(
     IUserRepository userRepository,
     IDoctorRepository doctorRepository,
     IVideoRoomRepository videoRoomRepository,
+    IConsultationAnamnesisRepository consultationAnamnesisRepository,
+    IConsultationSessionStore consultationSessionStore,
     INotificationRepository notificationRepository,
     IPushNotificationSender pushNotificationSender,
     IAiReadingService aiReadingService,
+    IAiPrescriptionGeneratorService aiPrescriptionGenerator,
     IPrescriptionPdfService prescriptionPdfService,
     IDigitalCertificateService digitalCertificateService,
-    IDailyVideoService dailyVideoService,
+    IPrescriptionVerifyRepository prescriptionVerifyRepository,
     ILogger<RequestService> logger) : IRequestService
 {
 
@@ -85,6 +90,33 @@ public class RequestService(
         PrescriptionType.Blue => "azul",
         _ => null
     };
+
+    private static string GenerateAccessCode(Guid requestId)
+    {
+        var hash = requestId.GetHashCode();
+        return (Math.Abs(hash) % 1_000_000).ToString("D6");
+    }
+
+    private static string ComputeSha256(string input)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "??";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant();
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private static string GetLast4(string? crm)
+    {
+        if (string.IsNullOrWhiteSpace(crm)) return "0000";
+        var digits = new string(crm.Where(char.IsDigit).ToArray());
+        return digits.Length >= 4 ? digits[^4..] : digits.PadLeft(4, '0');
+    }
 
     private static PrescriptionKind? ParsePrescriptionKind(string? value)
     {
@@ -301,9 +333,13 @@ public class RequestService(
             requests = requests.Where(r => r.RequestType == typeEnum).ToList();
         }
 
-        var result = requests.Select(MapRequestToDto).ToList();
+        var result = new List<RequestResponseDto>();
+        foreach (var r in requests)
+        {
+            var (ct, ca, cs) = await GetConsultationAnamnesisIfAnyAsync(r.Id, r.RequestType, cancellationToken);
+            result.Add(MapRequestToDto(r, ct, ca, cs));
+        }
         logger.LogInformation("[GetUserRequests] final count after filters: {Count}", result.Count);
-        Console.WriteLine($"[GetUserRequests] final count after filters: {result.Count}");
         return result;
     }
 
@@ -326,7 +362,13 @@ public class RequestService(
             .OrderByDescending(r => r.CreatedAt)
             .ToList();
 
-        return requests.Select(MapRequestToDto).ToList();
+        var dtos = new List<RequestResponseDto>();
+        foreach (var r in requests)
+        {
+            var (ct, ca, cs) = await GetConsultationAnamnesisIfAnyAsync(r.Id, r.RequestType, cancellationToken);
+            dtos.Add(MapRequestToDto(r, ct, ca, cs));
+        }
+        return dtos;
     }
 
     /// <summary>
@@ -378,7 +420,19 @@ public class RequestService(
         if (!canAccess)
             throw new KeyNotFoundException("Request not found");
 
-        return MapRequestToDto(request);
+        var (ct, ca, cs) = await GetConsultationAnamnesisIfAnyAsync(request.Id, request.RequestType, cancellationToken);
+        return MapRequestToDto(request, ct, ca, cs);
+    }
+
+    private async Task<(string? transcript, string? anamnesisJson, string? suggestionsJson)> GetConsultationAnamnesisIfAnyAsync(
+        Guid requestId,
+        RequestType requestType,
+        CancellationToken cancellationToken)
+    {
+        if (requestType != RequestType.Consultation) return (null, null, null);
+        var a = await consultationAnamnesisRepository.GetByRequestIdAsync(requestId, cancellationToken);
+        if (a == null) return (null, null, null);
+        return (a.TranscriptText, a.AnamnesisJson, a.AiSuggestionsJson);
     }
 
     /// <summary>
@@ -565,15 +619,7 @@ public class RequestService(
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var roomName = $"consultation-{request.Id}";
-
-        // Criar sala real via Daily.co API
-        var dailyResult = await dailyVideoService.CreateRoomAsync(roomName, expirationMinutes: 60, cancellationToken);
-        var roomUrl = dailyResult.Success && !string.IsNullOrWhiteSpace(dailyResult.RoomUrl)
-            ? dailyResult.RoomUrl
-            : $"https://meet.renoveja.com/{roomName}";
-
         var videoRoom = VideoRoom.Create(request.Id, roomName);
-        videoRoom.SetRoomUrl(roomUrl);
         videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 
         await CreateNotificationAsync(
@@ -607,6 +653,13 @@ public class RequestService(
         request.StartConsultation();
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
+        var videoRoom = await videoRoomRepository.GetByRequestIdAsync(id, cancellationToken);
+        if (videoRoom != null && videoRoom.Status == VideoRoomStatus.Waiting)
+        {
+            videoRoom.Start();
+            await videoRoomRepository.UpdateAsync(videoRoom, cancellationToken);
+        }
+
         await CreateNotificationAsync(
             request.PatientId,
             "Consulta Iniciada",
@@ -639,9 +692,39 @@ public class RequestService(
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var videoRoom = await videoRoomRepository.GetByRequestIdAsync(id, cancellationToken);
-        if (videoRoom != null && !string.IsNullOrWhiteSpace(videoRoom.RoomName))
+        if (videoRoom != null && videoRoom.Status == VideoRoomStatus.Active)
         {
-            await dailyVideoService.DeleteRoomAsync(videoRoom.RoomName, cancellationToken);
+            videoRoom.End();
+            await videoRoomRepository.UpdateAsync(videoRoom, cancellationToken);
+        }
+
+        // Persistir transcrição e anamnese da consulta no prontuário
+        var sessionData = consultationSessionStore.GetAndRemove(id);
+        if (sessionData != null)
+        {
+            try
+            {
+                var existing = await consultationAnamnesisRepository.GetByRequestIdAsync(id, cancellationToken);
+                if (existing != null)
+                {
+                    existing.Update(sessionData.TranscriptText, sessionData.AnamnesisJson, sessionData.AiSuggestionsJson);
+                    await consultationAnamnesisRepository.UpdateAsync(existing, cancellationToken);
+                }
+                else
+                {
+                    var entity = Domain.Entities.ConsultationAnamnesis.Create(
+                        id,
+                        sessionData.PatientId,
+                        sessionData.TranscriptText,
+                        sessionData.AnamnesisJson,
+                        sessionData.AiSuggestionsJson);
+                    await consultationAnamnesisRepository.CreateAsync(entity, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to persist consultation anamnesis for request {RequestId}", id);
+            }
         }
 
         await CreateNotificationAsync(
@@ -731,6 +814,21 @@ public class RequestService(
                         if (!validationResult.IsValid)
                             throw new PrescriptionValidationException(validationResult.MissingFields, validationResult.Messages);
 
+                        List<PrescriptionMedicationItem>? aiMedItems = null;
+                        if (medications.Count == 0 || medications.All(m => m.Trim().Length < 5))
+                        {
+                            var aiInput = new AiPrescriptionGeneratorInput(
+                                PatientName: request.PatientName ?? "Paciente",
+                                PatientBirthDate: patientUser?.BirthDate,
+                                PatientGender: patientUser?.Gender,
+                                Symptoms: request.Symptoms,
+                                AiSummaryForDoctor: request.AiSummaryForDoctor,
+                                AiExtractedJson: request.AiExtractedJson,
+                                DoctorNotes: request.Notes,
+                                Kind: kind);
+                            aiMedItems = await aiPrescriptionGenerator.GenerateMedicationsAsync(aiInput, cancellationToken);
+                        }
+
                         var pdfData = new PrescriptionPdfData(
                             RequestId: request.Id,
                             PatientName: request.PatientName ?? "Paciente",
@@ -745,8 +843,10 @@ public class RequestService(
                             AccessCode: request.AccessCode,
                             PrescriptionKind: kind,
                             PatientGender: patientUser?.Gender,
+                            PatientPhone: patientUser?.Phone?.Value,
                             PatientAddress: FormatPatientAddress(patientUser),
                             PatientBirthDate: patientUser?.BirthDate,
+                            MedicationItems: aiMedItems,
                             DoctorAddress: doctorProfile.ProfessionalAddress,
                             DoctorPhone: doctorProfile.ProfessionalPhone);
 
@@ -776,7 +876,13 @@ public class RequestService(
                             Exams: exams,
                             Notes: request.Notes,
                             EmissionDate: DateTime.UtcNow,
-                            AccessCode: request.AccessCode);
+                            AccessCode: request.AccessCode,
+                            PatientBirthDate: patientUser?.BirthDate,
+                            PatientPhone: patientUser?.Phone?.Value,
+                            PatientAddress: FormatPatientAddress(patientUser),
+                            DoctorAddress: doctorProfile.ProfessionalAddress,
+                            DoctorPhone: doctorProfile.ProfessionalPhone,
+                            ClinicalIndication: request.Symptoms);
 
                         var pdfResult = await prescriptionPdfService.GenerateExamRequestAsync(examPdfData, cancellationToken);
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
@@ -804,6 +910,32 @@ public class RequestService(
                             {
                                 request.Sign(signResult.SignedDocumentUrl!, signResult.SignatureId!);
                                 request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+                                // Registra na tabela 'prescriptions' para o fluxo Verify v2 (QR Code)
+                                if (request.RequestType == Domain.Enums.RequestType.Prescription ||
+                                    request.RequestType == Domain.Enums.RequestType.Exam)
+                                {
+                                    try
+                                    {
+                                        var accessCode = request.AccessCode ?? GenerateAccessCode(request.Id);
+                                        var pdfPath = $"signed/{pdfFileName}";
+                                        var emissionDate = DateTime.UtcNow;
+                                        var verifyRecord = new PrescriptionVerifyRecord(
+                                            Id: request.Id,
+                                            VerifyCodeHash: ComputeSha256(accessCode),
+                                            PdfStoragePath: pdfPath,
+                                            PatientInitials: GetInitials(request.PatientName),
+                                            PrescriberCrmUf: doctorProfile.CrmState,
+                                            PrescriberCrmLast4: GetLast4(doctorProfile.Crm),
+                                            IssuedAt: emissionDate,
+                                            IssuedDateStr: emissionDate.ToString("dd/MM/yyyy"));
+                                        await prescriptionVerifyRepository.UpsertAsync(verifyRecord, cancellationToken);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        logger.LogError(ex, "Falha ao registrar documento {RequestId} no verify (não bloqueia a resposta)", request.Id);
+                                    }
+                                }
 
                                 var docTipo = request.RequestType == Domain.Enums.RequestType.Prescription ? "receita" : "pedido de exame";
                                 await CreateNotificationAsync(
@@ -1104,6 +1236,22 @@ public class RequestService(
         var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
 
         var kind = request.PrescriptionKind ?? PrescriptionKind.Simple;
+
+        List<PrescriptionMedicationItem>? aiMedItems2 = null;
+        if (medications.Count == 0 || medications.All(m => m.Trim().Length < 5))
+        {
+            var aiInput2 = new AiPrescriptionGeneratorInput(
+                PatientName: request.PatientName ?? "Paciente",
+                PatientBirthDate: patientUser?.BirthDate,
+                PatientGender: patientUser?.Gender,
+                Symptoms: request.Symptoms,
+                AiSummaryForDoctor: request.AiSummaryForDoctor,
+                AiExtractedJson: request.AiExtractedJson,
+                DoctorNotes: request.Notes,
+                Kind: kind);
+            aiMedItems2 = await aiPrescriptionGenerator.GenerateMedicationsAsync(aiInput2, cancellationToken);
+        }
+
         var pdfData = new PrescriptionPdfData(
             request.Id,
             request.PatientName ?? "Paciente",
@@ -1118,12 +1266,57 @@ public class RequestService(
             AdditionalNotes: request.Notes,
             PrescriptionKind: kind,
             PatientGender: patientUser?.Gender,
+            PatientPhone: patientUser?.Phone?.Value,
             PatientAddress: FormatPatientAddress(patientUser),
             PatientBirthDate: patientUser?.BirthDate,
+            MedicationItems: aiMedItems2,
             DoctorAddress: doctorProfile?.ProfessionalAddress,
             DoctorPhone: doctorProfile?.ProfessionalPhone);
 
         var result = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
+        return result.Success ? result.PdfBytes : null;
+    }
+
+    /// <summary>
+    /// Gera preview do PDF de pedido de exame para o médico visualizar antes de assinar.
+    /// </summary>
+    public async Task<byte[]?> GetExamPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null) return null;
+        if (request.RequestType != RequestType.Exam) return null;
+        var isDoctor = request.DoctorId == userId;
+        var isPatient = request.PatientId == userId;
+        if (!isDoctor && !isPatient) return null;
+
+        var exams = request.Exams?.Where(e => !string.IsNullOrWhiteSpace(e)).ToList() ?? new List<string>();
+        if (exams.Count == 0)
+            exams = new List<string> { "Exames conforme solicitação médica" };
+
+        var doctorProfile = request.DoctorId.HasValue ? await doctorRepository.GetByUserIdAsync(request.DoctorId.Value, cancellationToken) : null;
+        var doctorUser = request.DoctorId.HasValue ? await userRepository.GetByIdAsync(request.DoctorId.Value, cancellationToken) : null;
+        var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
+
+        var examPdfData = new ExamPdfData(
+            RequestId: request.Id,
+            PatientName: request.PatientName ?? "Paciente",
+            PatientCpf: patientUser?.Cpf,
+            DoctorName: doctorUser?.Name ?? request.DoctorName ?? "Médico",
+            DoctorCrm: doctorProfile?.Crm ?? "CRM",
+            DoctorCrmState: doctorProfile?.CrmState ?? "SP",
+            DoctorSpecialty: doctorProfile?.Specialty ?? "Clínica Geral",
+            Exams: exams,
+            Notes: request.Notes,
+            EmissionDate: DateTime.UtcNow,
+            AccessCode: request.AccessCode,
+            PatientBirthDate: patientUser?.BirthDate,
+            PatientPhone: patientUser?.Phone?.Value,
+            PatientAddress: FormatPatientAddress(patientUser),
+            DoctorAddress: doctorProfile?.ProfessionalAddress,
+            DoctorPhone: doctorProfile?.ProfessionalPhone,
+            ClinicalIndication: request.Symptoms);
+
+        var result = await prescriptionPdfService.GenerateExamRequestAsync(examPdfData, cancellationToken);
         return result.Success ? result.PdfBytes : null;
     }
 
@@ -1333,7 +1526,11 @@ public class RequestService(
         return result;
     }
 
-    private static RequestResponseDto MapRequestToDto(MedicalRequest request)
+    private static RequestResponseDto MapRequestToDto(
+        MedicalRequest request,
+        string? consultationTranscript = null,
+        string? consultationAnamnesis = null,
+        string? consultationAiSuggestions = null)
     {
         return new RequestResponseDto(
             request.Id,
@@ -1365,7 +1562,10 @@ public class RequestService(
             request.AiRiskLevel,
             request.AiUrgency,
             request.AiReadabilityOk,
-            request.AiMessageToUser);
+            request.AiMessageToUser,
+            consultationTranscript,
+            consultationAnamnesis,
+            consultationAiSuggestions);
     }
 
     private static VideoRoomResponseDto MapVideoRoomToDto(VideoRoom room)

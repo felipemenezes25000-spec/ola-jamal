@@ -1,6 +1,7 @@
 import "../global.css";
 import React, { useEffect, useCallback, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Platform } from 'react-native';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -28,6 +29,7 @@ SplashScreen.preventAutoHideAsync();
 const MAX_WAIT_MS = 1000;
 
 export default function RootLayout() {
+  const pathname = usePathname();
   const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -40,6 +42,13 @@ export default function RootLayout() {
     const t = setTimeout(() => setForceShow(true), MAX_WAIT_MS);
     return () => clearTimeout(t);
   }, []);
+
+  // Web: ao trocar de tela, remove foco do elemento ativo para evitar aviso "Blocked aria-hidden"
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const el = document.activeElement as HTMLElement | null;
+    if (el?.blur) el.blur();
+  }, [pathname]);
 
   const canShowApp = forceShow || fontsLoaded || !!fontError;
 

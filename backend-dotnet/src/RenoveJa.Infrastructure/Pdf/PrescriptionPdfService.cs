@@ -1,4 +1,6 @@
+using System.Reflection;
 using iText.IO.Font.Constants;
+using iText.IO.Image;
 using iText.Kernel.Colors;
 using iText.Kernel.Font;
 using iText.Kernel.Geom;
@@ -39,6 +41,40 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private const string DefaultVerificationBaseUrl = "https://renoveja.com/verificar";
     private const string DefaultPharmacyUrl = "https://farmacias.renovejasaude.com.br";
+
+    // Dados institucionais fixos da empresa
+    private const string CompanyAddress = "Travessa Dona Paula · Higienópolis · São Paulo · SP · Brasil";
+    private const string CompanyContact = "(11) 98631-8000 · www.renovejasaude.com.br · CNPJ 14.376.070/0001-53";
+    private static readonly Color CompanyInfoColor = new DeviceRgb(85, 85, 85); // #555555
+
+    private static byte[]? _logoCache;
+    private static readonly object _logoLock = new();
+
+    private static byte[]? LoadLogoImage()
+    {
+        if (_logoCache != null) return _logoCache;
+        lock (_logoLock)
+        {
+            if (_logoCache != null) return _logoCache;
+            try
+            {
+                var asm = Assembly.GetExecutingAssembly();
+                var resourceName = asm.GetManifestResourceNames()
+                    .FirstOrDefault(n => n.EndsWith("logo.png", StringComparison.OrdinalIgnoreCase));
+                if (resourceName == null) return null;
+                using var stream = asm.GetManifestResourceStream(resourceName);
+                if (stream == null) return null;
+                using var ms = new MemoryStream();
+                stream.CopyTo(ms);
+                _logoCache = ms.ToArray();
+                return _logoCache;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
 
     public PrescriptionPdfService(
         IStorageService storageService,
@@ -185,16 +221,69 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         var fontBold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
         var fontItalic = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
 
-        AddSncrHeader(document, fontBold, font);
-        AddSncrEmitenteSection(document, data, fontBold, font);
-        AddSncrPatientSection(document, data, fontBold, font);
-        AddSncrPrescriptionSection(document, data, medicationItems, fontBold, font, fontItalic);
-        AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
-        AddSncrDataSignatureSection(document, data, fontBold, font);
-        AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
-        AddLegalFooter(document, data, font, fontItalic);
+        // Portaria SVS 344/98 art. 35: uma receita por medicamento controlado.
+        // Cada medicamento gera uma página completa com formulário próprio.
+        var validUntil = data.EmissionDate.AddDays(30).ToString("dd/MM/yyyy");
+
+        for (int i = 0; i < medicationItems.Count; i++)
+        {
+            if (i > 0)
+                document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+
+            AddSncrHeader(document, fontBold, font);
+            AddSncrValidityBanner(document, validUntil, fontBold, font);
+            AddSncrEmitenteSection(document, data, fontBold, font);
+            AddSncrPatientSection(document, data, fontBold, font);
+            AddSncrSingleMedicationSection(document, medicationItems[i], i + 1, medicationItems.Count, fontBold, font, fontItalic);
+            AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
+            AddSncrDataSignatureSection(document, data, fontBold, font);
+            AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
+            AddLegalFooter(document, data, font, fontItalic);
+        }
+
+        // Segurança: se não há medicamentos, renderiza ao menos 1 página vazia do formulário
+        if (medicationItems.Count == 0)
+        {
+            AddSncrHeader(document, fontBold, font);
+            AddSncrValidityBanner(document, validUntil, fontBold, font);
+            AddSncrEmitenteSection(document, data, fontBold, font);
+            AddSncrPatientSection(document, data, fontBold, font);
+            AddSncrCompradorSection(document, fontBold, font);
+            AddSncrFornecedorSection(document, fontBold, font);
+            AddSncrDataSignatureSection(document, data, fontBold, font);
+        }
 
         document.Close();
+    }
+
+    private static void AddSncrValidityBanner(Document document, string validUntil, PdfFont fontBold, PdfFont font)
+    {
+        var banner = new Paragraph()
+            .SetBackgroundColor(new DeviceRgb(255, 243, 205))
+            .SetBorderLeft(new SolidBorder(new DeviceRgb(217, 119, 6), 3))
+            .SetPaddingLeft(8)
+            .SetPaddingTop(4)
+            .SetPaddingBottom(4)
+            .SetMarginBottom(6);
+        banner.Add(new Text("⚠ VALIDADE: ").SetFont(fontBold).SetFontSize(9).SetFontColor(new DeviceRgb(146, 64, 14)));
+        banner.Add(new Text($"Esta receita é válida por 30 (trinta) dias, até {validUntil} — Portaria SVS 344/98 art. 35 §3º")
+            .SetFont(font).SetFontSize(9).SetFontColor(new DeviceRgb(120, 53, 15)));
+        document.Add(banner);
+    }
+
+    private static void AddSncrSingleMedicationSection(Document document, PrescriptionMedicationItem med, int index, int total, PdfFont fontBold, PdfFont font, PdfFont fontItalic)
+    {
+        var label = total > 1 ? $"PRESCRIÇÃO — MEDICAMENTO {index} DE {total}" : "PRESCRIÇÃO";
+        document.Add(new Paragraph(label).SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(6));
+
+        var medWithExtenso = string.IsNullOrWhiteSpace(med.Quantity)
+            ? med
+            : med with { Quantity = $"{med.Quantity} ({QuantityToWords.Convert(med.Quantity)})" };
+        AddMedicationSection(document, medWithExtenso, fontBold, font, fontItalic, 0);
+
+        AddSeparator(document);
+        AddSncrCompradorSection(document, fontBold, font);
+        AddSncrFornecedorSection(document, fontBold, font);
     }
 
     private static void SetPdfMetadata(PdfDocument pdf, PrescriptionPdfData data, string tipo)
@@ -215,15 +304,33 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private static void AddSncrHeader(Document document, PdfFont fontBold, PdfFont font)
     {
-        var logoTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 })).UseAllAvailableWidth().SetMarginBottom(8);
+        var logoTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 })).UseAllAvailableWidth().SetMarginBottom(4);
         var logoCell = new Cell().SetBorder(Border.NO_BORDER).SetVerticalAlignment(VerticalAlignment.MIDDLE);
-        var logoP = new Paragraph();
-        logoP.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaPrimary));
-        logoP.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaSecondary));
-        logoCell.Add(logoP);
+
+        var logoBytes = LoadLogoImage();
+        if (logoBytes != null)
+        {
+            var logoImg = new Image(ImageDataFactory.Create(logoBytes))
+                .SetWidth(110)
+                .SetAutoScaleHeight(true)
+                .SetMarginBottom(2);
+            logoCell.Add(logoImg);
+        }
+        else
+        {
+            var logoP = new Paragraph();
+            logoP.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaPrimary));
+            logoP.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaSecondary));
+            logoCell.Add(logoP);
+        }
+
+        logoCell.Add(new Paragraph(CompanyAddress).SetFont(font).SetFontSize(7).SetFontColor(CompanyInfoColor).SetMarginBottom(1));
+        logoCell.Add(new Paragraph(CompanyContact).SetFont(font).SetFontSize(7).SetFontColor(CompanyInfoColor));
         logoTable.AddCell(logoCell);
+
         var rightCell = new Cell().SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE);
-        rightCell.Add(new Paragraph("RECEITA DE CONTROLE ESPECIAL").SetFont(fontBold).SetFontSize(11).SetFontColor(DarkText));
+        rightCell.Add(new Paragraph("RECEITA DE CONTROLE ESPECIAL").SetFont(fontBold).SetFontSize(11).SetFontColor(DarkText).SetMarginBottom(2));
+        rightCell.Add(new Paragraph("1ª VIA - FARMÁCIA / 2ª VIA - PACIENTE").SetFont(font).SetFontSize(8).SetFontColor(MediumGray));
         logoTable.AddCell(rightCell);
         document.Add(logoTable);
         AddSeparator(document);
@@ -253,6 +360,8 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             document.Add(new Paragraph($"Nascimento: {data.PatientBirthDate.Value:dd/MM/yyyy}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
         if (!string.IsNullOrWhiteSpace(data.PatientAddress))
             document.Add(new Paragraph($"Endereço: {data.PatientAddress}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+        if (!string.IsNullOrWhiteSpace(data.PatientPhone))
+            document.Add(new Paragraph($"Telefone: {data.PatientPhone}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
         AddSeparator(document);
     }
 
@@ -261,8 +370,51 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         document.Add(new Paragraph("PRESCRIÇÃO").SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(6));
         foreach (var med in items)
         {
-            AddMedicationSection(document, med, fontBold, font, fontItalic, 0);
+            // Para Controle Especial, exibir quantidade também por extenso (obrigatório ANVISA)
+            var medWithExtenso = string.IsNullOrWhiteSpace(med.Quantity)
+                ? med
+                : med with { Quantity = $"{med.Quantity} ({QuantityToWords.Convert(med.Quantity)})" };
+            AddMedicationSection(document, medWithExtenso, fontBold, font, fontItalic, 0);
         }
+        AddSeparator(document);
+        AddSncrCompradorSection(document, fontBold, font);
+        AddSncrFornecedorSection(document, fontBold, font);
+    }
+
+    private static void AddSncrCompradorSection(Document document, PdfFont fontBold, PdfFont font)
+    {
+        document.Add(new Paragraph("IDENTIFICAÇÃO DO COMPRADOR").SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(4));
+
+        var lines = new[]
+        {
+            "Nome Completo: _______________________________________________",
+            "RG: ________________________  Órgão Emissor: _________________",
+            "Endereço: ___________________________________________________",
+            "Cidade: _______________________________  UF: _____  Tel: ___________"
+        };
+
+        foreach (var line in lines)
+            document.Add(new Paragraph(line).SetFont(font).SetFontSize(9).SetFontColor(DarkText).SetMarginBottom(3));
+
+        AddSeparator(document);
+    }
+
+    private static void AddSncrFornecedorSection(Document document, PdfFont fontBold, PdfFont font)
+    {
+        document.Add(new Paragraph("IDENTIFICAÇÃO DO FORNECEDOR").SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(4));
+
+        var lines = new[]
+        {
+            "Nome Farmacêutico(a): _______________________  CRF: __________",
+            "Nome da Farmácia: ___________________________  CNPJ: _________",
+            "Endereço: ___________________________________________________",
+            "Cidade: _______________________________  Tel: __________________",
+            "Assinatura do(a) Farmacêutico(a): _______________________________"
+        };
+
+        foreach (var line in lines)
+            document.Add(new Paragraph(line).SetFont(font).SetFontSize(9).SetFontColor(DarkText).SetMarginBottom(3));
+
         AddSeparator(document);
     }
 
@@ -371,13 +523,29 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     {
         var logoTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 }))
             .UseAllAvailableWidth()
-            .SetMarginBottom(5);
+            .SetMarginBottom(4);
 
         var logoCell = new Cell().SetBorder(Border.NO_BORDER).SetVerticalAlignment(VerticalAlignment.MIDDLE);
-        var logoParagraph = new Paragraph();
-        logoParagraph.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaPrimary));
-        logoParagraph.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaSecondary));
-        logoCell.Add(logoParagraph);
+
+        var logoBytes = LoadLogoImage();
+        if (logoBytes != null)
+        {
+            var logoImg = new Image(ImageDataFactory.Create(logoBytes))
+                .SetWidth(110)
+                .SetAutoScaleHeight(true)
+                .SetMarginBottom(2);
+            logoCell.Add(logoImg);
+        }
+        else
+        {
+            var logoParagraph = new Paragraph();
+            logoParagraph.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaPrimary));
+            logoParagraph.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(20).SetFontColor(RenovejaSecondary));
+            logoCell.Add(logoParagraph);
+        }
+
+        logoCell.Add(new Paragraph(CompanyAddress).SetFont(font).SetFontSize(7).SetFontColor(CompanyInfoColor).SetMarginBottom(1));
+        logoCell.Add(new Paragraph(CompanyContact).SetFont(font).SetFontSize(7).SetFontColor(CompanyInfoColor));
         logoTable.AddCell(logoCell);
 
         var rightCell = new Cell()
@@ -413,7 +581,29 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         patientTable.AddCell(nameCell);
 
         AddPatientInfoCell(patientTable, "CPF:", !string.IsNullOrWhiteSpace(data.PatientCpf) ? FormatCpf(data.PatientCpf) : "Não informado", fontBold, font);
+        AddPatientInfoCell(patientTable, "Data de Nascimento:", data.PatientBirthDate.HasValue ? data.PatientBirthDate.Value.ToString("dd/MM/yyyy") : "Não informado", fontBold, font);
+        AddPatientInfoCell(patientTable, "Telefone:", !string.IsNullOrWhiteSpace(data.PatientPhone) ? data.PatientPhone : "Não informado", fontBold, font);
         AddPatientInfoCell(patientTable, "Data de Emissão:", data.EmissionDate.ToString("dd/MM/yyyy 'às' HH:mm"), fontBold, font);
+
+        if (!string.IsNullOrWhiteSpace(data.PatientAddress))
+        {
+            var addrCell = new Cell(1, 2).SetBorder(Border.NO_BORDER).SetPaddingBottom(2);
+            var addrPara = new Paragraph();
+            addrPara.Add(new Text("Endereço: ").SetFont(fontBold).SetFontSize(9).SetFontColor(MediumGray));
+            addrPara.Add(new Text(data.PatientAddress).SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+            addrCell.Add(addrPara);
+            patientTable.AddCell(addrCell);
+        }
+
+        if (!string.IsNullOrWhiteSpace(data.ClinicalIndication))
+        {
+            var cidCell = new Cell(1, 2).SetBorder(Border.NO_BORDER).SetPaddingBottom(2);
+            var cidPara = new Paragraph();
+            cidPara.Add(new Text("Indicação Clínica: ").SetFont(fontBold).SetFontSize(9).SetFontColor(MediumGray));
+            cidPara.Add(new Text(data.ClinicalIndication).SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+            cidCell.Add(cidPara);
+            patientTable.AddCell(cidCell);
+        }
 
         document.Add(patientTable);
     }
@@ -447,8 +637,9 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private static void AddQrCodeSectionFromExam(Document document, string verificationUrl, string accessCode, PdfFont font, PdfFont fontBold)
     {
-        var qrData = $"{verificationUrl}?code={accessCode}";
-        var qrBytes = GenerateQrCode(qrData);
+        // QR Code aponta apenas para a URL de verificação (sem código na URL).
+        // O código de acesso é informado na tela de verificação pelo usuário.
+        var qrBytes = GenerateQrCode(verificationUrl);
         if (qrBytes == null)
             return;
 
@@ -457,9 +648,11 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             .SetMarginBottom(8);
 
         var textCell = new Cell().SetBorder(Border.NO_BORDER).SetVerticalAlignment(VerticalAlignment.MIDDLE);
-        textCell.Add(new Paragraph("Verificação").SetFont(fontBold).SetFontSize(9).SetFontColor(DarkText).SetMarginBottom(4));
-        textCell.Add(new Paragraph("Escaneie o QR Code ou acesse validar.iti.gov.br para validar a autenticidade deste documento.")
-            .SetFont(font).SetFontSize(8).SetFontColor(MediumGray));
+        textCell.Add(new Paragraph("Autenticidade").SetFont(fontBold).SetFontSize(9).SetFontColor(DarkText).SetMarginBottom(4));
+        textCell.Add(new Paragraph("Escaneie o QR Code para verificar a autenticidade deste documento.")
+            .SetFont(font).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(4));
+        textCell.Add(new Paragraph($"Código de acesso: {accessCode}")
+            .SetFont(fontBold).SetFontSize(9).SetFontColor(RenovejaPrimary));
         qrTable.AddCell(textCell);
 
         var qrCell = new Cell().SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT);
@@ -472,12 +665,42 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     private static void AddDoctorSectionFromExam(Document document, ExamPdfData data, PdfFont fontBold, PdfFont font)
     {
         AddSeparator(document);
-        var doctorInfo = new Paragraph();
-        doctorInfo.Add(new Text($"Dr(a). {data.DoctorName}").SetFont(fontBold).SetFontSize(10).SetFontColor(DarkText));
-        doctorInfo.Add(new Text($" | CRM {data.DoctorCrm} {data.DoctorCrmState}").SetFont(font).SetFontSize(10).SetFontColor(MediumGray));
+
+        // Linha de assinatura
+        var signTable = new Table(UnitValue.CreatePercentArray(new float[] { 50, 50 }))
+            .UseAllAvailableWidth()
+            .SetMarginBottom(8);
+
+        var signLineCell = new Cell()
+            .SetBorder(Border.NO_BORDER)
+            .SetTextAlignment(TextAlignment.CENTER);
+        signLineCell.Add(new Paragraph("_____________________________________________")
+            .SetFont(font).SetFontSize(10).SetFontColor(DarkText).SetMarginBottom(2));
+        signLineCell.Add(new Paragraph($"Dr(a). {data.DoctorName}")
+            .SetFont(fontBold).SetFontSize(9).SetFontColor(DarkText));
+
+        var crmInfoPara = new Paragraph();
+        crmInfoPara.Add(new Text($"CRM {data.DoctorCrm}/{data.DoctorCrmState}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
         if (!string.IsNullOrWhiteSpace(data.DoctorSpecialty))
-            doctorInfo.Add(new Text($" | {data.DoctorSpecialty}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
-        document.Add(doctorInfo.SetMarginBottom(6));
+            crmInfoPara.Add(new Text($" | {data.DoctorSpecialty}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
+        signLineCell.Add(crmInfoPara);
+        signTable.AddCell(signLineCell);
+
+        var contactCell = new Cell()
+            .SetBorder(Border.NO_BORDER)
+            .SetTextAlignment(TextAlignment.LEFT)
+            .SetVerticalAlignment(VerticalAlignment.BOTTOM)
+            .SetPaddingLeft(16);
+
+        if (!string.IsNullOrWhiteSpace(data.DoctorAddress))
+            contactCell.Add(new Paragraph(data.DoctorAddress)
+                .SetFont(font).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(2));
+        if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
+            contactCell.Add(new Paragraph($"Tel.: {data.DoctorPhone}")
+                .SetFont(font).SetFontSize(8).SetFontColor(MediumGray));
+
+        signTable.AddCell(contactCell);
+        document.Add(signTable);
     }
 
     private static void AddLegalFooterFromExam(Document document, ExamPdfData data, PdfFont font, PdfFont fontItalic)
@@ -496,29 +719,35 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private static void AddHeader(Document document, PrescriptionPdfData data, PdfFont fontBold, PdfFont font, int pageNum, int totalPages, string? typeLabelOverride = null)
     {
-        // Logo text "RenoveJá Saúde" in green/blue
         var logoTable = new Table(UnitValue.CreatePercentArray(new float[] { 60, 40 }))
             .UseAllAvailableWidth()
-            .SetMarginBottom(5);
+            .SetMarginBottom(4);
 
-        // Left: Logo text
         var logoCell = new Cell()
             .SetBorder(Border.NO_BORDER)
             .SetVerticalAlignment(VerticalAlignment.MIDDLE);
 
-        var logoParagraph = new Paragraph();
-        logoParagraph.Add(new Text("RenoveJá")
-            .SetFont(fontBold)
-            .SetFontSize(22)
-            .SetFontColor(RenovejaPrimary));
-        logoParagraph.Add(new Text(" Saúde")
-            .SetFont(fontBold)
-            .SetFontSize(22)
-            .SetFontColor(RenovejaSecondary));
-        logoCell.Add(logoParagraph);
+        var logoBytes = LoadLogoImage();
+        if (logoBytes != null)
+        {
+            var logoImg = new Image(ImageDataFactory.Create(logoBytes))
+                .SetWidth(110)
+                .SetAutoScaleHeight(true)
+                .SetMarginBottom(2);
+            logoCell.Add(logoImg);
+        }
+        else
+        {
+            var logoParagraph = new Paragraph();
+            logoParagraph.Add(new Text("RenoveJá").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaPrimary));
+            logoParagraph.Add(new Text(" Saúde").SetFont(fontBold).SetFontSize(22).SetFontColor(RenovejaSecondary));
+            logoCell.Add(logoParagraph);
+        }
+
+        logoCell.Add(new Paragraph(CompanyAddress).SetFont(font).SetFontSize(7).SetFontColor(CompanyInfoColor).SetMarginBottom(1));
+        logoCell.Add(new Paragraph(CompanyContact).SetFont(font).SetFontSize(7).SetFontColor(CompanyInfoColor));
         logoTable.AddCell(logoCell);
 
-        // Right: Prescription type label + page counter
         var typeLabel = typeLabelOverride ?? GetPrescriptionTypeLabel(data.PrescriptionType);
         var rightCell = new Cell()
             .SetBorder(Border.NO_BORDER)
@@ -618,9 +847,14 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         }
         else
         {
-            // Empty cell to keep alignment
             var emptyCell = new Cell().SetBorder(Border.NO_BORDER);
             patientTable.AddCell(emptyCell);
+        }
+
+        // Phone
+        if (!string.IsNullOrWhiteSpace(data.PatientPhone))
+        {
+            AddPatientInfoCell(patientTable, "Telefone:", data.PatientPhone, fontBold, font);
         }
 
         document.Add(patientTable);

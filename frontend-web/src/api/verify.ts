@@ -17,6 +17,10 @@ export interface VerifySuccessMeta {
   issuedDate?: string;
   patientInitials?: string;
   crmMasked?: string;
+  /** Campos legados (respostas alternativas) */
+  emitida?: string;
+  paciente?: string;
+  crm?: string;
 }
 
 export interface VerifySuccess {
@@ -33,12 +37,16 @@ export interface VerifyError {
 export type VerifyResponse = VerifySuccess | VerifyError;
 
 export async function verifyReceita(payload: VerifyPayload): Promise<VerifyResponse> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('Variáveis de ambiente ausentes: VITE_SUPABASE_URL e/ou VITE_SUPABASE_ANON_KEY.');
+  }
   const url = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/verify`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey': SUPABASE_ANON_KEY,
     },
     body: JSON.stringify({
       id: payload.id.trim(),

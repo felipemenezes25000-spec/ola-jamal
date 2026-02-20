@@ -21,7 +21,7 @@ export function StatsCard({
   onPress,
 }: StatsCardProps) {
   const softBg = iconBgColor || (iconColor + '18');
-  const displayValue = typeof value === 'number' && value === 0 ? '—' : value;
+  const displayValue = value;
 
   const content = (
     <>

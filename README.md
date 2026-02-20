@@ -1,56 +1,86 @@
-# RenoveJá — Plataforma de Telemedicina
+# RenoveJá+ — Plataforma de Telemedicina
 
-Plataforma de telemedicina para **renovação de receitas**, **pedidos de exame** e **consultas online**. Inclui fluxo completo: solicitação pelo paciente, aprovação e assinatura digital pelo médico, pagamento via PIX (Mercado Pago) e verificação pública de receitas por QR Code.
+Plataforma para **renovação de receitas**, **pedidos de exame** e **consultas online**. Fluxo completo: solicitação pelo paciente, aprovação e assinatura digital (ICP-Brasil) pelo médico, pagamento PIX (Mercado Pago) e verificação pública de receitas/exames por QR Code.
 
 ---
 
 ## Índice
 
 - [Visão geral](#visão-geral)
-- [Estrutura do repositório](#estrutura-do-repositório)
+- [Arquitetura](#arquitetura)
+- [Estrutura do projeto](#estrutura-do-projeto)
 - [Pré-requisitos](#pré-requisitos)
-- [Configuração](#configuração)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Como rodar](#como-rodar)
-- [Funcionalidades principais](#funcionalidades-principais)
-- [Verificação de receitas (QR Code)](#verificação-de-receitas-qr-code)
+- [Fluxos principais](#fluxos-principais)
+- [Verificação de documentos (Verify v2)](#verificação-de-documentos-verify-v2)
 - [Documentação adicional](#documentação-adicional)
-- [Licença](#licença)
+- [Deploy](#deploy)
 
 ---
 
 ## Visão geral
 
 | Parte | Stack | Descrição |
-|-------|--------|-----------|
-| **Backend** | .NET 8, C#, Clean Architecture, Supabase | API REST: auth, solicitações, pagamentos PIX, webhook MP, verificação pública, PDF, assinatura digital |
-| **Frontend** | Expo (React Native), TypeScript | App mobile (iOS/Android/Web): paciente e médico, PIX, chat, notificações, vídeo |
+|-------|-------|-----------|
+| **Backend** | .NET 8, C#, Clean Architecture, Supabase | API REST: auth, solicitações, pagamentos PIX, PDF, assinatura digital ICP-Brasil, Verify |
+| **Mobile** | Expo (React Native), TypeScript | App iOS/Android/Web: paciente e médico, PIX, notificações, vídeo |
+| **Web** | React (Vite), TypeScript | Página pública de verificação de receitas/exames (QR Code + código) |
+| **Supabase** | Edge Functions, Storage, PostgreSQL | Edge Function `verify` + tabela `prescriptions` + bucket privado |
 
-- **Paciente:** solicita receita/exame, paga com PIX, acompanha status, baixa receita assinada, chata com o médico.
-- **Médico:** aprova/rejeita pedidos, assina digitalmente (certificado ICP-Brasil), consultas por vídeo.
-- **Farmacêutico / terceiros:** verificam autenticidade da receita escaneando o QR Code (sem login).
+- **Paciente:** solicita receita/exame, paga PIX, acompanha status, baixa PDF assinado.
+- **Médico:** aprova/rejeita, assina digitalmente (certificado ICP-Brasil), consultas por vídeo.
+- **Farmacêutico / terceiros:** verificam autenticidade escaneando o QR Code e digitando o código de 6 dígitos.
 
 ---
 
-## Estrutura do repositório
+## Arquitetura
+
+```
+┌─────────────────┐     HTTP + JWT      ┌─────────────────┐
+│ frontend-mobile │ ◄──────────────────►│ backend-dotnet  │
+│ (Expo RN)       │                     │ (.NET 8 API)    │
+└─────────────────┘                     └────────┬────────┘
+                                                 │
+                    ┌────────────────────────────┼────────────────────────────┐
+                    │                            │                            │
+                    ▼                            ▼                            ▼
+           ┌────────────────┐          ┌────────────────┐          ┌────────────────┐
+           │ Supabase       │          │ Supabase       │          │ Mercado Pago   │
+           │ PostgreSQL     │          │ Storage        │          │ (PIX, webhook) │
+           └────────────────┘          │ prescriptions  │          └────────────────┘
+                    ▲                   └────────┬───────┘
+                    │                            │
+┌───────────────────┴──────────────┐   ┌─────────┴──────────┐
+│ frontend-web (Verify page)       │   │ Edge Function      │
+│ renovejasaude.com.br/verify/:id  │──►│ verify (Deno)      │
+│ QR Code → digita código → PDF    │   │ createSignedUrl    │
+└──────────────────────────────────┘   └────────────────────┘
+```
+
+---
+
+## Estrutura do projeto
 
 ```
 ola-jamal/
-├── backend-dotnet/          # API .NET 8
-│   ├── src/
-│   │   ├── RenoveJa.Api/           # Host (Controllers, Program.cs)
-│   │   ├── RenoveJa.Application/   # Serviços, DTOs, interfaces
-│   │   ├── RenoveJa.Domain/        # Entidades, enums, contratos
-│   │   └── RenoveJa.Infrastructure/# Supabase, Mercado Pago, PDF, Storage
+├── backend-dotnet/         # API .NET 8 (Clean Architecture)
+│   ├── src/                # RenoveJa.Api, Application, Domain, Infrastructure
 │   ├── tests/
-│   └── docs/                 # Fluxos, storage, assinatura, etc.
-├── frontend-mobile/          # App Expo (RenoveJá)
-│   ├── app/                  # Telas (Expo Router)
-│   ├── components/
-│   ├── contexts/
-│   ├── lib/                  # API client
-│   └── types/
-├── test-signature/           # Utilitário de teste de assinatura PDF
-└── README.md                 # Este arquivo
+│   └── scripts/            # iniciar-ngrok.ps1 (webhook local)
+├── frontend-mobile/        # App Expo (React Native)
+│   ├── app/                # Telas (Expo Router)
+│   ├── components/, contexts/, lib/
+│   └── package.json
+├── frontend-web/           # SPA React (Vite) — página de verificação
+│   └── src/pages/Verify.tsx
+├── supabase/               # Edge Functions + migrations
+│   ├── functions/verify/   # Edge Function Verify v2
+│   └── migrations/         # prescriptions, prescription_verification_logs, bucket
+├── scripts/                # seedPrescription.ts (dados de teste)
+├── test-signature/         # Utilitário de teste de assinatura PDF
+├── docs/                   # QUICK_START, VERIFY_DEPLOY, FLUXO_RECEITA
+└── README.md
 ```
 
 ---
@@ -58,65 +88,40 @@ ola-jamal/
 ## Pré-requisitos
 
 - **.NET 8 SDK** — backend
-- **Node.js 18+** e **npm** (ou yarn) — frontend
-- **Conta Supabase** — banco (PostgreSQL) e storage
+- **Node.js 18+** e **npm** — frontend
+- **Conta Supabase** — banco, storage e Edge Functions
 - **Mercado Pago** — Access Token para PIX (produção ou sandbox)
-- **Expo Go** (celular) ou emulador iOS/Android — para rodar o app
+- **Expo Go** ou emulador — para rodar o app mobile
 
 ---
 
-## Configuração
+## Variáveis de ambiente
 
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/SEU_USUARIO/ola-jamal.git
-cd ola-jamal
-```
-
-### 2. Backend — variáveis de ambiente
-
-Na pasta da API, use **`.env`** (não commitar):
-
-```bash
-cd backend-dotnet/src/RenoveJa.Api
-```
-
-Crie ou edite `.env`:
+### Backend (`backend-dotnet/src/RenoveJa.Api/.env`)
 
 ```env
-# Obrigatório
 Supabase__Url=https://SEU_PROJETO.supabase.co
 Supabase__ServiceKey=sua_service_role_key
-
-# PIX (Mercado Pago)
 MercadoPago__AccessToken=APP_USR_...
-
-# Opcional: IA para análise de receita
-OpenAI__ApiKey=sk-...
-
-# Opcional: webhook HMAC (produção)
-MercadoPago__WebhookSecret=...
+MercadoPago__NotificationUrl=https://SEU_DOMINIO/api/payments/webhook
+Verification__BaseUrl=https://renovejasaude.com.br/verify
+OpenAI__ApiKey=sk-...           # opcional
+CertificateEncryption__Key=...  # chave para criptografar PFX
 ```
 
-- **Supabase:** Project Settings → API → URL e **service_role** (secret).
-- **Mercado Pago:** [Credenciais](https://www.mercadopago.com.br/developers) — Access Token (produção ou teste).
-
-### 3. Frontend — URL da API
-
-No app, a base da API é configurada por variável de ambiente. Para dispositivo físico ou emulador apontando para a máquina local:
+### Mobile (`frontend-mobile/.env`)
 
 ```env
-# .env ou no comando
-EXPO_PUBLIC_API_URL=http://SEU_IP_LOCAL:5000
+EXPO_PUBLIC_API_URL=http://SEU_IP:5000
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...
 ```
 
-Ex.: `EXPO_PUBLIC_API_URL=http://192.168.1.10:5000` (troque pelo IP da sua rede).
+### Web (`frontend-web/.env`)
 
-### 4. Banco e storage (Supabase)
-
-- Crie as tabelas necessárias (o backend aplica migrações na subpasta `Supabase` ao iniciar).
-- Para storage de imagens e PDFs: bucket `prescription-images` **público** para leitura. Ver `backend-dotnet/docs/STORAGE_BUCKET.sql` e documentação em `backend-dotnet/docs/`.
+```env
+VITE_SUPABASE_URL=https://SEU_PROJETO.supabase.co
+VITE_SUPABASE_ANON_KEY=sua_anon_key
+```
 
 ---
 
@@ -129,11 +134,9 @@ cd backend-dotnet/src/RenoveJa.Api
 dotnet run
 ```
 
-- API: **http://localhost:5000**
-- Swagger: **http://localhost:5000/swagger**
-- Ambiente padrão: **Development** (webhook HMAC desabilitado para facilitar teste com ngrok).
+API: **http://localhost:5000** | Swagger: **http://localhost:5000/swagger**
 
-### Frontend (Expo)
+### Mobile
 
 ```bash
 cd frontend-mobile
@@ -141,48 +144,62 @@ npm install
 npm start
 ```
 
-Depois: escaneie o QR Code com o Expo Go (celular) ou use **i** para iOS / **a** para Android no terminal.
+Use `npm run start:tunnel` para testar em dispositivo físico via URL pública.
 
-- Garanta que `EXPO_PUBLIC_API_URL` aponte para o IP onde o backend está acessível (ex.: `http://192.168.1.10:5000`).
+### Web (Verify)
 
-### Teste rápido de fluxo
+```bash
+cd frontend-web
+npm install
+npm run dev
+```
 
-1. Registrar usuário (paciente) e médico no app.
-2. Paciente: nova solicitação (receita ou exame), enviar foto.
-3. Médico: aprovar pedido (status → aguardando pagamento).
-4. Paciente: pagar com PIX (QR Code ou copia e cola).
-5. Webhook do Mercado Pago confirma o pagamento (em dev pode usar ngrok + URL do webhook no MP).
-6. Médico: assinar documento; paciente pode baixar a receita.
+### Supabase (Edge Function + migrations)
 
----
+Migrations: via Supabase Dashboard ou CLI.  
+Edge Function: deploy via MCP ou CLI:
 
-## Funcionalidades principais
-
-- **Autenticação:** registro, login, logout, Bearer token (tabela `auth_tokens`).
-- **Solicitações:** receita (simples/controlada/azul), exame, consulta; fluxo por status (submitted → paid → signed → delivered, etc.).
-- **Pagamentos:** PIX via Mercado Pago (QR Code + copia e cola); webhook para confirmação automática; idempotência e persistência de eventos.
-- **Assinatura digital:** receita assinada com certificado (ICP-Brasil); PDF gerado e armazenado; link público para verificação.
-- **Verificação de receitas:** página e API públicas (sem login); código de acesso; link para abrir o documento (PDF) só com o código.
-- **Chat:** mensagens por solicitação (paciente ↔ médico).
-- **Notificações:** in-app e push (Expo).
-- **Vídeo:** salas para consulta (integração configurável).
-- **IA:** análise de legibilidade e resumo em pedidos de exame (OpenAI opcional).
+```bash
+supabase functions deploy verify --no-verify-jwt
+```
 
 ---
 
-## Verificação de receitas (QR Code)
+## Fluxos principais
 
-A receita pode ser verificada **sem login**, apenas com o QR Code (e código de acesso quando aplicável).
+### Receita
 
-| Recurso | URL / Uso |
-|--------|------------|
-| Página de verificação | `GET /api/verify/{id}/page` — HTML responsivo (mobile-first). |
-| Dados públicos | `GET /api/verify/{id}` — dados mascarados (sem CPF completo). |
-| Dados completos | `POST /api/verify/{id}/full` com `{ "accessCode": "1234" }`. |
-| **Abrir documento (PDF)** | `GET /api/verify/{id}/document?code=1234` — redireciona para o PDF; **não exige autenticação**, só o código. |
-| Protocolo ITI | `GET /api/verify/{id}?_format=application/validador-iti+json&_secretCode=...` — para validar.iti.gov.br. |
+1. Paciente envia foto/medicamentos → IA analisa (OpenAI opcional)
+2. Médico aprova → status `approved_pending_payment`
+3. Paciente paga PIX → webhook confirma → status `paid`
+4. Médico assina com certificado ICP-Brasil → PDF gerado e enviado para Supabase
+5. Backend registra na tabela `prescriptions` (Verify v2)
+6. Paciente baixa PDF; farmácia verifica via QR Code + código de 6 dígitos
 
-Fluxo típico: farmacêutico escaneia o QR Code → abre a página → digita o código de 4 dígitos → clica em “Verificar” → “Abrir documento (PDF)” abre o PDF sem precisar de conta.
+### Exame
+
+1. Paciente envia exames + sintomas (foto opcional) → IA analisa
+2. Mesmo fluxo de aprovação, pagamento e assinatura
+3. PDF de pedido de exame também é registrado no Verify v2
+
+### Consulta
+
+1. Paciente solicita consulta (tipo, duração, sintomas)
+2. Médico aceita → sala Daily.co criada
+3. Videoconferência; transcrição opcional (Whisper)
+4. Anamnese gerada por IA (OpenAI)
+
+---
+
+## Verificação de documentos (Verify v2)
+
+| Recurso | URL | Descrição |
+|---------|-----|-----------|
+| Página de verificação | `https://renovejasaude.com.br/verify/:id` | SPA React; usuário digita código de 6 dígitos |
+| Edge Function | `POST {SUPABASE_URL}/functions/v1/verify` | Body: `{ id, code, v? }` — verifica e retorna signed URL do PDF |
+| QR Code no PDF | `renovejasaude.com.br/verify/{id}` | Aponta para a página; código impresso no documento |
+
+Fluxo: farmacêutico escaneia QR Code → abre página → digita os 6 dígitos → valida → botão "Baixar PDF (2ª via)".
 
 ---
 
@@ -190,18 +207,21 @@ Fluxo típico: farmacêutico escaneia o QR Code → abre a página → digita o 
 
 | Documento | Conteúdo |
 |-----------|----------|
-| [backend-dotnet/README.md](backend-dotnet/README.md) | Arquitetura, endpoints, segurança, testes do backend. |
-| [backend-dotnet/docs/FLUXO_RECEITA.md](backend-dotnet/docs/FLUXO_RECEITA.md) | Fluxo passo a passo: receita, aprovação, pagamento, assinatura. |
-| [backend-dotnet/docs/STORAGE_BUCKET.sql](backend-dotnet/docs/STORAGE_BUCKET.sql) | Criação do bucket no Supabase. |
-| [backend-dotnet/src/RenoveJa.Api/README_CONFIG.md](backend-dotnet/src/RenoveJa.Api/README_CONFIG.md) | Configuração (.env) da API. |
-| [frontend-mobile/README.md](frontend-mobile/README.md) | Estrutura do app, cores, setup e scripts. |
+| [docs/QUICK_START.md](docs/QUICK_START.md) | Guia rápido de setup |
+| [docs/VERIFY_DEPLOY.md](docs/VERIFY_DEPLOY.md) | Deploy da Edge Function Verify v2 |
+| [docs/FLUXO_RECEITA_TELAS_E_STATUS.md](docs/FLUXO_RECEITA_TELAS_E_STATUS.md) | Fluxo de receita e status |
+| [backend-dotnet/README.md](backend-dotnet/README.md) | Arquitetura e endpoints do backend |
 
 ---
 
-## Licença
+## Deploy
 
-Projeto proprietário. Todos os direitos reservados.
+- **Backend:** hospedagem .NET (ex.: Azure, AWS, VPS)
+- **Mobile:** Expo EAS Build → App Store / Google Play
+- **Web (Verify):** Vercel ou similar, apontando domínio `renovejasaude.com.br/verify`
+- **Supabase:** migrations e Edge Function deployados via CLI ou Dashboard
+- **Webhook Mercado Pago:** `https://SEU_DOMINIO/api/payments/webhook`
 
 ---
 
-**RenoveJá** — Backend .NET 8 + Expo (React Native) · Supabase · Mercado Pago (PIX)
+**RenoveJá+** — .NET 8 · Expo · Supabase · Mercado Pago (PIX) · ICP-Brasil

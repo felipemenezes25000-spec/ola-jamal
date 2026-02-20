@@ -20,6 +20,7 @@ import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
+import { formatBRL, formatDateBR } from '../../lib/utils/format';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
@@ -288,13 +289,13 @@ export default function RequestDetailScreen() {
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Valor</Text>
             <Text style={[styles.detailValue, { color: colors.success, fontWeight: '700' }]}>
-              R$ {getDisplayPrice(request.price, request.requestType).toFixed(2)}
+              {formatBRL(getDisplayPrice(request.price, request.requestType))}
             </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Criado em</Text>
             <Text style={styles.detailValue}>
-              {new Date(request.createdAt).toLocaleDateString('pt-BR')} {new Date(request.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              {formatDateBR(request.createdAt)} {new Date(request.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
         </View>
@@ -324,10 +325,14 @@ export default function RequestDetailScreen() {
               <Ionicons name="images" size={20} color={colors.primary} />
               <Text style={styles.cardTitle}>Imagens da Receita</Text>
             </View>
+            <Text style={styles.zoomHint}>Toque para ampliar • Pinça para zoom</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.sm }}>
               {request.prescriptionImages.map((img, i) => (
                 <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
                   <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
+                  <View style={styles.zoomBadge}>
+                    <Ionicons name="search" size={14} color="#fff" />
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -341,10 +346,14 @@ export default function RequestDetailScreen() {
               <Ionicons name="images" size={20} color="#8B5CF6" />
               <Text style={styles.cardTitle}>Imagens do Exame</Text>
             </View>
+            <Text style={styles.zoomHint}>Toque para ampliar • Pinça para zoom</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.sm }}>
               {request.examImages.map((img, i) => (
                 <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
                   <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
+                  <View style={styles.zoomBadge}>
+                    <Ionicons name="search" size={14} color="#fff" />
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -496,7 +505,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  scroll: { padding: spacing.md, paddingBottom: spacing.xl * 3 },
+  scroll: { padding: spacing.md, paddingTop: spacing.lg, paddingBottom: spacing.xl * 3 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
@@ -567,8 +576,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   errorBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  thumbWrap: { marginHorizontal: spacing.sm },
+  thumbWrap: { marginHorizontal: spacing.sm, position: 'relative' },
   thumbImg: { width: 120, height: 120, borderRadius: 14 },
+  zoomBadge: { position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 4, alignItems: 'center', justifyContent: 'center' },
+  zoomHint: { fontSize: 11, color: colors.textMuted, marginBottom: spacing.xs },
   modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
   modalCloseBtn: {
     position: 'absolute',

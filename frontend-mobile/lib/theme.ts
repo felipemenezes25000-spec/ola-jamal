@@ -6,13 +6,13 @@
 export const theme = {
   colors: {
     primary: {
-      main: '#0EA5E9',
-      light: '#38BDF8',
-      dark: '#0284C7',
+      main: '#2CB1FF',
+      light: '#5EC5FF',
+      dark: '#1A9DE0',
       lighter: '#7DD3FC',
-      darker: '#075985',
-      soft: '#E0F2FE',
-      ghost: 'rgba(14,165,233,0.08)',
+      darker: '#1595DC',
+      soft: '#E3F4FF',
+      ghost: 'rgba(44,177,255,0.08)',
       contrast: '#FFFFFF',
     },
 
@@ -75,7 +75,7 @@ export const theme = {
       main: '#E2E8F0',
       light: '#F1F5F9',
       dark: '#CBD5E1',
-      focus: '#0EA5E9',
+      focus: '#2CB1FF',
     },
 
     divider: '#E2E8F0',
@@ -88,14 +88,14 @@ export const theme = {
     },
 
     gradients: {
-      primary: ['#0EA5E9', '#0284C7'],
+      primary: ['#1A9DE0', '#2CB1FF'],
       secondary: ['#10B981', '#059669'],
       accent: ['#8B5CF6', '#7C3AED'],
       warm: ['#F59E0B', '#D97706'],
       authBackground: ['#FFFFFF', '#E8F4FE', '#B8DFFB', '#38BDF8'],
       splash: ['#0284C7', '#0EA5E9', '#38BDF8'],
-      doctorHeader: ['#005F8A', '#0077B6', '#0096D6'],
-      patientHeader: ['#0EA5E9', '#38BDF8', '#7DD3FC'],
+      doctorHeader: ['#1A9DE0', '#2CB1FF'],
+      patientHeader: ['#1A9DE0', '#2CB1FF', '#5EC5FF'],
     },
   },
 

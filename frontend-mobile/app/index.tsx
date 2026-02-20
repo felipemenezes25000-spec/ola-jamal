@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,13 +7,20 @@ import { Loading } from '../components/Loading';
 import { useAuth } from '../contexts/AuthContext';
 import { gradients } from '../lib/theme';
 
+// Se após esse tempo ainda estiver na splash, força ir para login (evita tela travada)
+const SPLASH_MAX_MS = 4000;
+
 export default function SplashScreen() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const hasNavigated = useRef(false);
 
   useEffect(() => {
     if (!loading) {
+      const delay = user ? 400 : 100;
       const t = setTimeout(() => {
+        if (hasNavigated.current) return;
+        hasNavigated.current = true;
         if (user) {
           if (user.role === 'patient') {
             router.replace('/(patient)/home');
@@ -25,10 +32,20 @@ export default function SplashScreen() {
         } else {
           router.replace('/(auth)/login');
         }
-      }, 600);
+      }, delay);
       return () => clearTimeout(t);
     }
   }, [user, loading]);
+
+  // Plano B: se após SPLASH_MAX_MS ainda estiver na splash, força login (evita tela travada)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (hasNavigated.current) return;
+      hasNavigated.current = true;
+      router.replace('/(auth)/login');
+    }, SPLASH_MAX_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <LinearGradient

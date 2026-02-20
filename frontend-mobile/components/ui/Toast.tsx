@@ -6,6 +6,7 @@ import {
     View,
     TouchableOpacity,
     Dimensions,
+    Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,15 +39,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const [visible, setVisible] = useState(false);
     const [config, setConfig] = useState<ToastConfig>({ message: '' });
     const translateY = useRef(new Animated.Value(-100)).current;
-    const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const show = useCallback((cfg: ToastConfig) => {
         if (timerRef.current) clearTimeout(timerRef.current);
         setConfig(cfg);
         setVisible(true);
+        const useNative = Platform.OS !== 'web';
         Animated.spring(translateY, {
             toValue: 0,
-            useNativeDriver: true,
+            useNativeDriver: useNative,
             tension: 80,
             friction: 12,
         }).start();
@@ -55,7 +57,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             Animated.timing(translateY, {
                 toValue: -100,
                 duration: 250,
-                useNativeDriver: true,
+                useNativeDriver: useNative,
             }).start(() => setVisible(false));
         }, cfg.duration ?? 3000);
     }, [translateY]);
@@ -70,7 +72,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         Animated.timing(translateY, {
             toValue: -100,
             duration: 200,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
         }).start(() => setVisible(false));
     }, [translateY]);
 
@@ -88,9 +90,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                             top: insets.top + 8,
                             backgroundColor: tc.bg,
                             transform: [{ translateY }],
+                            pointerEvents: 'box-none',
                         },
                     ]}
-                    pointerEvents="box-none"
                 >
                     <TouchableOpacity
                         style={styles.toastInner}

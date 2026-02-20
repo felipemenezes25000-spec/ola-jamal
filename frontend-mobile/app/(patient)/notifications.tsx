@@ -11,7 +11,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { colors, spacing, borderRadius, doctorDS } from '../../lib/themeDoctor';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.card,
+    borderRadius: doctorDS.cardRadius,
     padding: spacing.md,
     alignItems: 'center',
   },

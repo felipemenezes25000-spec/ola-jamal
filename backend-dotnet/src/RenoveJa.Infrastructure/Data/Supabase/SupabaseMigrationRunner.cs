@@ -164,6 +164,23 @@ public static class SupabaseMigrationRunner
         "CREATE INDEX IF NOT EXISTS idx_video_rooms_status ON public.video_rooms(status)"
     };
 
+    private static readonly string[] ConsultationAnamnesisMigrations =
+    {
+        """
+        CREATE TABLE IF NOT EXISTS public.consultation_anamnesis (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
+            patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+            transcript_text TEXT,
+            anamnesis_json TEXT,
+            ai_suggestions_json TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_consultation_anamnesis_request_id ON public.consultation_anamnesis(request_id)",
+        "CREATE INDEX IF NOT EXISTS idx_consultation_anamnesis_patient_id ON public.consultation_anamnesis(patient_id)"
+    };
+
     private static readonly string[] PushTokensMigrations =
     {
         """
@@ -356,6 +373,7 @@ public static class SupabaseMigrationRunner
             ("audit_logs", AuditLogsMigrations),
             ("notifications", NotificationsMigrations),
             ("video_rooms", VideoRoomsMigrations),
+            ("consultation_anamnesis", ConsultationAnamnesisMigrations),
             ("push_tokens", PushTokensMigrations),
             ("product_prices", ProductPricesMigrations),
             ("payment_attempts", PaymentAttemptsMigrations),

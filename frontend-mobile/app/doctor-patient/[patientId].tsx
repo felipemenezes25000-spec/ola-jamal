@@ -12,10 +12,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, gradients, typography } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, typography } from '../../lib/themeDoctor';
 import { getPatientRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
+import { DoctorHeader } from '../../components/ui/DoctorHeader';
 
 const TYPE_LABELS: Record<string, string> = {
   prescription: 'Receita',
@@ -89,25 +90,11 @@ export default function DoctorPatientProntuario() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={gradients.doctorHeader as unknown as [string, string, ...string[]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: headerPaddingTop }]}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          hitSlop={12}
-        >
-          <Ionicons name="chevron-back" size={26} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.patientName}>{patientName}</Text>
-          <Text style={styles.subtitle}>Histórico de atendimentos</Text>
-        </View>
-      </LinearGradient>
-
+      <DoctorHeader
+        title="Prontuário"
+        subtitle={patientName}
+        onBack={() => router.back()}
+      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -172,6 +159,12 @@ export default function DoctorPatientProntuario() {
                     <StatusBadge status={req.status} size="sm" />
                   </View>
                   <Text style={styles.timelineDate}>{fmtDate(req.createdAt)}</Text>
+                  {req.requestType === 'consultation' && (req.consultationTranscript || req.consultationAnamnesis) && (
+                    <View style={styles.transcriptBadge}>
+                      <Ionicons name="document-text" size={12} color={colors.primary} />
+                      <Text style={styles.transcriptBadgeText}>Transcrição e anamnese disponíveis</Text>
+                    </View>
+                  )}
                   {req.aiSummaryForDoctor && (
                     <Text style={styles.timelineSummary} numberOfLines={2}>
                       {req.aiSummaryForDoctor}
@@ -292,6 +285,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  transcriptBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  transcriptBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
   },
   timelineSummary: {
     fontSize: 13,

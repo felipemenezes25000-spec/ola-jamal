@@ -117,6 +117,8 @@ export async function createExamRequest(
 }
 
 export interface CreateConsultationRequestData {
+  consultationType: 'psicologo' | 'medico_clinico';
+  durationMinutes: number;
   symptoms: string;
 }
 

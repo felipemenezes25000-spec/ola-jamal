@@ -26,6 +26,18 @@ public class VideoRoomModel
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de anamnese de consulta (tabela consultation_anamnesis).</summary>
+public class ConsultationAnamnesisModel
+{
+    public Guid Id { get; set; }
+    public Guid RequestId { get; set; }
+    public Guid PatientId { get; set; }
+    public string? TranscriptText { get; set; }
+    public string? AnamnesisJson { get; set; }
+    public string? AiSuggestionsJson { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 /// <summary>Modelo de persistência de token de push (tabela push_tokens).</summary>
 public class PushTokenModel
 {

@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../lib/theme';
 import { createExamRequest } from '../../lib/api';
-import { FALLBACK_EXAM_PRICE } from '../../lib/config/pricing';
+import { EXAM_TYPE_PRICES } from '../../lib/config/pricing';
+import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
 import { createExamSchema } from '../../lib/validation/schemas';
@@ -29,8 +30,8 @@ const r = theme.borderRadius;
 const ty = theme.typography;
 
 const EXAM_TYPES = [
-  { key: 'laboratorial', label: 'Laboratorial', desc: 'Exames de sangue, urina, etc.', icon: 'flask' as const },
-  { key: 'imagem', label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia, etc.', icon: 'scan' as const },
+  { key: 'laboratorial' as const, label: 'EXAMES LABORATORIAIS', desc: 'Peça exames e receba em poucos instantes.', icon: 'flask' as const },
+  { key: 'imagem' as const, label: 'EXAMES DE IMAGEM', desc: 'Raio-X, ultrassom, tomografia, etc.', icon: 'scan' as const, priceSuffix: 'POR PEDIDO' },
 ];
 
 export default function NewExam() {
@@ -118,29 +119,38 @@ export default function NewExam() {
       <View style={styles.body}>
         {/* Exam Type */}
         <Text style={styles.overline}>TIPO DE EXAME</Text>
+        <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
         <View style={styles.typeRow}>
-          {EXAM_TYPES.map(type => (
-            <AppCard
-              key={type.key}
-              selected={examType === type.key}
-              onPress={() => setExamType(type.key)}
-              style={styles.typeCard}
-            >
-              <Ionicons
-                name={type.icon}
-                size={28}
-                color={examType === type.key ? c.primary.main : c.text.tertiary}
-              />
-              <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]}>
-                {type.label}
-              </Text>
-              <Text style={styles.typeDesc}>{type.desc}</Text>
-            </AppCard>
-          ))}
+          {EXAM_TYPES.map(type => {
+            const price = EXAM_TYPE_PRICES[type.key];
+            return (
+              <AppCard
+                key={type.key}
+                selected={examType === type.key}
+                onPress={() => setExamType(type.key)}
+                style={styles.typeCard}
+              >
+                <Ionicons
+                  name={type.icon}
+                  size={28}
+                  color={examType === type.key ? c.primary.main : c.text.tertiary}
+                />
+                <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]}>
+                  {type.label}
+                </Text>
+                <Text style={styles.typePrice}>{formatBRL(price)}</Text>
+                {'priceSuffix' in type && type.priceSuffix && (
+                  <Text style={styles.typePriceSuffix}>{type.priceSuffix}</Text>
+                )}
+                <Text style={styles.typeDesc}>{type.desc}</Text>
+              </AppCard>
+            );
+          })}
         </View>
 
         {/* Exams List */}
         <Text style={styles.overline}>EXAMES DESEJADOS</Text>
+        <Text style={styles.stepHint}>Passo 2 — Digite o nome do exame e toque no botão + para adicionar. Faça isso para cada exame que você precisa.</Text>
         <View style={styles.inputRow}>
           <AppInput
             placeholder="Ex: Hemograma completo"
@@ -181,7 +191,8 @@ export default function NewExam() {
         />
 
         {/* Photo */}
-        <Text style={styles.overline}>FOTO</Text>
+        <Text style={styles.overline}>FOTO DO PEDIDO (SE TIVER)</Text>
+        <Text style={styles.stepHint}>Passo 3 — Se você tiver um pedido de exame ou laudo, envie a foto aqui. Toque em Câmera ou Galeria. Se não tiver, pode pular esta parte.</Text>
         <Text style={styles.photoHint}>
           Envie apenas fotos do documento (pedido de exame ou laudo). Fotos de pessoas, animais ou outros objetos serão rejeitadas.
         </Text>
@@ -216,11 +227,15 @@ export default function NewExam() {
           <Ionicons name="pricetag" size={18} color={c.secondary.main} />
           <Text style={styles.priceText}>
             Valor do pedido de exame:{' '}
-            <Text style={styles.priceValue}>R$ {FALLBACK_EXAM_PRICE.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.priceValue}>{formatBRL(EXAM_TYPE_PRICES[examType as 'laboratorial' | 'imagem'])}</Text>
+            {examType === 'imagem' && (
+              <Text style={styles.priceSuffix}> (por pedido)</Text>
+            )}
           </Text>
         </View>
 
         {/* Submit */}
+        <Text style={styles.stepHint}>Pronto? Toque no botão abaixo para enviar seu pedido de exame.</Text>
         <AppButton
           title="Enviar Pedido"
           onPress={handleSubmit}
@@ -249,6 +264,12 @@ const styles = StyleSheet.create({
     marginTop: s.lg,
     marginBottom: s.sm,
   },
+  stepHint: {
+    fontSize: 13,
+    color: c.text.secondary,
+    marginBottom: s.sm,
+    lineHeight: 20,
+  },
   typeRow: {
     flexDirection: 'row',
     gap: s.sm,
@@ -265,6 +286,19 @@ const styles = StyleSheet.create({
   },
   typeNameSelected: {
     color: c.primary.main,
+  },
+  typePrice: {
+    fontSize: ty.fontSize.lg,
+    fontWeight: '700',
+    color: c.text.primary,
+    marginTop: s.xs,
+  },
+  typePriceSuffix: {
+    fontSize: ty.fontSize.xs,
+    color: c.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   typeDesc: {
     fontSize: ty.fontSize.xs,
@@ -381,6 +415,10 @@ const styles = StyleSheet.create({
   priceValue: {
     fontWeight: '700',
     color: c.secondary.main,
+  },
+  priceSuffix: {
+    fontSize: ty.fontSize.xs,
+    color: c.text.tertiary,
   },
   submitButton: {
     marginTop: s.lg,

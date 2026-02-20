@@ -8,10 +8,11 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -55,6 +56,23 @@ function getDateGroup(dateStr: string): string {
   if (days < 7) return 'Esta semana';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
 }
+
+/** Agrupa notificações por tipo para o médico: Pagamentos | Novas solicitações | Outros */
+type AlertCategory = 'payment' | 'new_request' | 'other';
+function getAlertCategory(item: NotificationResponseDto): AlertCategory {
+  const t = (item.title || '').toLowerCase();
+  const m = (item.message || '').toLowerCase();
+  const data = item.data || {};
+  if (data.paymentId != null || t.includes('pagamento') || t.includes('pago') || m.includes('pagamento') || m.includes('pago')) return 'payment';
+  if (t.includes('solicitação') || t.includes('pedido') || t.includes('novo') || m.includes('solicitação') || m.includes('pedido') || m.includes('novo')) return 'new_request';
+  return 'other';
+}
+
+const ALERT_CATEGORY_LABELS: Record<AlertCategory, string> = {
+  payment: 'Pagamentos',
+  new_request: 'Novas solicitações',
+  other: 'Outros',
+};
 
 export default function DoctorNotifications() {
   const router = useRouter();
@@ -108,13 +126,28 @@ export default function DoctorNotifications() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const grouped = notifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
+  const byCategory = notifications.reduce<Record<AlertCategory, NotificationResponseDto[]>>(
+    (acc, n) => {
+      const cat = getAlertCategory(n);
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(n);
+      return acc;
+    },
+    { payment: [], new_request: [], other: [] } as Record<AlertCategory, NotificationResponseDto[]>
+  );
+  const categoryCounts = {
+    payment: byCategory.payment.length,
+    new_request: byCategory.new_request.length,
+    other: byCategory.other.length,
+  };
+
+  const groupedByDate = notifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
     const g = getDateGroup(n.createdAt);
     if (!acc[g]) acc[g] = [];
     acc[g].push(n);
     return acc;
   }, {});
-  const sections = Object.entries(grouped).map(([title, data]) => ({ title, data }));
+  const sections = Object.entries(groupedByDate).map(([title, data]) => ({ title, data }));
 
   const renderItem = ({ item }: { item: NotificationResponseDto }) => {
     const iconColor = getNotificationColor(item.notificationType);
@@ -143,14 +176,39 @@ export default function DoctorNotifications() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: headerPaddingTop, paddingHorizontal: horizontalPad }]}>
-        <Text style={styles.title}>Notificações</Text>
+      <LinearGradient
+        colors={[...gradients.doctorHeader]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: headerPaddingTop, paddingHorizontal: horizontalPad }]}
+      >
+        <Text style={styles.title}>Alertas</Text>
         {unreadCount > 0 && (
           <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
             <Text style={styles.markAllText}>Marcar lidas</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </LinearGradient>
+
+      {(categoryCounts.payment > 0 || categoryCounts.new_request > 0 || categoryCounts.other > 0) && (
+        <View style={styles.categoryRow}>
+          {categoryCounts.payment > 0 && (
+            <View style={styles.categoryChip}>
+              <Text style={styles.categoryChipText}>Pagamentos ({categoryCounts.payment})</Text>
+            </View>
+          )}
+          {categoryCounts.new_request > 0 && (
+            <View style={styles.categoryChip}>
+              <Text style={styles.categoryChipText}>Novas solicitações ({categoryCounts.new_request})</Text>
+            </View>
+          )}
+          {categoryCounts.other > 0 && (
+            <View style={styles.categoryChip}>
+              <Text style={styles.categoryChipText}>Outros ({categoryCounts.other})</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -192,12 +250,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: spacing.lg,
   },
-  title: { fontSize: 22, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
+  title: { fontSize: 22, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: spacing.md,
+  },
+  categoryChip: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.pill,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   markAllBtn: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
   },
-  markAllText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, color: colors.primary, fontWeight: '600' },
+  markAllText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, color: '#fff', fontWeight: '600' },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
@@ -206,7 +282,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.card,
+    borderRadius: doctorDS.cardRadius,
     padding: spacing.md,
   },
   cardUnread: {

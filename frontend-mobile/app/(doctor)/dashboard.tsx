@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
   Pressable,
 } from 'react-native';
@@ -13,13 +12,49 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, spacing, borderRadius, gradients, typography } from '../../lib/themeDoctor';
+import { colors, spacing, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { StatsCard } from '../../components/StatsCard';
-import RequestCard from '../../components/RequestCard';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { DoctorCard } from '../../components/ui/DoctorCard';
+import {
+  countNaFila,
+  countConsultaPronta,
+  countEmConsulta,
+  countPendentes,
+  getPendingForPanel,
+  getRequestUiState,
+  UI_STATUS_COLORS,
+} from '../../lib/domain/getRequestUiState';
+
+const TYPE_LABELS: Record<string, string> = {
+  prescription: 'Receita',
+  exam: 'Exame',
+  consultation: 'Consulta',
+};
+
+function getShortSummary(request: RequestResponseDto): string {
+  if (request.requestType === 'prescription' && request.medications?.length) {
+    const first = request.medications[0];
+    return request.medications.length > 1 ? `${first} +${request.medications.length - 1}` : first;
+  }
+  if (request.requestType === 'exam' && request.exams?.length) {
+    const first = request.exams[0];
+    return request.exams.length > 1 ? `${first} +${request.exams.length - 1}` : first;
+  }
+  if (request.requestType === 'consultation' && request.symptoms) {
+    return request.symptoms.length > 40 ? request.symptoms.slice(0, 40) + '…' : request.symptoms;
+  }
+  return '—';
+}
+
+function getActionButtonLabel(request: RequestResponseDto): string {
+  if (request.status === 'in_consultation') return 'Entrar';
+  return 'Abrir';
+}
 
 export default function DoctorDashboard() {
   const router = useRouter();
@@ -46,90 +81,81 @@ export default function DoctorDashboard() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
-  useFocusEffect(useCallback(() => {
+  useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 25000);
-    return () => clearInterval(interval);
-  }, [loadData]));
+  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+      const interval = setInterval(loadData, 25000);
+      return () => clearInterval(interval);
+    }, [loadData])
+  );
 
-  const onRefresh = () => { setRefreshing(true); loadData(); };
-
-  const stats = {
-    queue: queue.filter(r => r.status === 'submitted').length,
-    inReview: queue.filter(r => r.status === 'in_review').length,
-    signed: queue.filter(r => ['signed', 'delivered'].includes(r.status)).length,
-    consultations: queue.filter(r => r.requestType === 'consultation').length,
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
   };
 
-  const queuePreview = queue
-    .filter(r => ['submitted', 'in_review', 'paid'].includes(r.status))
-    .slice(0, 5);
+  const pendentesCount = countPendentes(queue);
+  const naFila = countNaFila(queue);
+  const consultaPronta = countConsultaPronta(queue);
+  const emConsulta = countEmConsulta(queue);
+  const pendingList = getPendingForPanel(queue, 3);
 
   const firstName = user?.name?.split(' ')[0] || 'Médico';
+  const greeting = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+      }
       showsVerticalScrollIndicator={false}
     >
-      {/* ─── Header ─── */}
+      {/* Header: gradiente oficial #157AB5 → #2F9BDB */}
       <LinearGradient
-        colors={['#004E7C', '#0077B6', '#0096D6']}
+        colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
+        style={[styles.header, { paddingTop: insets.top + 20 }]}
       >
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.greetingSmall}>Painel Médico 🩺</Text>
-            <Text style={styles.greetingName}>Dr(a). {firstName}</Text>
-          </View>
-          <Pressable
-            style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8 }]}
-            onPress={() => router.push('/(doctor)/profile')}
-          >
-            <Text style={styles.avatarInitial}>{firstName[0]?.toUpperCase()}</Text>
-          </Pressable>
+        <View style={styles.headerTextWrap}>
+          <Text style={styles.greeting}>{greeting}, Dr(a). {firstName}</Text>
+          <Text style={styles.pendingSummary}>
+            Você tem {pendentesCount} atendimento{pendentesCount !== 1 ? 's' : ''} pendente{pendentesCount !== 1 ? 's' : ''}
+          </Text>
         </View>
 
-        {/* Stats */}
+        {/* Apenas 3 cards: Na fila, Consulta pronta, Em consulta */}
         <View style={styles.statsRow}>
           <StatsCard
             icon="time-outline"
-            label="Fila"
-            value={stats.queue}
-            iconColor="#F59E0B"
-            onPress={() => router.push('/(doctor)/requests')}
-          />
-          <StatsCard
-            icon="eye-outline"
-            label="Analisando"
-            value={stats.inReview}
-            iconColor="#3B82F6"
-            onPress={() => router.push('/(doctor)/requests')}
-          />
-          <StatsCard
-            icon="shield-checkmark-outline"
-            label="Assinados"
-            value={stats.signed}
-            iconColor="#7C3AED"
+            label="Na fila"
+            value={naFila}
+            iconColor="#D97706"
             onPress={() => router.push('/(doctor)/requests')}
           />
           <StatsCard
             icon="videocam-outline"
-            label="Consultas"
-            value={stats.consultations}
-            iconColor="#0096D6"
+            label="Consulta pronta"
+            value={consultaPronta}
+            iconColor={colors.primary}
+            onPress={() => router.push('/(doctor)/requests')}
+          />
+          <StatsCard
+            icon="checkmark-circle-outline"
+            label="Em consulta"
+            value={emConsulta}
+            iconColor="#059669"
             onPress={() => router.push('/(doctor)/requests')}
           />
         </View>
       </LinearGradient>
 
       <View style={styles.body}>
-        {/* ─── Certificate Alert ─── */}
         {hasCertificate === false && (
           <Pressable
             style={({ pressed }) => [styles.alertBanner, pressed && { opacity: 0.85 }]}
@@ -146,9 +172,8 @@ export default function DoctorDashboard() {
           </Pressable>
         )}
 
-        {/* ─── Queue Preview ─── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Fila de Atendimento</Text>
+          <Text style={styles.sectionTitle}>ATENDIMENTOS PENDENTES</Text>
           <Pressable
             onPress={() => router.push('/(doctor)/requests')}
             style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.7 }]}
@@ -160,21 +185,51 @@ export default function DoctorDashboard() {
 
         {loading ? (
           <SkeletonList count={3} />
-        ) : queuePreview.length > 0 ? (
-          queuePreview.map(req => (
-            <RequestCard
-              key={req.id}
-              request={req}
-              showPatientName
-              onPress={() => router.push(`/doctor-request/${req.id}`)}
-            />
-          ))
+        ) : pendingList.length > 0 ? (
+          pendingList.map((req) => {
+            const { label: statusLabel, colorKey } = getRequestUiState(req);
+            const { color: statusColor, bg: statusBg } = UI_STATUS_COLORS[colorKey];
+            const typeLabel = TYPE_LABELS[req.requestType] ?? 'Solicitação';
+            const summary = getShortSummary(req);
+            const actionLabel = getActionButtonLabel(req);
+            return (
+              <DoctorCard key={req.id} style={styles.pendingCardWrap}>
+                <View style={styles.pendingCardRow}>
+                  <Pressable
+                    style={({ pressed }) => [styles.pendingCardMain, pressed && styles.pendingCardPressed]}
+                    onPress={() => router.push(`/doctor-request/${req.id}`)}
+                  >
+                    <Text style={styles.pendingCardType}>{typeLabel}</Text>
+                    <Text style={styles.pendingCardPatient} numberOfLines={1}>
+                      {req.patientName || 'Paciente'}
+                    </Text>
+                    {summary !== '—' && (
+                      <Text style={styles.pendingCardSummary} numberOfLines={1}>
+                        {summary}
+                      </Text>
+                    )}
+                    <View style={[styles.statusPill, { backgroundColor: statusBg }]}>
+                      <Text style={[styles.statusPillText, { color: statusColor }]} numberOfLines={1}>
+                        {statusLabel}
+                      </Text>
+                    </View>
+                  </Pressable>
+                  <PrimaryButton
+                    label={actionLabel}
+                    showArrow
+                    onPress={() => router.push(`/doctor-request/${req.id}`)}
+                    style={styles.entryBtn}
+                  />
+                </View>
+              </DoctorCard>
+            );
+          })
         ) : (
           <EmptyState
             icon="medical-outline"
             emoji="🏥"
-            title="Fila vazia"
-            subtitle="Nenhum pedido aguardando no momento. Novos pedidos aparecerão aqui automaticamente."
+            title="Nenhum atendimento pendente"
+            subtitle="Quando houver pedidos que exijam sua ação, eles aparecerão aqui."
             actionLabel="Ver todos os pedidos"
             onAction={() => router.push('/(doctor)/requests')}
           />
@@ -192,61 +247,33 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 110,
   },
-
-  // ─── Header ───
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 80,
+    paddingBottom: 24,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
   headerTextWrap: {
-    flex: 1,
-    marginRight: 16,
+    marginBottom: 20,
   },
-  greetingSmall: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.75)',
-    marginBottom: 2,
-  },
-  greetingName: {
-    fontSize: 24,
+  greeting: {
+    fontSize: 22,
     fontWeight: '800',
     color: '#fff',
     letterSpacing: -0.3,
   },
-  avatarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
+  pendingSummary: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 4,
   },
   statsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 20,
-    marginBottom: -55,
   },
-
-  // ─── Body ───
   body: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: doctorDS.sectionGap,
   },
   alertBanner: {
     flexDirection: 'row',
@@ -270,17 +297,17 @@ const styles = StyleSheet.create({
   alertTextWrap: { flex: 1 },
   alertTitle: { fontSize: 14, fontWeight: '700', color: '#92400E' },
   alertDesc: { fontSize: 12, color: '#B45309', marginTop: 1 },
-
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
   },
   seeAllBtn: {
     flexDirection: 'row',
@@ -291,5 +318,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
+  },
+  pendingCardWrap: {
+    marginBottom: spacing.md,
+  },
+  pendingCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  pendingCardMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pendingCardPressed: {
+    opacity: 0.92,
+  },
+  pendingCardType: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  pendingCardPatient: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  pendingCardSummary: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginBottom: 6,
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 100,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  entryBtn: {
+    minWidth: 0,
+    paddingHorizontal: 16,
   },
 });

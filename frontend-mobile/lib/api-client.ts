@@ -14,6 +14,9 @@ const getDefaultBaseUrl = () => {
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || getDefaultBaseUrl();
 
+/** Timeout para evitar loading infinito quando a API está inacessível (ex.: celular com tunnel não alcança localhost). */
+const REQUEST_TIMEOUT_MS = 20000;
+
 export interface ApiError {
   message: string;
   status?: number;
@@ -50,6 +53,36 @@ class ApiClient {
   private getCommonHeaders(): Record<string, string> {
     const isNgrok = this.baseUrl.includes('ngrok');
     return isNgrok ? { 'ngrok-skip-browser-warning': 'true' } : {};
+  }
+
+  /** Cria um AbortSignal que cancela a requisição após REQUEST_TIMEOUT_MS. Evita loading infinito se a API não responder. */
+  private getTimeoutSignal(): { signal: AbortSignal; cleanup: () => void } {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    return {
+      signal: controller.signal,
+      cleanup: () => clearTimeout(id),
+    };
+  }
+
+  /** Envolve fetch com timeout e trata AbortError como erro de conexão. */
+  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+    const { signal, cleanup } = this.getTimeoutSignal();
+    try {
+      const res = await fetch(url, { ...init, signal });
+      cleanup();
+      return res;
+    } catch (e: any) {
+      cleanup();
+      if (e?.name === 'AbortError') {
+        throw {
+          message:
+            'Não foi possível conectar ao servidor. Verifique se a API está rodando e se o app está configurado com a URL correta (EXPO_PUBLIC_API_URL). No celular físico use o IP do PC ou uma URL acessível (ex.: ngrok).',
+          status: 0,
+        } as ApiError;
+      }
+      throw e;
+    }
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
@@ -151,7 +184,7 @@ class ApiClient {
       }
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithTimeout(url, {
       method: 'GET',
       headers: { ...this.getCommonHeaders(), ...authHeaders },
       signal: options?.signal,
@@ -163,7 +196,7 @@ class ApiClient {
   /** GET que retorna Blob (ex.: PDF). */
   async getBlob(path: string): Promise<Blob> {
     const authHeaders = await this.getAuthHeader();
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
       method: 'GET',
       headers: { ...this.getCommonHeaders(), ...authHeaders },
     });
@@ -196,7 +229,7 @@ class ApiClient {
       bodyData = JSON.stringify(body);
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers,
       body: bodyData,
@@ -208,7 +241,7 @@ class ApiClient {
   async put<T>(path: string, body?: any): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
       method: 'PUT',
       headers: {
         ...this.getCommonHeaders(),
@@ -224,7 +257,7 @@ class ApiClient {
   async patch<T>(path: string, body?: any): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
       method: 'PATCH',
       headers: {
         ...this.getCommonHeaders(),
@@ -240,7 +273,7 @@ class ApiClient {
   async delete<T>(path: string): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
       method: 'DELETE',
       headers: {
         ...this.getCommonHeaders(),
@@ -258,6 +291,11 @@ class ApiClient {
 
   getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  /** Token para construir URL da chamada de vídeo (ex.: call-page?access_token=...) */
+  async getAuthToken(): Promise<string | null> {
+    return AsyncStorage.getItem(TOKEN_KEY);
   }
 }
 

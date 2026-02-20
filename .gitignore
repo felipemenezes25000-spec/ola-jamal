@@ -1,7 +1,24 @@
-# Root
+# =========================
+# RenoveJá+ — Root .gitignore (enterprise)
+# =========================
+
+# Dependencies
 node_modules/
-.DS_Store
-*.log
+
+# Build / artifacts
+dist/
+.expo/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Environment / secrets
 .env
 .env.local
 .env.*.local
+
+# OS / IDE
+.DS_Store
+*.log
+Thumbs.db

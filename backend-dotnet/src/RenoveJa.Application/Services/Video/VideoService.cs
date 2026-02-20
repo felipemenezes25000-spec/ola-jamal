@@ -38,9 +38,6 @@ public class VideoService(
 
         var roomName = $"consultation-{request.Id}";
         var videoRoom = VideoRoom.Create(request.Id, roomName);
-
-        videoRoom.SetRoomUrl($"https://meet.renoveja.com/{roomName}");
-
         videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 
         return MapToDto(videoRoom);

@@ -6,13 +6,16 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  TouchableOpacity,
+  InteractionManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, shadows, typography } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 import { useAuth } from '../../contexts/AuthContext';
+import { DoctorCard } from '../../components/ui/DoctorCard';
 
 export default function DoctorProfile() {
   const router = useRouter();
@@ -25,9 +28,14 @@ export default function DoctorProfile() {
       {
         text: 'Sair',
         style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          setTimeout(() => router.replace('/'), 0);
+        onPress: () => {
+          signOut()
+            .catch(() => {})
+            .finally(() => {
+              InteractionManager.runAfterInteractions(() => {
+                setTimeout(() => router.replace('/'), 150);
+              });
+            });
         },
       },
     ]);
@@ -43,7 +51,7 @@ export default function DoctorProfile() {
       title: 'Profissional',
       items: [
         { icon: 'shield-checkmark' as const, label: 'Certificado Digital', route: '/certificate/upload', color: colors.success },
-        { icon: 'medical' as const, label: 'Especialidade', route: '/settings', color: colors.primary },
+        { icon: 'medical' as const, label: 'Especialidade', route: undefined, color: colors.primary, value: doctor?.specialty ?? '—' },
       ],
     },
     {
@@ -65,9 +73,9 @@ export default function DoctorProfile() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
+      {/* Header: gradiente oficial */}
       <LinearGradient
-        colors={['#004E7C', '#0077B6', '#0096D6']}
+        colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 20 }]}
@@ -89,34 +97,48 @@ export default function DoctorProfile() {
       {menuSections.map((section) => (
         <View key={section.title} style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
-          <View style={styles.menuCard}>
+          <DoctorCard style={styles.menuCardWrap}>
             {section.items.map((item, idx) => (
               <React.Fragment key={item.label}>
-                <Pressable
-                  style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                  onPress={() => router.push(item.route as any)}
-                >
-                  <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
-                    <Ionicons name={item.icon} size={20} color={item.color} />
+                {item.route != null ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                    onPress={() => router.push(item.route as Parameters<typeof router.push>[0])}
+                  >
+                    <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
+                      <Ionicons name={item.icon} size={20} color={item.color} />
+                    </View>
+                    <Text style={styles.menuLabel}>{item.label}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </Pressable>
+                ) : (
+                  <View style={styles.menuItem}>
+                    <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
+                      <Ionicons name={item.icon} size={20} color={item.color} />
+                    </View>
+                    <Text style={styles.menuLabel}>{item.label}</Text>
+                    <Text style={styles.menuValue} numberOfLines={1}>{(item as { value?: string }).value ?? '—'}</Text>
                   </View>
-                  <Text style={styles.menuLabel}>{item.label}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                </Pressable>
+                )}
                 {idx < section.items.length - 1 && <View style={styles.menuDivider} />}
               </React.Fragment>
             ))}
-          </View>
+          </DoctorCard>
         </View>
       ))}
 
       {/* Logout */}
-      <Pressable
-        style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.8 }]}
+      <TouchableOpacity
+        style={styles.logoutBtn}
         onPress={handleLogout}
+        activeOpacity={0.8}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Sair da conta"
       >
         <Ionicons name="log-out-outline" size={20} color={colors.error} />
         <Text style={styles.logoutText}>Sair da Conta</Text>
-      </Pressable>
+      </TouchableOpacity>
 
       <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
       <View style={{ height: 100 }} />
@@ -194,12 +216,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 4,
   },
-  menuCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...shadows.card,
-  },
+  menuCardWrap: {},
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -222,6 +239,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.medium,
     fontWeight: '500',
     color: colors.text,
+  },
+  menuValue: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    maxWidth: 140,
   },
   menuDivider: {
     height: 1,

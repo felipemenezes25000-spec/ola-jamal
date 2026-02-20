@@ -88,13 +88,21 @@ describe('schemas', () => {
   });
 
   describe('createConsultationSchema', () => {
-    it('accepts symptoms with min 10 chars', () => {
-      const result = createConsultationSchema.safeParse({ symptoms: 'Dor de cabeça há 3 dias' });
+    it('accepts consultationType, durationMinutes and symptoms with min 10 chars', () => {
+      const result = createConsultationSchema.safeParse({
+        consultationType: 'medico_clinico',
+        durationMinutes: 15,
+        symptoms: 'Dor de cabeça há 3 dias',
+      });
       expect(result.success).toBe(true);
     });
 
     it('rejects symptoms too short', () => {
-      const result = createConsultationSchema.safeParse({ symptoms: 'Dor' });
+      const result = createConsultationSchema.safeParse({
+        consultationType: 'psicologo',
+        durationMinutes: 10,
+        symptoms: 'Dor',
+      });
       expect(result.success).toBe(false);
     });
   });

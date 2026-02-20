@@ -38,6 +38,7 @@ public record PrescriptionPdfData(
     string? PharmacyValidationUrl = null,
     PrescriptionKind? PrescriptionKind = null,
     string? PatientGender = null,
+    string? PatientPhone = null,
     string? DoctorAddress = null,
     string? DoctorPhone = null);
 
@@ -64,7 +65,13 @@ public record ExamPdfData(
     List<string> Exams,
     string? Notes,
     DateTime EmissionDate,
-    string? AccessCode = null);
+    string? AccessCode = null,
+    DateTime? PatientBirthDate = null,
+    string? PatientPhone = null,
+    string? PatientAddress = null,
+    string? DoctorAddress = null,
+    string? DoctorPhone = null,
+    string? ClinicalIndication = null);
 
 /// <summary>
 /// Serviço para geração de PDFs de receitas médicas e pedidos de exame.

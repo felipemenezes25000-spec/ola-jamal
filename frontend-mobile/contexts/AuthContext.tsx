@@ -12,6 +12,7 @@ interface AuthContextType {
   signUpDoctor: (data: DoctorSignUpData) => Promise<UserDto>;
   signInWithGoogle: (googleToken: string, role?: UserRole) => Promise<UserDto>;
   signOut: () => Promise<void>;
+  cancelRegistration: () => Promise<void>;
   refreshUser: () => Promise<void>;
   completeProfile: (data: CompleteProfileData) => Promise<UserDto>;
   forgotPassword: (email: string) => Promise<void>;
@@ -90,17 +91,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadStoredUser();
   }, []);
 
-  // Timeout de segurança: se após 2s ainda estiver loading, libera a tela (evita loading infinito)
+  // Timeout de segurança: se após 1,2s ainda estiver loading, libera a tela (evita loading infinito ao escanear QR)
   useEffect(() => {
     const t = setTimeout(() => {
       setLoading((prev) => (prev ? false : prev));
-    }, 2000);
+    }, 1200);
     return () => clearTimeout(t);
   }, []);
 
   const loadStoredUser = async () => {
-    // Fallback: se AsyncStorage/rede travar, libera a tela em no máximo 2.5s
-    const guard = setTimeout(() => setLoading(false), 2500);
+    // Fallback: se AsyncStorage travar, libera a tela em no máximo 1,5s
+    const guard = setTimeout(() => setLoading(false), 1500);
     try {
       const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
       const storedUser = await AsyncStorage.getItem(USER_KEY);
@@ -286,30 +287,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(response.user);
 
-      if (!response.profileComplete) {
-        throw new Error('PROFILE_INCOMPLETE');
-      }
-
       return response.user;
     } catch (error: any) {
       console.error('Google sign in error:', error);
-      if (error.message === 'PROFILE_INCOMPLETE') {
-        throw error;
-      }
       throw new Error(error.message || 'Erro ao fazer login com Google');
     }
   };
 
   const signOut = async () => {
     try {
-      // Call logout endpoint
       await apiClient.post('/api/auth/logout', {});
     } catch (error) {
-      console.error('Logout API error:', error);
-      // Continue with local cleanup even if API call fails
-    } finally {
-      await clearAuth();
+      if (__DEV__) console.warn('Logout API error (local logout will continue):', error);
     }
+    try {
+      await clearAuth();
+    } catch (e) {
+      if (__DEV__) console.warn('clearAuth error:', e);
+      setUser(null);
+      setDoctorProfile(null);
+    }
+  };
+
+  const cancelRegistration = async () => {
+    try {
+      await apiClient.post('/api/auth/cancel-registration', {});
+    } catch {
+      // Ignore API errors; we clear local state anyway
+    }
+    await clearAuth();
   };
 
   const refreshUser = async () => {
@@ -361,9 +367,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearAuth = async () => {
-    await AsyncStorage.removeItem(TOKEN_KEY);
-    await AsyncStorage.removeItem(USER_KEY);
-    await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
+    try {
+      await AsyncStorage.removeItem(TOKEN_KEY);
+      await AsyncStorage.removeItem(USER_KEY);
+      await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
+    } catch (e) {
+      if (__DEV__) console.warn('AsyncStorage removeItem error:', e);
+    }
     setUser(null);
     setDoctorProfile(null);
   };
@@ -386,6 +396,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUpDoctor,
         signInWithGoogle,
         signOut,
+        cancelRegistration,
         refreshUser,
         completeProfile,
         forgotPassword,

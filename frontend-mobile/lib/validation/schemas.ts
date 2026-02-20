@@ -129,7 +129,17 @@ export const createPrescriptionSchema = z.object({
   medications: z.array(z.string()).optional().default([]),
 });
 
+export const consultationTypeSchema = z.enum(['psicologo', 'medico_clinico']);
+export const CONSULTATION_MIN_MINUTES = 5;
+export const CONSULTATION_MAX_MINUTES = 60;
+
 export const createConsultationSchema = z.object({
+  consultationType: consultationTypeSchema,
+  durationMinutes: z
+    .number()
+    .int()
+    .min(CONSULTATION_MIN_MINUTES, `Mínimo ${CONSULTATION_MIN_MINUTES} minutos`)
+    .max(CONSULTATION_MAX_MINUTES, `Máximo ${CONSULTATION_MAX_MINUTES} minutos`),
   symptoms: z
     .string()
     .transform(normalizeText)

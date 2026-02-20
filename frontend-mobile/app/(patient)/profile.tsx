@@ -6,16 +6,15 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  TouchableOpacity,
+  InteractionManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '../../lib/theme';
+import { colors, gradients, shadows, doctorDS } from '../../lib/themeDoctor';
 import { useAuth } from '../../contexts/AuthContext';
-
-const c = theme.colors;
-const s = theme.spacing;
 
 export default function PatientProfile() {
   const router = useRouter();
@@ -28,9 +27,14 @@ export default function PatientProfile() {
       {
         text: 'Sair',
         style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          setTimeout(() => router.replace('/(auth)/login'), 0);
+        onPress: () => {
+          signOut()
+            .catch(() => {})
+            .finally(() => {
+              InteractionManager.runAfterInteractions(() => {
+                setTimeout(() => router.replace('/'), 150);
+              });
+            });
         },
       },
     ]);
@@ -45,7 +49,7 @@ export default function PatientProfile() {
     {
       title: 'Conta',
       items: [
-        { icon: 'person-outline' as const, label: 'Editar Perfil', onPress: () => router.push('/settings') },
+        { icon: 'settings-outline' as const, label: 'Configurações', onPress: () => router.push('/settings') },
         { icon: 'lock-closed-outline' as const, label: 'Alterar Senha', onPress: () => router.push('/change-password') },
       ],
     },
@@ -70,7 +74,7 @@ export default function PatientProfile() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header with gradient */}
       <LinearGradient
-        colors={['#0284C7', '#0EA5E9', '#38BDF8']}
+        colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 20 }]}
@@ -111,10 +115,10 @@ export default function PatientProfile() {
                   onPress={item.onPress}
                 >
                   <View style={styles.menuIconWrap}>
-                    <Ionicons name={item.icon} size={20} color={c.primary.main} />
+                    <Ionicons name={item.icon} size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>{item.label}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={c.text.tertiary} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </Pressable>
                 {idx < section.items.length - 1 && <View style={styles.menuDivider} />}
               </React.Fragment>
@@ -124,13 +128,17 @@ export default function PatientProfile() {
       ))}
 
       {/* Logout */}
-      <Pressable
-        style={({ pressed }) => [styles.logoutButton, pressed && { opacity: 0.8 }]}
+      <TouchableOpacity
+        style={styles.logoutButton}
         onPress={handleLogout}
+        activeOpacity={0.8}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Sair da conta"
       >
-        <Ionicons name="log-out-outline" size={20} color={c.status.error} />
+        <Ionicons name="log-out-outline" size={20} color={colors.error} />
         <Text style={styles.logoutText}>Sair da Conta</Text>
-      </Pressable>
+      </TouchableOpacity>
 
       <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
 
@@ -142,7 +150,7 @@ export default function PatientProfile() {
 function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={18} color={c.text.tertiary} />
+      <Ionicons name={icon} size={18} color={colors.textMuted} />
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
     </View>
@@ -152,7 +160,7 @@ function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: c.background.default,
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -191,12 +199,12 @@ const styles = StyleSheet.create({
 
   // Info Card
   infoCard: {
-    backgroundColor: c.background.paper,
+    backgroundColor: colors.surface,
     marginHorizontal: 20,
     marginTop: -30,
-    borderRadius: 18,
+    borderRadius: doctorDS.cardRadius,
     padding: 16,
-    ...theme.shadows.elevated,
+    ...shadows.cardLg,
   },
   infoRow: {
     flexDirection: 'row',
@@ -206,17 +214,17 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: c.text.tertiary,
+    color: colors.textMuted,
     flex: 1,
   },
   infoValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: c.text.primary,
+    color: colors.text,
   },
   divider: {
     height: 1,
-    backgroundColor: c.border.light,
+    backgroundColor: colors.borderLight,
   },
 
   // Menu
@@ -227,15 +235,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: c.text.tertiary,
+    color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 8,
     marginLeft: 4,
   },
   menuCard: {
-    backgroundColor: c.background.paper,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: doctorDS.buttonRadius,
     overflow: 'hidden',
   },
   menuItem: {
@@ -245,13 +253,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuItemPressed: {
-    backgroundColor: c.background.secondary,
+    backgroundColor: colors.surfaceSecondary,
   },
   menuIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: c.primary.soft,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -259,11 +267,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    color: c.text.primary,
+    color: colors.text,
   },
   menuDivider: {
     height: 1,
-    backgroundColor: c.border.light,
+    backgroundColor: colors.borderLight,
     marginLeft: 62,
   },
 
@@ -277,20 +285,20 @@ const styles = StyleSheet.create({
     marginTop: 28,
     paddingVertical: 14,
     borderRadius: 26,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.errorLight,
     borderWidth: 1,
     borderColor: '#FECACA',
   },
   logoutText: {
     fontSize: 15,
     fontWeight: '700',
-    color: c.status.error,
+    color: colors.error,
   },
 
   // Version
   version: {
     fontSize: 12,
-    color: c.text.tertiary,
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: 16,
   },

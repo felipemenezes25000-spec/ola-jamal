@@ -1,6 +1,7 @@
 using DotNetEnv;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Auth;
+using RenoveJa.Infrastructure.AiReading;
 using RenoveJa.Application.Services.Audit;
 using RenoveJa.Application.Services.Requests;
 using RenoveJa.Application.Services.Payments;
@@ -18,10 +19,10 @@ using RenoveJa.Infrastructure.Payments;
 using RenoveJa.Infrastructure.Certificates;
 using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.CrmValidation;
-using RenoveJa.Infrastructure.Video;
 using RenoveJa.Infrastructure.Auth;
 using RenoveJa.Api.Middleware;
 using RenoveJa.Api.Authentication;
+using RenoveJa.Api.Hubs;
 using RenoveJa.Api.Swagger;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.OpenApi.Models;
@@ -173,10 +174,6 @@ builder.Services.Configure<SmtpConfig>(
 builder.Services.Configure<InfoSimplesConfig>(
     builder.Configuration.GetSection(InfoSimplesConfig.SectionName));
 
-// Configure Daily.co (teleconsulta)
-builder.Services.Configure<DailyCoConfig>(
-    builder.Configuration.GetSection(DailyCoConfig.SectionName));
-
 // Configure Certificate Encryption
 builder.Services.Configure<CertificateEncryptionConfig>(
     builder.Configuration.GetSection(CertificateEncryptionConfig.SectionName));
@@ -205,6 +202,7 @@ builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepo
 builder.Services.AddScoped<IEmailService, RenoveJa.Infrastructure.Email.SmtpEmailService>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IVideoRoomRepository, VideoRoomRepository>();
+builder.Services.AddScoped<IConsultationAnamnesisRepository, ConsultationAnamnesisRepository>();
 builder.Services.AddScoped<IPushTokenRepository, PushTokenRepository>();
 builder.Services.AddScoped<IProductPriceRepository, ProductPriceRepository>();
 builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
@@ -227,12 +225,16 @@ builder.Services.AddScoped<IMercadoPagoService, MercadoPagoService>();
 builder.Services.AddScoped<IDigitalCertificateService, DigitalCertificateService>();
 builder.Services.AddScoped<IPrescriptionPdfService, PrescriptionPdfService>();
 builder.Services.AddScoped<ICrmValidationService, InfoSimplesCrmService>();
-builder.Services.AddScoped<IDailyVideoService, DailyVideoService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IPushNotificationSender, RenoveJa.Infrastructure.Notifications.ExpoPushService>();
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IAiReadingService, RenoveJa.Infrastructure.AiReading.OpenAiReadingService>();
+builder.Services.AddScoped<IAiPrescriptionGeneratorService, RenoveJa.Infrastructure.AiReading.OpenAiPrescriptionGeneratorService>();
+builder.Services.AddScoped<IPrescriptionVerifyRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerifyRepository>();
+builder.Services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();
+builder.Services.AddScoped<ITranscriptionService, RenoveJa.Infrastructure.Transcription.WhisperTranscriptionService>();
+builder.Services.AddScoped<IConsultationAnamnesisService, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisService>();
 
 // Configure Authentication
 builder.Services.AddAuthentication("Bearer")
@@ -243,6 +245,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Patient", policy => policy.RequireRole("patient"));
     options.AddPolicy("Doctor", policy => policy.RequireRole("doctor"));
 });
+
+builder.Services.AddSignalR();
 
 // Add CORS - configurado por ambiente
 builder.Services.AddCors(options =>
@@ -400,12 +404,16 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ApiRequestLoggingMiddleware>();
 
+// SignalR: copy access_token from query to Authorization so Bearer auth works for /hubs/*
+app.UseMiddleware<SignalRTokenMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseMiddleware<AuditMiddleware>();
 
 app.MapControllers();
+app.MapHub<VideoSignalingHub>("/hubs/video");
 
 // Log para debug: IP da máquina (dispositivo físico precisa disso em vez de localhost)
 try

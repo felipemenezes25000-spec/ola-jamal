@@ -1,59 +1,89 @@
+/**
+ * Badge de status usando o design system central (getRequestUiState).
+ * Cores: Azul = ação, Verde = sucesso, Amarelo = aguardando, Cinza = histórico.
+ * Variações: success, warning, action, neutral (sem múltiplos estilos espalhados).
+ */
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { theme } from '../lib/theme';
+import { getRequestUiState, UI_STATUS_COLORS, type RequestUiColorKey } from '../lib/domain/getRequestUiState';
+import type { RequestResponseDto } from '../types/database';
 
-const c = theme.colors;
+export type StatusBadgeVariantType = 'success' | 'warning' | 'action' | 'neutral';
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  submitted: { label: 'Enviado', color: '#D97706', bg: '#FEF3C7' },
-  pending: { label: 'Pendente', color: c.text.tertiary, bg: c.background.secondary },
-  analyzing: { label: 'Analisando', color: '#2563EB', bg: '#DBEAFE' },
-  in_review: { label: 'Em Análise', color: '#2563EB', bg: '#DBEAFE' },
-  approved: { label: 'Aprovado', color: '#059669', bg: '#D1FAE5' },
-  approved_pending_payment: { label: 'A Pagar', color: '#EA580C', bg: '#FFEDD5' },
-  pending_payment: { label: 'Aguard. Pgto', color: '#EA580C', bg: '#FFEDD5' },
-  paid: { label: 'Pago', color: '#059669', bg: '#D1FAE5' },
-  signed: { label: 'Assinado', color: '#7C3AED', bg: '#EDE9FE' },
-  delivered: { label: 'Entregue', color: '#059669', bg: '#D1FAE5' },
-  completed: { label: 'Concluído', color: '#059669', bg: '#D1FAE5' },
-  rejected: { label: 'Rejeitado', color: '#DC2626', bg: '#FEE2E2' },
-  cancelled: { label: 'Cancelado', color: '#6B7280', bg: '#F3F4F6' },
-  searching_doctor: { label: 'Buscando Médico', color: '#D97706', bg: '#FEF3C7' },
-  consultation_ready: { label: 'Consulta Pronta', color: '#2563EB', bg: '#DBEAFE' },
-  in_consultation: { label: 'Em Consulta', color: '#2563EB', bg: '#DBEAFE' },
-  consultation_finished: { label: 'Finalizada', color: '#059669', bg: '#D1FAE5' },
+const VARIANT_TO_COLOR_KEY: Record<StatusBadgeVariantType, RequestUiColorKey> = {
+  success: 'success',
+  warning: 'waiting',
+  action: 'action',
+  neutral: 'historical',
 };
 
-const FALLBACK = { label: 'Processando', color: c.text.tertiary, bg: c.background.secondary };
-
-export function getStatusLabel(status: string): string {
-  return STATUS_CONFIG[status]?.label ?? FALLBACK.label;
-}
-
-export function getStatusColor(status: string): string {
-  return STATUS_CONFIG[status]?.color ?? FALLBACK.color;
-}
-
 interface StatusBadgeProps {
+  /** Backend status ou request (usa getRequestUiState) */
   status: string;
   size?: 'sm' | 'md';
 }
 
-export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
-  const cfg = STATUS_CONFIG[status] ?? FALLBACK;
-  const isSm = size === 'sm';
+interface StatusBadgeVariantProps {
+  variant: StatusBadgeVariantType;
+  label: string;
+  size?: 'sm' | 'md';
+}
 
+/** Recebe request e exibe status com design system central */
+export function StatusBadgeByRequest({
+  request,
+  size = 'md',
+}: {
+  request: RequestResponseDto;
+  size?: 'sm' | 'md';
+}) {
+  const { label, colorKey } = getRequestUiState(request);
+  const { color, bg } = UI_STATUS_COLORS[colorKey];
+  const isSm = size === 'sm';
   return (
-    <View style={[styles.badge, { backgroundColor: cfg.bg }, isSm && styles.badgeSm]}>
-      <View style={[styles.dot, { backgroundColor: cfg.color }]} />
-      <Text
-        style={[styles.text, { color: cfg.color }, isSm && styles.textSm]}
-        numberOfLines={1}
-      >
-        {cfg.label}
+    <View style={[styles.badge, { backgroundColor: bg }, isSm && styles.badgeSm]}>
+      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1}>
+        {label}
       </Text>
     </View>
   );
+}
+
+/** Compatibilidade: recebe status string e usa mesmo design system */
+export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
+  const { label, colorKey } = getRequestUiState({ status });
+  const { color, bg } = UI_STATUS_COLORS[colorKey];
+  const isSm = size === 'sm';
+  return (
+    <View style={[styles.badge, { backgroundColor: bg }, isSm && styles.badgeSm]}>
+      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/** Badge por variante (success, warning, action, neutral) – design system único */
+export function StatusBadgeVariant({ variant, label, size = 'md' }: StatusBadgeVariantProps) {
+  const colorKey = VARIANT_TO_COLOR_KEY[variant];
+  const { color, bg } = UI_STATUS_COLORS[colorKey];
+  const isSm = size === 'sm';
+  return (
+    <View style={[styles.badge, { backgroundColor: bg }, isSm && styles.badgeSm]}>
+      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+export function getStatusLabel(status: string): string {
+  return getRequestUiState({ status }).label;
+}
+
+export function getStatusColor(status: string): string {
+  return UI_STATUS_COLORS[getRequestUiState({ status }).colorKey].color;
 }
 
 const styles = StyleSheet.create({
@@ -63,17 +93,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 100,
-    gap: 5,
     flexShrink: 1,
   },
   badgeSm: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
   },
   text: {
     fontSize: 11,

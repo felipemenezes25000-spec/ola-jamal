@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { fetchPayment, fetchPixCode } from '../../lib/api';
+import { formatBRL } from '../../lib/utils/format';
 import { PaymentResponseDto } from '../../types/database';
 
 type PayScreen = 'selection' | 'pix';
@@ -163,7 +164,7 @@ export default function PaymentScreen() {
             <View style={styles.priceDivider} />
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>Valor</Text>
-              <Text style={styles.priceValue}>R$ {payment?.amount?.toFixed(2) || '0,00'}</Text>
+              <Text style={styles.priceValue}>{formatBRL(payment?.amount ?? 0)}</Text>
             </View>
           </View>
 
@@ -192,7 +193,7 @@ export default function PaymentScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.pixCard}>
           <Text style={styles.pixLabel}>PAGUE VIA PIX</Text>
-          <Text style={styles.pixAmount}>R$ {payment?.amount?.toFixed(2) || '0,00'}</Text>
+          <Text style={styles.pixAmount}>{formatBRL(payment?.amount ?? 0)}</Text>
 
           {/* QR Code */}
           {payment?.pixQrCodeBase64 ? (

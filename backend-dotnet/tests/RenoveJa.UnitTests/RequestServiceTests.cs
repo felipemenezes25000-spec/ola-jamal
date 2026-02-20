@@ -18,12 +18,13 @@ public class RequestServiceTests
     private readonly Mock<IUserRepository> _userRepoMock;
     private readonly Mock<IDoctorRepository> _doctorRepoMock;
     private readonly Mock<IVideoRoomRepository> _videoRoomRepoMock;
+    private readonly Mock<IConsultationAnamnesisRepository> _consultationAnamnesisRepoMock;
+    private readonly Mock<IConsultationSessionStore> _consultationSessionStoreMock;
     private readonly Mock<INotificationRepository> _notificationRepoMock;
     private readonly Mock<IPushNotificationSender> _pushSenderMock;
     private readonly Mock<IAiReadingService> _aiReadingMock;
     private readonly Mock<IPrescriptionPdfService> _pdfServiceMock;
     private readonly Mock<IDigitalCertificateService> _certServiceMock;
-    private readonly Mock<IDailyVideoService> _dailyVideoMock;
     private readonly Mock<ILogger<RequestService>> _loggerMock;
     private readonly RequestService _sut;
 
@@ -34,13 +35,16 @@ public class RequestServiceTests
         _userRepoMock = new Mock<IUserRepository>();
         _doctorRepoMock = new Mock<IDoctorRepository>();
         _videoRoomRepoMock = new Mock<IVideoRoomRepository>();
+        _consultationAnamnesisRepoMock = new Mock<IConsultationAnamnesisRepository>();
+        _consultationSessionStoreMock = new Mock<IConsultationSessionStore>();
         _notificationRepoMock = new Mock<INotificationRepository>();
         _pushSenderMock = new Mock<IPushNotificationSender>();
         _aiReadingMock = new Mock<IAiReadingService>();
         _pdfServiceMock = new Mock<IPrescriptionPdfService>();
         _certServiceMock = new Mock<IDigitalCertificateService>();
-        _dailyVideoMock = new Mock<IDailyVideoService>();
         _loggerMock = new Mock<ILogger<RequestService>>();
+        var aiPrescriptionGeneratorMock = new Mock<IAiPrescriptionGeneratorService>();
+        var prescriptionVerifyRepoMock = new Mock<IPrescriptionVerifyRepository>();
 
         _sut = new RequestService(
             _requestRepoMock.Object,
@@ -48,12 +52,15 @@ public class RequestServiceTests
             _userRepoMock.Object,
             _doctorRepoMock.Object,
             _videoRoomRepoMock.Object,
+            _consultationAnamnesisRepoMock.Object,
+            _consultationSessionStoreMock.Object,
             _notificationRepoMock.Object,
             _pushSenderMock.Object,
             _aiReadingMock.Object,
+            aiPrescriptionGeneratorMock.Object,
             _pdfServiceMock.Object,
             _certServiceMock.Object,
-            _dailyVideoMock.Object,
+            prescriptionVerifyRepoMock.Object,
             _loggerMock.Object);
     }
 

@@ -81,7 +81,10 @@ public record RequestResponseDto(
     string? AiRiskLevel = null,
     string? AiUrgency = null,
     bool? AiReadabilityOk = null,
-    string? AiMessageToUser = null
+    string? AiMessageToUser = null,
+    string? ConsultationTranscript = null,
+    string? ConsultationAnamnesis = null,
+    string? ConsultationAiSuggestions = null
 );
 
 /// <summary>Médico atualiza medicamentos, notas e tipo de receita antes da assinatura.</summary>

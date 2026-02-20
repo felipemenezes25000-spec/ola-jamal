@@ -88,7 +88,7 @@ export default function ResetPasswordScreen() {
               label="Nova senha"
               placeholder="Mínimo 8 caracteres"
               value={newPassword}
-              onChangeText={(t) => { setNewPassword(t); setError(''); }}
+              onChangeText={(t: string) => { setNewPassword(t); setError(''); }}
               secureTextEntry
               leftIcon="lock-closed-outline"
             />
@@ -96,7 +96,7 @@ export default function ResetPasswordScreen() {
               label="Confirmar senha"
               placeholder="Repita a nova senha"
               value={confirmPassword}
-              onChangeText={(t) => { setConfirmPassword(t); setError(''); }}
+              onChangeText={(t: string) => { setConfirmPassword(t); setError(''); }}
               secureTextEntry
               leftIcon="lock-closed-outline"
             />

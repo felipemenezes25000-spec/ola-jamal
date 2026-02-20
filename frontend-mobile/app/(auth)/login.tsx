@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,22 @@ import {
   Alert,
   TextInput,
   Keyboard,
+  Platform,
+  ScrollView,
+  KeyboardAvoidingView,
+  Linking,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
+import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../lib/theme';
-import { Screen, AppInput, AppButton } from '../../components/ui';
+import { AppInput, AppButton } from '../../components/ui';
+import { Logo } from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { validate } from '../../lib/validation';
 import { loginSchema } from '../../lib/validation/schemas';
@@ -20,15 +31,50 @@ const c = theme.colors;
 const s = theme.spacing;
 
 const LOG_RENDER = __DEV__ && false;
+const WHATSAPP_NUMBER = '5511986318000';
+const SMALL_SCREEN_HEIGHT = 700;
+const EXTRA_SMALL_SCREEN_HEIGHT = 560;
+
+// Gradiente suave único (sem bloco azul chapado)
+const AUTH_GRADIENT: [string, string, ...string[]] = ['#F7FBFF', '#B8DFFB', '#8FD0FF'];
+
+// Necessário para o fluxo OAuth no app (completar sessão ao voltar do browser)
+WebBrowser.maybeCompleteAuthSession();
 
 export default function Login() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const passwordRef = useRef<TextInput>(null);
+
+  const { height: windowHeight } = useWindowDimensions();
+  const isSmallScreen = windowHeight < SMALL_SCREEN_HEIGHT;
+  const isExtraSmallScreen = windowHeight < EXTRA_SMALL_SCREEN_HEIGHT;
+
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
+  const googleWebClientId = extra?.googleWebClientId || undefined;
+  const googleAndroidClientId = extra?.googleAndroidClientId || undefined;
+  const googleIosClientId = extra?.googleIosClientId || undefined;
+
+  const [request, , promptGoogle] = useIdTokenAuthRequest({
+    webClientId: googleWebClientId,
+    androidClientId: Platform.OS === 'android' ? (googleAndroidClientId || googleWebClientId) : undefined,
+    iosClientId: Platform.OS === 'ios' ? (googleIosClientId || googleWebClientId) : undefined,
+  });
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const renderCount = useRef(0);
@@ -97,170 +143,333 @@ export default function Login() {
     Keyboard.dismiss();
   }, []);
 
-  return (
-    <Screen variant="gradient" scroll contentStyle={styles.content}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.logoRow}>
-          <Ionicons name="medical" size={32} color={c.primary.main} />
-        </View>
-        <Text style={styles.title}>
-          <Text style={{ color: c.primary.main }}>RenoveJá</Text>
-          <Text style={{ color: c.secondary.main }}>+</Text>
-        </Text>
-        <Text style={styles.subtitle}>
-          {'Renove sua receita e pedido de exames.\nRápido e sem burocracia.'}
+  const handleGooglePress = useCallback(async () => {
+    if (!googleWebClientId?.trim()) {
+      Alert.alert(
+        'Google Login',
+        'Configure EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env ou app.config. Veja GOOGLE_OAUTH_SETUP.md.'
+      );
+      return;
+    }
+    if (!request) return;
+    setGoogleLoading(true);
+    try {
+      const result = await promptGoogle();
+      if (result.type === 'success' && result.params?.id_token) {
+        const idToken = result.params.id_token as string;
+        const user = await signInWithGoogle(idToken);
+        const dest = !user.profileComplete
+          ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
+          : user.role === 'doctor'
+          ? '/(doctor)/dashboard'
+          : '/(patient)/home';
+        setTimeout(() => router.replace(dest as any), 0);
+      } else if (result.type === 'error') {
+        const err = result.error;
+        if (err?.message && !err.message.includes('cancel')) {
+          Alert.alert('Erro no Google', err.message);
+        }
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      const msg = err?.message || String(error) || 'Erro ao fazer login com Google.';
+      Alert.alert('Erro no login', msg);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [googleWebClientId, request, promptGoogle, signInWithGoogle, router]);
+
+  const openWhatsApp = useCallback(() => {
+    const url = `https://wa.me/${WHATSAPP_NUMBER}`;
+    Linking.openURL(url).catch(() => {});
+  }, []);
+
+  const content = (
+    /* Card único centralizado no gradiente */
+    <View style={[styles.card, isSmallScreen && styles.cardSmall]}>
+
+      {/* Logo + tagline no topo do card */}
+      <View style={[styles.logoSection, isSmallScreen && styles.logoSectionSmall]}>
+        <Logo size="small" variant="dark" compact />
+        <Text style={[styles.tagline, isSmallScreen && styles.taglineSmall]}>
+          Renove sua receita e pedido de exames.{'\n'}Rápido e sem burocracia.
         </Text>
       </View>
 
-      {/* Form - inputs always mounted, no conditional rendering, no key changes */}
-      <View style={styles.form}>
-        <AppInput
-          label="Email"
-          leftIcon="mail-outline"
-          placeholder="seu@email.com"
-          value={email}
-          onChangeText={handleEmailChange}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="next"
-          blurOnSubmit={false}
-          onSubmitEditing={focusPassword}
-          error={errors.email}
-        />
+      {/* Separador visual */}
+      <View style={styles.cardDivider} />
 
-        <AppInput
-          ref={passwordRef}
-          label="Senha"
-          leftIcon="lock-closed-outline"
-          placeholder="Sua senha"
-          value={password}
-          onChangeText={handlePasswordChange}
-          secureTextEntry
-          returnKeyType="done"
-          blurOnSubmit={true}
-          onSubmitEditing={dismissKeyboard}
-          error={errors.password}
-        />
+      {/* Inputs */}
+      <AppInput
+        label="Email"
+        leftIcon="mail-outline"
+        placeholder="seu@email.com"
+        value={email}
+        onChangeText={handleEmailChange}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="next"
+        blurOnSubmit={false}
+        onSubmitEditing={focusPassword}
+        error={errors.email}
+        containerStyle={styles.inputContainer}
+      />
+      <AppInput
+        ref={passwordRef}
+        label="Senha"
+        leftIcon="lock-closed-outline"
+        placeholder="Sua senha"
+        value={password}
+        onChangeText={handlePasswordChange}
+        secureTextEntry
+        returnKeyType="done"
+        blurOnSubmit={true}
+        onSubmitEditing={dismissKeyboard}
+        error={errors.password}
+        containerStyle={styles.inputLast}
+      />
 
-        <TouchableOpacity
-          onPress={handleForgotPassword}
-          style={styles.forgotRow}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
-        </TouchableOpacity>
+      {/* Esqueceu senha */}
+      <TouchableOpacity
+        onPress={handleForgotPassword}
+        style={styles.forgotRow}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
+      </TouchableOpacity>
 
-        <AppButton
-          title="Login"
-          onPress={handleLogin}
-          loading={loading}
-          disabled={loading}
-          fullWidth
-          style={styles.loginButton}
-        />
+      {/* Botão Login */}
+      <AppButton
+        title="Login"
+        onPress={handleLogin}
+        loading={loading}
+        disabled={loading}
+        fullWidth
+        variant="primary"
+        style={styles.loginButton}
+      />
 
-        {/* WhatsApp */}
-        <Text style={styles.whatsapp}>WHATSAPP: (11) 98631-8000</Text>
-
-        {/* Social Login Icons */}
-        <View style={styles.socialRow}>
-          <TouchableOpacity style={styles.socialCircle} activeOpacity={0.7}>
-            <Ionicons name="logo-google" size={22} color={c.text.secondary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialCircle} activeOpacity={0.7}>
-            <Ionicons name="logo-apple" size={22} color={c.text.secondary} />
-          </TouchableOpacity>
-        </View>
+      {/* OU */}
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>ou</Text>
+        <View style={styles.dividerLine} />
       </View>
 
-      {/* Register Link */}
+      {/* Botões sociais */}
+      <AppButton
+        title="Continuar com Google"
+        onPress={handleGooglePress}
+        loading={googleLoading}
+        disabled={!request}
+        variant="outline"
+        fullWidth
+        icon="logo-google"
+        style={styles.socialButton}
+      />
+      <AppButton
+        title="Continuar com Apple"
+        onPress={() => {}}
+        disabled
+        variant="outline"
+        fullWidth
+        icon="logo-apple"
+        style={styles.socialButtonLast}
+      />
+
+      {/* Rodapé */}
+      <TouchableOpacity
+        onPress={openWhatsApp}
+        style={styles.whatsappLink}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={styles.whatsappLinkText}>Precisa de ajuda? Fale no WhatsApp</Text>
+      </TouchableOpacity>
+
       <View style={styles.registerRow}>
         <Text style={styles.registerText}>Não tem uma conta? </Text>
-        <TouchableOpacity onPress={handleRegister}>
+        <TouchableOpacity onPress={handleRegister} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.registerLink}>Crie agora!</Text>
         </TouchableOpacity>
       </View>
-    </Screen>
+    </View>
+  );
+
+  return (
+    <LinearGradient
+      colors={AUTH_GRADIENT}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          {keyboardVisible ? (
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={[
+                styles.scrollContent,
+                { paddingBottom: Math.max(24, windowHeight * 0.08) },
+              ]}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              {content}
+            </ScrollView>
+          ) : (
+            <View style={styles.containerStatic}>{content}</View>
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: s.lg,
+  gradient: { flex: 1 },
+  safeArea: { flex: 1 },
+  keyboardView: { flex: 1 },
+  scrollView: { flex: 1 },
+
+  // Scroll (teclado aberto)
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
-  header: {
-    alignItems: 'center',
-    marginTop: s.xxl,
-    marginBottom: s.xl,
-  },
-  logoRow: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: c.primary.soft,
-    alignItems: 'center',
+
+  // View estática (teclado fechado)
+  containerStatic: {
+    flex: 1,
     justifyContent: 'center',
-    marginBottom: s.md,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+
+  // Card único — contém TUDO (logo + form + social + links)
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 20,
+    ...theme.shadows.card,
   },
-  subtitle: {
-    fontSize: 15,
+  cardSmall: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+
+  // Logo + tagline (topo do card)
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoSectionSmall: {
+    marginBottom: 12,
+  },
+  tagline: {
+    marginTop: 8,
+    fontSize: 13,
     color: c.text.secondary,
     textAlign: 'center',
-    marginTop: s.sm,
-    lineHeight: 22,
+    lineHeight: 19,
   },
-  form: {
-    marginBottom: s.lg,
+  taglineSmall: {
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 17,
   },
+
+  // Separador fino entre header e form
+  cardDivider: {
+    height: 1,
+    backgroundColor: c.border.light,
+    marginBottom: 16,
+  },
+
+  // Inputs
+  inputContainer: {
+    marginBottom: 4,
+  },
+  inputLast: {
+    marginBottom: 0,
+  },
+
+  // Esqueceu senha
   forgotRow: {
     alignSelf: 'flex-end',
-    marginBottom: s.md,
+    marginTop: 6,
+    marginBottom: 16,
   },
   forgotText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: c.primary.main,
   },
+
+  // Botão Login
   loginButton: {
-    marginTop: s.sm,
-  },
-  whatsapp: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: c.text.tertiary,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-    marginTop: s.lg,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: s.md,
-    marginTop: s.lg,
-  },
-  socialCircle: {
-    width: 52,
     height: 52,
-    borderRadius: 26,
-    borderWidth: 1.5,
-    borderColor: c.border.main,
-    backgroundColor: c.background.paper,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
+
+  // Separador OU
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: c.border.light,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: c.text.tertiary,
+    letterSpacing: 0.5,
+  },
+
+  // Botões sociais
+  socialButton: {
+    height: 48,
+    marginBottom: 10,
+  },
+  socialButtonLast: {
+    height: 48,
+    marginBottom: 0,
+  },
+
+  // WhatsApp
+  whatsappLink: {
+    marginTop: 14,
+    alignSelf: 'center',
+  },
+  whatsappLinkText: {
+    fontSize: 12,
+    color: c.text.tertiary,
+    textDecorationLine: 'underline',
+    fontWeight: '400',
+  },
+
+  // Crie agora
   registerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: s.xl,
-    marginBottom: s.lg,
+    marginTop: 10,
+    flexWrap: 'wrap',
   },
   registerText: {
     fontSize: 14,

@@ -111,6 +111,9 @@ public interface IRequestService
     /// <summary>Gera preview do PDF da receita (base64) para o médico visualizar antes de assinar.</summary>
     Task<byte[]?> GetPrescriptionPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Gera preview do PDF de pedido de exame para o médico visualizar antes de assinar.</summary>
+    Task<byte[]?> GetExamPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
+
     /// <summary>Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF.</summary>
     Task<RequestResponseDto> MarkDeliveredAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
 

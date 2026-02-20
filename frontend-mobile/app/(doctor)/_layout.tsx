@@ -2,17 +2,25 @@ import React, { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../lib/themeDoctor';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { PulsingNotificationIcon } from '../../components/PulsingNotificationIcon';
 import { useAuth } from '../../contexts/AuthContext';
 
+const TAB_BAR_BASE_HEIGHT = Platform.OS === 'ios' ? 56 : 56;
+const TAB_BAR_PADDING_TOP = 8;
+
 export default function DoctorLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, loading } = useAuth();
   const { unreadCount } = useNotifications();
   const hasUnread = unreadCount > 0;
+
+  const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
+  const tabBarPaddingBottom = Math.max(10, insets.bottom + (Platform.OS === 'ios' ? 4 : 8));
 
   useEffect(() => {
     if (!loading && !user) {
@@ -32,9 +40,10 @@ export default function DoctorLayout() {
             backgroundColor: colors.surface,
             borderTopColor: colors.borderLight,
             borderTopWidth: 1,
-            height: Platform.OS === 'ios' ? 88 : 68,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-            paddingTop: 8,
+            height: tabBarHeight,
+            paddingBottom: tabBarPaddingBottom,
+            paddingTop: TAB_BAR_PADDING_TOP,
+            overflow: 'hidden',
             ...Platform.select({
               ios: {
                 shadowColor: '#000',
@@ -73,9 +82,9 @@ export default function DoctorLayout() {
         <Tabs.Screen
           name="requests"
           options={{
-            title: 'Fila',
+            title: 'Dashboard',
             tabBarIcon: ({ color, focused }) => (
-              <DoctorTabIcon name={focused ? 'layers' : 'layers-outline'} color={color} focused={focused} />
+              <DoctorTabIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} focused={focused} />
             ),
           }}
         />
@@ -105,7 +114,7 @@ export default function DoctorLayout() {
 
 function DoctorTabIcon({ name, color, focused }: { name: keyof typeof Ionicons.glyphMap; color: string; focused: boolean }) {
   return (
-    <View style={{ alignItems: 'center' }}>
+    <View style={{ alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
       {focused && (
         <View style={{
           position: 'absolute',

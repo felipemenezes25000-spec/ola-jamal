@@ -63,6 +63,8 @@ export default function Register() {
   const [specialtySearch, setSpecialtySearch] = useState('');
   const [certFile, setCertFile] = useState<any>(null);
   const [certPassword, setCertPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
 
   useEffect(() => {
     if (role === 'doctor') {
@@ -167,6 +169,13 @@ export default function Register() {
       else if (st.length !== 2) err.state = 'Informe a sigla com 2 letras.';
     }
 
+    if (!acceptedTerms) {
+      err.terms = 'Aceite os Termos de Uso para continuar.';
+    }
+    if (!acceptedPrivacy) {
+      err.privacy = 'Aceite a Política de Privacidade para continuar.';
+    }
+
     if (Object.keys(err).length > 0) {
       setFieldErrors(err);
       return;
@@ -246,7 +255,7 @@ export default function Register() {
       {/* Title & Subtitle */}
       <Text style={styles.title}>Vamos começar!</Text>
       <Text style={styles.subtitle}>
-        preencha os dados abaixo para começar o cadastro.
+        Escolha se você é Paciente ou Médico, preencha os dados abaixo e toque em Cadastrar no final.
       </Text>
 
       {/* Role Toggle */}
@@ -289,7 +298,7 @@ export default function Register() {
           leftIcon="person-outline"
           placeholder="Seu nome completo"
           value={name}
-          onChangeText={(t) => { setName(t); clearError('name'); }}
+          onChangeText={(t: string) => { setName(t); clearError('name'); }}
           error={fieldErrors.name}
           autoCapitalize="words"
         />
@@ -299,7 +308,7 @@ export default function Register() {
           leftIcon="mail-outline"
           placeholder="seu@email.com"
           value={email}
-          onChangeText={(t) => { setEmail(t); clearError('email'); }}
+          onChangeText={(t: string) => { setEmail(t); clearError('email'); }}
           error={fieldErrors.email}
           keyboardType="email-address"
           autoCapitalize="none"
@@ -310,7 +319,7 @@ export default function Register() {
           leftIcon="lock-closed-outline"
           placeholder="Mín. 8 caracteres, 1 maiúscula, 1 número e 1 especial"
           value={password}
-          onChangeText={(t) => { setPassword(t); clearError('password'); }}
+          onChangeText={(t: string) => { setPassword(t); clearError('password'); }}
           error={fieldErrors.password}
           secureTextEntry
         />
@@ -320,7 +329,7 @@ export default function Register() {
           leftIcon="lock-closed-outline"
           placeholder="Repita a senha"
           value={confirmPassword}
-          onChangeText={(t) => { setConfirmPassword(t); clearError('confirmPassword'); }}
+          onChangeText={(t: string) => { setConfirmPassword(t); clearError('confirmPassword'); }}
           error={fieldErrors.confirmPassword}
           secureTextEntry
         />
@@ -330,7 +339,7 @@ export default function Register() {
           leftIcon="call-outline"
           placeholder="(11) 99999-9999"
           value={phone}
-          onChangeText={(t) => { setPhone(t); clearError('phone'); }}
+          onChangeText={(t: string) => { setPhone(t); clearError('phone'); }}
           error={fieldErrors.phone}
           keyboardType="phone-pad"
         />
@@ -340,7 +349,7 @@ export default function Register() {
           leftIcon="card-outline"
           placeholder="000.000.000-00"
           value={cpf}
-          onChangeText={(t) => { setCpf(t); clearError('cpf'); }}
+          onChangeText={(t: string) => { setCpf(t); clearError('cpf'); }}
           error={fieldErrors.cpf}
           keyboardType="numeric"
         />
@@ -361,7 +370,7 @@ export default function Register() {
               required
               placeholder="Nome da rua"
               value={street}
-              onChangeText={(t) => { setStreet(t); clearError('street'); }}
+              onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
               leftIcon="home-outline"
               error={fieldErrors.street}
             />
@@ -371,7 +380,7 @@ export default function Register() {
                 required
                 placeholder="Nº"
                 value={number}
-                onChangeText={(t) => { setNumber(t); clearError('number'); }}
+                onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
                 keyboardType="numeric"
                 containerStyle={styles.numberInput}
                 error={fieldErrors.number}
@@ -389,7 +398,7 @@ export default function Register() {
               required
               placeholder="Bairro"
               value={neighborhood}
-              onChangeText={(t) => { setNeighborhood(t); clearError('neighborhood'); }}
+              onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
               leftIcon="business-outline"
               error={fieldErrors.neighborhood}
             />
@@ -399,7 +408,7 @@ export default function Register() {
                 required
                 placeholder="Cidade"
                 value={city}
-                onChangeText={(t) => { setCity(t); clearError('city'); }}
+                onChangeText={(t: string) => { setCity(t); clearError('city'); }}
                 containerStyle={styles.cityInput}
                 error={fieldErrors.city}
               />
@@ -408,7 +417,7 @@ export default function Register() {
                 required
                 placeholder="UF"
                 value={state}
-                onChangeText={(t) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
+                onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
                 maxLength={2}
                 containerStyle={styles.stateInput}
                 error={fieldErrors.state}
@@ -425,7 +434,7 @@ export default function Register() {
               leftIcon="shield-checkmark-outline"
               placeholder="Número do CRM (4 a 7 dígitos)"
               value={crm}
-              onChangeText={(t) => { setCrm(t); clearError('crm'); }}
+              onChangeText={(t: string) => { setCrm(t); clearError('crm'); }}
               error={fieldErrors.crm}
             />
             <AppInput
@@ -434,7 +443,7 @@ export default function Register() {
               leftIcon="location-outline"
               placeholder="SP"
               value={crmState}
-              onChangeText={(t) => { setCrmState(t); clearError('crmState'); }}
+              onChangeText={(t: string) => { setCrmState(t); clearError('crmState'); }}
               error={fieldErrors.crmState}
             />
             {specialtiesList.length > 0 ? (
@@ -550,7 +559,7 @@ export default function Register() {
                 leftIcon="medkit-outline"
                 placeholder="Carregando..."
                 value={specialty}
-                onChangeText={(t) => { setSpecialty(t); clearError('specialty'); }}
+                onChangeText={(t: string) => { setSpecialty(t); clearError('specialty'); }}
                 error={fieldErrors.specialty}
                 editable={false}
               />
@@ -599,6 +608,62 @@ export default function Register() {
             </View>
           </>
         )}
+
+        {/* Uso de IA - destaque para o paciente e demais */}
+        <View style={styles.aiNotice}>
+          <Ionicons name="sparkles" size={20} color={c.primary.main} />
+          <Text style={styles.aiNoticeText}>
+            Utilizamos inteligência artificial para triagem e leitura de receitas e exames, agilizando seu atendimento.
+          </Text>
+        </View>
+
+        {/* Checkbox Termos de Uso */}
+        <TouchableOpacity
+          style={styles.termsRow}
+          onPress={() => { setAcceptedTerms((v) => !v); clearError('terms'); }}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+            {acceptedTerms ? (
+              <Ionicons name="checkmark" size={18} color="#fff" />
+            ) : null}
+          </View>
+          <Text style={styles.termsLabel}>Li e aceito os </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/terms' as any)}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          >
+            <Text style={styles.termsLink}>Termos de Uso</Text>
+          </TouchableOpacity>
+          <Text style={styles.termsLabel}>.</Text>
+        </TouchableOpacity>
+        {fieldErrors.terms ? (
+          <Text style={styles.fieldErrorText}>{fieldErrors.terms}</Text>
+        ) : null}
+
+        {/* Checkbox Política de Privacidade */}
+        <TouchableOpacity
+          style={styles.termsRow}
+          onPress={() => { setAcceptedPrivacy((v) => !v); clearError('privacy'); }}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.checkbox, acceptedPrivacy && styles.checkboxChecked]}>
+            {acceptedPrivacy ? (
+              <Ionicons name="checkmark" size={18} color="#fff" />
+            ) : null}
+          </View>
+          <Text style={styles.termsLabel}>Li e aceito a </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/privacy' as any)}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          >
+            <Text style={styles.termsLink}>Política de Privacidade</Text>
+          </TouchableOpacity>
+          <Text style={styles.termsLabel}>.</Text>
+        </TouchableOpacity>
+        {fieldErrors.privacy ? (
+          <Text style={styles.fieldErrorText}>{fieldErrors.privacy}</Text>
+        ) : null}
 
         {/* Submit Button */}
         <AppButton
@@ -904,5 +969,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: c.primary.main,
+  },
+  aiNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s.sm,
+    backgroundColor: c.primary.ghost ?? '#EFF6FF',
+    padding: s.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: s.md,
+    marginBottom: s.sm,
+  },
+  aiNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: c.text.secondary,
+    lineHeight: 20,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: s.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: c.border.main,
+    marginRight: s.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: c.primary.main,
+    borderColor: c.primary.main,
+  },
+  termsLabel: {
+    fontSize: 14,
+    color: c.text.primary,
+  },
+  termsLink: {
+    fontSize: 14,
+    color: c.primary.main,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

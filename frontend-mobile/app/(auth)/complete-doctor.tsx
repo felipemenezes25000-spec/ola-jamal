@@ -24,6 +24,8 @@ export default function CompleteDoctorScreen() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
 
   useEffect(() => {
     loadCert();
@@ -65,6 +67,10 @@ export default function CompleteDoctorScreen() {
     }
     if (!password) {
       Alert.alert('Atenção', 'Informe a senha do certificado');
+      return;
+    }
+    if (!acceptedTerms || !acceptedPrivacy) {
+      Alert.alert('Atenção', 'Aceite os Termos de Uso e a Política de Privacidade para continuar.');
       return;
     }
     setUploading(true);
@@ -125,6 +131,46 @@ export default function CompleteDoctorScreen() {
             Para concluir seu cadastro, cadastre seu certificado digital. Ele é necessário para
             assinar receitas e pedidos de exame.
           </Text>
+          <Text style={styles.infoDesc}>
+            A senha do certificado não é armazenada: ela é usada apenas no momento da assinatura e não fica salva em nossos servidores.
+          </Text>
+        </Card>
+
+        <Card style={styles.disclaimerCard}>
+          <Text style={styles.disclaimerTitle}>Uso de IA, Certificado e Documentos</Text>
+          <Text style={styles.disclaimerText}>
+            A plataforma utiliza IA no atendimento (triagem e leitura de receitas e exames). A senha do certificado não é armazenada — é usada apenas no momento da assinatura.
+          </Text>
+          <TouchableOpacity
+            style={styles.termsCheckRow}
+            onPress={() => setAcceptedTerms((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+              {acceptedTerms ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
+            </View>
+            <Text style={styles.termsCheckText}>
+              Li e aceito os Termos de Uso.
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/terms' as any)} style={styles.termsLinkWrap}>
+            <Text style={styles.termsLink}>Ler Termos de Uso</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.termsCheckRow, styles.termsCheckRowSecond]}
+            onPress={() => setAcceptedPrivacy((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkbox, acceptedPrivacy && styles.checkboxChecked]}>
+              {acceptedPrivacy ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
+            </View>
+            <Text style={styles.termsCheckText}>
+              Li e aceito a Política de Privacidade.
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/privacy' as any)} style={styles.termsLinkWrap}>
+            <Text style={styles.termsLink}>Ler Política de Privacidade</Text>
+          </TouchableOpacity>
         </Card>
 
         <Card style={styles.uploadCard}>
@@ -146,7 +192,7 @@ export default function CompleteDoctorScreen() {
 
           <Input
             label="Senha do Certificado"
-            placeholder="Digite a senha do PFX"
+            placeholder="Digite a senha do PFX (não é armazenada)"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -218,4 +264,56 @@ const styles = StyleSheet.create({
   helpCard: { marginBottom: spacing.md },
   helpTitle: { ...typography.bodySemiBold, color: colors.primaryDarker, marginBottom: spacing.sm },
   helpText: { ...typography.bodySmall, color: colors.gray600, marginBottom: 4 },
+  disclaimerCard: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  disclaimerTitle: {
+    ...typography.bodySemiBold,
+    color: colors.primaryDarker,
+    marginBottom: spacing.sm,
+  },
+  disclaimerText: {
+    ...typography.bodySmall,
+    color: colors.gray600,
+    marginBottom: spacing.sm,
+    lineHeight: 20,
+  },
+  termsCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: spacing.xs,
+  },
+  termsCheckRowSecond: {
+    marginTop: spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.gray400,
+    marginRight: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  termsCheckText: {
+    flex: 1,
+    ...typography.bodySmall,
+    color: colors.gray700,
+    lineHeight: 20,
+  },
+  termsLinkWrap: {
+    marginTop: spacing.sm,
+  },
+  termsLink: {
+    ...typography.bodySmall,
+    color: colors.primary,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
 });

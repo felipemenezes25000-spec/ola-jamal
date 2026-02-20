@@ -1,79 +1,35 @@
 import { useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import type { VerifySuccess } from '../api/verify';
+import { verifyReceita, type VerifySuccess } from '../api/verify';
 
 type VerifyState = 'idle' | 'loading' | 'success' | 'error';
 
 const GUARDRAIL_ALERT =
   'Importante: Decisão e responsabilidade é do profissional. Conteúdo exibido para verificação.';
 
-async function verifyReceitaApi(args: { id: string; code: string; v?: string }) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-  if (!supabaseUrl || !anonKey) {
-    throw new Error(
-      'Variáveis de ambiente ausentes: VITE_SUPABASE_URL e/ou VITE_SUPABASE_ANON_KEY.'
-    );
+function mapErrorToMessage(code: string | undefined): string {
+  switch (code) {
+    case 'invalid_code': return 'Código inválido.';
+    case 'invalid_code_format': return 'Código deve ter exatamente 6 dígitos.';
+    case 'invalid_token': return 'Token inválido ou expirado.';
+    case 'revoked': return 'Receita revogada.';
+    case 'expired': return 'Receita expirada.';
+    case 'not_found': return 'Receita não encontrada.';
+    case 'invalid_id': return 'ID inválido na URL.';
+    default: return code ? String(code) : 'Falha ao verificar. Tente novamente.';
   }
+}
 
-  const res = await fetch(`${supabaseUrl}/functions/v1/verify`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'authorization': `Bearer ${anonKey}`,
-      'apikey': anonKey,
-    },
-    body: JSON.stringify({
-      id: args.id,
-      code: args.code,
-      v: args.v,
-    }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    const msg =
-      data?.error === 'invalid_code'
-        ? 'Código inválido.'
-        : data?.error === 'invalid_code_format'
-          ? 'Código deve ter exatamente 6 dígitos.'
-        : data?.error === 'invalid_token'
-          ? 'Token inválido ou expirado.'
-        : data?.error === 'revoked'
-          ? 'Receita revogada.'
-        : data?.error === 'expired'
-          ? 'Receita expirada.'
-        : data?.error === 'not_found'
-          ? 'Receita não encontrada.'
-        : data?.error === 'invalid_id'
-          ? 'ID inválido na URL.'
-        : data?.error
-          ? String(data.error)
-          : 'Falha ao verificar. Tente novamente.';
-    throw new Error(msg);
+async function verifyOrThrow(id: string, code: string, v?: string): Promise<VerifySuccess> {
+  const res = await verifyReceita({ id, code, v });
+  if (res.status === 'error') {
+    throw new Error(mapErrorToMessage(res.error));
   }
-
-  const body = data as {
-    status: 'valid' | 'invalid' | 'revoked' | 'expired' | 'dispensed';
-    downloadUrl?: string;
-    meta?: {
-      issuedAt?: string;
-      issuedDate?: string;
-      patientInitials?: string;
-      crmMasked?: string;
-      paciente?: string;
-      crm?: string;
-      emitida?: string;
-    };
-    note?: string;
-  };
-  if (body.status !== 'valid') {
-    const msg = body.status === 'revoked' ? 'Receita revogada.' : body.status === 'expired' ? 'Receita expirada.' : 'Receita inválida.';
-    throw new Error(msg);
+  if (res.status !== 'valid') {
+    const err = 'error' in res ? res.error : undefined;
+    throw new Error(mapErrorToMessage(err));
   }
-  return body;
+  return res;
 }
 
 export default function Verify() {
@@ -96,11 +52,12 @@ export default function Verify() {
       setResult(null);
       setDownloadUrl(null);
       try {
-        const api = await verifyReceitaApi({ id: id.trim(), code: code.trim(), v: v || undefined });
+        const api = await verifyOrThrow(id.trim(), code.trim(), v || undefined);
 
-        const issuedAt = api?.meta?.issuedAt ?? api?.meta?.emitida ?? new Date().toISOString();
-        const patientInitials = api?.meta?.patientInitials ?? api?.meta?.paciente ?? '—';
-        const crmMasked = api?.meta?.crmMasked ?? api?.meta?.crm ?? 'CRM/UF • ****';
+        const meta = api?.meta ?? {};
+        const issuedAt = meta.issuedAt ?? meta.emitida ?? new Date().toISOString();
+        const patientInitials = meta.patientInitials ?? meta.paciente ?? '—';
+        const crmMasked = meta.crmMasked ?? meta.crm ?? 'CRM/UF • ****';
 
         setResult({
           status: 'valid',

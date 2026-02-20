@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/api/verify.ts","./src/pages/verify.tsx","./src/utils/hash.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/api/verify.ts","./src/pages/verify.tsx"],"version":"5.6.3"}

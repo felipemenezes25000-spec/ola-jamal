@@ -83,7 +83,7 @@ public class DoctorService(
     }
 
     /// <summary>
-    /// Lista médicos com paginação, opcionalmente por especialidade e disponibilidade.
+    /// Lista médicos com paginação na query (Supabase), opcionalmente por especialidade e disponibilidade.
     /// </summary>
     public async Task<PagedResponse<DoctorListResponseDto>> GetDoctorsPagedAsync(
         string? specialty,
@@ -92,11 +92,36 @@ public class DoctorService(
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        // Busca todos e pagina em memória (repositórios não suportam offset nativamente ainda)
-        var allDoctors = await GetDoctorsAsync(specialty, available, cancellationToken);
-        var totalCount = allDoctors.Count;
         var offset = (page - 1) * pageSize;
-        var items = allDoctors.Skip(offset).Take(pageSize).ToList();
+        var (profiles, totalCount) = await doctorRepository.GetPagedAsync(specialty, available, offset, pageSize, cancellationToken);
+
+        if (profiles.Count == 0)
+            return new PagedResponse<DoctorListResponseDto>(new List<DoctorListResponseDto>(), totalCount, page, pageSize);
+
+        var userIds = profiles.Select(p => p.UserId).Distinct();
+        var users = await userRepository.GetByIdsAsync(userIds, cancellationToken);
+        var userMap = users.ToDictionary(u => u.Id);
+
+        var items = new List<DoctorListResponseDto>();
+        foreach (var profile in profiles)
+        {
+            if (userMap.TryGetValue(profile.UserId, out var user))
+            {
+                items.Add(new DoctorListResponseDto(
+                    profile.Id,
+                    user.Name,
+                    user.Email,
+                    user.Phone?.Value,
+                    user.AvatarUrl,
+                    profile.Crm,
+                    profile.CrmState,
+                    profile.Specialty,
+                    profile.Bio,
+                    profile.Rating,
+                    profile.TotalConsultations,
+                    profile.Available));
+            }
+        }
 
         return new PagedResponse<DoctorListResponseDto>(items, totalCount, page, pageSize);
     }

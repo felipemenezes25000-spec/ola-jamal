@@ -510,6 +510,19 @@ public class RequestsController(
     }
 
     /// <summary>
+    /// Pré-visualização do PDF de pedido de exame. Médico ou paciente.
+    /// </summary>
+    [HttpGet("{id}/preview-exam-pdf")]
+    public async Task<IActionResult> PreviewExamPdf(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var bytes = await requestService.GetExamPdfPreviewAsync(id, userId, cancellationToken);
+        if (bytes == null || bytes.Length == 0)
+            return BadRequest(new { error = "Não foi possível gerar o preview. Verifique se a solicitação é do tipo exame e se você tem acesso." });
+        return File(bytes, "application/pdf", $"preview-pedido-exame-{id}.pdf");
+    }
+
+    /// <summary>
     /// Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF.
     /// </summary>
     [HttpPost("{id}/mark-delivered")]

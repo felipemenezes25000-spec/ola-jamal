@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../constants/theme';
+import { COMPANY } from '../lib/company';
 
 export default function HelpFaqScreen() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function HelpFaqScreen() {
 
         <Text style={styles.sectionTitle}>Contato</Text>
         <Text style={styles.paragraph}>
-          Para dúvidas ou problemas, entre em contato pelo e-mail de suporte disponível na sua área de Configurações ou no site do RenoveJá+.
+          Para dúvidas ou problemas: {COMPANY.phone} ou {COMPANY.website}. O canal de suporte também está disponível na área de Configurações do app.
         </Text>
       </ScrollView>
     </SafeAreaView>

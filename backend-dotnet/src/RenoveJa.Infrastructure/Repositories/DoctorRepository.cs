@@ -68,6 +68,32 @@ public class DoctorRepository(SupabaseClient supabase) : IDoctorRepository
         return models.Select(MapToDomain).ToList();
     }
 
+    public async Task<(List<DoctorProfile> Items, int TotalCount)> GetPagedAsync(string? specialty, bool? available, int offset, int limit, CancellationToken cancellationToken = default)
+    {
+        string? filter = null;
+        if (available == true)
+        {
+            filter = "available=eq.true";
+            if (!string.IsNullOrWhiteSpace(specialty))
+                filter += $"&specialty=eq.{specialty}";
+        }
+        else if (!string.IsNullOrWhiteSpace(specialty))
+        {
+            filter = $"specialty=eq.{specialty}";
+        }
+
+        var models = await supabase.GetAllAsync<DoctorProfileModel>(
+            TableName,
+            filter: filter,
+            limit: limit,
+            offset: offset,
+            cancellationToken: cancellationToken);
+
+        var totalCount = await supabase.CountAsync(TableName, filter: filter, cancellationToken: cancellationToken);
+        var items = models.Select(MapToDomain).ToList();
+        return (items, totalCount);
+    }
+
     public async Task<DoctorProfile> CreateAsync(DoctorProfile doctorProfile, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(doctorProfile);

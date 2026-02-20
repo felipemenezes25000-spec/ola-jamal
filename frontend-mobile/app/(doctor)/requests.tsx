@@ -11,9 +11,10 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, gradients, borderRadius } from '../../lib/themeDoctor';
+import { colors, spacing, typography, gradients, borderRadius, doctorDS } from '../../lib/themeDoctor';
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
+import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { EmptyState } from '../../components/EmptyState';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -30,11 +31,11 @@ const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
 
 function getHeaderLabel(activeKey: string): { title: string; subtitle: string } {
   const item = TYPE_FILTER_ITEMS.find((c) => c.key === activeKey);
-  if (item?.key === 'all') return { title: 'Fila de Pedidos', subtitle: 'Todos os pedidos' };
+  if (item?.key === 'all') return { title: 'Dashboard', subtitle: 'Atendimentos e pedidos' };
   if (item?.type === 'prescription') return { title: 'Receitas', subtitle: 'Pedidos de receita' };
   if (item?.type === 'exam') return { title: 'Exames', subtitle: 'Pedidos de exame' };
   if (item?.type === 'consultation') return { title: 'Consultas', subtitle: 'Solicitações de consulta' };
-  return { title: 'Fila de Pedidos', subtitle: 'Todos os pedidos' };
+  return { title: 'Dashboard', subtitle: 'Atendimentos e pedidos' };
 }
 
 export default function DoctorQueue() {
@@ -118,6 +119,7 @@ export default function DoctorQueue() {
 
   const headerPaddingTop = insets.top + 12;
   const empty = !loading && !error && requests.length === 0;
+  const periodSummary = useMemo(() => getHistoricalGroupedByPeriod(requests), [requests]);
 
   return (
     <View style={styles.container}>
@@ -138,6 +140,16 @@ export default function DoctorQueue() {
           </View>
         </View>
       </LinearGradient>
+
+      {/* Resumo realizados por período */}
+      <View style={styles.periodRow}>
+        {periodSummary.map(({ label: periodLabel, count }) => (
+          <View key={periodLabel} style={styles.periodChip}>
+            <Text style={styles.periodChipLabel} numberOfLines={1}>{periodLabel}</Text>
+            <Text style={styles.periodChipCount}>{count}</Text>
+          </View>
+        ))}
+      </View>
 
       {/* Segmented control */}
       <SegmentedControl
@@ -170,6 +182,8 @@ export default function DoctorQueue() {
               request={item}
               onPress={() => router.push(`/doctor-request/${item.id}`)}
               showPatientName
+              showPrice={false}
+              showRisk={false}
             />
           )}
           contentContainerStyle={[styles.listContent, empty && styles.listContentEmpty]}
@@ -236,6 +250,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+  periodRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  periodChip: {
+    flex: 1,
+    minWidth: 72,
+    backgroundColor: colors.surface,
+    borderRadius: doctorDS.cardRadius,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  periodChipLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginBottom: 2,
+  },
+  periodChipCount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
   loadingWrap: {
     flex: 1,
     paddingHorizontal: spacing.lg,
@@ -279,7 +324,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   listContent: {
-    paddingTop: spacing.sm,
+    paddingTop: doctorDS.sectionGap,
     paddingBottom: 100,
   },
   listContentEmpty: { flexGrow: 1 },

@@ -209,6 +209,30 @@ public class SupabaseClient
     }
 
     /// <summary>
+    /// Insere ou atualiza (upsert) um registro usando a chave primária como resolução de conflito.
+    /// </summary>
+    public async Task UpsertAsync(
+        string table,
+        object data,
+        CancellationToken cancellationToken = default)
+    {
+        var json = JsonSerializer.Serialize(data, _jsonOptions);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, table);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        request.Headers.Add("Prefer", "resolution=merge-duplicates,return=minimal");
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                $"Upsert failed: {response.StatusCode}. Table: {table}. Error: {errorContent}");
+        }
+    }
+
+    /// <summary>
     /// Remove registros que atendem ao filtro.
     /// </summary>
     public async Task DeleteAsync(

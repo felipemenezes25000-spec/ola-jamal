@@ -7,37 +7,22 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { theme } from '../../lib/theme';
+import { colors, spacing, gradients } from '../../lib/themeDoctor';
 import { getRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
-import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/requestUiState';
+import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
-import { ActionCard } from '../../components/ActionCard';
+import { LargeActionCard } from '../../components/ui/LargeActionCard';
 import { EmptyState } from '../../components/EmptyState';
-
-const c = theme.colors;
-const s = theme.spacing;
-
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Bom dia';
-  if (h < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
-function getGreetingEmoji(): string {
-  const h = new Date().getHours();
-  if (h < 12) return '☀️';
-  if (h < 18) return '🌤️';
-  return '🌙';
-}
 
 export default function PatientHome() {
   const router = useRouter();
@@ -69,18 +54,19 @@ export default function PatientHome() {
   };
 
   const stats = {
-    pending: requests.filter(r => ['in_review', 'waiting_doctor'].includes(getRequestUiState(r))).length,
-    toPay: requests.filter(r => needsPayment(getRequestUiState(r))).length,
-    ready: requests.filter(r => isSignedOrDelivered(getRequestUiState(r))).length,
+    pending: requests.filter(r => getRequestUiState(r).uiState === 'needs_action').length,
+    toPay: requests.filter(r => needsPayment(r)).length,
+    ready: requests.filter(r => isSignedOrDelivered(r)).length,
   };
 
-  const recentRequests = requests.slice(0, 4);
+  const recentRequests = requests.slice(0, 2);
   const firstName = user?.name?.split(' ')[0] || 'Paciente';
+  const initial = firstName[0]?.toUpperCase() || 'P';
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={c.primary.main} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -94,29 +80,28 @@ export default function PatientHome() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={[c.primary.main]}
-          tintColor={c.primary.main}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
         />
       }
     >
-      {/* ─── Hero Header ─── */}
+      {/* Header: só avatar + stats */}
       <LinearGradient
-        colors={['#0284C7', '#0EA5E9', '#38BDF8']}
+        colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.headerRow}>
-          <View style={styles.headerText}>
-            <Text style={styles.greetingSmall}>{getGreeting()} {getGreetingEmoji()}</Text>
-            <Text style={styles.greetingName}>{firstName}</Text>
-            <Text style={styles.headerSubtitle}>Como posso te ajudar hoje?</Text>
+          <View style={styles.headerGreeting}>
+            <Text style={styles.headerGreetingLabel}>Olá,</Text>
+            <Text style={styles.headerGreetingName}>{firstName}</Text>
           </View>
           <Pressable
             style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8 }]}
             onPress={() => router.push('/(patient)/profile')}
           >
-            <Text style={styles.avatarInitial}>{firstName[0]?.toUpperCase()}</Text>
+            <Text style={styles.avatarInitial}>{initial}</Text>
           </Pressable>
         </View>
 
@@ -126,49 +111,85 @@ export default function PatientHome() {
             icon="hourglass-outline"
             label="Em análise"
             value={stats.pending}
-            iconColor="#F59E0B"
+            iconColor={colors.warning}
             onPress={() => router.push('/(patient)/requests')}
           />
           <StatsCard
             icon="card-outline"
             label="A pagar"
             value={stats.toPay}
-            iconColor="#EF4444"
+            iconColor={colors.error}
             onPress={() => router.push('/(patient)/requests')}
           />
           <StatsCard
             icon="checkmark-done-circle-outline"
             label="Prontos"
             value={stats.ready}
-            iconColor="#10B981"
+            iconColor={colors.success}
             onPress={() => router.push('/(patient)/requests')}
           />
         </View>
       </LinearGradient>
 
-      {/* ─── Quick Actions ─── */}
-      <View style={styles.section}>
+      {/* ─── Destaque: Triagem com IA ─── */}
+      <View style={styles.aiBannerWrap}>
+        <LinearGradient
+          colors={['#6366F1', '#8B5CF6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.aiBanner}
+        >
+          <View style={styles.aiBannerIconWrap}>
+            <MaterialCommunityIcons name="robot-happy-outline" size={36} color="#fff" />
+          </View>
+          <View style={styles.aiBannerTextWrap}>
+            <Text style={styles.aiBannerTitle}>Triagem feita com IA</Text>
+            <Text style={styles.aiBannerDesc}>
+              Leitura inteligente de receitas e exames para agilizar seu atendimento.
+            </Text>
+          </View>
+          <View style={styles.aiBannerBadge}>
+            <Text style={styles.aiBannerBadgeText}>Tecnologia RenoveJá+</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* ─── Quick Actions (largura total, menos margem) ─── */}
+      <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>O que deseja fazer?</Text>
-        <View style={styles.actionsGrid}>
-          <ActionCard
-            compact
-            icon="document-text"
-            iconColor="#0EA5E9"
-            label="Nova Receita"
+        <Text style={styles.sectionHint}>Toque em uma opção abaixo para começar: renovar receita, pedir exame ou falar com um profissional.</Text>
+        <View style={styles.actionsColumn}>
+          <LargeActionCard
+            icon={
+              <View style={[styles.actionIconBox, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="document-text" size={26} color={colors.primary} />
+              </View>
+            }
+            title="Renovar Receita"
+            description="Solicitar renovação de receita médica"
+            variant="primary"
             onPress={() => router.push('/new-request/prescription')}
           />
-          <ActionCard
-            compact
-            icon="flask"
-            iconColor="#8B5CF6"
-            label="Pedir Exame"
+          <LargeActionCard
+            icon={
+              <View style={[styles.actionIconBox, { backgroundColor: colors.infoLight }]}>
+                <Ionicons name="flask" size={26} color={colors.info} />
+              </View>
+            }
+            title="Pedir Exame"
+            description="Solicitar exames e laudos"
+            variant="exam"
             onPress={() => router.push('/new-request/exam')}
           />
-          <ActionCard
-            compact
-            icon="videocam"
-            iconColor="#10B981"
-            label="Consulta"
+          <LargeActionCard
+            icon={
+              <View style={[styles.actionIconBox, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="videocam" size={26} color={colors.primary} />
+              </View>
+            }
+            title="Consulta Breve +"
+            description="Atendimento por vídeo com o médico"
+            variant="consultation"
             onPress={() => router.push('/new-request/consultation')}
           />
         </View>
@@ -184,9 +205,10 @@ export default function PatientHome() {
               style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.7 }]}
             >
               <Text style={styles.seeAllText}>Ver todos</Text>
-              <Ionicons name="chevron-forward" size={14} color={c.primary.main} />
+              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
           </View>
+          <Text style={styles.sectionHint}>Toque em um pedido para ver os detalhes. Use "Ver todos" para ver a lista completa.</Text>
           {recentRequests.map((req) => (
             <RequestCard
               key={req.id}
@@ -212,7 +234,7 @@ export default function PatientHome() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: c.background.default,
+    backgroundColor: colors.background,
   },
   content: {
     paddingBottom: 110,
@@ -221,7 +243,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: c.background.default,
+    backgroundColor: colors.background,
   },
 
   // ─── Header ───
@@ -234,28 +256,22 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
-  headerText: {
+  headerGreeting: {
     flex: 1,
-    marginRight: 16,
   },
-  greetingSmall: {
+  headerGreetingLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.85)',
     marginBottom: 2,
   },
-  greetingName: {
-    fontSize: 26,
+  headerGreetingName: {
+    fontSize: 24,
     fontWeight: '800',
     color: '#fff',
     letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 4,
   },
   avatarBtn: {
     width: 48,
@@ -271,6 +287,69 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
+  },
+
+  // ─── Destaque IA ───
+  aiBannerWrap: {
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  aiBanner: {
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    overflow: 'hidden',
+    minHeight: 100,
+    ...Platform.select({
+      web: { boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)' },
+      default: {
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        elevation: 8,
+      },
+    }),
+  },
+  aiBannerIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  aiBannerTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
+  },
+  aiBannerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  aiBannerDesc: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    lineHeight: 18,
+  },
+  aiBannerBadge: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  aiBannerBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
 
   // ─── Stats ───
@@ -295,8 +374,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: c.text.primary,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  sectionHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
     marginBottom: 14,
+    lineHeight: 20,
   },
   seeAllBtn: {
     flexDirection: 'row',
@@ -306,12 +391,23 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: c.primary.main,
+    color: colors.primary,
   },
 
-  // ─── Actions Grid ───
-  actionsGrid: {
-    flexDirection: 'row',
-    gap: 10,
+  // ─── Actions Section: ocupa mais largura (menos padding lateral) ───
+  actionsSection: {
+    marginTop: 20,
+    paddingHorizontal: 12,
+  },
+  actionsColumn: {
+    flexDirection: 'column',
+    gap: 16,
+  },
+  actionIconBox: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

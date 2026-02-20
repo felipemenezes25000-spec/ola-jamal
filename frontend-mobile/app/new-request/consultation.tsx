@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
 import { createConsultationRequest } from '../../lib/api';
-import { FALLBACK_CONSULTATION_PRICE } from '../../lib/config/pricing';
+import { CONSULTATION_PRICE_PER_MINUTE } from '../../lib/config/pricing';
+import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
-import { createConsultationSchema } from '../../lib/validation/schemas';
+import { createConsultationSchema, CONSULTATION_MIN_MINUTES, CONSULTATION_MAX_MINUTES } from '../../lib/validation/schemas';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
@@ -24,15 +26,47 @@ const s = theme.spacing;
 const r = theme.borderRadius;
 const t = theme.typography;
 
+const SALDO_DESC =
+  'Saldo em banco de horas. O profissional está disponível para dúvidas e orientações pontuais. Não para acompanhamento.';
+
+const CONSULTATION_TYPES = [
+  {
+    key: 'psicologo' as const,
+    label: 'Psicólogo',
+    pricePerMin: CONSULTATION_PRICE_PER_MINUTE.psicologo,
+    desc: SALDO_DESC,
+  },
+  {
+    key: 'medico_clinico' as const,
+    label: 'Médico Clínico',
+    pricePerMin: CONSULTATION_PRICE_PER_MINUTE.medico_clinico,
+    desc: SALDO_DESC,
+  },
+];
+
 export default function ConsultationScreen() {
   const router = useRouter();
+  const [consultationType, setConsultationType] = useState<'psicologo' | 'medico_clinico'>('psicologo');
+  const [durationMinutes, setDurationMinutes] = useState(15);
+  const addMinutes = () => setDurationMinutes((m) => Math.min(CONSULTATION_MAX_MINUTES, m + 1));
+  const removeMinutes = () => setDurationMinutes((m) => Math.max(CONSULTATION_MIN_MINUTES, m - 1));
   const [symptoms, setSymptoms] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const pricePerMin = CONSULTATION_PRICE_PER_MINUTE[consultationType];
+  const totalPrice = useMemo(
+    () => Math.round(pricePerMin * durationMinutes * 100) / 100,
+    [pricePerMin, durationMinutes]
+  );
+
   const handleSubmit = async () => {
-    const validation = validate(createConsultationSchema, { symptoms });
+    const validation = validate(createConsultationSchema, {
+      consultationType,
+      durationMinutes,
+      symptoms,
+    });
     if (!validation.success) {
-      Alert.alert('Atenção', validation.firstError ?? 'Descreva seus sintomas para continuar.');
+      Alert.alert('Atenção', validation.firstError ?? 'Preencha todos os campos.');
       return;
     }
     setLoading(true);
@@ -41,7 +75,7 @@ export default function ConsultationScreen() {
       if (result.payment) {
         router.replace(`/payment/${result.payment.id}`);
       } else {
-        Alert.alert('Sucesso', 'Consulta solicitada! Aguarde um médico aceitar.', [
+        Alert.alert('Sucesso', 'Consulta solicitada! Aguarde um profissional aceitar.', [
           { text: 'OK', onPress: () => router.replace('/(patient)/requests') },
         ]);
       }
@@ -54,48 +88,89 @@ export default function ConsultationScreen() {
 
   return (
     <Screen scroll edges={['bottom']}>
-      <AppHeader title="Nova Consulta" />
+      <AppHeader title="Consulta Breve" />
 
       <View style={styles.content}>
-        {/* Info Banner */}
-        <AppCard style={styles.infoBanner}>
+        {/* Banner */}
+        <AppCard style={styles.banner}>
           <View style={styles.iconCircle}>
             <Ionicons name="videocam" size={28} color={c.primary.main} />
           </View>
-          <Text style={styles.bannerTitle}>Consulta por Videochamada</Text>
+          <Text style={styles.bannerTitle}>Consulta Breve - RenoveJá+</Text>
           <Text style={styles.bannerDesc}>
-            Um médico atenderá você em poucos minutos após o pagamento.
+            Plantão de dúvidas em telemedicina para sanar dúvidas pontuais!
           </Text>
         </AppCard>
 
-        {/* Symptoms Input */}
-        <Text style={styles.overline}>DESCREVA SEUS SINTOMAS</Text>
+        {/* Tipo: Psicólogo ou Médico Clínico */}
+        <Text style={styles.overline}>TIPO DE PROFISSIONAL</Text>
+        <Text style={styles.stepHint}>Passo 1 — Escolha com quem você quer falar. Toque em Psicólogo ou Médico Clínico.</Text>
+        <View style={styles.typeRow}>
+          {CONSULTATION_TYPES.map(type => (
+            <AppCard
+              key={type.key}
+              selected={consultationType === type.key}
+              onPress={() => setConsultationType(type.key)}
+              style={styles.typeCard}
+            >
+              <Text style={[styles.typeName, consultationType === type.key && styles.typeNameSelected]}>
+                {type.label}
+              </Text>
+              <Text style={styles.typePricePerMin}>{formatBRL(type.pricePerMin)}/min</Text>
+              <Text style={styles.typeDesc}>{type.desc}</Text>
+            </AppCard>
+          ))}
+        </View>
+
+        {/* Minutos */}
+        <Text style={styles.overline}>MINUTOS CONTRATADOS</Text>
+        <Text style={styles.stepHint}>Passo 2 — Toque no − para diminuir ou no + para aumentar os minutos. O preço atualiza na hora.</Text>
+        <Text style={styles.minutesHint}>
+          A chamada encerra automaticamente ao atingir o tempo. Minutos não usados viram saldo em banco de horas.
+        </Text>
+        <View style={styles.minutesStepperRow}>
+          <TouchableOpacity
+            style={[styles.stepperBtn, durationMinutes <= CONSULTATION_MIN_MINUTES && styles.stepperBtnDisabled]}
+            onPress={removeMinutes}
+            disabled={durationMinutes <= CONSULTATION_MIN_MINUTES}
+          >
+            <Ionicons name="remove" size={24} color={durationMinutes <= CONSULTATION_MIN_MINUTES ? c.text.tertiary : c.primary.main} />
+          </TouchableOpacity>
+          <Text style={styles.minutesStepperValue}>{durationMinutes} min</Text>
+          <TouchableOpacity
+            style={[styles.stepperBtn, durationMinutes >= CONSULTATION_MAX_MINUTES && styles.stepperBtnDisabled]}
+            onPress={addMinutes}
+            disabled={durationMinutes >= CONSULTATION_MAX_MINUTES}
+          >
+            <Ionicons name="add" size={24} color={durationMinutes >= CONSULTATION_MAX_MINUTES ? c.text.tertiary : c.primary.main} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Sintomas */}
+        <Text style={styles.overline}>DESCREVA SEUS SINTOMAS / DÚVIDA</Text>
+        <Text style={styles.stepHint}>Passo 3 — Escreva o que você está sentindo ou a dúvida que tem. Isso ajuda o profissional a te atender melhor.</Text>
         <TextInput
           style={styles.textArea}
-          placeholder="O que você está sentindo? Desde quando? Há quanto tempo?..."
+          placeholder="O que você está sentindo? Desde quando? O que gostaria de esclarecer?"
           placeholderTextColor={c.text.tertiary}
           value={symptoms}
           onChangeText={setSymptoms}
           multiline
-          numberOfLines={6}
+          numberOfLines={4}
           textAlignVertical="top"
         />
 
-        {/* Info notice */}
-        <View style={styles.infoNotice}>
-          <Ionicons name="information-circle" size={20} color={c.status.info} />
-          <Text style={styles.infoText}>
-            Sua solicitação será analisada por um médico disponível. Após a aceitação, você receberá uma notificação para efetuar o pagamento.
-          </Text>
-        </View>
-
-        {/* Price Card */}
-        <AppCard style={styles.priceCard}>
-          <Text style={styles.priceLabel}>Valor da consulta</Text>
-          <Text style={styles.priceValue}>R$ {FALLBACK_CONSULTATION_PRICE.toFixed(2).replace('.', ',')}</Text>
+        {/* Total */}
+        <AppCard style={styles.totalCard}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>
+              {durationMinutes} min × {formatBRL(pricePerMin)}/min
+            </Text>
+            <Text style={styles.totalValue}>{formatBRL(totalPrice)}</Text>
+          </View>
         </AppCard>
 
-        {/* Submit Button */}
+        <Text style={styles.stepHint}>Pronto? Toque no botão abaixo para solicitar sua consulta.</Text>
         <AppButton
           title="Solicitar Consulta"
           onPress={handleSubmit}
@@ -114,7 +189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: s.md,
     paddingBottom: s.xl,
   },
-  infoBanner: {
+  banner: {
     alignItems: 'center',
     marginBottom: s.lg,
   },
@@ -143,6 +218,74 @@ const styles = StyleSheet.create({
     color: c.text.secondary,
     marginBottom: s.sm,
   },
+  stepHint: {
+    fontSize: 13,
+    color: c.text.secondary,
+    marginBottom: s.sm,
+    lineHeight: 20,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    gap: s.sm,
+    marginBottom: s.lg,
+  },
+  typeCard: {
+    flex: 1,
+  },
+  typeName: {
+    fontSize: t.fontSize.md,
+    fontWeight: '700',
+    color: c.text.primary,
+  },
+  typeNameSelected: {
+    color: c.primary.main,
+  },
+  typePricePerMin: {
+    fontSize: t.fontSize.lg,
+    fontWeight: '700',
+    color: c.text.primary,
+    marginTop: s.xs,
+  },
+  typeDesc: {
+    fontSize: t.fontSize.xs,
+    color: c.text.tertiary,
+    marginTop: s.xs,
+    lineHeight: 16,
+  },
+  minutesHint: {
+    fontSize: t.fontSize.sm,
+    color: c.text.secondary,
+    marginBottom: s.sm,
+    lineHeight: 18,
+  },
+  minutesStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s.lg,
+    marginBottom: s.lg,
+  },
+  stepperBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: c.primary.soft ?? '#EFF6FF',
+    borderWidth: 2,
+    borderColor: c.primary.main,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperBtnDisabled: {
+    opacity: 0.5,
+    borderColor: c.border.main,
+  },
+  minutesStepperValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: c.text.primary,
+    minWidth: 72,
+    textAlign: 'center',
+  },
   textArea: {
     backgroundColor: c.background.secondary,
     borderRadius: r.md,
@@ -151,34 +294,22 @@ const styles = StyleSheet.create({
     padding: s.md,
     fontSize: t.fontSize.md,
     color: c.text.primary,
-    minHeight: 140,
-    marginBottom: s.md,
-  },
-  infoNotice: {
-    flexDirection: 'row',
-    backgroundColor: c.status.infoLight,
-    borderRadius: r.md,
-    padding: s.md,
-    gap: s.sm,
+    minHeight: 120,
     marginBottom: s.lg,
   },
-  infoText: {
-    flex: 1,
-    fontSize: t.fontSize.sm,
-    color: c.text.secondary,
-    lineHeight: 18,
+  totalCard: {
+    marginBottom: s.lg,
   },
-  priceCard: {
+  totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: s.lg,
   },
-  priceLabel: {
+  totalLabel: {
     ...t.variants.body2,
     color: c.text.secondary,
   },
-  priceValue: {
+  totalValue: {
     ...t.variants.h2,
     color: c.primary.main,
   },

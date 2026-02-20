@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../lib/theme';
 import { StatusBadge } from './StatusBadge';
 import { getDisplayPrice } from '../lib/config/pricing';
+import { formatBRL, formatDateBR } from '../lib/utils/format';
 import { RequestResponseDto } from '../types/database';
 
 const RISK_CONFIG: Record<string, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
@@ -12,19 +13,20 @@ const RISK_CONFIG: Record<string, { label: string; color: string; bg: string; ic
   low: { label: 'Baixo Risco', color: '#059669', bg: '#D1FAE5', icon: 'shield-checkmark' },
 };
 
+/** Design system: sem roxo/cyan — azul, verde, cinza */
 const TYPE_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> = {
-  prescription: { icon: 'document-text', color: '#0EA5E9', bg: '#E0F2FE', label: 'Receita' },
-  exam: { icon: 'flask', color: '#8B5CF6', bg: '#EDE9FE', label: 'Exame' },
-  consultation: { icon: 'videocam', color: '#10B981', bg: '#D1FAE5', label: 'Consulta' },
+  prescription: { icon: 'document-text', color: '#3B82F6', bg: '#DBEAFE', label: 'Receita' },
+  exam: { icon: 'flask', color: '#6B7280', bg: '#F3F4F6', label: 'Exame' },
+  consultation: { icon: 'videocam', color: '#059669', bg: '#D1FAE5', label: 'Consulta' },
 };
 
-const FALLBACK_TYPE = { icon: 'document' as keyof typeof Ionicons.glyphMap, color: '#0EA5E9', bg: '#E0F2FE', label: 'Solicitação' };
+const FALLBACK_TYPE = { icon: 'document' as keyof typeof Ionicons.glyphMap, color: '#3B82F6', bg: '#DBEAFE', label: 'Solicitação' };
 
 function getRequestSubtitle(request: RequestResponseDto, showPatientName?: boolean): string {
   if (showPatientName && request.patientName) {
     return request.patientName;
   }
-  const date = new Date(request.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  const date = formatDateBR(request.createdAt, { short: true });
   if (request.doctorName) {
     return `Dr(a). ${request.doctorName} • ${date}`;
   }
@@ -52,13 +54,23 @@ interface Props {
   request: RequestResponseDto;
   onPress: () => void;
   showPatientName?: boolean;
+  /** Exibir preço (apenas na tela de detalhe; listagem não mostra) */
+  showPrice?: boolean;
+  /** Exibir badge de risco (listagem não mostra) */
+  showRisk?: boolean;
 }
 
-export default function RequestCard({ request, onPress, showPatientName }: Props) {
+export default function RequestCard({
+  request,
+  onPress,
+  showPatientName,
+  showPrice = false,
+  showRisk = false,
+}: Props) {
   const typeConf = TYPE_CONFIG[request.requestType] || FALLBACK_TYPE;
   const preview = getMedicationPreview(request);
   const price = getDisplayPrice(request.price, request.requestType);
-  const riskConf = request.aiRiskLevel ? RISK_CONFIG[request.aiRiskLevel] : null;
+  const riskConf = showRisk && request.aiRiskLevel ? RISK_CONFIG[request.aiRiskLevel] : null;
 
   return (
     <Pressable
@@ -66,15 +78,12 @@ export default function RequestCard({ request, onPress, showPatientName }: Props
       onPress={onPress}
       accessibilityRole="button"
     >
-      {/* Left accent strip */}
       <View style={[styles.accentStrip, { backgroundColor: typeConf.color }]} />
 
-      {/* Icon */}
       <View style={[styles.iconContainer, { backgroundColor: typeConf.bg }]}>
         <Ionicons name={typeConf.icon} size={22} color={typeConf.color} />
       </View>
 
-      {/* Content */}
       <View style={styles.content}>
         <View style={styles.topRow}>
           <Text style={styles.title} numberOfLines={1}>{typeConf.label}</Text>
@@ -84,7 +93,7 @@ export default function RequestCard({ request, onPress, showPatientName }: Props
         <Text style={styles.subtitle} numberOfLines={1}>{getRequestSubtitle(request, showPatientName)}</Text>
 
         {preview && (
-          <Text style={styles.preview} numberOfLines={1}>💊 {preview}</Text>
+          <Text style={styles.preview} numberOfLines={1}>{preview}</Text>
         )}
 
         <View style={styles.bottomRow}>
@@ -95,8 +104,8 @@ export default function RequestCard({ request, onPress, showPatientName }: Props
             </View>
           )}
           <View style={styles.spacer} />
-          {price > 0 && (
-            <Text style={styles.price}>R$ {price.toFixed(2)}</Text>
+          {showPrice && price > 0 && (
+            <Text style={styles.price}>{formatBRL(price)}</Text>
           )}
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={styles.chevron} />
         </View>

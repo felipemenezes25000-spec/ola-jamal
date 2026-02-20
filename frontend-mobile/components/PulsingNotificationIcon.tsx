@@ -48,7 +48,7 @@ export function PulsingNotificationIcon({ color, size, hasUnread }: PulsingNotif
   const iconColor = hasUnread ? colors.error : color;
 
   return (
-    <Animated.View style={[{ alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+    <Animated.View style={[{ alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, animatedStyle]}>
       <Ionicons name="notifications" size={size} color={iconColor} />
     </Animated.View>
   );

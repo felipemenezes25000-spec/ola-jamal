@@ -15,6 +15,7 @@ import { createPrescriptionRequest } from '../../lib/api';
 import { validate } from '../../lib/validation';
 import { createPrescriptionSchema } from '../../lib/validation/schemas';
 import { PRESCRIPTION_TYPE_PRICES } from '../../lib/config/pricing';
+import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
@@ -28,31 +29,46 @@ const s = t.spacing;
 const r = t.borderRadius;
 const typo = t.typography;
 
+/** Previsão ANVISA exibida nos receituários ainda não liberados (AZUL e AMARELO). */
+const ANVISA_PREVISAO = 'Liberação conforme regulamentação ANVISA. Previsão de liberação a ser divulgada.';
+
 const TYPES = [
-  { key: 'simples' as const, label: 'Receita Simples', desc: 'Medicamentos sem retenção', price: PRESCRIPTION_TYPE_PRICES.simples },
-  { key: 'controlado' as const, label: 'Receita Controlada', desc: 'Medicamentos com retenção', price: PRESCRIPTION_TYPE_PRICES.controlado, popular: true },
-  { key: 'azul' as const, label: 'Receita Azul', desc: 'Controlados especiais B1 e B2', price: PRESCRIPTION_TYPE_PRICES.azul },
+  {
+    key: 'simples' as const,
+    label: 'Receituário simples',
+    desc: 'Medicações de uso contínuo como medicação para diabetes, pressão alta, hipotireoidismo, remédios manipulados, remédios para dor, remédios para ciclo menstrual, reposição de vitaminas, entre outros.',
+    price: PRESCRIPTION_TYPE_PRICES.simples,
+  },
+  {
+    key: 'controlado' as const,
+    label: 'Receituário controlado - dupla via',
+    desc: 'Receitas para medicações controladas de uso contínuo como antidepressivos, anticonvulsivantes, remédios para dormir, remédios controlados para dor.',
+    price: PRESCRIPTION_TYPE_PRICES.controlado,
+    popular: true,
+  },
+  {
+    key: 'azul' as const,
+    label: 'Receituário AZUL',
+    desc: 'Receituário para medicações que possuem elevada vigilância por causarem dependência. São feitas em receituário azul.',
+    price: PRESCRIPTION_TYPE_PRICES.azul,
+    comingSoon: true,
+    anvisaPrevisao: ANVISA_PREVISAO,
+  },
+  {
+    key: 'amarelo' as const,
+    label: 'Receituário AMARELO',
+    desc: 'Receituário para medicamentos sujeitos a controle especial (lista B1/B2 – amarelo).',
+    price: PRESCRIPTION_TYPE_PRICES.amarelo,
+    comingSoon: true,
+    anvisaPrevisao: ANVISA_PREVISAO,
+  },
 ];
 
 export default function NewPrescription() {
   const router = useRouter();
-  const [selectedType, setSelectedType] = useState<'simples' | 'controlado' | 'azul'>('simples');
-  const [medications, setMedications] = useState<string[]>([]);
-  const [medInput, setMedInput] = useState('');
+  const [selectedType, setSelectedType] = useState<'simples' | 'controlado'>('simples');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const addMedication = () => {
-    const med = medInput.trim();
-    if (med && !medications.includes(med)) {
-      setMedications([...medications, med]);
-      setMedInput('');
-    }
-  };
-
-  const removeMedication = (index: number) => {
-    setMedications(medications.filter((_, i) => i !== index));
-  };
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -92,7 +108,7 @@ export default function NewPrescription() {
     try {
       const result = await createPrescriptionRequest({
         prescriptionType: selectedType,
-        medications: medications.length > 0 ? medications : undefined,
+        medications: undefined,
         images,
       });
       // A IA analisa na hora – se rejeitou, avisar imediatamente (não dizer sucesso)
@@ -120,86 +136,75 @@ export default function NewPrescription() {
 
   return (
     <Screen scroll edges={['bottom']} padding={false}>
-      <AppHeader title="Nova Receita" />
+      <AppHeader title="Renovação de Receita" />
 
       <View style={styles.body}>
         {/* Type Selection */}
         <Text style={styles.sectionLabel}>TIPO DE RECEITA</Text>
-        {TYPES.map(type => (
-          <AppCard
-            key={type.key}
-            selected={selectedType === type.key}
-            onPress={() => setSelectedType(type.key)}
-            style={styles.typeCard}
-          >
-            <View style={styles.typeContent}>
-              <View style={styles.typeTextContainer}>
-                <View style={styles.typeTitleRow}>
-                  <Text
-                    style={[
-                      styles.typeName,
-                      selectedType === type.key && styles.typeNameSelected,
-                    ]}
-                  >
-                    {type.label}
-                  </Text>
-                  {type.popular && (
-                    <View style={styles.popularBadge}>
-                      <Text style={styles.popularText}>POPULAR</Text>
-                    </View>
+        <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de receita tocando em um dos cards abaixo.</Text>
+        {TYPES.map(type => {
+          const isComingSoon = 'comingSoon' in type && type.comingSoon;
+          const isSelectable = !isComingSoon && (type.key === 'simples' || type.key === 'controlado');
+          return (
+            <AppCard
+              key={type.key}
+              selected={isSelectable && selectedType === type.key}
+              onPress={isSelectable ? () => setSelectedType(type.key) : undefined}
+              style={[styles.typeCard, isComingSoon && styles.typeCardDisabled]}
+            >
+              <View style={styles.typeContent}>
+                <View style={styles.typeTextContainer}>
+                  <View style={styles.typeTitleRow}>
+                    <Text
+                      style={[
+                        styles.typeName,
+                        selectedType === type.key && styles.typeNameSelected,
+                        isComingSoon && styles.typeNameDisabled,
+                      ]}
+                    >
+                      {type.label}
+                    </Text>
+                    {type.popular && (
+                      <View style={styles.popularBadge}>
+                        <Text style={styles.popularText}>POPULAR</Text>
+                      </View>
+                    )}
+                    {isComingSoon && (
+                      <View style={styles.comingSoonBadge}>
+                        <Text style={styles.comingSoonText}>Em breve</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.typeDesc, isComingSoon && styles.typeDescDisabled]}>{type.desc}</Text>
+                  {isComingSoon && 'anvisaPrevisao' in type && type.anvisaPrevisao && (
+                    <Text style={styles.anvisaPrevisao}>{type.anvisaPrevisao}</Text>
                   )}
                 </View>
-                <Text style={styles.typeDesc}>{type.desc}</Text>
+                {!isComingSoon && (
+                  <View style={styles.typePriceContainer}>
+                    <Text
+                      style={[
+                        styles.typePrice,
+                        selectedType === type.key && styles.typePriceSelected,
+                      ]}
+                    >
+                      {formatBRL(type.price)}
+                    </Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.typePriceContainer}>
-                <Text
-                  style={[
-                    styles.typePrice,
-                    selectedType === type.key && styles.typePriceSelected,
-                  ]}
-                >
-                  R$ {type.price.toFixed(2).replace('.', ',')}
-                </Text>
-              </View>
-            </View>
-            {selectedType === type.key && (
-              <View style={styles.checkIcon}>
-                <Ionicons name="checkmark-circle" size={24} color={c.primary.main} />
-              </View>
-            )}
-          </AppCard>
-        ))}
-
-        {/* Medications */}
-        <Text style={styles.sectionLabel}>MEDICAMENTOS</Text>
-        <View style={styles.medInputRow}>
-          <AppInput
-            placeholder="Ex: Amoxicilina 500mg"
-            value={medInput}
-            onChangeText={setMedInput}
-            onSubmitEditing={addMedication}
-            returnKeyType="done"
-            containerStyle={styles.medInputContainer}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addMedication}>
-            <Ionicons name="add" size={24} color={c.primary.contrast} />
-          </TouchableOpacity>
-        </View>
-        {medications.length > 0 && (
-          <View style={styles.medTags}>
-            {medications.map((med, index) => (
-              <View key={index} style={styles.medTag}>
-                <Text style={styles.medTagText}>{med}</Text>
-                <TouchableOpacity onPress={() => removeMedication(index)}>
-                  <Ionicons name="close" size={16} color={c.primary.dark} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
+              {isSelectable && selectedType === type.key && (
+                <View style={styles.checkIcon}>
+                  <Ionicons name="checkmark-circle" size={24} color={c.primary.main} />
+                </View>
+              )}
+            </AppCard>
+          );
+        })}
 
         {/* Photo */}
         <Text style={styles.sectionLabel}>FOTO DA RECEITA</Text>
+        <Text style={styles.stepHint}>Passo 2 — Envie a foto da sua receita. Toque em Câmera (tirar foto) ou Galeria (escolher da galeria).</Text>
         <Text style={styles.photoHint}>
           Envie APENAS fotos do documento da receita (papel ou tela com medicamentos). Fotos de
           pessoas, animais ou outros objetos serão rejeitadas automaticamente.
@@ -244,6 +249,7 @@ export default function NewPrescription() {
         </View>
 
         {/* Submit */}
+        <Text style={styles.stepHint}>Pronto? Toque no botão abaixo para enviar sua solicitação.</Text>
         <AppButton
           title="Enviar Solicitação"
           onPress={handleSubmit}
@@ -268,9 +274,19 @@ const styles = StyleSheet.create({
     marginTop: s.lg,
     marginBottom: s.sm,
   } as any,
+  stepHint: {
+    fontSize: 13,
+    color: c.text.secondary,
+    marginBottom: s.sm,
+    lineHeight: 20,
+  },
   typeCard: {
     marginBottom: s.sm,
     position: 'relative',
+  },
+  typeCardDisabled: {
+    opacity: 0.92,
+    backgroundColor: c.background.paper,
   },
   typeContent: {
     flexDirection: 'row',
@@ -310,6 +326,30 @@ const styles = StyleSheet.create({
     color: c.text.secondary,
     marginTop: 2,
   },
+  typeNameDisabled: {
+    color: c.text.secondary,
+  },
+  typeDescDisabled: {
+    color: c.text.tertiary,
+  },
+  comingSoonBadge: {
+    backgroundColor: c.border?.main ?? '#E5E7EB',
+    paddingHorizontal: s.sm,
+    paddingVertical: 2,
+    borderRadius: r.full,
+  },
+  comingSoonText: {
+    fontSize: typo.fontSize.xs,
+    fontWeight: typo.fontWeight.semibold,
+    color: c.text.secondary,
+  },
+  anvisaPrevisao: {
+    fontSize: typo.fontSize.xs,
+    color: c.text.tertiary,
+    fontStyle: 'italic',
+    marginTop: s.xs,
+    lineHeight: 16,
+  },
   typePriceContainer: {
     alignItems: 'flex-end',
   },
@@ -325,44 +365,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: s.sm,
     right: s.sm,
-  },
-  medInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: s.sm,
-  },
-  medInputContainer: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  addButton: {
-    width: t.layout.height.input,
-    height: t.layout.height.input,
-    borderRadius: t.layout.height.input / 2,
-    backgroundColor: c.primary.main,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...t.shadows.button,
-  },
-  medTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: s.sm,
-    gap: s.sm,
-  },
-  medTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: c.primary.soft,
-    paddingHorizontal: s.md,
-    paddingVertical: s.xs,
-    borderRadius: r.full,
-    gap: s.xs,
-  },
-  medTagText: {
-    fontSize: typo.variants.caption.fontSize,
-    color: c.primary.dark,
-    fontWeight: typo.fontWeight.medium,
   },
   photoHint: {
     ...typo.variants.caption,

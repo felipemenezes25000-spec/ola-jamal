@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { Card } from '../../components/Card';
-import { Button } from '../../components/Button';
+import { DoctorHeader } from '../../components/ui/DoctorHeader';
+import { DoctorCard } from '../../components/ui/DoctorCard';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { Input } from '../../components/Input';
 import { Loading } from '../../components/Loading';
 import { uploadCertificate, getActiveCertificate, revokeCertificate } from '../../lib/api';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, doctorDS } from '../../lib/themeDoctor';
 
 export default function CertificateUploadScreen() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function CertificateUploadScreen() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [password, setPassword] = useState('');
+  const [revoking, setRevoking] = useState(false);
 
   useEffect(() => { loadCert(); }, []);
 
@@ -58,13 +60,24 @@ export default function CertificateUploadScreen() {
   };
 
   const handleRevoke = () => {
-    if (!certificate) return;
+    if (!certificate || revoking) return;
     Alert.alert('Revogar Certificado', 'Tem certeza? Você precisará cadastrar um novo.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Revogar', style: 'destructive', onPress: async () => {
-        try { await revokeCertificate(certificate.id, 'Substituição pelo médico'); loadCert(); }
-        catch (e: unknown) { Alert.alert('Erro', (e as Error)?.message || String(e)); }
-      }},
+      {
+        text: 'Revogar',
+        style: 'destructive',
+        onPress: async () => {
+          setRevoking(true);
+          try {
+            await revokeCertificate(certificate.id, 'Substituição pelo médico');
+            loadCert();
+          } catch (e: unknown) {
+            Alert.alert('Erro', (e as Error)?.message || String(e));
+          } finally {
+            setRevoking(false);
+          }
+        },
+      },
     ]);
   };
 
@@ -72,33 +85,29 @@ export default function CertificateUploadScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.primaryDark} /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Certificado Digital</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <DoctorHeader title="Certificado Digital" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Info banner */}
-        <Card style={{ ...styles.infoBanner, backgroundColor: colors.primaryPaler }}>
+        <DoctorCard style={styles.infoBanner}>
           <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
           <Text style={styles.infoTitle}>Certificado ICP-Brasil</Text>
           <Text style={styles.infoDesc}>Necessário para assinatura digital de receitas e documentos médicos.</Text>
-        </Card>
+        </DoctorCard>
 
         {/* Active certificate */}
         {certificate && (
-          <Card style={styles.certCard}>
+          <DoctorCard style={styles.certCard}>
             <View style={styles.certHeader}>
               <View style={styles.certStatusDot} />
               <Text style={styles.certStatusText}>Certificado Ativo</Text>
             </View>
             <View style={styles.certInfo}>
               <Text style={styles.certLabel}>Titular</Text>
-              <Text style={styles.certValue}>{certificate.subjectName}</Text>
+              <Text style={styles.certValue} numberOfLines={3} ellipsizeMode="tail">{certificate.subjectName}</Text>
             </View>
             <View style={styles.certInfo}>
               <Text style={styles.certLabel}>Emissor</Text>
-              <Text style={styles.certValue}>{certificate.issuerName}</Text>
+              <Text style={styles.certValue} numberOfLines={3} ellipsizeMode="tail">{certificate.issuerName}</Text>
             </View>
             <View style={styles.certInfo}>
               <Text style={styles.certLabel}>Validade</Text>
@@ -106,13 +115,30 @@ export default function CertificateUploadScreen() {
                 {new Date(certificate.notBefore).toLocaleDateString('pt-BR')} - {new Date(certificate.notAfter).toLocaleDateString('pt-BR')}
               </Text>
             </View>
-            <Button title="Revogar Certificado" variant="outline" onPress={handleRevoke} fullWidth style={{ marginTop: spacing.md, borderColor: colors.error }} />
-          </Card>
+            <Pressable
+              style={({ pressed }) => [
+                styles.revokeBtn,
+                pressed && styles.revokeBtnPressed,
+                revoking && styles.revokeBtnDisabled,
+              ]}
+              onPress={handleRevoke}
+              disabled={revoking}
+            >
+              {revoking ? (
+                <ActivityIndicator size="small" color={colors.error} />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={18} color={colors.error} />
+                  <Text style={styles.revokeBtnText}>Revogar Certificado</Text>
+                </>
+              )}
+            </Pressable>
+          </DoctorCard>
         )}
 
         {/* Upload form */}
         {!certificate && (
-          <Card style={styles.uploadCard}>
+          <DoctorCard style={styles.uploadCard}>
             <Text style={styles.uploadTitle}>Upload do Certificado</Text>
 
             <TouchableOpacity style={styles.fileBtn} onPress={pickFile}>
@@ -130,48 +156,61 @@ export default function CertificateUploadScreen() {
               leftIcon="lock-closed-outline"
             />
 
-            <Button title="Enviar Certificado" onPress={handleUpload} loading={uploading} fullWidth icon={<Ionicons name="shield-checkmark" size={20} color={colors.white} />} />
-          </Card>
+            <PrimaryButton label="Enviar Certificado" onPress={handleUpload} loading={uploading} style={styles.uploadBtn} />
+          </DoctorCard>
         )}
 
         {/* Help section */}
-        <Card style={styles.helpCard}>
+        <DoctorCard style={styles.helpCard}>
           <Text style={styles.helpTitle}>Como obter um certificado?</Text>
           <Text style={styles.helpText}>1. Adquira um e-CPF A1 em uma Autoridade Certificadora (AC).</Text>
           <Text style={styles.helpText}>2. Faça o download do arquivo .PFX (PKCS#12).</Text>
           <Text style={styles.helpText}>3. Faça o upload aqui com a senha definida na emissão.</Text>
-        </Card>
+        </DoctorCard>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  headerTitle: { ...typography.h4, color: colors.primaryDarker },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  infoBanner: { alignItems: 'center', paddingVertical: spacing.xl, marginBottom: spacing.md },
-  infoTitle: { ...typography.h4, color: colors.primaryDark, marginTop: spacing.sm },
-  infoDesc: { ...typography.bodySmall, color: colors.gray600, textAlign: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.md },
+  container: { flex: 1, backgroundColor: colors.background },
+  scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
+  infoBanner: { alignItems: 'center', marginBottom: doctorDS.sectionGap },
+  infoTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.primaryDark, marginTop: spacing.sm },
+  infoDesc: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.md },
   certCard: { marginBottom: spacing.md },
   certHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   certStatusDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success, marginRight: 8 },
-  certStatusText: { ...typography.bodySemiBold, color: colors.success },
+  certStatusText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.success },
   certInfo: { marginBottom: spacing.sm },
-  certLabel: { ...typography.caption, color: colors.gray500 },
-  certValue: { ...typography.bodySmallMedium, color: colors.gray800, marginTop: 2 },
+  certLabel: { fontSize: 12, fontFamily: typography.fontFamily.medium, color: colors.textMuted },
+  certValue: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, marginTop: 2 },
   uploadCard: { marginBottom: spacing.md },
-  uploadTitle: { ...typography.h4, color: colors.primaryDarker, marginBottom: spacing.md },
+  uploadTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, color: colors.text, marginBottom: spacing.md },
+  uploadBtn: { marginTop: spacing.sm },
   fileBtn: {
-    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryPaler,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft,
     borderWidth: 2, borderColor: colors.primary, borderStyle: 'dashed', borderRadius: 18,
     padding: spacing.xl, marginBottom: spacing.md,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
   },
-  fileText: { ...typography.bodySmallMedium, color: colors.primary, marginTop: spacing.sm },
-  fileSize: { ...typography.caption, color: colors.gray500, marginTop: 2 },
+  fileText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, color: colors.primary, marginTop: spacing.sm },
+  fileSize: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: 2 },
   helpCard: { marginBottom: spacing.md },
-  helpTitle: { ...typography.bodySemiBold, color: colors.primaryDarker, marginBottom: spacing.sm },
-  helpText: { ...typography.bodySmall, color: colors.gray600, marginBottom: 4 },
+  helpTitle: { fontSize: 15, fontFamily: typography.fontFamily.semibold, color: colors.text, marginBottom: spacing.sm },
+  helpText: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginBottom: 4 },
+  revokeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.error,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'transparent',
+  },
+  revokeBtnPressed: { opacity: 0.8 },
+  revokeBtnDisabled: { opacity: 0.7 },
+  revokeBtnText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.error },
 });
