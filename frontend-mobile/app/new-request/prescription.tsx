@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   photoButton: {
     flex: 1,
     backgroundColor: c.background.paper,
-    borderRadius: r.card,
+    borderRadius: 18,
     paddingVertical: s.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -384,6 +384,7 @@ const styles = StyleSheet.create({
     borderColor: c.border.main,
     borderStyle: 'dashed',
     gap: s.sm,
+    ...t.shadows.sm,
   },
   photoIconCircle: {
     width: 52,
@@ -407,9 +408,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   imagePreview: {
-    width: 80,
-    height: 80,
-    borderRadius: r.sm,
+    width: 88,
+    height: 88,
+    borderRadius: 14,
   },
   removeImage: {
     position: 'absolute',

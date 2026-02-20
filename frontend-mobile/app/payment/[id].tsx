@@ -259,7 +259,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
-  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.surface, ...shadows.card,
+  },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
 
@@ -275,14 +278,17 @@ const styles = StyleSheet.create({
   selectionTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
   selectionDesc: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.lg, lineHeight: 20 },
   pixButton: {
-    backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: 14,
+    backgroundColor: colors.primary, borderRadius: 26, paddingVertical: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
     width: '100%', marginBottom: spacing.sm,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 12, elevation: 4,
   },
   pixButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   cardButton: {
-    borderWidth: 2, borderColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: 12,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, width: '100%',
+    borderWidth: 2, borderColor: colors.primary, borderRadius: 26, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    width: '100%', backgroundColor: colors.surface,
   },
   cardButtonText: { fontSize: 16, fontWeight: '700', color: colors.primary },
   priceDivider: { height: 1, backgroundColor: colors.border, width: '100%', marginVertical: spacing.md },
@@ -329,8 +335,10 @@ const styles = StyleSheet.create({
 
   // Check button
   checkButton: {
-    backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: 16,
+    backgroundColor: colors.primary, borderRadius: 26, paddingVertical: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 12, elevation: 4,
   },
   checkButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });
