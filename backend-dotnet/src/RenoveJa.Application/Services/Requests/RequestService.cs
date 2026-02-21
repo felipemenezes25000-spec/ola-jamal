@@ -1,7 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.DTOs.Payments;
@@ -34,8 +37,12 @@ public class RequestService(
     IPrescriptionPdfService prescriptionPdfService,
     IDigitalCertificateService digitalCertificateService,
     IPrescriptionVerifyRepository prescriptionVerifyRepository,
+    IHttpClientFactory httpClientFactory,
+    IOptions<ApiConfig> apiConfig,
+    IDocumentTokenService documentTokenService,
     ILogger<RequestService> logger) : IRequestService
 {
+    private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
 
     /// <summary>Converte string da API (simples, controlado, azul ou simple, controlled, blue) para enum.</summary>
     private static PrescriptionType ParsePrescriptionType(string? value)
@@ -624,8 +631,13 @@ public class RequestService(
         if (doctor == null || !doctor.IsDoctor())
             throw new InvalidOperationException("Doctor not found");
 
+        var (_, subtype) = GetProductTypeAndSubtype(request);
+        var priceFromDb = await productPriceRepository.GetPriceAsync("consultation", subtype, cancellationToken);
+        if (!priceFromDb.HasValue || priceFromDb.Value <= 0)
+            throw new InvalidOperationException("Preço de consulta não configurado. Verifique a tabela product_prices (product_type=consultation, subtype=default).");
+
         request.AssignDoctor(doctorId, doctor.Name);
-        request.MarkConsultationReady();
+        request.MarkConsultationReady(priceFromDb.Value);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var roomName = $"consultation-{request.Id}";
@@ -654,8 +666,17 @@ public class RequestService(
         if (request.RequestType != RequestType.Consultation)
             throw new InvalidOperationException("Only consultation requests can be started");
 
-        if (request.DoctorId != doctorId)
+        if (request.DoctorId.HasValue && request.DoctorId != doctorId)
             throw new UnauthorizedAccessException("Only the assigned doctor can start this consultation");
+
+        if (!request.DoctorId.HasValue || request.DoctorId == Guid.Empty)
+        {
+            var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
+            if (doctor == null || !doctor.IsDoctor())
+                throw new UnauthorizedAccessException("User is not a doctor");
+            request.AssignDoctor(doctorId, doctor.Name);
+            request = await requestRepository.UpdateAsync(request, cancellationToken);
+        }
 
         if (request.Status != RequestStatus.Paid)
             throw new InvalidOperationException("Consultation can only be started after payment is confirmed");
@@ -692,10 +713,13 @@ public class RequestService(
         if (request.RequestType != RequestType.Consultation)
             throw new InvalidOperationException("Only consultation requests can be finished");
 
-        if (request.DoctorId != doctorId)
+        if (request.DoctorId.HasValue && request.DoctorId != doctorId)
             throw new UnauthorizedAccessException("Only the assigned doctor can finish this consultation");
 
-        if (request.Status != RequestStatus.InConsultation)
+        var canFinish = request.Status == RequestStatus.InConsultation
+            || request.Status == RequestStatus.Paid
+            || request.Status == RequestStatus.ConsultationReady;
+        if (!canFinish)
             throw new InvalidOperationException("Consultation must be in progress to be finished");
 
         request.FinishConsultation(dto?.ClinicalNotes);
@@ -1389,6 +1413,56 @@ public class RequestService(
         return MapRequestToDto(request);
     }
 
+    /// <summary>
+    /// Obtém bytes do PDF assinado. Paciente ou médico atribuído ao atendimento.
+    /// </summary>
+    public async Task<byte[]?> GetSignedDocumentAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null || string.IsNullOrWhiteSpace(request.SignedDocumentUrl))
+            return null;
+
+        var isPatient = request.PatientId == userId;
+        var isDoctor = request.DoctorId.HasValue && request.DoctorId.Value == userId;
+        if (!isPatient && !isDoctor)
+            return null;
+
+        try
+        {
+            using var client = httpClientFactory.CreateClient();
+            return await client.GetByteArrayAsync(request.SignedDocumentUrl, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Falha ao buscar PDF assinado para request {RequestId}", id);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Obtém bytes do PDF assinado via token temporário (para links abertos em navegador sem Bearer).
+    /// </summary>
+    public async Task<byte[]?> GetSignedDocumentByTokenAsync(Guid id, string? token, CancellationToken cancellationToken = default)
+    {
+        if (!documentTokenService.ValidateDocumentToken(token, id))
+            return null;
+
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null || string.IsNullOrWhiteSpace(request.SignedDocumentUrl))
+            return null;
+
+        try
+        {
+            using var client = httpClientFactory.CreateClient();
+            return await client.GetByteArrayAsync(request.SignedDocumentUrl, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Falha ao buscar PDF assinado (token) para request {RequestId}", id);
+            return null;
+        }
+    }
+
     private async Task CreateNotificationAsync(
         Guid userId,
         string title,
@@ -1536,12 +1610,22 @@ public class RequestService(
         return result;
     }
 
-    private static RequestResponseDto MapRequestToDto(
+    private RequestResponseDto MapRequestToDto(
         MedicalRequest request,
         string? consultationTranscript = null,
         string? consultationAnamnesis = null,
         string? consultationAiSuggestions = null)
     {
+        var signedUrl = request.SignedDocumentUrl;
+        if (!string.IsNullOrWhiteSpace(_apiBaseUrl) && !string.IsNullOrWhiteSpace(signedUrl))
+        {
+            var baseUrl = $"{_apiBaseUrl.TrimEnd('/')}/api/requests/{request.Id}/document";
+            var docToken = documentTokenService.GenerateDocumentToken(request.Id, 15);
+            signedUrl = string.IsNullOrEmpty(docToken)
+                ? baseUrl
+                : $"{baseUrl}?token={Uri.EscapeDataString(docToken)}";
+        }
+
         return new RequestResponseDto(
             request.Id,
             request.PatientId,
@@ -1563,7 +1647,7 @@ public class RequestService(
             request.RejectionReason,
             request.AccessCode,
             request.SignedAt,
-            request.SignedDocumentUrl,
+            signedUrl,
             request.SignatureId,
             request.CreatedAt,
             request.UpdatedAt,

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -42,6 +43,37 @@ public class PrescriptionVerifyRepository(
             logger.LogError(ex, "Falha ao registrar prescrição {Id} na tabela verify", record.Id);
             throw;
         }
+    }
+
+    public async Task<bool> ValidateVerifyCodeAsync(Guid requestId, string code, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code) || code.Length != 6)
+            return false;
+
+        var row = await supabase.GetSingleAsync<PrescriptionVerifyRow>(
+            TableName,
+            "verify_code_hash",
+            $"id=eq.{requestId}",
+            ct);
+
+        if (row?.VerifyCodeHash == null)
+            return false;
+
+        var codeHash = await Task.Run(() => Sha256Hex(code.Trim()), ct);
+        return string.Equals(codeHash, row.VerifyCodeHash, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string Sha256Hex(string input)
+    {
+        var bytes = Encoding.UTF8.GetBytes(input);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private sealed class PrescriptionVerifyRow
+    {
+        [JsonPropertyName("verify_code_hash")]
+        public string? VerifyCodeHash { get; init; }
     }
 
     private sealed class PrescriptionVerifyModel

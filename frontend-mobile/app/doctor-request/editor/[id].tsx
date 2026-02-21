@@ -592,11 +592,11 @@ const st = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1, textAlign: 'center' },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: doctorDS.screenPaddingHorizontal, paddingBottom: spacing.xl * 2 },
+  scrollContent: { padding: doctorDS.screenPaddingHorizontal, paddingBottom: 100 },
 
   cardMargin: { marginBottom: spacing.md },
   card: {

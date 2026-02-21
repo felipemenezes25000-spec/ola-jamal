@@ -1,5 +1,5 @@
 /**
- * Card padrão do fluxo médico: branco, radius 20, padding 16–20, sombra suave.
+ * Card padrão do fluxo médico: branco, radius 16, padding 16–20, sombra suave.
  */
 
 import React from 'react';

@@ -23,6 +23,7 @@ export interface Database {
           ip?: string | null;
           user_agent?: string | null;
           outcome: string;
+          correlation_id?: string | null;
           details?: Record<string, unknown> | null;
         };
       };

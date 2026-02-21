@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -456,11 +457,15 @@ public class RequestServiceFullTests
     private readonly Mock<IPrescriptionPdfService> _pdfServiceMock = new();
     private readonly Mock<IDigitalCertificateService> _certServiceMock = new();
     private readonly Mock<IPrescriptionVerifyRepository> _prescriptionVerifyRepoMock = new();
+    private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
+    private readonly Mock<IOptions<ApiConfig>> _apiConfigMock = new();
+    private readonly Mock<IDocumentTokenService> _documentTokenServiceMock = new();
     private readonly Mock<ILogger<RequestService>> _loggerMock = new();
     private readonly RequestService _sut;
 
     public RequestServiceFullTests()
     {
+        _apiConfigMock.Setup(x => x.Value).Returns(new ApiConfig { BaseUrl = "" });
         _sut = new RequestService(
             _requestRepoMock.Object, _productPriceRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
@@ -469,7 +474,8 @@ public class RequestServiceFullTests
             _aiPrescriptionGeneratorMock.Object,
             _pdfServiceMock.Object, _certServiceMock.Object,
             _prescriptionVerifyRepoMock.Object,
-            _loggerMock.Object);
+            _httpClientFactoryMock.Object, _apiConfigMock.Object,
+            _documentTokenServiceMock.Object, _loggerMock.Object);
     }
 
     private static User CreatePatient(Guid id) =>
@@ -515,16 +521,14 @@ public class RequestServiceFullTests
         {
             MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" })
         };
-        var paidAvail = new List<MedicalRequest>();
-        var submittedAvail = new List<MedicalRequest>
+        var available = new List<MedicalRequest>
         {
             MedicalRequest.CreatePrescription(Guid.NewGuid(), "P2", PrescriptionType.Controlled, new List<string> { "M2" })
         };
 
         _userRepoMock.Setup(r => r.GetByIdAsync(doctorId, It.IsAny<CancellationToken>())).ReturnsAsync(doctor);
         _requestRepoMock.Setup(r => r.GetByDoctorIdAsync(doctorId, It.IsAny<CancellationToken>())).ReturnsAsync(assigned);
-        _requestRepoMock.Setup(r => r.GetByStatusAsync(RequestStatus.Paid, It.IsAny<CancellationToken>())).ReturnsAsync(paidAvail);
-        _requestRepoMock.Setup(r => r.GetByStatusAsync(RequestStatus.Submitted, It.IsAny<CancellationToken>())).ReturnsAsync(submittedAvail);
+        _requestRepoMock.Setup(r => r.GetAvailableForQueueAsync(It.IsAny<CancellationToken>())).ReturnsAsync(available);
 
         var result = await _sut.GetUserRequestsAsync(doctorId);
         result.Should().HaveCount(2);

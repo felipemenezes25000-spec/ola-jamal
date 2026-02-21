@@ -19,9 +19,20 @@ using Path = System.IO.Path;
 
 Console.WriteLine("=== TESTE FINAL PAdES - Padrão Receita Digital Brasileira ===\n");
 
-var pfxPath = "/home/renato/Downloads/11de2602116b4c72.pfx";
-var pfxPassword = "@Flp1517";
-var outputDir = "/home/renato/ola-jamal/test-signature/output";
+// Configurar via variáveis de ambiente ou argumentos de linha de comando.
+// Nunca commitar valores reais neste arquivo.
+var pfxPath = Environment.GetEnvironmentVariable("TEST_PFX_PATH")
+    ?? args.FirstOrDefault()
+    ?? throw new InvalidOperationException(
+        "Caminho do PFX não informado. Use: TEST_PFX_PATH=/caminho/cert.pfx dotnet run\n" +
+        "ou passe o caminho como primeiro argumento.");
+
+var pfxPassword = Environment.GetEnvironmentVariable("TEST_PFX_PASSWORD")
+    ?? throw new InvalidOperationException(
+        "Senha do PFX não informada. Use: TEST_PFX_PASSWORD=sua-senha dotnet run");
+
+var outputDir = Environment.GetEnvironmentVariable("TEST_OUTPUT_DIR")
+    ?? Path.Combine(AppContext.BaseDirectory, "output");
 Directory.CreateDirectory(outputDir);
 
 var pfxBytes = File.ReadAllBytes(pfxPath);
@@ -34,18 +45,18 @@ var cpf = cpfMatch.Success ? cpfMatch.Groups[1].Value : "";
 
 Console.WriteLine($"Certificado: {certName} | ICP-Brasil | Válido até {cert.NotAfter:dd/MM/yyyy}");
 
-// === Dados da receita (simulando) ===
+// === Dados da receita (fixtures de teste — sem PII real) ===
 var requestId = Guid.NewGuid();
 var accessCode = new Random().Next(1000, 9999).ToString();
 var emissionDate = DateTime.Now;
-var doctorName = "Nicole Soares Dias Mendonça"; // Simulando médico
-var doctorCrm = "206764";
-var doctorCrmState = "SP";
+var doctorName = Environment.GetEnvironmentVariable("TEST_DOCTOR_NAME") ?? "Médico Teste Fictício";
+var doctorCrm = Environment.GetEnvironmentVariable("TEST_DOCTOR_CRM") ?? "000000";
+var doctorCrmState = Environment.GetEnvironmentVariable("TEST_DOCTOR_CRM_STATE") ?? "SP";
 var doctorSpecialty = "Clínica Geral";
-var patientName = "FELIPE MENEZES DA SILVA OLIVEIRA";
-var patientCpf = "410.883.978-16";
-var patientBirthDate = "27/01/2000";
-var patientAddress = "Rua Jacareí, 39, Bela Vista - 01319040, São Paulo - SP";
+var patientName = "PACIENTE FICTÍCIO TESTE";
+var patientCpf = "000.000.000-00";
+var patientBirthDate = "01/01/1990";
+var patientAddress = "Rua Fictícia, 0, Bairro Teste - 00000-000, São Paulo - SP";
 
 var medications = new[]
 {

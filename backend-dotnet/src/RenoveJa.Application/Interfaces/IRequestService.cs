@@ -119,4 +119,12 @@ public interface IRequestService
 
     /// <summary>Paciente cancela o pedido (apenas antes do pagamento).</summary>
     Task<RequestResponseDto> CancelAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Obtém bytes do PDF assinado. Paciente ou médico do atendimento.</summary>
+    Task<byte[]?> GetSignedDocumentAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtém bytes do PDF assinado via token temporário (para links abertos em navegador).
+    /// </summary>
+    Task<byte[]?> GetSignedDocumentByTokenAsync(Guid id, string? token, CancellationToken cancellationToken = default);
 }

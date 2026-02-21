@@ -118,7 +118,7 @@ export default function DoctorQueue() {
 
   const handleFilterChange = useCallback((key: string) => setActiveFilter(key), []);
 
-  const headerPaddingTop = insets.top + 12;
+  const headerPaddingTop = insets.top + 16;
   const empty = !loading && !error && requests.length === 0;
   const periodSummary = useMemo(() => getHistoricalGroupedByPeriod(requests), [requests]);
 
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     paddingHorizontal: pad,
-    paddingBottom: spacing.lg,
+    paddingBottom: 28,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: doctorDS.sectionGap,
-    paddingBottom: 100,
+    paddingBottom: 120,
     paddingHorizontal: pad,
   },
   listContentEmpty: { flexGrow: 1 },

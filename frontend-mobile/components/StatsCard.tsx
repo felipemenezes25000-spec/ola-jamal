@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../lib/theme';
+import { colors, shadows } from '../lib/themeDoctor';
 
 interface StatsCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -16,7 +16,7 @@ export function StatsCard({
   icon,
   label,
   value,
-  iconColor = theme.colors.primary.main,
+  iconColor = colors.primary,
   iconBgColor,
   onPress,
 }: StatsCardProps) {
@@ -53,13 +53,13 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: theme.colors.background.paper,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.card,
+    ...shadows.card,
   },
   pressed: {
     transform: [{ scale: 0.96 }],
@@ -76,13 +76,13 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 22,
     fontWeight: '800',
-    color: theme.colors.text.primary,
+    color: colors.text,
     marginBottom: 4,
   },
   label: {
     fontSize: 11,
     fontWeight: '500',
-    color: theme.colors.text.secondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

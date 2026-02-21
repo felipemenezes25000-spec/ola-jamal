@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
   backBtn: {
-    width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
     backgroundColor: colors.surface, ...shadows.card,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },

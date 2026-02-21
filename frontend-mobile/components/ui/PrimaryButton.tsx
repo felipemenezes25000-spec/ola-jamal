@@ -1,6 +1,7 @@
 /**
- * Botão primário padrão do fluxo médico.
- * Altura 52, borderRadius 16, azul sólido, seta opcional à direita.
+ * Botão primário padrão do fluxo médico/paciente.
+ * Altura 52, borderRadius 16.
+ * Variantes: primary (azul sólido), outline (azul outline), danger (vermelho sólido), outline-danger (vermelho outline).
  */
 
 import React from 'react';
@@ -13,7 +14,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { typography, doctorDS } from '../../lib/themeDoctor';
+import { colors, typography, doctorDS } from '../../lib/themeDoctor';
+
+export type PrimaryButtonVariant = 'primary' | 'outline' | 'danger' | 'outline-danger';
 
 export interface PrimaryButtonProps {
   label: string;
@@ -21,6 +24,8 @@ export interface PrimaryButtonProps {
   loading?: boolean;
   disabled?: boolean;
   showArrow?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
+  variant?: PrimaryButtonVariant;
   style?: ViewStyle;
 }
 
@@ -30,9 +35,37 @@ export function PrimaryButton({
   loading = false,
   disabled = false,
   showArrow = false,
+  icon,
+  variant = 'primary',
   style,
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
+
+  const variantStyle = {
+    primary: styles.variantPrimary,
+    outline: styles.variantOutline,
+    danger: styles.variantDanger,
+    'outline-danger': styles.variantOutlineDanger,
+  }[variant];
+
+  const labelStyle = {
+    primary: styles.labelPrimary,
+    outline: styles.labelOutline,
+    danger: styles.labelPrimary,
+    'outline-danger': styles.labelOutlineDanger,
+  }[variant];
+
+  const isOutline = variant === 'outline' || variant === 'outline-danger';
+  const iconColor = isOutline
+    ? (variant === 'outline-danger' ? colors.error : colors.primary)
+    : '#fff';
+
+  const shadowStyle = {
+    primary: styles.enabledPrimary,
+    outline: undefined,
+    danger: styles.enabledDanger,
+    'outline-danger': undefined,
+  }[variant];
 
   return (
     <Pressable
@@ -40,7 +73,8 @@ export function PrimaryButton({
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.button,
-        !isDisabled && styles.enabled,
+        variantStyle,
+        !isDisabled && shadowStyle,
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
         style,
@@ -48,12 +82,13 @@ export function PrimaryButton({
       accessibilityRole="button"
     >
       {loading ? (
-        <ActivityIndicator color="#fff" size="small" />
+        <ActivityIndicator color={iconColor} size="small" />
       ) : (
         <View style={styles.content}>
-          <Text style={styles.label}>{label}</Text>
+          {icon && <Ionicons name={icon} size={20} color={iconColor} />}
+          <Text style={[styles.label, labelStyle]}>{label}</Text>
           {showArrow && (
-            <Ionicons name="chevron-forward" size={20} color="#fff" style={styles.arrow} />
+            <Ionicons name="chevron-forward" size={20} color={iconColor} style={styles.arrow} />
           )}
         </View>
       )}
@@ -61,28 +96,46 @@ export function PrimaryButton({
   );
 }
 
-const PRIMARY_BG = '#1A9DE0';
-const PRIMARY_BORDER = '#1583C7';
-
 const styles = StyleSheet.create({
   button: {
     height: doctorDS.buttonHeight,
     minHeight: 52,
     borderRadius: doctorDS.buttonRadius,
-    backgroundColor: PRIMARY_BG,
-    borderWidth: 2,
-    borderColor: PRIMARY_BORDER,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    borderWidth: 2,
+  },
+  variantPrimary: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+  },
+  variantDanger: {
+    backgroundColor: colors.error,
+    borderColor: colors.destructive,
+  },
+  variantOutline: {
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
+  },
+  variantOutlineDanger: {
+    backgroundColor: colors.errorLight,
+    borderColor: colors.error,
   },
   disabled: {
     opacity: 0.5,
     shadowOpacity: 0,
     elevation: 0,
   },
-  enabled: {
+  enabledPrimary: {
     shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  enabledDanger: {
+    shadowColor: colors.error,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -102,7 +155,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
+  },
+  labelPrimary: {
     color: '#FFFFFF',
+  },
+  labelOutline: {
+    color: colors.primary,
+  },
+  labelOutlineDanger: {
+    color: colors.error,
   },
   arrow: {
     marginLeft: 2,

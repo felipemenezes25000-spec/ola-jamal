@@ -2,6 +2,15 @@
  * Único ponto de verdade para mapear request (backend) → estado de UI.
  * Todas as telas que filtram ou exibem status devem usar getRequestUiState.
  * Não filtrar status "na mão" em listas; usar os grupos abaixo.
+ *
+ * State machine canônica (backend):
+ *   prescription/exam: submitted → in_review → approved_pending_payment → paid → signed → delivered
+ *   consultation:      submitted → searching_doctor → consultation_ready → in_consultation → consultation_finished
+ *   Qualquer estado:   → rejected | cancelled
+ *
+ * Status legados (mantidos apenas para retrocompatibilidade com dados históricos):
+ *   pending → in_review, analyzing → in_review, approved → paid_pending_sign,
+ *   pending_payment → needs_payment, completed → signed_ready
  */
 
 import type { RequestResponseDto } from '../../types/database';
@@ -11,28 +20,34 @@ export type RequestUiState =
   | 'in_review'
   | 'needs_payment'
   | 'paid_pending_sign'
+  | 'in_consultation'
   | 'signed_ready'
   | 'rejected'
   | 'cancelled'
   | 'unknown';
 
 const STATUS_TO_UI: Record<string, RequestUiState> = {
-  searching_doctor: 'waiting_doctor',
-  submitted: 'in_review',
-  pending: 'in_review',
-  analyzing: 'in_review',
-  in_review: 'in_review',
+  // ── Canônicos: prescription / exam ──────────────────────────
+  submitted:                'in_review',
+  in_review:                'in_review',
   approved_pending_payment: 'needs_payment',
-  pending_payment: 'needs_payment',
-  consultation_ready: 'needs_payment',
-  approved: 'paid_pending_sign',
-  paid: 'paid_pending_sign',
-  signed: 'signed_ready',
-  delivered: 'signed_ready',
-  completed: 'signed_ready',
-  consultation_finished: 'signed_ready',
-  rejected: 'rejected',
-  cancelled: 'cancelled',
+  paid:                     'paid_pending_sign',
+  signed:                   'signed_ready',
+  delivered:                'signed_ready',
+  // ── Canônicos: consultation ──────────────────────────────────
+  searching_doctor:         'waiting_doctor',
+  consultation_ready:       'needs_payment',
+  in_consultation:          'in_consultation',
+  consultation_finished:    'signed_ready',
+  // ── Canônicos: common ────────────────────────────────────────
+  rejected:                 'rejected',
+  cancelled:                'cancelled',
+  // ── Legados (retrocompatibilidade) ──────────────────────────
+  pending:                  'in_review',
+  analyzing:                'in_review',
+  pending_payment:          'needs_payment',
+  approved:                 'paid_pending_sign',
+  completed:                'signed_ready',
 };
 
 /**

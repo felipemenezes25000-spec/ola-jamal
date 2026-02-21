@@ -79,12 +79,33 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         return models.Select(MapToDomain).ToList();
     }
 
+    /// <summary>
+    /// Retorna solicitações disponíveis na fila para o médico.
+    ///
+    /// Regras de elegibilidade por tipo (state machine canônica):
+    ///   prescription / exam → status = submitted (sem médico atribuído)
+    ///   consultation        → status = searching_doctor (sem médico atribuído)
+    ///
+    /// Status legados incluídos por retrocompatibilidade:
+    ///   pending, analyzing → equivalentes a submitted em dados históricos
+    ///
+    /// Excluídos intencionalmente:
+    ///   in_review  → médico já atribuído (doctor_id setado)
+    ///   paid       → aguardando assinatura, não pertence à fila pública
+    ///   approved   → legado, equivalente a approved_pending_payment
+    /// </summary>
     public async Task<List<MedicalRequest>> GetAvailableForQueueAsync(CancellationToken cancellationToken = default)
     {
-        var filter = "status=in.(submitted,in_review,analyzing,pending,paid,searching_doctor)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
+        // Status canônicos + legados sem médico atribuído.
+        // "submitted" = fila de prescription/exam; "searching_doctor" = fila de consultation.
+        // Legacy: "pending" e "analyzing" → mesma semântica de "submitted".
+        const string eligibleStatuses = "submitted,searching_doctor,pending,analyzing";
+        var filter = $"status=in.({eligibleStatuses})&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
+
         var models = await supabase.GetAllAsync<RequestModel>(
             TableName,
-            filter,
+            select: "*",
+            filter: filter,
             orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 

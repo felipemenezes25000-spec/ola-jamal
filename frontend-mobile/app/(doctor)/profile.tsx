@@ -77,13 +77,13 @@ export default function DoctorProfile() {
         colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 20 }]}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        <Text style={styles.headerName}>Dr(a). {firstName}</Text>
-        <Text style={styles.headerEmail}>{user?.email || ''}</Text>
+        <Text style={styles.headerName} numberOfLines={1} ellipsizeMode="tail">Dr(a). {firstName}</Text>
+        <Text style={styles.headerEmail} numberOfLines={1} ellipsizeMode="tail">{user?.email || ''}</Text>
         {doctor && (
           <View style={styles.crmBadge}>
             <Ionicons name="medical" size={12} color="#fff" />
@@ -143,7 +143,7 @@ export default function DoctorProfile() {
       </TouchableOpacity>
 
       <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
-      <View style={{ height: 100 }} />
+      <View style={{ height: insets.bottom + 24 }} />
     </ScrollView>
   );
 }

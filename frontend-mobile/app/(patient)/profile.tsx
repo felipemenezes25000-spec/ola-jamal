@@ -87,8 +87,8 @@ export default function PatientProfile() {
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        <Text style={styles.userName}>{user?.name || 'Carregando...'}</Text>
-        <Text style={styles.userEmail}>{user?.email || ''}</Text>
+        <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">{user?.name || 'Carregando...'}</Text>
+        <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">{user?.email || ''}</Text>
       </LinearGradient>
 
       {/* Info Card - overlapping */}
@@ -155,7 +155,7 @@ export default function PatientProfile() {
 
       <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
 
-      <View style={{ height: 100 }} />
+      <View style={{ height: insets.bottom + 24 }} />
     </ScrollView>
   );
 }

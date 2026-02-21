@@ -24,4 +24,9 @@ public interface IPrescriptionVerifyRepository
     /// Usa o Id da receita como chave primária (mesmo Id do Request).
     /// </summary>
     Task UpsertAsync(PrescriptionVerifyRecord record, CancellationToken ct = default);
+
+    /// <summary>
+    /// Valida o código de 6 dígitos contra verify_code_hash (SHA256) na tabela prescriptions.
+    /// </summary>
+    Task<bool> ValidateVerifyCodeAsync(Guid requestId, string code, CancellationToken ct = default);
 }

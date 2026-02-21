@@ -1,5 +1,8 @@
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
+using RenoveJa.Application.Configuration;
 using Xunit;
 using FluentAssertions;
 using RenoveJa.Application.DTOs.Requests;
@@ -45,6 +48,10 @@ public class RequestServiceTests
         _loggerMock = new Mock<ILogger<RequestService>>();
         var aiPrescriptionGeneratorMock = new Mock<IAiPrescriptionGeneratorService>();
         var prescriptionVerifyRepoMock = new Mock<IPrescriptionVerifyRepository>();
+        var httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        var apiConfigMock = new Mock<IOptions<ApiConfig>>();
+        apiConfigMock.Setup(x => x.Value).Returns(new ApiConfig { BaseUrl = "" });
+        var documentTokenServiceMock = new Mock<IDocumentTokenService>();
 
         _sut = new RequestService(
             _requestRepoMock.Object,
@@ -61,6 +68,9 @@ public class RequestServiceTests
             _pdfServiceMock.Object,
             _certServiceMock.Object,
             prescriptionVerifyRepoMock.Object,
+            httpClientFactoryMock.Object,
+            apiConfigMock.Object,
+            documentTokenServiceMock.Object,
             _loggerMock.Object);
     }
 

@@ -92,12 +92,15 @@ if (!string.IsNullOrEmpty(envPath))
 else
     Env.TraversePath().Load();
 
+const string logTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {Message:lj}{NewLine}{Exception}";
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30)
+    .WriteTo.Console(outputTemplate: logTemplate)
+    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 30, outputTemplate: logTemplate)
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -122,6 +125,17 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "RenoveJá API",
+        Version = "v1",
+        Description = "API de telemedicina: receitas, exames, consultas por vídeo, pagamentos PIX/cartão e assinatura digital ICP-Brasil.",
+        Contact = new OpenApiContact
+        {
+            Name = "RenoveJá Saúde",
+            Url = new Uri("https://renovejasaude.com.br")
+        }
+    });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "Token do login. Cole o valor do campo 'token' retornado no POST /api/auth/login. O Swagger adiciona 'Bearer ' automaticamente.",
@@ -141,6 +155,8 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
     options.OperationFilter<PrescriptionUploadOperationFilter>();
+    // Ordenar operações por path para facilitar leitura e geração de cliente
+    options.OrderActionsBy(a => $"{a.RelativePath}_{a.HttpMethod}");
 });
 
 // Add FluentValidation
@@ -183,6 +199,13 @@ builder.Services.Configure<CertificateEncryptionConfig>(
 builder.Services.Configure<VerificationConfig>(
     builder.Configuration.GetSection(VerificationConfig.SectionName));
 
+// Configure Api (URL base e secret para links de documentos — domínio próprio em vez de Supabase)
+builder.Services.Configure<ApiConfig>(options =>
+{
+    options.BaseUrl = (_envVars.GetValueOrDefault("Api__BaseUrl") ?? Environment.GetEnvironmentVariable("Api__BaseUrl") ?? builder.Configuration["Api:BaseUrl"])?.Trim() ?? "";
+    options.DocumentTokenSecret = (_envVars.GetValueOrDefault("Api__DocumentTokenSecret") ?? Environment.GetEnvironmentVariable("Api__DocumentTokenSecret") ?? builder.Configuration["Api:DocumentTokenSecret"])?.Trim() ?? "";
+});
+
 // In-memory cache
 builder.Services.AddMemoryCache();
 
@@ -213,12 +236,14 @@ builder.Services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
 
 // Register Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IDocumentTokenService, RenoveJa.Application.Services.DocumentTokenService>();
 builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IVerificationService, RenoveJa.Application.Services.Verification.VerificationService>();
 
 // Register Infrastructure Services
 builder.Services.AddScoped<IStorageService, SupabaseStorageService>();

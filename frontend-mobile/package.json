@@ -12,7 +12,8 @@
     "test:coverage": "jest --coverage",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "gen:api-types": "openapi-typescript ${API_URL:-http://localhost:5000}/swagger/v1/swagger.json -o types/api-generated.ts"
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
@@ -57,6 +58,7 @@
     "cross-env": "^10.1.0",
     "jest": "29.7.0",
     "localtunnel": "^2.0.2",
+    "openapi-typescript": "^7.8.0",
     "ts-jest": "^29.4.6",
     "typescript": "~5.9.2"
   },

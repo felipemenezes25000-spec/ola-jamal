@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform, PermissionsAndroid, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,10 +18,14 @@ export default function VideoCallScreen() {
   const { user } = useAuth();
   const [room, setRoom] = useState<VideoRoomResponseDto | null>(null);
   const [videoPageUrl, setVideoPageUrl] = useState<string | null>(null);
+  const [permissionsReady, setPermissionsReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ending, setEnding] = useState(false);
+  const [openedInBrowser, setOpenedInBrowser] = useState(false);
   const startCalledRef = useRef(false);
+
+  const useExternalBrowser = Platform.OS === 'android';
 
   const rid = (Array.isArray(requestId) ? requestId[0] : requestId) ?? '';
 
@@ -38,6 +42,27 @@ export default function VideoCallScreen() {
     if (!room?.id || !rid) return;
     let cancelled = false;
     (async () => {
+      if (Platform.OS === 'android') {
+        const perms = [
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ];
+        try {
+          await PermissionsAndroid.requestMultiple(perms);
+        } catch {}
+        if (cancelled) return;
+        setPermissionsReady(true);
+      } else {
+        setPermissionsReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [room?.id, rid]);
+
+  useEffect(() => {
+    if (!room?.id || !rid || !permissionsReady) return;
+    let cancelled = false;
+    (async () => {
       const token = await apiClient.getAuthToken();
       if (cancelled || !token) return;
       const base = apiClient.getBaseUrl();
@@ -45,7 +70,12 @@ export default function VideoCallScreen() {
       if (!cancelled) setVideoPageUrl(url);
     })();
     return () => { cancelled = true; };
-  }, [room?.id, rid, user?.role]);
+  }, [room?.id, rid, user?.role, permissionsReady]);
+
+  useEffect(() => {
+    if (!useExternalBrowser || !videoPageUrl || openedInBrowser) return;
+    Linking.openURL(videoPageUrl).then(() => setOpenedInBrowser(true)).catch(() => setError('Não foi possível abrir o navegador'));
+  }, [videoPageUrl, useExternalBrowser, openedInBrowser]);
 
   const ROOM_TIMEOUT_MS = 20000;
 
@@ -123,11 +153,58 @@ export default function VideoCallScreen() {
   }
 
   if (!videoPageUrl) {
+    const msg = Platform.OS === 'android' && !permissionsReady
+      ? 'Solicitando câmera e microfone...'
+      : 'Preparando vídeo...';
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Preparando vídeo...</Text>
+          <Text style={styles.loadingText}>{msg}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (useExternalBrowser) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={[...gradients.doctorHeader]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          <Text style={styles.headerTitle}>Consulta em andamento</Text>
+          <TouchableOpacity style={styles.endBtn} onPress={handleEnd} disabled={ending}>
+            {ending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="call" size={20} color="#fff" />}
+          </TouchableOpacity>
+        </LinearGradient>
+        <View style={styles.center}>
+          {openedInBrowser ? (
+            <>
+              <Ionicons name="open-outline" size={64} color={colors.primary} />
+              <Text style={styles.externalTitle}>Chamada aberta no navegador</Text>
+              <Text style={styles.externalDesc}>
+                A consulta foi aberta no Chrome. Quando terminar, retorne ao app e toque em Encerrar.
+              </Text>
+              <TouchableOpacity
+                style={styles.externalOpenBtn}
+                onPress={() => videoPageUrl && Linking.openURL(videoPageUrl)}
+              >
+                <Ionicons name="open-outline" size={20} color="#fff" />
+                <Text style={styles.externalOpenBtnText}>Abrir novamente</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+                <Text style={styles.backBtnText}>Voltar ao app</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Abrindo no navegador...</Text>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -148,12 +225,28 @@ export default function VideoCallScreen() {
       </LinearGradient>
       <View style={styles.webviewContainer}>
         <WebView
-          source={{ uri: videoPageUrl }}
+          source={{
+            uri: videoPageUrl,
+            headers: videoPageUrl.includes('ngrok') ? { 'ngrok-skip-browser-warning': 'true' } : undefined,
+          }}
           style={styles.webview}
           javaScriptEnabled
           domStorageEnabled
           mediaPlaybackRequiresUserAction={false}
           allowsInlineMediaPlayback
+          androidHardwareAcceleration={false}
+          mediaCapturePermissionGrantType="grant"
+          onPermissionRequest={(request) => {
+            request.grant(request.getResources());
+          }}
+          onMessage={(e) => {
+            try {
+              const d = JSON.parse(e.nativeEvent.data);
+              if (d?.type === 'error' && d?.message) {
+                Alert.alert('Erro no vídeo', d.message);
+              }
+            } catch {}
+          }}
         />
       </View>
     </SafeAreaView>
@@ -188,4 +281,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   backBtnText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+  externalTitle: { fontSize: 18, fontWeight: '600', color: '#fff', textAlign: 'center' },
+  externalDesc: { fontSize: 14, color: '#94A3B8', textAlign: 'center', paddingHorizontal: spacing.xl },
+  externalOpenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+  },
+  externalOpenBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
 });

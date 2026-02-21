@@ -523,6 +523,38 @@ public class RequestsController(
     }
 
     /// <summary>
+    /// Baixa/visualiza o PDF assinado. Paciente ou médico atribuído.
+    /// Aceita Bearer ou ?token= (temporário para links abertos em navegador).
+    /// URL usa domínio próprio (renovejasaude.com.br) quando Api:BaseUrl configurado.
+    /// </summary>
+    [HttpGet("{id}/document")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetDocument(Guid id, [FromQuery] string? token, CancellationToken cancellationToken)
+    {
+        byte[]? bytes;
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            bytes = await requestService.GetSignedDocumentByTokenAsync(id, token, cancellationToken);
+        }
+        else
+        {
+            try
+            {
+                var userId = GetUserId();
+                bytes = await requestService.GetSignedDocumentAsync(id, userId, cancellationToken);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new { error = "Token de autenticação inválido ou ausente." });
+            }
+        }
+
+        if (bytes == null || bytes.Length == 0)
+            return NotFound(new { error = "Documento assinado não disponível ou você não tem permissão para acessá-lo." });
+        return File(bytes, "application/pdf", $"documento-{id}.pdf");
+    }
+
+    /// <summary>
     /// Paciente marca o documento como entregue (Signed → Delivered) ao baixar/abrir o PDF.
     /// </summary>
     [HttpPost("{id}/mark-delivered")]

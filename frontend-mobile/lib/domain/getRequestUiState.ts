@@ -2,6 +2,15 @@
  * Único ponto de verdade para mapear request (backend) → estado de UI.
  * Design system: Azul = ação, Verde = sucesso, Amarelo = aguardando, Cinza = histórico.
  * Nenhuma tela deve filtrar status diretamente; usar apenas este helper.
+ *
+ * State machine canônica (backend):
+ *   prescription/exam: submitted → in_review → approved_pending_payment → paid → signed → delivered
+ *   consultation:      submitted → searching_doctor → consultation_ready → in_consultation → consultation_finished
+ *   Qualquer estado:   → rejected | cancelled
+ *
+ * Status legados (retrocompatibilidade com dados históricos):
+ *   pending → needs_action, analyzing → needs_action, approved → needs_action,
+ *   pending_payment → waiting_payment, completed → historical
  */
 
 import type { RequestResponseDto } from '../../types/database';
@@ -23,60 +32,68 @@ export interface RequestUiStateResult {
 }
 
 const STATUS_TO_UI: Record<string, RequestUiState> = {
-  submitted: 'needs_action',
-  pending: 'needs_action',
-  analyzing: 'needs_action',
-  in_review: 'needs_action',
+  // ── Canônicos: prescription / exam ──────────────────────────
+  submitted:                'needs_action',
+  in_review:                'needs_action',
   approved_pending_payment: 'waiting_payment',
-  pending_payment: 'waiting_payment',
-  searching_doctor: 'needs_action',
-  consultation_ready: 'ready',
-  in_consultation: 'in_consultation',
-  paid: 'needs_action', // até médico atender (consultation) ou assinar
-  approved: 'needs_action',
-  signed: 'historical',
-  delivered: 'historical',
-  completed: 'historical',
-  consultation_finished: 'historical',
-  rejected: 'historical',
-  cancelled: 'historical',
+  paid:                     'needs_action', // aguardando assinatura do médico
+  signed:                   'historical',
+  delivered:                'historical',
+  // ── Canônicos: consultation ──────────────────────────────────
+  searching_doctor:         'needs_action',
+  consultation_ready:       'ready',
+  in_consultation:          'in_consultation',
+  consultation_finished:    'historical',
+  // ── Canônicos: common ────────────────────────────────────────
+  rejected:                 'historical',
+  cancelled:                'historical',
+  // ── Legados (retrocompatibilidade) ──────────────────────────
+  pending:                  'needs_action',
+  analyzing:                'needs_action',
+  pending_payment:          'waiting_payment',
+  approved:                 'needs_action',
+  completed:                'historical',
 };
 
 const STATE_LABELS: Record<RequestUiState, string> = {
-  needs_action: 'Pendente',
+  needs_action:    'Pendente',
   waiting_payment: 'Aguardando pagamento',
   in_consultation: 'Em consulta',
-  ready: 'Consulta pronta',
-  historical: 'Finalizado',
+  ready:           'Consulta pronta',
+  historical:      'Finalizado',
 };
 
 const STATE_COLORS: Record<RequestUiState, RequestUiColorKey> = {
-  needs_action: 'waiting',
+  needs_action:    'waiting',
   waiting_payment: 'waiting',
   in_consultation: 'action',
-  ready: 'action',
-  historical: 'historical',
+  ready:           'action',
+  historical:      'historical',
 };
 
 /** Labels específicos por status do backend para exibição em cards */
 const STATUS_DISPLAY_LABELS: Record<string, string> = {
-  submitted: 'Na fila',
-  in_review: 'Em análise',
-  analyzing: 'Analisando',
-  pending: 'Pendente',
+  // Canônicos: prescription/exam
+  submitted:                'Na fila',
+  in_review:                'Em análise',
   approved_pending_payment: 'Aguardando pagamento',
-  pending_payment: 'Aguardando pagamento',
-  searching_doctor: 'Na fila',
-  consultation_ready: 'Consulta pronta',
-  in_consultation: 'Em consulta',
-  paid: 'Pago',
-  approved: 'Aprovado',
-  signed: 'Assinado',
-  delivered: 'Entregue',
-  completed: 'Concluído',
-  consultation_finished: 'Finalizada',
-  rejected: 'Rejeitado',
-  cancelled: 'Cancelado',
+  paid:                     'Pago',
+  signed:                   'Assinado',
+  delivered:                'Entregue',
+  // Canônicos: consultation
+  searching_doctor:         'Na fila',
+  consultation_ready:       'Consulta pronta',
+  in_consultation:          'Em consulta',
+  consultation_finished:    'Finalizada',
+  // Canônicos: common
+  rejected:                 'Rejeitado',
+  cancelled:                'Cancelado',
+  // Legados
+  pending:                  'Pendente',
+  analyzing:                'Analisando',
+  pending_payment:          'Aguardando pagamento',
+  approved:                 'Aprovado',
+  completed:                'Concluído',
 };
 
 /**

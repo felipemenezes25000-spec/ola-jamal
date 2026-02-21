@@ -1,11 +1,13 @@
 // RenoveJá+ Verify v2 — prescriptions + prescription_verification_logs + signed URL
 // POST body: { id: string, code: string, v?: string }
 // Usa SUPABASE_SERVICE_ROLE_KEY (nunca expor no frontend)
+// downloadUrl aponta para API própria (renovejasaude.com.br) para manter domínio na barra do navegador.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const API_BASE_URL = Deno.env.get("API_BASE_URL") ?? "https://renovejasaude.com.br";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CODE_DIGITS_ONLY = /^[0-9]{6}$/;
@@ -98,6 +100,8 @@ Deno.serve(async (req: Request) => {
   const ip = getClientIp(req);
   const userAgent = req.headers.get("user-agent") ?? null;
 
+  const correlationId = req.headers.get("x-correlation-id") ?? null;
+
   const logAndReturn = async (
     prescriptionId: string | null,
     outcome: LogOutcome,
@@ -111,10 +115,15 @@ Deno.serve(async (req: Request) => {
         ip,
         user_agent: userAgent,
         outcome,
+        correlation_id: correlationId,
         details: details ?? null,
       });
     }
-    return jsonResponse(body, status, corsHeaders(origin));
+    const responseHeaders = {
+      ...corsHeaders(origin),
+      ...(correlationId ? { "X-Correlation-Id": correlationId } : {}),
+    };
+    return jsonResponse(body, status, responseHeaders);
   };
 
   if (!idTrim || !UUID_REGEX.test(idTrim)) {
@@ -206,13 +215,11 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  let downloadUrl: string | undefined;
-  if (r.pdf_storage_path) {
-    const { data: signed } = await supabase.storage
-      .from("prescriptions")
-      .createSignedUrl(r.pdf_storage_path, 120);
-    if (signed?.signedUrl) downloadUrl = signed.signedUrl;
-  }
+  // URL com domínio próprio para o PDF (backend faz stream)
+  const base = API_BASE_URL.replace(/\/$/, "");
+  const downloadUrl = r.pdf_storage_path
+    ? `${base}/api/verify/${r.id}/document?code=${encodeURIComponent(codeTrim)}`
+    : undefined;
 
   const crmMasked =
     r.prescriber_crm_uf && r.prescriber_crm_last4

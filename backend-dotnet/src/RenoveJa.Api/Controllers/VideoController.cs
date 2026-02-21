@@ -120,7 +120,7 @@ internal static class VideoCallPageHtml
         sb.Append("var baseUrl=window.location.origin;var hubUrl=baseUrl+'/hubs/video?access_token='+encodeURIComponent(accessToken);");
         sb.Append("var pc=null;var localStream=null;");
         sb.Append("function setStatus(s){statusEl.textContent=s;}");
-        sb.Append("function setError(s){statusEl.textContent='Erro: '+s;statusEl.style.background='#7f1d1d';}");
+        sb.Append("function setError(s){statusEl.textContent='Erro: '+s;statusEl.style.background='#7f1d1d';if(window.ReactNativeWebView){try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'error',message:s}));}catch(e){}}}");
         sb.Append("var connection=new signalR.HubConnectionBuilder().withUrl(hubUrl).withAutomaticReconnect().build();");
         sb.Append("connection.on('Error',function(m){setError(m);});");
         sb.Append("connection.on('Joined',function(){setStatus('Sala pronta. Aguardando mídia...');});");

@@ -7,12 +7,10 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
-  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors, gradients } from '../../lib/themeDoctor';
@@ -23,6 +21,7 @@ import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
 import { LargeActionCard } from '../../components/ui/LargeActionCard';
+import { InfoCard } from '../../components/ui/InfoCard';
 import { EmptyState } from '../../components/EmptyState';
 
 export default function PatientHome() {
@@ -96,7 +95,7 @@ export default function PatientHome() {
         <View style={styles.headerRow}>
           <View style={styles.headerGreeting}>
             <Text style={styles.headerGreetingLabel}>Olá,</Text>
-            <Text style={styles.headerGreetingName}>{firstName}</Text>
+            <Text style={styles.headerGreetingName} numberOfLines={1} ellipsizeMode="tail">{firstName}</Text>
           </View>
           <Pressable
             style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8 }]}
@@ -132,33 +131,20 @@ export default function PatientHome() {
         />
       </View>
 
-      {/* ─── Destaque: Triagem com IA (tag no canto superior direito, igual ao web) ─── */}
+      {/* ─── Destaque: Triagem com IA ─── */}
       <View style={styles.aiBannerWrap}>
-        <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.aiBanner}
-        >
-          <View style={styles.aiBannerIconWrap}>
-            <MaterialCommunityIcons name="robot-happy-outline" size={36} color="#fff" />
-          </View>
-          <View style={styles.aiBannerTextWrap}>
-            <Text style={styles.aiBannerTitle}>Triagem feita com IA</Text>
-            <Text style={styles.aiBannerDesc}>
-              Leitura inteligente de receitas e exames para agilizar seu atendimento.
-            </Text>
-          </View>
-          <View style={styles.aiBannerBadge}>
-            <Text style={styles.aiBannerBadgeText}>Tecnologia RenoveJá+</Text>
-          </View>
-        </LinearGradient>
+        <InfoCard
+          icon="sparkles-outline"
+          title="Triagem feita com IA"
+          description="Leitura inteligente de receitas e exames para agilizar seu atendimento."
+          badge="Tecnologia RenoveJá+"
+        />
       </View>
 
       {/* ─── Quick Actions (largura total, menos margem) ─── */}
       <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>O que deseja fazer?</Text>
-        <Text style={styles.sectionHint}>Toque em uma opção abaixo para começar: renovar receita, pedir exame ou falar com um profissional.</Text>
+        <Text style={styles.sectionHint} numberOfLines={2} ellipsizeMode="tail">Toque em uma opção abaixo para começar: renovar receita, pedir exame ou falar com um profissional.</Text>
         <View style={styles.actionsColumn}>
           <LargeActionCard
             icon={
@@ -209,7 +195,7 @@ export default function PatientHome() {
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
           </View>
-          <Text style={styles.sectionHint}>Toque em um pedido para ver os detalhes. Use "Ver todos" para ver a lista completa.</Text>
+          <Text style={styles.sectionHint} numberOfLines={2} ellipsizeMode="tail">Toque em um pedido para ver os detalhes. Use "Ver todos" para ver a lista completa.</Text>
           {recentRequests.map((req) => (
             <RequestCard
               key={req.id}
@@ -238,7 +224,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingBottom: 110,
+    paddingBottom: 120,
   },
   loadingContainer: {
     flex: 1,
@@ -250,7 +236,7 @@ const styles = StyleSheet.create({
   // ─── Header ───
   header: {
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
-    paddingBottom: 26,
+    paddingBottom: 50,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
@@ -294,65 +280,6 @@ const styles = StyleSheet.create({
   aiBannerWrap: {
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
     marginTop: 24,
-  },
-  aiBanner: {
-    borderRadius: 20,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    minHeight: 100,
-    ...Platform.select({
-      web: { boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)' },
-      default: {
-        shadowColor: '#6366F1',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
-        elevation: 8,
-      },
-    }),
-  },
-  aiBannerIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  aiBannerTextWrap: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: 80,
-  },
-  aiBannerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  aiBannerDesc: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
-    lineHeight: 18,
-  },
-  aiBannerBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  aiBannerBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.5,
   },
 
   // ─── Stats (flutuando sobre o cinza, igual ao web) ───

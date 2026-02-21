@@ -455,9 +455,13 @@ export default function DoctorRequestDetail() {
               <TouchableOpacity style={s.cancelBtn} onPress={() => setShowRejectForm(false)}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.rejectBtn} onPress={handleReject} disabled={actionLoading}>
-                {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.actionBtnText}>Rejeitar</Text>}
-              </TouchableOpacity>
+              <PrimaryButton
+                label="Rejeitar"
+                variant="danger"
+                onPress={handleReject}
+                loading={actionLoading}
+                style={s.primaryBtnFlex}
+              />
             </View>
           </DoctorCard>
         )}
@@ -483,10 +487,12 @@ export default function DoctorRequestDetail() {
             )}
             {canVideo && <PrimaryButton label="Iniciar Consulta" showArrow onPress={() => router.push(`/video/${request.id}`)} style={s.actionBtnFull} />}
             {canReject && (
-              <TouchableOpacity style={s.rejectOutline} onPress={() => setShowRejectForm(true)} activeOpacity={0.7}>
-                <Ionicons name="close-circle-outline" size={20} color={colors.error} />
-                <Text style={s.rejectOutlineText}>Rejeitar</Text>
-              </TouchableOpacity>
+              <PrimaryButton
+                label="Rejeitar"
+                variant="outline-danger"
+                onPress={() => setShowRejectForm(true)}
+                style={s.actionBtnFull}
+              />
             )}
           </View>
         )}

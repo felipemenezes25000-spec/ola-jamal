@@ -55,6 +55,7 @@ public class PaymentsController(
 
     /// <summary>
     /// Obtém o pagamento PIX pendente de uma solicitação (para o paciente pagar).
+    /// Retorna 200 com null quando não há pagamento pendente (fluxo normal: frontend cria o pagamento).
     /// </summary>
     [HttpGet("by-request/{requestId}")]
     [Authorize]
@@ -64,8 +65,6 @@ public class PaymentsController(
     {
         var userId = GetUserId();
         var payment = await paymentService.GetPaymentByRequestIdAsync(requestId, userId, cancellationToken);
-        if (payment == null)
-            return NotFound(new { message = "Nenhum pagamento pendente para esta solicitação" });
         return Ok(payment);
     }
 

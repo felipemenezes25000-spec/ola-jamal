@@ -11,7 +11,8 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, doctorDS } from '../../lib/themeDoctor';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, borderRadius, gradients, doctorDS } from '../../lib/themeDoctor';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
@@ -139,18 +140,23 @@ export default function PatientNotifications() {
   ).map(([title, data]) => ({ title, data }));
 
   const insets = useSafeAreaInsets();
-  const headerPaddingTop = insets.top + 12;
+  const headerPaddingTop = insets.top + 16;
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: headerPaddingTop }]}>
+      <LinearGradient
+        colors={[...gradients.doctorHeader]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: headerPaddingTop }]}
+      >
         <Text style={styles.title}>Notificações</Text>
         {notifications.some(n => !n.read) && (
           <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
             <Text style={styles.markAll}>Marcar lidas</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </LinearGradient>
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -191,14 +197,14 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
-    paddingBottom: spacing.lg,
+    paddingBottom: 28,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  title: { fontSize: 22, fontWeight: '700', color: colors.text },
+  title: { fontSize: 22, fontWeight: '700', color: '#fff' },
   markAllBtn: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
-  markAll: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  markAll: { fontSize: 13, color: '#fff', fontWeight: '600' },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 120 },
   groupLabel: {

@@ -312,8 +312,10 @@ export async function createPayment(data: CreatePaymentData): Promise<PaymentRes
   return apiClient.post('/api/payments', data);
 }
 
-export async function fetchPaymentByRequest(requestId: string): Promise<PaymentResponseDto> {
-  return apiClient.get(`/api/payments/by-request/${requestId}`);
+/** Retorna o pagamento pendente ou null se não existir (resposta 200 com body null). */
+export async function fetchPaymentByRequest(requestId: string): Promise<PaymentResponseDto | null> {
+  const result = await apiClient.get<PaymentResponseDto | null>(`/api/payments/by-request/${requestId}`);
+  return result ?? null;
 }
 
 export async function fetchPayment(paymentId: string): Promise<PaymentResponseDto> {

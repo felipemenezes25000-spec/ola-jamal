@@ -91,7 +91,7 @@ export const borderRadius = {
 
 /** Design system: card radius 20, padding 16–20, section gap 24, button 52/16 */
 export const doctorDS = {
-  cardRadius: 20,
+  cardRadius: 16,
   cardPadding: 18,
   sectionGap: 24,
   buttonHeight: 52,

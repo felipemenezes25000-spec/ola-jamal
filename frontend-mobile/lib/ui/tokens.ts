@@ -28,7 +28,7 @@ export const uiTokens = {
     sm: 40,
     md: 48,
   },
-  screenPaddingHorizontal: 16,
+  screenPaddingHorizontal: 20,
   maxContentWidth: 400,
 } as const;
 

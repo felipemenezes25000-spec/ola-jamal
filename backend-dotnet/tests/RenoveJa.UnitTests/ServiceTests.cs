@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -471,11 +472,15 @@ public class ExtendedRequestServiceTests
     private readonly Mock<IConsultationSessionStore> _consultationSessionStoreMock = new();
     private readonly Mock<IDigitalCertificateService> _certServiceMock = new();
     private readonly Mock<IPrescriptionVerifyRepository> _prescriptionVerifyRepoMock = new();
+    private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
+    private readonly Mock<IOptions<ApiConfig>> _apiConfigMock = new();
+    private readonly Mock<IDocumentTokenService> _documentTokenServiceMock = new();
     private readonly Mock<ILogger<global::RenoveJa.Application.Services.Requests.RequestService>> _loggerMock = new();
     private readonly global::RenoveJa.Application.Services.Requests.RequestService _sut;
 
     public ExtendedRequestServiceTests()
     {
+        _apiConfigMock.Setup(x => x.Value).Returns(new ApiConfig { BaseUrl = "" });
         _sut = new global::RenoveJa.Application.Services.Requests.RequestService(
             _requestRepoMock.Object, _productPriceRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
@@ -484,7 +489,8 @@ public class ExtendedRequestServiceTests
             _aiPrescriptionGeneratorMock.Object,
             _pdfServiceMock.Object, _certServiceMock.Object,
             _prescriptionVerifyRepoMock.Object,
-            _loggerMock.Object);
+            _httpClientFactoryMock.Object, _apiConfigMock.Object,
+            _documentTokenServiceMock.Object, _loggerMock.Object);
     }
 
     private static User CreatePatient(Guid id) =>
@@ -626,6 +632,8 @@ public class ExtendedRequestServiceTests
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
         _userRepoMock.Setup(r => r.GetByIdAsync(doctorId, It.IsAny<CancellationToken>())).ReturnsAsync(doctor);
+        _productPriceRepoMock.Setup(r => r.GetPriceAsync("consultation", "default", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(149.90m);
         _requestRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MedicalRequest req, CancellationToken _) => req);
         _videoRoomRepoMock.Setup(r => r.CreateAsync(It.IsAny<VideoRoom>(), It.IsAny<CancellationToken>()))

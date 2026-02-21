@@ -3,6 +3,16 @@ import { Platform } from 'react-native';
 
 const TOKEN_KEY = '@renoveja:auth_token';
 
+/** Gera um ID de correlação de 16 hex para rastrear a requisição no backend. */
+function generateCorrelationId(): string {
+  const chars = '0123456789abcdef';
+  let id = '';
+  for (let i = 0; i < 16; i++) {
+    id += chars[Math.floor(Math.random() * 16)];
+  }
+  return id;
+}
+
 // Android emulator uses 10.0.2.2 to reach host machine's localhost
 // Physical device needs the LAN IP
 // Web uses localhost directly
@@ -52,7 +62,10 @@ class ApiClient {
   /** Headers comuns a todas as requisições (ex.: ngrok exige header para não devolver página HTML no browser). */
   private getCommonHeaders(): Record<string, string> {
     const isNgrok = this.baseUrl.includes('ngrok');
-    return isNgrok ? { 'ngrok-skip-browser-warning': 'true' } : {};
+    return {
+      'X-Correlation-Id': generateCorrelationId(),
+      ...(isNgrok ? { 'ngrok-skip-browser-warning': 'true' } : {}),
+    };
   }
 
   /** Cria um AbortSignal que cancela a requisição após REQUEST_TIMEOUT_MS. Evita loading infinito se a API não responder. */

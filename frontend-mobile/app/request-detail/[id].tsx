@@ -16,10 +16,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
-
-const PRIMARY_BLUE = '#1A9DE0';
-const PRIMARY_BORDER = '#1583C7';
+import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
 import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
@@ -27,6 +24,7 @@ import { formatBRL, formatDateBR } from '../../lib/utils/format';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
 
@@ -202,7 +200,7 @@ export default function RequestDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={PRIMARY_BLUE} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Carregando...</Text>
         </View>
       </SafeAreaView>
@@ -214,7 +212,7 @@ export default function RequestDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={PRIMARY_BLUE} />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Detalhes</Text>
           <View style={{ width: 40 }} />
@@ -235,7 +233,7 @@ export default function RequestDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={PRIMARY_BLUE} />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Detalhes</Text>
           <View style={{ width: 40 }} />
@@ -267,7 +265,7 @@ export default function RequestDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={PRIMARY_BLUE} />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{getTypeLabel(request.requestType)}</Text>
         <StatusBadge status={request.status} />
@@ -364,7 +362,7 @@ export default function RequestDetailScreen() {
         {request.examImages && request.examImages.length > 0 && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="images" size={20} color="#8B5CF6" />
+              <Ionicons name="images" size={20} color={colors.info} />
               <Text style={styles.cardTitle}>Imagens do Exame</Text>
             </View>
             <Text style={styles.zoomHint}>Toque para ampliar • Pinça para zoom</Text>
@@ -385,13 +383,13 @@ export default function RequestDetailScreen() {
         {request.exams && request.exams.length > 0 && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="flask" size={20} color="#8B5CF6" />
+              <Ionicons name="flask" size={20} color={colors.info} />
               <Text style={styles.cardTitle}>Exames</Text>
             </View>
             {request.exams.map((exam, i) => (
               <View key={i} style={styles.medItem}>
                 <View style={styles.medIcon}>
-                  <Ionicons name="ellipse" size={8} color="#8B5CF6" />
+                  <Ionicons name="ellipse" size={8} color={colors.info} />
                 </View>
                 <Text style={styles.medName}>{exam}</Text>
               </View>
@@ -406,7 +404,7 @@ export default function RequestDetailScreen() {
               <Ionicons name="chatbubble-ellipses" size={20} color={colors.warning} />
               <Text style={styles.cardTitle}>Sintomas</Text>
             </View>
-            <Text style={styles.symptomsText}>{request.symptoms}</Text>
+            <Text style={styles.symptomsText} numberOfLines={4} ellipsizeMode="tail">{request.symptoms}</Text>
           </View>
         )}
 
@@ -424,7 +422,7 @@ export default function RequestDetailScreen() {
                 </View>
               )}
             </View>
-            <Text style={styles.aiSummary}>{request.aiSummaryForDoctor}</Text>
+            <Text style={styles.aiSummary} numberOfLines={4} ellipsizeMode="tail">{request.aiSummaryForDoctor}</Text>
           </View>
         )}
 
@@ -442,43 +440,49 @@ export default function RequestDetailScreen() {
         {/* Action Buttons */}
         <View style={styles.actions}>
           {canPay && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={handlePay} disabled={actionLoading} activeOpacity={0.8}>
-              {actionLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="qr-code" size={20} color="#fff" />
-                  <Text style={styles.primaryBtnText}>Pagar</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <PrimaryButton
+              label="Pagar"
+              icon="qr-code"
+              onPress={handlePay}
+              loading={actionLoading}
+              disabled={actionLoading}
+            />
           )}
 
           {canDownload && (
             <>
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleDownload} activeOpacity={0.8}>
-                <Ionicons name="download" size={20} color="#fff" />
-                <Text style={styles.primaryBtnText}>Baixar Receita</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.outlineBtn} onPress={handleViewDocument} activeOpacity={0.8}>
-                <Ionicons name="eye" size={20} color={PRIMARY_BLUE} />
-                <Text style={styles.outlineBtnText}>Visualizar</Text>
-              </TouchableOpacity>
+              <PrimaryButton
+                label="Baixar Receita"
+                icon="download"
+                onPress={handleDownload}
+              />
+              <PrimaryButton
+                label="Visualizar"
+                icon="eye"
+                variant="outline"
+                onPress={handleViewDocument}
+              />
             </>
           )}
 
           {canJoinVideo && (
-            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: colors.success }]} onPress={handleEnterConsultation} activeOpacity={0.8}>
-              <Ionicons name="videocam" size={20} color="#fff" />
-              <Text style={styles.primaryBtnText}>Entrar na Consulta</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              label="Entrar na Consulta"
+              icon="videocam"
+              onPress={handleEnterConsultation}
+              style={{ backgroundColor: colors.success, borderColor: colors.success }}
+            />
           )}
 
           {canCancel && (
-            <TouchableOpacity style={[styles.outlineBtn, { borderColor: colors.textMuted }]} onPress={handleCancel} disabled={actionLoading} activeOpacity={0.8}>
-              <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
-              <Text style={[styles.outlineBtnText, { color: colors.textMuted }]}>Cancelar pedido</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              label="Cancelar pedido"
+              icon="close-circle-outline"
+              variant="outline"
+              onPress={handleCancel}
+              disabled={actionLoading}
+              style={{ borderColor: colors.textMuted }}
+            />
           )}
         </View>
       </ScrollView>
@@ -521,15 +525,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   backBtn: {
-    width: 44, height: 44, borderRadius: 14,
+    width: 40, height: 40, borderRadius: 12,
     backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
     ...shadows.card,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  scroll: { padding: spacing.md, paddingTop: spacing.lg, paddingBottom: spacing.xl * 3 },
+  scroll: { padding: spacing.md, paddingTop: spacing.lg, paddingBottom: 100 },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.md,
     ...shadows.card,
@@ -560,39 +564,10 @@ const styles = StyleSheet.create({
   riskBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.sm },
   riskText: { fontSize: 11, fontWeight: '700' },
   actions: { gap: spacing.sm, marginTop: spacing.md },
-  primaryBtn: {
-    backgroundColor: PRIMARY_BLUE,
-    borderWidth: 2,
-    borderColor: PRIMARY_BORDER,
-    borderRadius: 26,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  outlineBtn: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 26,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  outlineBtnText: { fontSize: 16, fontWeight: '700', color: colors.primary },
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.textSecondary },
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
   errorBtn: {
-    backgroundColor: PRIMARY_BLUE,
+    backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

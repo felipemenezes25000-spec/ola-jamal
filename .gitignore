@@ -22,3 +22,11 @@ dist/
 .DS_Store
 *.log
 Thumbs.db
+
+# test-signature: utilitário local de teste de assinatura PAdES.
+# Nunca commitar PFX, output com PDFs reais ou variáveis de ambiente com senhas.
+test-signature/output/
+test-signature/bin/
+test-signature/obj/
+*.pfx
+*.p12

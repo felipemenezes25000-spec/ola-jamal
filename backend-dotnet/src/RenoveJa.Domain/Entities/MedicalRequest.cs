@@ -379,11 +379,14 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void MarkConsultationReady()
+    /// <summary>Define o preço e marca a consulta como pronta para pagamento.</summary>
+    public void MarkConsultationReady(decimal? price = null)
     {
         if (RequestType != Enums.RequestType.Consultation)
             throw new DomainException("Only consultation requests can be marked as ready");
 
+        if (price.HasValue && price.Value > 0)
+            Price = Money.Create(price.Value);
         Status = RequestStatus.ConsultationReady;
         UpdatedAt = DateTime.UtcNow;
     }

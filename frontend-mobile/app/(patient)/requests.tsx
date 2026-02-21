@@ -113,7 +113,7 @@ export default function PatientRequests() {
     loadData();
   }, [loadData]);
 
-  const headerPaddingTop = insets.top + 12;
+  const headerPaddingTop = insets.top + 16;
   const empty = !loading && !error && filteredRequests.length === 0;
 
   return (
@@ -192,7 +192,7 @@ export default function PatientRequests() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: spacing.lg },
+  header: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 28 },
   headerGradient: { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   title: { fontSize: 22, fontWeight: '700', color: '#fff' },
   headerHint: {
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md },
   retryText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 80 },
+  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 120 },
   listContentEmpty: { flexGrow: 1 },
   separator: { height: 8 },
 });

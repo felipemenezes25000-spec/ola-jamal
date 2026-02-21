@@ -121,40 +121,40 @@ export default function DoctorDashboard() {
         colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 20 }]}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.headerTextWrap}>
-          <Text style={styles.greeting}>{greeting}, Dr(a). {firstName}</Text>
-          <Text style={styles.pendingSummary}>
+          <Text style={styles.greeting} numberOfLines={1} ellipsizeMode="tail">{greeting}, Dr(a). {firstName}</Text>
+          <Text style={styles.pendingSummary} numberOfLines={2} ellipsizeMode="tail">
             Você tem {pendentesCount} atendimento{pendentesCount !== 1 ? 's' : ''} pendente{pendentesCount !== 1 ? 's' : ''}
           </Text>
         </View>
-
-        {/* Apenas 3 cards: Na fila, Consulta pronta, Em consulta */}
-        <View style={styles.statsRow}>
-          <StatsCard
-            icon="time-outline"
-            label="Na fila"
-            value={naFila}
-            iconColor="#D97706"
-            onPress={() => router.push('/(doctor)/requests')}
-          />
-          <StatsCard
-            icon="videocam-outline"
-            label="Consulta pronta"
-            value={consultaPronta}
-            iconColor={colors.primary}
-            onPress={() => router.push('/(doctor)/requests')}
-          />
-          <StatsCard
-            icon="checkmark-circle-outline"
-            label="Em consulta"
-            value={emConsulta}
-            iconColor="#059669"
-            onPress={() => router.push('/(doctor)/requests')}
-          />
-        </View>
       </LinearGradient>
+
+      {/* KPI cards flutuando sobre o fundo cinza — mesmo padrão da home do paciente */}
+      <View style={styles.statsRow}>
+        <StatsCard
+          icon="time-outline"
+          label="Na fila"
+          value={naFila}
+          iconColor="#D97706"
+          onPress={() => router.push('/(doctor)/requests')}
+        />
+        <StatsCard
+          icon="videocam-outline"
+          label="Consulta pronta"
+          value={consultaPronta}
+          iconColor={colors.primary}
+          onPress={() => router.push('/(doctor)/requests')}
+        />
+        <StatsCard
+          icon="checkmark-circle-outline"
+          label="Em consulta"
+          value={emConsulta}
+          iconColor="#059669"
+          onPress={() => router.push('/(doctor)/requests')}
+        />
+      </View>
 
       <View style={styles.body}>
         {hasCertificate === false && (
@@ -246,16 +246,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingBottom: 110,
+    paddingBottom: 120,
   },
   header: {
     paddingHorizontal: pad,
-    paddingBottom: 24,
+    paddingBottom: 56,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
   headerTextWrap: {
-    marginBottom: 20,
+    marginBottom: 4,
   },
   greeting: {
     fontSize: 22,
@@ -270,9 +270,10 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-    minHeight: 100,
+    gap: 10,
+    marginTop: -44,
+    marginBottom: 0,
+    paddingHorizontal: pad,
   },
   body: {
     paddingHorizontal: pad,
