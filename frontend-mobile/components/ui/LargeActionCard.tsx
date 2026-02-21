@@ -41,7 +41,9 @@ export function LargeActionCard({
           {description}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={22} color={colors.textMuted} />
+      <View style={styles.chevronWrap}>
+        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      </View>
     </Pressable>
   );
 }
@@ -55,28 +57,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E9EEF5',
     borderRadius: borderRadius.cardLg,
-    padding: 22,
-    minHeight: 92,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    minHeight: 88,
   },
   pressed: {
     opacity: 0.9,
     transform: [{ scale: 0.99 }],
   },
   iconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: 16,
   },
   textWrap: {
     flex: 1,
     justifyContent: 'center',
     minWidth: 0,
+    marginRight: 12,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 4,
@@ -85,5 +89,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  chevronWrap: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
   },
 });

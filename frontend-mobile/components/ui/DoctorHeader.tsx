@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { gradients, typography } from '../../lib/themeDoctor';
+import { gradients, typography, doctorDS } from '../../lib/themeDoctor';
 
 export interface DoctorHeaderProps {
   title: string;
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: doctorDS.screenPaddingHorizontal,
     paddingBottom: 14,
   },
   backButton: {

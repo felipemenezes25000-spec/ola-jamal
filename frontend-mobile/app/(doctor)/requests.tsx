@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, gradients, borderRadius, doctorDS } from '../../lib/themeDoctor';
+const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
@@ -100,7 +101,7 @@ export default function DoctorQueue() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-      const interval = setInterval(() => loadData(true), 25000);
+      const interval = setInterval(() => loadData(true), 45000);
       return () => clearInterval(interval);
     }, [loadData])
   );
@@ -184,6 +185,7 @@ export default function DoctorQueue() {
               showPatientName
               showPrice={false}
               showRisk={false}
+              suppressHorizontalMargin
             />
           )}
           contentContainerStyle={[styles.listContent, empty && styles.listContentEmpty]}
@@ -213,7 +215,7 @@ export default function DoctorQueue() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: pad,
     paddingBottom: spacing.lg,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -254,7 +256,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: pad,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     backgroundColor: colors.background,
@@ -283,7 +285,7 @@ const styles = StyleSheet.create({
   },
   loadingWrap: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: pad,
     paddingTop: spacing.lg,
   },
   errorWrap: {
@@ -326,6 +328,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: doctorDS.sectionGap,
     paddingBottom: 100,
+    paddingHorizontal: pad,
   },
   listContentEmpty: { flexGrow: 1 },
   separator: { height: spacing.xs },

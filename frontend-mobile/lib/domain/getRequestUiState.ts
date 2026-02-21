@@ -218,10 +218,10 @@ export function getHistoricalGroupedByPeriod(requests: RequestResponseDto[]): Pe
   }
 
   return [
-    { label: 'Esta semana', count: countWeek },
-    { label: 'Este mês', count: countMonth },
-    { label: 'Últimos 3 meses', count: count3Months },
-    { label: 'Últimos 6 meses', count: count6Months },
+    { label: 'Semana', count: countWeek },
+    { label: 'Mês', count: countMonth },
+    { label: '3 meses', count: count3Months },
+    { label: '6 meses', count: count6Months },
   ];
 }
 

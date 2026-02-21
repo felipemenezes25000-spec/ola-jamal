@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { theme } from '../lib/theme';
+import { uiTokens } from '../lib/ui/tokens';
+import { AppChip } from './ui/AppChip';
 
 const c = theme.colors;
 const s = theme.spacing;
@@ -35,32 +37,17 @@ export function RequestTypeFilter({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {items.map((item) => {
-          const isSelected = value === item.key;
-          return (
-            <Pressable
-              key={item.key}
-              style={[
-                styles.chip,
-                isSelected && { backgroundColor: accentSoft, borderColor: accent },
-              ]}
-              onPress={() => !disabled && onValueChange(item.key)}
-              disabled={disabled}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected, disabled }}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  isSelected && { color: accent, fontWeight: '700' },
-                ]}
-                numberOfLines={1}
-              >
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {items.map((item) => (
+          <AppChip
+            key={item.key}
+            label={item.label}
+            selected={value === item.key}
+            onPress={() => onValueChange(item.key)}
+            disabled={disabled}
+            accentColor={accent}
+            accentSoftColor={accentSoft}
+          />
+        ))}
       </ScrollView>
     </View>
   );
@@ -72,20 +59,8 @@ const styles = StyleSheet.create({
     backgroundColor: c.background.default,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 100,
-    backgroundColor: c.background.paper,
-    borderWidth: 1.5,
-    borderColor: c.border.main,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: c.text.secondary,
   },
 });

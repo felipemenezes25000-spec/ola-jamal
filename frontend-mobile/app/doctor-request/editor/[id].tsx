@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, shadows, typography } from '../../../lib/themeDoctor';
+import { colors, spacing, borderRadius, shadows, typography, doctorDS } from '../../../lib/themeDoctor';
 import {
   getRequestById,
   signRequest,
@@ -586,7 +586,7 @@ const st = StyleSheet.create({
   navHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: doctorDS.screenPaddingHorizontal,
     paddingBottom: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
@@ -596,7 +596,7 @@ const st = StyleSheet.create({
   navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1, textAlign: 'center' },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+  scrollContent: { padding: doctorDS.screenPaddingHorizontal, paddingBottom: spacing.xl * 2 },
 
   cardMargin: { marginBottom: spacing.md },
   card: {
@@ -726,7 +726,7 @@ const st = StyleSheet.create({
 
   // Bottom Action Bar
   bottomBar: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: doctorDS.screenPaddingHorizontal,
     paddingTop: spacing.md,
     backgroundColor: colors.surface,
     borderTopWidth: 1,

@@ -83,7 +83,7 @@ export default function DoctorNotifications() {
   const [refreshing, setRefreshing] = useState(false);
 
   const headerPaddingTop = insets.top + 12;
-  const horizontalPad = 20;
+  const horizontalPad = doctorDS.screenPaddingHorizontal;
 
   const loadData = useCallback(async () => {
     try {
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: doctorDS.screenPaddingHorizontal,
     paddingBottom: spacing.md,
   },
   categoryChip: {
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   markAllText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, color: '#fff', fontWeight: '600' },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: doctorDS.screenPaddingHorizontal,
     paddingBottom: 100,
   },
   card: {

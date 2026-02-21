@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../lib/theme';
+import { uiTokens } from '../../lib/ui/tokens';
 import { createPrescriptionRequest } from '../../lib/api';
 import { validate } from '../../lib/validation';
 import { createPrescriptionSchema } from '../../lib/validation/schemas';
@@ -254,7 +255,7 @@ export default function NewPrescription() {
           title="Enviar Solicitação"
           onPress={handleSubmit}
           loading={loading}
-          disabled={loading}
+          disabled={loading || images.length === 0}
           fullWidth
           icon="send"
           style={styles.submitButton}
@@ -266,7 +267,7 @@ export default function NewPrescription() {
 
 const styles = StyleSheet.create({
   body: {
-    paddingHorizontal: t.layout.screen.paddingHorizontal,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   sectionLabel: {
     ...typo.variants.overline,

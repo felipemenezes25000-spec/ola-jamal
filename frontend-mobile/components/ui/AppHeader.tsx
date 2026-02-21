@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../lib/theme';
+import { uiTokens } from '../../lib/ui/tokens';
 
 const c = theme.colors;
 const s = theme.spacing;
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: 12,
   },
   defaultBg: {

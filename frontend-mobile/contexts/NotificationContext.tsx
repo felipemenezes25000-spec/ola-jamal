@@ -4,8 +4,8 @@ import { useAuth } from './AuthContext';
 import { usePushNotification } from './PushNotificationContext';
 import { getUnreadNotificationsCount } from '../lib/api';
 
-/** Intervalo de polling quando app está em primeiro plano (em ms). Médico não pode perder tempo. */
-const POLL_INTERVAL_MS = 10_000;
+/** Intervalo de polling quando app está em primeiro plano (em ms). */
+const POLL_INTERVAL_MS = 30_000;
 
 interface NotificationContextValue {
   unreadCount: number;

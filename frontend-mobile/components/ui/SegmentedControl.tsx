@@ -8,7 +8,7 @@ import {
     useWindowDimensions,
     LayoutChangeEvent,
 } from 'react-native';
-import { colors, spacing, borderRadius, typography } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 
 const MIN_TOUCH = 44;
 
@@ -72,7 +72,7 @@ export function SegmentedControl({
 
 const styles = StyleSheet.create({
     wrapper: {
-        paddingHorizontal: spacing.md,
+        paddingHorizontal: doctorDS.screenPaddingHorizontal,
         paddingVertical: spacing.sm,
         backgroundColor: colors.background,
     },

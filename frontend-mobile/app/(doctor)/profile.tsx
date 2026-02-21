@@ -14,9 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
+const pad = doctorDS.screenPaddingHorizontal;
 import { useAuth } from '../../contexts/AuthContext';
-import { DoctorCard } from '../../components/ui/DoctorCard';
-
 export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -97,33 +96,36 @@ export default function DoctorProfile() {
       {menuSections.map((section) => (
         <View key={section.title} style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
-          <DoctorCard style={styles.menuCardWrap}>
-            {section.items.map((item, idx) => (
-              <React.Fragment key={item.label}>
-                {item.route != null ? (
-                  <Pressable
-                    style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                    onPress={() => router.push(item.route as Parameters<typeof router.push>[0])}
-                  >
-                    <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
-                      <Ionicons name={item.icon} size={20} color={item.color} />
-                    </View>
-                    <Text style={styles.menuLabel}>{item.label}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                  </Pressable>
-                ) : (
-                  <View style={styles.menuItem}>
-                    <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
-                      <Ionicons name={item.icon} size={20} color={item.color} />
-                    </View>
-                    <Text style={styles.menuLabel}>{item.label}</Text>
-                    <Text style={styles.menuValue} numberOfLines={1}>{(item as { value?: string }).value ?? '—'}</Text>
+          <View style={styles.menuItemsColumn}>
+            {section.items.map((item) =>
+              item.route != null ? (
+                <Pressable
+                  key={item.label}
+                  style={({ pressed }) => [styles.menuItemCard, pressed && styles.menuItemPressed]}
+                  onPress={() => router.push(item.route as Parameters<typeof router.push>[0])}
+                  accessibilityRole="button"
+                >
+                  <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
+                    <Ionicons name={item.icon} size={20} color={item.color} />
                   </View>
-                )}
-                {idx < section.items.length - 1 && <View style={styles.menuDivider} />}
-              </React.Fragment>
-            ))}
-          </DoctorCard>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <View style={styles.menuChevronWrap}>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </View>
+                </Pressable>
+              ) : (
+                <View key={item.label} style={styles.menuItemCard}>
+                  <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
+                    <Ionicons name={item.icon} size={20} color={item.color} />
+                  </View>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <Text style={styles.menuValue} numberOfLines={1} ellipsizeMode="tail">
+                    {(item as { value?: string }).value ?? '—'}
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
         </View>
       ))}
 
@@ -204,7 +206,7 @@ const styles = StyleSheet.create({
   // Menu
   menuSection: {
     marginTop: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: pad,
   },
   sectionTitle: {
     fontSize: 11,
@@ -216,22 +218,33 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 4,
   },
-  menuCardWrap: {},
-  menuItem: {
+  menuItemsColumn: {
+    gap: 8,
+  },
+  menuItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   menuItemPressed: {
-    backgroundColor: colors.muted,
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   menuIconWrap: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   menuLabel: {
     flex: 1,
@@ -244,12 +257,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: typography.fontFamily.regular,
     color: colors.textSecondary,
-    maxWidth: 140,
+    minWidth: 0,
   },
-  menuDivider: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginLeft: 62,
+  menuChevronWrap: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 
   // Logout
@@ -258,7 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginHorizontal: 20,
+    marginHorizontal: pad,
     marginTop: 28,
     paddingVertical: 14,
     borderRadius: 26,

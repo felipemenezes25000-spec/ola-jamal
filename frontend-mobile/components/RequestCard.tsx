@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../lib/theme';
+import { colors, shadows } from '../lib/theme';
+import { uiTokens } from '../lib/ui/tokens';
 import { StatusBadge } from './StatusBadge';
 import { getDisplayPrice } from '../lib/config/pricing';
 import { formatBRL, formatDateBR } from '../lib/utils/format';
@@ -58,6 +59,8 @@ interface Props {
   showPrice?: boolean;
   /** Exibir badge de risco (listagem não mostra) */
   showRisk?: boolean;
+  /** Quando true, não aplica marginHorizontal (uso em lista com padding próprio, ex. painel médico) */
+  suppressHorizontalMargin?: boolean;
 }
 
 export default function RequestCard({
@@ -66,6 +69,7 @@ export default function RequestCard({
   showPatientName,
   showPrice = false,
   showRisk = false,
+  suppressHorizontalMargin = false,
 }: Props) {
   const typeConf = TYPE_CONFIG[request.requestType] || FALLBACK_TYPE;
   const preview = getMedicationPreview(request);
@@ -74,14 +78,18 @@ export default function RequestCard({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.container,
+        suppressHorizontalMargin && styles.containerNoHorizontalMargin,
+        pressed && styles.pressed,
+      ]}
       onPress={onPress}
       accessibilityRole="button"
     >
       <View style={[styles.accentStrip, { backgroundColor: typeConf.color }]} />
 
       <View style={[styles.iconContainer, { backgroundColor: typeConf.bg }]}>
-        <Ionicons name={typeConf.icon} size={22} color={typeConf.color} />
+        <Ionicons name={typeConf.icon} size={uiTokens.iconSizes.lg} color={typeConf.color} />
       </View>
 
       <View style={styles.content}>
@@ -117,13 +125,16 @@ export default function RequestCard({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'flex-start',
     backgroundColor: colors.surface,
     borderRadius: 16,
-    marginHorizontal: spacing.md,
+    marginHorizontal: uiTokens.screenPaddingHorizontal,
     marginBottom: 10,
     overflow: 'hidden',
     ...shadows.card,
+  },
+  containerNoHorizontalMargin: {
+    marginHorizontal: 0,
   },
   pressed: {
     transform: [{ scale: 0.98 }],
@@ -131,21 +142,24 @@ const styles = StyleSheet.create({
   },
   accentStrip: {
     width: 4,
+    alignSelf: 'stretch',
   },
   iconContainer: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 12,
-    marginRight: 12,
-    alignSelf: 'center',
+    marginLeft: uiTokens.spacing.md,
+    marginRight: uiTokens.spacing.md,
+    marginTop: uiTokens.spacing.md,
+    alignSelf: 'flex-start',
   },
   content: {
     flex: 1,
-    paddingVertical: 14,
-    paddingRight: 14,
+    paddingVertical: uiTokens.spacing.md,
+    paddingRight: uiTokens.spacing.md,
+    minHeight: 56,
   },
   topRow: {
     flexDirection: 'row',

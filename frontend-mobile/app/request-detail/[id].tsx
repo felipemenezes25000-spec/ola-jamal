@@ -17,6 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+
+const PRIMARY_BLUE = '#1A9DE0';
+const PRIMARY_BORDER = '#1583C7';
 import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
@@ -100,6 +103,15 @@ export default function RequestDetailScreen() {
 
   const handlePay = async () => {
     if (!request || actionLoading) return;
+    const allowedToPay = ['approved_pending_payment', 'pending_payment'].includes(request.status) ||
+      (request.requestType === 'consultation' && request.status === 'consultation_ready');
+    if (!allowedToPay) {
+      Alert.alert(
+        'Pagamento indisponível',
+        'Esta solicitação não está aguardando pagamento. O botão Pagar só aparece quando o pedido foi aprovado e está aguardando pagamento.'
+      );
+      return;
+    }
     setActionLoading(true);
     try {
       let payment;
@@ -109,7 +121,13 @@ export default function RequestDetailScreen() {
       }
       router.push(`/payment/${payment.id}`);
     } catch (error: unknown) {
-      Alert.alert('Erro', getApiErrorMessage(error));
+      const msg = getApiErrorMessage(error);
+      Alert.alert(
+        'Erro ao gerar pagamento',
+        msg.includes('aprovada e aguardando pagamento')
+          ? 'Esta solicitação não está mais aguardando pagamento. Atualize a tela ou verifique o status do pedido.'
+          : msg
+      );
     } finally {
       setActionLoading(false);
     }
@@ -184,7 +202,7 @@ export default function RequestDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={PRIMARY_BLUE} />
           <Text style={styles.loadingText}>Carregando...</Text>
         </View>
       </SafeAreaView>
@@ -196,7 +214,7 @@ export default function RequestDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+            <Ionicons name="arrow-back" size={24} color={PRIMARY_BLUE} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Detalhes</Text>
           <View style={{ width: 40 }} />
@@ -217,7 +235,7 @@ export default function RequestDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+            <Ionicons name="arrow-back" size={24} color={PRIMARY_BLUE} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Detalhes</Text>
           <View style={{ width: 40 }} />
@@ -236,7 +254,10 @@ export default function RequestDetailScreen() {
 
   if (!request) return null;
 
-  const canPay = ['pending_payment', 'approved_pending_payment', 'approved', 'consultation_ready'].includes(request.status);
+  // Backend aceita: ApprovedPendingPayment/PendingPayment (receita/exame) ou ConsultationReady (consulta)
+  const canPay =
+    ['approved_pending_payment', 'pending_payment'].includes(request.status) ||
+    (request.requestType === 'consultation' && request.status === 'consultation_ready');
   const canDownload = !!request.signedDocumentUrl;
   const canJoinVideo = ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
   const canCancel = ['submitted', 'in_review', 'approved_pending_payment', 'pending_payment', 'searching_doctor', 'consultation_ready'].includes(request.status);
@@ -246,7 +267,7 @@ export default function RequestDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          <Ionicons name="arrow-back" size={24} color={PRIMARY_BLUE} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{getTypeLabel(request.requestType)}</Text>
         <StatusBadge status={request.status} />
@@ -440,7 +461,7 @@ export default function RequestDetailScreen() {
                 <Text style={styles.primaryBtnText}>Baixar Receita</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.outlineBtn} onPress={handleViewDocument} activeOpacity={0.8}>
-                <Ionicons name="eye" size={20} color={colors.primary} />
+                <Ionicons name="eye" size={20} color={PRIMARY_BLUE} />
                 <Text style={styles.outlineBtnText}>Visualizar</Text>
               </TouchableOpacity>
             </>
@@ -540,20 +561,22 @@ const styles = StyleSheet.create({
   riskText: { fontSize: 11, fontWeight: '700' },
   actions: { gap: spacing.sm, marginTop: spacing.md },
   primaryBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: PRIMARY_BLUE,
+    borderWidth: 2,
+    borderColor: PRIMARY_BORDER,
     borderRadius: 26,
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 6,
+    elevation: 6,
   },
-  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   outlineBtn: {
     borderWidth: 2,
     borderColor: colors.primary,
@@ -569,7 +592,7 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.textSecondary },
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
   errorBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: PRIMARY_BLUE,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

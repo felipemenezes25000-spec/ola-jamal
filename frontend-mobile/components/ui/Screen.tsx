@@ -8,10 +8,11 @@ import {
   ScrollViewProps,
   ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme, gradients } from '../../lib/theme';
 import { colors as doctorColors, gradients as doctorGradients } from '../../lib/themeDoctor';
+import { uiTokens } from '../../lib/ui/tokens';
 
 interface ScreenProps extends ScrollViewProps {
   children: React.ReactNode;
@@ -33,9 +34,12 @@ export function Screen({
   edges = ['top', 'bottom'],
   ...scrollViewProps
 }: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const paddingTopContent = insets.top;
   const paddingStyle = padding
-    ? { paddingHorizontal: theme.layout.screen.paddingHorizontal }
+    ? { paddingHorizontal: uiTokens.screenPaddingHorizontal }
     : undefined;
+  const contentPaddingStyle = { paddingTop: paddingTopContent };
 
   const isGradient = variant === 'gradient' || variant === 'doctor-gradient';
   const isDoctor = variant === 'doctor' || variant === 'doctor-gradient';
@@ -67,6 +71,7 @@ export function Screen({
                 style={styles.flex}
                 contentContainerStyle={[
                   styles.scrollContent,
+                  contentPaddingStyle,
                   paddingStyle,
                   contentStyle,
                 ]}
@@ -79,7 +84,7 @@ export function Screen({
                 {children}
               </ScrollView>
             ) : (
-              <View style={[styles.flex, paddingStyle, contentStyle]}>
+              <View style={[styles.flex, contentPaddingStyle, paddingStyle, contentStyle]}>
                 {children}
               </View>
             )}
@@ -100,6 +105,7 @@ export function Screen({
             style={styles.flex}
             contentContainerStyle={[
               styles.scrollContent,
+              contentPaddingStyle,
               paddingStyle,
               contentStyle,
             ]}
@@ -112,7 +118,7 @@ export function Screen({
             {children}
           </ScrollView>
         ) : (
-          <View style={[styles.flex, paddingStyle, contentStyle]}>
+          <View style={[styles.flex, contentPaddingStyle, paddingStyle, contentStyle]}>
             {children}
           </View>
         )}

@@ -12,6 +12,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, doctorDS } from '../../lib/themeDoctor';
+import { uiTokens } from '../../lib/ui/tokens';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: spacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
   markAllBtn: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
   markAll: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: 20, paddingBottom: 120 },
+  listContent: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 120 },
   groupLabel: {
     fontSize: 11,
     fontWeight: '700',

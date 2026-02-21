@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, spacing, gradients } from '../../lib/themeDoctor';
+import { colors, gradients } from '../../lib/themeDoctor';
+import { uiTokens } from '../../lib/ui/tokens';
 import { getRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
@@ -85,12 +86,12 @@ export default function PatientHome() {
         />
       }
     >
-      {/* Header: só avatar + stats */}
+      {/* Header: só saudação + avatar (igual ao web) */}
       <LinearGradient
         colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
         <View style={styles.headerRow}>
           <View style={styles.headerGreeting}>
@@ -104,34 +105,34 @@ export default function PatientHome() {
             <Text style={styles.avatarInitial}>{initial}</Text>
           </Pressable>
         </View>
-
-        {/* Stats row - floats over header/content boundary */}
-        <View style={styles.statsRow}>
-          <StatsCard
-            icon="hourglass-outline"
-            label="Em análise"
-            value={stats.pending}
-            iconColor={colors.warning}
-            onPress={() => router.push('/(patient)/requests')}
-          />
-          <StatsCard
-            icon="card-outline"
-            label="A pagar"
-            value={stats.toPay}
-            iconColor={colors.error}
-            onPress={() => router.push('/(patient)/requests')}
-          />
-          <StatsCard
-            icon="checkmark-done-circle-outline"
-            label="Prontos"
-            value={stats.ready}
-            iconColor={colors.success}
-            onPress={() => router.push('/(patient)/requests')}
-          />
-        </View>
       </LinearGradient>
 
-      {/* ─── Destaque: Triagem com IA ─── */}
+      {/* Stats: três cards brancos flutuando sobre o fundo cinza */}
+      <View style={styles.statsRow}>
+        <StatsCard
+          icon="hourglass-outline"
+          label="Em análise"
+          value={stats.pending}
+          iconColor={colors.warning}
+          onPress={() => router.push('/(patient)/requests')}
+        />
+        <StatsCard
+          icon="card-outline"
+          label="A pagar"
+          value={stats.toPay}
+          iconColor={colors.error}
+          onPress={() => router.push('/(patient)/requests')}
+        />
+        <StatsCard
+          icon="checkmark-done-circle-outline"
+          label="Prontos"
+          value={stats.ready}
+          iconColor={colors.success}
+          onPress={() => router.push('/(patient)/requests')}
+        />
+      </View>
+
+      {/* ─── Destaque: Triagem com IA (tag no canto superior direito, igual ao web) ─── */}
       <View style={styles.aiBannerWrap}>
         <LinearGradient
           colors={['#6366F1', '#8B5CF6']}
@@ -162,7 +163,7 @@ export default function PatientHome() {
           <LargeActionCard
             icon={
               <View style={[styles.actionIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name="document-text" size={26} color={colors.primary} />
+                <Ionicons name="document-text" size={24} color={colors.primary} />
               </View>
             }
             title="Renovar Receita"
@@ -173,7 +174,7 @@ export default function PatientHome() {
           <LargeActionCard
             icon={
               <View style={[styles.actionIconBox, { backgroundColor: colors.infoLight }]}>
-                <Ionicons name="flask" size={26} color={colors.info} />
+                <Ionicons name="flask" size={24} color={colors.info} />
               </View>
             }
             title="Pedir Exame"
@@ -184,7 +185,7 @@ export default function PatientHome() {
           <LargeActionCard
             icon={
               <View style={[styles.actionIconBox, { backgroundColor: colors.accentSoft }]}>
-                <Ionicons name="videocam" size={26} color={colors.primary} />
+                <Ionicons name="videocam" size={24} color={colors.primary} />
               </View>
             }
             title="Consulta Breve +"
@@ -248,8 +249,8 @@ const styles = StyleSheet.create({
 
   // ─── Header ───
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 80, // extra space for stats overlay
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingBottom: 26,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
@@ -291,14 +292,14 @@ const styles = StyleSheet.create({
 
   // ─── Destaque IA ───
   aiBannerWrap: {
-    paddingHorizontal: 12,
-    marginTop: 8,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    marginTop: 24,
   },
   aiBanner: {
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     overflow: 'hidden',
     minHeight: 100,
     ...Platform.select({
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   aiBannerTextWrap: {
     flex: 1,
     minWidth: 0,
-    marginRight: 12,
+    marginRight: 80,
   },
   aiBannerTitle: {
     fontSize: 18,
@@ -339,11 +340,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   aiBannerBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
     backgroundColor: 'rgba(255,255,255,0.3)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
-    alignSelf: 'flex-start',
   },
   aiBannerBadgeText: {
     fontSize: 10,
@@ -352,18 +355,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // ─── Stats ───
+  // ─── Stats (flutuando sobre o cinza, igual ao web) ───
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 20,
-    marginBottom: -60, // overlap into content area
+    marginTop: -44,
+    marginBottom: 0,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
 
   // ─── Sections ───
   section: {
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginTop: 24,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -394,19 +398,19 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 
-  // ─── Actions Section: ocupa mais largura (menos padding lateral) ───
+  // ─── Actions Section ───
   actionsSection: {
-    marginTop: 20,
-    paddingHorizontal: 12,
+    marginTop: 24,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   actionsColumn: {
     flexDirection: 'column',
     gap: 16,
   },
   actionIconBox: {
-    width: 58,
-    height: 58,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -287,30 +287,22 @@ public class RequestService(
 
         if (user?.Role == UserRole.Doctor)
         {
-            logger.LogInformation("[GetUserRequests] branch: Doctor - fetching assigned + available (submitted/paid, no doctor_id)");
+            logger.LogInformation("[GetUserRequests] branch: Doctor - fetching assigned + available (1 query for queue)");
             Console.WriteLine("[GetUserRequests] branch: Doctor - fetching assigned + available");
 
-            // For doctors: get requests assigned to them + available requests (no doctor, paid/submitted)
             var doctorRequests = await requestRepository.GetByDoctorIdAsync(userId, cancellationToken);
-            var availableRequests = await requestRepository.GetByStatusAsync(RequestStatus.Paid, cancellationToken);
-            var submittedRequests = await requestRepository.GetByStatusAsync(RequestStatus.Submitted, cancellationToken);
+            var available = await requestRepository.GetAvailableForQueueAsync(cancellationToken);
 
-            var available = availableRequests.Concat(submittedRequests)
-                .Where(r => r.DoctorId == null || r.DoctorId == Guid.Empty)
-                .ToList();
-
-            logger.LogInformation("[GetUserRequests] doctor: assignedCount={Assigned}, paidAvailable={Paid}, submittedAvailable={Submitted}, availableAfterFilter={Available}",
-                doctorRequests.Count, availableRequests.Count, submittedRequests.Count, available.Count);
-            Console.WriteLine($"[GetUserRequests] doctor: assigned={doctorRequests.Count}, paidAvailable={availableRequests.Count}, submittedAvailable={submittedRequests.Count}, availableAfterFilter={available.Count}");
+            logger.LogInformation("[GetUserRequests] doctor: assignedCount={Assigned}, availableInQueue={Available}",
+                doctorRequests.Count, available.Count);
+            Console.WriteLine($"[GetUserRequests] doctor: assigned={doctorRequests.Count}, available={available.Count}");
 
             requests = doctorRequests.Concat(available)
                 .DistinctBy(r => r.Id)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToList();
 
-            logger.LogInformation("[GetUserRequests] doctor: totalRequests={Total}, requestIds={Ids}",
-                requests.Count, string.Join(", ", requests.Take(5).Select(r => r.Id.ToString())));
-            Console.WriteLine($"[GetUserRequests] doctor: totalRequests={requests.Count}, requestIds={string.Join(", ", requests.Take(5).Select(r => r.Id.ToString()))}");
+            logger.LogInformation("[GetUserRequests] doctor: totalRequests={Total}", requests.Count);
         }
         else
         {
@@ -333,10 +325,19 @@ public class RequestService(
             requests = requests.Where(r => r.RequestType == typeEnum).ToList();
         }
 
+        var consultationIds = requests.Where(r => r.RequestType == RequestType.Consultation).Select(r => r.Id).ToList();
+        var anamnesisByRequest = consultationIds.Count > 0
+            ? await consultationAnamnesisRepository.GetByRequestIdsAsync(consultationIds, cancellationToken)
+            : new Dictionary<Guid, ConsultationAnamnesis>();
+
         var result = new List<RequestResponseDto>();
         foreach (var r in requests)
         {
-            var (ct, ca, cs) = await GetConsultationAnamnesisIfAnyAsync(r.Id, r.RequestType, cancellationToken);
+            string? ct = null, ca = null, cs = null;
+            if (r.RequestType == RequestType.Consultation && anamnesisByRequest.TryGetValue(r.Id, out var a))
+            {
+                ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson;
+            }
             result.Add(MapRequestToDto(r, ct, ca, cs));
         }
         logger.LogInformation("[GetUserRequests] final count after filters: {Count}", result.Count);
@@ -362,10 +363,19 @@ public class RequestService(
             .OrderByDescending(r => r.CreatedAt)
             .ToList();
 
+        var consultationIds = requests.Where(r => r.RequestType == RequestType.Consultation).Select(r => r.Id).ToList();
+        var anamnesisByRequest = consultationIds.Count > 0
+            ? await consultationAnamnesisRepository.GetByRequestIdsAsync(consultationIds, cancellationToken)
+            : new Dictionary<Guid, ConsultationAnamnesis>();
+
         var dtos = new List<RequestResponseDto>();
         foreach (var r in requests)
         {
-            var (ct, ca, cs) = await GetConsultationAnamnesisIfAnyAsync(r.Id, r.RequestType, cancellationToken);
+            string? ct = null, ca = null, cs = null;
+            if (r.RequestType == RequestType.Consultation && anamnesisByRequest.TryGetValue(r.Id, out var a))
+            {
+                ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson;
+            }
             dtos.Add(MapRequestToDto(r, ct, ca, cs));
         }
         return dtos;

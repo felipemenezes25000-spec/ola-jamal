@@ -13,6 +13,9 @@ import { colors as doctorColors } from '../../lib/themeDoctor';
 
 const c = theme.colors;
 const r = theme.borderRadius;
+// Usar tom mais escuro para melhor contraste e visibilidade
+const PRIMARY_MAIN = c.primary?.dark ?? '#1A9DE0';
+const PRIMARY_BORDER = '#1583C7';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'doctorPrimary' | 'doctorSecondary';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -39,15 +42,27 @@ const VARIANT_CONFIG: Record<ButtonVariant, {
   bg: string; text: string; border?: string;
   shadow: { shadowColor: string; shadowOffset: { width: number; height: number }; shadowOpacity: number; shadowRadius: number; elevation: number };
 }> = {
-  primary: { bg: c.primary.main, text: '#FFFFFF', shadow: theme.shadows.button },
-  secondary: { bg: c.secondary.main, text: '#FFFFFF', shadow: theme.shadows.buttonSuccess },
-  outline: { bg: 'transparent', text: c.primary.main, border: c.primary.main, shadow: theme.shadows.none },
-  ghost: { bg: 'transparent', text: c.primary.main, shadow: theme.shadows.none },
-  danger: { bg: c.status.error, text: '#FFFFFF', shadow: theme.shadows.buttonDanger },
-  doctorPrimary: {
-    bg: doctorColors.primary,
+  primary: {
+    bg: PRIMARY_MAIN,
     text: '#FFFFFF',
-    shadow: { shadowColor: doctorColors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
+    border: PRIMARY_BORDER,
+    shadow: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      elevation: 6,
+    },
+  },
+  secondary: { bg: c.secondary?.main ?? '#10B981', text: '#FFFFFF', shadow: theme.shadows.buttonSuccess },
+  outline: { bg: 'transparent', text: PRIMARY_MAIN, border: PRIMARY_MAIN, shadow: theme.shadows.none },
+  ghost: { bg: 'transparent', text: c.primary?.main ?? '#2CB1FF', shadow: theme.shadows.none },
+  danger: { bg: c.status?.error ?? '#EF4444', text: '#FFFFFF', shadow: theme.shadows.buttonDanger },
+  doctorPrimary: {
+    bg: doctorColors.primaryDark,
+    text: '#FFFFFF',
+    border: '#1583C7',
+    shadow: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6 },
   },
   doctorSecondary: {
     bg: doctorColors.secondary,
@@ -92,7 +107,7 @@ export function AppButton({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? c.primary.main : '#FFFFFF'}
+          color={variant === 'outline' || variant === 'ghost' ? PRIMARY_MAIN : '#FFFFFF'}
           size="small"
         />
       ) : (

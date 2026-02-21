@@ -7,11 +7,13 @@ import {
   TextInput,
   Alert,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../lib/theme';
+import { uiTokens } from '../../lib/ui/tokens';
 import { createExamRequest } from '../../lib/api';
 import { EXAM_TYPE_PRICES } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
@@ -31,11 +33,15 @@ const ty = theme.typography;
 
 const EXAM_TYPES = [
   { key: 'laboratorial' as const, label: 'EXAMES LABORATORIAIS', desc: 'Peça exames e receba em poucos instantes.', icon: 'flask' as const },
-  { key: 'imagem' as const, label: 'EXAMES DE IMAGEM', desc: 'Raio-X, ultrassom, tomografia, etc.', icon: 'scan' as const, priceSuffix: 'POR PEDIDO' },
+  { key: 'imagem' as const, label: 'EXAMES DE IMAGEM', desc: 'Raio-X, ultrassom, tomografia e outros.', icon: 'scan' as const, priceSuffix: 'POR PEDIDO' },
 ];
+
+const NARROW_BREAKPOINT = 360;
 
 export default function NewExam() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const oneColumn = width < NARROW_BREAKPOINT;
   const [examType, setExamType] = useState('laboratorial');
   const [exams, setExams] = useState<string[]>([]);
   const [examInput, setExamInput] = useState('');
@@ -120,7 +126,7 @@ export default function NewExam() {
         {/* Exam Type */}
         <Text style={styles.overline}>TIPO DE EXAME</Text>
         <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
-        <View style={styles.typeRow}>
+        <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
           {EXAM_TYPES.map(type => {
             const price = EXAM_TYPE_PRICES[type.key];
             return (
@@ -128,21 +134,21 @@ export default function NewExam() {
                 key={type.key}
                 selected={examType === type.key}
                 onPress={() => setExamType(type.key)}
-                style={styles.typeCard}
+                style={[styles.typeCard, oneColumn && styles.typeCardFull]}
               >
                 <Ionicons
                   name={type.icon}
                   size={28}
                   color={examType === type.key ? c.primary.main : c.text.tertiary}
                 />
-                <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]}>
+                <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]} numberOfLines={1}>
                   {type.label}
                 </Text>
-                <Text style={styles.typePrice}>{formatBRL(price)}</Text>
+                <Text style={styles.typePrice} numberOfLines={1}>{formatBRL(price)}</Text>
                 {'priceSuffix' in type && type.priceSuffix && (
-                  <Text style={styles.typePriceSuffix}>{type.priceSuffix}</Text>
+                  <Text style={styles.typePriceSuffix} numberOfLines={1}>{type.priceSuffix}</Text>
                 )}
-                <Text style={styles.typeDesc}>{type.desc}</Text>
+                <Text style={styles.typeDesc} numberOfLines={3}>{type.desc}</Text>
               </AppCard>
             );
           })}
@@ -252,7 +258,7 @@ export default function NewExam() {
 
 const styles = StyleSheet.create({
   body: {
-    paddingHorizontal: theme.layout.screen.paddingHorizontal,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   overline: {
     fontSize: ty.fontSize.xs,
@@ -272,11 +278,17 @@ const styles = StyleSheet.create({
   },
   typeRow: {
     flexDirection: 'row',
-    gap: s.sm,
+    gap: 12,
+  },
+  typeRowOneCol: {
+    flexDirection: 'column',
   },
   typeCard: {
     flex: 1,
     alignItems: 'center',
+  },
+  typeCardFull: {
+    width: '100%',
   },
   typeName: {
     fontSize: ty.fontSize.sm,
@@ -316,9 +328,9 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   addButton: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: c.primary.main,
     alignItems: 'center',
     justifyContent: 'center',

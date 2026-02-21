@@ -8,6 +8,7 @@ namespace RenoveJa.Domain.Interfaces;
 public interface IConsultationAnamnesisRepository
 {
     Task<ConsultationAnamnesis?> GetByRequestIdAsync(Guid requestId, CancellationToken cancellationToken = default);
+    Task<Dictionary<Guid, ConsultationAnamnesis>> GetByRequestIdsAsync(IEnumerable<Guid> requestIds, CancellationToken cancellationToken = default);
     Task<ConsultationAnamnesis> CreateAsync(ConsultationAnamnesis entity, CancellationToken cancellationToken = default);
     Task<ConsultationAnamnesis> UpdateAsync(ConsultationAnamnesis entity, CancellationToken cancellationToken = default);
 }

@@ -6,10 +6,12 @@ import {
   TextInput,
   Alert,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
+import { uiTokens } from '../../lib/ui/tokens';
 import { createConsultationRequest } from '../../lib/api';
 import { CONSULTATION_PRICE_PER_MINUTE } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
@@ -44,8 +46,12 @@ const CONSULTATION_TYPES = [
   },
 ];
 
+const NARROW_BREAKPOINT = 400;
+
 export default function ConsultationScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const oneColumn = width < NARROW_BREAKPOINT;
   const [consultationType, setConsultationType] = useState<'psicologo' | 'medico_clinico'>('psicologo');
   const [durationMinutes, setDurationMinutes] = useState(15);
   const addMinutes = () => setDurationMinutes((m) => Math.min(CONSULTATION_MAX_MINUTES, m + 1));
@@ -105,19 +111,19 @@ export default function ConsultationScreen() {
         {/* Tipo: Psicólogo ou Médico Clínico */}
         <Text style={styles.overline}>TIPO DE PROFISSIONAL</Text>
         <Text style={styles.stepHint}>Passo 1 — Escolha com quem você quer falar. Toque em Psicólogo ou Médico Clínico.</Text>
-        <View style={styles.typeRow}>
+        <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
           {CONSULTATION_TYPES.map(type => (
             <AppCard
               key={type.key}
               selected={consultationType === type.key}
               onPress={() => setConsultationType(type.key)}
-              style={styles.typeCard}
+              style={[styles.typeCard, oneColumn && styles.typeCardFull]}
             >
-              <Text style={[styles.typeName, consultationType === type.key && styles.typeNameSelected]}>
+              <Text style={[styles.typeName, consultationType === type.key && styles.typeNameSelected]} numberOfLines={1}>
                 {type.label}
               </Text>
-              <Text style={styles.typePricePerMin}>{formatBRL(type.pricePerMin)}/min</Text>
-              <Text style={styles.typeDesc}>{type.desc}</Text>
+              <Text style={styles.typePricePerMin} numberOfLines={1}>{formatBRL(type.pricePerMin)}/min</Text>
+              <Text style={styles.typeDesc} numberOfLines={3} ellipsizeMode="tail">{type.desc}</Text>
             </AppCard>
           ))}
         </View>
@@ -186,7 +192,7 @@ export default function ConsultationScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: s.md,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: s.xl,
   },
   banner: {
@@ -226,11 +232,19 @@ const styles = StyleSheet.create({
   },
   typeRow: {
     flexDirection: 'row',
-    gap: s.sm,
+    gap: 12,
     marginBottom: s.lg,
+  },
+  typeRowOneCol: {
+    flexDirection: 'column',
   },
   typeCard: {
     flex: 1,
+    minWidth: 140,
+  },
+  typeCardFull: {
+    width: '100%',
+    minWidth: undefined,
   },
   typeName: {
     fontSize: t.fontSize.md,

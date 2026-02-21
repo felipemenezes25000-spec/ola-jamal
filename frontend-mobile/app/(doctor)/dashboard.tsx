@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors, spacing, typography, gradients, doctorDS } from '../../lib/themeDoctor';
+const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { StatsCard } from '../../components/StatsCard';
@@ -69,10 +70,10 @@ export default function DoctorDashboard() {
     try {
       const [cert, res] = await Promise.allSettled([
         getActiveCertificate(),
-        getRequests({ page: 1, pageSize: 100 }),
+        getRequests({ page: 1, pageSize: 50 }),
       ]);
       setHasCertificate(cert.status === 'fulfilled' && !!cert.value);
-      setQueue(res.status === 'fulfilled' ? (res.value?.items ?? []) : []);
+      setQueue(res.status === 'fulfilled' ? (res.value?.items ?? (res.value as { Items?: unknown[] })?.Items ?? []) : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -87,7 +88,7 @@ export default function DoctorDashboard() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-      const interval = setInterval(loadData, 25000);
+      const interval = setInterval(loadData, 45000);
       return () => clearInterval(interval);
     }, [loadData])
   );
@@ -101,7 +102,7 @@ export default function DoctorDashboard() {
   const naFila = countNaFila(queue);
   const consultaPronta = countConsultaPronta(queue);
   const emConsulta = countEmConsulta(queue);
-  const pendingList = getPendingForPanel(queue, 3);
+  const pendingList = getPendingForPanel(queue, 10);
 
   const firstName = user?.name?.split(' ')[0] || 'Médico';
   const greeting = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: pad,
     paddingBottom: 24,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -270,9 +271,11 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 4,
+    minHeight: 100,
   },
   body: {
-    paddingHorizontal: 20,
+    paddingHorizontal: pad,
     paddingTop: doctorDS.sectionGap,
   },
   alertBanner: {
@@ -362,7 +365,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   entryBtn: {
-    minWidth: 0,
+    minWidth: 72,
     paddingHorizontal: 16,
   },
 });

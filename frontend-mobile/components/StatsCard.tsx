@@ -26,7 +26,7 @@ export function StatsCard({
   const content = (
     <>
       <View style={[styles.iconWrap, { backgroundColor: softBg }]}>
-        <Ionicons name={icon} size={20} color={iconColor} />
+        <Ionicons name={icon} size={22} color={iconColor} />
       </View>
       <Text style={styles.value}>{displayValue}</Text>
       <Text style={styles.label} numberOfLines={1}>{label}</Text>
@@ -66,18 +66,18 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   iconWrap: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   value: {
     fontSize: 22,
     fontWeight: '800',
     color: theme.colors.text.primary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   label: {
     fontSize: 11,

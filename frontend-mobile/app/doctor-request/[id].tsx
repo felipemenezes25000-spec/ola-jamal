@@ -179,7 +179,7 @@ export default function DoctorRequestDetail() {
         onBack={() => router.back()}
         right={<StatusBadge status={request.status} />}
       />
-      <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Status tracker */}
         <DoctorCard style={s.cardMargin}><StatusTracker currentStatus={request.status} requestType={request.requestType} /></DoctorCard>
 
@@ -536,7 +536,7 @@ const s = StyleSheet.create({
   navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
   navSpacer: { width: 40 },
 
-  cardMargin: { marginHorizontal: spacing.md, marginTop: spacing.md },
+  cardMargin: { marginHorizontal: doctorDS.screenPaddingHorizontal, marginTop: spacing.md },
   sectionLabel: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, marginBottom: spacing.sm, textTransform: 'uppercase' },
 
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
@@ -583,11 +583,11 @@ const s = StyleSheet.create({
   symptomsText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, lineHeight: 20 },
 
   // Queue hint
-  queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primarySoft, borderRadius: borderRadius.card },
+  queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: doctorDS.screenPaddingHorizontal, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primarySoft, borderRadius: borderRadius.card },
   queueHintText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
 
   // Actions
-  actions: { marginHorizontal: spacing.md, marginTop: doctorDS.sectionGap, gap: spacing.sm },
+  actions: { marginHorizontal: doctorDS.screenPaddingHorizontal, marginTop: doctorDS.sectionGap, gap: spacing.sm },
   actionBtnFull: { width: '100%' },
   primaryBtnFlex: { flex: 1 },
   actionBtnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },

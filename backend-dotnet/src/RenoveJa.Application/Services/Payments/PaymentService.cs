@@ -43,7 +43,9 @@ public class PaymentService(
         if (medicalRequest.PatientId != userId)
             throw new UnauthorizedAccessException("Somente o paciente da solicitação pode criar o pagamento");
 
-        if (medicalRequest.Status != RequestStatus.ApprovedPendingPayment)
+        var allowedForPayment = medicalRequest.Status == RequestStatus.ApprovedPendingPayment
+            || (medicalRequest.RequestType == RequestType.Consultation && medicalRequest.Status == RequestStatus.ConsultationReady);
+        if (!allowedForPayment)
             throw new InvalidOperationException("Solicitação deve estar aprovada e aguardando pagamento");
 
         if (medicalRequest.Price == null || medicalRequest.Price.Amount <= 0)

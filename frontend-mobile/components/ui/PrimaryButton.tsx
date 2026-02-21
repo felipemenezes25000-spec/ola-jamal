@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, doctorDS, shadows } from '../../lib/themeDoctor';
+import { typography, doctorDS } from '../../lib/themeDoctor';
 
 export interface PrimaryButtonProps {
   label: string;
@@ -40,7 +40,7 @@ export function PrimaryButton({
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.button,
-        !isDisabled && shadows.button,
+        !isDisabled && styles.enabled,
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
         style,
@@ -61,11 +61,17 @@ export function PrimaryButton({
   );
 }
 
+const PRIMARY_BG = '#1A9DE0';
+const PRIMARY_BORDER = '#1583C7';
+
 const styles = StyleSheet.create({
   button: {
     height: doctorDS.buttonHeight,
+    minHeight: 52,
     borderRadius: doctorDS.buttonRadius,
-    backgroundColor: colors.primary,
+    backgroundColor: PRIMARY_BG,
+    borderWidth: 2,
+    borderColor: PRIMARY_BORDER,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -75,9 +81,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
+  enabled: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
+  },
   pressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.95,
+    transform: [{ scale: 0.99 }],
   },
   content: {
     flexDirection: 'row',
@@ -89,7 +102,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
-    color: '#fff',
+    color: '#FFFFFF',
   },
   arrow: {
     marginLeft: 2,

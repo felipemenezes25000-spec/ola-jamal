@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,21 @@ import {
   Alert,
   TouchableOpacity,
   InteractionManager,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, shadows, doctorDS } from '../../lib/themeDoctor';
+import { uiTokens } from '../../lib/ui/tokens';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function PatientProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   const handleLogout = () => {
     Alert.alert('Sair', 'Tem certeza que deseja sair?', [
@@ -28,9 +31,11 @@ export default function PatientProfile() {
         text: 'Sair',
         style: 'destructive',
         onPress: () => {
+          setLogoutLoading(true);
           signOut()
             .catch(() => {})
             .finally(() => {
+              setLogoutLoading(false);
               InteractionManager.runAfterInteractions(() => {
                 setTimeout(() => router.replace('/'), 150);
               });
@@ -77,7 +82,7 @@ export default function PatientProfile() {
         colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 20 }]}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarText}>{initials}</Text>
@@ -107,21 +112,22 @@ export default function PatientProfile() {
       {menuSections.map((section) => (
         <View key={section.title} style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
-          <View style={styles.menuCard}>
-            {section.items.map((item, idx) => (
-              <React.Fragment key={item.label}>
-                <Pressable
-                  style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                  onPress={item.onPress}
-                >
-                  <View style={styles.menuIconWrap}>
-                    <Ionicons name={item.icon} size={20} color={colors.primary} />
-                  </View>
-                  <Text style={styles.menuLabel}>{item.label}</Text>
+          <View style={styles.menuItemsColumn}>
+            {section.items.map((item) => (
+              <Pressable
+                key={item.label}
+                style={({ pressed }) => [styles.menuItemCard, pressed && styles.menuItemPressed]}
+                onPress={item.onPress}
+                accessibilityRole="button"
+              >
+                <View style={styles.menuIconWrap}>
+                  <Ionicons name={item.icon} size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                <View style={styles.menuChevronWrap}>
                   <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                </Pressable>
-                {idx < section.items.length - 1 && <View style={styles.menuDivider} />}
-              </React.Fragment>
+                </View>
+              </Pressable>
             ))}
           </View>
         </View>
@@ -131,13 +137,20 @@ export default function PatientProfile() {
       <TouchableOpacity
         style={styles.logoutButton}
         onPress={handleLogout}
+        disabled={logoutLoading}
         activeOpacity={0.8}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         accessibilityRole="button"
         accessibilityLabel="Sair da conta"
       >
-        <Ionicons name="log-out-outline" size={20} color={colors.error} />
-        <Text style={styles.logoutText}>Sair da Conta</Text>
+        {logoutLoading ? (
+          <ActivityIndicator size="small" color={colors.error} />
+        ) : (
+          <>
+            <Ionicons name="log-out-outline" size={20} color={colors.error} />
+            <Text style={styles.logoutText}>Sair da Conta</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
@@ -166,6 +179,7 @@ const styles = StyleSheet.create({
   // Header
   header: {
     alignItems: 'center',
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: 50,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -200,9 +214,12 @@ const styles = StyleSheet.create({
   // Info Card
   infoCard: {
     backgroundColor: colors.surface,
-    marginHorizontal: 20,
+    marginHorizontal: uiTokens.screenPaddingHorizontal,
     marginTop: -30,
-    borderRadius: doctorDS.cardRadius,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
     padding: 16,
     ...shadows.cardLg,
   },
@@ -230,7 +247,7 @@ const styles = StyleSheet.create({
   // Menu
   menuSection: {
     marginTop: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   sectionTitle: {
     fontSize: 11,
@@ -241,27 +258,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 4,
   },
-  menuCard: {
-    backgroundColor: colors.surface,
-    borderRadius: doctorDS.buttonRadius,
-    overflow: 'hidden',
+  menuItemsColumn: {
+    gap: 8,
   },
-  menuItem: {
+  menuItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    ...shadows.card,
   },
   menuItemPressed: {
-    backgroundColor: colors.surfaceSecondary,
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   menuIconWrap: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   menuLabel: {
     flex: 1,
@@ -269,10 +289,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.text,
   },
-  menuDivider: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginLeft: 62,
+  menuChevronWrap: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 
   // Logout
@@ -281,7 +302,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginHorizontal: 20,
+    marginHorizontal: uiTokens.screenPaddingHorizontal,
     marginTop: 28,
     paddingVertical: 14,
     borderRadius: 26,

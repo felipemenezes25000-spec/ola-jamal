@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Linking,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,20 +46,11 @@ export default function Login() {
   const router = useRouter();
   const { signIn, signInWithGoogle } = useAuth();
   const passwordRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const { height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowHeight < SMALL_SCREEN_HEIGHT;
   const isExtraSmallScreen = windowHeight < EXTRA_SMALL_SCREEN_HEIGHT;
-
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
 
   const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
   const googleWebClientId = extra?.googleWebClientId || undefined;
@@ -184,6 +176,10 @@ export default function Login() {
     Linking.openURL(url).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
+
   const content = (
     /* Card único centralizado no gradiente */
     <View style={[styles.card, isSmallScreen && styles.cardSmall]}>
@@ -230,6 +226,22 @@ export default function Login() {
         containerStyle={styles.inputLast}
       />
 
+      {/* Botão Login — lugar correto: após Senha, antes de Esqueceu senha (TouchableOpacity para garantir visibilidade no Expo Go) */}
+      <View style={styles.loginButtonWrap}>
+        <TouchableOpacity
+          style={[styles.loginButtonPrimary, loading && styles.loginButtonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+          activeOpacity={0.9}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.loginButtonText}>Login</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* Esqueceu senha */}
       <TouchableOpacity
         onPress={handleForgotPassword}
@@ -238,17 +250,6 @@ export default function Login() {
       >
         <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
       </TouchableOpacity>
-
-      {/* Botão Login */}
-      <AppButton
-        title="Login"
-        onPress={handleLogin}
-        loading={loading}
-        disabled={loading}
-        fullWidth
-        variant="primary"
-        style={styles.loginButton}
-      />
 
       {/* OU */}
       <View style={styles.dividerRow}>
@@ -308,25 +309,21 @@ export default function Login() {
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
         >
-          {keyboardVisible ? (
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={[
-                styles.scrollContent,
-                { paddingBottom: Math.max(24, windowHeight * 0.08) },
-              ]}
-              showsVerticalScrollIndicator={false}
-              scrollEnabled
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-            >
-              {content}
-            </ScrollView>
-          ) : (
-            <View style={styles.containerStatic}>{content}</View>
-          )}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: Math.max(60, windowHeight * 0.15) },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+            {content}
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
@@ -339,20 +336,10 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },
 
-  // Scroll (teclado aberto)
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 24,
-  },
-
-  // View estática (teclado fechado)
-  containerStatic: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingTop: 24,
   },
 
   // Card único — contém TUDO (logo + form + social + links)
@@ -360,23 +347,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
     paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingTop: 20,
     paddingBottom: 20,
     ...theme.shadows.card,
   },
   cardSmall: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 16,
     paddingBottom: 16,
   },
 
   // Logo + tagline (topo do card)
   logoSection: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   logoSectionSmall: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   tagline: {
     marginTop: 8,
@@ -395,7 +382,7 @@ const styles = StyleSheet.create({
   cardDivider: {
     height: 1,
     backgroundColor: c.border.light,
-    marginBottom: 16,
+    marginBottom: 10,
   },
 
   // Inputs
@@ -418,9 +405,29 @@ const styles = StyleSheet.create({
     color: c.primary.main,
   },
 
-  // Botão Login
-  loginButton: {
+  // Botão Login (após Senha — lugar correto)
+  loginButtonWrap: {
     height: 52,
+    minHeight: 52,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  loginButtonPrimary: {
+    flex: 1,
+    height: 52,
+    backgroundColor: c.primary.main,
+    borderRadius: theme.borderRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 
   // Separador OU

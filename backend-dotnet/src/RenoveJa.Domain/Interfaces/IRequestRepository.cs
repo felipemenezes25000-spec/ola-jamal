@@ -10,6 +10,8 @@ public interface IRequestRepository
     Task<List<MedicalRequest>> GetByPatientIdAsync(Guid patientId, CancellationToken cancellationToken = default);
     Task<List<MedicalRequest>> GetByDoctorIdAsync(Guid doctorId, CancellationToken cancellationToken = default);
     Task<List<MedicalRequest>> GetByStatusAsync(RequestStatus status, CancellationToken cancellationToken = default);
+    /// <summary>Fila: requests sem médico em status que exigem ação. Uma query em vez de 6 GetByStatusAsync.</summary>
+    Task<List<MedicalRequest>> GetAvailableForQueueAsync(CancellationToken cancellationToken = default);
     Task<List<MedicalRequest>> GetByTypeAsync(RequestType type, CancellationToken cancellationToken = default);
     Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default);
     Task<MedicalRequest> UpdateAsync(MedicalRequest request, CancellationToken cancellationToken = default);

@@ -96,6 +96,8 @@ export const doctorDS = {
   sectionGap: 24,
   buttonHeight: 52,
   buttonRadius: 16,
+  /** Padding horizontal das telas do painel médico (alinhamento consistente) */
+  screenPaddingHorizontal: 20,
 } as const;
 
 export const shadows = {

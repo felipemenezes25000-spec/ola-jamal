@@ -79,6 +79,18 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         return models.Select(MapToDomain).ToList();
     }
 
+    public async Task<List<MedicalRequest>> GetAvailableForQueueAsync(CancellationToken cancellationToken = default)
+    {
+        var filter = "status=in.(submitted,in_review,analyzing,pending,paid,searching_doctor)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
+        var models = await supabase.GetAllAsync<RequestModel>(
+            TableName,
+            filter,
+            orderBy: "created_at.desc",
+            cancellationToken: cancellationToken);
+
+        return models.Select(MapToDomain).ToList();
+    }
+
     public async Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(request);

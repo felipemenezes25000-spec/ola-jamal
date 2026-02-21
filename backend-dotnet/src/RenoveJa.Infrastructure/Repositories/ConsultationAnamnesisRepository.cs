@@ -23,6 +23,17 @@ public class ConsultationAnamnesisRepository(SupabaseClient supabase) : IConsult
         return model != null ? MapToDomain(model) : null;
     }
 
+    public async Task<Dictionary<Guid, ConsultationAnamnesisEntity>> GetByRequestIdsAsync(IEnumerable<Guid> requestIds, CancellationToken cancellationToken = default)
+    {
+        var ids = requestIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, ConsultationAnamnesisEntity>();
+
+        var idsStr = string.Join(",", ids.Select(i => i.ToString()));
+        var filter = $"request_id=in.({idsStr})";
+        var models = await supabase.GetAllAsync<ConsultationAnamnesisModel>(TableName, filter: filter, cancellationToken: cancellationToken);
+        return models.ToDictionary(m => m.RequestId, MapToDomain);
+    }
+
     public async Task<ConsultationAnamnesisEntity> CreateAsync(ConsultationAnamnesisEntity entity, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(entity);

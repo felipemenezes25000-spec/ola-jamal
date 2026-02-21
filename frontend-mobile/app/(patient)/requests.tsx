@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, gradients, doctorDS } from '../../lib/themeDoctor';
+import { uiTokens } from '../../lib/ui/tokens';
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto, RequestType } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
@@ -191,21 +192,22 @@ export default function PatientRequests() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  header: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: spacing.lg },
   headerGradient: { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   title: { fontSize: 22, fontWeight: '700', color: '#fff' },
   headerHint: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
+    color: colors.textSecondary,
     marginTop: 6,
     marginBottom: 4,
+    marginHorizontal: uiTokens.screenPaddingHorizontal,
     lineHeight: 18,
   },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.lg,
+    marginHorizontal: uiTokens.screenPaddingHorizontal,
     marginTop: spacing.md,
     borderRadius: borderRadius.pill,
     paddingHorizontal: spacing.md,
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md },
   retryText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: spacing.lg, paddingBottom: 100 },
+  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 80 },
   listContentEmpty: { flexGrow: 1 },
-  separator: { height: spacing.sm },
+  separator: { height: 8 },
 });
