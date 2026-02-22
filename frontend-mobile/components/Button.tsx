@@ -62,7 +62,7 @@ export function Button({
         style={[fullWidth && styles.fullWidth, style]}
       >
         <LinearGradient
-          colors={isDisabled ? [colors.gray300, colors.gray400] : [colors.primary, colors.primaryDark]}
+          colors={isDisabled ? [colors.gray300, colors.gray400] : [colors.primaryDark, colors.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -160,9 +160,15 @@ const styles = StyleSheet.create({
   },
   baseText: {
     ...typography.button,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   primaryText: {
     color: colors.white,
     fontWeight: '700',
+    fontFamily: 'PlusJakartaSans_700Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
 });

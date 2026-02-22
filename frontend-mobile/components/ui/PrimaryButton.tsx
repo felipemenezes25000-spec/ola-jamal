@@ -107,8 +107,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   variantPrimary: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryDark,
+    backgroundColor: '#1B4965',
+    borderColor: '#0F2D44',
   },
   variantDanger: {
     backgroundColor: colors.error,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   enabledPrimary: {
-    shadowColor: '#0F172A',
+    shadowColor: '#1B4965',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -155,6 +155,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   labelPrimary: {
     color: '#FFFFFF',

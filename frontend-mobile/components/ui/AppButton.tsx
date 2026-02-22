@@ -59,15 +59,15 @@ const VARIANT_CONFIG: Record<ButtonVariant, {
   ghost: { bg: 'transparent', text: c.primary?.main ?? '#2CB1FF', shadow: theme.shadows.none },
   danger: { bg: c.status?.error ?? '#EF4444', text: '#FFFFFF', shadow: theme.shadows.buttonDanger },
   doctorPrimary: {
-    bg: doctorColors.primaryDark,
+    bg: '#1B4965',
     text: '#FFFFFF',
-    border: '#1583C7',
+    border: '#0F2D44',
     shadow: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6 },
   },
   doctorSecondary: {
-    bg: doctorColors.secondary,
+    bg: '#2EC4B6',
     text: '#FFFFFF',
-    shadow: { shadowColor: doctorColors.secondary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
+    shadow: { shadowColor: '#2EC4B6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4 },
   },
 };
 
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   pressed: {
-    transform: [{ scale: 0.97 }],
+    transform: [{ scale: 0.96 }],
     opacity: 0.9,
   },
   content: {
@@ -167,5 +167,8 @@ const styles = StyleSheet.create({
   },
   text: {
     textAlign: 'center',
+    fontFamily: 'PlusJakartaSans_700Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
 });
