@@ -5,7 +5,6 @@ import {
     StyleSheet,
     View,
     TouchableOpacity,
-    Dimensions,
     Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -110,8 +109,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         </>
     );
 }
-
-const { width: SW } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
     toast: {

@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  Platform,
   TouchableOpacity,
   InteractionManager,
 } from 'react-native';
@@ -21,23 +22,31 @@ export default function DoctorProfile() {
   const insets = useSafeAreaInsets();
   const { user, doctorProfile: doctor, signOut } = useAuth();
 
+  const doLogout = () => {
+    signOut()
+      .catch(() => {})
+      .finally(() => {
+        if (Platform.OS === 'web') {
+          router.replace('/');
+        } else {
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => router.replace('/'), 150);
+          });
+        }
+      });
+  };
+
   const handleLogout = () => {
-    Alert.alert('Sair', 'Deseja realmente sair?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: () => {
-          signOut()
-            .catch(() => {})
-            .finally(() => {
-              InteractionManager.runAfterInteractions(() => {
-                setTimeout(() => router.replace('/'), 150);
-              });
-            });
-        },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Deseja realmente sair?')) {
+        doLogout();
+      }
+    } else {
+      Alert.alert('Sair', 'Deseja realmente sair?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair', style: 'destructive', onPress: doLogout },
+      ]);
+    }
   };
 
   const firstName = user?.name?.split(' ')[0] || 'Médico';
@@ -258,6 +267,9 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     color: colors.textSecondary,
     minWidth: 0,
+    flexShrink: 1,
+    maxWidth: '50%',
+    textAlign: 'right',
   },
   menuChevronWrap: {
     alignSelf: 'stretch',

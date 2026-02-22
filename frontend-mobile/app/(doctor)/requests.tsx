@@ -6,9 +6,11 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, gradients, borderRadius, doctorDS } from '../../lib/themeDoctor';
@@ -22,6 +24,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 
 const LOG_QUEUE = __DEV__ && false;
+const ListSeparator = () => <View style={styles.separator} />;
 
 const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
   { key: 'all', label: 'Todos' },
@@ -42,6 +45,7 @@ function getHeaderLabel(activeKey: string): { title: string; subtitle: string } 
 export default function DoctorQueue() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -54,6 +58,12 @@ export default function DoctorQueue() {
   const typeParam = useMemo(() => TYPE_FILTER_ITEMS.find((c) => c.key === activeFilter)?.type, [activeFilter]);
   const label = useMemo(() => getHeaderLabel(activeFilter), [activeFilter]);
 
+  // Filtra localmente — evita chamada à API a cada troca de aba
+  const filteredRequests = useMemo(() => {
+    if (!typeParam) return requests;
+    return requests.filter((r) => r.requestType === typeParam);
+  }, [requests, typeParam]);
+
   const loadData = useCallback(
     async (isRefresh = false) => {
       const rid = ++requestIdRef.current;
@@ -63,11 +73,11 @@ export default function DoctorQueue() {
       if (!isRefresh) setLoading(true);
       setError(null);
       const start = Date.now();
-      if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue start', { rid, type: typeParam });
+      if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue start', { rid });
 
       try {
         const data = await getRequests(
-          { page: 1, pageSize: 100, ...(typeParam && { type: typeParam }) },
+          { page: 1, pageSize: 50 },
           { signal: abort.signal }
         );
         if (rid !== requestIdRef.current) return;
@@ -90,7 +100,7 @@ export default function DoctorQueue() {
         }
       }
     },
-    [typeParam]
+    []
   );
 
   useEffect(() => {
@@ -118,8 +128,20 @@ export default function DoctorQueue() {
 
   const handleFilterChange = useCallback((key: string) => setActiveFilter(key), []);
 
+  const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
+  const renderDoctorItem = useCallback(({ item }: { item: RequestResponseDto }) => (
+    <RequestCard
+      request={item}
+      onPress={() => router.push(`/doctor-request/${item.id}`)}
+      showPatientName
+      showPrice={false}
+      showRisk={false}
+      suppressHorizontalMargin
+    />
+  ), [router]);
+
   const headerPaddingTop = insets.top + 16;
-  const empty = !loading && !error && requests.length === 0;
+  const empty = !loading && !error && filteredRequests.length === 0;
   const periodSummary = useMemo(() => getHistoricalGroupedByPeriod(requests), [requests]);
 
   return (
@@ -137,7 +159,7 @@ export default function DoctorQueue() {
             <Text style={styles.subtitle}>{label.subtitle}</Text>
           </View>
           <View style={styles.countBadge}>
-            <Text style={styles.countText}>{requests.length}</Text>
+            <Text style={styles.countText}>{filteredRequests.length}</Text>
           </View>
         </View>
       </LinearGradient>
@@ -157,7 +179,6 @@ export default function DoctorQueue() {
         items={TYPE_FILTER_ITEMS.map((c) => ({ key: c.key, label: c.label }))}
         value={activeFilter}
         onValueChange={handleFilterChange}
-        disabled={loading}
       />
 
       {/* Content */}
@@ -176,24 +197,19 @@ export default function DoctorQueue() {
         </View>
       ) : (
         <FlatList
-          data={requests}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RequestCard
-              request={item}
-              onPress={() => router.push(`/doctor-request/${item.id}`)}
-              showPatientName
-              showPrice={false}
-              showRisk={false}
-              suppressHorizontalMargin
-            />
-          )}
-          contentContainerStyle={[styles.listContent, empty && styles.listContentEmpty]}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          data={filteredRequests}
+          keyExtractor={keyExtractor}
+          renderItem={renderDoctorItem}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
+          ItemSeparatorComponent={ListSeparator}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={8}
           ListEmptyComponent={
             empty ? (
               <EmptyState
@@ -255,28 +271,31 @@ const styles = StyleSheet.create({
   periodRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: pad,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     backgroundColor: colors.background,
   },
   periodChip: {
-    flex: 1,
-    minWidth: 72,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
     backgroundColor: colors.surface,
     borderRadius: doctorDS.cardRadius,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
   },
   periodChipLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     color: colors.textMuted,
     marginBottom: 2,
+    textAlign: 'center',
   },
   periodChipCount: {
     fontSize: 15,
@@ -327,7 +346,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: doctorDS.sectionGap,
-    paddingBottom: 120,
     paddingHorizontal: pad,
   },
   listContentEmpty: { flexGrow: 1 },

@@ -10,7 +10,7 @@ import {
   Platform,
   Linking,
   Modal,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,6 +52,7 @@ export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -501,7 +502,7 @@ export default function RequestDetailScreen() {
           {selectedImageUri && (
             Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
               <View style={{ flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' }}>
-                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%', maxHeight: Dimensions.get('window').height * 0.8 }} resizeMode="contain" />
+                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%', maxHeight: windowHeight * 0.8 }} resizeMode="contain" />
               </View>
             ) : (
               <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />

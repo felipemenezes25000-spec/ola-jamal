@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows, typography, doctorDS } from '../../lib/themeDoctor';
@@ -64,6 +65,7 @@ export default function DoctorRequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -179,7 +181,7 @@ export default function DoctorRequestDetail() {
         onBack={() => router.back()}
         right={<StatusBadge status={request.status} />}
       />
-      <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: listPadding }} showsVerticalScrollIndicator={false}>
         {/* Status tracker */}
         <DoctorCard style={s.cardMargin}><StatusTracker currentStatus={request.status} requestType={request.requestType} /></DoctorCard>
 
