@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,6 +17,7 @@ import { colors, spacing, typography, gradients, doctorDS } from '../../lib/them
 const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
+import { cacheRequest } from '../doctor-request/[id]';
 import { StatsCard } from '../../components/StatsCard';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -60,11 +62,13 @@ function getActionButtonLabel(request: RequestResponseDto): string {
 export default function DoctorDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const { user } = useAuth();
   const [queue, setQueue] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasCertificate, setHasCertificate] = useState<boolean | null>(null);
+  const lastQueueHash = useRef('');
 
   const loadData = useCallback(async () => {
     try {
@@ -73,7 +77,13 @@ export default function DoctorDashboard() {
         getRequests({ page: 1, pageSize: 50 }),
       ]);
       setHasCertificate(cert.status === 'fulfilled' && !!cert.value);
-      setQueue(res.status === 'fulfilled' ? (res.value?.items ?? (res.value as { Items?: unknown[] })?.Items ?? []) : []);
+      const items = res.status === 'fulfilled' ? (res.value?.items ?? (res.value as { Items?: unknown[] })?.Items ?? []) : [];
+      // Evita re-render se os dados não mudaram (polling silencioso)
+      const hash = items.map((r: RequestResponseDto) => `${r.id}:${r.status}:${r.updatedAt}`).join('|');
+      if (hash !== lastQueueHash.current) {
+        lastQueueHash.current = hash;
+        setQueue(items);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -98,11 +108,13 @@ export default function DoctorDashboard() {
     loadData();
   };
 
-  const pendentesCount = countPendentes(queue);
-  const naFila = countNaFila(queue);
-  const consultaPronta = countConsultaPronta(queue);
-  const emConsulta = countEmConsulta(queue);
-  const pendingList = getPendingForPanel(queue, 10);
+  const { pendentesCount, naFila, consultaPronta, emConsulta, pendingList } = useMemo(() => ({
+    pendentesCount: countPendentes(queue),
+    naFila: countNaFila(queue),
+    consultaPronta: countConsultaPronta(queue),
+    emConsulta: countEmConsulta(queue),
+    pendingList: getPendingForPanel(queue, 10),
+  }), [queue]);
 
   const firstName = user?.name?.split(' ')[0] || 'Médico';
   const greeting = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
@@ -110,7 +122,7 @@ export default function DoctorDashboard() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
       }
@@ -124,7 +136,7 @@ export default function DoctorDashboard() {
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.headerTextWrap}>
-          <Text style={styles.greeting} numberOfLines={1} ellipsizeMode="tail">{greeting}, Dr(a). {firstName}</Text>
+          <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{greeting}, Dr(a). {firstName}</Text>
           <Text style={styles.pendingSummary} numberOfLines={2} ellipsizeMode="tail">
             Você tem {pendentesCount} atendimento{pendentesCount !== 1 ? 's' : ''} pendente{pendentesCount !== 1 ? 's' : ''}
           </Text>
@@ -198,7 +210,7 @@ export default function DoctorDashboard() {
                 <View style={styles.pendingCardRow}>
                   <Pressable
                     style={({ pressed }) => [styles.pendingCardMain, pressed && styles.pendingCardPressed]}
-                    onPress={() => router.push(`/doctor-request/${req.id}`)}
+                    onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}
                   >
                     <Text style={styles.pendingCardType}>{typeLabel}</Text>
                     <Text style={styles.pendingCardPatient} numberOfLines={1}>
@@ -218,7 +230,7 @@ export default function DoctorDashboard() {
                   <PrimaryButton
                     label={actionLabel}
                     showArrow
-                    onPress={() => router.push(`/doctor-request/${req.id}`)}
+                    onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}
                     style={styles.entryBtn}
                   />
                 </View>
@@ -245,9 +257,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    paddingBottom: 120,
-  },
+  content: {},
   header: {
     paddingHorizontal: pad,
     paddingBottom: 56,
@@ -274,6 +284,8 @@ const styles = StyleSheet.create({
     marginTop: -44,
     marginBottom: 0,
     paddingHorizontal: pad,
+    zIndex: 10,
+    position: 'relative',
   },
   body: {
     paddingHorizontal: pad,

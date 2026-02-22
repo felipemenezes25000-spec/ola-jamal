@@ -63,7 +63,7 @@ interface Props {
   suppressHorizontalMargin?: boolean;
 }
 
-export default function RequestCard({
+function RequestCardInner({
   request,
   onPress,
   showPatientName,
@@ -121,6 +121,18 @@ export default function RequestCard({
     </Pressable>
   );
 }
+
+const RequestCard = React.memo(RequestCardInner, (prev, next) =>
+  prev.request.id === next.request.id &&
+  prev.request.status === next.request.status &&
+  prev.request.updatedAt === next.request.updatedAt &&
+  prev.showPatientName === next.showPatientName &&
+  prev.showPrice === next.showPrice &&
+  prev.showRisk === next.showRisk &&
+  prev.suppressHorizontalMargin === next.suppressHorizontalMargin
+);
+
+export default RequestCard;
 
 const styles = StyleSheet.create({
   container: {

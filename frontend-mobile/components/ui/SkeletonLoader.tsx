@@ -1,6 +1,33 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
-import { colors as doctorColors } from '../../lib/themeDoctor';
+
+// Shared animation value — all skeletons shimmer in sync using a single JS animation loop.
+const sharedShimmer = new Animated.Value(0);
+let animationStarted = false;
+
+function ensureAnimationStarted() {
+    if (animationStarted) return;
+    animationStarted = true;
+    Animated.loop(
+        Animated.sequence([
+            Animated.timing(sharedShimmer, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: false,
+            }),
+            Animated.timing(sharedShimmer, {
+                toValue: 0,
+                duration: 1000,
+                useNativeDriver: false,
+            }),
+        ])
+    ).start();
+}
+
+const sharedBg = sharedShimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#E2EDF6', '#F0F9FF'],
+});
 
 interface SkeletonProps {
     width?: number | string;
@@ -15,31 +42,7 @@ export function SkeletonLoader({
     borderRadius = 8,
     style,
 }: SkeletonProps) {
-    const shimmer = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        const anim = Animated.loop(
-            Animated.sequence([
-                Animated.timing(shimmer, {
-                    toValue: 1,
-                    duration: 1000,
-                    useNativeDriver: false,
-                }),
-                Animated.timing(shimmer, {
-                    toValue: 0,
-                    duration: 1000,
-                    useNativeDriver: false,
-                }),
-            ])
-        );
-        anim.start();
-        return () => anim.stop();
-    }, [shimmer]);
-
-    const bg = shimmer.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['#E2EDF6', '#F0F9FF'],
-    });
+    useEffect(() => { ensureAnimationStarted(); }, []);
 
     return (
         <Animated.View
@@ -48,7 +51,7 @@ export function SkeletonLoader({
                     width: width as any,
                     height,
                     borderRadius,
-                    backgroundColor: bg,
+                    backgroundColor: sharedBg,
                 },
                 style,
             ]}

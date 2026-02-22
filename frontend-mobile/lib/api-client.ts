@@ -15,14 +15,17 @@ function generateCorrelationId(): string {
 
 // Android emulator uses 10.0.2.2 to reach host machine's localhost
 // Physical device needs the LAN IP
-// Web uses localhost directly
+// Web uses relative URLs so the Metro dev proxy handles /api/* requests (avoids CORS)
 const getDefaultBaseUrl = () => {
-  if (Platform.OS === 'web') return 'http://localhost:5000';
+  if (Platform.OS === 'web') return '';
   if (Platform.OS === 'android') return 'http://10.0.2.2:5000';
   return 'http://localhost:5000';
 };
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || getDefaultBaseUrl();
+const BASE_URL =
+  Platform.OS === 'web'
+    ? '' // web: relative URL → Metro proxy forwards /api/* to backend
+    : process.env.EXPO_PUBLIC_API_URL || getDefaultBaseUrl();
 
 /** Timeout para evitar loading infinito quando a API está inacessível (ex.: celular com tunnel não alcança localhost). */
 const REQUEST_TIMEOUT_MS = 20000;
@@ -61,10 +64,11 @@ class ApiClient {
 
   /** Headers comuns a todas as requisições (ex.: ngrok exige header para não devolver página HTML no browser). */
   private getCommonHeaders(): Record<string, string> {
-    const isNgrok = this.baseUrl.includes('ngrok');
+    // Always send ngrok header: on web the baseUrl is empty (relative URLs via proxy),
+    // but the proxy target may still be behind ngrok.
     return {
       'X-Correlation-Id': generateCorrelationId(),
-      ...(isNgrok ? { 'ngrok-skip-browser-warning': 'true' } : {}),
+      'ngrok-skip-browser-warning': 'true',
     };
   }
 

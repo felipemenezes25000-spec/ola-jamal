@@ -29,7 +29,7 @@ export function StatsCard({
         <Ionicons name={icon} size={22} color={iconColor} />
       </View>
       <Text style={styles.value}>{displayValue}</Text>
-      <Text style={styles.label} numberOfLines={1}>{label}</Text>
+      <Text style={styles.label} numberOfLines={2}>{label}</Text>
     </>
   );
 
@@ -60,29 +60,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.card,
+    elevation: 4,
   },
   pressed: {
     transform: [{ scale: 0.96 }],
     opacity: 0.88,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
   value: {
     fontSize: 22,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '800',
     color: colors.text,
     marginBottom: 4,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
     color: colors.textSecondary,
     textAlign: 'center',
+    minHeight: 28,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

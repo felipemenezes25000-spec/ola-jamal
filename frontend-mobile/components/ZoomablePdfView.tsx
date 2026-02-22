@@ -1,16 +1,15 @@
 import React, { useCallback } from 'react';
-import { Dimensions, StyleSheet, View, Platform } from 'react-native';
+import { StyleSheet, View, Platform, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { clamp, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const PDF_HEIGHT = Math.min(600, SCREEN_HEIGHT - 200);
 
 interface ZoomablePdfViewProps {
   children: React.ReactNode;
 }
 
 export function ZoomablePdfView({ children }: ZoomablePdfViewProps) {
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const pdfH = Math.min(600, screenH - 200);
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -87,7 +86,7 @@ export function ZoomablePdfView({ children }: ZoomablePdfViewProps) {
 
   const content = (
     <GestureDetector gesture={composed}>
-      <Animated.View style={[styles.container, animatedStyle]}>
+      <Animated.View style={[styles.container, { width: screenW, height: pdfH }, animatedStyle]}>
         {children}
       </Animated.View>
     </GestureDetector>
@@ -95,25 +94,22 @@ export function ZoomablePdfView({ children }: ZoomablePdfViewProps) {
 
   if (Platform.OS === 'web') {
     return (
-      <View style={styles.wrapper} {...({ onWheel: handleWheel } as any)}>
+      <View style={[styles.wrapper, { height: pdfH }]} {...({ onWheel: handleWheel } as any)}>
         {content}
       </View>
     );
   }
 
-  return <View style={styles.wrapper}>{content}</View>;
+  return <View style={[styles.wrapper, { height: pdfH }]}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
-    height: PDF_HEIGHT,
     overflow: 'hidden',
     borderRadius: 8,
   },
   container: {
-    width: SCREEN_WIDTH,
-    height: PDF_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, gradients, doctorDS } from '../../lib/themeDoctor';
@@ -22,6 +24,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { RequestTypeFilter } from '../../components/RequestTypeFilter';
 
 const LOG_QUEUE = __DEV__ && false;
+const ListSeparator = () => <View style={styles.separator} />;
 
 const FILTER_ITEMS: { key: string; label: string; type?: RequestType }[] = [
   { key: 'all', label: 'Todos' },
@@ -33,6 +36,7 @@ const FILTER_ITEMS: { key: string; label: string; type?: RequestType }[] = [
 export default function PatientRequests() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +61,7 @@ export default function PatientRequests() {
     if (LOG_QUEUE) console.info('[QUEUE_FETCH] PatientRequests start', { rid });
 
     try {
-      const response = await getRequests({ page: 1, pageSize: 100 }, { signal: abort.signal });
+      const response = await getRequests({ page: 1, pageSize: 50 }, { signal: abort.signal });
       if (rid !== requestIdRef.current) return;
       const items = response.items ?? [];
       setRequests(sortRequestsByNewestFirst(items));
@@ -113,6 +117,11 @@ export default function PatientRequests() {
     loadData();
   }, [loadData]);
 
+  const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
+  const renderPatientItem = useCallback(({ item }: { item: RequestResponseDto }) => (
+    <RequestCard request={item} onPress={() => router.push(`/request-detail/${item.id}`)} />
+  ), [router]);
+
   const headerPaddingTop = insets.top + 16;
   const empty = !loading && !error && filteredRequests.length === 0;
 
@@ -165,16 +174,18 @@ export default function PatientRequests() {
       ) : (
         <FlatList
           data={filteredRequests}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RequestCard request={item} onPress={() => router.push(`/request-detail/${item.id}`)} />
-          )}
-          contentContainerStyle={[styles.listContent, empty && styles.listContentEmpty]}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          keyExtractor={keyExtractor}
+          renderItem={renderPatientItem}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
+          ItemSeparatorComponent={ListSeparator}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={8}
           ListEmptyComponent={
             empty ? (
               <EmptyState
@@ -222,7 +233,7 @@ const styles = StyleSheet.create({
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md },
   retryText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 120 },
+  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: uiTokens.screenPaddingHorizontal },
   listContentEmpty: { flexGrow: 1 },
   separator: { height: 8 },
 });

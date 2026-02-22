@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../lib/api-client';
 import { UserDto, UserRole, AuthResponseDto, DoctorProfileDto } from '../types/database';
@@ -385,24 +385,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => apiClient.setOnUnauthorized(null);
   }, []);
 
+  const value = useMemo(() => ({
+    user,
+    doctorProfile,
+    loading,
+    signIn,
+    signUp,
+    signUpDoctor,
+    signInWithGoogle,
+    signOut,
+    cancelRegistration,
+    refreshUser,
+    completeProfile,
+    forgotPassword,
+    resetPassword,
+  }), [user, doctorProfile, loading]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        doctorProfile,
-        loading,
-        signIn,
-        signUp,
-        signUpDoctor,
-        signInWithGoogle,
-        signOut,
-        cancelRegistration,
-        refreshUser,
-        completeProfile,
-        forgotPassword,
-        resetPassword,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

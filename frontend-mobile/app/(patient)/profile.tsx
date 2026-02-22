@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  Platform,
   TouchableOpacity,
   InteractionManager,
   ActivityIndicator,
@@ -24,25 +25,33 @@ export default function PatientProfile() {
   const { user, signOut } = useAuth();
   const [logoutLoading, setLogoutLoading] = useState(false);
 
+  const doLogout = () => {
+    setLogoutLoading(true);
+    signOut()
+      .catch(() => {})
+      .finally(() => {
+        setLogoutLoading(false);
+        if (Platform.OS === 'web') {
+          router.replace('/');
+        } else {
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => router.replace('/'), 150);
+          });
+        }
+      });
+  };
+
   const handleLogout = () => {
-    Alert.alert('Sair', 'Tem certeza que deseja sair?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: () => {
-          setLogoutLoading(true);
-          signOut()
-            .catch(() => {})
-            .finally(() => {
-              setLogoutLoading(false);
-              InteractionManager.runAfterInteractions(() => {
-                setTimeout(() => router.replace('/'), 150);
-              });
-            });
-        },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Tem certeza que deseja sair?')) {
+        doLogout();
+      }
+    } else {
+      Alert.alert('Sair', 'Tem certeza que deseja sair?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair', style: 'destructive', onPress: doLogout },
+      ]);
+    }
   };
 
   const firstName = user?.name?.split(' ')[0] || '';

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, gradients, doctorDS } from '../../lib/themeDoctor';
@@ -140,6 +141,7 @@ export default function PatientNotifications() {
   ).map(([title, data]) => ({ title, data }));
 
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const headerPaddingTop = insets.top + 16;
 
   return (
@@ -170,7 +172,7 @@ export default function PatientNotifications() {
           renderSectionHeader={({ section: { title } }) => (
             <Text style={styles.groupLabel}>{title}</Text>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
@@ -206,7 +208,7 @@ const styles = StyleSheet.create({
   markAllBtn: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
   markAll: { fontSize: 13, color: '#fff', fontWeight: '600' },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 120 },
+  listContent: { paddingHorizontal: uiTokens.screenPaddingHorizontal },
   groupLabel: {
     fontSize: 11,
     fontWeight: '700',

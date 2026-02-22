@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../lib/themeDoctor';
+import { colors } from '../../lib/theme';
+import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -29,8 +29,10 @@ export default function PatientLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: '#2CB1FF',
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarPressColor: 'rgba(44, 177, 255, 0.12)',
+        tabBarPressOpacity: 0.8,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.borderLight,
@@ -51,8 +53,9 @@ export default function PatientLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 0.1,
+          fontWeight: '700',
+          letterSpacing: 0.8,
+          textTransform: 'uppercase',
         },
         tabBarBadgeStyle: {
           backgroundColor: colors.error,
@@ -70,7 +73,7 @@ export default function PatientLayout() {
         options={{
           title: 'Início',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'home' : 'home-outline'} color={color} focused={focused} />
+            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} focused={focused} variant="patient" />
           ),
         }}
       />
@@ -79,7 +82,7 @@ export default function PatientLayout() {
         options={{
           title: 'Pedidos',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'document-text' : 'document-text-outline'} color={color} focused={focused} />
+            <TabBarIcon name={focused ? 'document-text' : 'document-text-outline'} color={color} focused={focused} variant="patient" />
           ),
         }}
       />
@@ -89,7 +92,7 @@ export default function PatientLayout() {
           title: 'Alertas',
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'notifications' : 'notifications-outline'} color={color} focused={focused} />
+            <TabBarIcon name={focused ? 'notifications' : 'notifications-outline'} color={color} focused={focused} variant="patient" />
           ),
         }}
       />
@@ -98,7 +101,7 @@ export default function PatientLayout() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'person' : 'person-outline'} color={color} focused={focused} />
+            <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} focused={focused} variant="patient" />
           ),
         }}
       />
@@ -106,20 +109,3 @@ export default function PatientLayout() {
   );
 }
 
-function TabIcon({ name, color, focused }: { name: keyof typeof Ionicons.glyphMap; color: string; focused: boolean }) {
-  return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-      {focused && (
-        <View style={{
-          position: 'absolute',
-          top: -8,
-          width: 24,
-          height: 3,
-          borderRadius: 2,
-          backgroundColor: colors.primary,
-        }} />
-      )}
-      <Ionicons name={name} size={22} color={color} />
-    </View>
-  );
-}
