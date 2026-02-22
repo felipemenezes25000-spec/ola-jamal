@@ -289,6 +289,8 @@ const styles = StyleSheet.create({
     marginTop: -44,
     marginBottom: 0,
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    zIndex: 10,
+    position: 'relative',
   },
 
   // ─── Sections ───

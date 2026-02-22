@@ -284,6 +284,8 @@ const styles = StyleSheet.create({
     marginTop: -44,
     marginBottom: 0,
     paddingHorizontal: pad,
+    zIndex: 10,
+    position: 'relative',
   },
   body: {
     paddingHorizontal: pad,

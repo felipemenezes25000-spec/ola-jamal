@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.card,
+    elevation: 6,
   },
   pressed: {
     transform: [{ scale: 0.96 }],
