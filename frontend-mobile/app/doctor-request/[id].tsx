@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
   Platform,
   Modal,
   KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows, typography, doctorDS } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import {
   getRequestById,
   approveRequest,
@@ -37,6 +35,10 @@ import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
+
+/* ---- In-memory cache for instant display ---- */
+const _requestCache = new Map<string, RequestResponseDto>();
+export function cacheRequest(r: RequestResponseDto) { _requestCache.set(r.id, r); }
 
 const TYPE_LABELS: Record<string, string> = { prescription: 'Receita', exam: 'Exame', consultation: 'Consulta' };
 const RISK_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
@@ -64,11 +66,11 @@ function hasUsefulAiContent(aiSummary: string | null | undefined, aiRisk?: strin
 export default function DoctorRequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
   const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
-  const [request, setRequest] = useState<RequestResponseDto | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cached = _requestCache.get(requestId);
+  const [request, setRequest] = useState<RequestResponseDto | null>(cached ?? null);
+  const [loading, setLoading] = useState(!cached);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
@@ -76,16 +78,18 @@ export default function DoctorRequestDetail() {
   const [showSignForm, setShowSignForm] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
-
   const loadData = useCallback(async () => {
     if (!requestId) return;
-    try { setRequest(await getRequestById(requestId)); }
-    catch { console.error('Error loading request'); }
+    try {
+      const fresh = await getRequestById(requestId);
+      setRequest(fresh);
+      _requestCache.set(requestId, fresh);
+    } catch { console.error('Error loading request'); }
     finally { setLoading(false); }
   }, [requestId]);
 
-  useEffect(() => { loadData(); }, [loadData]);
-  useFocusEffect(useCallback(() => { if (requestId) loadData(); }, [requestId, loadData]));
+  // Single load on focus (covers mount + re-focus). No separate useEffect.
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const executeApprove = async () => {
     if (!requestId) return;
@@ -187,25 +191,54 @@ export default function DoctorRequestDetail() {
 
         {/* Patient */}
         <DoctorCard style={s.cardMargin}>
-          <Text style={s.sectionLabel}>PACIENTE</Text>
-          <TouchableOpacity onPress={() => request.patientId && router.push(`/doctor-patient/${request.patientId}` as any)} activeOpacity={0.7}>
-            <Row k="Nome" v={request.patientName || 'N/A'} />
-            {request.patientId && (
-              <View style={s.patientLink}>
-                <Ionicons name="folder-open-outline" size={14} color={colors.primary} />
-                <Text style={s.patientLinkText}>Ver histórico (prontuário)</Text>
-              </View>
-            )}
+          <TouchableOpacity
+            onPress={() => request.patientId && router.push(`/doctor-patient/${request.patientId}` as any)}
+            activeOpacity={0.7}
+            style={s.patientRow}
+          >
+            <View style={s.patientAvatar}>
+              <Text style={s.patientAvatarText}>{getInitials(request.patientName)}</Text>
+            </View>
+            <View style={s.patientInfo}>
+              <Text style={s.patientName}>{request.patientName || 'Paciente'}</Text>
+              <Text style={s.patientDate}>{fmt(request.createdAt)}</Text>
+              {request.patientId && (
+                <View style={s.patientLink}>
+                  <Ionicons name="folder-open-outline" size={13} color={colors.primary} />
+                  <Text style={s.patientLinkText}>Ver prontuário</Text>
+                  <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
-          <Row k="Criado em" v={fmt(request.createdAt)} />
         </DoctorCard>
 
         {/* Details */}
         <DoctorCard style={s.cardMargin}>
-          <Text style={s.sectionLabel}>DETALHES</Text>
-          <Row k="Tipo" v={TYPE_LABELS[request.requestType]} />
-          {request.prescriptionType && <Row k="Modalidade" v={request.prescriptionType === 'simples' ? 'Simples' : request.prescriptionType === 'controlado' ? 'Controlada' : 'Azul'} warn={request.prescriptionType === 'controlado'} />}
-          <Row k="Valor" v={formatBRL(getDisplayPrice(request.price, request.requestType))} accent />
+          <View style={s.detailsGrid}>
+            <View style={s.detailItem}>
+              <Text style={s.detailItemLabel}>Tipo</Text>
+              <View style={s.detailChip}>
+                <Ionicons name={request.requestType === 'prescription' ? 'document-text' : request.requestType === 'exam' ? 'flask' : 'videocam'} size={14} color={colors.primary} />
+                <Text style={s.detailChipText}>{TYPE_LABELS[request.requestType]}</Text>
+              </View>
+            </View>
+            {request.prescriptionType && (
+              <View style={s.detailItem}>
+                <Text style={s.detailItemLabel}>Modalidade</Text>
+                <View style={[s.detailChip, request.prescriptionType === 'controlado' && s.detailChipWarn, request.prescriptionType === 'azul' && s.detailChipInfo]}>
+                  {request.prescriptionType === 'controlado' && <Ionicons name="warning" size={13} color="#D97706" />}
+                  <Text style={[s.detailChipText, request.prescriptionType === 'controlado' && { color: '#D97706' }, request.prescriptionType === 'azul' && { color: colors.info }]}>
+                    {request.prescriptionType === 'simples' ? 'Simples' : request.prescriptionType === 'controlado' ? 'Controlada' : 'Azul'}
+                  </Text>
+                </View>
+              </View>
+            )}
+            <View style={s.detailItem}>
+              <Text style={s.detailItemLabel}>Valor</Text>
+              <Text style={s.detailPrice}>{formatBRL(getDisplayPrice(request.price, request.requestType))}</Text>
+            </View>
+          </View>
         </DoctorCard>
 
         {/* AI Copilot (Copiloto IA) */}
@@ -267,15 +300,25 @@ export default function DoctorRequestDetail() {
         {/* Prescription Images */}
         {request.prescriptionImages && request.prescriptionImages.length > 0 && (
           <DoctorCard style={s.cardMargin}>
-            <Text style={s.sectionLabel}>IMAGENS DA RECEITA</Text>
-            <Text style={s.zoomHint}>Toque para ampliar • Pinça para zoom</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIconWrap, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="image" size={16} color={colors.primary} />
+              </View>
+              <Text style={s.sectionLabel}>IMAGENS DA RECEITA</Text>
+              <Text style={s.zoomHint}>Toque para ampliar</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.imageScroll}>
               {request.prescriptionImages.map((img, i) => (
                 <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={s.thumbContainer}>
                   <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
                   <View style={s.zoomBadge}>
-                    <Ionicons name="search" size={14} color="#fff" />
+                    <Ionicons name="expand" size={14} color="#fff" />
                   </View>
+                  {request.prescriptionImages!.length > 1 && (
+                    <View style={s.imgCounter}>
+                      <Text style={s.imgCounterText}>{i + 1}/{request.prescriptionImages!.length}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -285,15 +328,25 @@ export default function DoctorRequestDetail() {
         {/* Exam Images */}
         {request.examImages && request.examImages.length > 0 && (
           <DoctorCard style={s.cardMargin}>
-            <Text style={s.sectionLabel}>IMAGENS DO EXAME</Text>
-            <Text style={s.zoomHint}>Toque para ampliar • Pinça para zoom</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIconWrap, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="image" size={16} color={colors.primary} />
+              </View>
+              <Text style={s.sectionLabel}>IMAGENS DO EXAME</Text>
+              <Text style={s.zoomHint}>Toque para ampliar</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.imageScroll}>
               {request.examImages.map((img, i) => (
                 <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={s.thumbContainer}>
                   <CompatibleImage uri={img} style={s.img} resizeMode="cover" />
                   <View style={s.zoomBadge}>
-                    <Ionicons name="search" size={14} color="#fff" />
+                    <Ionicons name="expand" size={14} color="#fff" />
                   </View>
+                  {request.examImages!.length > 1 && (
+                    <View style={s.imgCounter}>
+                      <Text style={s.imgCounterText}>{i + 1}/{request.examImages!.length}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -327,24 +380,61 @@ export default function DoctorRequestDetail() {
         {/* Medications */}
         {request.medications && request.medications.length > 0 && (
           <DoctorCard style={s.cardMargin}>
-            <Text style={s.sectionLabel}>MEDICAMENTOS</Text>
-            {request.medications.map((m, i) => <MedItem key={i} text={m} icon="medical" iconColor={colors.primary} iconBg={colors.primarySoft} />)}
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIconWrap, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="medical" size={16} color={colors.primary} />
+              </View>
+              <Text style={s.sectionLabel}>MEDICAMENTOS</Text>
+              <View style={s.sectionCountBadge}>
+                <Text style={s.sectionCountText}>{request.medications.length}</Text>
+              </View>
+            </View>
+            {request.medications.map((m, i) => (
+              <View key={i} style={[s.medCard, i > 0 && s.medCardBorder]}>
+                <View style={s.medIndex}>
+                  <Text style={s.medIndexText}>{i + 1}</Text>
+                </View>
+                <Text style={s.medCardText}>{m}</Text>
+              </View>
+            ))}
           </DoctorCard>
         )}
 
         {/* Exams */}
         {request.exams && request.exams.length > 0 && (
           <DoctorCard style={s.cardMargin}>
-            <Text style={s.sectionLabel}>EXAMES SOLICITADOS</Text>
-            {request.exams.map((e, i) => <MedItem key={i} text={e} icon="flask" iconColor={colors.primary} iconBg={colors.accentSoft} />)}
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIconWrap, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="flask" size={16} color={colors.primary} />
+              </View>
+              <Text style={s.sectionLabel}>EXAMES SOLICITADOS</Text>
+              <View style={s.sectionCountBadge}>
+                <Text style={s.sectionCountText}>{request.exams.length}</Text>
+              </View>
+            </View>
+            {request.exams.map((e, i) => (
+              <View key={i} style={[s.medCard, i > 0 && s.medCardBorder]}>
+                <View style={[s.medIndex, { backgroundColor: colors.accentSoft }]}>
+                  <Text style={[s.medIndexText, { color: colors.primaryDark }]}>{i + 1}</Text>
+                </View>
+                <Text style={s.medCardText}>{e}</Text>
+              </View>
+            ))}
           </DoctorCard>
         )}
 
         {/* Symptoms */}
         {request.symptoms && (
           <DoctorCard style={s.cardMargin}>
-            <Text style={s.sectionLabel}>SINTOMAS</Text>
-            <Text style={s.symptomsText}>{request.symptoms}</Text>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIconWrap, { backgroundColor: colors.warningLight }]}>
+                <Ionicons name="chatbubble-ellipses" size={16} color={colors.warning} />
+              </View>
+              <Text style={s.sectionLabel}>SINTOMAS RELATADOS</Text>
+            </View>
+            <View style={s.symptomsBlock}>
+              <Text style={s.symptomsText}>{request.symptoms}</Text>
+            </View>
           </DoctorCard>
         )}
 
@@ -503,33 +593,18 @@ export default function DoctorRequestDetail() {
   );
 }
 
-/* ---- Sub-components ---- */
+/* ---- Helpers ---- */
 
-function Row({ k, v, accent, warn }: { k: string; v: string; accent?: boolean; warn?: boolean }) {
-  return (
-    <View style={s.row}>
-      <Text style={s.rowKey}>{k}</Text>
-      {warn ? (
-        <View style={s.warnBadge}>
-          <Ionicons name="warning" size={12} color="#D97706" /><Text style={s.warnText}>{v}</Text>
-        </View>
-      ) : <Text style={[s.rowValue, accent && { color: colors.primary, fontWeight: '700' }]}>{v}</Text>}
-    </View>
-  );
-}
-
-function MedItem({ text, icon, iconColor, iconBg }: { text: string; icon: string; iconColor: string; iconBg: string }) {
-  return (
-    <View style={s.medItem}>
-      <View style={[s.medIcon, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon as any} size={14} color={iconColor} />
-      </View>
-      <Text style={s.medText}>{text}</Text>
-    </View>
-  );
+function getInitials(name: string | null | undefined): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0][0] || '?').toUpperCase();
 }
 
 /* ---- Styles ---- */
+
+const pad = doctorDS.screenPaddingHorizontal;
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -539,22 +614,34 @@ const s = StyleSheet.create({
   emptyAction: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md, marginTop: spacing.sm },
   emptyActionText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#fff' },
 
-  navHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingBottom: spacing.md, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
-  back: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', ...shadows.card },
-  navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
-  navSpacer: { width: 40 },
+  cardMargin: { marginHorizontal: pad, marginTop: spacing.md },
 
-  cardMargin: { marginHorizontal: doctorDS.screenPaddingHorizontal, marginTop: spacing.md },
-  sectionLabel: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, marginBottom: spacing.sm, textTransform: 'uppercase' },
+  // Section headers with icon
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  sectionIconWrap: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sectionLabel: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase', flex: 1, marginBottom: 2 },
+  sectionCountBadge: { backgroundColor: colors.primarySoft, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  sectionCountText: { fontSize: 12, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.primary },
 
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
-  rowKey: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
-  rowValue: { fontSize: 14, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text },
-  warnBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.warningLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  warnText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#D97706' },
-
-  patientLink: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
+  // Patient card - avatar + info
+  patientRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  patientAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  patientAvatarText: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
+  patientInfo: { flex: 1 },
+  patientName: { fontSize: 16, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.text },
+  patientDate: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: 2 },
+  patientLink: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4 },
   patientLinkText: { fontSize: 12, fontFamily: typography.fontFamily.semibold, color: colors.primary, fontWeight: '600' },
+
+  // Details grid
+  detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  detailItem: { minWidth: 80 },
+  detailItemLabel: { fontSize: 11, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  detailChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.primarySoft, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, alignSelf: 'flex-start' },
+  detailChipWarn: { backgroundColor: colors.warningLight },
+  detailChipInfo: { backgroundColor: colors.infoLight },
+  detailChipText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
+  detailPrice: { fontSize: 20, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.primary },
 
   // AI Copilot
   aiCard: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.accent },
@@ -573,34 +660,42 @@ const s = StyleSheet.create({
   urgencyText: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
 
   // Images
-  img: { width: 180, height: 180, borderRadius: 14 },
-  thumbContainer: { marginRight: spacing.sm, position: 'relative' },
-  zoomBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 4, alignItems: 'center', justifyContent: 'center' },
-  zoomHint: { fontSize: 11, color: colors.textMuted, marginBottom: spacing.xs, fontFamily: typography.fontFamily.regular },
+  imageScroll: { marginTop: 4 },
+  img: { width: 160, height: 200, borderRadius: 14 },
+  thumbContainer: { marginRight: 10, position: 'relative' },
+  zoomBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 5, alignItems: 'center', justifyContent: 'center' },
+  zoomHint: { fontSize: 10, color: colors.textMuted, fontFamily: typography.fontFamily.regular },
+  imgCounter: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  imgCounterText: { fontSize: 10, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#fff' },
   modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
   modalImageWrapper: { flex: 1, width: '100%', alignSelf: 'stretch' },
   modalImageFull: { flex: 1, width: '100%', minHeight: 300 },
   modalCloseButton: { position: 'absolute', top: Platform.OS === 'web' ? 20 : 60, right: spacing.md, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 25, padding: 10, width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
 
-  // Medications/Exams
+  // Medications/Exams – card style
+  medCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
+  medCardBorder: { borderTopWidth: 1, borderTopColor: colors.borderLight },
+  medIndex: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  medIndexText: { fontSize: 12, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.primary },
+  medCardText: { fontSize: 14, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text, flex: 1, lineHeight: 20 },
+
+  // Kept for consultation AI suggestions
   medItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 8 },
   medIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   medText: { fontSize: 14, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: colors.text, flex: 1 },
 
-  // Symptoms
-  symptomsText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, lineHeight: 20 },
+  // Symptoms – quote block
+  symptomsBlock: { borderLeftWidth: 3, borderLeftColor: colors.warning, paddingLeft: 12, paddingVertical: 4, backgroundColor: colors.warningLight + '40', borderRadius: 4 },
+  symptomsText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, lineHeight: 22, fontStyle: 'italic' },
 
   // Queue hint
-  queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: doctorDS.screenPaddingHorizontal, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primarySoft, borderRadius: borderRadius.card },
+  queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: pad, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primarySoft, borderRadius: borderRadius.card },
   queueHintText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
 
   // Actions
-  actions: { marginHorizontal: doctorDS.screenPaddingHorizontal, marginTop: doctorDS.sectionGap, gap: spacing.sm },
+  actions: { marginHorizontal: pad, marginTop: doctorDS.sectionGap, gap: spacing.sm },
   actionBtnFull: { width: '100%' },
   primaryBtnFlex: { flex: 1 },
-  actionBtnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
-  rejectOutline: { flexDirection: 'row', padding: spacing.md, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1.5, borderColor: colors.error },
-  rejectOutlineText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.error },
 
   // Forms
   formCard: { borderWidth: 1, borderColor: colors.border },
@@ -612,6 +707,4 @@ const s = StyleSheet.create({
   formBtns: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   cancelBtn: { flex: 1, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
   cancelBtnText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.textSecondary },
-  signBtn: { flex: 1, flexDirection: 'row', backgroundColor: colors.primary, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  rejectBtn: { flex: 1, backgroundColor: colors.error, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center' },
 });

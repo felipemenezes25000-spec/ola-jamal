@@ -17,6 +17,7 @@ import { colors, spacing, typography, gradients, doctorDS } from '../../lib/them
 const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
+import { cacheRequest } from '../doctor-request/[id]';
 import { StatsCard } from '../../components/StatsCard';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -209,7 +210,7 @@ export default function DoctorDashboard() {
                 <View style={styles.pendingCardRow}>
                   <Pressable
                     style={({ pressed }) => [styles.pendingCardMain, pressed && styles.pendingCardPressed]}
-                    onPress={() => router.push(`/doctor-request/${req.id}`)}
+                    onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}
                   >
                     <Text style={styles.pendingCardType}>{typeLabel}</Text>
                     <Text style={styles.pendingCardPatient} numberOfLines={1}>
@@ -229,7 +230,7 @@ export default function DoctorDashboard() {
                   <PrimaryButton
                     label={actionLabel}
                     showArrow
-                    onPress={() => router.push(`/doctor-request/${req.id}`)}
+                    onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}
                     style={styles.entryBtn}
                   />
                 </View>
