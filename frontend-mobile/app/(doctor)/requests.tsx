@@ -17,6 +17,7 @@ import { colors, spacing, typography, gradients, borderRadius, doctorDS } from '
 const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
+import { cacheRequest } from '../doctor-request/[id]';
 import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { EmptyState } from '../../components/EmptyState';
@@ -132,7 +133,7 @@ export default function DoctorQueue() {
   const renderDoctorItem = useCallback(({ item }: { item: RequestResponseDto }) => (
     <RequestCard
       request={item}
-      onPress={() => router.push(`/doctor-request/${item.id}`)}
+      onPress={() => { cacheRequest(item); router.push(`/doctor-request/${item.id}`); }}
       showPatientName
       showPrice={false}
       showRisk={false}
