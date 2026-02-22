@@ -35,12 +35,13 @@ import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
+import { parseAiSummary } from '../../components/FormattedAiSummary';
 
 /* ---- In-memory cache for instant display ---- */
 const _requestCache = new Map<string, RequestResponseDto>();
 export function cacheRequest(r: RequestResponseDto) { _requestCache.set(r.id, r); }
 
-const TYPE_LABELS: Record<string, string> = { prescription: 'Receita', exam: 'Exame', consultation: 'Consulta' };
+const TYPE_LABELS: Record<string, string> = { prescription: 'RECEITA', exam: 'EXAME', consultation: 'CONSULTA' };
 const RISK_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
   low: { bg: colors.successLight, text: colors.success, icon: 'shield-checkmark' },
   medium: { bg: colors.warningLight, text: '#D97706', icon: 'alert-circle' },
@@ -62,6 +63,7 @@ function hasUsefulAiContent(aiSummary: string | null | undefined, aiRisk?: strin
   if (!aiSummary || !aiSummary.trim()) return false;
   return aiSummary.replace(/\s/g, '').length > 50;
 }
+
 
 export default function DoctorRequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -171,9 +173,9 @@ export default function DoctorRequestDetail() {
   if (!request) return (
     <View style={s.center}>
       <Ionicons name="document-text-outline" size={56} color={colors.textMuted} />
-      <Text style={s.emptyTitle}>Pedido não encontrado</Text>
+      <Text style={s.emptyTitle}>PEDIDO NÃO ENCONTRADO</Text>
       <TouchableOpacity onPress={() => router.back()} style={s.emptyAction}>
-        <Text style={s.emptyActionText}>Voltar</Text>
+        <Text style={s.emptyActionText}>VOLTAR</Text>
       </TouchableOpacity>
     </View>
   );
@@ -205,7 +207,7 @@ export default function DoctorRequestDetail() {
               {request.patientId && (
                 <View style={s.patientLink}>
                   <Ionicons name="folder-open-outline" size={13} color={colors.primary} />
-                  <Text style={s.patientLinkText}>Ver prontuário</Text>
+                  <Text style={s.patientLinkText}>VER PRONTUÁRIO</Text>
                   <Ionicons name="chevron-forward" size={13} color={colors.primary} />
                 </View>
               )}
@@ -217,7 +219,7 @@ export default function DoctorRequestDetail() {
         <DoctorCard style={s.cardMargin}>
           <View style={s.detailsGrid}>
             <View style={s.detailItem}>
-              <Text style={s.detailItemLabel}>Tipo</Text>
+              <Text style={s.detailItemLabel}>TIPO</Text>
               <View style={s.detailChip}>
                 <Ionicons name={request.requestType === 'prescription' ? 'document-text' : request.requestType === 'exam' ? 'flask' : 'videocam'} size={14} color={colors.primary} />
                 <Text style={s.detailChipText}>{TYPE_LABELS[request.requestType]}</Text>
@@ -225,7 +227,7 @@ export default function DoctorRequestDetail() {
             </View>
             {request.prescriptionType && (
               <View style={s.detailItem}>
-                <Text style={s.detailItemLabel}>Modalidade</Text>
+                <Text style={s.detailItemLabel}>MODALIDADE</Text>
                 <View style={[s.detailChip, request.prescriptionType === 'controlado' && s.detailChipWarn, request.prescriptionType === 'azul' && s.detailChipInfo]}>
                   {request.prescriptionType === 'controlado' && <Ionicons name="warning" size={13} color="#D97706" />}
                   <Text style={[s.detailChipText, request.prescriptionType === 'controlado' && { color: '#D97706' }, request.prescriptionType === 'azul' && { color: colors.info }]}>
@@ -235,7 +237,7 @@ export default function DoctorRequestDetail() {
               </View>
             )}
             <View style={s.detailItem}>
-              <Text style={s.detailItemLabel}>Valor</Text>
+              <Text style={s.detailItemLabel}>VALOR</Text>
               <Text style={s.detailPrice}>{formatBRL(getDisplayPrice(request.price, request.requestType))}</Text>
             </View>
           </View>
@@ -246,7 +248,7 @@ export default function DoctorRequestDetail() {
           <DoctorCard style={[s.cardMargin, s.aiCard]}>
             <View style={s.aiHeader}>
               <Ionicons name="sparkles" size={18} color={colors.primary} />
-              <Text style={s.aiTitle}>Copiloto IA</Text>
+              <Text style={s.aiTitle}>COPILOTO IA</Text>
               {request.aiRiskLevel && (
                 <View style={[s.riskBadge, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || colors.muted }]}>
                   <Ionicons name={(RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.icon || 'alert-circle') as any} size={12} color={RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text} />
@@ -260,34 +262,52 @@ export default function DoctorRequestDetail() {
               <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
               <Text style={s.aiDisclaimerText}>Sugestões geradas por IA — decisão final do médico.</Text>
             </View>
-            {request.aiSummaryForDoctor && request.aiSummaryForDoctor.trim().length > 0 && (
-              <View style={s.aiSummarySection}>
-                <Text
-                  style={s.aiSummary}
-                  numberOfLines={aiSummaryExpanded ? undefined : 6}
-                  ellipsizeMode="tail"
-                >
-                  {request.aiSummaryForDoctor}
-                </Text>
-                <View style={s.aiSummaryActions}>
-                  {request.aiSummaryForDoctor.length > 200 && (
-                    <TouchableOpacity style={s.aiSummaryActionBtn} onPress={() => setAiSummaryExpanded(!aiSummaryExpanded)}>
-                      <Text style={s.aiSummaryActionText}>{aiSummaryExpanded ? 'Ver menos' : 'Ver mais'}</Text>
+            {request.aiSummaryForDoctor && request.aiSummaryForDoctor.trim().length > 0 && (() => {
+              const blocks = parseAiSummary(request.aiSummaryForDoctor);
+              const shouldTruncate = !aiSummaryExpanded && blocks.length > 6;
+              const displayBlocks = shouldTruncate ? blocks.slice(0, 6) : blocks;
+              return (
+                <View style={s.aiSummarySection}>
+                  {displayBlocks.map((block, i) => {
+                    if (block.type === 'header') {
+                      return (
+                        <View key={i} style={[s.aiBlock, i > 0 && s.aiBlockSpaced]}>
+                          <Text style={s.aiBlockHeader}>{block.header}</Text>
+                          {block.content ? <Text style={s.aiBlockContent}>{block.content}</Text> : null}
+                        </View>
+                      );
+                    }
+                    if (block.type === 'bullet') {
+                      return (
+                        <View key={i} style={s.aiBulletRow}>
+                          <View style={s.aiBulletDot} />
+                          <Text style={s.aiBulletText}>{block.content}</Text>
+                        </View>
+                      );
+                    }
+                    return <Text key={i} style={s.aiBlockContent}>{block.content}</Text>;
+                  })}
+                  {shouldTruncate && <Text style={s.aiTruncatedHint}>...</Text>}
+                  <View style={s.aiSummaryActions}>
+                    {blocks.length > 6 && (
+                      <TouchableOpacity style={s.aiSummaryActionBtn} onPress={() => setAiSummaryExpanded(!aiSummaryExpanded)}>
+                        <Text style={s.aiSummaryActionText}>{aiSummaryExpanded ? 'Ver menos' : 'Ver mais'}</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={s.aiSummaryActionBtn}
+                      onPress={async () => {
+                        await Clipboard.setStringAsync(request.aiSummaryForDoctor || '');
+                        showToast({ message: 'Copiado para a área de transferência', type: 'success' });
+                      }}
+                    >
+                      <Ionicons name="copy-outline" size={14} color={colors.primary} />
+                      <Text style={s.aiSummaryActionText}>Copiar</Text>
                     </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={s.aiSummaryActionBtn}
-                    onPress={async () => {
-                      await Clipboard.setStringAsync(request.aiSummaryForDoctor || '');
-                      showToast({ message: 'Copiado para a área de transferência', type: 'success' });
-                    }}
-                  >
-                    <Ionicons name="copy-outline" size={14} color={colors.primary} />
-                    <Text style={s.aiSummaryActionText}>Copiar</Text>
-                  </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            )}
+              );
+            })()}
             {request.aiUrgency && (
               <View style={s.urgencyRow}>
                 <Ionicons name="time" size={14} color={colors.textSecondary} />
@@ -443,7 +463,7 @@ export default function DoctorRequestDetail() {
           <DoctorCard style={[s.cardMargin, s.aiCard]}>
             <View style={s.aiHeader}>
               <Ionicons name="videocam" size={18} color={colors.primary} />
-              <Text style={s.aiTitle}>Transcrição e Anamnese da Consulta</Text>
+              <Text style={s.aiTitle}>TRANSCRIÇÃO E ANAMNESE</Text>
             </View>
             <View style={s.aiDisclaimer}>
               <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
@@ -451,7 +471,7 @@ export default function DoctorRequestDetail() {
             </View>
             {request.consultationTranscript && request.consultationTranscript.trim() && (
               <View style={s.aiSummarySection}>
-                <Text style={s.sectionLabel}>Transcrição</Text>
+                <Text style={s.sectionLabel}>TRANSCRIÇÃO</Text>
                 <Text style={s.aiSummary}>{request.consultationTranscript}</Text>
                 <TouchableOpacity
                   style={s.aiSummaryActionBtn}
@@ -467,7 +487,7 @@ export default function DoctorRequestDetail() {
             )}
             {request.consultationAnamnesis && request.consultationAnamnesis.trim() && (
               <View style={s.aiSummarySection}>
-                <Text style={s.sectionLabel}>Anamnese estruturada</Text>
+                <Text style={s.sectionLabel}>ANAMNESE ESTRUTURADA</Text>
                 <Text style={[s.aiSummary, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 12 }]}>
                   {(() => {
                     try {
@@ -482,7 +502,7 @@ export default function DoctorRequestDetail() {
             )}
             {request.consultationAiSuggestions && request.consultationAiSuggestions.trim() && (
               <View style={s.aiSummarySection}>
-                <Text style={s.sectionLabel}>Sugestões da IA</Text>
+                <Text style={s.sectionLabel}>SUGESTÕES DA IA</Text>
                 {(() => {
                   try {
                     const items = JSON.parse(request.consultationAiSuggestions || '[]') as string[];
@@ -510,7 +530,7 @@ export default function DoctorRequestDetail() {
               <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
               <Text style={s.formTitle}>ASSINATURA DIGITAL</Text>
             </View>
-            <Text style={s.formDesc}>Digite a senha do seu certificado A1 para assinar:</Text>
+            <Text style={s.formDesc}>Digite a senha do seu certificado A1 para assinar</Text>
             <TextInput
               style={s.formInput}
               placeholder="Senha do certificado"
@@ -610,9 +630,9 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingContainer: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, gap: spacing.md },
-  emptyTitle: { fontSize: 16, fontFamily: typography.fontFamily.medium, color: colors.textSecondary },
+  emptyTitle: { fontSize: 14, fontFamily: typography.fontFamily.bold, color: colors.textSecondary, letterSpacing: 0.8 },
   emptyAction: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md, marginTop: spacing.sm },
-  emptyActionText: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#fff' },
+  emptyActionText: { fontSize: 13, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff', letterSpacing: 0.6 },
 
   cardMargin: { marginHorizontal: pad, marginTop: spacing.md },
 
@@ -631,12 +651,12 @@ const s = StyleSheet.create({
   patientName: { fontSize: 16, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.text },
   patientDate: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: 2 },
   patientLink: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4 },
-  patientLinkText: { fontSize: 12, fontFamily: typography.fontFamily.semibold, color: colors.primary, fontWeight: '600' },
+  patientLinkText: { fontSize: 11, fontFamily: typography.fontFamily.bold, color: colors.primary, fontWeight: '700', letterSpacing: 0.5 },
 
   // Details grid
   detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   detailItem: { minWidth: 80 },
-  detailItemLabel: { fontSize: 11, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  detailItemLabel: { fontSize: 10, fontFamily: typography.fontFamily.bold, color: colors.textMuted, marginBottom: 6, letterSpacing: 1 },
   detailChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.primarySoft, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, alignSelf: 'flex-start' },
   detailChipWarn: { backgroundColor: colors.warningLight },
   detailChipInfo: { backgroundColor: colors.infoLight },
@@ -646,14 +666,22 @@ const s = StyleSheet.create({
   // AI Copilot
   aiCard: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.accent },
   aiHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
-  aiTitle: { fontSize: 17, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1 },
+  aiTitle: { fontSize: 13, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1, letterSpacing: 0.8 },
   riskBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 8 },
   riskText: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700' },
   aiDisclaimer: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.sm, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: 'rgba(0,119,182,0.06)', borderRadius: 6 },
   aiDisclaimerText: { fontSize: 11, fontFamily: typography.fontFamily.regular, color: colors.textMuted, fontStyle: 'italic' },
   aiSummarySection: { marginBottom: spacing.sm },
   aiSummary: { fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text, lineHeight: 24 },
-  aiSummaryActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs, flexWrap: 'wrap' },
+  aiBlock: {},
+  aiBlockSpaced: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(0,119,182,0.08)' },
+  aiBlockHeader: { fontSize: 11, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.primary, letterSpacing: 0.8, marginBottom: 4 },
+  aiBlockContent: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, lineHeight: 22 },
+  aiBulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 4, paddingLeft: 2 },
+  aiBulletDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginTop: 7 },
+  aiBulletText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, lineHeight: 22 },
+  aiTruncatedHint: { fontSize: 14, color: colors.textMuted, marginTop: 4 },
+  aiSummaryActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, flexWrap: 'wrap', paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(0,119,182,0.06)' },
   aiSummaryActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10 },
   aiSummaryActionText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
   urgencyRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

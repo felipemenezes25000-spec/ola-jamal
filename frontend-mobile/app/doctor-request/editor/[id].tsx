@@ -33,6 +33,7 @@ import { DoctorCard } from '../../../components/ui/DoctorCard';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
 import { showToast } from '../../../components/ui/Toast';
+import { FormattedAiSummary } from '../../../components/FormattedAiSummary';
 
 const RISK_COLORS: Record<string, { bg: string; text: string }> = {
   low: { bg: colors.successLight, text: colors.success },
@@ -395,7 +396,7 @@ export default function PrescriptionEditorScreen() {
             <DoctorCard style={[st.cardMargin, st.aiCard]}>
               <View style={st.aiHeader}>
                 <Ionicons name="sparkles" size={20} color={colors.primary} />
-                <Text style={st.aiTitle}>AI Copilot — apoio à prescrição</Text>
+                <Text style={st.aiTitle}>COPILOTO IA</Text>
                 {request.aiRiskLevel && (
                   <View style={[st.riskBadge, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || colors.muted }]}>
                     <Text style={[st.riskText, { color: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text }]}>
@@ -404,18 +405,11 @@ export default function PrescriptionEditorScreen() {
                   </View>
                 )}
               </View>
-              {/* AI Disclaimer */}
               <View style={st.aiDisclaimer}>
                 <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-                <Text style={st.aiDisclaimerText}>Conteúdo gerado automaticamente. Revise e confirme.</Text>
+                <Text style={st.aiDisclaimerText}>Sugestões geradas por IA — decisão final do médico.</Text>
               </View>
-              <Text style={st.aiSummary}>
-                {String(request.aiSummaryForDoctor || '')
-                  .split(/\n+/)
-                  .map((p) => (p.trim() ? p.trim() : null))
-                  .filter(Boolean)
-                  .join('\n\n')}
-              </Text>
+              <FormattedAiSummary text={request.aiSummaryForDoctor} />
               {request.aiUrgency && (
                 <View style={st.urgencyRow}>
                   <Ionicons name="time" size={16} color={colors.textSecondary} />

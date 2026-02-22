@@ -26,6 +26,7 @@ import StatusTracker from '../../components/StatusTracker';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
+import { FormattedAiSummary } from '../../components/FormattedAiSummary';
 
 function getTypeLabel(type: string): string {
   switch (type) {
@@ -404,7 +405,7 @@ export default function RequestDetailScreen() {
                 </View>
               )}
             </View>
-            <Text style={styles.aiSummary} numberOfLines={4} ellipsizeMode="tail">{request.aiSummaryForDoctor}</Text>
+            <FormattedAiSummary text={request.aiSummaryForDoctor} accentColor="#D97706" />
           </View>
         )}
 

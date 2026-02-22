@@ -128,40 +128,38 @@ export default function DoctorDashboard() {
       }
       showsVerticalScrollIndicator={false}
     >
-      {/* Header: gradiente oficial #157AB5 → #2F9BDB */}
       <LinearGradient
         colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
+        style={[styles.header, { paddingTop: insets.top + 20 }]}
       >
         <View style={styles.headerTextWrap}>
           <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{greeting}, Dr(a). {firstName}</Text>
           <Text style={styles.pendingSummary} numberOfLines={2} ellipsizeMode="tail">
-            Você tem {pendentesCount} atendimento{pendentesCount !== 1 ? 's' : ''} pendente{pendentesCount !== 1 ? 's' : ''}
+            {pendentesCount} atendimento{pendentesCount !== 1 ? 's' : ''} pendente{pendentesCount !== 1 ? 's' : ''}
           </Text>
         </View>
       </LinearGradient>
 
-      {/* KPI cards flutuando sobre o fundo cinza — mesmo padrão da home do paciente */}
       <View style={styles.statsRow}>
         <StatsCard
           icon="time-outline"
-          label="Na fila"
+          label="NA FILA"
           value={naFila}
           iconColor="#D97706"
           onPress={() => router.push('/(doctor)/requests')}
         />
         <StatsCard
           icon="videocam-outline"
-          label="Consulta pronta"
+          label="CONSULTA PRONTA"
           value={consultaPronta}
           iconColor={colors.primary}
           onPress={() => router.push('/(doctor)/requests')}
         />
         <StatsCard
           icon="checkmark-circle-outline"
-          label="Em consulta"
+          label="EM CONSULTA"
           value={emConsulta}
           iconColor="#059669"
           onPress={() => router.push('/(doctor)/requests')}
@@ -175,13 +173,13 @@ export default function DoctorDashboard() {
             onPress={() => router.push('/certificate/upload')}
           >
             <View style={styles.alertIconWrap}>
-              <Ionicons name="warning" size={20} color="#B45309" />
+              <Ionicons name="warning" size={18} color="#B45309" />
             </View>
             <View style={styles.alertTextWrap}>
-              <Text style={styles.alertTitle}>Certificado digital necessário</Text>
+              <Text style={styles.alertTitle}>CERTIFICADO DIGITAL NECESSÁRIO</Text>
               <Text style={styles.alertDesc}>Faça upload para assinar documentos</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>
         )}
 
@@ -191,7 +189,7 @@ export default function DoctorDashboard() {
             onPress={() => router.push('/(doctor)/requests')}
             style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.7 }]}
           >
-            <Text style={styles.seeAllText}>Ver tudo</Text>
+            <Text style={styles.seeAllText}>VER TUDO</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.primary} />
           </Pressable>
         </View>
@@ -202,21 +200,18 @@ export default function DoctorDashboard() {
           pendingList.map((req) => {
             const { label: statusLabel, colorKey } = getRequestUiState(req);
             const { color: statusColor, bg: statusBg } = UI_STATUS_COLORS[colorKey];
-            const typeLabel = TYPE_LABELS[req.requestType] ?? 'Solicitação';
+            const typeLabel = (TYPE_LABELS[req.requestType] ?? 'Solicitação').toUpperCase();
             const summary = getShortSummary(req);
             const actionLabel = getActionButtonLabel(req);
             return (
-              <DoctorCard key={req.id} style={styles.pendingCardWrap}>
+              <DoctorCard key={req.id} style={styles.pendingCardWrap} onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}>
                 <View style={styles.pendingCardRow}>
-                  <Pressable
-                    style={({ pressed }) => [styles.pendingCardMain, pressed && styles.pendingCardPressed]}
-                    onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}
-                  >
+                  <View style={styles.pendingCardMain}>
                     <Text style={styles.pendingCardType}>{typeLabel}</Text>
                     <Text style={styles.pendingCardPatient} numberOfLines={1}>
                       {req.patientName || 'Paciente'}
                     </Text>
-                    {summary !== '—' && (
+                    {summary !== '\u2014' && (
                       <Text style={styles.pendingCardSummary} numberOfLines={1}>
                         {summary}
                       </Text>
@@ -226,13 +221,10 @@ export default function DoctorDashboard() {
                         {statusLabel}
                       </Text>
                     </View>
-                  </Pressable>
-                  <PrimaryButton
-                    label={actionLabel}
-                    showArrow
-                    onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}
-                    style={styles.entryBtn}
-                  />
+                  </View>
+                  <View style={styles.entryArrow}>
+                    <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+                  </View>
                 </View>
               </DoctorCard>
             );
@@ -240,10 +232,9 @@ export default function DoctorDashboard() {
         ) : (
           <EmptyState
             icon="medical-outline"
-            emoji="🏥"
-            title="Nenhum atendimento pendente"
+            title="NENHUM ATENDIMENTO PENDENTE"
             subtitle="Quando houver pedidos que exijam sua ação, eles aparecerão aqui."
-            actionLabel="Ver todos os pedidos"
+            actionLabel="VER TODOS OS PEDIDOS"
             onAction={() => router.push('/(doctor)/requests')}
           />
         )}
@@ -260,28 +251,30 @@ const styles = StyleSheet.create({
   content: {},
   header: {
     paddingHorizontal: pad,
-    paddingBottom: 56,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 60,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   headerTextWrap: {
     marginBottom: 4,
   },
   greeting: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: '#fff',
     letterSpacing: -0.3,
   },
   pendingSummary: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 4,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 6,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: -44,
+    marginTop: -40,
     marginBottom: 0,
     paddingHorizontal: pad,
     zIndex: 10,
@@ -303,16 +296,16 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   alertIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(245,158,11,0.15)',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(245,158,11,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   alertTextWrap: { flex: 1 },
-  alertTitle: { fontSize: 14, fontWeight: '700', color: '#92400E' },
-  alertDesc: { fontSize: 12, color: '#B45309', marginTop: 1 },
+  alertTitle: { fontSize: 12, fontWeight: '700', color: '#92400E', letterSpacing: 0.4, textTransform: 'uppercase' },
+  alertDesc: { fontSize: 12, color: '#B45309', marginTop: 2 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -320,10 +313,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
+    color: colors.textMuted,
+    letterSpacing: 1,
   },
   seeAllBtn: {
     flexDirection: 'row',
@@ -331,12 +324,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   seeAllText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.primary,
+    letterSpacing: 0.5,
   },
   pendingCardWrap: {
-    marginBottom: spacing.md,
+    marginBottom: 12,
   },
   pendingCardRow: {
     flexDirection: 'row',
@@ -347,14 +341,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  pendingCardPressed: {
-    opacity: 0.92,
-  },
   pendingCardType: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 2,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 4,
+    letterSpacing: 0.8,
   },
   pendingCardPatient: {
     fontSize: 15,
@@ -365,20 +357,25 @@ const styles = StyleSheet.create({
   pendingCardSummary: {
     fontSize: 13,
     color: colors.textMuted,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   statusPill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 100,
   },
   statusPillText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  entryBtn: {
-    minWidth: 72,
-    paddingHorizontal: 16,
+  entryArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
