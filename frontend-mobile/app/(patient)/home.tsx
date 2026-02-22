@@ -13,7 +13,7 @@ import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, gradients } from '../../lib/themeDoctor';
+import { colors, gradients } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
@@ -89,7 +89,7 @@ export default function PatientHome() {
     >
       {/* Header: só saudação + avatar (igual ao web) */}
       <LinearGradient
-        colors={[...gradients.doctorHeader]}
+        colors={[...gradients.patientHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 12 }]}
@@ -111,24 +111,27 @@ export default function PatientHome() {
       {/* Stats: três cards brancos flutuando sobre o fundo cinza */}
       <View style={styles.statsRow}>
         <StatsCard
-          icon="hourglass-outline"
+          icon="analytics"
           label="Em análise"
           value={stats.pending}
           iconColor={colors.warning}
+          iconBgColor="#FEF3C7"
           onPress={() => router.push('/(patient)/requests')}
         />
         <StatsCard
-          icon="card-outline"
+          icon="wallet"
           label="A pagar"
           value={stats.toPay}
           iconColor={colors.error}
+          iconBgColor="#FEE2E2"
           onPress={() => router.push('/(patient)/requests')}
         />
         <StatsCard
-          icon="checkmark-done-circle-outline"
+          icon="shield-checkmark"
           label="Prontos"
           value={stats.ready}
           iconColor={colors.success}
+          iconBgColor="#D1FAE5"
           onPress={() => router.push('/(patient)/requests')}
         />
       </View>
@@ -250,20 +253,23 @@ const styles = StyleSheet.create({
   },
   headerGreetingLabel: {
     fontSize: 14,
+    fontFamily: 'PlusJakartaSans_500Medium',
     fontWeight: '500',
     color: 'rgba(255,255,255,0.85)',
     marginBottom: 2,
   },
   headerGreetingName: {
     fontSize: 24,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '800',
     color: '#fff',
     letterSpacing: -0.3,
+    textTransform: 'uppercase',
   },
   avatarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.25)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.4)',
@@ -272,6 +278,7 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     fontSize: 20,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: '#fff',
   },
@@ -305,13 +312,17 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: colors.text,
     marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   sectionHint: {
     fontSize: 13,
+    fontFamily: 'PlusJakartaSans_400Regular',
     color: colors.textSecondary,
     marginBottom: 14,
     lineHeight: 20,

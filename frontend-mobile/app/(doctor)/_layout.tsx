@@ -34,8 +34,10 @@ export default function DoctorLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.primary,
+          tabBarActiveTintColor: '#2EC4B6',
           tabBarInactiveTintColor: colors.textMuted,
+          tabBarPressColor: 'rgba(46, 196, 182, 0.12)',
+          tabBarPressOpacity: 0.8,
           tabBarStyle: {
             backgroundColor: colors.surface,
             borderTopColor: colors.borderLight,
@@ -55,9 +57,10 @@ export default function DoctorLayout() {
             }),
           },
           tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '600',
-            letterSpacing: 0.1,
+            fontSize: 11,
+            fontWeight: '700',
+            letterSpacing: 0.8,
+            textTransform: 'uppercase',
           },
           tabBarBadgeStyle: {
             backgroundColor: colors.error,
@@ -75,7 +78,7 @@ export default function DoctorLayout() {
           options={{
             title: 'Painel',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'grid' : 'grid-outline'} color={color} focused={focused} />
+              <TabBarIcon name={focused ? 'grid' : 'grid-outline'} color={color} focused={focused} variant="doctor" />
             ),
           }}
         />
@@ -84,7 +87,7 @@ export default function DoctorLayout() {
           options={{
             title: 'Dashboard',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} focused={focused} />
+              <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} focused={focused} variant="doctor" />
             ),
           }}
         />
@@ -103,7 +106,7 @@ export default function DoctorLayout() {
           options={{
             title: 'Perfil',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} focused={focused} />
+              <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} focused={focused} variant="doctor" />
             ),
           }}
         />
