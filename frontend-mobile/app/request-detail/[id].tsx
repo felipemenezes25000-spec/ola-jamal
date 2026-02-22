@@ -17,8 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
-import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDelivered, cancelRequest } from '../../lib/api';
-import { getApiErrorMessage } from '../../lib/api-client';
+import { fetchRequestById, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { getDisplayPrice } from '../../lib/config/pricing';
 import { formatBRL, formatDateBR } from '../../lib/utils/format';
 import { RequestResponseDto } from '../../types/database';
@@ -100,8 +99,8 @@ export default function RequestDetailScreen() {
 
   useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId, load]));
 
-  const handlePay = async () => {
-    if (!request || actionLoading) return;
+  const handlePay = () => {
+    if (!request) return;
     const allowedToPay = ['approved_pending_payment', 'pending_payment'].includes(request.status) ||
       (request.requestType === 'consultation' && request.status === 'consultation_ready');
     if (!allowedToPay) {
@@ -111,25 +110,7 @@ export default function RequestDetailScreen() {
       );
       return;
     }
-    setActionLoading(true);
-    try {
-      let payment;
-      try { payment = await fetchPaymentByRequest(request.id); } catch {}
-      if (!payment) {
-        payment = await createPayment({ requestId: request.id, paymentMethod: 'pix' });
-      }
-      router.push(`/payment/${payment.id}`);
-    } catch (error: unknown) {
-      const msg = getApiErrorMessage(error);
-      Alert.alert(
-        'Erro ao gerar pagamento',
-        msg.includes('aprovada e aguardando pagamento')
-          ? 'Esta solicitação não está mais aguardando pagamento. Atualize a tela ou verifique o status do pedido.'
-          : msg
-      );
-    } finally {
-      setActionLoading(false);
-    }
+    router.push(`/payment/request/${request.id}`);
   };
 
   const markAsDeliveredIfSigned = async () => {

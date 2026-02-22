@@ -179,6 +179,16 @@ public class PaymentsController(
     }
 
     /// <summary>
+    /// GET para verificação/health do webhook (evita 405 em verificações ou redirects).
+    /// </summary>
+    [HttpGet("webhook")]
+    [AllowAnonymous]
+    public IActionResult WebhookHealth()
+    {
+        return Ok(new { status = "ok", message = "Webhook endpoint ready" });
+    }
+
+    /// <summary>
     /// Recebe webhooks do Mercado Pago. Valida assinatura HMAC-SHA256 quando WebhookSecret está configurado.
     /// Aceita notificação por body JSON ou por query string (data.id/type ou id/topic), conforme documentação MP.
     /// NÃO usa [FromBody] porque query strings como ?data.id=X causam falha no model binding (ASP.NET retorna 400).
@@ -314,7 +324,10 @@ public class PaymentsController(
         logger.LogInformation("[WEBHOOK-QUERY] dataIdFromQuery={FromQuery}, dataIdFromBody={FromBody}",
             dataIdFromQuery ?? "null", dataIdFromBody ?? "null");
 
-        var dataIdForHmac = dataIdFromQuery ?? dataIdFromBody;
+        // HMAC usa APENAS data.id da query string (data.id_url na doc MP).
+        // Se MP enviar só body sem query, dataIdFromQuery será null e o manifest
+        // não incluirá id (comportamento esperado pela doc).
+        var dataIdForHmac = dataIdFromQuery;
         var dataIdForProcessing = dataIdFromQuery ?? dataIdFromBody;
 
         logger.LogInformation("Payments Webhook: recebido, dataId={DataId}, fromQuery={FromQuery}, fromBody={FromBody}, action={Action}, parsedWebhook={HasWebhook}",
@@ -384,6 +397,18 @@ public class PaymentsController(
 
             if (paymentService is PaymentService ps && !ps.ValidateWebhookSignature(xSignature, xRequestId, dataIdForHmac))
             {
+                // MP envia webhooks em dois formatos: novo (?data.id=&type=) e legado (?id=&topic=).
+                // O formato legado pode falhar no HMAC. Se o pagamento já foi processado (por outro webhook), retornar 200 idempotente.
+                if (!string.IsNullOrWhiteSpace(dataIdForProcessing))
+                {
+                    var alreadyProcessed = await paymentService.IsPaymentProcessedByExternalIdAsync(dataIdForProcessing, cancellationToken);
+                    if (alreadyProcessed)
+                    {
+                        logger.LogInformation("Webhook MP: HMAC inválido mas pagamento já processado. Retornando 200 idempotente. dataId={DataId}", dataIdForProcessing);
+                        return Ok(new { message = "Pagamento já processado", idempotent = true });
+                    }
+                }
+
                 logger.LogWarning("Webhook MP rejeitado: assinatura HMAC inválida. x-signature={Sig}", xSignature);
                 return Unauthorized(new { error = "Invalid webhook signature" });
             }

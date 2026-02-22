@@ -41,6 +41,12 @@ public interface IPaymentService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Indica se o pagamento com o external ID do MP já foi processado (não pendente).
+    /// Usado para retornar 200 idempotente quando webhooks legados falham no HMAC.
+    /// </summary>
+    Task<bool> IsPaymentProcessedByExternalIdAsync(string externalId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Obtém URL do Checkout Pro para pagamento com cartão (e opcionalmente PIX na página do MP).
     /// Cria um pagamento checkout_pro e retorna init_point + paymentId.
     /// </summary>

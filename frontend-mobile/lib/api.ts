@@ -306,6 +306,9 @@ export interface CreatePaymentData {
   installments?: number;
   paymentMethodId?: string;
   issuerId?: number;
+  payerEmail?: string;
+  payerCpf?: string;
+  saveCard?: boolean;
 }
 
 export async function createPayment(data: CreatePaymentData): Promise<PaymentResponseDto> {

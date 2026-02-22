@@ -760,6 +760,7 @@ public class PaymentService(
 
     /// <summary>
     /// Validates the HMAC-SHA256 signature from MercadoPago webhook.
+    /// Tenta múltiplas variações do manifesto (novo ?data.id=, legado ?id=, com/sem request-id) para aceitar todos os formatos do MP.
     /// </summary>
     public bool ValidateWebhookSignature(string? xSignature, string? xRequestId, string? dataId)
     {
@@ -782,17 +783,40 @@ public class PaymentService(
         if (string.IsNullOrEmpty(ts) || string.IsNullOrEmpty(v1))
             return false;
 
-        // Manifest conforme doc MP: incluir apenas valores presentes. Id da URL em minúsculas se alfanumérico.
-        var parts = new List<string>();
-        if (!string.IsNullOrEmpty(dataId)) parts.Add($"id:{dataId.ToLowerInvariant()}");
-        if (!string.IsNullOrEmpty(xRequestId)) parts.Add($"request-id:{xRequestId}");
-        parts.Add($"ts:{ts}");
-        var manifest = string.Join(";", parts) + ";";
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(manifest));
-        var computed = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+        // Constrói todas as variações possíveis do manifesto (doc MP: remover valores ausentes).
+        // MP envia webhooks em formatos novo (?data.id=&type=) e legado (?id=&topic=); tentar todas as combinações.
+        var manifests = new List<string>();
+        var dataIdNorm = string.IsNullOrEmpty(dataId) ? null : dataId.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(dataIdNorm) && !string.IsNullOrEmpty(xRequestId))
+        {
+            manifests.Add($"id:{dataIdNorm};request-id:{xRequestId};ts:{ts};");
+            manifests.Add($"request-id:{xRequestId};id:{dataIdNorm};ts:{ts};");
+        }
+        if (!string.IsNullOrEmpty(dataIdNorm))
+            manifests.Add($"id:{dataIdNorm};ts:{ts};");
+        if (!string.IsNullOrEmpty(xRequestId))
+            manifests.Add($"request-id:{xRequestId};ts:{ts};");
+        manifests.Add($"ts:{ts};");
 
-        return string.Equals(computed, v1, StringComparison.OrdinalIgnoreCase);
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        foreach (var manifest in manifests.Distinct())
+        {
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(manifest));
+            var computed = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+            if (string.Equals(computed, v1, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> IsPaymentProcessedByExternalIdAsync(string externalId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(externalId))
+            return false;
+        var payment = await paymentRepository.GetByExternalIdAsync(externalId, cancellationToken);
+        return payment != null && !payment.IsPending();
     }
 
     private static string? NormalizeWebhookId(object? value)

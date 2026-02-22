@@ -31,6 +31,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Threading.RateLimiting;
 using Serilog;
+using Microsoft.AspNetCore.Rewrite;
 
 // Carrega .env da pasta do projeto e garante Supabase no Environment (evita 400 por ServiceKey)
 static string? FindEnvPath()
@@ -411,6 +412,12 @@ if (app.Environment.IsDevelopment())
     app.UseCors("Development");
 else
     app.UseCors();
+
+// Remove trailing slash internamente (sem redirect) para evitar 405 em webhooks.
+// POST /api/payments/webhook/ -> reescrito para POST /api/payments/webhook
+var rewriteOptions = new RewriteOptions()
+    .AddRewrite(@"^(.+)/$", "$1", skipRemainingRules: true);
+app.UseRewriter(rewriteOptions);
 
 app.UseSerilogRequestLogging();
 
