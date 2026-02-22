@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -6,17 +6,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getMercadoPagoPublicKey, fetchRequestById, fetchSavedCards } from '../../lib/api';
-import { apiClient } from '../../lib/api-client';
-import { getDisplayPrice } from '../../lib/config/pricing';
+import { getMercadoPagoPublicKey, fetchRequestById, fetchSavedCards, createPayment, payWithSavedCard } from '../../lib/api';
 import { getApiErrorMessage } from '../../lib/api-client';
+import { getDisplayPrice } from '../../lib/config/pricing';
 import { colors, spacing, typography } from '../../constants/theme';
 
 const TOKEN_KEY = '@renoveja:auth_token';
 
-function buildCardPaymentHtml(publicKey: string, amount: number, requestId: string, apiBase: string, authToken: string, savedCards: { id: string; mpCardId: string; lastFour: string; brand: string }[]): string {
+function buildCardPaymentHtml(publicKey: string, amount: number, requestId: string, savedCards: { id: string; mpCardId: string; lastFour: string; brand: string }[]): string {
   const escaped = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
-  const apiBaseClean = apiBase.replace(/\/$/, '');
   const savedCardsJson = JSON.stringify(savedCards);
   return `<!DOCTYPE html>
 <html><head>
@@ -53,8 +51,6 @@ function buildCardPaymentHtml(publicKey: string, amount: number, requestId: stri
 var publicKey='${escaped(publicKey)}';
 var amount=${amount};
 var requestId='${escaped(requestId)}';
-var apiBase='${escaped(apiBaseClean)}';
-var authToken='${escaped(authToken)}';
 var savedCards=${savedCardsJson};
 var useSavedCard=null;
 
@@ -109,41 +105,21 @@ var settings={
     onSubmit:function(formData,additionalData){
       setSubmitting(true);
       hideErr();
-      return new Promise(function(resolve,reject){
-        var tokenCard=formData.token||formData.Token;
-        var paymentMethodId=formData.paymentMethodId||formData.payment_method_id;
-        var installments=formData.installments!=null?formData.installments:(formData.Installments!=null?formData.Installments:1);
-        var issuerId=formData.issuerId!=null?formData.issuerId:(formData.issuer_id!=null?formData.issuer_id:null);
-        var paymentTypeId=(additionalData&&(additionalData.paymentTypeId||additionalData.payment_type_id))||(formData.paymentTypeId||formData.payment_type_id)||'credit_card';
-        var payerEmail=formData.email||(formData.payer&&formData.payer.email)||formData.cardholderEmail||formData.payerEmail||'';
-        var payerCpf=(formData.payer&&formData.payer.identification&&formData.payer.identification.number)||formData.cardholderIdentificationNumber||formData.identificationNumber||formData.payerCpf||'';
-        if(!tokenCard||!paymentMethodId){setSubmitting(false);reject(new Error('Dados do cartão incompletos.'));return;}
-        var saveCardEl=document.getElementById('saveCard');
-        var saveCard=!!(saveCardEl&&saveCardEl.checked);
-        var body={requestId:requestId,paymentMethod:paymentTypeId,token:tokenCard,paymentMethodId:String(paymentMethodId),installments:parseInt(installments,10)||1,saveCard:saveCard};
-        if(issuerId!=null&&issuerId!=='')body.issuerId=parseInt(issuerId,10);
-        if(payerEmail)body.payerEmail=payerEmail;
-        if(payerCpf)body.payerCpf=payerCpf;
-        fetch(apiBase+'/api/payments',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify(body)})
-          .then(function(r){return r.text().then(function(t){try{var d=JSON.parse(t);}catch(e){d={message:r.statusText||'Erro'};}return{ok:r.ok,data:d,status:r.status};});})
-          .then(function(result){
-            if(result.ok){
-              if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'SUCCESS',payment:result.data}));
-              resolve();
-            }else{
-              setSubmitting(false);
-              var msg=result.data&&(result.data.message||result.data.title||result.data.detail)||('Erro '+result.status);
-              showErr(msg);
-              reject(new Error(msg));
-            }
-          })
-          .catch(function(err){
-            setSubmitting(false);
-            showErr(err.message||String(err));
-            if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'ERROR',message:err.message||String(err)}));
-            reject(err);
-          });
-      });
+      var tokenCard=formData.token||formData.Token;
+      var paymentMethodId=formData.paymentMethodId||formData.payment_method_id;
+      var installments=formData.installments!=null?formData.installments:(formData.Installments!=null?formData.Installments:1);
+      var issuerId=formData.issuerId!=null?formData.issuerId:(formData.issuer_id!=null?formData.issuer_id:null);
+      var paymentTypeId=(additionalData&&(additionalData.paymentTypeId||additionalData.payment_type_id))||(formData.paymentTypeId||formData.payment_type_id)||'credit_card';
+      var payerEmail=formData.email||(formData.payer&&formData.payer.email)||formData.cardholderEmail||formData.payerEmail||'';
+      var payerCpf=(formData.payer&&formData.payer.identification&&formData.payer.identification.number)||formData.cardholderIdentificationNumber||formData.identificationNumber||formData.payerCpf||'';
+      if(!tokenCard||!paymentMethodId){setSubmitting(false);showErr('Dados do cartão incompletos.');return;}
+      var saveCardEl=document.getElementById('saveCard');
+      var saveCard=!!(saveCardEl&&saveCardEl.checked);
+      var payload={requestId:requestId,paymentMethod:paymentTypeId,token:tokenCard,paymentMethodId:String(paymentMethodId),installments:parseInt(installments,10)||1,saveCard:saveCard};
+      if(issuerId!=null&&issuerId!=='')payload.issuerId=parseInt(issuerId,10);
+      if(payerEmail)payload.payerEmail=payerEmail;
+      if(payerCpf)payload.payerCpf=payerCpf;
+      if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'PAYMENT_REQUEST',payload:payload}));
     },
     onError:function(err){var m=err&&(err.message||(err.cause&&err.cause.message))||JSON.stringify(err);showErr('Erro: '+m);if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'ERROR',message:m}));}
   }
@@ -159,19 +135,13 @@ function payWithSavedCard(){
     .catch(function(err){setSubmitting(false);showErr(err&&(err.message||err.cause&&err.cause.message)||'Preencha o CVV e tente novamente.');throw err;})
     .then(function(token){
       if(!token){setSubmitting(false);showErr('Não foi possível criar o token. Preencha o CVV.');return;}
-      return fetch(apiBase+'/api/payments/saved-card',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({requestId:requestId,savedCardId:useSavedCard.id,token:token})});
-    })
-    .then(function(r){if(!r)return null;return r.text().then(function(t){try{var d=JSON.parse(t);}catch(e){d={};}return{ok:r.ok,data:d};});})
-    .then(function(result){
-      setSubmitting(false);
-      if(result&&result.ok&&result.data&&result.data.id){
-        if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'SUCCESS',payment:result.data}));
-      }else if(result){
-        showErr(result.data&&(result.data.message||result.data.title)||'Erro ao processar pagamento.');
-      }
-    })
-    .catch(function(err){if(!err)return;setSubmitting(false);showErr(err.message||'Erro de conexão.');});
+      if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'PAYMENT_SAVED_CARD_REQUEST',payload:{requestId:requestId,savedCardId:useSavedCard.id,token:token}}));
+    });
 }
+window.onPaymentResult=function(success,data){
+  setSubmitting(false);
+  if(!success){showErr(data&&data.message||'Erro ao processar pagamento.');}
+};
 
 bricksBuilder.create('cardPayment','container',settings).then(function(ctrl){window.cardPaymentBrickController=ctrl;}).catch(function(e){showErr('Falha ao carregar formulário: '+(e.message||e));});
 })();
@@ -186,6 +156,7 @@ export default function CardPaymentScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasNavigated = useRef(false);
+  const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
     (async () => {
@@ -214,9 +185,8 @@ export default function CardPaymentScreen() {
           fetchSavedCards().catch(() => []),
         ]);
         const amount = getDisplayPrice(request?.price ?? undefined, request?.requestType);
-        const apiBase = apiClient.getBaseUrl();
         const cards = Array.isArray(savedCards) ? savedCards : [];
-        const htmlContent = buildCardPaymentHtml(publicKey, amount, rid, apiBase, token, cards);
+        const htmlContent = buildCardPaymentHtml(publicKey, amount, rid, cards);
         setHtml(htmlContent);
       } catch (e: unknown) {
         setError(getApiErrorMessage(e));
@@ -226,18 +196,52 @@ export default function CardPaymentScreen() {
     })();
   }, [requestId]);
 
-  const handleMessage = (event: { nativeEvent: { data: string } }) => {
-    if (hasNavigated.current) return;
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'SUCCESS' && data.payment?.id) {
-        hasNavigated.current = true;
-        router.replace(`/payment/${data.payment.id}`);
-      } else if (data.type === 'ERROR') {
-        Alert.alert('Erro no pagamento', data.message || 'Tente novamente.');
-      }
-    } catch {}
-  };
+  const injectPaymentResult = useCallback((success: boolean, data: { message?: string } | null) => {
+    const script = `window.onPaymentResult && window.onPaymentResult(${success}, ${JSON.stringify(data || {})}); true;`;
+    webViewRef.current?.injectJavaScript(script);
+  }, []);
+
+  const handleMessage = useCallback(
+    async (event: { nativeEvent: { data: string } }) => {
+      if (hasNavigated.current) return;
+      try {
+        const data = JSON.parse(event.nativeEvent.data);
+        if (data.type === 'SUCCESS' && data.payment?.id) {
+          hasNavigated.current = true;
+          router.replace(`/payment/${data.payment.id}`);
+          return;
+        }
+        if (data.type === 'ERROR') {
+          Alert.alert('Erro no pagamento', data.message || 'Tente novamente.');
+          injectPaymentResult(false, { message: data.message });
+          return;
+        }
+        if (data.type === 'PAYMENT_REQUEST' && data.payload) {
+          try {
+            const payment = await createPayment(data.payload);
+            hasNavigated.current = true;
+            router.replace(`/payment/${payment.id}`);
+          } catch (err) {
+            const msg = getApiErrorMessage(err);
+            injectPaymentResult(false, { message: msg });
+          }
+          return;
+        }
+        if (data.type === 'PAYMENT_SAVED_CARD_REQUEST' && data.payload) {
+          const { requestId: rid, savedCardId, token } = data.payload;
+          try {
+            const payment = await payWithSavedCard(rid, savedCardId, token);
+            hasNavigated.current = true;
+            router.replace(`/payment/${payment.id}`);
+          } catch (err) {
+            const msg = getApiErrorMessage(err);
+            injectPaymentResult(false, { message: msg });
+          }
+        }
+      } catch {}
+    },
+    [router, injectPaymentResult]
+  );
 
   if (loading) {
     return (
@@ -289,6 +293,7 @@ export default function CardPaymentScreen() {
       </View>
       {isFocused && (
         <WebView
+          ref={webViewRef}
           source={{ html }}
           style={styles.webview}
           onMessage={handleMessage}

@@ -344,6 +344,23 @@ public static class SupabaseMigrationRunner
         "CREATE INDEX IF NOT EXISTS idx_webhook_events_created_at ON public.webhook_events(created_at DESC)"
     };
 
+    private static readonly string[] SavedCardsMigrations =
+    {
+        """
+        CREATE TABLE IF NOT EXISTS public.saved_cards (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+            mp_customer_id TEXT NOT NULL,
+            mp_card_id TEXT NOT NULL,
+            last_four TEXT NOT NULL,
+            brand TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_saved_cards_user_id ON public.saved_cards(user_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_cards_mp_card ON public.saved_cards(mp_card_id)"
+    };
+
     /// <summary>
     /// Executa todas as migrations. Só roda se Supabase:DatabaseUrl estiver definida.
     /// </summary>
@@ -377,7 +394,8 @@ public static class SupabaseMigrationRunner
             ("push_tokens", PushTokensMigrations),
             ("product_prices", ProductPricesMigrations),
             ("payment_attempts", PaymentAttemptsMigrations),
-            ("webhook_events", WebhookEventsMigrations)
+            ("webhook_events", WebhookEventsMigrations),
+            ("saved_cards", SavedCardsMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)

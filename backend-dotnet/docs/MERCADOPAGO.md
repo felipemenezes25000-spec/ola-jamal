@@ -31,7 +31,7 @@ No `appsettings.json` e `appsettings.Development.json`:
 ```
 
 - **AccessToken**: Obtido no painel do Mercado Pago (passo acima)
-- **NotificationUrl**: URL pública da sua API onde o Mercado Pago envia webhooks. Em localhost use ngrok ou similar para testes.
+- **NotificationUrl**: **Crucial.** O Mercado Pago envia o webhook para a URL que você informa em **cada criação de pagamento** — não usa apenas a URL do painel. Essa URL vem de `MercadoPago:NotificationUrl` (appsettings ou .env). Em testes locais com ngrok, defina `MercadoPago__NotificationUrl` no `.env` com a URL do ngrok (ex.: `https://xxx.ngrok-free.dev/api/payments/webhook`). Se estiver como `https://renovejasaude.com.br/...` mas a API rodando localmente, o webhook vai para produção e falha (ex.: 405).
 - **WebhookSecret**: Assinatura secreta configurada na tela de Webhooks do painel (opcional; use para validar notificações).
 
 ## Configurar Webhook (tela "Configurar notificações Webhooks")
@@ -42,6 +42,7 @@ No `appsettings.json` e `appsettings.Development.json`:
    - Coloque a URL **pública** do seu backend + o path do webhook: `https://SEU_DOMINIO/api/payments/webhook`.
    - Exemplo em produção: `https://api.seudominio.com/api/payments/webhook`.
    - Em desenvolvimento: use [ngrok](https://ngrok.com) — rode `ngrok http 5000` (ou a porta da API) e use a URL gerada, ex.: `https://abc123.ngrok.io/api/payments/webhook`. Não use `localhost` — o Mercado Pago não consegue acessar.
+   - **Importante:** A URL do painel é usada como fallback. Para cada pagamento criado via API, o MP usa o `notification_url` enviado no payload da criação. Esse valor vem de `MercadoPago:NotificationUrl`. Para testes locais, defina `MercadoPago__NotificationUrl` no `.env` com a URL do ngrok. **Alternativa:** em ambiente Development, se `Api__BaseUrl` contiver "ngrok", o webhook usará automaticamente `Api__BaseUrl` + `/api/payments/webhook`; basta definir `Api__BaseUrl=https://xxx.ngrok-free.dev` no `.env`.
 4. **Eventos**: marque **Pagamentos** (em "Eventos recomendados para integrações com Checkout Transparente"). Os outros são opcionais.
 5. **Assinatura secreta**: copie o valor (ou gere um novo com o botão ao lado). Cole em `appsettings` em `MercadoPago:WebhookSecret` para uso futuro na validação das notificações.
 6. Salve a configuração.
@@ -136,9 +137,14 @@ O Mercado Pago fará um POST na sua URL. A API processa como um webhook real: bu
 
 **Resumo:** o “id” na simulação deve ser o **externalId** retornado ao criar o PIX (não o `id` interno da sua tabela `payments` e **não** o `requestId` da solicitação).
 
-### Se a "Solicitação" aparecer vazia (`{}`) ou der 403
+### Se a "Solicitação" aparecer vazia (`{}`), 403 ou 405
 
 - **Corpo vazio:** no simulador, preencha o campo **Identificação (id)** com o **externalId** do pagamento (o ID que o Mercado Pago retornou ao criar o PIX). Sem isso o MP envia `{}` e a API não sabe qual pagamento atualizar.
+- **Resposta 405 Method Not Allowed:** geralmente ocorre quando:
+  1. **notification_url incorreta** — O MP envia o webhook para a URL enviada na criação do pagamento (não só a do painel). Se `MercadoPago__NotificationUrl` no `.env` for `https://renovejasaude.com.br/...` mas você está rodando localmente com ngrok, o webhook vai para produção e falha. **Solução:** defina `MercadoPago__NotificationUrl` com a URL do ngrok (ex.: `https://xxx.ngrok-free.dev/api/payments/webhook`).
+  2. **URL incorreta** — use exatamente `https://SEU_DOMINIO/api/payments/webhook` (sem barra no final).
+  3. **Proxy/CDN** bloqueando POST — verifique se o proxy/reverse proxy repassa requisições POST.
+  4. **Trailing slash** — a API já faz rewrite interno de `/api/payments/webhook/` para `/api/payments/webhook`; mesmo assim, prefira configurar a URL sem barra final.
 - **Resposta 403 Forbidden:** no plano gratuito do ngrok, requisições vindas de servidores (como o do Mercado Pago) podem ser bloqueadas antes de chegar à sua API — o ngrok retorna 403. Alternativas:
   1. Abrir a URL do webhook no navegador (ex.: `https://seu-subdomínio.ngrok-free.dev/api/payments/webhook`) e clicar em "Visit Site" uma vez; em alguns casos isso ajuda a liberar o túnel.
   2. Usar outro túnel (ex.: [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps)) que não exija header especial.

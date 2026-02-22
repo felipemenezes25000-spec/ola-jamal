@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
@@ -15,9 +16,21 @@ namespace RenoveJa.Infrastructure.Payments;
 public class MercadoPagoService(
     IHttpClientFactory httpClientFactory,
     IOptions<MercadoPagoConfig> config,
+    IOptions<ApiConfig> apiConfig,
+    IHostEnvironment hostEnvironment,
     ILogger<MercadoPagoService> logger) : IMercadoPagoService
 {
     private const string ApiBaseUrl = "https://api.mercadopago.com";
+
+    /// <summary>
+    /// Em Development, se Api__BaseUrl contiver "ngrok", usa essa URL para o webhook (evita configurar NotificationUrl manualmente).
+    /// </summary>
+    private string? GetEffectiveNotificationUrl() =>
+        hostEnvironment.IsDevelopment()
+        && !string.IsNullOrWhiteSpace(apiConfig.Value.BaseUrl)
+        && apiConfig.Value.BaseUrl.Contains("ngrok", StringComparison.OrdinalIgnoreCase)
+            ? $"{apiConfig.Value.BaseUrl.TrimEnd('/')}/api/payments/webhook"
+            : config.Value.NotificationUrl;
 
     public async Task<MercadoPagoPixResult> CreatePixPaymentAsync(
         decimal amount,
@@ -42,7 +55,7 @@ public class MercadoPagoService(
                 email = payerEmail
             },
             external_reference = externalReference,
-            notification_url = config.Value.NotificationUrl
+            notification_url = GetEffectiveNotificationUrl()
         };
 
         var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
@@ -269,7 +282,7 @@ public class MercadoPagoService(
             ["installments"] = Math.Max(1, installments),
             ["payer"] = payer,
             ["external_reference"] = externalReference,
-            ["notification_url"] = config.Value.NotificationUrl
+            ["notification_url"] = GetEffectiveNotificationUrl()
         };
         if (issuerId.HasValue && issuerId.Value > 0)
             request["issuer_id"] = issuerId.Value;
@@ -360,7 +373,7 @@ public class MercadoPagoService(
             ["installments"] = Math.Max(1, installments),
             ["payer"] = new { type = "customer", id = mpCustomerId },
             ["external_reference"] = externalReference,
-            ["notification_url"] = config.Value.NotificationUrl
+            ["notification_url"] = GetEffectiveNotificationUrl()
         };
 
         var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
@@ -466,7 +479,7 @@ public class MercadoPagoService(
         {
             ["items"] = items,
             ["external_reference"] = externalReference,
-            ["notification_url"] = config.Value.NotificationUrl,
+            ["notification_url"] = GetEffectiveNotificationUrl(),
             ["payer"] = new { email = payerEmail }
         };
 
@@ -550,7 +563,16 @@ public class MercadoPagoService(
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             using var doc = JsonDocument.Parse(body);
-            return doc.RootElement.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
+            var root = doc.RootElement;
+            var status = root.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
+            var statusDetail = root.TryGetProperty("status_detail", out var sd) ? sd.GetString() : null;
+            // Logar motivo da rejeição para diagnóstico
+            if (!string.IsNullOrEmpty(status) && status.Equals("rejected", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(statusDetail))
+            {
+                logger.LogWarning("MP pagamento {PaymentId} rejeitado. Motivo: {StatusDetail}", paymentId, statusDetail);
+                Console.WriteLine($"[MP-REJECTED] PaymentId={paymentId}, status_detail={statusDetail}");
+            }
+            return status;
         }
         catch (Exception ex)
         {
