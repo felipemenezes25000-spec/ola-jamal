@@ -98,13 +98,13 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    height: doctorDS.buttonHeight,
-    minHeight: 52,
-    borderRadius: doctorDS.buttonRadius,
+    height: 50,
+    minHeight: 50,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   variantPrimary: {
     backgroundColor: '#1B4965',
@@ -152,11 +152,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
   labelPrimary: {
     color: '#FFFFFF',

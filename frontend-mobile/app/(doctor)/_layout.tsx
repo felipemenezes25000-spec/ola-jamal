@@ -57,9 +57,9 @@ export default function DoctorLayout() {
             }),
           },
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: '700',
-            letterSpacing: 0.8,
+            letterSpacing: 0.6,
             textTransform: 'uppercase',
           },
           tabBarBadgeStyle: {

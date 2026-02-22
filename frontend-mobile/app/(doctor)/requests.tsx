@@ -36,11 +36,11 @@ const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
 
 function getHeaderLabel(activeKey: string): { title: string; subtitle: string } {
   const item = TYPE_FILTER_ITEMS.find((c) => c.key === activeKey);
-  if (item?.key === 'all') return { title: 'Dashboard', subtitle: 'Atendimentos e pedidos' };
-  if (item?.type === 'prescription') return { title: 'Receitas', subtitle: 'Pedidos de receita' };
-  if (item?.type === 'exam') return { title: 'Exames', subtitle: 'Pedidos de exame' };
-  if (item?.type === 'consultation') return { title: 'Consultas', subtitle: 'Solicitações de consulta' };
-  return { title: 'Dashboard', subtitle: 'Atendimentos e pedidos' };
+  if (item?.key === 'all') return { title: 'DASHBOARD', subtitle: 'Atendimentos e pedidos' };
+  if (item?.type === 'prescription') return { title: 'RECEITAS', subtitle: 'Pedidos de receita' };
+  if (item?.type === 'exam') return { title: 'EXAMES', subtitle: 'Pedidos de exame' };
+  if (item?.type === 'consultation') return { title: 'CONSULTAS', subtitle: 'Solicitacoes de consulta' };
+  return { title: 'DASHBOARD', subtitle: 'Atendimentos e pedidos' };
 }
 
 export default function DoctorQueue() {
@@ -215,10 +215,9 @@ export default function DoctorQueue() {
             empty ? (
               <EmptyState
                 icon="checkmark-done-circle"
-                emoji="📭"
-                title="Nenhum pedido aqui"
+                title="NENHUM PEDIDO AQUI"
                 subtitle="Ajuste os filtros ou volte ao painel para ver todos os pedidos"
-                actionLabel="Voltar ao painel"
+                actionLabel="VOLTAR AO PAINEL"
                 onAction={() => router.push('/(doctor)/dashboard')}
               />
             ) : null
@@ -234,8 +233,8 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: pad,
     paddingBottom: 28,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   headerRow: {
     flexDirection: 'row',
@@ -248,20 +247,23 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.8,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: typography.fontFamily.regular,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 2,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   countBadge: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: borderRadius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    minWidth: 40,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: borderRadius.full,
+    width: 44,
+    height: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   countText: {
     fontSize: 16,
@@ -272,7 +274,7 @@ const styles = StyleSheet.create({
   periodRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
     paddingHorizontal: pad,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
@@ -284,23 +286,25 @@ const styles = StyleSheet.create({
     flexBasis: 0,
     minWidth: 0,
     backgroundColor: colors.surface,
-    borderRadius: doctorDS.cardRadius,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     alignItems: 'center',
   },
   periodChipLabel: {
     fontSize: 9,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textMuted,
-    marginBottom: 2,
+    marginBottom: 4,
     textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   periodChipCount: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.text,
   },
   loadingWrap: {

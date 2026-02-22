@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 100,
     flexShrink: 1,
   },
@@ -100,11 +100,12 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   text: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.1,
+    letterSpacing: 0.3,
   },
   textSm: {
-    fontSize: 10,
+    fontSize: 9,
+    letterSpacing: 0.3,
   },
 });
