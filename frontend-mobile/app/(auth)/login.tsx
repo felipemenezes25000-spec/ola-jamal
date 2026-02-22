@@ -16,6 +16,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
+import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../lib/theme';
@@ -36,9 +39,12 @@ const EXTRA_SMALL_SCREEN_HEIGHT = 560;
 // Gradiente suave único (sem bloco azul chapado)
 const AUTH_GRADIENT: [string, string, ...string[]] = ['#F7FBFF', '#B8DFFB', '#8FD0FF'];
 
+// Necessário para o fluxo OAuth no app (completar sessão ao voltar do browser)
+WebBrowser.maybeCompleteAuthSession();
+
 export default function Login() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -46,9 +52,21 @@ export default function Login() {
   const isSmallScreen = windowHeight < SMALL_SCREEN_HEIGHT;
   const isExtraSmallScreen = windowHeight < EXTRA_SMALL_SCREEN_HEIGHT;
 
+  const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
+  const googleWebClientId = extra?.googleWebClientId || undefined;
+  const googleAndroidClientId = extra?.googleAndroidClientId || undefined;
+  const googleIosClientId = extra?.googleIosClientId || undefined;
+
+  const [request, , promptGoogle] = useIdTokenAuthRequest({
+    webClientId: googleWebClientId,
+    androidClientId: Platform.OS === 'android' ? (googleAndroidClientId || googleWebClientId) : undefined,
+    iosClientId: Platform.OS === 'ios' ? (googleIosClientId || googleWebClientId) : undefined,
+  });
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const renderCount = useRef(0);
@@ -116,6 +134,42 @@ export default function Login() {
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
   }, []);
+
+  const handleGooglePress = useCallback(async () => {
+    if (!googleWebClientId?.trim()) {
+      Alert.alert(
+        'Google Login',
+        'Configure EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env ou app.config. Veja GOOGLE_OAUTH_SETUP.md.'
+      );
+      return;
+    }
+    if (!request) return;
+    setGoogleLoading(true);
+    try {
+      const result = await promptGoogle();
+      if (result.type === 'success' && result.params?.id_token) {
+        const idToken = result.params.id_token as string;
+        const user = await signInWithGoogle(idToken);
+        const dest = !user.profileComplete
+          ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
+          : user.role === 'doctor'
+          ? '/(doctor)/dashboard'
+          : '/(patient)/home';
+        setTimeout(() => router.replace(dest as any), 0);
+      } else if (result.type === 'error') {
+        const err = result.error;
+        if (err?.message && !err.message.includes('cancel')) {
+          Alert.alert('Erro no Google', err.message);
+        }
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      const msg = err?.message || String(error) || 'Erro ao fazer login com Google.';
+      Alert.alert('Erro no login', msg);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [googleWebClientId, request, promptGoogle, signInWithGoogle, router]);
 
   const openWhatsApp = useCallback(() => {
     const url = `https://wa.me/${WHATSAPP_NUMBER}`;
@@ -206,13 +260,23 @@ export default function Login() {
 
       {/* Botões sociais */}
       <AppButton
+        title="Continuar com Google"
+        onPress={handleGooglePress}
+        loading={googleLoading}
+        disabled={!request}
+        variant="outline"
+        fullWidth
+        icon="logo-google"
+        style={styles.socialButton}
+      />
+      <AppButton
         title="Continuar com Apple"
         onPress={() => {}}
         disabled
         variant="outline"
         fullWidth
         icon="logo-apple"
-        style={styles.socialButton}
+        style={styles.socialButtonLast}
       />
 
       {/* Rodapé */}
@@ -387,6 +451,10 @@ const styles = StyleSheet.create({
 
   // Botões sociais
   socialButton: {
+    height: 48,
+    marginBottom: 10,
+  },
+  socialButtonLast: {
     height: 48,
     marginBottom: 0,
   },
