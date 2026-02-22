@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
   Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,10 +23,12 @@ import { StatsCard } from '../../components/StatsCard';
 import { LargeActionCard } from '../../components/ui/LargeActionCard';
 import { InfoCard } from '../../components/ui/InfoCard';
 import { EmptyState } from '../../components/EmptyState';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 
 export default function PatientHome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const { user } = useAuth();
 
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
@@ -53,20 +55,20 @@ export default function PatientHome() {
     loadData();
   };
 
-  const stats = {
+  const stats = useMemo(() => ({
     pending: requests.filter(r => getRequestUiState(r).uiState === 'needs_action').length,
     toPay: requests.filter(r => needsPayment(r)).length,
     ready: requests.filter(r => isSignedOrDelivered(r)).length,
-  };
+  }), [requests]);
 
-  const recentRequests = requests.slice(0, 2);
+  const recentRequests = useMemo(() => requests.slice(0, 2), [requests]);
   const firstName = user?.name?.split(' ')[0] || 'Paciente';
   const initial = firstName[0]?.toUpperCase() || 'P';
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <SkeletonList count={4} />
       </View>
     );
   }
@@ -74,7 +76,7 @@ export default function PatientHome() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -223,13 +225,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    paddingBottom: 120,
-  },
+  content: {},
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingTop: 80,
     backgroundColor: colors.background,
   },
 

@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
@@ -77,6 +78,7 @@ const ALERT_CATEGORY_LABELS: Record<AlertCategory, string> = {
 export default function DoctorNotifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const { refreshUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -222,7 +224,7 @@ export default function DoctorNotifications() {
           renderSectionHeader={({ section: { title } }) => (
             <Text style={styles.groupLabel}>{title}</Text>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
@@ -276,7 +278,6 @@ const styles = StyleSheet.create({
   markAllText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, color: '#fff', fontWeight: '600' },
   listContent: {
     paddingHorizontal: doctorDS.screenPaddingHorizontal,
-    paddingBottom: 120,
   },
   card: {
     flexDirection: 'row',

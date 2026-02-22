@@ -29,7 +29,7 @@ export function StatsCard({
         <Ionicons name={icon} size={22} color={iconColor} />
       </View>
       <Text style={styles.value}>{displayValue}</Text>
-      <Text style={styles.label} numberOfLines={1}>{label}</Text>
+      <Text style={styles.label} numberOfLines={2}>{label}</Text>
     </>
   );
 
@@ -84,5 +84,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textSecondary,
     textAlign: 'center',
+    minHeight: 28,
   },
 });

@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  Dimensions,
+  useWindowDimensions,
   KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -79,6 +79,7 @@ export default function PrescriptionEditorScreen() {
   const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [medications, setMedications] = useState<string[]>([]);
@@ -295,7 +296,7 @@ export default function PrescriptionEditorScreen() {
     );
   }
 
-  const pdfViewHeight = Math.min(500, Dimensions.get('window').height - 180);
+  const pdfViewHeight = Math.min(500, windowHeight - 180);
 
   return (
     <SafeAreaView style={st.container} edges={['top']}>
@@ -615,7 +616,7 @@ const st = StyleSheet.create({
   refreshBtnText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
   pdfContainer: { marginTop: spacing.sm, overflow: 'hidden', borderRadius: 8 },
   iframeWrapper: { width: '100%', flex: 1, overflow: 'hidden', borderRadius: 8 },
-  webview: { width: '100%', height: Math.min(600, Dimensions.get('window').height - 200) },
+  webview: { width: '100%', height: 500 },
   pdfPlaceholder: { height: 200, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8 },
   pdfPlaceholderText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' },
   retryBtn: { marginTop: spacing.sm, paddingVertical: 8, paddingHorizontal: spacing.md, backgroundColor: colors.primarySoft, borderRadius: 8 },
@@ -643,9 +644,9 @@ const st = StyleSheet.create({
 
   // Suggestions
   suggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
-  suggestionText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, marginRight: spacing.sm },
+  suggestionText: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, marginRight: spacing.sm },
   plusMinusRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  plusMinusBtn: { padding: 4 },
+  plusMinusBtn: { padding: 4, flexShrink: 0 },
 
   // CID
   input: {

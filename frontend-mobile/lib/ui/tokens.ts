@@ -28,6 +28,10 @@ export const uiTokens = {
     sm: 40,
     md: 48,
   },
+  /** Gaps semânticos para layout */
+  sectionGap: 24,
+  cardGap: 12,
+  inlineGap: 8,
   screenPaddingHorizontal: 20,
   maxContentWidth: 400,
 } as const;

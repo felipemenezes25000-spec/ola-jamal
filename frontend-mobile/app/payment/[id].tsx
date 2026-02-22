@@ -32,6 +32,8 @@ export default function PaymentScreen() {
   const [polling, setPolling] = useState(false);
   const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCountRef = useRef(0);
+  const MAX_POLLS = 60; // 60 × 5s = 5 min
 
   useEffect(() => {
     loadPayment();
@@ -75,8 +77,15 @@ export default function PaymentScreen() {
 
   const startPolling = () => {
     if (pollRef.current) clearInterval(pollRef.current);
+    pollCountRef.current = 0;
     setPolling(true);
     pollRef.current = setInterval(async () => {
+      pollCountRef.current += 1;
+      if (pollCountRef.current >= MAX_POLLS) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setPolling(false);
+        return;
+      }
       try {
         const updated = await fetchPayment(paymentId!);
         setPayment(updated);
