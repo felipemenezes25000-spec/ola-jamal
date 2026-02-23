@@ -45,7 +45,11 @@ export default {
     },
     extra: {
       // No dispositivo físico use o IP da sua máquina: EXPO_PUBLIC_API_URL=http://192.168.15.69:5000
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000"
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000",
+      // Google OAuth — necessário para login com Google (iOS exige iosClientId)
+      googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "",
+      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",
+      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || ""
     }
   }
 };
