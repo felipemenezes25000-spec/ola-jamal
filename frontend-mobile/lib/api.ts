@@ -191,9 +191,14 @@ export async function acceptConsultation(
   return apiClient.post(`/api/requests/${requestId}/accept-consultation`, {});
 }
 
-/** Médico inicia a consulta (status Paid → InConsultation). */
+/** Médico inicia a consulta (status Paid → InConsultation). O timer só começa quando ambos reportam chamada conectada. */
 export async function startConsultation(requestId: string): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/start-consultation`, {});
+}
+
+/** Médico ou paciente reporta que a chamada de vídeo está conectada (WebRTC). Quando ambos tiverem reportado, o timer começa. */
+export async function reportCallConnected(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/report-call-connected`, {});
 }
 
 /** Médico encerra a consulta; opcionalmente envia notas clínicas. */
@@ -293,6 +298,14 @@ export async function updateExamContent(
   data: { exams?: string[]; notes?: string }
 ): Promise<RequestResponseDto> {
   return apiClient.patch(`/api/requests/${requestId}/exam-content`, data);
+}
+
+export async function autoFinishConsultation(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/auto-finish-consultation`, {});
+}
+
+export async function getTimeBankBalance(consultationType: string): Promise<{ balanceSeconds: number; balanceMinutes: number; consultationType: string }> {
+  return apiClient.get(`/api/requests/time-bank?consultationType=${encodeURIComponent(consultationType)}`);
 }
 
 // ============================================
@@ -424,6 +437,19 @@ export async function updateDoctorAvailability(
   available: boolean
 ): Promise<void> {
   return apiClient.put(`/api/doctors/${doctorId}/availability`, { available });
+}
+
+/** Perfil do médico logado (inclui endereço/telefone profissional). */
+export async function getMyDoctorProfile(): Promise<DoctorProfileDto | null> {
+  return apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
+}
+
+/** Atualiza endereço e telefone profissional (obrigatórios para assinar receitas). */
+export async function updateDoctorProfile(data: {
+  professionalAddress: string | null;
+  professionalPhone: string | null;
+}): Promise<DoctorProfileDto> {
+  return apiClient.patch('/api/doctors/me/profile', data);
 }
 
 export async function validateCrm(

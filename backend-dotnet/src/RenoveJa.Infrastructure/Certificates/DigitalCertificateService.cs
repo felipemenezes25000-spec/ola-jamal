@@ -343,8 +343,9 @@ public class DigitalCertificateService : IDigitalCertificateService
 
     /// <summary>
     /// Assina um PDF usando o PFX via iText7 BouncyCastle adapter.
-    /// Usa PAdES (padrão ISO/ETSI para assinatura de PDFs) com PKCS#7/CMS, SHA256, cadeia completa de certificados e timestamp TSA.
-    /// PAdES é aceito pelo validar.iti.gov.br para verificação de integridade.
+    /// Padrão mais alto: PAdES (ISO/ETSI) com PKCS#7/CMS, SHA256, cadeia completa, timestamp TSA e revogação (OCSP + CRL) quando disponível.
+    /// Aceito pelo validar.iti.gov.br (ICP-Brasil) e por validadores Adobe quando a cadeia e a revogação forem válidas.
+    /// Em falha de OCSP/CRL (rede, AC indisponível), assina sem revogação embutida (fallback seguro).
     /// </summary>
     private byte[] SignPdfWithBouncyCastle(byte[] pfxBytes, string pfxPassword, byte[] pdfBytes, DoctorCertificate certificate)
     {
@@ -394,18 +395,31 @@ public class DigitalCertificateService : IDigitalCertificateService
             .Select(c => new X509CertificateBC(c.Certificate))
             .ToArray();
 
-        // Try to get a TSA client for timestamping
+        // TSA for timestamping (recomendado para PAdES e validação Adobe)
         ITSAClient? tsaClient = CreateTsaClient();
 
-        // PAdES (PKCS#7/CMS) - padrão ISO/ETSI para assinatura de PDFs.
-        // O validar.iti.gov.br aceita e valida. "Tipo: Destacada" no relatório ITI é normal; a assinatura é embedded e PAdES.
-        // Estimated signature size: 8192 bytes to accommodate full chain + timestamp
-        signer.SignDetached(pks, certArray, null, null, tsaClient, 0, PdfSigner.CryptoStandard.CMS);
+        // Padrão mais alto: OCSP + CRL embutidos para revogação (Adobe e validadores exigem)
+        // estimatedSize 32KB para caber cadeia + OCSP + CRL + timestamp. Fallback sem revogação se falhar.
+        const int EstimatedSizeWithLtv = 32768;
+        bool withRevocation = false;
+        try
+        {
+            var crlList = new List<ICrlClient> { new CrlClientOnline(certArray) };
+            var ocspClient = new OcspClientBouncyCastle();
+            signer.SignDetached(pks, certArray, crlList, ocspClient, tsaClient, EstimatedSizeWithLtv, PdfSigner.CryptoStandard.CMS);
+            withRevocation = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OCSP/CRL indisponível ou falha na revogação. Assinando sem revogação embutida (fallback).");
+            signer.SignDetached(pks, certArray, null, null, tsaClient, EstimatedSizeWithLtv, PdfSigner.CryptoStandard.CMS);
+        }
 
         _logger.LogInformation(
-            "PDF assinado com PAdES (PKCS#7/CMS), SHA256, cadeia de {ChainLength} certificado(s){Tsa}",
+            "PDF assinado com PAdES (PKCS#7/CMS), SHA256, cadeia de {ChainLength} certificado(s){Tsa}{Revocation}",
             certArray.Length,
-            tsaClient != null ? ", com timestamp TSA" : ", sem timestamp TSA");
+            tsaClient != null ? ", com timestamp TSA" : ", sem timestamp TSA",
+            withRevocation ? ", com OCSP/CRL" : ", sem OCSP/CRL (fallback)");
 
         return outputStream.ToArray();
     }

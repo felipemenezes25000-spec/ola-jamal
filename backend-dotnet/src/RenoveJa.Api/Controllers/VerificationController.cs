@@ -115,10 +115,11 @@ public class VerificationController(
         [FromQuery] string? code,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(code) || code.Length != 6)
-            return BadRequest(new { error = "Código de verificação inválido. Informe 6 dígitos." });
+        var trimmed = code?.Trim() ?? "";
+        if (trimmed.Length != 4 && trimmed.Length != 6)
+            return BadRequest(new { error = "Código de verificação inválido. Informe o código de 4 ou 6 dígitos do documento." });
 
-        var valid = await prescriptionVerifyRepository.ValidateVerifyCodeAsync(id, code.Trim(), cancellationToken);
+        var valid = await prescriptionVerifyRepository.ValidateVerifyCodeAsync(id, trimmed, cancellationToken);
         if (!valid)
             return Unauthorized(new { error = "Código inválido ou expirado." });
 

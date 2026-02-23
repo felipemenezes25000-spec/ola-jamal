@@ -355,7 +355,7 @@ public class RequestsController(
     }
 
     /// <summary>
-    /// Médico inicia a consulta (status Paid → InConsultation).
+    /// Médico inicia a consulta (status Paid → InConsultation). O timer só começa quando médico e paciente reportam chamada conectada.
     /// </summary>
     [HttpPost("{id}/start-consultation")]
     [Authorize(Roles = "doctor")]
@@ -365,6 +365,20 @@ public class RequestsController(
     {
         var doctorId = GetUserId();
         var request = await requestService.StartConsultationAsync(id, doctorId, cancellationToken);
+        return Ok(request);
+    }
+
+    /// <summary>
+    /// Médico ou paciente reporta que está com a chamada de vídeo conectada (WebRTC). Quando ambos tiverem reportado, o timer começa.
+    /// </summary>
+    [HttpPost("{id}/report-call-connected")]
+    [Authorize]
+    public async Task<IActionResult> ReportCallConnected(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var request = await requestService.ReportCallConnectedAsync(id, userId, cancellationToken);
         return Ok(request);
     }
 
@@ -604,6 +618,45 @@ public class RequestsController(
         var doctorId = GetUserId();
         var request = await requestService.UpdateExamContentAsync(id, dto.Exams, dto.Notes, doctorId, cancellationToken);
         return Ok(request);
+    }
+
+    /// <summary>
+    /// Encerramento automático da consulta pelo app quando o timer de minutos contratados expirar.
+    /// Pode ser chamado pelo paciente ou médico. Credita minutos não usados ao banco de horas.
+    /// </summary>
+    [HttpPost("{id}/auto-finish-consultation")]
+    public async Task<IActionResult> AutoFinishConsultation(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var request = await requestService.AutoFinishConsultationAsync(id, userId, cancellationToken);
+            return Ok(request);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Retorna o saldo do banco de horas do paciente para o tipo de consulta especificado.
+    /// GET /api/requests/time-bank?consultationType=psicologo
+    /// </summary>
+    [HttpGet("time-bank")]
+    public async Task<IActionResult> GetTimeBankBalance([FromQuery] string consultationType = "medico_clinico", CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        var (balanceSeconds, balanceMinutes, type) = await requestService.GetTimeBankBalanceAsync(userId, consultationType, cancellationToken);
+        return Ok(new { balanceSeconds, balanceMinutes, consultationType = type });
     }
 
     private Guid GetUserId()

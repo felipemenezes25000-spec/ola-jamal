@@ -60,6 +60,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [cpf, setCpf] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [crm, setCrm] = useState('');
   const [crmState, setCrmState] = useState('');
   const [specialty, setSpecialty] = useState('');
@@ -155,6 +156,21 @@ export default function Register() {
     else if (cp.length !== 11) err.cpf = 'O CPF deve ter 11 dígitos.';
     else if (!isValidCpf(cp)) err.cpf = 'CPF inválido. Verifique os dígitos.';
 
+    const bd = birthDate.trim();
+    if (!bd) err.birthDate = 'Data de nascimento é obrigatória.';
+    else {
+      const ddmmyy = bd.replace(/\D/g, '');
+      if (ddmmyy.length !== 8) err.birthDate = 'Informe a data no formato DD/MM/AAAA.';
+      else {
+        const d = parseInt(ddmmyy.slice(0, 2), 10);
+        const m = parseInt(ddmmyy.slice(2, 4), 10) - 1;
+        const y = parseInt(ddmmyy.slice(4, 8), 10);
+        const date = new Date(y, m, d);
+        if (date.getFullYear() !== y || date.getMonth() !== m || date.getDate() !== d) err.birthDate = 'Data de nascimento inválida.';
+        else if (date.getTime() > Date.now()) err.birthDate = 'Data não pode ser no futuro.';
+      }
+    }
+
     if (role === 'doctor') {
       const cr = crm.trim().replace(/\D/g, '');
       const cs = crmState.trim().toUpperCase().slice(0, 2);
@@ -169,19 +185,18 @@ export default function Register() {
       }
     }
 
-    if (role === 'patient') {
-      const str = street.trim();
-      const num = number.trim();
-      const neigh = neighborhood.trim();
-      const ci = city.trim();
-      const st = state.trim().toUpperCase();
-      if (!str) err.street = 'Rua é obrigatória.';
-      if (!num) err.number = 'Número é obrigatório.';
-      if (!neigh) err.neighborhood = 'Bairro é obrigatório.';
-      if (!ci) err.city = 'Cidade é obrigatória.';
-      if (!st) err.state = 'UF é obrigatória.';
-      else if (st.length !== 2) err.state = 'Informe a sigla com 2 letras.';
-    }
+    // Endereço obrigatório para paciente e médico
+    const str = street.trim();
+    const num = number.trim();
+    const neigh = neighborhood.trim();
+    const ci = city.trim();
+    const st = state.trim().toUpperCase();
+    if (!str) err.street = 'Rua é obrigatória.';
+    if (!num) err.number = 'Número é obrigatório.';
+    if (!neigh) err.neighborhood = 'Bairro é obrigatório.';
+    if (!ci) err.city = 'Cidade é obrigatória.';
+    if (!st) err.state = 'UF é obrigatória.';
+    else if (st.length !== 2) err.state = 'Informe a sigla com 2 letras.';
 
     if (!acceptedTerms) {
       err.terms = 'Aceite os Termos de Uso para continuar.';
@@ -198,6 +213,17 @@ export default function Register() {
     Keyboard.dismiss();
     setLoading(true);
     try {
+      const str = street.trim();
+      const num = number.trim();
+      const neigh = neighborhood.trim();
+      const comp = complement.trim();
+      const ci = city.trim();
+      const st = state.trim().toUpperCase().slice(0, 2);
+      const postalCode = onlyDigits(cep);
+      const bdTrim = birthDate.trim().replace(/\D/g, '');
+      const birthDateIso = bdTrim.length === 8
+        ? `${bdTrim.slice(4, 8)}-${bdTrim.slice(2, 4)}-${bdTrim.slice(0, 2)}`
+        : undefined;
       const data: Record<string, unknown> = {
         name: n,
         email: e,
@@ -205,23 +231,15 @@ export default function Register() {
         confirmPassword: pc,
         phone: ph,
         cpf: cp,
+        birthDate: birthDateIso,
+        street: str,
+        number: num,
+        neighborhood: neigh,
+        complement: comp,
+        city: ci,
+        state: st,
+        ...(postalCode.length === 8 ? { postalCode } : {}),
       };
-      if (role === 'patient') {
-        const str = street.trim();
-        const num = number.trim();
-        const neigh = neighborhood.trim();
-        const comp = complement.trim();
-        const ci = city.trim();
-        const st = state.trim().toUpperCase().slice(0, 2);
-        const postalCode = onlyDigits(cep);
-        if (str) data.street = str;
-        if (num) data.number = num;
-        if (neigh) data.neighborhood = neigh;
-        if (comp) data.complement = comp;
-        if (ci) data.city = ci;
-        if (st) data.state = st;
-        if (postalCode.length === 8) data.postalCode = postalCode;
-      }
       const user = role === 'doctor'
         ? await signUpDoctor({ ...data, crm: crm.trim().replace(/\D/g, ''), crmState: crmState.trim().toUpperCase().slice(0, 2), specialty: specialty.trim() } as any)
         : await signUp(data as any);
@@ -340,6 +358,23 @@ export default function Register() {
           error={fieldErrors.cpf}
           keyboardType="numeric"
         />
+        <AppInput
+          label="Data de nascimento"
+          required
+          leftIcon="calendar-outline"
+          placeholder="DD/MM/AAAA"
+          value={birthDate}
+          onChangeText={(t: string) => {
+            const d = t.replace(/\D/g, '').slice(0, 8);
+            if (d.length <= 2) setBirthDate(d);
+            else if (d.length <= 4) setBirthDate(`${d.slice(0, 2)}/${d.slice(2)}`);
+            else setBirthDate(`${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`);
+            clearError('birthDate');
+          }}
+          error={fieldErrors.birthDate}
+          keyboardType="numeric"
+          hint="Usada nas receitas médicas"
+        />
 
         {/* ── Segurança ── */}
         <SectionHeader icon="lock-closed-outline" title="Segurança" />
@@ -365,79 +400,77 @@ export default function Register() {
           secureTextEntry
         />
 
-        {/* ── Endereço (Paciente) ── */}
-        {role === 'patient' && (
-          <>
-            <SectionHeader icon="location-outline" title="Endereço" />
+        {/* ── Endereço (obrigatório para paciente e médico) ── */}
+        <>
+          <SectionHeader icon="location-outline" title="Endereço" />
+          <AppInput
+            label="CEP"
+            placeholder="00000-000"
+            value={cep}
+            onChangeText={handleCepChange}
+            onBlur={lookupCep}
+            keyboardType="numeric"
+            leftIcon="location-outline"
+          />
+          <AppInput
+            label="Rua"
+            required
+            placeholder="Nome da rua"
+            value={street}
+            onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
+            leftIcon="home-outline"
+            error={fieldErrors.street}
+          />
+          <View style={styles.row}>
             <AppInput
-              label="CEP"
-              placeholder="00000-000"
-              value={cep}
-              onChangeText={handleCepChange}
-              onBlur={lookupCep}
+              label="Número"
+              required
+              placeholder="Nº"
+              value={number}
+              onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
               keyboardType="numeric"
-              leftIcon="location-outline"
+              containerStyle={{ width: 100 }}
+              error={fieldErrors.number}
             />
             <AppInput
-              label="Rua"
-              required
-              placeholder="Nome da rua"
-              value={street}
-              onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
-              leftIcon="home-outline"
-              error={fieldErrors.street}
+              label="Complemento"
+              placeholder="Apto, bloco..."
+              value={complement}
+              onChangeText={setComplement}
+              containerStyle={styles.flex1}
             />
-            <View style={styles.row}>
-              <AppInput
-                label="Número"
-                required
-                placeholder="Nº"
-                value={number}
-                onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
-                keyboardType="numeric"
-                containerStyle={{ width: 100 }}
-                error={fieldErrors.number}
-              />
-              <AppInput
-                label="Complemento"
-                placeholder="Apto, bloco..."
-                value={complement}
-                onChangeText={setComplement}
-                containerStyle={styles.flex1}
-              />
-            </View>
+          </View>
+          <AppInput
+            label="Bairro"
+            required
+            placeholder="Bairro"
+            value={neighborhood}
+            onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
+            leftIcon="business-outline"
+            error={fieldErrors.neighborhood}
+          />
+          <View style={styles.row}>
             <AppInput
-              label="Bairro"
+              label="Cidade"
               required
-              placeholder="Bairro"
-              value={neighborhood}
-              onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
-              leftIcon="business-outline"
-              error={fieldErrors.neighborhood}
+              placeholder="Cidade"
+              value={city}
+              onChangeText={(t: string) => { setCity(t); clearError('city'); }}
+              containerStyle={styles.flex1}
+              error={fieldErrors.city}
             />
-            <View style={styles.row}>
-              <AppInput
-                label="Cidade"
-                required
-                placeholder="Cidade"
-                value={city}
-                onChangeText={(t: string) => { setCity(t); clearError('city'); }}
-                containerStyle={styles.flex1}
-                error={fieldErrors.city}
-              />
-              <AppInput
-                label="UF"
-                required
-                placeholder="UF"
-                value={state}
-                onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
-                maxLength={2}
-                containerStyle={{ width: 96 }}
-                error={fieldErrors.state}
-              />
-            </View>
-          </>
-        )}
+            <AppInput
+              label="UF"
+              required
+              placeholder="UF"
+              value={state}
+              onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
+              maxLength={2}
+              containerStyle={{ width: 96 }}
+              error={fieldErrors.state}
+            />
+          </View>
+        </>
 
         {/* ── Dados médicos (Médico) ── */}
         {role === 'doctor' && (

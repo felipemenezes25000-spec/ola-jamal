@@ -47,7 +47,7 @@ public class PrescriptionVerifyRepository(
 
     public async Task<bool> ValidateVerifyCodeAsync(Guid requestId, string code, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(code) || code.Length != 6)
+        if (string.IsNullOrWhiteSpace(code) || (code.Length != 4 && code.Length != 6))
             return false;
 
         var row = await supabase.GetSingleAsync<PrescriptionVerifyRow>(

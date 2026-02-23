@@ -51,7 +51,8 @@ public class AuthServiceTests
             "password123",
             "password123",
             "11987654321",
-            "12345678901");
+            "12345678901",
+            new DateTime(1990, 5, 15));
 
         _userRepositoryMock.Setup(x => x.ExistsByEmailAsync(It.IsAny<string>(), default))
             .ReturnsAsync(false);
@@ -82,7 +83,8 @@ public class AuthServiceTests
             "password123",
             "password123",
             "11987654321",
-            "12345678901");
+            "12345678901",
+            new DateTime(1990, 5, 15));
 
         _userRepositoryMock.Setup(x => x.ExistsByEmailAsync(It.IsAny<string>(), default))
             .ReturnsAsync(true);

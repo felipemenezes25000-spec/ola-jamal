@@ -458,69 +458,176 @@ export default function DoctorRequestDetail() {
           </DoctorCard>
         )}
 
-        {/* Consultation transcript & anamnesis (prontuário) */}
-        {request.requestType === 'consultation' && (request.consultationTranscript || request.consultationAnamnesis || request.consultationAiSuggestions) && (
-          <DoctorCard style={[s.cardMargin, s.aiCard]}>
-            <View style={s.aiHeader}>
-              <Ionicons name="videocam" size={18} color={colors.primary} />
-              <Text style={s.aiTitle}>TRANSCRIÇÃO E ANAMNESE</Text>
-            </View>
-            <View style={s.aiDisclaimer}>
-              <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-              <Text style={s.aiDisclaimerText}>Apoio da IA — decisão final do médico.</Text>
-            </View>
-            {request.consultationTranscript && request.consultationTranscript.trim() && (
-              <View style={s.aiSummarySection}>
-                <Text style={s.sectionLabel}>TRANSCRIÇÃO</Text>
-                <Text style={s.aiSummary}>{request.consultationTranscript}</Text>
-                <TouchableOpacity
-                  style={s.aiSummaryActionBtn}
-                  onPress={async () => {
-                    await Clipboard.setStringAsync(request.consultationTranscript || '');
-                    showToast({ message: 'Copiado', type: 'success' });
-                  }}
-                >
-                  <Ionicons name="copy-outline" size={14} color={colors.primary} />
-                  <Text style={s.aiSummaryActionText}>Copiar</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {request.consultationAnamnesis && request.consultationAnamnesis.trim() && (
-              <View style={s.aiSummarySection}>
-                <Text style={s.sectionLabel}>ANAMNESE ESTRUTURADA</Text>
-                <Text style={[s.aiSummary, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 12 }]}>
-                  {(() => {
-                    try {
-                      const obj = JSON.parse(request.consultationAnamnesis || '{}');
-                      return JSON.stringify(obj, null, 2);
-                    } catch {
-                      return request.consultationAnamnesis;
-                    }
-                  })()}
-                </Text>
-              </View>
-            )}
-            {request.consultationAiSuggestions && request.consultationAiSuggestions.trim() && (
-              <View style={s.aiSummarySection}>
-                <Text style={s.sectionLabel}>SUGESTÕES DA IA</Text>
-                {(() => {
+        {/* Consultation transcript & anamnesis (prontuário pós-consulta) */}
+        {request.requestType === 'consultation' && request.status === 'consultation_finished' && (request.consultationTranscript || request.consultationAnamnesis || request.consultationAiSuggestions) && (
+          <>
+            {/* Anamnese estruturada com campos visuais */}
+            {request.consultationAnamnesis && request.consultationAnamnesis.trim() && (() => {
+              let ana: Record<string, any> = {};
+              try { ana = JSON.parse(request.consultationAnamnesis || '{}'); } catch {}
+              const anamnesisFields: Array<{ key: string; label: string; icon: string }> = [
+                { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble-ellipses' },
+                { key: 'historia_doenca_atual', label: 'História da Doença Atual', icon: 'time' },
+                { key: 'sintomas', label: 'Sintomas', icon: 'thermometer' },
+                { key: 'medicamentos_em_uso', label: 'Medicamentos em Uso', icon: 'medical' },
+                { key: 'alergias', label: 'Alergias', icon: 'warning' },
+                { key: 'antecedentes_relevantes', label: 'Antecedentes', icon: 'document-text' },
+                { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash' },
+              ];
+              return (
+                <DoctorCard style={[s.cardMargin, s.aiCard]}>
+                  <View style={s.aiHeader}>
+                    <Ionicons name="document-text" size={18} color={colors.primary} />
+                    <Text style={s.aiTitle}>ANAMNESE ESTRUTURADA</Text>
+                    <View style={[s.riskBadge, { backgroundColor: colors.primarySoft }]}>
+                      <Ionicons name="sparkles" size={10} color={colors.primary} />
+                      <Text style={[s.riskText, { color: colors.primary }]}>IA</Text>
+                    </View>
+                  </View>
+                  <View style={s.aiDisclaimer}>
+                    <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+                    <Text style={s.aiDisclaimerText}>Gerado por IA — revisão médica obrigatória. CFM Res. 2.299/2021.</Text>
+                  </View>
+                  {anamnesisFields.map(({ key, label, icon }) => {
+                    const val = ana[key];
+                    if (!val || (typeof val === 'string' && !val.trim())) return null;
+                    const display = Array.isArray(val) ? val.join(', ') : String(val);
+                    const isAlert = key === 'alergias';
+                    const isCid = key === 'cid_sugerido';
+                    return (
+                      <View key={key} style={s.anaField}>
+                        <View style={s.anaLabelRow}>
+                          <Ionicons name={icon as any} size={12} color={isAlert ? colors.destructive : colors.textMuted} />
+                          <Text style={[s.anaLabel, isAlert && { color: colors.destructive }]}>{label}</Text>
+                        </View>
+                        <Text style={[s.anaValue, isCid && { color: colors.primary, fontFamily: typography.fontFamily.bold }]}>{display}</Text>
+                      </View>
+                    );
+                  })}
+                  {/* Red flags */}
+                  {Array.isArray(ana.alertas_vermelhos) && ana.alertas_vermelhos.length > 0 && (
+                    <View style={s.redFlagBlock}>
+                      <View style={s.anaLabelRow}>
+                        <Ionicons name="alert-circle" size={14} color="#EF4444" />
+                        <Text style={[s.anaLabel, { color: '#EF4444' }]}>ALERTAS DE GRAVIDADE</Text>
+                      </View>
+                      {(ana.alertas_vermelhos as string[]).map((flag, i) => (
+                        <View key={i} style={s.redFlagItem}>
+                          <Text style={s.redFlagText}>{flag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </DoctorCard>
+              );
+            })()}
+
+            {/* Sugestões clínicas e medicamentos */}
+            {(request.consultationAiSuggestions || (() => {
+              try {
+                const ana = JSON.parse(request.consultationAnamnesis || '{}');
+                return Array.isArray(ana.medicamentos_sugeridos) && ana.medicamentos_sugeridos.length > 0;
+              } catch { return false; }
+            })()) && (
+              <DoctorCard style={[s.cardMargin, { borderWidth: 1, borderColor: colors.accent }]}>
+                <View style={s.aiHeader}>
+                  <Ionicons name="bulb" size={18} color="#8B5CF6" />
+                  <Text style={s.aiTitle}>SUGESTÕES CLÍNICAS DA IA</Text>
+                </View>
+                {request.consultationAiSuggestions && (() => {
                   try {
                     const items = JSON.parse(request.consultationAiSuggestions || '[]') as string[];
-                    return items.map((item, i) => (
-                      <View key={i} style={s.medItem}>
-                        <View style={[s.medIcon, { backgroundColor: colors.primarySoft }]}>
-                          <Ionicons name="bulb-outline" size={14} color={colors.primary} />
+                    return items.map((item, i) => {
+                      const isRedFlag = item.startsWith('🚨');
+                      return (
+                        <View key={i} style={[s.suggestionItem, isRedFlag && s.suggestionItemDanger]}>
+                          <Ionicons name={isRedFlag ? 'alert-circle' : 'bulb-outline'} size={16} color={isRedFlag ? '#EF4444' : '#8B5CF6'} />
+                          <Text style={[s.suggestionText, isRedFlag && { color: '#EF4444' }]}>{item.replace('🚨 ', '')}</Text>
                         </View>
-                        <Text style={s.medText}>{item}</Text>
-                      </View>
-                    ));
-                  } catch {
-                    return <Text style={s.aiSummary}>{request.consultationAiSuggestions}</Text>;
-                  }
+                      );
+                    });
+                  } catch { return null; }
                 })()}
-              </View>
+                {/* Medicamentos sugeridos como chips */}
+                {(() => {
+                  try {
+                    const ana = JSON.parse(request.consultationAnamnesis || '{}');
+                    const meds: string[] = Array.isArray(ana.medicamentos_sugeridos) ? ana.medicamentos_sugeridos : [];
+                    if (meds.length === 0) return null;
+                    return (
+                      <View style={{ marginTop: 8 }}>
+                        <Text style={[s.anaLabel, { marginBottom: 6 }]}>MEDICAMENTOS SUGERIDOS</Text>
+                        <View style={s.medChipsRow}>
+                          {meds.map((m, i) => (
+                            <TouchableOpacity key={i} style={s.medChip} onPress={async () => {
+                              await Clipboard.setStringAsync(m);
+                              showToast({ message: 'Copiado!', type: 'success' });
+                            }}>
+                              <Text style={s.medChipText}>{m}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  } catch { return null; }
+                })()}
+              </DoctorCard>
             )}
-          </DoctorCard>
+
+            {/* Transcrição completa (collapsible) */}
+            {request.consultationTranscript && request.consultationTranscript.trim() && (
+              <DoctorCard style={s.cardMargin}>
+                <View style={s.aiHeader}>
+                  <Ionicons name="mic" size={18} color={colors.textMuted} />
+                  <Text style={s.aiTitle}>TRANSCRIÇÃO DA CONSULTA</Text>
+                  <TouchableOpacity
+                    style={s.aiSummaryActionBtn}
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(request.consultationTranscript || '');
+                      showToast({ message: 'Transcrição copiada', type: 'success' });
+                    }}
+                  >
+                    <Ionicons name="copy-outline" size={14} color={colors.primary} />
+                    <Text style={s.aiSummaryActionText}>Copiar</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={s.aiDisclaimer}>
+                  <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+                  <Text style={s.aiDisclaimerText}>Transcrição automática — pode conter imprecisões.</Text>
+                </View>
+                <Text style={[s.aiSummary, { fontSize: 13, lineHeight: 21, color: colors.textSecondary }]}>
+                  {request.consultationTranscript}
+                </Text>
+              </DoctorCard>
+            )}
+
+            {/* CTA: criar prescrição baseada na consulta */}
+            {(() => {
+              try {
+                const ana = JSON.parse(request.consultationAnamnesis || '{}');
+                const meds: string[] = Array.isArray(ana.medicamentos_sugeridos) ? ana.medicamentos_sugeridos : [];
+                if (meds.length === 0) return null;
+                return (
+                  <View style={[s.cardMargin, { marginBottom: 8 }]}>
+                    <PrimaryButton
+                      label="Criar Receita Baseada na Consulta"
+                      showArrow
+                      onPress={() => {
+                        router.push({
+                          pathname: '/doctor-request/editor/[id]' as any,
+                          params: {
+                            id: request.id,
+                            prefillMeds: JSON.stringify(meds),
+                          },
+                        });
+                      }}
+                      style={{ width: '100%' }}
+                    />
+                  </View>
+                );
+              } catch { return null; }
+            })()}
+          </>
         )}
 
         {/* Sign Form */}
@@ -715,6 +822,21 @@ const s = StyleSheet.create({
   // Symptoms – quote block
   symptomsBlock: { borderLeftWidth: 3, borderLeftColor: colors.warning, paddingLeft: 12, paddingVertical: 4, backgroundColor: colors.warningLight + '40', borderRadius: 4 },
   symptomsText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, lineHeight: 22, fontStyle: 'italic' },
+
+  // Anamnesis fields (post-consultation view)
+  anaField: { marginBottom: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  anaLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  anaLabel: { fontSize: 10, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  anaValue: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, lineHeight: 21 },
+  redFlagBlock: { marginTop: 8, padding: 10, backgroundColor: '#1C0A0A', borderRadius: 8, borderWidth: 1, borderColor: '#7F1D1D' },
+  redFlagItem: { paddingVertical: 4 },
+  redFlagText: { fontSize: 13, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: '#FCA5A5', lineHeight: 20 },
+  suggestionItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  suggestionItemDanger: { backgroundColor: '#1C0A0A', borderRadius: 6, paddingHorizontal: 8, borderBottomWidth: 0, marginBottom: 4 },
+  suggestionText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, lineHeight: 21 },
+  medChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  medChip: { paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#064E3B', borderRadius: 20 },
+  medChipText: { fontSize: 12, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: '#6EE7B7' },
 
   // Queue hint
   queueHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: pad, marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.primarySoft, borderRadius: borderRadius.card },

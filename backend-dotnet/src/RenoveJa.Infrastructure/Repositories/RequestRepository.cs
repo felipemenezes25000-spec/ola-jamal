@@ -155,6 +155,12 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             AiUrgency = model.AiUrgency,
             AiReadabilityOk = model.AiReadabilityOk,
             AiMessageToUser = model.AiMessageToUser,
+            ConsultationType = model.ConsultationType,
+            ContractedMinutes = model.ContractedMinutes,
+            PricePerMinute = model.PricePerMinute,
+            ConsultationStartedAt = model.ConsultationStartedAt,
+            DoctorCallConnectedAt = model.DoctorCallConnectedAt,
+            PatientCallConnectedAt = model.PatientCallConnectedAt,
             UpdatedAt = model.UpdatedAt
         };
         var updated = await supabase.UpdateAsync<RequestModel>(
@@ -195,6 +201,18 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         public string? AiUrgency { get; set; }
         public bool? AiReadabilityOk { get; set; }
         public string? AiMessageToUser { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("consultation_type")]
+        public string? ConsultationType { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("contracted_minutes")]
+        public int? ContractedMinutes { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("price_per_minute")]
+        public decimal? PricePerMinute { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("consultation_started_at")]
+        public DateTime? ConsultationStartedAt { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("doctor_call_connected_at")]
+        public DateTime? DoctorCallConnectedAt { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("patient_call_connected_at")]
+        public DateTime? PatientCallConnectedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
 
@@ -238,7 +256,13 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             model.AiReadabilityOk,
             model.AiMessageToUser,
             model.AccessCode,
-            prescriptionKind: !string.IsNullOrWhiteSpace(model.PrescriptionKind) ? SnakeCaseHelper.ToPascalCase(model.PrescriptionKind) : null);
+            prescriptionKind: !string.IsNullOrWhiteSpace(model.PrescriptionKind) ? SnakeCaseHelper.ToPascalCase(model.PrescriptionKind) : null,
+            consultationType: model.ConsultationType,
+            contractedMinutes: model.ContractedMinutes,
+            pricePerMinute: model.PricePerMinute,
+            consultationStartedAt: model.ConsultationStartedAt,
+            doctorCallConnectedAt: model.DoctorCallConnectedAt,
+            patientCallConnectedAt: model.PatientCallConnectedAt);
     }
 
     private static RequestModel MapToModel(MedicalRequest request)
@@ -273,6 +297,12 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             AiUrgency = request.AiUrgency,
             AiReadabilityOk = request.AiReadabilityOk,
             AiMessageToUser = request.AiMessageToUser,
+            ConsultationType = request.ConsultationType,
+            ContractedMinutes = request.ContractedMinutes,
+            PricePerMinute = request.PricePerMinute,
+            ConsultationStartedAt = request.ConsultationStartedAt,
+            DoctorCallConnectedAt = request.DoctorCallConnectedAt,
+            PatientCallConnectedAt = request.PatientCallConnectedAt,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt
         };

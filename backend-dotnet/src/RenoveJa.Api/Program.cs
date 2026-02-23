@@ -234,6 +234,7 @@ builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
 builder.Services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+builder.Services.AddScoped<IConsultationTimeBankRepository, ConsultationTimeBankRepository>();
 
 // Register Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();

@@ -136,6 +136,18 @@ public class RequestModel
     public string? AiUrgency { get; set; }
     public bool? AiReadabilityOk { get; set; }
     public string? AiMessageToUser { get; set; }
+    [JsonPropertyName("consultation_type")]
+    public string? ConsultationType { get; set; }
+    [JsonPropertyName("contracted_minutes")]
+    public int? ContractedMinutes { get; set; }
+    [JsonPropertyName("price_per_minute")]
+    public decimal? PricePerMinute { get; set; }
+    [JsonPropertyName("consultation_started_at")]
+    public DateTime? ConsultationStartedAt { get; set; }
+    [JsonPropertyName("doctor_call_connected_at")]
+    public DateTime? DoctorCallConnectedAt { get; set; }
+    [JsonPropertyName("patient_call_connected_at")]
+    public DateTime? PatientCallConnectedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

@@ -83,7 +83,14 @@ public class AuthService(
             passwordHash,
             request.Phone,
             request.Cpf,
-            request.BirthDate);
+            request.BirthDate,
+            request.Street,
+            request.Number,
+            request.Neighborhood,
+            request.Complement,
+            request.City,
+            request.State,
+            request.PostalCode);
 
         user = await userRepository.CreateAsync(user, cancellationToken);
 
@@ -477,6 +484,8 @@ public class AuthService(
             profile.Rating,
             profile.TotalConsultations,
             profile.Available,
-            profile.CreatedAt);
+            profile.CreatedAt,
+            profile.ProfessionalAddress,
+            profile.ProfessionalPhone);
     }
 }
