@@ -98,6 +98,14 @@ class ApiClient {
           status: 0,
         } as ApiError;
       }
+      const msg = e?.message ?? String(e);
+      if (typeof msg === 'string' && (msg.includes('Network request failed') || msg.includes('network'))) {
+        throw {
+          message:
+            'Não foi possível conectar à API. No celular físico, configure EXPO_PUBLIC_API_URL no .env com o IP do seu PC (ex.: http://192.168.x.x:5000). Celular e PC devem estar na mesma rede Wi‑Fi.',
+          status: 0,
+        } as ApiError;
+      }
       throw e;
     }
   }

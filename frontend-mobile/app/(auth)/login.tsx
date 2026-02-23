@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   TextInput,
   Keyboard,
   Platform,
@@ -53,9 +52,12 @@ export default function Login() {
   const isExtraSmallScreen = windowHeight < EXTRA_SMALL_SCREEN_HEIGHT;
 
   const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
-  const googleWebClientId = extra?.googleWebClientId || undefined;
-  const googleAndroidClientId = extra?.googleAndroidClientId || undefined;
-  const googleIosClientId = extra?.googleIosClientId || undefined;
+  const googleWebClientId =
+    (extra?.googleWebClientId || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim() || undefined;
+  const googleAndroidClientId =
+    (extra?.googleAndroidClientId || process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '').trim() || undefined;
+  const googleIosClientId =
+    (extra?.googleIosClientId || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
 
   const [request, , promptGoogle] = useIdTokenAuthRequest({
     webClientId: googleWebClientId,
