@@ -30,7 +30,14 @@ public record RegisterDoctorRequestDto(
     string CrmState,
     string Specialty,
     DateTime? BirthDate = null,
-    string? Bio = null
+    string? Bio = null,
+    string? Street = null,
+    string? Number = null,
+    string? Neighborhood = null,
+    string? Complement = null,
+    string? City = null,
+    string? State = null,
+    string? PostalCode = null
 );
 
 public record LoginRequestDto(
@@ -111,5 +118,7 @@ public record DoctorProfileDto(
     decimal Rating,
     int TotalConsultations,
     bool Available,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? ProfessionalAddress = null,
+    string? ProfessionalPhone = null
 );

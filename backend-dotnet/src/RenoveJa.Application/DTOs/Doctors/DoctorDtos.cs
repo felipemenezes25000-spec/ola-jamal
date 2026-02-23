@@ -18,3 +18,9 @@ public record DoctorListResponseDto(
 public record UpdateDoctorAvailabilityDto(
     bool Available
 );
+
+/// <summary>Atualiza endereço e telefone profissional (obrigatórios para assinar receitas).</summary>
+public record UpdateDoctorProfileDto(
+    string? ProfessionalAddress,
+    string? ProfessionalPhone
+);

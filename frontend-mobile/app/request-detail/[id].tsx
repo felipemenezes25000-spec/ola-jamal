@@ -61,6 +61,10 @@ export default function RequestDetailScreen() {
 
   const fetchIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const payInFlightRef = useRef(false);
+
+  /** Statuses em que o pagamento pode ser confirmado pelo webhook enquanto o usuário está na tela. */
+  const AWAITING_PAYMENT_STATUSES = ['consultation_ready', 'approved_pending_payment', 'pending_payment'];
 
   const load = useCallback(async () => {
     if (!requestId) { setLoading(false); return; }
@@ -93,6 +97,17 @@ export default function RequestDetailScreen() {
     }
   }, [requestId]);
 
+  /** Refresh silencioso (sem loading) para refletir confirmação de pagamento pelo webhook. */
+  const loadSilent = useCallback(async () => {
+    if (!requestId) return;
+    try {
+      const data = await fetchRequestById(requestId);
+      setRequest(data);
+    } catch {
+      // Ignore; não alterar estado em caso de erro no poll
+    }
+  }, [requestId]);
+
   useEffect(() => {
     load();
     return () => { abortRef.current?.abort(); };
@@ -100,18 +115,44 @@ export default function RequestDetailScreen() {
 
   useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId, load]));
 
-  const handlePay = () => {
-    if (!request) return;
-    const allowedToPay = ['approved_pending_payment', 'pending_payment'].includes(request.status) ||
-      (request.requestType === 'consultation' && request.status === 'consultation_ready');
-    if (!allowedToPay) {
-      Alert.alert(
-        'Pagamento indisponível',
-        'Esta solicitação não está aguardando pagamento. O botão Pagar só aparece quando o pedido foi aprovado e está aguardando pagamento.'
-      );
+  /** Polling: enquanto o pedido está aguardando pagamento, atualiza a cada 5s para refletir webhook. */
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const awaiting = request && AWAITING_PAYMENT_STATUSES.includes(request.status);
+    if (!awaiting) {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
       return;
     }
-    router.push(`/payment/request/${request.id}`);
+    pollIntervalRef.current = setInterval(loadSilent, 5000);
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [request?.status, request?.id, loadSilent]);
+
+  const handlePay = () => {
+    if (payInFlightRef.current) return;
+    payInFlightRef.current = true;
+    try {
+      if (!request) return;
+      const allowedToPay = ['approved_pending_payment', 'pending_payment'].includes(request.status) ||
+        (request.requestType === 'consultation' && request.status === 'consultation_ready');
+      if (!allowedToPay) {
+        Alert.alert(
+          'Pagamento indisponível',
+          'Esta solicitação não está aguardando pagamento. O botão Pagar só aparece quando o pedido foi aprovado e está aguardando pagamento.'
+        );
+        return;
+      }
+      router.push(`/payment/request/${request.id}`);
+    } finally {
+      payInFlightRef.current = false;
+    }
   };
 
   const markAsDeliveredIfSigned = async () => {
@@ -254,7 +295,7 @@ export default function RequestDetailScreen() {
         <StatusBadge status={request.status} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Status Tracker */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>STATUS DO PEDIDO</Text>

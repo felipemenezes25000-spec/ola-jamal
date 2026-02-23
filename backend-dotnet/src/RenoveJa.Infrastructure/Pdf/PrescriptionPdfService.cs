@@ -40,7 +40,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     private static readonly Color DarkText = new DeviceRgb(30, 41, 59);             // #1E293B
 
     private const string DefaultVerificationBaseUrl = "https://renoveja.com/verificar";
-    private const string DefaultPharmacyUrl = "https://farmacias.renovejasaude.com.br";
 
     // Dados institucionais fixos da empresa
     private const string CompanyAddress = "Travessa Dona Paula · Higienópolis · São Paulo · SP · Brasil";
@@ -129,20 +128,19 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         }
     }
 
-    private (string verificationUrl, string accessCode, string pharmacyUrl) GetPdfUrls(PrescriptionPdfData data)
+    private (string verificationUrl, string accessCode) GetPdfUrls(PrescriptionPdfData data)
     {
         var baseUrl = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl)
             ? _verificationConfig.BaseUrl.TrimEnd('/')
             : DefaultVerificationBaseUrl;
         var verificationUrl = data.VerificationUrl ?? $"{baseUrl}/{data.RequestId}";
         var accessCode = data.AccessCode ?? GenerateAccessCode(data.RequestId);
-        var pharmacyUrl = data.PharmacyValidationUrl ?? DefaultPharmacyUrl;
-        return (verificationUrl, accessCode, pharmacyUrl);
+        return (verificationUrl, accessCode);
     }
 
     private void RenderSimplePdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> medicationItems)
     {
-        var (verificationUrl, accessCode, pharmacyUrl) = GetPdfUrls(data);
+        var (verificationUrl, accessCode) = GetPdfUrls(data);
         using var writer = new PdfWriter(ms);
         using var pdf = new PdfDocument(writer);
         SetPdfMetadata(pdf, data, "simples");
@@ -165,7 +163,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddObservationSection(document, medicationItems[i], data, font, fontBold, fontItalic);
             AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
             AddDoctorSection(document, data, fontBold, font);
-            AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
             AddLegalFooter(document, data, font, fontItalic);
         }
         document.Close();
@@ -173,7 +170,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private void RenderAntimicrobialPdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> medicationItems)
     {
-        var (verificationUrl, accessCode, pharmacyUrl) = GetPdfUrls(data);
+        var (verificationUrl, accessCode) = GetPdfUrls(data);
         using var writer = new PdfWriter(ms);
         using var pdf = new PdfDocument(writer);
         SetPdfMetadata(pdf, data, "antimicrobiana");
@@ -201,7 +198,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddObservationSection(document, medicationItems[i], data, font, fontBold, fontItalic);
             AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
             AddDoctorSection(document, data, fontBold, font);
-            AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
             AddLegalFooter(document, data, font, fontItalic);
         }
         document.Close();
@@ -209,7 +205,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private void RenderControlledSpecialPdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> medicationItems)
     {
-        var (verificationUrl, accessCode, pharmacyUrl) = GetPdfUrls(data);
+        var (verificationUrl, accessCode) = GetPdfUrls(data);
         using var writer = new PdfWriter(ms);
         using var pdf = new PdfDocument(writer);
         SetPdfMetadata(pdf, data, "controle especial");
@@ -237,7 +233,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddSncrSingleMedicationSection(document, medicationItems[i], i + 1, medicationItems.Count, fontBold, font, fontItalic);
             AddQrCodeSection(document, verificationUrl, accessCode, font, fontBold);
             AddSncrDataSignatureSection(document, data, fontBold, font);
-            AddPharmacyLink(document, pharmacyUrl, font, fontItalic);
             AddLegalFooter(document, data, font, fontItalic);
         }
 
@@ -487,10 +482,10 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             using var pdf = new PdfDocument(writer);
 
             var info = pdf.GetDocumentInfo();
-            info.SetTitle($"Pedido de Exame - {data.PatientName} - {data.EmissionDate:dd/MM/yyyy}");
+            info.SetTitle($"Solicitação de Exames Médicos - {data.PatientName} - {data.EmissionDate:dd/MM/yyyy}");
             info.SetAuthor($"Dr(a). {data.DoctorName} | CRM {data.DoctorCrm}/{data.DoctorCrmState}");
-            info.SetCreator("RenoveJá Saúde - Sistema de Pedidos de Exame");
-            info.SetSubject("Pedido de exame médico digital");
+            info.SetCreator("RenoveJá Saúde - Conforme Res. CFM 2.381/2024 e RDC ANVISA 786/2023");
+            info.SetSubject("Solicitação de exames médicos — documento válido para laboratórios clínicos (CFM, ANVISA, ICP-Brasil)");
 
             using var document = new Document(pdf, PageSize.A4);
             document.SetMargins(40, 40, 60, 40);
@@ -552,17 +547,33 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             .SetBorder(Border.NO_BORDER)
             .SetTextAlignment(TextAlignment.RIGHT)
             .SetVerticalAlignment(VerticalAlignment.MIDDLE);
-        rightCell.Add(new Paragraph("PEDIDO DE EXAME")
+        rightCell.Add(new Paragraph("SOLICITAÇÃO DE EXAMES MÉDICOS")
             .SetFont(fontBold)
-            .SetFontSize(11)
-            .SetFontColor(DarkText));
+            .SetFontSize(12)
+            .SetFontColor(DarkText)
+            .SetMarginBottom(2));
+        rightCell.Add(new Paragraph("Conforme Resolução CFM nº 2.381/2024")
+            .SetFont(font)
+            .SetFontSize(8)
+            .SetFontColor(MediumGray));
         logoTable.AddCell(rightCell);
         document.Add(logoTable);
+
+        // Aviso normativo: documento médico com requisitos CFM
+        var noticeCell = new Table(1).UseAllAvailableWidth().SetMarginBottom(6);
+        var notice = new Cell()
+            .SetBorder(Border.NO_BORDER)
+            .SetBackgroundColor(new DeviceRgb(248, 250, 252))
+            .SetPadding(6);
+        notice.Add(new Paragraph("Documento médico para solicitação de exames. Contém identificação do médico (CRM/UF), do paciente (nome e CPF quando houver), data de emissão e espaço para assinatura qualificada. Válido para apresentação em laboratórios clínicos.")
+            .SetFont(font).SetFontSize(7).SetFontColor(MediumGray));
+        noticeCell.AddCell(notice);
+        document.Add(noticeCell);
     }
 
     private static void AddPatientSectionFromExam(Document document, ExamPdfData data, PdfFont fontBold, PdfFont font)
     {
-        var sectionTitle = new Paragraph("DADOS DO PACIENTE")
+        var sectionTitle = new Paragraph("DADOS DO PACIENTE (identificação conforme Res. CFM nº 2.381/2024)")
             .SetFont(fontBold)
             .SetFontSize(8)
             .SetFontColor(MediumGray)
@@ -599,7 +610,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         {
             var cidCell = new Cell(1, 2).SetBorder(Border.NO_BORDER).SetPaddingBottom(2);
             var cidPara = new Paragraph();
-            cidPara.Add(new Text("Indicação Clínica: ").SetFont(fontBold).SetFontSize(9).SetFontColor(MediumGray));
+            cidPara.Add(new Text("Indicação clínica / hipótese diagnóstica: ").SetFont(fontBold).SetFontSize(9).SetFontColor(MediumGray));
             cidPara.Add(new Text(data.ClinicalIndication).SetFont(font).SetFontSize(9).SetFontColor(DarkText));
             cidCell.Add(cidPara);
             patientTable.AddCell(cidCell);
@@ -610,7 +621,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private static void AddExamListSection(Document document, List<string> exams, string? notes, PdfFont fontBold, PdfFont font, PdfFont fontItalic)
     {
-        var sectionTitle = new Paragraph("EXAMES SOLICITADOS")
+        var sectionTitle = new Paragraph("EXAMES SOLICITADOS (para realização em laboratório clínico ou serviço de diagnóstico)")
             .SetFont(fontBold)
             .SetFontSize(8)
             .SetFontColor(MediumGray)
@@ -666,7 +677,13 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     {
         AddSeparator(document);
 
-        // Linha de assinatura
+        var sectionTitle = new Paragraph("MÉDICO SOLICITANTE (Res. CFM nº 2.381/2024 — identificação, endereço e contato profissional)")
+            .SetFont(fontBold)
+            .SetFontSize(8)
+            .SetFontColor(MediumGray)
+            .SetMarginBottom(6);
+        document.Add(sectionTitle);
+
         var signTable = new Table(UnitValue.CreatePercentArray(new float[] { 50, 50 }))
             .UseAllAvailableWidth()
             .SetMarginBottom(8);
@@ -677,27 +694,32 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         signLineCell.Add(new Paragraph("_____________________________________________")
             .SetFont(font).SetFontSize(10).SetFontColor(DarkText).SetMarginBottom(2));
         signLineCell.Add(new Paragraph($"Dr(a). {data.DoctorName}")
-            .SetFont(fontBold).SetFontSize(9).SetFontColor(DarkText));
-
+            .SetFont(fontBold).SetFontSize(10).SetFontColor(DarkText));
         var crmInfoPara = new Paragraph();
         crmInfoPara.Add(new Text($"CRM {data.DoctorCrm}/{data.DoctorCrmState}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
         if (!string.IsNullOrWhiteSpace(data.DoctorSpecialty))
-            crmInfoPara.Add(new Text($" | {data.DoctorSpecialty}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
+            crmInfoPara.Add(new Text($" · {data.DoctorSpecialty}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
         signLineCell.Add(crmInfoPara);
+        signLineCell.Add(new Paragraph("Assinatura digital conforme ICP-Brasil (aplicada ao documento assinado)")
+            .SetFont(font).SetFontSize(7).SetFontColor(MediumGray).SetMarginTop(4));
         signTable.AddCell(signLineCell);
 
         var contactCell = new Cell()
             .SetBorder(Border.NO_BORDER)
             .SetTextAlignment(TextAlignment.LEFT)
-            .SetVerticalAlignment(VerticalAlignment.BOTTOM)
+            .SetVerticalAlignment(VerticalAlignment.MIDDLE)
             .SetPaddingLeft(16);
-
+        contactCell.Add(new Paragraph("Endereço e contato profissional (obrigatórios conforme CFM):")
+            .SetFont(fontBold).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(4));
         if (!string.IsNullOrWhiteSpace(data.DoctorAddress))
             contactCell.Add(new Paragraph(data.DoctorAddress)
-                .SetFont(font).SetFontSize(8).SetFontColor(MediumGray).SetMarginBottom(2));
+                .SetFont(font).SetFontSize(9).SetFontColor(DarkText).SetMarginBottom(2));
+        else
+            contactCell.Add(new Paragraph("—").SetFont(font).SetFontSize(9).SetFontColor(MediumGray).SetMarginBottom(2));
         if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
-            contactCell.Add(new Paragraph($"Tel.: {data.DoctorPhone}")
-                .SetFont(font).SetFontSize(8).SetFontColor(MediumGray));
+            contactCell.Add(new Paragraph($"Tel.: {data.DoctorPhone}").SetFont(font).SetFontSize(9).SetFontColor(DarkText));
+        else
+            contactCell.Add(new Paragraph("Tel.: —").SetFont(font).SetFontSize(9).SetFontColor(MediumGray));
 
         signTable.AddCell(contactCell);
         document.Add(signTable);
@@ -706,11 +728,17 @@ public class PrescriptionPdfService : IPrescriptionPdfService
     private static void AddLegalFooterFromExam(Document document, ExamPdfData data, PdfFont font, PdfFont fontItalic)
     {
         AddSeparator(document);
-        var legalText = new Paragraph()
-            .SetMarginTop(4);
-        legalText.Add(new Text("Importante: ").SetFont(fontItalic).SetFontSize(7).SetFontColor(MediumGray));
-        legalText.Add(new Text("Verifique a autenticidade em: validar.iti.gov.br\n").SetFont(font).SetFontSize(7).SetFontColor(MediumGray));
-        legalText.Add(new Text($"Assinado digitalmente conforme ICP-Brasil por Dr(a). {data.DoctorName} em {data.EmissionDate:dd/MM/yyyy 'às' HH:mm}.")
+        var legalText = new Paragraph().SetMarginTop(4);
+        legalText.Add(new Text("Referências normativas: ").SetFont(fontItalic).SetFontSize(7).SetFontColor(MediumGray));
+        legalText.Add(new Text("CFM — Resolução CFM nº 2.381/2024 (documentos médicos e prescrição). ")
+            .SetFont(font).SetFontSize(7).SetFontColor(MediumGray));
+        legalText.Add(new Text("ANVISA — RDC nº 786/2023 (requisitos para laboratórios clínicos). ")
+            .SetFont(font).SetFontSize(7).SetFontColor(MediumGray));
+        legalText.Add(new Text("ICP-Brasil / ITI — Assinatura digital; verificação em validar.iti.gov.br. ")
+            .SetFont(font).SetFontSize(7).SetFontColor(MediumGray));
+        legalText.Add(new Text("CFF — normas aplicáveis quando houver dispensação ou coleta em farmácia.\n")
+            .SetFont(font).SetFontSize(7).SetFontColor(MediumGray));
+        legalText.Add(new Text($"Documento emitido em {data.EmissionDate:dd/MM/yyyy 'às' HH:mm}. Assinatura digital aplicada conforme ICP-Brasil por Dr(a). {data.DoctorName}.")
             .SetFont(font).SetFontSize(7).SetFontColor(MediumGray));
         document.Add(legalText);
     }
@@ -1067,15 +1095,6 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             document.Add(new Paragraph($"Endereço: {data.DoctorAddress}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray).SetMarginBottom(!string.IsNullOrWhiteSpace(data.DoctorPhone) ? 2 : 6));
         if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
             document.Add(new Paragraph($"Telefone: {data.DoctorPhone}").SetFont(font).SetFontSize(9).SetFontColor(MediumGray).SetMarginBottom(6));
-    }
-
-    private static void AddPharmacyLink(Document document, string pharmacyUrl, PdfFont font, PdfFont fontItalic)
-    {
-        document.Add(new Paragraph($"Farmacêutico, valide a receita digital em {pharmacyUrl}")
-            .SetFont(fontItalic)
-            .SetFontSize(8)
-            .SetFontColor(RenovejaSecondary)
-            .SetMarginBottom(10));
     }
 
     private static void AddLegalFooter(Document document, PrescriptionPdfData data, PdfFont font, PdfFont fontItalic)

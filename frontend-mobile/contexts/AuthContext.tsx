@@ -14,6 +14,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   cancelRegistration: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshDoctorProfile: () => Promise<void>;
   completeProfile: (data: CompleteProfileData) => Promise<UserDto>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
@@ -48,6 +49,13 @@ interface DoctorSignUpData {
   specialty: string;
   birthDate?: string;
   bio?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  complement?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
 }
 
 interface CompleteProfileData {
@@ -236,6 +244,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           specialty: data.specialty,
           birthDate: data.birthDate,
           bio: data.bio,
+          street: data.street,
+          number: data.number,
+          neighborhood: data.neighborhood,
+          complement: data.complement,
+          city: data.city,
+          state: data.state,
+          postalCode: data.postalCode,
         }
       );
 
@@ -332,6 +347,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshDoctorProfile = async () => {
+    if (user?.role !== 'doctor') return;
+    try {
+      const profile = await apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
+      if (profile) {
+        await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(profile));
+        setDoctorProfile(profile);
+      }
+    } catch (error) {
+      console.error('Error refreshing doctor profile:', error);
+    }
+  };
+
   const completeProfile = async (data: CompleteProfileData): Promise<UserDto> => {
     try {
       const updatedUser = await apiClient.patch<UserDto>(
@@ -396,6 +424,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     cancelRegistration,
     refreshUser,
+    refreshDoctorProfile,
     completeProfile,
     forgotPassword,
     resetPassword,

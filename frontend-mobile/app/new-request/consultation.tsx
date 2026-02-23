@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
-import { createConsultationRequest } from '../../lib/api';
+import { createConsultationRequest, getTimeBankBalance } from '../../lib/api';
 import { CONSULTATION_PRICE_PER_MINUTE } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
@@ -58,12 +58,26 @@ export default function ConsultationScreen() {
   const removeMinutes = () => setDurationMinutes((m) => Math.max(CONSULTATION_MIN_MINUTES, m - 1));
   const [symptoms, setSymptoms] = useState('');
   const [loading, setLoading] = useState(false);
+  const [bankMinutes, setBankMinutes] = useState<number>(0);
+  const [loadingBank, setLoadingBank] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingBank(true);
+    getTimeBankBalance(consultationType)
+      .then(res => { if (!cancelled) setBankMinutes(res.balanceMinutes); })
+      .catch(() => { if (!cancelled) setBankMinutes(0); })
+      .finally(() => { if (!cancelled) setLoadingBank(false); });
+    return () => { cancelled = true; };
+  }, [consultationType]);
 
   const pricePerMin = CONSULTATION_PRICE_PER_MINUTE[consultationType];
-  const totalPrice = useMemo(
-    () => Math.round(pricePerMin * durationMinutes * 100) / 100,
-    [pricePerMin, durationMinutes]
-  );
+  const { freeMinutes, paidMinutes, totalPrice } = useMemo(() => {
+    const free = Math.min(bankMinutes, durationMinutes);
+    const paid = durationMinutes - free;
+    const total = Math.round(pricePerMin * paid * 100) / 100;
+    return { freeMinutes: free, paidMinutes: paid, totalPrice: total };
+  }, [pricePerMin, durationMinutes, bankMinutes]);
 
   const handleSubmit = async () => {
     const validation = validate(createConsultationSchema, {
@@ -166,14 +180,37 @@ export default function ConsultationScreen() {
           textAlignVertical="top"
         />
 
+        {/* Saldo banco de horas */}
+        {!loadingBank && bankMinutes > 0 && (
+          <AppCard style={styles.bankCard}>
+            <View style={styles.bankRow}>
+              <Ionicons name="time" size={18} color={c.success?.main ?? '#16a34a'} />
+              <Text style={styles.bankText}>
+                Você tem <Text style={styles.bankBold}>{bankMinutes} min</Text> gratuitos disponíveis no banco de horas
+              </Text>
+            </View>
+          </AppCard>
+        )}
+
         {/* Total */}
         <AppCard style={styles.totalCard}>
+          {freeMinutes > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>
+                {freeMinutes} min gratuitos (banco de horas)
+              </Text>
+              <Text style={styles.discountValue}>-{formatBRL(pricePerMin * freeMinutes)}</Text>
+            </View>
+          )}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>
-              {durationMinutes} min × {formatBRL(pricePerMin)}/min
+              {paidMinutes} min × {formatBRL(pricePerMin)}/min
             </Text>
             <Text style={styles.totalValue}>{formatBRL(totalPrice)}</Text>
           </View>
+          {freeMinutes > 0 && paidMinutes === 0 && (
+            <Text style={styles.freeLabel}>Consulta gratuita pelo banco de horas!</Text>
+          )}
         </AppCard>
 
         <Text style={styles.stepHint}>Pronto? Toque no botão abaixo para solicitar sua consulta.</Text>
@@ -318,13 +355,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: s.xs,
   },
   totalLabel: {
     ...t.variants.body2,
     color: c.text.secondary,
+    flex: 1,
   },
   totalValue: {
     ...t.variants.h2,
     color: c.primary.main,
+  },
+  discountValue: {
+    ...t.variants.h3,
+    color: '#16a34a',
+  },
+  freeLabel: {
+    fontSize: t.fontSize.sm,
+    color: '#16a34a',
+    fontWeight: '600',
+    marginTop: s.xs,
+    textAlign: 'center',
+  },
+  bankCard: {
+    marginBottom: s.md,
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+    borderWidth: 1,
+  },
+  bankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.sm,
+  },
+  bankText: {
+    fontSize: t.fontSize.sm,
+    color: '#166534',
+    flex: 1,
+    lineHeight: 18,
+  },
+  bankBold: {
+    fontWeight: '700',
   },
 });

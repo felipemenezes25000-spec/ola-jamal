@@ -81,15 +81,16 @@ export function PrimaryButton({
       ]}
       accessibilityRole="button"
     >
-      {loading ? (
-        <ActivityIndicator color={iconColor} size="small" />
-      ) : (
-        <View style={styles.content}>
-          {icon && <Ionicons name={icon} size={20} color={iconColor} />}
-          <Text style={[styles.label, labelStyle]}>{label}</Text>
-          {showArrow && (
-            <Ionicons name="chevron-forward" size={20} color={iconColor} style={styles.arrow} />
-          )}
+      <View style={styles.content}>
+        {icon && <Ionicons name={icon} size={20} color={iconColor} />}
+        <Text style={[styles.label, labelStyle]}>{label}</Text>
+        {showArrow && (
+          <Ionicons name="chevron-forward" size={20} color={iconColor} style={styles.arrow} />
+        )}
+      </View>
+      {loading && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator color={iconColor} size="small" />
         </View>
       )}
     </Pressable>
@@ -105,6 +106,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     borderWidth: 1.5,
+    position: 'relative',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   variantPrimary: {
     backgroundColor: '#1B4965',

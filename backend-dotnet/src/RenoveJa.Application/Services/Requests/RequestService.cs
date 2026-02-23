@@ -40,6 +40,7 @@ public class RequestService(
     IHttpClientFactory httpClientFactory,
     IOptions<ApiConfig> apiConfig,
     IDocumentTokenService documentTokenService,
+    IConsultationTimeBankRepository consultationTimeBankRepository,
     ILogger<RequestService> logger) : IRequestService
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
@@ -252,12 +253,65 @@ public class RequestService(
         if (user == null)
             throw new InvalidOperationException("User not found");
 
+        var consultationType = string.IsNullOrWhiteSpace(request.ConsultationType)
+            ? "medico_clinico"
+            : request.ConsultationType;
+        var durationMinutes = request.DurationMinutes > 0 ? request.DurationMinutes : 15;
+
+        // Busca preço por minuto da tabela product_prices
+        var pricePerMinute = await productPriceRepository.GetPriceAsync("consultation", consultationType, cancellationToken)
+                             ?? 6.99m;
+
+        // Verifica saldo no banco de horas
+        var balanceSeconds = await consultationTimeBankRepository.GetBalanceSecondsAsync(userId, consultationType, cancellationToken);
+        var balanceMinutes = balanceSeconds / 60;
+
+        decimal totalPrice;
+        int freeMinutes = 0;
+        int paidMinutes = durationMinutes;
+
+        if (balanceMinutes >= durationMinutes)
+        {
+            // Consulta completamente gratuita pelo banco de horas
+            freeMinutes = durationMinutes;
+            paidMinutes = 0;
+            totalPrice = 0m;
+        }
+        else if (balanceMinutes > 0)
+        {
+            // Desconto parcial
+            freeMinutes = balanceMinutes;
+            paidMinutes = durationMinutes - freeMinutes;
+            totalPrice = paidMinutes * pricePerMinute;
+        }
+        else
+        {
+            totalPrice = durationMinutes * pricePerMinute;
+        }
+
         var medicalRequest = MedicalRequest.CreateConsultation(
             userId,
             user.Name,
-            request.Symptoms);
+            request.Symptoms,
+            consultationType,
+            durationMinutes,
+            pricePerMinute);
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
+
+        // Debitar minutos gratuitos do banco de horas
+        if (freeMinutes > 0)
+        {
+            await consultationTimeBankRepository.DebitAsync(
+                userId, consultationType, freeMinutes * 60, medicalRequest.Id, cancellationToken);
+        }
+
+        // Persistir o preço efetivo para ser usado na aceitação pelo médico
+        if (totalPrice >= 0)
+        {
+            medicalRequest.SetEffectivePrice(totalPrice);
+            medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        }
 
         await CreateNotificationAsync(
             userId,
@@ -341,7 +395,8 @@ public class RequestService(
         foreach (var r in requests)
         {
             string? ct = null, ca = null, cs = null;
-            if (r.RequestType == RequestType.Consultation && anamnesisByRequest.TryGetValue(r.Id, out var a))
+            // Transcrição/anamnese/resumo pós-consulta só para o médico atribuído (nunca para o paciente).
+            if (r.RequestType == RequestType.Consultation && r.DoctorId == userId && anamnesisByRequest.TryGetValue(r.Id, out var a))
             {
                 ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson;
             }
@@ -437,11 +492,19 @@ public class RequestService(
         if (!canAccess)
             throw new KeyNotFoundException("Request not found");
 
-        var (ct, ca, cs) = await GetConsultationAnamnesisIfAnyAsync(request.Id, request.RequestType, cancellationToken);
+        // Transcrição, anamnese e resumo pós-consulta só aparecem para o médico atribuído (nunca para o paciente).
+        string? ct = null, ca = null, cs = null;
+        if (isAssignedDoctor)
+        {
+            var consultationData = await GetConsultationAnamnesisIfAnyAsync(request.Id, request.RequestType, cancellationToken);
+            ct = consultationData.Transcript;
+            ca = consultationData.AnamnesisJson;
+            cs = consultationData.SuggestionsJson;
+        }
         return MapRequestToDto(request, ct, ca, cs);
     }
 
-    private async Task<(string? transcript, string? anamnesisJson, string? suggestionsJson)> GetConsultationAnamnesisIfAnyAsync(
+    private async Task<(string? Transcript, string? AnamnesisJson, string? SuggestionsJson)> GetConsultationAnamnesisIfAnyAsync(
         Guid requestId,
         RequestType requestType,
         CancellationToken cancellationToken)
@@ -631,13 +694,23 @@ public class RequestService(
         if (doctor == null || !doctor.IsDoctor())
             throw new InvalidOperationException("Doctor not found");
 
-        var (_, subtype) = GetProductTypeAndSubtype(request);
-        var priceFromDb = await productPriceRepository.GetPriceAsync("consultation", subtype, cancellationToken);
-        if (!priceFromDb.HasValue || priceFromDb.Value <= 0)
-            throw new InvalidOperationException("Preço de consulta não configurado. Verifique a tabela product_prices (product_type=consultation, subtype=default).");
+        decimal effectivePrice;
+        if (request.ContractedMinutes.HasValue && request.PricePerMinute.HasValue)
+        {
+            // Preço por minuto: usa o preço já calculado (armazenado no Price) ou recalcula
+            effectivePrice = request.Price?.Amount ?? (request.ContractedMinutes.Value * request.PricePerMinute.Value);
+        }
+        else
+        {
+            var (_, subtype) = GetProductTypeAndSubtype(request);
+            var priceFromDb = await productPriceRepository.GetPriceAsync("consultation", subtype, cancellationToken);
+            if (!priceFromDb.HasValue || priceFromDb.Value <= 0)
+                throw new InvalidOperationException("Preço de consulta não configurado. Verifique a tabela product_prices (product_type=consultation, subtype=default).");
+            effectivePrice = priceFromDb.Value;
+        }
 
         request.AssignDoctor(doctorId, doctor.Name);
-        request.MarkConsultationReady(priceFromDb.Value);
+        request.MarkConsultationReady(effectivePrice > 0 ? effectivePrice : (decimal?)null);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var roomName = $"consultation-{request.Id}";
@@ -693,10 +766,54 @@ public class RequestService(
 
         await CreateNotificationAsync(
             request.PatientId,
-            "Consulta Iniciada",
-            "A consulta começou! Entre na sala de vídeo.",
+            "Médico na sala",
+            "O médico entrou na sala de vídeo. Entre na chamada.",
             cancellationToken,
             new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+
+        return MapRequestToDto(request);
+    }
+
+    /// <summary>
+    /// Médico ou paciente reporta WebRTC conectado. Quando ambos tiverem reportado, ConsultationStartedAt é definido e ambos recebem push "Chamada conectada".
+    /// </summary>
+    public async Task<RequestResponseDto> ReportCallConnectedAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null)
+            throw new KeyNotFoundException("Request not found");
+
+        if (request.RequestType != RequestType.Consultation)
+            throw new InvalidOperationException("Only consultation requests support call connected");
+
+        if (request.PatientId != userId && request.DoctorId != userId)
+            throw new UnauthorizedAccessException("Only the doctor or patient of this consultation can report call connected");
+
+        var hadStarted = request.ConsultationStartedAt.HasValue;
+        var applied = request.ReportCallConnected(userId);
+        if (!applied)
+            return MapRequestToDto(request);
+
+        request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+        if (!hadStarted && request.ConsultationStartedAt.HasValue)
+        {
+            await CreateNotificationAsync(
+                request.PatientId,
+                "Chamada conectada",
+                "O tempo da consulta está contando agora.",
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            if (request.DoctorId.HasValue)
+            {
+                await CreateNotificationAsync(
+                    request.DoctorId.Value,
+                    "Chamada conectada",
+                    "O tempo da consulta está contando agora.",
+                    cancellationToken,
+                    new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            }
+        }
 
         return MapRequestToDto(request);
     }
@@ -730,6 +847,36 @@ public class RequestService(
         {
             videoRoom.End();
             await videoRoomRepository.UpdateAsync(videoRoom, cancellationToken);
+        }
+
+        // Creditar minutos não utilizados ao banco de horas
+        if (request.ContractedMinutes.HasValue && !string.IsNullOrWhiteSpace(request.ConsultationType))
+        {
+            try
+            {
+                var contractedSeconds = request.ContractedMinutes.Value * 60;
+                var usedSeconds = videoRoom?.DurationSeconds ?? 0;
+                var unusedSeconds = contractedSeconds - usedSeconds;
+
+                if (unusedSeconds > 0)
+                {
+                    await consultationTimeBankRepository.CreditAsync(
+                        request.PatientId,
+                        request.ConsultationType,
+                        unusedSeconds,
+                        request.Id,
+                        "refund_unused",
+                        cancellationToken);
+
+                    logger.LogInformation(
+                        "[FinishConsultation] Creditado {Seconds}s ao banco de horas de {PatientId} ({Type})",
+                        unusedSeconds, request.PatientId, request.ConsultationType);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Falha ao creditar banco de horas para request {RequestId}", id);
+            }
         }
 
         // Persistir transcrição e anamnese da consulta no prontuário
@@ -1262,8 +1409,8 @@ public class RequestService(
         var medications = request.Medications?.Where(m => !string.IsNullOrWhiteSpace(m)).ToList() ?? new List<string>();
         if (medications.Count == 0 && !string.IsNullOrWhiteSpace(request.AiExtractedJson))
             medications = ParseMedicationsFromAiJson(request.AiExtractedJson);
-        if (medications.Count == 0)
-            return null;
+        // Não retornar null quando não há medicamentos: o PrescriptionPdfService gera um PDF com placeholder
+        // para o médico sempre ver o preview da receita na tela de edição.
 
         var doctorProfile = request.DoctorId.HasValue ? await doctorRepository.GetByUserIdAsync(request.DoctorId.Value, cancellationToken) : null;
         var doctorUser = request.DoctorId.HasValue ? await userRepository.GetByIdAsync(request.DoctorId.Value, cancellationToken) : null;
@@ -1659,7 +1806,11 @@ public class RequestService(
             request.AiMessageToUser,
             consultationTranscript,
             consultationAnamnesis,
-            consultationAiSuggestions);
+            consultationAiSuggestions,
+            request.ConsultationType,
+            request.ContractedMinutes,
+            request.PricePerMinute,
+            request.ConsultationStartedAt);
     }
 
     private static VideoRoomResponseDto MapVideoRoomToDto(VideoRoom room)
@@ -1674,5 +1825,36 @@ public class RequestService(
             room.EndedAt,
             room.DurationSeconds,
             room.CreatedAt);
+    }
+
+    public async Task<RequestResponseDto> AutoFinishConsultationAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+        if (request == null)
+            throw new KeyNotFoundException("Request not found");
+
+        if (request.RequestType != RequestType.Consultation)
+            throw new InvalidOperationException("Only consultation requests can be auto-finished");
+
+        if (request.PatientId != userId && request.DoctorId != userId)
+            throw new UnauthorizedAccessException("Only the patient or assigned doctor can auto-finish this consultation");
+
+        var canFinish = request.Status == RequestStatus.InConsultation
+            || request.Status == RequestStatus.Paid
+            || request.Status == RequestStatus.ConsultationReady;
+        if (!canFinish)
+            throw new InvalidOperationException($"Consultation is not in a state that can be finished (current: {request.Status})");
+
+        // Delegar para FinishConsultationAsync usando o doctorId se disponível, ou simular com o userId
+        var finisherDoctorId = request.DoctorId ?? userId;
+        return await FinishConsultationAsync(id, finisherDoctorId, null, cancellationToken);
+    }
+
+    public async Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(
+        Guid userId, string consultationType, CancellationToken cancellationToken = default)
+    {
+        var normalizedType = string.IsNullOrWhiteSpace(consultationType) ? "medico_clinico" : consultationType;
+        var balanceSeconds = await consultationTimeBankRepository.GetBalanceSecondsAsync(userId, normalizedType, cancellationToken);
+        return (balanceSeconds, balanceSeconds / 60, normalizedType);
     }
 }

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -14,6 +15,11 @@ namespace RenoveJa.Api.Controllers;
 [Route("api/doctors")]
 public class DoctorsController(IDoctorService doctorService, ICrmValidationService crmValidationService, ILogger<DoctorsController> logger) : ControllerBase
 {
+    private static Guid GetUserId(ClaimsPrincipal user)
+    {
+        var claim = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+    }
     /// <summary>
     /// Lista médicos com paginação, opcionalmente por especialidade e disponibilidade.
     /// </summary>
@@ -68,6 +74,38 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
         CancellationToken cancellationToken)
     {
         var profile = await doctorService.UpdateAvailabilityAsync(id, dto, cancellationToken);
+        return Ok(profile);
+    }
+
+    /// <summary>
+    /// Retorna o perfil do médico logado.
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> GetMyProfile(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId(User);
+        if (userId == Guid.Empty)
+            return Unauthorized();
+        var profile = await doctorService.GetProfileByUserIdAsync(userId, cancellationToken);
+        if (profile == null)
+            return NotFound();
+        return Ok(profile);
+    }
+
+    /// <summary>
+    /// Atualiza endereço e telefone profissional do médico logado. Obrigatório para assinar receitas.
+    /// </summary>
+    [HttpPatch("me/profile")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> UpdateMyProfile(
+        [FromBody] UpdateDoctorProfileDto dto,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId(User);
+        if (userId == Guid.Empty)
+            return Unauthorized();
+        var profile = await doctorService.UpdateProfileByUserIdAsync(userId, dto, cancellationToken);
         return Ok(profile);
     }
 

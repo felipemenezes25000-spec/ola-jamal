@@ -59,5 +59,23 @@ public class CompleteProfileRequestValidator : AbstractValidator<CompleteProfile
             .MaximumLength(10)
             .When(x => !string.IsNullOrEmpty(x.PostalCode))
             .WithMessage("PostalCode cannot exceed 10 characters");
+
+        // Endereço obrigatório para médico ao completar perfil (quando Crm/Specialty preenchidos)
+        RuleFor(x => x.Street)
+            .NotEmpty().WithMessage("Rua é obrigatória.")
+            .When(x => !string.IsNullOrEmpty(x.Crm));
+        RuleFor(x => x.Number)
+            .NotEmpty().WithMessage("Número é obrigatório.")
+            .When(x => !string.IsNullOrEmpty(x.Crm));
+        RuleFor(x => x.Neighborhood)
+            .NotEmpty().WithMessage("Bairro é obrigatório.")
+            .When(x => !string.IsNullOrEmpty(x.Crm));
+        RuleFor(x => x.City)
+            .NotEmpty().WithMessage("Cidade é obrigatória.")
+            .When(x => !string.IsNullOrEmpty(x.Crm));
+        RuleFor(x => x.State)
+            .NotEmpty().WithMessage("UF é obrigatória.")
+            .Length(2).WithMessage("UF deve ter 2 caracteres.")
+            .When(x => !string.IsNullOrEmpty(x.Crm));
     }
 }

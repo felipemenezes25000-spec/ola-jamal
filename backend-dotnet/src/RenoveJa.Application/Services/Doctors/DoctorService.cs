@@ -16,6 +16,8 @@ public interface IDoctorService
     Task<DoctorListResponseDto> GetDoctorByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<List<DoctorListResponseDto>> GetQueueAsync(string? specialty, CancellationToken cancellationToken = default);
     Task<DoctorProfileDto> UpdateAvailabilityAsync(Guid id, UpdateDoctorAvailabilityDto dto, CancellationToken cancellationToken = default);
+    Task<DoctorProfileDto?> GetProfileByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<DoctorProfileDto> UpdateProfileByUserIdAsync(Guid userId, UpdateDoctorProfileDto dto, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -191,6 +193,64 @@ public class DoctorService(
             profile.Rating,
             profile.TotalConsultations,
             profile.Available,
-            profile.CreatedAt);
+            profile.CreatedAt,
+            profile.ProfessionalAddress,
+            profile.ProfessionalPhone);
+    }
+
+    /// <summary>
+    /// Obtém o perfil do médico pelo user_id (para o médico logado).
+    /// </summary>
+    public async Task<DoctorProfileDto?> GetProfileByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var profile = await doctorRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (profile == null)
+            return null;
+
+        return new DoctorProfileDto(
+            profile.Id,
+            profile.UserId,
+            profile.Crm,
+            profile.CrmState,
+            profile.Specialty,
+            profile.Bio,
+            profile.Rating,
+            profile.TotalConsultations,
+            profile.Available,
+            profile.CreatedAt,
+            profile.ProfessionalAddress,
+            profile.ProfessionalPhone);
+    }
+
+    /// <summary>
+    /// Atualiza endereço e telefone profissional do médico (por user_id). Obrigatório para assinar receitas.
+    /// </summary>
+    public async Task<DoctorProfileDto> UpdateProfileByUserIdAsync(
+        Guid userId,
+        UpdateDoctorProfileDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var profile = await doctorRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (profile == null)
+            throw new KeyNotFoundException("Perfil de médico não encontrado para este usuário.");
+
+        profile.UpdateProfile(professionalAddress: dto.ProfessionalAddress, professionalPhone: dto.ProfessionalPhone);
+        profile = await doctorRepository.UpdateAsync(profile, cancellationToken);
+
+        return new DoctorProfileDto(
+            profile.Id,
+            profile.UserId,
+            profile.Crm,
+            profile.CrmState,
+            profile.Specialty,
+            profile.Bio,
+            profile.Rating,
+            profile.TotalConsultations,
+            profile.Available,
+            profile.CreatedAt,
+            profile.ProfessionalAddress,
+            profile.ProfessionalPhone);
     }
 }

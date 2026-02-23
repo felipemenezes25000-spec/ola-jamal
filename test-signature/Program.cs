@@ -219,9 +219,6 @@ using (var ms = new MemoryStream())
         document.Add(new Paragraph("contato@renovejasaude.com.br    www.renovejasaude.com.br    Telefone: (11) 0000-0000")
             .SetFont(font).SetFontSize(7).SetFontColor(mediumGray).SetMarginBottom(3));
 
-        document.Add(new Paragraph("Farmacêutico, valide a receita digital em https://farmacias.renovejasaude.com.br")
-            .SetFont(fontBold).SetFontSize(7).SetFontColor(primaryColor));
-
         // Page number
         document.Add(new Paragraph($"{medIdx + 1}")
             .SetFont(font).SetFontSize(8).SetFontColor(mediumGray)

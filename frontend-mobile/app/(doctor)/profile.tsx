@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Platform,
   TouchableOpacity,
   InteractionManager,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,10 +19,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 const pad = doctorDS.screenPaddingHorizontal;
 import { useAuth } from '../../contexts/AuthContext';
+import { updateDoctorProfile } from '../../lib/api';
+import { showToast } from '../../components/ui/Toast';
+
 export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, doctorProfile: doctor, signOut } = useAuth();
+  const { user, doctorProfile: doctor, signOut, refreshDoctorProfile } = useAuth();
+  const [professionalAddress, setProfessionalAddress] = useState('');
+  const [professionalPhone, setProfessionalPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (doctor) {
+      setProfessionalAddress(doctor.professionalAddress ?? '');
+      setProfessionalPhone(doctor.professionalPhone ?? '');
+    }
+  }, [doctor]);
 
   const doLogout = () => {
     signOut()
@@ -53,6 +68,22 @@ export default function DoctorProfile() {
   const initials = user?.name
     ? user.name.split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('')
     : '?';
+
+  const saveRecipeData = async () => {
+    setSaving(true);
+    try {
+      await updateDoctorProfile({
+        professionalAddress: professionalAddress.trim() || null,
+        professionalPhone: professionalPhone.trim() || null,
+      });
+      await refreshDoctorProfile();
+      showToast({ message: 'Dados para receita salvos.', type: 'success' });
+    } catch (e: unknown) {
+      showToast({ message: (e as Error)?.message ?? 'Erro ao salvar.', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const menuSections = [
     {
@@ -99,6 +130,43 @@ export default function DoctorProfile() {
           </View>
         )}
       </LinearGradient>
+
+      {/* Dados para assinar receitas */}
+      <View style={styles.recipeDataCard}>
+        <Text style={styles.recipeDataTitle}>DADOS PARA ASSINAR RECEITAS</Text>
+        <Text style={styles.recipeDataHint}>
+          Endereço e telefone profissional são obrigatórios para receita simples (CFM).
+        </Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Endereço profissional completo"
+          placeholderTextColor={colors.textMuted}
+          value={professionalAddress}
+          onChangeText={setProfessionalAddress}
+          editable={!saving}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Telefone profissional"
+          placeholderTextColor={colors.textMuted}
+          value={professionalPhone}
+          onChangeText={setProfessionalPhone}
+          keyboardType="phone-pad"
+          editable={!saving}
+        />
+        <TouchableOpacity
+          style={[styles.saveRecipeDataBtn, saving && styles.saveRecipeDataBtnDisabled]}
+          onPress={saveRecipeData}
+          disabled={saving}
+          activeOpacity={0.8}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveRecipeDataBtnText}>SALVAR</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {/* Menu Sections */}
       {menuSections.map((section) => (
@@ -210,6 +278,61 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
     letterSpacing: 0.3,
+  },
+
+  recipeDataCard: {
+    marginTop: 24,
+    marginHorizontal: pad,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  recipeDataTitle: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
+  recipeDataHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  saveRecipeDataBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  saveRecipeDataBtnDisabled: {
+    opacity: 0.7,
+  },
+  saveRecipeDataBtnText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.6,
   },
 
   menuSection: {

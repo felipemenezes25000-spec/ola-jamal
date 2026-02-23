@@ -43,6 +43,10 @@ export interface DoctorProfileDto {
   totalConsultations: number;
   available: boolean;
   createdAt: string;
+  /** Obrigatório para assinar receitas. */
+  professionalAddress?: string | null;
+  /** Obrigatório para assinar receitas. */
+  professionalPhone?: string | null;
 }
 
 // ============================================
@@ -110,6 +114,14 @@ export interface RequestResponseDto {
   consultationAnamnesis?: string | null;
   /** Sugestões da IA da consulta (JSON array de strings). */
   consultationAiSuggestions?: string | null;
+  /** Tipo de consulta: 'psicologo' | 'medico_clinico' */
+  consultationType?: string | null;
+  /** Minutos contratados na criação da consulta */
+  contractedMinutes?: number | null;
+  /** Preço por minuto no momento da compra */
+  pricePerMinute?: number | null;
+  /** Quando o médico iniciou a consulta (sincroniza o timer entre médico e paciente) */
+  consultationStartedAt?: string | null;
 }
 
 // ============================================

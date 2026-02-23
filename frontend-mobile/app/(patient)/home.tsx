@@ -39,8 +39,16 @@ export default function PatientHome() {
     try {
       const response = await getRequests({ page: 1, pageSize: 50 });
       setRequests(response.items || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
+    } catch (error: unknown) {
+      const status = (error as { status?: number })?.status;
+      if (status === 401) {
+        // Sessão expirada/inválida: AuthContext já chama clearAuth e o layout redireciona para login.
+        setRequests([]);
+        if (__DEV__) console.warn('[Home] 401: sessão encerrada, redirecionando para login.');
+      } else {
+        console.error('Error loading data:', error);
+        setRequests([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

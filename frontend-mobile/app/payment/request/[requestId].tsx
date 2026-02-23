@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ export default function PaymentRequestScreen() {
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [pixLoading, setPixLoading] = useState(false);
+  const pixInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!rid) {
@@ -48,16 +49,19 @@ export default function PaymentRequestScreen() {
   }, [rid]);
 
   const handleSelectPix = async () => {
-    if (!rid || pixLoading) return;
+    if (!rid || pixInFlightRef.current) return;
+    pixInFlightRef.current = true;
     setPixLoading(true);
     try {
       const payment = await createPayment({ requestId: rid, paymentMethod: 'pix' });
-      router.replace(`/payment/${payment.id}`);
+      // Navegar fora do ciclo de setState para garantir que o primeiro toque conclua a navegação
+      const targetUrl = `/payment/${payment.id}`;
+      setTimeout(() => router.replace(targetUrl), 0);
     } catch (error: unknown) {
       const msg = getApiErrorMessage(error);
       Alert.alert('Erro ao gerar pagamento', msg);
-    } finally {
       setPixLoading(false);
+      pixInFlightRef.current = false;
     }
   };
 
@@ -104,7 +108,7 @@ export default function PaymentRequestScreen() {
         <Text style={styles.headerTitle}>Pagamento</Text>
         <View style={{ width: 40 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.selectionCard}>
           <View style={styles.selectionIcon}>
             <Ionicons name="qr-code" size={40} color={colors.primary} />
@@ -120,13 +124,14 @@ export default function PaymentRequestScreen() {
             disabled={pixLoading}
             activeOpacity={0.8}
           >
-            {pixLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="qr-code" size={20} color="#fff" />
-                <Text style={styles.pixButtonText}>Pagar com PIX</Text>
-              </>
+            <View style={styles.pixButtonContent}>
+              <Ionicons name="qr-code" size={20} color="#fff" />
+              <Text style={styles.pixButtonText}>Pagar com PIX</Text>
+            </View>
+            {pixLoading && (
+              <View style={styles.pixButtonOverlay} pointerEvents="none">
+                <ActivityIndicator color="#fff" />
+              </View>
             )}
           </TouchableOpacity>
 
@@ -211,6 +216,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 4,
+    position: 'relative',
+  },
+  pixButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  pixButtonOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   pixButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   cardButton: {

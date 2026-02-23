@@ -34,6 +34,17 @@ public class MedicalRequest : AggregateRoot
     public Money? Price { get; private set; }
     public string? Notes { get; private set; }
     public string? RejectionReason { get; private set; }
+
+    // Consultation time-based billing
+    public string? ConsultationType { get; private set; }
+    public int? ContractedMinutes { get; private set; }
+    public decimal? PricePerMinute { get; private set; }
+    /// <summary>Momento em que médico e paciente estão conectados na chamada (timer começa).</summary>
+    public DateTime? ConsultationStartedAt { get; private set; }
+    /// <summary>Quando o médico reportou WebRTC conectado.</summary>
+    public DateTime? DoctorCallConnectedAt { get; private set; }
+    /// <summary>Quando o paciente reportou WebRTC conectado.</summary>
+    public DateTime? PatientCallConnectedAt { get; private set; }
     
     // Access code for verification (4 digits)
     public string? AccessCode { get; private set; }
@@ -157,7 +168,10 @@ public class MedicalRequest : AggregateRoot
     public static MedicalRequest CreateConsultation(
         Guid patientId,
         string patientName,
-        string symptoms)
+        string symptoms,
+        string? consultationType = null,
+        int? contractedMinutes = null,
+        decimal? pricePerMinute = null)
     {
         if (patientId == Guid.Empty)
             throw new DomainException("Patient ID is required");
@@ -174,13 +188,16 @@ public class MedicalRequest : AggregateRoot
 
         request.Symptoms = symptoms;
         request.AccessCode = GenerateAccessCode();
+        request.ConsultationType = consultationType;
+        request.ContractedMinutes = contractedMinutes;
+        request.PricePerMinute = pricePerMinute;
 
         return request;
     }
 
     private static string GenerateAccessCode()
     {
-        return Random.Shared.Next(0, 10000).ToString("D4");
+        return Random.Shared.Next(0, 1_000_000).ToString("D6");
     }
 
     public static MedicalRequest Reconstitute(
@@ -213,7 +230,13 @@ public class MedicalRequest : AggregateRoot
         bool? aiReadabilityOk = null,
         string? aiMessageToUser = null,
         string? accessCode = null,
-        string? prescriptionKind = null)
+        string? prescriptionKind = null,
+        string? consultationType = null,
+        int? contractedMinutes = null,
+        decimal? pricePerMinute = null,
+        DateTime? consultationStartedAt = null,
+        DateTime? doctorCallConnectedAt = null,
+        DateTime? patientCallConnectedAt = null)
     {
         var request = new MedicalRequest(
             id,
@@ -256,6 +279,12 @@ public class MedicalRequest : AggregateRoot
         request.AiUrgency = aiUrgency;
         request.AiReadabilityOk = aiReadabilityOk;
         request.AiMessageToUser = aiMessageToUser;
+        request.ConsultationType = consultationType;
+        request.ContractedMinutes = contractedMinutes;
+        request.PricePerMinute = pricePerMinute;
+        request.ConsultationStartedAt = consultationStartedAt;
+        request.DoctorCallConnectedAt = doctorCallConnectedAt;
+        request.PatientCallConnectedAt = patientCallConnectedAt;
 
         return request;
     }
@@ -380,6 +409,14 @@ public class MedicalRequest : AggregateRoot
     }
 
     /// <summary>Define o preço e marca a consulta como pronta para pagamento.</summary>
+    /// <summary>Define o preço efetivo da consulta (após descontos do banco de horas), sem alterar o status.</summary>
+    public void SetEffectivePrice(decimal price)
+    {
+        if (price < 0) throw new DomainException("Price cannot be negative");
+        Price = price > 0 ? Money.Create(price) : null;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public void MarkConsultationReady(decimal? price = null)
     {
         if (RequestType != Enums.RequestType.Consultation)
@@ -398,6 +435,24 @@ public class MedicalRequest : AggregateRoot
 
         Status = RequestStatus.InConsultation;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Registra que médico ou paciente está com WebRTC conectado. Quando ambos tiverem reportado, ConsultationStartedAt é definido (timer começa).</summary>
+    public bool ReportCallConnected(Guid userId)
+    {
+        if (RequestType != Enums.RequestType.Consultation)
+            return false;
+        var now = DateTime.UtcNow;
+        if (userId == DoctorId)
+            DoctorCallConnectedAt ??= now;
+        else if (userId == PatientId)
+            PatientCallConnectedAt ??= now;
+        else
+            return false;
+        if (DoctorCallConnectedAt.HasValue && PatientCallConnectedAt.HasValue && !ConsultationStartedAt.HasValue)
+            ConsultationStartedAt = now;
+        UpdatedAt = now;
+        return true;
     }
 
     public void FinishConsultation(string? clinicalNotes = null)
