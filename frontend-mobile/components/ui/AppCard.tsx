@@ -54,6 +54,8 @@ const styles = StyleSheet.create({
     backgroundColor: c.background.paper,
     borderRadius: r.card,
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   padding: {
     padding: theme.spacing.md,
@@ -63,7 +65,6 @@ const styles = StyleSheet.create({
     borderColor: c.border.light,
   },
   selected: {
-    borderWidth: 2,
     borderColor: c.primary.main,
     backgroundColor: '#EFF6FF',
   },

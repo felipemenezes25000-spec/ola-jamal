@@ -364,8 +364,9 @@ public class MedicalRequest : AggregateRoot
 
     public void MarkAsPaid()
     {
-        if (Status != RequestStatus.ApprovedPendingPayment && 
-            Status != RequestStatus.PendingPayment)
+        if (Status != RequestStatus.ApprovedPendingPayment &&
+            Status != RequestStatus.PendingPayment &&
+            Status != RequestStatus.ConsultationReady)
             throw new DomainException("Request must be in pending payment status");
 
         Status = RequestStatus.Paid;

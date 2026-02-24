@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
-import { Image, StyleSheet, View, Platform, useWindowDimensions } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Image, StyleSheet, View, Platform, useWindowDimensions, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { clamp, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
@@ -11,6 +12,7 @@ interface ZoomableImageProps {
 
 export function ZoomableImage({ uri }: ZoomableImageProps) {
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const [hasError, setHasError] = useState(false);
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -88,10 +90,26 @@ export function ZoomableImage({ uri }: ZoomableImageProps) {
   }));
 
   const imgH = screenH * 0.85;
+
+  if (hasError) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="image-outline" size={64} color="rgba(255,255,255,0.4)" />
+        <Text style={styles.errorText}>Não foi possível carregar a imagem</Text>
+        <Text style={styles.errorSub}>Verifique sua conexão e tente novamente</Text>
+      </View>
+    );
+  }
+
   const content = (
     <GestureDetector gesture={composed}>
       <Animated.View style={[styles.container, { width: screenW, height: imgH }, animatedStyle]}>
-        <Image source={{ uri }} style={{ width: screenW, height: imgH }} resizeMode="contain" />
+        <Image
+          source={{ uri }}
+          style={{ width: screenW, height: imgH }}
+          resizeMode="contain"
+          onError={() => setHasError(true)}
+        />
       </Animated.View>
     </GestureDetector>
   );
@@ -124,5 +142,23 @@ const styles = StyleSheet.create({
   container: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  errorSub: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    textAlign: 'center',
   },
 });

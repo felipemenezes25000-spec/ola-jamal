@@ -96,12 +96,14 @@ function selectSavedCard(el){
 
 var mp=new MercadoPago(publicKey,{locale:'pt-BR'});
 var bricksBuilder=mp.bricks();
+var brickReady=false;
+var readyTimeout=setTimeout(function(){if(!brickReady)showErr('Formulário demorou para carregar. Verifique sua conexão e tente novamente.');},12000);
 
 var settings={
   customization:{visual:{style:{theme:'default'}}},
   initialization:{amount:amount},
   callbacks:{
-    onReady:function(){hideErr();showSavedCards();if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'READY'}));},
+    onReady:function(){brickReady=true;clearTimeout(readyTimeout);hideErr();showSavedCards();if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'READY'}));},
     onSubmit:function(formData,additionalData){
       setSubmitting(true);
       hideErr();
@@ -143,7 +145,7 @@ window.onPaymentResult=function(success,data){
   if(!success){showErr(data&&data.message||'Erro ao processar pagamento.');}
 };
 
-bricksBuilder.create('cardPayment','container',settings).then(function(ctrl){window.cardPaymentBrickController=ctrl;}).catch(function(e){showErr('Falha ao carregar formulário: '+(e.message||e));});
+bricksBuilder.create('cardPayment','container',settings).then(function(ctrl){brickReady=true;clearTimeout(readyTimeout);window.cardPaymentBrickController=ctrl;}).catch(function(e){clearTimeout(readyTimeout);showErr('Falha ao carregar formulário: '+(e.message||e));});
 })();
 </script></body></html>`;
 }
@@ -294,13 +296,14 @@ export default function CardPaymentScreen() {
       {isFocused && (
         <WebView
           ref={webViewRef}
-          source={{ html }}
+          source={{ html, baseUrl: 'https://sdk.mercadopago.com' }}
           style={styles.webview}
           onMessage={handleMessage}
           javaScriptEnabled
           domStorageEnabled
           originWhitelist={['*']}
           mixedContentMode="compatibility"
+          thirdPartyCookiesEnabled
           scrollEnabled
         />
       )}
