@@ -54,12 +54,12 @@ export default function PaymentRequestScreen() {
     setPixLoading(true);
     try {
       const payment = await createPayment({ requestId: rid, paymentMethod: 'pix' });
-      // Navegar fora do ciclo de setState para garantir que o primeiro toque conclua a navegação
       const targetUrl = `/payment/${payment.id}`;
-      setTimeout(() => router.replace(targetUrl), 0);
+      router.replace(targetUrl);
     } catch (error: unknown) {
       const msg = getApiErrorMessage(error);
       Alert.alert('Erro ao gerar pagamento', msg);
+    } finally {
       setPixLoading(false);
       pixInFlightRef.current = false;
     }

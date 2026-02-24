@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Certificates;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Entities;
+using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 
 namespace RenoveJa.Api.Controllers;
@@ -17,17 +19,23 @@ public class CertificatesController : ControllerBase
     private readonly IDigitalCertificateService _certificateService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUserRepository _userRepository;
+    private readonly INotificationRepository _notificationRepository;
+    private readonly IPushNotificationSender _pushNotificationSender;
     private readonly ILogger<CertificatesController> _logger;
 
     public CertificatesController(
         IDigitalCertificateService certificateService,
         ICurrentUserService currentUserService,
         IUserRepository userRepository,
+        INotificationRepository notificationRepository,
+        IPushNotificationSender pushNotificationSender,
         ILogger<CertificatesController> logger)
     {
         _certificateService = certificateService;
         _currentUserService = currentUserService;
         _userRepository = userRepository;
+        _notificationRepository = notificationRepository;
+        _pushNotificationSender = pushNotificationSender;
         _logger = logger;
     }
 
@@ -91,6 +99,26 @@ public class CertificatesController : ControllerBase
             user.MarkProfileComplete();
             await _userRepository.UpdateAsync(user, cancellationToken);
             _logger.LogInformation("Certificates Upload: User {UserId} profile marked complete after first certificate.", userId);
+        }
+
+        // Notifica o médico que o certificado foi cadastrado com sucesso
+        try
+        {
+            var notification = Notification.Create(
+                userId.Value,
+                "Certificado Digital Cadastrado",
+                $"Seu certificado digital foi cadastrado e validado com sucesso. Válido até {validation.NotAfter:dd/MM/yyyy}.",
+                NotificationType.Info);
+            await _notificationRepository.CreateAsync(notification, cancellationToken);
+            await _pushNotificationSender.SendAsync(
+                userId.Value,
+                "Certificado Digital Cadastrado",
+                "Seu certificado digital foi cadastrado e validado com sucesso.",
+                ct: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao enviar notificação de certificado para UserId={UserId}", userId);
         }
 
         return Ok(new UploadCertificateResponseDto(

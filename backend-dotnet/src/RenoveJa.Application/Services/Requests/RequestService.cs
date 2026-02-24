@@ -690,6 +690,9 @@ public class RequestService(
         if (request.RequestType != RequestType.Consultation)
             throw new InvalidOperationException("Only consultation requests can create video rooms");
 
+        if (request.Status != RequestStatus.SearchingDoctor)
+            throw new InvalidOperationException($"Consulta só pode ser aceita quando está em 'searching_doctor'. Status atual: {request.Status}");
+
         var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
         if (doctor == null || !doctor.IsDoctor())
             throw new InvalidOperationException("Doctor not found");
@@ -1515,6 +1518,18 @@ public class RequestService(
 
         request.Deliver();
         request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+        // Notifica o médico que o paciente recebeu/baixou o documento
+        if (request.DoctorId.HasValue)
+        {
+            var tipoDoc = request.RequestType == RequestType.Prescription ? "receita" : "pedido de exame";
+            await CreateNotificationAsync(
+                request.DoctorId.Value,
+                "Documento Recebido",
+                $"O paciente {request.PatientName ?? "paciente"} recebeu o {tipoDoc}.",
+                cancellationToken,
+                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+        }
 
         return MapRequestToDto(request);
     }

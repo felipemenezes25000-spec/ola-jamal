@@ -49,7 +49,10 @@ export default {
       // Google OAuth — necessário para login com Google (iOS exige iosClientId)
       googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "",
       googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",
-      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || ""
+      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "",
+      eas: {
+        projectId: "beb0f102-cc22-45a9-80a6-7e735968e6d2"
+      }
     }
   }
 };

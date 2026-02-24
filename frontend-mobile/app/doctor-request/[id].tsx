@@ -14,6 +14,7 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import {
@@ -84,6 +85,9 @@ export default function DoctorRequestDetail() {
     if (!requestId) return;
     try {
       const fresh = await getRequestById(requestId);
+      // DEBUG: verificar se imagens chegam na resposta da API
+      console.log('[DOCTOR_DETAIL] prescriptionImages:', JSON.stringify(fresh.prescriptionImages));
+      console.log('[DOCTOR_DETAIL] examImages:', JSON.stringify(fresh.examImages));
       setRequest(fresh);
       _requestCache.set(requestId, fresh);
     } catch { console.error('Error loading request'); }
@@ -181,13 +185,13 @@ export default function DoctorRequestDetail() {
   );
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <DoctorHeader
         title={TYPE_LABELS[request.requestType] || 'Pedido'}
         onBack={() => router.back()}
         right={<StatusBadge status={request.status} />}
       />
-      <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: listPadding }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: listPadding }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Status tracker */}
         <DoctorCard style={s.cardMargin}><StatusTracker currentStatus={request.status} requestType={request.requestType} /></DoctorCard>
 
@@ -645,7 +649,6 @@ export default function DoctorRequestDetail() {
               value={certPassword}
               onChangeText={setCertPassword}
               placeholderTextColor={colors.textMuted}
-              autoFocus
             />
             <View style={s.formBtns}>
               <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowSignForm(false); setCertPassword(''); }}>
@@ -691,6 +694,30 @@ export default function DoctorRequestDetail() {
             <Ionicons name="information-circle" size={20} color={colors.primary} />
             <Text style={s.queueHintText}>Pedido na fila. Aprove para enviar ao pagamento ou rejeite informando o motivo.</Text>
           </View>
+        )}
+
+        {/* Signed Document */}
+        {request.signedDocumentUrl && (
+          <DoctorCard style={s.cardMargin}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="document-text" size={18} color={colors.success} />
+              <Text style={s.sectionTitle}>DOCUMENTO ASSINADO</Text>
+            </View>
+            <TouchableOpacity
+              style={s.pdfBtn}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  (window as any)?.open?.(request.signedDocumentUrl, '_blank');
+                } else {
+                  WebBrowser.openBrowserAsync(request.signedDocumentUrl!);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="open-outline" size={20} color={colors.primary} />
+              <Text style={s.pdfBtnText}>Visualizar PDF Assinado</Text>
+            </TouchableOpacity>
+          </DoctorCard>
         )}
 
         {/* Actions */}
@@ -843,6 +870,9 @@ const s = StyleSheet.create({
   queueHintText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textSecondary },
 
   // Actions
+  pdfBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.primarySoft, borderRadius: borderRadius.md, padding: spacing.md },
+  pdfBtnText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
+
   actions: { marginHorizontal: pad, marginTop: doctorDS.sectionGap, gap: spacing.sm },
   actionBtnFull: { width: '100%' },
   primaryBtnFlex: { flex: 1 },

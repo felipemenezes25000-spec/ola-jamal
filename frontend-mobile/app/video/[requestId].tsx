@@ -330,7 +330,7 @@ export default function VideoCallScreen() {
         setCallState((prev) => ({ ...prev, cameraOff: !!data.off }));
       } else if (data?.type === 'quality') {
         setCallState((prev) => ({ ...prev, quality: data.quality as ConnectionQuality }));
-        if (data.quality === 'good') reportConnectedOnce();
+        if (data.quality === 'good' || data.quality === 'poor') reportConnectedOnce();
       } else if (data?.type === 'aiActive') {
         setCallState((prev) => ({ ...prev, aiActive: !!data.active }));
       } else if (data?.type === 'transcriptSnippet') {

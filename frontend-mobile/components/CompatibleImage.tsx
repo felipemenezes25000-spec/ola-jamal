@@ -33,24 +33,28 @@ export function CompatibleImage({ uri, style, resizeMode = 'cover', onError }: C
     setIsLoading(false);
   };
 
-  // No web, se for HEIC ou houver erro, mostra fallback
-  if (Platform.OS === 'web' && (isHeic || hasError)) {
+  // No web, se for HEIC, mostra fallback (browsers não suportam HEIC nativamente)
+  if (Platform.OS === 'web' && isHeic) {
     return (
       <View style={[styles.fallbackContainer, style as ViewStyle]}>
         <Ionicons name="image-outline" size={48} color={colors.textMuted} />
-        <Text style={styles.fallbackText}>
-          {isHeic ? 'Formato HEIC não suportado no navegador' : 'Erro ao carregar imagem'}
-        </Text>
-        <Text style={styles.fallbackSubtext}>
-          {isHeic 
-            ? 'Use o app mobile para visualizar esta imagem' 
-            : 'Verifique sua conexão e tente novamente'}
-        </Text>
+        <Text style={styles.fallbackText}>Formato HEIC não suportado no navegador</Text>
+        <Text style={styles.fallbackSubtext}>Use o app mobile para visualizar esta imagem</Text>
       </View>
     );
   }
 
-  // No mobile ou se não for HEIC, renderiza normalmente
+  // Erro ao carregar imagem (mobile ou web)
+  if (hasError) {
+    return (
+      <View style={[styles.fallbackContainer, style as ViewStyle]}>
+        <Ionicons name="image-outline" size={36} color={colors.textMuted} />
+        <Text style={styles.fallbackText}>Erro ao carregar imagem</Text>
+        <Text style={styles.fallbackSubtext}>Verifique sua conexão e tente novamente</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={style as ViewStyle}>
       {isLoading && (
