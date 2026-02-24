@@ -5,17 +5,17 @@
 # Stage 1: Restore dependencies
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS restore
 WORKDIR /src
-COPY *.sln .
-COPY src/RenoveJa.Domain/*.csproj src/RenoveJa.Domain/
-COPY src/RenoveJa.Application/*.csproj src/RenoveJa.Application/
-COPY src/RenoveJa.Infrastructure/*.csproj src/RenoveJa.Infrastructure/
-COPY src/RenoveJa.Api/*.csproj src/RenoveJa.Api/
-COPY tests/RenoveJa.UnitTests/*.csproj tests/RenoveJa.UnitTests/
+COPY backend-dotnet/*.sln .
+COPY backend-dotnet/src/RenoveJa.Domain/*.csproj src/RenoveJa.Domain/
+COPY backend-dotnet/src/RenoveJa.Application/*.csproj src/RenoveJa.Application/
+COPY backend-dotnet/src/RenoveJa.Infrastructure/*.csproj src/RenoveJa.Infrastructure/
+COPY backend-dotnet/src/RenoveJa.Api/*.csproj src/RenoveJa.Api/
+COPY backend-dotnet/tests/RenoveJa.UnitTests/*.csproj tests/RenoveJa.UnitTests/
 RUN dotnet restore
 
 # Stage 2: Build
 FROM restore AS build
-COPY . .
+COPY backend-dotnet/. .
 RUN dotnet build -c Release --no-restore
 
 # Stage 3: Publish
