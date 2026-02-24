@@ -176,10 +176,10 @@ public class AuthService(
         var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
         
         if (user == null)
-            throw new UnauthorizedAccessException("Invalid email or password");
+            throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("Invalid email or password");
+            throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
 
         // Create token
         var token = AuthToken.Create(user.Id);
@@ -370,12 +370,12 @@ public class AuthService(
         var authToken = await tokenRepository.GetByTokenAsync(token, cancellationToken);
         
         if (authToken == null || authToken.IsExpired())
-            throw new UnauthorizedAccessException("Invalid or expired token");
+            throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
 
         var user = await userRepository.GetByIdAsync(authToken.UserId, cancellationToken);
-        
+
         if (user == null)
-            throw new UnauthorizedAccessException("User not found");
+            throw new UnauthorizedAccessException("Usuário não encontrado.");
 
         return (user.Id, user.Role.ToString().ToLowerInvariant());
     }

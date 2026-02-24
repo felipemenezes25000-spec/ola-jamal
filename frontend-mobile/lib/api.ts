@@ -350,6 +350,11 @@ export async function confirmPaymentByRequest(requestId: string): Promise<Paymen
   return apiClient.post(`/api/payments/confirm-by-request/${requestId}`, {});
 }
 
+/** Sincroniza status do pagamento com Mercado Pago (útil quando webhook falha). */
+export async function syncPaymentStatus(requestId: string): Promise<PaymentResponseDto> {
+  return apiClient.post(`/api/payments/sync-status/${requestId}`, {});
+}
+
 /** Retorna URL do Checkout Pro e ID do pagamento para abrir no navegador e exibir na tela */
 export async function getCheckoutProUrl(requestId: string): Promise<{ initPoint: string; paymentId: string }> {
   return apiClient.get(`/api/payments/checkout-pro/${requestId}`);
@@ -505,16 +510,24 @@ export async function fetchSpecialties(): Promise<string[]> {
 
 export async function uploadCertificate(
   pfxUri: string,
-  password: string
+  password: string,
+  /** On web, pass the File object from DocumentPicker asset.file */
+  webFile?: File
 ): Promise<UploadCertificateResponseDto> {
   const formData = new FormData();
   const filename = pfxUri.split('/').pop() || 'certificate.pfx';
 
-  formData.append('pfxFile', {
-    uri: pfxUri,
-    name: filename,
-    type: 'application/x-pkcs12',
-  } as any);
+  if (webFile) {
+    // Web: use the real File object
+    formData.append('pfxFile', webFile, webFile.name || filename);
+  } else {
+    // React Native: use the uri-based object
+    formData.append('pfxFile', {
+      uri: pfxUri,
+      name: filename,
+      type: 'application/x-pkcs12',
+    } as any);
+  }
   formData.append('password', password);
 
   return apiClient.post('/api/certificates/upload', formData, true);

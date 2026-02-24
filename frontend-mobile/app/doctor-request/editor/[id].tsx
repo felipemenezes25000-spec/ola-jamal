@@ -360,7 +360,7 @@ export default function PrescriptionEditorScreen() {
         }
       />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           style={st.scroll}
           contentContainerStyle={[st.scrollContent, { paddingBottom: 160 + bottomBarPadding }]}
@@ -638,7 +638,6 @@ export default function PrescriptionEditorScreen() {
                 placeholder="Senha"
                 secureTextEntry
                 placeholderTextColor={colors.textMuted}
-                autoFocus
               />
               <View style={st.signBtns}>
                 <TouchableOpacity

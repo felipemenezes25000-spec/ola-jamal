@@ -145,7 +145,8 @@ class ApiClient {
           errorMessage = `${response.status} ${response.statusText}`;
         }
       } catch (e: any) {
-        if (e?.missingFields !== undefined || e?.messages !== undefined) {
+        // Re-throw structured ApiErrors (already parsed from response body)
+        if (e?.status !== undefined) {
           throw e;
         }
         errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}`;

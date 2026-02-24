@@ -465,7 +465,7 @@ internal static class VideoCallPageHtml
         sb.Append("  setStatus('Acessando câmera e microfone...');");
         sb.Append("  postNative({type:'mediaStatus',status:'requesting'});");
         sb.Append("  var timeout=new Promise(function(_,reject){setTimeout(function(){reject(new Error('Tempo esgotado. Verifique se o app tem permissão para câmera e microfone nas configurações do dispositivo.'));},mediaTimeout);});");
-        sb.Append("  var media=navigator.mediaDevices.getUserMedia({video:true,audio:true});");
+        sb.Append("  var media=navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});");
         sb.Append("  return Promise.race([media,timeout]);");
         sb.Append("}");
         sb.Append("connection.start()");
