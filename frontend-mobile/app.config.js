@@ -15,7 +15,10 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.renoveja.app"
+      bundleIdentifier: "com.renoveja.app",
+      infoPlist: {
+        UIBackgroundModes: ["voip"]
+      }
     },
     android: {
       adaptiveIcon: {
@@ -37,6 +40,21 @@ export default {
         {
           icon: "./assets/notification-icon.png",
           color: "#0EA5E9"
+        }
+      ],
+      [
+        "@daily-co/config-plugin-rn-daily-js",
+        {
+          "enableCamera": true,
+          "enableMicrophone": true,
+          "enableScreenShare": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": { "minSdkVersion": 24 },
+          "ios": { "deploymentTarget": "15.1" }
         }
       ]
     ],

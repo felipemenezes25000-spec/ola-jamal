@@ -20,6 +20,7 @@ using RenoveJa.Infrastructure.Certificates;
 using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.CrmValidation;
 using RenoveJa.Infrastructure.Auth;
+using RenoveJa.Infrastructure.Video;
 using RenoveJa.Api.Middleware;
 using RenoveJa.Api.Authentication;
 using RenoveJa.Api.Hubs;
@@ -207,11 +208,25 @@ builder.Services.Configure<ApiConfig>(options =>
     options.DocumentTokenSecret = (_envVars.GetValueOrDefault("Api__DocumentTokenSecret") ?? Environment.GetEnvironmentVariable("Api__DocumentTokenSecret") ?? builder.Configuration["Api:DocumentTokenSecret"])?.Trim() ?? "";
 });
 
+// Configure Daily.co (videochamada nativa)
+builder.Services.Configure<DailyConfig>(options =>
+{
+    options.ApiKey = (_envVars.GetValueOrDefault("DAILY_API_KEY") ?? Environment.GetEnvironmentVariable("DAILY_API_KEY") ?? "").Trim();
+    options.Domain = (_envVars.GetValueOrDefault("DAILY_DOMAIN") ?? Environment.GetEnvironmentVariable("DAILY_DOMAIN") ?? "renove").Trim();
+    options.RoomPrefix = (_envVars.GetValueOrDefault("DAILY_ROOM_PREFIX") ?? Environment.GetEnvironmentVariable("DAILY_ROOM_PREFIX") ?? "consult").Trim();
+    options.DefaultRoomExpiryMinutes = int.TryParse(
+        _envVars.GetValueOrDefault("DAILY_ROOM_EXPIRY_MINUTES") ?? Environment.GetEnvironmentVariable("DAILY_ROOM_EXPIRY_MINUTES"), out var exp) ? exp : 120;
+});
+
 // In-memory cache
 builder.Services.AddMemoryCache();
 
 builder.Services.AddHttpClient<SupabaseClient>();
 builder.Services.AddHttpClient(SupabaseStorageService.HttpClientName);
+builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 
 // HttpContextAccessor for CurrentUserService
 builder.Services.AddHttpContextAccessor();
