@@ -28,7 +28,7 @@ export default {
         backgroundColor: "#0EA5E9"
       },
       package: "com.renoveja.app",
-      edgeToEdgeEnabled: true,
+      edgeToEdgeEnabled: false,
       predictiveBackGestureEnabled: false,
       permissions: [
         "android.permission.CAMERA",

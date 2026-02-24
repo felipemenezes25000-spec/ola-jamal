@@ -47,7 +47,7 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Generate native project files
-        run: npx expo prebuild --platform android --no-install
+        run: npx expo prebuild --platform android --clean --no-install
         env:
           EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
 
