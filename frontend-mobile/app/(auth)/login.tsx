@@ -59,11 +59,16 @@ export default function Login() {
   const googleIosClientId =
     (extra?.googleIosClientId || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
 
-  const [request, , promptGoogle] = useIdTokenAuthRequest({
-    webClientId: googleWebClientId,
-    androidClientId: Platform.OS === 'android' ? (googleAndroidClientId || googleWebClientId) : undefined,
-    iosClientId: Platform.OS === 'ios' ? (googleIosClientId || googleWebClientId) : undefined,
-  });
+  const hasGoogleConfig = !!(googleWebClientId || googleAndroidClientId || googleIosClientId);
+  const [request, , promptGoogle] = useIdTokenAuthRequest(
+    hasGoogleConfig
+      ? {
+          webClientId: googleWebClientId,
+          androidClientId: Platform.OS === 'android' ? (googleAndroidClientId || googleWebClientId) : undefined,
+          iosClientId: Platform.OS === 'ios' ? (googleIosClientId || googleWebClientId) : undefined,
+        }
+      : null
+  );
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
