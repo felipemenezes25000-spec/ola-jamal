@@ -11,6 +11,10 @@ on:
         options:
           - release
           - debug
+      api_url:
+        description: "URL da API (ex: https://api.renoveja.com.br)"
+        required: false
+        default: "https://api.renoveja.com.br"
 
 jobs:
   build:
@@ -43,7 +47,13 @@ jobs:
         run: npm ci
 
       - name: Generate native project files
-        run: npx expo prebuild --platform android --clean
+        run: npx expo prebuild --platform android --no-install
+        env:
+          EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+
+      - name: Inject google-services.json
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -56,6 +66,8 @@ jobs:
           else
             ./gradlew assembleDebug --no-daemon
           fi
+        env:
+          EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
