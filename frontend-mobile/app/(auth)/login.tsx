@@ -60,15 +60,17 @@ export default function Login() {
     (extra?.googleIosClientId || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
 
   const hasGoogleConfig = !!(googleWebClientId || googleAndroidClientId || googleIosClientId);
-  const [request, , promptGoogle] = useIdTokenAuthRequest(
-    hasGoogleConfig
-      ? {
-          webClientId: googleWebClientId,
-          androidClientId: Platform.OS === 'android' ? (googleAndroidClientId || googleWebClientId) : undefined,
-          iosClientId: Platform.OS === 'ios' ? (googleIosClientId || googleWebClientId) : undefined,
-        }
-      : null
-  );
+  // Sempre passa string não-vazia para o hook não crashar com clientId undefined/null.
+  // A validação real é feita em handleGooglePress e no disabled do botão.
+  const [request, , promptGoogle] = useIdTokenAuthRequest({
+    webClientId: googleWebClientId || 'unconfigured',
+    androidClientId: Platform.OS === 'android'
+      ? (googleAndroidClientId || googleWebClientId || 'unconfigured')
+      : undefined,
+    iosClientId: Platform.OS === 'ios'
+      ? (googleIosClientId || googleWebClientId || 'unconfigured')
+      : undefined,
+  });
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -270,7 +272,7 @@ export default function Login() {
         title="Continuar com Google"
         onPress={handleGooglePress}
         loading={googleLoading}
-        disabled={!request}
+        disabled={!request || !hasGoogleConfig}
         variant="outline"
         fullWidth
         icon="logo-google"
