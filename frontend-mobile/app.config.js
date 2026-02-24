@@ -6,7 +6,7 @@ export default {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
+    newArchEnabled: false,
     scheme: "renoveja",
     splash: {
       image: "./assets/splash-icon.png",
@@ -17,7 +17,9 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.renoveja.app",
       infoPlist: {
-        UIBackgroundModes: ["voip"]
+        UIBackgroundModes: ["voip"],
+        NSCameraUsageDescription: "RenoveJá+ precisa de acesso à câmera para videoconsultas",
+        NSMicrophoneUsageDescription: "RenoveJá+ precisa de acesso ao microfone para videoconsultas"
       }
     },
     android: {
@@ -27,7 +29,12 @@ export default {
       },
       package: "com.renoveja.app",
       edgeToEdgeEnabled: true,
-      predictiveBackGestureEnabled: false
+      predictiveBackGestureEnabled: false,
+      permissions: [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     web: {
       favicon: "./assets/favicon.png"

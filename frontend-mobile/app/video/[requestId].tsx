@@ -1,3 +1,17 @@
+/**
+ * RenoveJá — Tela de Videoconsulta com Daily.co
+ *
+ * Features:
+ * - Vídeo nativo via DailyMediaView (sem WebView)
+ * - Painel lateral de anamnese IA para o médico (deslizante)
+ * - Sugestões clínicas da IA em tempo real
+ * - Timer sincronizado com servidor + countdown
+ * - Quality indicator, mute/camera/flip controls
+ * - Notas clínicas ao encerrar (modal)
+ * - SignalR para receber TranscriptUpdate + AnamnesisUpdate + SuggestionUpdate
+ * - Criação de sala Daily.co antes do join
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -6,14 +20,21 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  TextInput,
+  Modal,
+  Dimensions,
   Animated,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DailyMediaView } from '@daily-co/react-native-daily-js';
+import * as Clipboard from 'expo-clipboard';
 
-import { colors, spacing, borderRadius } from '../../lib/themeDoctor';
+import { colors } from '../../lib/themeDoctor';
 import {
   startConsultation,
   finishConsultation,
@@ -21,44 +42,42 @@ import {
   autoFinishConsultation,
   reportCallConnected,
 } from '../../lib/api';
+import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { apiClient } from '../../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
-import { useDailyCall, ConnectionQuality } from '../../hooks/useDailyCall';
+import { useDailyCall, type ConnectionQuality } from '../../hooks/useDailyCall';
 
-// ────────────────────────────────────────────────────────────────
-// API helper — busca join token do backend
-// ────────────────────────────────────────────────────────────────
-async function fetchJoinToken(requestId: string): Promise<{
-  token: string;
-  roomUrl: string;
-  roomName: string;
-  isOwner: boolean;
-  contractedMinutes: number | null;
-}> {
-  return apiClient.post('/api/video/join-token', { requestId });
+const { width: SCREEN_W } = Dimensions.get('window');
+const PANEL_WIDTH = Math.min(340, SCREEN_W * 0.85);
+
+// ──── Helpers ────
+
+function fmt(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
 }
 
-// ────────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────────
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+function qColor(q: ConnectionQuality) {
+  return q === 'good' ? '#22c55e' : q === 'poor' ? '#f59e0b' : q === 'bad' ? '#ef4444' : '#64748b';
 }
 
-function qualityColor(q: ConnectionQuality): string {
-  switch (q) {
-    case 'good': return '#22c55e';
-    case 'poor': return '#f59e0b';
-    case 'bad': return '#ef4444';
-    default: return '#94a3b8';
-  }
+function qLabel(q: ConnectionQuality) {
+  return q === 'good' ? 'Boa' : q === 'poor' ? 'Instável' : q === 'bad' ? 'Ruim' : '...';
 }
 
-// ────────────────────────────────────────────────────────────────
-// Main Screen
-// ────────────────────────────────────────────────────────────────
+const ANA_FIELDS = [
+  { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble-ellipses' },
+  { key: 'historia_doenca_atual', label: 'HDA', icon: 'time' },
+  { key: 'sintomas', label: 'Sintomas', icon: 'thermometer' },
+  { key: 'medicamentos_em_uso', label: 'Medicamentos', icon: 'medical' },
+  { key: 'alergias', label: 'Alergias', icon: 'warning' },
+  { key: 'antecedentes_relevantes', label: 'Antecedentes', icon: 'document-text' },
+  { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash' },
+] as const;
+
+// ──── Main Screen ────
+
 export default function VideoCallScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
@@ -68,7 +87,7 @@ export default function VideoCallScreen() {
   const rid = (Array.isArray(requestId) ? requestId[0] : requestId) ?? '';
   const isDoctor = user?.role === 'doctor';
 
-  // State
+  // Core state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ending, setEnding] = useState(false);
@@ -77,49 +96,115 @@ export default function VideoCallScreen() {
   const [contractedMinutes, setContractedMinutes] = useState<number | null>(null);
   const [callSeconds, setCallSeconds] = useState(0);
   const [consultationStartedAt, setConsultationStartedAt] = useState<string | null>(null);
-  const connectedReportedRef = useRef(false);
+  const connReportedRef = useRef(false);
   const alertedRef = useRef<Set<number>>(new Set());
   const autoFinishedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // ── Daily.co hook ──────────────────────────────────────────
+  // Anamnesis & Transcript (doctor)
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelAnim = useRef(new Animated.Value(0)).current;
+  const [transcript, setTranscript] = useState('');
+  const [anamnesis, setAnamnesis] = useState<Record<string, any> | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isAiActive, setIsAiActive] = useState(false);
+  const tScrollRef = useRef<ScrollView>(null);
+  const signalRRef = useRef<any>(null);
+
+  // Clinical notes modal
+  const [showNotes, setShowNotes] = useState(false);
+  const [clinicalNotes, setClinicalNotes] = useState('');
+
+  // ── Daily.co hook ──
+
   const {
-    callState,
-    localParticipant,
-    remoteParticipant,
-    isMuted,
-    isCameraOff,
-    isFrontCamera,
-    quality,
-    errorMessage,
-    join,
-    leave,
-    toggleMute,
-    toggleCamera,
-    flipCamera,
+    callState, localParticipant, remoteParticipant,
+    isMuted, isCameraOff, isFrontCamera, quality, errorMessage,
+    join, leave, toggleMute, toggleCamera, flipCamera,
   } = useDailyCall({
     roomUrl: roomUrl ?? '',
     token: meetingToken ?? '',
     onRemoteJoined: () => {
-      if (!connectedReportedRef.current && rid) {
-        connectedReportedRef.current = true;
+      if (!connReportedRef.current && rid) {
+        connReportedRef.current = true;
         reportCallConnected(rid).catch(() => {});
       }
     },
     onCallEnded: (reason) => {
-      if (reason === 'ejected') {
-        Alert.alert('Tempo esgotado', 'O tempo contratado expirou.');
-      }
+      if (reason === 'ejected') Alert.alert('Tempo esgotado', 'O tempo contratado expirou.');
       cleanup();
       router.back();
     },
-    onError: (msg) => {
-      setError(msg);
-    },
+    onError: (msg) => setError(msg),
   });
 
-  // ── Init: buscar token e dados da consulta ─────────────────
+  // ── Panel animation ──
+
+  const togglePanel = useCallback(() => {
+    Animated.spring(panelAnim, {
+      toValue: panelOpen ? 0 : 1,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11,
+    }).start();
+    setPanelOpen(p => !p);
+  }, [panelOpen, panelAnim]);
+
+  // ── SignalR for real-time transcript/anamnesis ──
+
+  const connectSignalR = useCallback(async () => {
+    if (!rid || !isDoctor) return;
+    try {
+      const signalR = require('@microsoft/signalr');
+      const baseUrl = (apiClient as any).baseURL ?? (apiClient as any).defaults?.baseURL ?? '';
+      const apiBase = baseUrl.replace(/\/api\/?$/, '');
+      // Get token from stored auth
+      let authToken = '';
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        authToken = (await AsyncStorage.getItem('auth_token')) ?? '';
+      } catch {}
+
+      const conn = new signalR.HubConnectionBuilder()
+        .withUrl(`${apiBase}/hubs/video`, {
+          accessTokenFactory: () => authToken,
+        })
+        .withAutomaticReconnect()
+        .build();
+
+      conn.on('TranscriptUpdate', (data: any) => {
+        const text = data?.fullText ?? data?.FullText ?? '';
+        if (text) {
+          setTranscript(text);
+          setIsAiActive(true);
+          setTimeout(() => tScrollRef.current?.scrollToEnd({ animated: true }), 100);
+        }
+      });
+
+      conn.on('AnamnesisUpdate', (data: any) => {
+        const json = data?.anamnesisJson ?? data?.AnamnesisJson ?? '';
+        try { if (json) setAnamnesis(JSON.parse(json)); } catch {}
+      });
+
+      conn.on('SuggestionUpdate', (data: any) => {
+        const items = data?.suggestions ?? data?.Suggestions ?? [];
+        if (Array.isArray(items)) setSuggestions(items);
+      });
+
+      await conn.start();
+      await conn.invoke('JoinRoom', rid);
+      signalRRef.current = conn;
+    } catch (e) {
+      console.warn('SignalR connection failed (non-critical):', e);
+    }
+  }, [rid, isDoctor]);
+
+  const disconnectSignalR = useCallback(async () => {
+    try { await signalRRef.current?.stop(); } catch {}
+    signalRRef.current = null;
+  }, []);
+
+  // ── Init: create room + fetch token ──
 
   useEffect(() => {
     if (!rid) return;
@@ -127,21 +212,22 @@ export default function VideoCallScreen() {
 
     (async () => {
       try {
-        const joinData = await fetchJoinToken(rid);
-
+        // 1. Ensure Daily room exists (idempotent — backend creates on Daily.co)
+        await createDailyRoom(rid).catch(() => {});
         if (cancelled) return;
 
+        // 2. Get join token
+        const joinData = await fetchJoinToken(rid);
+        if (cancelled) return;
         setRoomUrl(joinData.roomUrl);
         setMeetingToken(joinData.token);
         setContractedMinutes(joinData.contractedMinutes);
 
+        // 3. Get request data
         const req = await fetchRequestById(rid);
         if (cancelled) return;
-
         if (req.contractedMinutes) setContractedMinutes(req.contractedMinutes);
-        if (req.consultationStartedAt) {
-          setConsultationStartedAt(req.consultationStartedAt);
-        }
+        if (req.consultationStartedAt) setConsultationStartedAt(req.consultationStartedAt);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Erro ao iniciar videochamada');
       } finally {
@@ -152,375 +238,424 @@ export default function VideoCallScreen() {
     return () => { cancelled = true; };
   }, [rid]);
 
-  // ── Auto-join quando token estiver pronto ──────────────────
-
+  // Auto-join when token ready
   useEffect(() => {
-    if (roomUrl && meetingToken && callState === 'idle') {
-      join();
-    }
+    if (roomUrl && meetingToken && callState === 'idle') join();
   }, [roomUrl, meetingToken, callState, join]);
 
-  // ── Médico: iniciar consulta no backend quando entrar ──────
-
+  // Doctor: start consultation + connect SignalR
   useEffect(() => {
     if (callState === 'joined' && isDoctor && rid) {
       startConsultation(rid).catch(() => {});
+      connectSignalR();
     }
-  }, [callState, isDoctor, rid]);
+  }, [callState, isDoctor, rid, connectSignalR]);
 
-  // ── Reportar call connected quando remoto entrar ───────────
-
+  // Report call connected when remote joins
   useEffect(() => {
-    if (callState === 'joined' && remoteParticipant && !connectedReportedRef.current && rid) {
-      connectedReportedRef.current = true;
+    if (callState === 'joined' && remoteParticipant && !connReportedRef.current && rid) {
+      connReportedRef.current = true;
       reportCallConnected(rid).catch(() => {});
     }
   }, [callState, remoteParticipant, rid]);
 
-  // ── Timer sincronizado com servidor ────────────────────────
-
+  // Server-synced timer
   useEffect(() => {
     if (!consultationStartedAt) return;
-    const updateElapsed = () => {
-      const elapsed = Math.floor((Date.now() - new Date(consultationStartedAt).getTime()) / 1000);
-      setCallSeconds(Math.max(0, elapsed));
+    const update = () => {
+      const e = Math.floor((Date.now() - new Date(consultationStartedAt).getTime()) / 1000);
+      setCallSeconds(Math.max(0, e));
     };
-    updateElapsed();
-    timerRef.current = setInterval(updateElapsed, 1000);
+    update();
+    timerRef.current = setInterval(update, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [consultationStartedAt]);
 
-  // ── Polling para consultationStartedAt (paciente) ──────────
-
+  // Patient: poll consultationStartedAt
   useEffect(() => {
     if (isDoctor || !rid || consultationStartedAt) return;
     const poll = setInterval(() => {
       fetchRequestById(rid)
-        .then(req => {
-          if (req.consultationStartedAt) setConsultationStartedAt(req.consultationStartedAt);
-        })
+        .then(r => { if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt); })
         .catch(() => {});
     }, 4000);
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
-  // ── Countdown / Auto-finish ────────────────────────────────
-
+  // Countdown / Auto-finish
   useEffect(() => {
     if (!contractedMinutes || contractedMinutes <= 0) return;
-    const remaining = contractedMinutes * 60 - callSeconds;
-
-    if (remaining === 120 && !alertedRef.current.has(120)) {
+    const rem = contractedMinutes * 60 - callSeconds;
+    if (rem === 120 && !alertedRef.current.has(120)) {
       alertedRef.current.add(120);
-      Alert.alert('Atenção', 'Sua consulta termina em 2 minutos.');
+      Alert.alert('Atenção', 'A consulta termina em 2 minutos.');
     }
-    if (remaining === 60 && !alertedRef.current.has(60)) {
+    if (rem === 60 && !alertedRef.current.has(60)) {
       alertedRef.current.add(60);
-      Alert.alert('Atenção', 'Sua consulta termina em 1 minuto.');
+      Alert.alert('Atenção', 'A consulta termina em 1 minuto.');
     }
-    if (remaining <= 0 && !autoFinishedRef.current) {
+    if (rem <= 0 && !autoFinishedRef.current) {
       autoFinishedRef.current = true;
-      Alert.alert('Tempo esgotado', 'O tempo contratado expirou. A consulta será encerrada.', [
-        {
-          text: 'OK',
-          onPress: async () => {
-            await leave();
-            try { await autoFinishConsultation(rid); } catch {}
-            router.back();
-          },
-        },
-      ]);
+      Alert.alert('Tempo esgotado', 'O tempo contratado expirou.', [{
+        text: 'OK', onPress: () => doEnd(true),
+      }]);
     }
-  }, [callSeconds, contractedMinutes, rid, leave]);
+  }, [callSeconds, contractedMinutes]);
 
-  // ── Cleanup ────────────────────────────────────────────────
-
+  // Cleanup
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-  }, []);
+    disconnectSignalR();
+  }, [disconnectSignalR]);
 
-  // ── End call ───────────────────────────────────────────────
+  // End call
+  const doEnd = useCallback(async (autoFinish = false) => {
+    if (isDoctor && !autoFinish) { setShowNotes(true); return; }
+    await leave();
+    if (autoFinish) { try { await autoFinishConsultation(rid); } catch {} }
+    cleanup();
+    router.back();
+  }, [isDoctor, leave, rid, cleanup, router]);
 
-  const handleEnd = () => {
-    Alert.alert('Encerrar consulta', 'Deseja encerrar a videochamada agora?', [
+  const confirmEnd = useCallback(async () => {
+    setShowNotes(false);
+    setEnding(true);
+    await leave();
+    try {
+      await finishConsultation(rid, clinicalNotes.trim() ? { clinicalNotes: clinicalNotes.trim() } : undefined);
+    } catch {}
+    setEnding(false);
+    cleanup();
+    router.back();
+  }, [leave, rid, clinicalNotes, cleanup, router]);
+
+  const onEndPress = () => {
+    const title = isDoctor ? 'Encerrar consulta' : 'Sair da consulta';
+    const msg = isDoctor ? 'Deseja encerrar a videochamada agora?' : 'Deseja sair da videochamada?';
+    Alert.alert(title, msg, [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Encerrar',
-        style: 'destructive',
-        onPress: async () => {
-          await leave();
-          if (isDoctor && rid) {
-            setEnding(true);
-            try { await finishConsultation(rid); } catch {}
-            setEnding(false);
-          }
-          cleanup();
-          router.back();
-        },
+        text: isDoctor ? 'Encerrar' : 'Sair', style: 'destructive',
+        onPress: () => isDoctor ? doEnd(false) : leave().then(() => { cleanup(); router.back(); }),
       },
     ]);
   };
 
-  // ── Loading state ──────────────────────────────────────────
+  // ── Render helpers ──
 
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Preparando videochamada...</Text>
-      </View>
-    );
-  }
+  if (loading) return (
+    <View style={[S.container, S.center]}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={S.loadTitle}>Preparando videochamada</Text>
+      <Text style={S.loadSub}>Conectando à sala de consulta...</Text>
+    </View>
+  );
 
-  if (error || callState === 'error') {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <Ionicons name="alert-circle" size={48} color="#ef4444" />
-        <Text style={styles.errorText}>{error || errorMessage || 'Erro na chamada'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
-          <Text style={styles.retryText}>Voltar</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (error || callState === 'error') return (
+    <View style={[S.container, S.center]}>
+      <Ionicons name="alert-circle" size={56} color={colors.error} />
+      <Text style={S.errText}>{error || errorMessage || 'Erro na chamada'}</Text>
+      <TouchableOpacity style={S.retryBtn} onPress={() => { setError(''); setLoading(true); }}>
+        <Text style={S.retryTxt}>Tentar novamente</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={{ marginTop: 8, padding: 10 }} onPress={() => router.back()}>
+        <Text style={{ color: '#64748b' }}>Voltar</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-  // ── Timer display ──────────────────────────────────────────
+  const rem = contractedMinutes ? contractedMinutes * 60 - callSeconds : null;
+  const urgent = rem != null && rem <= 120;
+  const critical = rem != null && rem <= 60;
+  const timerStr = contractedMinutes ? `${fmt(callSeconds)} / ${fmt(contractedMinutes * 60)}` : fmt(callSeconds);
+  const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
+  const hasSug = suggestions.length > 0;
+  const hasT = transcript.length > 0;
+  const panelHas = hasAna || hasSug || hasT;
 
-  const timerDisplay = contractedMinutes
-    ? `${formatTime(callSeconds)} / ${formatTime(contractedMinutes * 60)}`
-    : formatTime(callSeconds);
-
-  const remaining = contractedMinutes ? contractedMinutes * 60 - callSeconds : null;
-  const timerUrgent = remaining != null && remaining <= 120;
-
-  // ── Render ─────────────────────────────────────────────────
+  const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH + 20, 0] });
 
   return (
-    <View style={styles.container}>
-      {/* Remote video (full screen) */}
+    <View style={S.container}>
+      {/* Remote video */}
       {remoteParticipant?.videoTrack?.persistentTrack != null ? (
         <DailyMediaView
           videoTrack={remoteParticipant.videoTrack.persistentTrack}
           audioTrack={remoteParticipant.audioTrack?.persistentTrack ?? null}
-          mirror={false}
-          zOrder={0}
-          style={styles.remoteVideo}
-          objectFit="cover"
+          mirror={false} zOrder={0} style={S.remote} objectFit="cover"
         />
       ) : (
-        <View style={[styles.remoteVideo, styles.noVideo]}>
-          <Ionicons name="person-circle-outline" size={80} color="#475569" />
-          <Text style={styles.waitingText}>
-            {callState === 'joining'
-              ? 'Entrando na sala...'
-              : 'Aguardando participante...'}
-          </Text>
+        <View style={[S.remote, S.noVid]}>
+          <View style={S.waitCircle}>
+            <Ionicons name="person-circle-outline" size={72} color="#334155" />
+          </View>
+          <Text style={S.waitTitle}>{callState === 'joining' ? 'Entrando na sala...' : 'Aguardando participante'}</Text>
+          <Text style={S.waitSub}>{isDoctor ? 'O paciente será notificado' : 'O médico entrará em breve'}</Text>
         </View>
       )}
 
-      {/* Local video (PiP) */}
+      {/* Local PiP */}
       {localParticipant?.videoTrack?.persistentTrack != null && !isCameraOff && (
-        <View style={[styles.localVideoContainer, { bottom: 90 + insets.bottom }]}>
+        <View style={[S.pip, { top: insets.top + 52 }]}>
           <DailyMediaView
             videoTrack={localParticipant.videoTrack.persistentTrack}
-            audioTrack={null}
-            mirror={isFrontCamera}
-            zOrder={1}
-            style={styles.localVideo}
-            objectFit="cover"
+            audioTrack={null} mirror={isFrontCamera} zOrder={1} style={S.pipVid} objectFit="cover"
           />
+          {isMuted && (
+            <View style={S.pipMute}><Ionicons name="mic-off" size={10} color="#fff" /></View>
+          )}
         </View>
       )}
 
-      {/* Status bar */}
-      <View style={[styles.statusBar, { paddingTop: insets.top + 6 }]}>
-        <View style={styles.statusRow}>
-          <View style={[styles.qualityDot, { backgroundColor: qualityColor(quality) }]} />
-          <Text style={styles.statusText}>
-            {callState === 'joining' ? 'Conectando...' : callState === 'joined' ? 'Em chamada' : callState}
-          </Text>
+      {/* Top bar */}
+      <View style={[S.top, { paddingTop: insets.top + 8 }]}>
+        <View style={S.topL}>
+          <View style={[S.qPill, { backgroundColor: `${qColor(quality)}22` }]}>
+            <View style={[S.qDot, { backgroundColor: qColor(quality) }]} />
+            <Text style={[S.qTxt, { color: qColor(quality) }]}>{qLabel(quality)}</Text>
+          </View>
+          {isAiActive && (
+            <View style={S.aiPill}>
+              <View style={S.aiDot} />
+              <Text style={S.aiTxt}>IA</Text>
+            </View>
+          )}
         </View>
-        <View style={[styles.timerBadge, timerUrgent && styles.timerUrgent]}>
-          <Ionicons name="time-outline" size={14} color={timerUrgent ? '#ef4444' : '#94a3b8'} />
-          <Text style={[styles.timerText, timerUrgent && styles.timerTextUrgent]}>
-            {timerDisplay}
-          </Text>
+        <View style={[S.tPill, urgent && S.tPillUrg, critical && S.tPillCrit]}>
+          <Ionicons name="time-outline" size={14} color={critical ? '#fff' : urgent ? '#f59e0b' : '#94a3b8'} />
+          <Text style={[S.tTxt, urgent && S.tTxtUrg, critical && S.tTxtCrit]}>{timerStr}</Text>
         </View>
       </View>
+
+      {/* Doctor: panel toggle */}
+      {isDoctor && callState === 'joined' && (
+        <TouchableOpacity
+          style={[S.panelBtn, { top: insets.top + 60 + 160 }, panelOpen && S.panelBtnOn]}
+          onPress={togglePanel} activeOpacity={0.7}
+        >
+          <Ionicons name={panelOpen ? 'chevron-forward' : 'document-text'} size={20} color="#fff" />
+          {panelHas && !panelOpen && <View style={S.panelDot} />}
+        </TouchableOpacity>
+      )}
+
+      {/* Doctor: Anamnesis panel */}
+      {isDoctor && (
+        <Animated.View
+          style={[S.panel, { width: PANEL_WIDTH, top: insets.top + 48, bottom: 80 + insets.bottom, transform: [{ translateX: panelX }] }]}
+          pointerEvents={panelOpen ? 'auto' : 'none'}
+        >
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={S.panelInner} showsVerticalScrollIndicator={false}>
+            {/* Anamnesis */}
+            {hasAna && (
+              <View style={S.sec}>
+                <View style={S.secH}>
+                  <Ionicons name="document-text" size={16} color={colors.primary} />
+                  <Text style={S.secT}>ANAMNESE</Text>
+                  <View style={S.badge}><Ionicons name="sparkles" size={10} color={colors.primary} /><Text style={S.badgeTxt}>IA</Text></View>
+                </View>
+                {ANA_FIELDS.map(({ key, label, icon }) => {
+                  const v = anamnesis?.[key];
+                  if (!v || (typeof v === 'string' && !v.trim())) return null;
+                  const d = Array.isArray(v) ? v.join(', ') : String(v);
+                  const alert = key === 'alergias';
+                  return (
+                    <View key={key} style={S.af}>
+                      <View style={S.afL}><Ionicons name={icon as any} size={11} color={alert ? colors.error : '#64748b'} /><Text style={[S.afLT, alert && { color: colors.error }]}>{label}</Text></View>
+                      <Text style={S.afV}>{d}</Text>
+                    </View>
+                  );
+                })}
+                {Array.isArray(anamnesis?.alertas_vermelhos) && anamnesis!.alertas_vermelhos.length > 0 && (
+                  <View style={S.rfBlock}>
+                    <View style={S.afL}><Ionicons name="alert-circle" size={13} color="#EF4444" /><Text style={[S.afLT, { color: '#EF4444', fontWeight: '700' }]}>ALERTAS</Text></View>
+                    {(anamnesis!.alertas_vermelhos as string[]).map((f, i) => <Text key={i} style={S.rfTxt}>⚠️ {f}</Text>)}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Suggestions */}
+            {hasSug && (
+              <View style={S.sec}>
+                <View style={S.secH}><Ionicons name="bulb" size={16} color="#8B5CF6" /><Text style={[S.secT, { color: '#8B5CF6' }]}>SUGESTÕES</Text></View>
+                {suggestions.map((s, i) => {
+                  const red = s.startsWith('🚨');
+                  return (
+                    <View key={i} style={[S.sugItem, red && S.sugDng]}>
+                      <Ionicons name={red ? 'alert-circle' : 'bulb-outline'} size={14} color={red ? '#EF4444' : '#8B5CF6'} />
+                      <Text style={[S.sugTxt, red && { color: '#EF4444' }]}>{s.replace('🚨 ', '')}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Transcript */}
+            {hasT && (
+              <View style={S.sec}>
+                <View style={S.secH}>
+                  <Ionicons name="mic" size={16} color="#64748b" />
+                  <Text style={S.secT}>TRANSCRIÇÃO</Text>
+                  <TouchableOpacity style={S.copyBtn} onPress={() => Clipboard.setStringAsync(transcript)}>
+                    <Ionicons name="copy-outline" size={12} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView ref={tScrollRef} style={S.tBox} nestedScrollEnabled>
+                  <Text style={S.tBoxTxt}>{transcript}</Text>
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Empty */}
+            {!panelHas && (
+              <View style={S.panelEmpty}>
+                <Ionicons name="sparkles-outline" size={32} color="#334155" />
+                <Text style={S.peTitle}>Anamnese IA</Text>
+                <Text style={S.peSub}>A anamnese e transcrição aparecerão aqui durante a conversa</Text>
+              </View>
+            )}
+          </ScrollView>
+          <View style={S.panelFoot}>
+            <Ionicons name="information-circle-outline" size={12} color="#475569" />
+            <Text style={S.panelFootTxt}>IA como apoio — revisão médica obrigatória</Text>
+          </View>
+        </Animated.View>
+      )}
 
       {/* Controls */}
-      <View style={[styles.controls, { paddingBottom: insets.bottom + 12 }]}>
-        <TouchableOpacity
-          style={[styles.controlBtn, isMuted && styles.controlBtnActive]}
-          onPress={toggleMute}
-        >
-          <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={24} color="#fff" />
+      <View style={[S.ctrl, { paddingBottom: insets.bottom + 12 }]}>
+        <TouchableOpacity style={[S.cb, isMuted && S.cbOn]} onPress={toggleMute}>
+          <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={22} color="#fff" />
+          <Text style={S.cLbl}>{isMuted ? 'Mudo' : 'Mic'}</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.controlBtn, isCameraOff && styles.controlBtnActive]}
-          onPress={toggleCamera}
-        >
-          <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={24} color="#fff" />
+        <TouchableOpacity style={[S.cb, isCameraOff && S.cbOn]} onPress={toggleCamera}>
+          <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={22} color="#fff" />
+          <Text style={S.cLbl}>{isCameraOff ? 'Off' : 'Câm'}</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.controlBtn} onPress={flipCamera}>
-          <Ionicons name="camera-reverse-outline" size={24} color="#fff" />
+        <TouchableOpacity style={S.cb} onPress={flipCamera}>
+          <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
+          <Text style={S.cLbl}>Virar</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.controlBtn, styles.endCallBtn]}
-          onPress={handleEnd}
-          disabled={ending}
-        >
-          {ending ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Ionicons name="call" size={24} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+        <TouchableOpacity style={[S.cb, S.endCb]} onPress={onEndPress} disabled={ending}>
+          {ending ? <ActivityIndicator size="small" color="#fff" /> : (
+            <Ionicons name="call" size={22} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
           )}
+          <Text style={S.cLbl}>Sair</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Clinical notes modal */}
+      <Modal visible={showNotes} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.mOverlay}>
+          <View style={S.mCard}>
+            <View style={S.mHead}><Ionicons name="create-outline" size={22} color={colors.primary} /><Text style={S.mTitle}>Notas Clínicas</Text></View>
+            <Text style={S.mSub}>Adicione observações finais antes de encerrar (opcional)</Text>
+            <TextInput
+              style={S.mInput} placeholder="Diagnóstico, conduta, orientações..."
+              placeholderTextColor="#94a3b8" multiline textAlignVertical="top"
+              value={clinicalNotes} onChangeText={setClinicalNotes} autoFocus
+            />
+            <View style={S.mActs}>
+              <TouchableOpacity style={S.mBtnSec} onPress={() => { setClinicalNotes(''); confirmEnd(); }}>
+                <Text style={S.mBtnSecT}>Pular</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={S.mBtnPri} onPress={confirmEnd}>
+                <Text style={S.mBtnPriT}>Encerrar Consulta</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
 
-// ────────────────────────────────────────────────────────────────
-// Styles
-// ────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  remoteVideo: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  noVideo: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  waitingText: {
-    color: '#64748b',
-    fontSize: 14,
-  },
-  localVideoContainer: {
-    position: 'absolute',
-    right: 12,
-    width: 110,
-    height: 148,
-    borderRadius: 10,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: colors.primary,
-    zIndex: 10,
-  },
-  localVideo: {
-    flex: 1,
-  },
-  statusBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    backgroundColor: 'rgba(15,23,42,0.7)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  qualityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    color: '#94a3b8',
-    fontSize: 12,
-  },
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(30,41,59,0.8)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  timerUrgent: {
-    backgroundColor: 'rgba(127,29,29,0.8)',
-  },
-  timerText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  timerTextUrgent: {
-    color: '#ef4444',
-  },
-  controls: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-    paddingTop: 12,
-    backgroundColor: 'rgba(15,23,42,0.85)',
-  },
-  controlBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(51,65,85,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlBtnActive: {
-    backgroundColor: 'rgba(239,68,68,0.6)',
-  },
-  endCallBtn: {
-    backgroundColor: '#ef4444',
-  },
-  loadingText: {
-    color: '#94a3b8',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
-  retryButton: {
-    marginTop: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+// ──── Styles ────
+
+const S = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0c1222' },
+  center: { justifyContent: 'center', alignItems: 'center', gap: 12 },
+
+  remote: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  noVid: { justifyContent: 'center', alignItems: 'center', gap: 12 },
+  waitCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(44,177,255,0.08)', justifyContent: 'center', alignItems: 'center' },
+  waitTitle: { color: '#94a3b8', fontSize: 16, fontWeight: '600' },
+  waitSub: { color: '#475569', fontSize: 13 },
+
+  pip: { position: 'absolute', left: 12, width: 100, height: 136, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.primary, zIndex: 15, backgroundColor: '#1e293b' },
+  pipVid: { flex: 1 },
+  pipMute: { position: 'absolute', bottom: 4, left: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: '#ef4444', justifyContent: 'center', alignItems: 'center' },
+
+  top: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 10, backgroundColor: 'rgba(12,18,34,0.75)', zIndex: 20 },
+  topL: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  qPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  qDot: { width: 7, height: 7, borderRadius: 4 },
+  qTxt: { fontSize: 11, fontWeight: '600' },
+  aiPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.2)' },
+  aiDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#8B5CF6' },
+  aiTxt: { fontSize: 10, fontWeight: '700', color: '#8B5CF6' },
+  tPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, backgroundColor: 'rgba(30,41,59,0.85)' },
+  tPillUrg: { backgroundColor: 'rgba(120,53,15,0.6)' },
+  tPillCrit: { backgroundColor: '#dc2626' },
+  tTxt: { color: '#94a3b8', fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  tTxtUrg: { color: '#f59e0b' },
+  tTxtCrit: { color: '#fff' },
+
+  panelBtn: { position: 'absolute', right: 0, zIndex: 25, width: 44, height: 44, borderTopLeftRadius: 12, borderBottomLeftRadius: 12, backgroundColor: 'rgba(44,177,255,0.85)', justifyContent: 'center', alignItems: 'center' },
+  panelBtnOn: { backgroundColor: 'rgba(30,41,59,0.9)' },
+  panelDot: { position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e' },
+
+  panel: { position: 'absolute', right: 0, zIndex: 22, backgroundColor: 'rgba(15,23,42,0.95)', borderTopLeftRadius: 16, borderBottomLeftRadius: 16, overflow: 'hidden' },
+  panelInner: { padding: 14, gap: 16 },
+
+  sec: { gap: 8 },
+  secH: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  secT: { fontSize: 11, fontWeight: '800', color: '#94a3b8', letterSpacing: 0.5 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: 'rgba(44,177,255,0.1)' },
+  badgeTxt: { fontSize: 9, fontWeight: '700', color: colors.primary },
+  copyBtn: { marginLeft: 'auto', padding: 4, borderRadius: 6, backgroundColor: 'rgba(44,177,255,0.1)' },
+
+  af: { gap: 2, paddingLeft: 4 },
+  afL: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  afLT: { fontSize: 10, fontWeight: '700', color: '#64748b', letterSpacing: 0.3, textTransform: 'uppercase' },
+  afV: { fontSize: 13, color: '#e2e8f0', lineHeight: 19 },
+  rfBlock: { backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 8, padding: 8, gap: 4 },
+  rfTxt: { fontSize: 12, color: '#fca5a5', lineHeight: 18 },
+
+  sugItem: { flexDirection: 'row', gap: 6, alignItems: 'flex-start', paddingLeft: 4 },
+  sugDng: { backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 6, padding: 6 },
+  sugTxt: { fontSize: 12, color: '#c4b5fd', lineHeight: 18, flex: 1 },
+
+  tBox: { maxHeight: 150, backgroundColor: 'rgba(30,41,59,0.6)', borderRadius: 8, padding: 8 },
+  tBoxTxt: { fontSize: 12, color: '#94a3b8', lineHeight: 19 },
+
+  panelEmpty: { alignItems: 'center', gap: 8, paddingVertical: 40 },
+  peTitle: { fontSize: 14, fontWeight: '700', color: '#475569' },
+  peSub: { fontSize: 12, color: '#334155', textAlign: 'center', lineHeight: 18 },
+  panelFoot: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'rgba(30,41,59,0.8)', borderTopWidth: 1, borderTopColor: 'rgba(51,65,85,0.3)' },
+  panelFootTxt: { fontSize: 10, color: '#475569' },
+
+  ctrl: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20, paddingTop: 14, backgroundColor: 'rgba(12,18,34,0.9)' },
+  cb: { width: 56, height: 64, borderRadius: 16, backgroundColor: 'rgba(51,65,85,0.7)', justifyContent: 'center', alignItems: 'center', gap: 4 },
+  cbOn: { backgroundColor: 'rgba(239,68,68,0.5)' },
+  endCb: { backgroundColor: '#dc2626' },
+  cLbl: { fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+
+  loadTitle: { color: '#e2e8f0', fontSize: 17, fontWeight: '700' },
+  loadSub: { color: '#64748b', fontSize: 13 },
+  errText: { color: '#fca5a5', fontSize: 14, textAlign: 'center', paddingHorizontal: 32 },
+  retryBtn: { marginTop: 12, paddingHorizontal: 28, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 12 },
+  retryTxt: { color: '#fff', fontWeight: '700' },
+
+  mOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  mCard: { backgroundColor: '#1e293b', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 12 },
+  mHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mTitle: { fontSize: 18, fontWeight: '700', color: '#e2e8f0' },
+  mSub: { fontSize: 13, color: '#64748b' },
+  mInput: { backgroundColor: 'rgba(30,41,59,0.8)', borderRadius: 12, padding: 14, minHeight: 120, maxHeight: 200, color: '#e2e8f0', fontSize: 14, lineHeight: 22, borderWidth: 1, borderColor: 'rgba(51,65,85,0.5)' },
+  mActs: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  mBtnSec: { flex: 1, height: 48, borderRadius: 12, backgroundColor: 'rgba(51,65,85,0.5)', justifyContent: 'center', alignItems: 'center' },
+  mBtnSecT: { color: '#94a3b8', fontWeight: '600', fontSize: 14 },
+  mBtnPri: { flex: 2, height: 48, borderRadius: 12, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+  mBtnPriT: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
