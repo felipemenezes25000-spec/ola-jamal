@@ -12,9 +12,9 @@ on:
           - release
           - debug
       api_url:
-        description: "URL da API (ex: https://api.renoveja.com.br)"
+        description: "URL da API"
         required: false
-        default: "https://api.renoveja.com.br"
+        default: "https://ola-jamal.onrender.com"
 
 jobs:
   build:
