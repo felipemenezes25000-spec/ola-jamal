@@ -53,7 +53,14 @@ jobs:
 
       - name: Inject google-services.json
         run: |
-          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
+          if [ -z "$GOOGLE_SERVICES_B64" ]; then
+            echo "ERRO: secret GOOGLE_SERVICES_JSON_BASE64 não configurado no repositório!"
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_B64" | base64 --decode > android/app/google-services.json
+          node -e "const f=require('./android/app/google-services.json'); console.log('✓ google-services.json válido — projeto:', f.project_info.project_id)"
+        env:
+          GOOGLE_SERVICES_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
