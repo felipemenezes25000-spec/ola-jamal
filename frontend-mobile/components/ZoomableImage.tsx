@@ -1,9 +1,7 @@
 import React, { useCallback } from 'react';
-import { Dimensions, Image, StyleSheet, View, Platform } from 'react-native';
+import { Image, StyleSheet, View, Platform, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { clamp, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface ZoomableImageProps {
   uri: string;
@@ -12,6 +10,7 @@ interface ZoomableImageProps {
 }
 
 export function ZoomableImage({ uri }: ZoomableImageProps) {
+  const { width: screenW, height: screenH } = useWindowDimensions();
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -88,10 +87,11 @@ export function ZoomableImage({ uri }: ZoomableImageProps) {
     ],
   }));
 
+  const imgH = screenH * 0.85;
   const content = (
     <GestureDetector gesture={composed}>
-      <Animated.View style={[styles.container, animatedStyle]}>
-        <Image source={{ uri }} style={styles.image} resizeMode="contain" />
+      <Animated.View style={[styles.container, { width: screenW, height: imgH }, animatedStyle]}>
+        <Image source={{ uri }} style={{ width: screenW, height: imgH }} resizeMode="contain" />
       </Animated.View>
     </GestureDetector>
   );
@@ -122,13 +122,7 @@ const styles = StyleSheet.create({
     minHeight: 200,
   },
   container: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.85,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  image: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.85,
   },
 });

@@ -6,15 +6,18 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, gradients, borderRadius, doctorDS } from '../../lib/themeDoctor';
 const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
+import { cacheRequest } from '../doctor-request/[id]';
 import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { EmptyState } from '../../components/EmptyState';
@@ -22,6 +25,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 
 const LOG_QUEUE = __DEV__ && false;
+const ListSeparator = () => <View style={styles.separator} />;
 
 const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
   { key: 'all', label: 'Todos' },
@@ -32,16 +36,17 @@ const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
 
 function getHeaderLabel(activeKey: string): { title: string; subtitle: string } {
   const item = TYPE_FILTER_ITEMS.find((c) => c.key === activeKey);
-  if (item?.key === 'all') return { title: 'Dashboard', subtitle: 'Atendimentos e pedidos' };
-  if (item?.type === 'prescription') return { title: 'Receitas', subtitle: 'Pedidos de receita' };
-  if (item?.type === 'exam') return { title: 'Exames', subtitle: 'Pedidos de exame' };
-  if (item?.type === 'consultation') return { title: 'Consultas', subtitle: 'Solicitações de consulta' };
-  return { title: 'Dashboard', subtitle: 'Atendimentos e pedidos' };
+  if (item?.key === 'all') return { title: 'DASHBOARD', subtitle: 'Atendimentos e pedidos' };
+  if (item?.type === 'prescription') return { title: 'RECEITAS', subtitle: 'Pedidos de receita' };
+  if (item?.type === 'exam') return { title: 'EXAMES', subtitle: 'Pedidos de exame' };
+  if (item?.type === 'consultation') return { title: 'CONSULTAS', subtitle: 'Solicitacoes de consulta' };
+  return { title: 'DASHBOARD', subtitle: 'Atendimentos e pedidos' };
 }
 
 export default function DoctorQueue() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -54,6 +59,12 @@ export default function DoctorQueue() {
   const typeParam = useMemo(() => TYPE_FILTER_ITEMS.find((c) => c.key === activeFilter)?.type, [activeFilter]);
   const label = useMemo(() => getHeaderLabel(activeFilter), [activeFilter]);
 
+  // Filtra localmente — evita chamada à API a cada troca de aba
+  const filteredRequests = useMemo(() => {
+    if (!typeParam) return requests;
+    return requests.filter((r) => r.requestType === typeParam);
+  }, [requests, typeParam]);
+
   const loadData = useCallback(
     async (isRefresh = false) => {
       const rid = ++requestIdRef.current;
@@ -63,11 +74,11 @@ export default function DoctorQueue() {
       if (!isRefresh) setLoading(true);
       setError(null);
       const start = Date.now();
-      if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue start', { rid, type: typeParam });
+      if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue start', { rid });
 
       try {
         const data = await getRequests(
-          { page: 1, pageSize: 100, ...(typeParam && { type: typeParam }) },
+          { page: 1, pageSize: 50 },
           { signal: abort.signal }
         );
         if (rid !== requestIdRef.current) return;
@@ -90,7 +101,7 @@ export default function DoctorQueue() {
         }
       }
     },
-    [typeParam]
+    []
   );
 
   useEffect(() => {
@@ -118,8 +129,20 @@ export default function DoctorQueue() {
 
   const handleFilterChange = useCallback((key: string) => setActiveFilter(key), []);
 
+  const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
+  const renderDoctorItem = useCallback(({ item }: { item: RequestResponseDto }) => (
+    <RequestCard
+      request={item}
+      onPress={() => { cacheRequest(item); router.push(`/doctor-request/${item.id}`); }}
+      showPatientName
+      showPrice={false}
+      showRisk={false}
+      suppressHorizontalMargin
+    />
+  ), [router]);
+
   const headerPaddingTop = insets.top + 16;
-  const empty = !loading && !error && requests.length === 0;
+  const empty = !loading && !error && filteredRequests.length === 0;
   const periodSummary = useMemo(() => getHistoricalGroupedByPeriod(requests), [requests]);
 
   return (
@@ -137,7 +160,7 @@ export default function DoctorQueue() {
             <Text style={styles.subtitle}>{label.subtitle}</Text>
           </View>
           <View style={styles.countBadge}>
-            <Text style={styles.countText}>{requests.length}</Text>
+            <Text style={styles.countText}>{filteredRequests.length}</Text>
           </View>
         </View>
       </LinearGradient>
@@ -157,7 +180,6 @@ export default function DoctorQueue() {
         items={TYPE_FILTER_ITEMS.map((c) => ({ key: c.key, label: c.label }))}
         value={activeFilter}
         onValueChange={handleFilterChange}
-        disabled={loading}
       />
 
       {/* Content */}
@@ -176,32 +198,26 @@ export default function DoctorQueue() {
         </View>
       ) : (
         <FlatList
-          data={requests}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RequestCard
-              request={item}
-              onPress={() => router.push(`/doctor-request/${item.id}`)}
-              showPatientName
-              showPrice={false}
-              showRisk={false}
-              suppressHorizontalMargin
-            />
-          )}
-          contentContainerStyle={[styles.listContent, empty && styles.listContentEmpty]}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          data={filteredRequests}
+          keyExtractor={keyExtractor}
+          renderItem={renderDoctorItem}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
+          ItemSeparatorComponent={ListSeparator}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={8}
           ListEmptyComponent={
             empty ? (
               <EmptyState
                 icon="checkmark-done-circle"
-                emoji="📭"
-                title="Nenhum pedido aqui"
+                title="NENHUM PEDIDO AQUI"
                 subtitle="Ajuste os filtros ou volte ao painel para ver todos os pedidos"
-                actionLabel="Voltar ao painel"
+                actionLabel="VOLTAR AO PAINEL"
                 onAction={() => router.push('/(doctor)/dashboard')}
               />
             ) : null
@@ -217,8 +233,8 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: pad,
     paddingBottom: 28,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   headerRow: {
     flexDirection: 'row',
@@ -231,20 +247,23 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.8,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: typography.fontFamily.regular,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 2,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   countBadge: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: borderRadius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    minWidth: 40,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: borderRadius.full,
+    width: 44,
+    height: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   countText: {
     fontSize: 16,
@@ -262,25 +281,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   periodChip: {
-    flex: 1,
-    minWidth: 72,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
     backgroundColor: colors.surface,
-    borderRadius: doctorDS.cardRadius,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     alignItems: 'center',
   },
   periodChipLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 9,
+    fontWeight: '700',
     color: colors.textMuted,
-    marginBottom: 2,
+    marginBottom: 4,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   periodChipCount: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.text,
   },
   loadingWrap: {
@@ -327,7 +351,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: doctorDS.sectionGap,
-    paddingBottom: 120,
     paddingHorizontal: pad,
   },
   listContentEmpty: { flexGrow: 1 },

@@ -81,15 +81,16 @@ export function PrimaryButton({
       ]}
       accessibilityRole="button"
     >
-      {loading ? (
-        <ActivityIndicator color={iconColor} size="small" />
-      ) : (
-        <View style={styles.content}>
-          {icon && <Ionicons name={icon} size={20} color={iconColor} />}
-          <Text style={[styles.label, labelStyle]}>{label}</Text>
-          {showArrow && (
-            <Ionicons name="chevron-forward" size={20} color={iconColor} style={styles.arrow} />
-          )}
+      <View style={styles.content}>
+        {icon && <Ionicons name={icon} size={20} color={iconColor} />}
+        <Text style={[styles.label, labelStyle]}>{label}</Text>
+        {showArrow && (
+          <Ionicons name="chevron-forward" size={20} color={iconColor} style={styles.arrow} />
+        )}
+      </View>
+      {loading && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator color={iconColor} size="small" />
         </View>
       )}
     </Pressable>
@@ -98,17 +99,24 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    height: doctorDS.buttonHeight,
-    minHeight: 52,
-    borderRadius: doctorDS.buttonRadius,
+    height: 50,
+    minHeight: 50,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    position: 'relative',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   variantPrimary: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryDark,
+    backgroundColor: '#1B4965',
+    borderColor: '#0F2D44',
   },
   variantDanger: {
     backgroundColor: colors.error,
@@ -128,7 +136,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   enabledPrimary: {
-    shadowColor: '#0F172A',
+    shadowColor: '#1B4965',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -152,9 +160,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   labelPrimary: {
     color: '#FFFFFF',

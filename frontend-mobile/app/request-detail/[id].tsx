@@ -10,15 +10,14 @@ import {
   Platform,
   Linking,
   Modal,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
-import { fetchRequestById, createPayment, fetchPaymentByRequest, markRequestDelivered, cancelRequest } from '../../lib/api';
-import { getApiErrorMessage } from '../../lib/api-client';
+import { fetchRequestById, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { getDisplayPrice } from '../../lib/config/pricing';
 import { formatBRL, formatDateBR } from '../../lib/utils/format';
 import { RequestResponseDto } from '../../types/database';
@@ -27,6 +26,7 @@ import StatusTracker from '../../components/StatusTracker';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
+import { FormattedAiSummary } from '../../components/FormattedAiSummary';
 
 function getTypeLabel(type: string): string {
   switch (type) {
@@ -52,6 +52,7 @@ export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -60,6 +61,10 @@ export default function RequestDetailScreen() {
 
   const fetchIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const payInFlightRef = useRef(false);
+
+  /** Statuses em que o pagamento pode ser confirmado pelo webhook enquanto o usuário está na tela. */
+  const AWAITING_PAYMENT_STATUSES = ['consultation_ready', 'approved_pending_payment', 'pending_payment'];
 
   const load = useCallback(async () => {
     if (!requestId) { setLoading(false); return; }
@@ -92,6 +97,17 @@ export default function RequestDetailScreen() {
     }
   }, [requestId]);
 
+  /** Refresh silencioso (sem loading) para refletir confirmação de pagamento pelo webhook. */
+  const loadSilent = useCallback(async () => {
+    if (!requestId) return;
+    try {
+      const data = await fetchRequestById(requestId);
+      setRequest(data);
+    } catch {
+      // Ignore; não alterar estado em caso de erro no poll
+    }
+  }, [requestId]);
+
   useEffect(() => {
     load();
     return () => { abortRef.current?.abort(); };
@@ -99,35 +115,43 @@ export default function RequestDetailScreen() {
 
   useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId, load]));
 
-  const handlePay = async () => {
-    if (!request || actionLoading) return;
-    const allowedToPay = ['approved_pending_payment', 'pending_payment'].includes(request.status) ||
-      (request.requestType === 'consultation' && request.status === 'consultation_ready');
-    if (!allowedToPay) {
-      Alert.alert(
-        'Pagamento indisponível',
-        'Esta solicitação não está aguardando pagamento. O botão Pagar só aparece quando o pedido foi aprovado e está aguardando pagamento.'
-      );
+  /** Polling: enquanto o pedido está aguardando pagamento, atualiza a cada 5s para refletir webhook. */
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const awaiting = request && AWAITING_PAYMENT_STATUSES.includes(request.status);
+    if (!awaiting) {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
       return;
     }
-    setActionLoading(true);
-    try {
-      let payment;
-      try { payment = await fetchPaymentByRequest(request.id); } catch {}
-      if (!payment) {
-        payment = await createPayment({ requestId: request.id, paymentMethod: 'pix' });
+    pollIntervalRef.current = setInterval(loadSilent, 5000);
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
-      router.push(`/payment/${payment.id}`);
-    } catch (error: unknown) {
-      const msg = getApiErrorMessage(error);
-      Alert.alert(
-        'Erro ao gerar pagamento',
-        msg.includes('aprovada e aguardando pagamento')
-          ? 'Esta solicitação não está mais aguardando pagamento. Atualize a tela ou verifique o status do pedido.'
-          : msg
-      );
+    };
+  }, [request?.status, request?.id, loadSilent]);
+
+  const handlePay = () => {
+    if (payInFlightRef.current) return;
+    payInFlightRef.current = true;
+    try {
+      if (!request) return;
+      const allowedToPay = ['approved_pending_payment', 'pending_payment'].includes(request.status) ||
+        (request.requestType === 'consultation' && request.status === 'consultation_ready');
+      if (!allowedToPay) {
+        Alert.alert(
+          'Pagamento indisponível',
+          'Esta solicitação não está aguardando pagamento. O botão Pagar só aparece quando o pedido foi aprovado e está aguardando pagamento.'
+        );
+        return;
+      }
+      router.push(`/payment/request/${request.id}`);
     } finally {
-      setActionLoading(false);
+      payInFlightRef.current = false;
     }
   };
 
@@ -271,7 +295,7 @@ export default function RequestDetailScreen() {
         <StatusBadge status={request.status} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Status Tracker */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>STATUS DO PEDIDO</Text>
@@ -422,7 +446,7 @@ export default function RequestDetailScreen() {
                 </View>
               )}
             </View>
-            <Text style={styles.aiSummary} numberOfLines={4} ellipsizeMode="tail">{request.aiSummaryForDoctor}</Text>
+            <FormattedAiSummary text={request.aiSummaryForDoctor} accentColor="#D97706" />
           </View>
         )}
 
@@ -501,7 +525,7 @@ export default function RequestDetailScreen() {
           {selectedImageUri && (
             Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
               <View style={{ flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' }}>
-                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%', maxHeight: Dimensions.get('window').height * 0.8 }} resizeMode="contain" />
+                <CompatibleImage uri={selectedImageUri} style={{ width: '100%', height: '100%', maxHeight: windowHeight * 0.8 }} resizeMode="contain" />
               </View>
             ) : (
               <ZoomableImage uri={selectedImageUri} onClose={() => setSelectedImageUri(null)} />

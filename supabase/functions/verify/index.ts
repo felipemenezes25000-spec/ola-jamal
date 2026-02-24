@@ -215,11 +215,9 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // URL com domínio próprio para o PDF (backend faz stream)
+  // URL de 2ª via: sempre disponível após validar o código (backend valida code e entrega o PDF)
   const base = API_BASE_URL.replace(/\/$/, "");
-  const downloadUrl = r.pdf_storage_path
-    ? `${base}/api/verify/${r.id}/document?code=${encodeURIComponent(codeTrim)}`
-    : undefined;
+  const downloadUrl = `${base}/api/verify/${r.id}/document?code=${encodeURIComponent(codeTrim)}`;
 
   const crmMasked =
     r.prescriber_crm_uf && r.prescriber_crm_last4

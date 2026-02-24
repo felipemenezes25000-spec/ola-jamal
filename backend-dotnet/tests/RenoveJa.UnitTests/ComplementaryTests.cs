@@ -387,7 +387,8 @@ public class AuthServiceExtendedTests
         var request = new RegisterDoctorRequestDto(
             "Dr. Test Doctor", "doc@e.com", "password123", "password123",
             "11987654321", "52998224725",
-            "123456", "SP", "Cardiologia");
+            "123456", "SP", "Cardiologia",
+            new DateTime(1985, 3, 10), null, "Rua Teste", "100", "Centro", null, "São Paulo", "SP", "01310100");
 
         _userRepoMock.Setup(r => r.ExistsByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -413,7 +414,8 @@ public class AuthServiceExtendedTests
             .ReturnsAsync(true);
 
         var request = new RegisterDoctorRequestDto(
-            "Dr. X", "dup@e.com", "pass", "pass", "11999999999", "12345678900", "CRM123", "SP", "Cardiologia");
+            "Dr. X", "dup@e.com", "pass", "pass", "11999999999", "12345678900", "CRM123", "SP", "Cardiologia",
+            new DateTime(1980, 1, 1), null, "Rua X", "1", "Bairro", null, "São Paulo", "SP", "01310100");
 
         Func<Task> act = () => _sut.RegisterDoctorAsync(request);
         await act.Should().ThrowAsync<InvalidOperationException>();

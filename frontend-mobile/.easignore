@@ -1,0 +1,14 @@
+# Android build cache (1.3G)
+android/app/build
+android/.gradle
+
+# IDE
+.vscode
+.idea
+
+# Expo cache
+.expo
+web-build
+
+# Tests
+__tests__

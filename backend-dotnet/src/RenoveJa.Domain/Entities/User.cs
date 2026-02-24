@@ -178,14 +178,21 @@ public class User : AggregateRoot
             profileComplete: true);
     }
 
-    /// <summary>Cria médico com perfil incompleto até cadastrar certificado digital.</summary>
+    /// <summary>Cria médico com perfil incompleto até cadastrar certificado digital. Endereço obrigatório (Street, Number, Neighborhood, City, State).</summary>
     public static User CreateDoctor(
         string name,
         string email,
         string passwordHash,
         string phone,
         string cpf,
-        DateTime? birthDate = null)
+        DateTime? birthDate = null,
+        string? street = null,
+        string? number = null,
+        string? neighborhood = null,
+        string? complement = null,
+        string? city = null,
+        string? state = null,
+        string? postalCode = null)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Password hash is required");
@@ -203,13 +210,13 @@ public class User : AggregateRoot
             birthDate,
             gender: null,
             address: null,
-            street: null,
-            number: null,
-            neighborhood: null,
-            complement: null,
-            city: null,
-            state: null,
-            postalCode: null,
+            street,
+            number,
+            neighborhood,
+            complement,
+            city,
+            state,
+            postalCode,
             avatarUrl: null,
             createdAt: null,
             updatedAt: null,

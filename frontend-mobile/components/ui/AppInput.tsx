@@ -159,10 +159,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: r.pill,
+    borderRadius: 14,
     borderWidth: 1.5,
-    minHeight: 54,
-    paddingHorizontal: 20,
+    minHeight: 52,
+    paddingHorizontal: 14,
   },
   focusShadow: {
     shadowColor: c.primary.main,
@@ -178,19 +178,19 @@ const styles = StyleSheet.create({
     marginRight: s.sm,
   },
   eyeButton: {
-    marginLeft: s.sm,
+    marginLeft: 4,
     padding: 4,
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: 36,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '400',
     color: c.text.primary,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   errorContainer: {
     minHeight: 20,

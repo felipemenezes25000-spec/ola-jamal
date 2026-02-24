@@ -9,19 +9,18 @@ import { formatBRL, formatDateBR } from '../lib/utils/format';
 import { RequestResponseDto } from '../types/database';
 
 const RISK_CONFIG: Record<string, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  high: { label: 'Alto Risco', color: '#DC2626', bg: '#FEE2E2', icon: 'alert-circle' },
-  medium: { label: 'Risco Médio', color: '#D97706', bg: '#FEF3C7', icon: 'warning' },
-  low: { label: 'Baixo Risco', color: '#059669', bg: '#D1FAE5', icon: 'shield-checkmark' },
+  high: { label: 'ALTO RISCO', color: '#DC2626', bg: '#FEE2E2', icon: 'alert-circle' },
+  medium: { label: 'RISCO MÉDIO', color: '#D97706', bg: '#FEF3C7', icon: 'warning' },
+  low: { label: 'BAIXO RISCO', color: '#059669', bg: '#D1FAE5', icon: 'shield-checkmark' },
 };
 
-/** Design system: sem roxo/cyan — azul, verde, cinza */
 const TYPE_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> = {
-  prescription: { icon: 'document-text', color: '#3B82F6', bg: '#DBEAFE', label: 'Receita' },
-  exam: { icon: 'flask', color: '#6B7280', bg: '#F3F4F6', label: 'Exame' },
-  consultation: { icon: 'videocam', color: '#059669', bg: '#D1FAE5', label: 'Consulta' },
+  prescription: { icon: 'document-text', color: '#3B82F6', bg: '#DBEAFE', label: 'RECEITA' },
+  exam: { icon: 'flask', color: '#6B7280', bg: '#F3F4F6', label: 'EXAME' },
+  consultation: { icon: 'videocam', color: '#059669', bg: '#D1FAE5', label: 'CONSULTA' },
 };
 
-const FALLBACK_TYPE = { icon: 'document' as keyof typeof Ionicons.glyphMap, color: '#3B82F6', bg: '#DBEAFE', label: 'Solicitação' };
+const FALLBACK_TYPE = { icon: 'document' as keyof typeof Ionicons.glyphMap, color: '#3B82F6', bg: '#DBEAFE', label: 'SOLICITAÇÃO' };
 
 function getRequestSubtitle(request: RequestResponseDto, showPatientName?: boolean): string {
   if (showPatientName && request.patientName) {
@@ -63,7 +62,7 @@ interface Props {
   suppressHorizontalMargin?: boolean;
 }
 
-export default function RequestCard({
+function RequestCardInner({
   request,
   onPress,
   showPatientName,
@@ -122,12 +121,24 @@ export default function RequestCard({
   );
 }
 
+const RequestCard = React.memo(RequestCardInner, (prev, next) =>
+  prev.request.id === next.request.id &&
+  prev.request.status === next.request.status &&
+  prev.request.updatedAt === next.request.updatedAt &&
+  prev.showPatientName === next.showPatientName &&
+  prev.showPrice === next.showPrice &&
+  prev.showRisk === next.showRisk &&
+  prev.suppressHorizontalMargin === next.suppressHorizontalMargin
+);
+
+export default RequestCard;
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     marginHorizontal: uiTokens.screenPaddingHorizontal,
     marginBottom: 10,
     overflow: 'hidden',
@@ -141,24 +152,24 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   accentStrip: {
-    width: 4,
+    width: 3,
     alignSelf: 'stretch',
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: uiTokens.spacing.md,
-    marginRight: uiTokens.spacing.md,
-    marginTop: uiTokens.spacing.md,
+    marginLeft: 14,
+    marginRight: 12,
+    marginTop: 14,
     alignSelf: 'flex-start',
   },
   content: {
     flex: 1,
-    paddingVertical: uiTokens.spacing.md,
-    paddingRight: uiTokens.spacing.md,
+    paddingVertical: 14,
+    paddingRight: 14,
     minHeight: 56,
   },
   topRow: {
@@ -168,9 +179,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
+    letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: 13,
@@ -195,8 +207,9 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   riskText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   spacer: {
     flex: 1,

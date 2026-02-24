@@ -8,6 +8,7 @@ import {
   Keyboard,
   ScrollView,
   TextInput,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +37,19 @@ function formatCep(value: string) {
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
 
+/* ────────── Section Header ────────── */
+function SectionHeader({ icon, title }: { icon: keyof typeof Ionicons.glyphMap; title: string }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionIconWrap}>
+        <Ionicons name={icon} size={16} color={c.primary.main} />
+      </View>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionLine} />
+    </View>
+  );
+}
+
 export default function Register() {
   const router = useRouter();
   const { signUp, signUpDoctor, refreshUser } = useAuth();
@@ -46,6 +60,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [cpf, setCpf] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [crm, setCrm] = useState('');
   const [crmState, setCrmState] = useState('');
   const [specialty, setSpecialty] = useState('');
@@ -141,6 +156,21 @@ export default function Register() {
     else if (cp.length !== 11) err.cpf = 'O CPF deve ter 11 dígitos.';
     else if (!isValidCpf(cp)) err.cpf = 'CPF inválido. Verifique os dígitos.';
 
+    const bd = birthDate.trim();
+    if (!bd) err.birthDate = 'Data de nascimento é obrigatória.';
+    else {
+      const ddmmyy = bd.replace(/\D/g, '');
+      if (ddmmyy.length !== 8) err.birthDate = 'Informe a data no formato DD/MM/AAAA.';
+      else {
+        const d = parseInt(ddmmyy.slice(0, 2), 10);
+        const m = parseInt(ddmmyy.slice(2, 4), 10) - 1;
+        const y = parseInt(ddmmyy.slice(4, 8), 10);
+        const date = new Date(y, m, d);
+        if (date.getFullYear() !== y || date.getMonth() !== m || date.getDate() !== d) err.birthDate = 'Data de nascimento inválida.';
+        else if (date.getTime() > Date.now()) err.birthDate = 'Data não pode ser no futuro.';
+      }
+    }
+
     if (role === 'doctor') {
       const cr = crm.trim().replace(/\D/g, '');
       const cs = crmState.trim().toUpperCase().slice(0, 2);
@@ -155,19 +185,18 @@ export default function Register() {
       }
     }
 
-    if (role === 'patient') {
-      const str = street.trim();
-      const num = number.trim();
-      const neigh = neighborhood.trim();
-      const ci = city.trim();
-      const st = state.trim().toUpperCase();
-      if (!str) err.street = 'Rua é obrigatória.';
-      if (!num) err.number = 'Número é obrigatório.';
-      if (!neigh) err.neighborhood = 'Bairro é obrigatório.';
-      if (!ci) err.city = 'Cidade é obrigatória.';
-      if (!st) err.state = 'UF é obrigatória.';
-      else if (st.length !== 2) err.state = 'Informe a sigla com 2 letras.';
-    }
+    // Endereço obrigatório para paciente e médico
+    const str = street.trim();
+    const num = number.trim();
+    const neigh = neighborhood.trim();
+    const ci = city.trim();
+    const st = state.trim().toUpperCase();
+    if (!str) err.street = 'Rua é obrigatória.';
+    if (!num) err.number = 'Número é obrigatório.';
+    if (!neigh) err.neighborhood = 'Bairro é obrigatório.';
+    if (!ci) err.city = 'Cidade é obrigatória.';
+    if (!st) err.state = 'UF é obrigatória.';
+    else if (st.length !== 2) err.state = 'Informe a sigla com 2 letras.';
 
     if (!acceptedTerms) {
       err.terms = 'Aceite os Termos de Uso para continuar.';
@@ -184,6 +213,17 @@ export default function Register() {
     Keyboard.dismiss();
     setLoading(true);
     try {
+      const str = street.trim();
+      const num = number.trim();
+      const neigh = neighborhood.trim();
+      const comp = complement.trim();
+      const ci = city.trim();
+      const st = state.trim().toUpperCase().slice(0, 2);
+      const postalCode = onlyDigits(cep);
+      const bdTrim = birthDate.trim().replace(/\D/g, '');
+      const birthDateIso = bdTrim.length === 8
+        ? `${bdTrim.slice(4, 8)}-${bdTrim.slice(2, 4)}-${bdTrim.slice(0, 2)}`
+        : undefined;
       const data: Record<string, unknown> = {
         name: n,
         email: e,
@@ -191,23 +231,15 @@ export default function Register() {
         confirmPassword: pc,
         phone: ph,
         cpf: cp,
+        birthDate: birthDateIso,
+        street: str,
+        number: num,
+        neighborhood: neigh,
+        complement: comp,
+        city: ci,
+        state: st,
+        ...(postalCode.length === 8 ? { postalCode } : {}),
       };
-      if (role === 'patient') {
-        const str = street.trim();
-        const num = number.trim();
-        const neigh = neighborhood.trim();
-        const comp = complement.trim();
-        const ci = city.trim();
-        const st = state.trim().toUpperCase().slice(0, 2);
-        const postalCode = onlyDigits(cep);
-        if (str) data.street = str;
-        if (num) data.number = num;
-        if (neigh) data.neighborhood = neigh;
-        if (comp) data.complement = comp;
-        if (ci) data.city = ci;
-        if (st) data.state = st;
-        if (postalCode.length === 8) data.postalCode = postalCode;
-      }
       const user = role === 'doctor'
         ? await signUpDoctor({ ...data, crm: crm.trim().replace(/\D/g, ''), crmState: crmState.trim().toUpperCase().slice(0, 2), specialty: specialty.trim() } as any)
         : await signUp(data as any);
@@ -247,51 +279,44 @@ export default function Register() {
 
   return (
     <Screen variant="gradient" scroll>
-      {/* Logo */}
-      <View style={styles.logoContainer}>
-        <Logo size="medium" />
+      {/* ═══ Header ═══ */}
+      <View style={styles.header}>
+        <Logo size="medium" variant="dark" compact />
+        <Text style={styles.title}>Crie sua conta</Text>
+        <Text style={styles.subtitle}>
+          Preencha seus dados para começar a usar o RenoveJá
+        </Text>
       </View>
 
-      {/* Title & Subtitle */}
-      <Text style={styles.title}>Vamos começar!</Text>
-      <Text style={styles.subtitle}>
-        Escolha se você é Paciente ou Médico, preencha os dados abaixo e toque em Cadastrar no final.
-      </Text>
-
-      {/* Role Toggle */}
-      <View style={styles.roleRow}>
+      {/* ═══ Role Toggle ═══ */}
+      <View style={styles.roleContainer}>
         <TouchableOpacity
           style={[styles.roleBtn, role === 'patient' && styles.roleBtnActive]}
           onPress={() => setRole('patient')}
           activeOpacity={0.8}
         >
-          <Ionicons
-            name="person"
-            size={18}
-            color={role === 'patient' ? '#FFFFFF' : c.text.tertiary}
-          />
-          <Text style={[styles.roleText, role === 'patient' && styles.roleTextActive]}>
-            Paciente
-          </Text>
+          <View style={[styles.roleIconWrap, role === 'patient' && styles.roleIconWrapActive]}>
+            <Ionicons name="person" size={16} color={role === 'patient' ? '#FFF' : c.text.tertiary} />
+          </View>
+          <Text style={[styles.roleText, role === 'patient' && styles.roleTextActive]}>Paciente</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.roleBtn, role === 'doctor' && styles.roleBtnActive]}
           onPress={() => setRole('doctor')}
           activeOpacity={0.8}
         >
-          <Ionicons
-            name="medical"
-            size={18}
-            color={role === 'doctor' ? '#FFFFFF' : c.text.tertiary}
-          />
-          <Text style={[styles.roleText, role === 'doctor' && styles.roleTextActive]}>
-            Médico
-          </Text>
+          <View style={[styles.roleIconWrap, role === 'doctor' && styles.roleIconWrapActive]}>
+            <Ionicons name="medical" size={16} color={role === 'doctor' ? '#FFF' : c.text.tertiary} />
+          </View>
+          <Text style={[styles.roleText, role === 'doctor' && styles.roleTextActive]}>Médico</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Form Fields */}
-      <View style={styles.form}>
+      {/* ═══ Form Card ═══ */}
+      <View style={styles.card}>
+
+        {/* ── Dados pessoais ── */}
+        <SectionHeader icon="person-outline" title="Dados pessoais" />
         <AppInput
           label="Nome completo"
           required
@@ -314,26 +339,6 @@ export default function Register() {
           autoCapitalize="none"
         />
         <AppInput
-          label="Senha"
-          required
-          leftIcon="lock-closed-outline"
-          placeholder="Mín. 8 caracteres, 1 maiúscula, 1 número e 1 especial"
-          value={password}
-          onChangeText={(t: string) => { setPassword(t); clearError('password'); }}
-          error={fieldErrors.password}
-          secureTextEntry
-        />
-        <AppInput
-          label="Confirmar senha"
-          required
-          leftIcon="lock-closed-outline"
-          placeholder="Repita a senha"
-          value={confirmPassword}
-          onChangeText={(t: string) => { setConfirmPassword(t); clearError('confirmPassword'); }}
-          error={fieldErrors.confirmPassword}
-          secureTextEntry
-        />
-        <AppInput
           label="Telefone"
           required
           leftIcon="call-outline"
@@ -353,102 +358,151 @@ export default function Register() {
           error={fieldErrors.cpf}
           keyboardType="numeric"
         />
+        <AppInput
+          label="Data de nascimento"
+          required
+          leftIcon="calendar-outline"
+          placeholder="DD/MM/AAAA"
+          value={birthDate}
+          onChangeText={(t: string) => {
+            const d = t.replace(/\D/g, '').slice(0, 8);
+            if (d.length <= 2) setBirthDate(d);
+            else if (d.length <= 4) setBirthDate(`${d.slice(0, 2)}/${d.slice(2)}`);
+            else setBirthDate(`${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`);
+            clearError('birthDate');
+          }}
+          error={fieldErrors.birthDate}
+          keyboardType="numeric"
+          hint="Usada nas receitas médicas"
+        />
 
-        {role === 'patient' && (
-          <>
+        {/* ── Segurança ── */}
+        <SectionHeader icon="lock-closed-outline" title="Segurança" />
+        <AppInput
+          label="Senha"
+          required
+          leftIcon="lock-closed-outline"
+          placeholder="Mín. 8 caracteres"
+          value={password}
+          onChangeText={(t: string) => { setPassword(t); clearError('password'); }}
+          error={fieldErrors.password}
+          hint="Maiúscula, minúscula, número e especial"
+          secureTextEntry
+        />
+        <AppInput
+          label="Confirmar senha"
+          required
+          leftIcon="lock-closed-outline"
+          placeholder="Repita a senha"
+          value={confirmPassword}
+          onChangeText={(t: string) => { setConfirmPassword(t); clearError('confirmPassword'); }}
+          error={fieldErrors.confirmPassword}
+          secureTextEntry
+        />
+
+        {/* ── Endereço (obrigatório para paciente e médico) ── */}
+        <>
+          <SectionHeader icon="location-outline" title="Endereço" />
+          <AppInput
+            label="CEP"
+            placeholder="00000-000"
+            value={cep}
+            onChangeText={handleCepChange}
+            onBlur={lookupCep}
+            keyboardType="numeric"
+            leftIcon="location-outline"
+          />
+          <AppInput
+            label="Rua"
+            required
+            placeholder="Nome da rua"
+            value={street}
+            onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
+            leftIcon="home-outline"
+            error={fieldErrors.street}
+          />
+          <View style={styles.row}>
             <AppInput
-              label="CEP"
-              placeholder="00000-000"
-              value={cep}
-              onChangeText={handleCepChange}
-              onBlur={lookupCep}
+              label="Número"
+              required
+              placeholder="Nº"
+              value={number}
+              onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
               keyboardType="numeric"
-              leftIcon="location-outline"
+              containerStyle={{ width: 100 }}
+              error={fieldErrors.number}
             />
             <AppInput
-              label="Rua"
-              required
-              placeholder="Nome da rua"
-              value={street}
-              onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
-              leftIcon="home-outline"
-              error={fieldErrors.street}
+              label="Complemento"
+              placeholder="Apto, bloco..."
+              value={complement}
+              onChangeText={setComplement}
+              containerStyle={styles.flex1}
             />
-            <View style={styles.addressRow}>
-              <AppInput
-                label="Número"
-                required
-                placeholder="Nº"
-                value={number}
-                onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
-                keyboardType="numeric"
-                containerStyle={styles.numberInput}
-                error={fieldErrors.number}
-              />
-              <AppInput
-                label="Complemento"
-                placeholder="Apto, bloco..."
-                value={complement}
-                onChangeText={setComplement}
-                containerStyle={styles.complementInput}
-              />
-            </View>
+          </View>
+          <AppInput
+            label="Bairro"
+            required
+            placeholder="Bairro"
+            value={neighborhood}
+            onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
+            leftIcon="business-outline"
+            error={fieldErrors.neighborhood}
+          />
+          <View style={styles.row}>
             <AppInput
-              label="Bairro"
+              label="Cidade"
               required
-              placeholder="Bairro"
-              value={neighborhood}
-              onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
-              leftIcon="business-outline"
-              error={fieldErrors.neighborhood}
+              placeholder="Cidade"
+              value={city}
+              onChangeText={(t: string) => { setCity(t); clearError('city'); }}
+              containerStyle={styles.flex1}
+              error={fieldErrors.city}
             />
-            <View style={styles.addressRow}>
-              <AppInput
-                label="Cidade"
-                required
-                placeholder="Cidade"
-                value={city}
-                onChangeText={(t: string) => { setCity(t); clearError('city'); }}
-                containerStyle={styles.cityInput}
-                error={fieldErrors.city}
-              />
-              <AppInput
-                label="UF"
-                required
-                placeholder="UF"
-                value={state}
-                onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
-                maxLength={2}
-                containerStyle={styles.stateInput}
-                error={fieldErrors.state}
-              />
-            </View>
-          </>
-        )}
+            <AppInput
+              label="UF"
+              required
+              placeholder="UF"
+              value={state}
+              onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
+              maxLength={2}
+              containerStyle={{ width: 96 }}
+              error={fieldErrors.state}
+            />
+          </View>
+        </>
 
+        {/* ── Dados médicos (Médico) ── */}
         {role === 'doctor' && (
           <>
-            <AppInput
-              label="CRM"
-              required
-              leftIcon="shield-checkmark-outline"
-              placeholder="Número do CRM (4 a 7 dígitos)"
-              value={crm}
-              onChangeText={(t: string) => { setCrm(t); clearError('crm'); }}
-              error={fieldErrors.crm}
-            />
-            <AppInput
-              label="Estado do CRM"
-              required
-              leftIcon="location-outline"
-              placeholder="SP"
-              value={crmState}
-              onChangeText={(t: string) => { setCrmState(t); clearError('crmState'); }}
-              error={fieldErrors.crmState}
-            />
+            <SectionHeader icon="medkit-outline" title="Dados profissionais" />
+            <View style={styles.row}>
+              <AppInput
+                label="CRM"
+                required
+                leftIcon="shield-checkmark-outline"
+                placeholder="Nº do CRM"
+                value={crm}
+                onChangeText={(t: string) => { setCrm(t); clearError('crm'); }}
+                error={fieldErrors.crm}
+                containerStyle={styles.flex1}
+              />
+              <AppInput
+                label="Estado do CRM"
+                required
+                leftIcon="location-outline"
+                placeholder="SP"
+                value={crmState}
+                onChangeText={(t: string) => { setCrmState(t); clearError('crmState'); }}
+                error={fieldErrors.crmState}
+                containerStyle={{ width: 120 }}
+              />
+            </View>
             {specialtiesList.length > 0 ? (
               <View style={styles.specialtyBlock}>
-                <Text style={styles.specialtyLabel}>Especialidade *</Text>
+                <Text style={styles.specialtyLabel}>
+                  Especialidade <Text style={{ color: c.status.error }}>*</Text>
+                </Text>
                 <TouchableOpacity
                   style={[
                     styles.specialtyTrigger,
@@ -457,6 +511,7 @@ export default function Register() {
                   onPress={() => setSpecialtyOpen((o) => !o)}
                   activeOpacity={0.8}
                 >
+                  <Ionicons name="medkit-outline" size={18} color={c.text.tertiary} style={{ marginRight: 8 }} />
                   <Text
                     style={[
                       styles.specialtyTriggerText,
@@ -464,7 +519,7 @@ export default function Register() {
                     ]}
                     numberOfLines={1}
                   >
-                    {specialty.trim() || 'Buscar ou selecionar especialidade...'}
+                    {specialty.trim() || 'Selecionar especialidade...'}
                   </Text>
                   <Ionicons
                     name={specialtyOpen ? 'chevron-up' : 'chevron-down'}
@@ -475,10 +530,10 @@ export default function Register() {
                 {specialtyOpen && (
                   <View style={styles.specialtyDropdown}>
                     <View style={styles.specialtySearchWrap}>
-                      <Ionicons name="search-outline" size={20} color={c.text.tertiary} />
+                      <Ionicons name="search-outline" size={18} color={c.text.tertiary} />
                       <TextInput
                         style={styles.specialtySearchInput}
-                        placeholder="Pesquisar pelo nome"
+                        placeholder="Pesquisar especialidade..."
                         placeholderTextColor={c.text.tertiary}
                         value={specialtySearch}
                         onChangeText={setSpecialtySearch}
@@ -490,7 +545,7 @@ export default function Register() {
                           onPress={() => setSpecialtySearch('')}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons name="close-circle" size={20} color={c.text.tertiary} />
+                          <Ionicons name="close-circle" size={18} color={c.text.tertiary} />
                         </TouchableOpacity>
                       ) : null}
                     </View>
@@ -539,7 +594,7 @@ export default function Register() {
                                 {s}
                               </Text>
                               {isSelected ? (
-                                <Ionicons name="checkmark" size={20} color={c.primary.main} />
+                                <Ionicons name="checkmark-circle" size={20} color={c.primary.main} />
                               ) : null}
                             </TouchableOpacity>
                           );
@@ -565,13 +620,19 @@ export default function Register() {
               />
             )}
 
-            {/* Certificado digital (opcional na tela; sem preencher vai para complete-doctor) */}
+            {/* Certificado digital */}
             <View style={styles.certSection}>
-              <Text style={styles.certSectionTitle}>Certificado digital</Text>
-              <Text style={styles.certSectionDesc}>
-                Adicione aqui para concluir o cadastro de uma vez. Se não tiver agora, você poderá
-                cadastrar na próxima tela.
-              </Text>
+              <View style={styles.certHeader}>
+                <View style={styles.certIconWrap}>
+                  <Ionicons name="shield-checkmark" size={16} color={c.primary.main} />
+                </View>
+                <View style={styles.flex1}>
+                  <Text style={styles.certSectionTitle}>Certificado digital</Text>
+                  <Text style={styles.certSectionDesc}>
+                    Opcional agora — você pode adicionar depois.
+                  </Text>
+                </View>
+              </View>
               <TouchableOpacity
                 style={styles.certFileBtn}
                 onPress={async () => {
@@ -587,11 +648,13 @@ export default function Register() {
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name={certFile ? 'document-attach' : 'cloud-upload-outline'}
-                  size={24}
-                  color={c.primary.main}
-                />
+                <View style={styles.certUploadIcon}>
+                  <Ionicons
+                    name={certFile ? 'document-attach' : 'cloud-upload-outline'}
+                    size={22}
+                    color={c.primary.main}
+                  />
+                </View>
                 <Text style={styles.certFileBtnText}>
                   {certFile ? certFile.name : 'Selecionar arquivo .PFX'}
                 </Text>
@@ -609,151 +672,175 @@ export default function Register() {
           </>
         )}
 
-        {/* Uso de IA - destaque para o paciente e demais */}
+        {/* ── IA Notice ── */}
         <View style={styles.aiNotice}>
-          <Ionicons name="sparkles" size={20} color={c.primary.main} />
+          <View style={styles.aiIconWrap}>
+            <Ionicons name="sparkles" size={16} color="#FFF" />
+          </View>
           <Text style={styles.aiNoticeText}>
-            Utilizamos inteligência artificial para triagem e leitura de receitas e exames, agilizando seu atendimento.
+            Utilizamos <Text style={styles.aiBold}>inteligência artificial</Text> para triagem e leitura de receitas e exames, agilizando seu atendimento.
           </Text>
         </View>
 
-        {/* Checkbox Termos de Uso */}
-        <TouchableOpacity
-          style={styles.termsRow}
-          onPress={() => { setAcceptedTerms((v) => !v); clearError('terms'); }}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-            {acceptedTerms ? (
-              <Ionicons name="checkmark" size={18} color="#fff" />
-            ) : null}
-          </View>
-          <Text style={styles.termsLabel}>Li e aceito os </Text>
+        {/* ── Termos ── */}
+        <View style={styles.termsBlock}>
           <TouchableOpacity
-            onPress={() => router.push('/terms' as any)}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            style={styles.termsRow}
+            onPress={() => { setAcceptedTerms((v) => !v); clearError('terms'); }}
+            activeOpacity={0.8}
           >
-            <Text style={styles.termsLink}>Termos de Uso</Text>
+            <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+              {acceptedTerms ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+            </View>
+            <Text style={styles.termsLabel}>Li e aceito os </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/terms' as any)}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            >
+              <Text style={styles.termsLink}>Termos de Uso</Text>
+            </TouchableOpacity>
+            <Text style={styles.termsLabel}>.</Text>
           </TouchableOpacity>
-          <Text style={styles.termsLabel}>.</Text>
-        </TouchableOpacity>
-        {fieldErrors.terms ? (
-          <Text style={styles.fieldErrorText}>{fieldErrors.terms}</Text>
-        ) : null}
+          {fieldErrors.terms ? (
+            <Text style={styles.fieldErrorText}>{fieldErrors.terms}</Text>
+          ) : null}
 
-        {/* Checkbox Política de Privacidade */}
-        <TouchableOpacity
-          style={styles.termsRow}
-          onPress={() => { setAcceptedPrivacy((v) => !v); clearError('privacy'); }}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.checkbox, acceptedPrivacy && styles.checkboxChecked]}>
-            {acceptedPrivacy ? (
-              <Ionicons name="checkmark" size={18} color="#fff" />
-            ) : null}
-          </View>
-          <Text style={styles.termsLabel}>Li e aceito a </Text>
           <TouchableOpacity
-            onPress={() => router.push('/privacy' as any)}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            style={styles.termsRow}
+            onPress={() => { setAcceptedPrivacy((v) => !v); clearError('privacy'); }}
+            activeOpacity={0.8}
           >
-            <Text style={styles.termsLink}>Política de Privacidade</Text>
+            <View style={[styles.checkbox, acceptedPrivacy && styles.checkboxChecked]}>
+              {acceptedPrivacy ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+            </View>
+            <Text style={styles.termsLabel}>Li e aceito a </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/privacy' as any)}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            >
+              <Text style={styles.termsLink}>Política de Privacidade</Text>
+            </TouchableOpacity>
+            <Text style={styles.termsLabel}>.</Text>
           </TouchableOpacity>
-          <Text style={styles.termsLabel}>.</Text>
-        </TouchableOpacity>
-        {fieldErrors.privacy ? (
-          <Text style={styles.fieldErrorText}>{fieldErrors.privacy}</Text>
-        ) : null}
+          {fieldErrors.privacy ? (
+            <Text style={styles.fieldErrorText}>{fieldErrors.privacy}</Text>
+          ) : null}
+        </View>
 
-        {/* Submit Button */}
+        {/* ── Submit ── */}
         <AppButton
-          title="Cadastrar"
+          title="Criar minha conta"
           onPress={handleRegister}
           loading={loading}
           fullWidth
+          size="lg"
           style={styles.submitButton}
         />
       </View>
 
-      {/* Social Login */}
+      {/* ═══ Social Login ═══ */}
       <View style={styles.dividerRow}>
         <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>ou entre com</Text>
+        <Text style={styles.dividerText}>ou cadastre-se com</Text>
         <View style={styles.dividerLine} />
       </View>
 
       <View style={styles.socialRow}>
-        <TouchableOpacity style={styles.socialCircle} activeOpacity={0.7}>
-          <Ionicons name="logo-google" size={22} color={c.text.secondary} />
+        <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+          <Ionicons name="logo-google" size={20} color="#4285F4" />
+          <Text style={styles.socialBtnText}>Google</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.socialCircle} activeOpacity={0.7}>
-          <Ionicons name="logo-apple" size={22} color={c.text.secondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Login Link */}
-      <View style={styles.loginRow}>
-        <Text style={styles.loginText}>Já tem conta? </Text>
-        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.loginLink}>Entrar</Text>
+        <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+          <Ionicons name="logo-apple" size={20} color="#000" />
+          <Text style={styles.socialBtnText}>Apple</Text>
         </TouchableOpacity>
       </View>
 
-      {/* WhatsApp Contact */}
-      <View style={styles.whatsappRow}>
-        <Ionicons name="logo-whatsapp" size={16} color={c.secondary.main} />
-        <Text style={styles.whatsappText}>Whatsapp: (11) 98631-8000</Text>
+      {/* ═══ Footer ═══ */}
+      <View style={styles.footer}>
+        <View style={styles.loginRow}>
+          <Text style={styles.loginText}>Já tem conta? </Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+            <Text style={styles.loginLink}>Entrar</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.whatsappRow} activeOpacity={0.7}>
+          <Ionicons name="logo-whatsapp" size={15} color={c.secondary.main} />
+          <Text style={styles.whatsappText}>Suporte: (11) 98631-8000</Text>
+        </TouchableOpacity>
       </View>
     </Screen>
   );
 }
 
+/* ══════════════════════════════════════════
+   Styles
+   ══════════════════════════════════════════ */
+const CARD_RADIUS = 24;
+
 const styles = StyleSheet.create({
-  logoContainer: {
+  /* ── Header ── */
+  header: {
     alignItems: 'center',
-    marginTop: s.lg,
-    marginBottom: s.md,
+    paddingTop: s.lg,
+    paddingBottom: s.md,
   },
   title: {
-    fontSize: t.variants.h1.fontSize,
-    fontWeight: t.variants.h1.fontWeight as '700',
-    letterSpacing: t.variants.h1.letterSpacing,
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
     color: c.text.primary,
     textAlign: 'center',
-    marginBottom: s.xs,
+    marginTop: s.md,
   },
   subtitle: {
-    fontSize: t.variants.body2.fontSize,
-    fontWeight: t.variants.body2.fontWeight as '400',
+    fontSize: 15,
+    fontWeight: '400',
     color: c.text.secondary,
     textAlign: 'center',
-    marginBottom: s.lg,
+    marginTop: s.xs,
+    lineHeight: 22,
+    paddingHorizontal: s.md,
   },
-  roleRow: {
+
+  /* ── Role Toggle ── */
+  roleContainer: {
     flexDirection: 'row',
-    gap: s.sm,
+    gap: 10,
     marginBottom: s.lg,
+    paddingHorizontal: 2,
   },
   roleBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: s.sm,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: c.background.paper,
-    borderWidth: 2,
+    gap: 8,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
     borderColor: c.border.main,
   },
   roleBtnActive: {
     backgroundColor: c.primary.main,
     borderColor: c.primary.main,
-    shadowColor: c.primary.main,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
+    ...Platform.select({
+      ios: { shadowColor: c.primary.main, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
+      android: { elevation: 6 },
+      default: { shadowColor: c.primary.main, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
+    }),
+  },
+  roleIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: c.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleIconWrapActive: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   roleText: {
     fontSize: 15,
@@ -763,32 +850,73 @@ const styles = StyleSheet.create({
   roleTextActive: {
     color: '#FFFFFF',
   },
-  form: {
-    marginBottom: s.md,
+
+  /* ── Card ── */
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: CARD_RADIUS,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 28,
+    marginBottom: s.lg,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
+      android: { elevation: 3 },
+      default: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
+    }),
   },
-  addressRow: {
+
+  /* ── Section Header ── */
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    marginTop: 8,
+    gap: 8,
+  },
+  sectionIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: c.primary.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: c.text.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: c.border.light,
+    marginLeft: 4,
+  },
+
+  /* ── Layout Helpers ── */
+  row: {
     flexDirection: 'row',
     gap: s.sm,
   },
-  numberInput: {
-    width: 100,
-  },
-  complementInput: {
+  flex1: {
     flex: 1,
   },
-  cityInput: {
-    flex: 1,
-  },
-  stateInput: {
-    width: 80,
-  },
+
+  /* ── Submit ── */
   submitButton: {
-    marginTop: s.sm,
+    marginTop: s.md,
   },
+
+  /* ── Divider ── */
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: s.lg,
+    marginBottom: s.md,
+    paddingHorizontal: s.sm,
   },
   dividerLine: {
     flex: 1,
@@ -799,49 +927,66 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: c.text.tertiary,
     marginHorizontal: s.md,
+    fontWeight: '500',
   },
+
+  /* ── Social ── */
   socialRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: s.lg,
+    gap: 12,
     marginBottom: s.lg,
+    paddingHorizontal: s.sm,
   },
-  socialCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: c.background.paper,
-    borderWidth: 1.5,
-    borderColor: c.border.main,
+  socialBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
+    borderColor: c.border.main,
+  },
+  socialBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.text.secondary,
+  },
+
+  /* ── Footer ── */
+  footer: {
+    alignItems: 'center',
+    paddingBottom: s.lg,
+    gap: s.sm,
   },
   loginRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: s.md,
   },
   loginText: {
-    fontSize: 14,
+    fontSize: 15,
     color: c.text.secondary,
   },
   loginLink: {
-    fontSize: 14,
+    fontSize: 15,
     color: c.primary.main,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   whatsappRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: s.xs,
-    marginBottom: s.lg,
+    gap: 6,
   },
   whatsappText: {
     fontSize: 13,
     color: c.text.tertiary,
     fontWeight: '500',
   },
+
+  /* ── Specialty ── */
   specialtyBlock: {
     marginBottom: s.md,
   },
@@ -849,16 +994,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: c.text.primary,
-    marginBottom: s.xs,
+    marginBottom: 6,
   },
   specialtyTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: c.background.paper,
+    borderRadius: 14,
+    backgroundColor: c.background.secondary,
     borderWidth: 1.5,
     borderColor: c.border.main,
     minHeight: 52,
@@ -868,7 +1012,7 @@ const styles = StyleSheet.create({
   },
   specialtyTriggerText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: c.text.primary,
     marginRight: s.sm,
   },
@@ -876,32 +1020,36 @@ const styles = StyleSheet.create({
     color: c.text.tertiary,
   },
   specialtyDropdown: {
-    marginTop: 4,
-    borderRadius: theme.borderRadius.md,
+    marginTop: 6,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: c.border.main,
-    backgroundColor: c.background.paper,
-    maxHeight: 220,
+    backgroundColor: '#FFF',
+    maxHeight: 240,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      android: { elevation: 4 },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+    }),
   },
   specialtySearchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: s.sm,
-    paddingVertical: s.xs,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: c.border.light,
-    gap: s.xs,
+    gap: 8,
   },
   specialtySearchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: c.text.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   specialtyOptionsScroll: {
-    maxHeight: 180,
+    maxHeight: 190,
   },
   specialtyOption: {
     flexDirection: 'row',
@@ -913,7 +1061,7 @@ const styles = StyleSheet.create({
     borderBottomColor: c.border.light,
   },
   specialtyOptionSelected: {
-    backgroundColor: c.primary.ghost,
+    backgroundColor: c.primary.soft,
   },
   specialtyOptionText: {
     flex: 1,
@@ -923,7 +1071,7 @@ const styles = StyleSheet.create({
   },
   specialtyOptionTextSelected: {
     fontWeight: '600',
-    color: c.primary.main,
+    color: c.primary.dark,
   },
   specialtyOptionEmpty: {
     fontSize: 14,
@@ -934,51 +1082,88 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: c.status.error,
     marginTop: 4,
+    marginLeft: 4,
   },
+
+  /* ── Certificate ── */
   certSection: {
     marginTop: s.md,
-    marginBottom: s.sm,
-    paddingTop: s.md,
-    borderTopWidth: 1,
-    borderTopColor: c.border.main,
+    padding: s.md,
+    borderRadius: 16,
+    backgroundColor: c.background.secondary,
+    gap: 12,
+  },
+  certHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  certIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: c.primary.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
   },
   certSectionTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: c.text.primary,
-    marginBottom: 4,
   },
   certSectionDesc: {
     fontSize: 13,
-    color: c.text.secondary,
-    marginBottom: s.sm,
+    color: c.text.tertiary,
+    lineHeight: 18,
+    marginTop: 2,
   },
   certFileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: s.sm,
-    paddingVertical: s.sm,
-    paddingHorizontal: s.md,
-    borderRadius: theme.borderRadius.md,
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: c.primary.main,
+    borderColor: c.primary.light,
     borderStyle: 'dashed',
-    backgroundColor: c.primary.ghost,
+    backgroundColor: '#FFF',
+  },
+  certUploadIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: c.primary.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   certFileBtnText: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: c.primary.main,
+    color: c.primary.dark,
   },
+
+  /* ── AI Notice ── */
   aiNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: s.sm,
-    backgroundColor: c.primary.ghost ?? '#EFF6FF',
-    padding: s.md,
-    borderRadius: theme.borderRadius.md,
+    gap: 10,
+    backgroundColor: c.primary.soft,
+    padding: 14,
+    borderRadius: 14,
     marginTop: s.md,
-    marginBottom: s.sm,
+    marginBottom: 4,
+  },
+  aiIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: c.primary.main,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
   },
   aiNoticeText: {
     flex: 1,
@@ -986,21 +1171,31 @@ const styles = StyleSheet.create({
     color: c.text.secondary,
     lineHeight: 20,
   },
+  aiBold: {
+    fontWeight: '600',
+    color: c.text.primary,
+  },
+
+  /* ── Terms ── */
+  termsBlock: {
+    marginTop: s.md,
+    gap: 8,
+  },
   termsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginTop: s.sm,
   },
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: 6,
+    borderRadius: 7,
     borderWidth: 2,
-    borderColor: c.border.main,
-    marginRight: s.sm,
+    borderColor: c.border.dark,
+    marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFF',
   },
   checkboxChecked: {
     backgroundColor: c.primary.main,
@@ -1008,7 +1203,7 @@ const styles = StyleSheet.create({
   },
   termsLabel: {
     fontSize: 14,
-    color: c.text.primary,
+    color: c.text.secondary,
   },
   termsLink: {
     fontSize: 14,

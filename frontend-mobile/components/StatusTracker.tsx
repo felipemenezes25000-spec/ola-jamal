@@ -14,20 +14,20 @@ interface Step {
 }
 
 const PRESCRIPTION_STEPS: Step[] = [
-  { key: 'submitted', label: 'Enviado', icon: 'paper-plane', statuses: ['submitted'] },
-  { key: 'analysis', label: 'Análise IA', icon: 'sparkles', statuses: ['analyzing'] },
-  { key: 'review', label: 'Em Análise', icon: 'eye', statuses: ['in_review'] },
-  { key: 'payment', label: 'Pagamento', icon: 'card', statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'signed', label: 'Assinado', icon: 'shield-checkmark', statuses: ['paid', 'signed'] },
-  { key: 'delivered', label: 'Entregue', icon: 'checkmark-done-circle', statuses: ['delivered'] },
+  { key: 'submitted', label: 'Enviado', icon: 'paper-plane-outline', statuses: ['submitted'] },
+  { key: 'analysis', label: 'Análise IA', icon: 'scan-outline', statuses: ['analyzing'] },
+  { key: 'review', label: 'Em Análise', icon: 'eye-outline', statuses: ['in_review'] },
+  { key: 'payment', label: 'Pagamento', icon: 'card-outline', statuses: ['approved_pending_payment', 'pending_payment'] },
+  { key: 'signed', label: 'Assinado', icon: 'shield-checkmark-outline', statuses: ['paid', 'signed'] },
+  { key: 'delivered', label: 'Entregue', icon: 'checkmark-done-circle-outline', statuses: ['delivered'] },
 ];
 
 const CONSULTATION_STEPS: Step[] = [
-  { key: 'searching', label: 'Buscando', icon: 'search', statuses: ['searching_doctor'] },
-  { key: 'ready', label: 'Pronta', icon: 'checkmark-circle', statuses: ['consultation_ready'] },
-  { key: 'payment', label: 'Pagamento', icon: 'card', statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'in_consultation', label: 'Em Consulta', icon: 'videocam', statuses: ['paid', 'in_consultation'] },
-  { key: 'finished', label: 'Finalizada', icon: 'checkmark-done-circle', statuses: ['consultation_finished'] },
+  { key: 'searching', label: 'Buscando', icon: 'search-outline', statuses: ['searching_doctor'] },
+  { key: 'ready', label: 'Pronta', icon: 'checkmark-circle-outline', statuses: ['consultation_ready'] },
+  { key: 'payment', label: 'Pagamento', icon: 'card-outline', statuses: ['approved_pending_payment', 'pending_payment'] },
+  { key: 'in_consultation', label: 'Em Consulta', icon: 'videocam-outline', statuses: ['paid', 'in_consultation'] },
+  { key: 'finished', label: 'Finalizada', icon: 'checkmark-done-circle-outline', statuses: ['consultation_finished'] },
 ];
 
 function getStepIndex(steps: Step[], status: RequestStatus): number {
@@ -42,8 +42,8 @@ interface Props {
   requestType: RequestType;
 }
 
-const DOT_SIZE = 28;
-const LINE_W = 3;
+const DOT_SIZE = 26;
+const LINE_W = 2.5;
 const COMPLETED_COLOR = '#10B981';
 const CURRENT_COLOR = c.primary.main;
 const PENDING_COLOR = c.border.main;
@@ -63,7 +63,7 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
           />
         </View>
         <Text style={[styles.terminalText, { color: isRejected ? c.status.error : c.text.tertiary }]}>
-          {isRejected ? 'Solicitação Rejeitada' : 'Solicitação Cancelada'}
+          {isRejected ? 'SOLICITAÇÃO REJEITADA' : 'SOLICITAÇÃO CANCELADA'}
         </Text>
       </View>
     );
@@ -108,7 +108,7 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
               {isCurrent && (
                 <View style={styles.currentBadge}>
                   <View style={styles.pulsingDot} />
-                  <Text style={styles.currentText}>Etapa atual</Text>
+                  <Text style={styles.currentText}>ETAPA ATUAL</Text>
                 </View>
               )}
             </View>
@@ -155,8 +155,9 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 20,
+    letterSpacing: 0.2,
   },
   currentBadge: {
     flexDirection: 'row',
@@ -171,9 +172,10 @@ const styles = StyleSheet.create({
     backgroundColor: c.primary.main,
   },
   currentText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
     color: c.primary.main,
+    letterSpacing: 0.8,
   },
   terminalContainer: {
     alignItems: 'center',
@@ -182,14 +184,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   terminalCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   terminalText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

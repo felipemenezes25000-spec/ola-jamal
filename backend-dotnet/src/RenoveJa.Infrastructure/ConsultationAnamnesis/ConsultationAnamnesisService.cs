@@ -10,7 +10,8 @@ using RenoveJa.Application.Interfaces;
 namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 
 /// <summary>
-/// Serviço de anamnese estruturada e sugestões por IA (GPT) durante a consulta.
+/// Serviço de anamnese estruturada e sugestões clínicas por IA (GPT-4o) durante a consulta.
+/// Gera: anamnese SOAP, CID sugerido, alertas de gravidade, medicamentos sugeridos e hipóteses.
 /// Atua como copiloto: a decisão final é sempre do médico.
 /// </summary>
 public class ConsultationAnamnesisService : IConsultationAnamnesisService
@@ -52,21 +53,44 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             return null;
 
         var systemPrompt = """
-Você é um assistente de apoio à consulta médica. Sua função é ESTRUTURAR a anamnese e sugerir hipóteses/recomendações com base no que o paciente disse. Tudo é APENAS APOIO À DECISÃO CLÍNICA; a conduta final é exclusivamente do médico.
+Você é um assistente de apoio à consulta médica, atuando como COPILOTO DO MÉDICO.
+Sua função é estruturar a anamnese e fornecer apoio clínico com base no que foi dito na consulta.
+Toda saída é APENAS APOIO À DECISÃO CLÍNICA — a conduta final é exclusivamente do médico.
+Conformidade com CFM Resolução 2.299/2021 e normas éticas vigentes.
 
-Responda em um ÚNICO JSON com exatamente estes campos (em português, objetivo e ético):
+O transcript pode conter linhas prefixadas com [Médico] ou [Paciente] para identificar quem falou.
 
-- anamnesis (objeto): atualize apenas com novas informações do transcript; mantenha o que já estava preenchido. Campos: queixa_principal, historia_doenca_atual, sintomas (array ou texto), medicamentos_em_uso (array ou texto), alergias (texto), antecedentes_relevantes (texto), outros (texto opcional).
+Responda em um ÚNICO JSON válido, sem markdown, com exatamente estes campos:
 
-- suggestions (array de strings): até 3 itens, cada um uma hipótese diagnóstica ou recomendação curta (ex.: "Considerar solicitar glicemia de jejum", "Hipótese: HAS descompensada"). Seja conciso. Se não houver base no transcript, retorne array vazio.
+{
+  "anamnesis": {
+    "queixa_principal": "string — o que trouxe o paciente à consulta",
+    "historia_doenca_atual": "string — evolução, início, fatores de melhora/piora",
+    "sintomas": "string ou array — lista dos sintomas referidos",
+    "medicamentos_em_uso": "string ou array — medicamentos que o paciente já usa",
+    "alergias": "string — alergias conhecidas (medicamentos, alimentos, outros)",
+    "antecedentes_relevantes": "string — histórico médico, cirurgias, comorbidades",
+    "outros": "string — qualquer informação adicional relevante"
+  },
+  "cid_sugerido": "string — CID-10 mais provável (ex: J06.9 - Infecção aguda das vias aéreas superiores) ou vazio se não há dados suficientes",
+  "alertas_vermelhos": ["array de strings — sinais de alarme que requerem atenção imediata, ex: 'Dor torácica com irradiação para o braço esquerdo — avaliar SCA'"],
+  "medicamentos_sugeridos": ["array de strings — opções terapêuticas com dosagem indicativa, ex: 'Dipirona 500mg VO 6/6h por 5 dias (analgesia/antitérmica)'"],
+  "suggestions": ["array de até 4 strings — hipóteses diagnósticas ou recomendações clínicas curtas, ex: 'Hipótese: HAS descompensada — verificar adesão ao tratamento'"]
+}
 
-Regras: conteúdo é de consulta médica; seja objetivo; não invente dados que não estejam no transcript; mantenha anamnese anterior quando não houver informação nova.
-Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
+REGRAS:
+- Mantenha e enriqueça os campos da anamnese anterior quando não houver informação nova
+- Se um campo não tiver dados, use string vazia ou array vazio []
+- Não invente informações que não estejam no transcript
+- Alertas vermelhos: apenas se houver base clara no transcript (não suponha)
+- Medicamentos sugeridos: inclua apenas se a queixa principal estiver clara
+- Seja objetivo e use terminologia médica adequada
+- Responda APENAS o JSON, sem texto antes ou depois
 """;
 
         var userContent = string.IsNullOrWhiteSpace(previousAnamnesisJson)
-            ? $"Transcript da consulta (até o momento):\n\n{transcriptSoFar}"
-            : $"Anamnese anterior (mantenha e atualize com o transcript):\n{previousAnamnesisJson}\n\nTranscript novo:\n{transcriptSoFar}";
+            ? $"Transcript da consulta (incluindo identificação de locutor quando disponível):\n\n{transcriptSoFar}"
+            : $"Anamnese anterior (mantenha e enriqueça com novas informações do transcript):\n{previousAnamnesisJson}\n\nTranscript atualizado:\n{transcriptSoFar}";
 
         var requestBody = new
         {
@@ -76,7 +100,8 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
                 new { role = "system", content = (object)systemPrompt },
                 new { role = "user", content = (object)userContent }
             },
-            max_tokens = 1500
+            max_tokens = 2000,
+            temperature = 0.3
         };
 
         var json = JsonSerializer.Serialize(requestBody, JsonOptions);
@@ -90,7 +115,7 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
         if (!response.IsSuccessStatusCode)
         {
             var err = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Anamnese IA API error: {StatusCode}, {Response}", response.StatusCode, err);
+            _logger.LogWarning("Anamnese IA API error: {StatusCode}, {Body}", response.StatusCode, err);
             return null;
         }
 
@@ -117,26 +142,56 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
         {
             using var parsed = JsonDocument.Parse(cleaned);
             var root = parsed.RootElement;
-            var anamnesisEl = root.TryGetProperty("anamnesis", out var a) ? a : default;
-            var suggestionsEl = root.TryGetProperty("suggestions", out var s) ? s : default;
 
-            var anamnesisJson = anamnesisEl.ValueKind == JsonValueKind.Object ? anamnesisEl.GetRawText() : "{}";
-            var suggestions = new List<string>();
-            if (suggestionsEl.ValueKind == JsonValueKind.Array)
+            // Serialize full anamnesis object (including new fields) back to JSON
+            var anamnesisJson = root.TryGetProperty("anamnesis", out var a) && a.ValueKind == JsonValueKind.Object
+                ? a.GetRawText()
+                : "{}";
+
+            // Enrich anamnesis JSON with new top-level fields for the frontend panel
+            var enrichedObj = new Dictionary<string, object>();
+            if (root.TryGetProperty("anamnesis", out var anaEl) && anaEl.ValueKind == JsonValueKind.Object)
             {
-                foreach (var item in suggestionsEl.EnumerateArray())
+                foreach (var prop in anaEl.EnumerateObject())
+                    enrichedObj[prop.Name] = prop.Value.GetRawText();
+            }
+            if (root.TryGetProperty("cid_sugerido", out var cidEl))
+                enrichedObj["cid_sugerido"] = cidEl.GetRawText();
+            if (root.TryGetProperty("alertas_vermelhos", out var avEl) && avEl.ValueKind == JsonValueKind.Array)
+                enrichedObj["alertas_vermelhos"] = avEl.GetRawText();
+            if (root.TryGetProperty("medicamentos_sugeridos", out var msEl) && msEl.ValueKind == JsonValueKind.Array)
+                enrichedObj["medicamentos_sugeridos"] = msEl.GetRawText();
+
+            var enrichedJson = "{" + string.Join(",", enrichedObj.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
+
+            // Extract suggestions list
+            var suggestions = new List<string>();
+            if (root.TryGetProperty("suggestions", out var sugEl) && sugEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in sugEl.EnumerateArray())
                 {
                     var str = item.ValueKind == JsonValueKind.String ? item.GetString() : item.GetRawText();
                     if (!string.IsNullOrWhiteSpace(str))
-                        suggestions.Add(str.Trim());
+                        suggestions.Add(str.Trim('"').Trim());
                 }
             }
 
-            return new ConsultationAnamnesisResult(anamnesisJson, suggestions);
+            // Also add alerts to suggestions list for backwards compat
+            if (root.TryGetProperty("alertas_vermelhos", out var alertsEl) && alertsEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in alertsEl.EnumerateArray())
+                {
+                    var str = item.ValueKind == JsonValueKind.String ? item.GetString() : item.GetRawText();
+                    if (!string.IsNullOrWhiteSpace(str))
+                        suggestions.Insert(0, $"🚨 {str.Trim('"').Trim()}");
+                }
+            }
+
+            return new ConsultationAnamnesisResult(enrichedJson, suggestions);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Anamnese IA: falha ao parsear JSON de resposta.");
+            _logger.LogWarning(ex, "Anamnese IA: falha ao parsear JSON de resposta. Conteúdo: {Content}", cleaned[..Math.Min(200, cleaned.Length)]);
             return null;
         }
     }

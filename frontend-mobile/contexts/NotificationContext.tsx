@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
 import { usePushNotification } from './PushNotificationContext';
@@ -6,6 +6,10 @@ import { getUnreadNotificationsCount } from '../lib/api';
 
 /** Intervalo de polling quando app está em primeiro plano (em ms). */
 const POLL_INTERVAL_MS = 30_000;
+/** Intervalo relaxado após várias consultas sem mudança. */
+const POLL_INTERVAL_SLOW_MS = 60_000;
+/** Número de polls sem mudança antes de mudar para intervalo lento. */
+const UNCHANGED_THRESHOLD = 5;
 
 interface NotificationContextValue {
   unreadCount: number;
@@ -19,6 +23,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { lastNotificationAt } = usePushNotification();
   const [unreadCount, setUnreadCount] = useState(0);
   const appState = useRef(AppState.currentState);
+  const unchangedPolls = useRef(0);
+  const lastCount = useRef<number | null>(null);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!user?.id) {
@@ -27,6 +33,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
     try {
       const count = await getUnreadNotificationsCount();
+      if (lastCount.current !== null && count === lastCount.current) {
+        unchangedPolls.current += 1;
+      } else {
+        unchangedPolls.current = 0;
+      }
+      lastCount.current = count;
       setUnreadCount(count);
     } catch {
       setUnreadCount(0);
@@ -57,20 +69,30 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    const interval = setInterval(() => {
-      if (appState.current === 'active') {
-        refreshUnreadCount();
-      }
-    }, POLL_INTERVAL_MS);
+
+    // Usa intervalo adaptativo: rápido enquanto há mudanças, lento quando estável
+    let timerId: ReturnType<typeof setTimeout>;
+    const schedulePoll = () => {
+      const delay = unchangedPolls.current >= UNCHANGED_THRESHOLD ? POLL_INTERVAL_SLOW_MS : POLL_INTERVAL_MS;
+      timerId = setTimeout(() => {
+        if (appState.current === 'active') {
+          refreshUnreadCount();
+        }
+        schedulePoll();
+      }, delay);
+    };
+    schedulePoll();
 
     return () => {
       subscription.remove();
-      clearInterval(interval);
+      clearTimeout(timerId);
     };
   }, [user?.id, refreshUnreadCount]);
 
+  const value = useMemo(() => ({ unreadCount, refreshUnreadCount }), [unreadCount, refreshUnreadCount]);
+
   return (
-    <NotificationContext.Provider value={{ unreadCount, refreshUnreadCount }}>
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );

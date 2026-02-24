@@ -56,5 +56,10 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequestDto>
             .NotEmpty().WithMessage("CPF é obrigatório.")
             .Must(c => c != null && c.Length >= 11 && CpfHelper.IsValid(c))
             .WithMessage("CPF inválido. Verifique os dígitos informados.");
+
+        RuleFor(x => x.BirthDate)
+            .NotNull().WithMessage("Data de nascimento é obrigatória.")
+            .Must(d => d.HasValue && d.Value.Date < DateTime.UtcNow.Date)
+            .WithMessage("Data de nascimento deve ser uma data válida no passado.");
     }
 }

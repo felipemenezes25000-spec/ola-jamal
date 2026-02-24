@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "scheme": "renoveja",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -23,7 +23,7 @@
         "backgroundColor": "#0EA5E9"
       },
       "package": "com.renoveja.app",
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false
     },
     "web": {

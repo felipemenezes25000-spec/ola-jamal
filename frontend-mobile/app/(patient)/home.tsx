@@ -1,19 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
   Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, gradients } from '../../lib/themeDoctor';
+import { colors, gradients } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getRequests } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
@@ -23,10 +23,12 @@ import { StatsCard } from '../../components/StatsCard';
 import { LargeActionCard } from '../../components/ui/LargeActionCard';
 import { InfoCard } from '../../components/ui/InfoCard';
 import { EmptyState } from '../../components/EmptyState';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 
 export default function PatientHome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const { user } = useAuth();
 
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
@@ -37,8 +39,16 @@ export default function PatientHome() {
     try {
       const response = await getRequests({ page: 1, pageSize: 50 });
       setRequests(response.items || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
+    } catch (error: unknown) {
+      const status = (error as { status?: number })?.status;
+      if (status === 401) {
+        // Sessão expirada/inválida: AuthContext já chama clearAuth e o layout redireciona para login.
+        setRequests([]);
+        if (__DEV__) console.warn('[Home] 401: sessão encerrada, redirecionando para login.');
+      } else {
+        console.error('Error loading data:', error);
+        setRequests([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -53,20 +63,20 @@ export default function PatientHome() {
     loadData();
   };
 
-  const stats = {
+  const stats = useMemo(() => ({
     pending: requests.filter(r => getRequestUiState(r).uiState === 'needs_action').length,
     toPay: requests.filter(r => needsPayment(r)).length,
     ready: requests.filter(r => isSignedOrDelivered(r)).length,
-  };
+  }), [requests]);
 
-  const recentRequests = requests.slice(0, 2);
+  const recentRequests = useMemo(() => requests.slice(0, 2), [requests]);
   const firstName = user?.name?.split(' ')[0] || 'Paciente';
   const initial = firstName[0]?.toUpperCase() || 'P';
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <SkeletonList count={4} />
       </View>
     );
   }
@@ -74,7 +84,7 @@ export default function PatientHome() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -87,7 +97,7 @@ export default function PatientHome() {
     >
       {/* Header: só saudação + avatar (igual ao web) */}
       <LinearGradient
-        colors={[...gradients.doctorHeader]}
+        colors={[...gradients.patientHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 12 }]}
@@ -109,24 +119,27 @@ export default function PatientHome() {
       {/* Stats: três cards brancos flutuando sobre o fundo cinza */}
       <View style={styles.statsRow}>
         <StatsCard
-          icon="hourglass-outline"
+          icon="analytics"
           label="Em análise"
           value={stats.pending}
           iconColor={colors.warning}
+          iconBgColor="#FEF3C7"
           onPress={() => router.push('/(patient)/requests')}
         />
         <StatsCard
-          icon="card-outline"
+          icon="wallet"
           label="A pagar"
           value={stats.toPay}
           iconColor={colors.error}
+          iconBgColor="#FEE2E2"
           onPress={() => router.push('/(patient)/requests')}
         />
         <StatsCard
-          icon="checkmark-done-circle-outline"
+          icon="shield-checkmark"
           label="Prontos"
           value={stats.ready}
           iconColor={colors.success}
+          iconBgColor="#D1FAE5"
           onPress={() => router.push('/(patient)/requests')}
         />
       </View>
@@ -223,13 +236,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    paddingBottom: 120,
-  },
+  content: {},
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingTop: 80,
     backgroundColor: colors.background,
   },
 
@@ -250,20 +261,23 @@ const styles = StyleSheet.create({
   },
   headerGreetingLabel: {
     fontSize: 14,
+    fontFamily: 'PlusJakartaSans_500Medium',
     fontWeight: '500',
     color: 'rgba(255,255,255,0.85)',
     marginBottom: 2,
   },
   headerGreetingName: {
     fontSize: 24,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '800',
     color: '#fff',
     letterSpacing: -0.3,
+    textTransform: 'uppercase',
   },
   avatarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.25)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.4)',
@@ -272,6 +286,7 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     fontSize: 20,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: '#fff',
   },
@@ -289,6 +304,8 @@ const styles = StyleSheet.create({
     marginTop: -44,
     marginBottom: 0,
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    zIndex: 10,
+    position: 'relative',
   },
 
   // ─── Sections ───
@@ -303,13 +320,17 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: colors.text,
     marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   sectionHint: {
     fontSize: 13,
+    fontFamily: 'PlusJakartaSans_400Regular',
     color: colors.textSecondary,
     marginBottom: 14,
     lineHeight: 20,

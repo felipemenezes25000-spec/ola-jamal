@@ -19,7 +19,9 @@ public record CreateExamRequestDto(
 );
 
 public record CreateConsultationRequestDto(
-    string Symptoms
+    string Symptoms,
+    string ConsultationType = "medico_clinico",
+    int DurationMinutes = 15
 );
 
 public record UpdateRequestStatusDto(
@@ -84,7 +86,12 @@ public record RequestResponseDto(
     string? AiMessageToUser = null,
     string? ConsultationTranscript = null,
     string? ConsultationAnamnesis = null,
-    string? ConsultationAiSuggestions = null
+    string? ConsultationAiSuggestions = null,
+    string? ConsultationType = null,
+    int? ContractedMinutes = null,
+    decimal? PricePerMinute = null,
+    /// <summary>Quando o médico iniciou a consulta (sincroniza o timer entre médico e paciente).</summary>
+    DateTime? ConsultationStartedAt = null
 );
 
 /// <summary>Médico atualiza medicamentos, notas e tipo de receita antes da assinatura.</summary>

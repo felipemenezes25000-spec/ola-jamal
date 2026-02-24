@@ -43,11 +43,12 @@ export function DoctorCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: doctorDS.cardRadius,
+    borderRadius: 14,
     overflow: 'hidden',
     ...shadows.card,
   },
   pressed: {
-    opacity: 0.95,
+    opacity: 0.93,
+    transform: [{ scale: 0.99 }],
   },
 });

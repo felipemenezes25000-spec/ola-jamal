@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,11 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  Platform,
   TouchableOpacity,
   InteractionManager,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,28 +19,49 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 const pad = doctorDS.screenPaddingHorizontal;
 import { useAuth } from '../../contexts/AuthContext';
+import { updateDoctorProfile } from '../../lib/api';
+import { showToast } from '../../components/ui/Toast';
+
 export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, doctorProfile: doctor, signOut } = useAuth();
+  const { user, doctorProfile: doctor, signOut, refreshDoctorProfile } = useAuth();
+  const [professionalAddress, setProfessionalAddress] = useState('');
+  const [professionalPhone, setProfessionalPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (doctor) {
+      setProfessionalAddress(doctor.professionalAddress ?? '');
+      setProfessionalPhone(doctor.professionalPhone ?? '');
+    }
+  }, [doctor]);
+
+  const doLogout = () => {
+    signOut()
+      .catch(() => {})
+      .finally(() => {
+        if (Platform.OS === 'web') {
+          router.replace('/');
+        } else {
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => router.replace('/'), 150);
+          });
+        }
+      });
+  };
 
   const handleLogout = () => {
-    Alert.alert('Sair', 'Deseja realmente sair?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: () => {
-          signOut()
-            .catch(() => {})
-            .finally(() => {
-              InteractionManager.runAfterInteractions(() => {
-                setTimeout(() => router.replace('/'), 150);
-              });
-            });
-        },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Deseja realmente sair?')) {
+        doLogout();
+      }
+    } else {
+      Alert.alert('Sair', 'Deseja realmente sair?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair', style: 'destructive', onPress: doLogout },
+      ]);
+    }
   };
 
   const firstName = user?.name?.split(' ')[0] || 'Médico';
@@ -45,52 +69,104 @@ export default function DoctorProfile() {
     ? user.name.split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('')
     : '?';
 
+  const saveRecipeData = async () => {
+    setSaving(true);
+    try {
+      await updateDoctorProfile({
+        professionalAddress: professionalAddress.trim() || null,
+        professionalPhone: professionalPhone.trim() || null,
+      });
+      await refreshDoctorProfile();
+      showToast({ message: 'Dados para receita salvos.', type: 'success' });
+    } catch (e: unknown) {
+      showToast({ message: (e as Error)?.message ?? 'Erro ao salvar.', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const menuSections = [
     {
-      title: 'Profissional',
+      title: 'PROFISSIONAL',
       items: [
-        { icon: 'shield-checkmark' as const, label: 'Certificado Digital', route: '/certificate/upload', color: colors.success },
-        { icon: 'medical' as const, label: 'Especialidade', route: undefined, color: colors.primary, value: doctor?.specialty ?? '—' },
+        { icon: 'shield-checkmark' as const, label: 'Certificado Digital', route: '/certificate/upload' },
+        { icon: 'medical' as const, label: 'Especialidade', route: undefined, value: doctor?.specialty ?? '\u2014' },
       ],
     },
     {
-      title: 'Conta',
+      title: 'CONTA',
       items: [
-        { icon: 'lock-closed-outline' as const, label: 'Alterar Senha', route: '/change-password', color: colors.primary },
-        { icon: 'settings-outline' as const, label: 'Configurações', route: '/settings', color: colors.textSecondary },
+        { icon: 'lock-closed-outline' as const, label: 'Alterar Senha', route: '/change-password' },
+        { icon: 'settings-outline' as const, label: 'Configurações', route: '/settings' },
       ],
     },
     {
-      title: 'Suporte',
+      title: 'SUPORTE',
       items: [
-        { icon: 'help-circle-outline' as const, label: 'Ajuda e FAQ', route: '/help-faq', color: colors.secondary },
-        { icon: 'document-text-outline' as const, label: 'Termos de Uso', route: '/terms', color: colors.textMuted },
-        { icon: 'information-circle-outline' as const, label: 'Sobre', route: '/about', color: colors.primary },
+        { icon: 'help-circle-outline' as const, label: 'Ajuda e FAQ', route: '/help-faq' },
+        { icon: 'document-text-outline' as const, label: 'Termos de Uso', route: '/terms' },
+        { icon: 'information-circle-outline' as const, label: 'Sobre', route: '/about' },
       ],
     },
   ];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header: gradiente oficial */}
       <LinearGradient
         colors={[...gradients.doctorHeader]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
+        style={[styles.header, { paddingTop: insets.top + 24 }]}
       >
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        <Text style={styles.headerName} numberOfLines={1} ellipsizeMode="tail">Dr(a). {firstName}</Text>
+        <Text style={styles.headerName} numberOfLines={1} ellipsizeMode="tail">DR(A). {firstName.toUpperCase()}</Text>
         <Text style={styles.headerEmail} numberOfLines={1} ellipsizeMode="tail">{user?.email || ''}</Text>
         {doctor && (
           <View style={styles.crmBadge}>
             <Ionicons name="medical" size={12} color="#fff" />
-            <Text style={styles.crmText}>CRM {doctor.crm}/{doctor.crmState} • {doctor.specialty}</Text>
+            <Text style={styles.crmText}>CRM {doctor.crm}/{doctor.crmState} {'\u00B7'} {doctor.specialty}</Text>
           </View>
         )}
       </LinearGradient>
+
+      {/* Dados para assinar receitas */}
+      <View style={styles.recipeDataCard}>
+        <Text style={styles.recipeDataTitle}>DADOS PARA ASSINAR RECEITAS</Text>
+        <Text style={styles.recipeDataHint}>
+          Endereço e telefone profissional são obrigatórios para receita simples (CFM).
+        </Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Endereço profissional completo"
+          placeholderTextColor={colors.textMuted}
+          value={professionalAddress}
+          onChangeText={setProfessionalAddress}
+          editable={!saving}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Telefone profissional"
+          placeholderTextColor={colors.textMuted}
+          value={professionalPhone}
+          onChangeText={setProfessionalPhone}
+          keyboardType="phone-pad"
+          editable={!saving}
+        />
+        <TouchableOpacity
+          style={[styles.saveRecipeDataBtn, saving && styles.saveRecipeDataBtnDisabled]}
+          onPress={saveRecipeData}
+          disabled={saving}
+          activeOpacity={0.8}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveRecipeDataBtnText}>SALVAR</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {/* Menu Sections */}
       {menuSections.map((section) => (
@@ -105,8 +181,8 @@ export default function DoctorProfile() {
                   onPress={() => router.push(item.route as Parameters<typeof router.push>[0])}
                   accessibilityRole="button"
                 >
-                  <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
-                    <Ionicons name={item.icon} size={20} color={item.color} />
+                  <View style={styles.menuIconWrap}>
+                    <Ionicons name={item.icon} size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>{item.label}</Text>
                   <View style={styles.menuChevronWrap}>
@@ -115,8 +191,8 @@ export default function DoctorProfile() {
                 </Pressable>
               ) : (
                 <View key={item.label} style={styles.menuItemCard}>
-                  <View style={[styles.menuIconWrap, { backgroundColor: `${item.color}15` }]}>
-                    <Ionicons name={item.icon} size={20} color={item.color} />
+                  <View style={styles.menuIconWrap}>
+                    <Ionicons name={item.icon} size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>{item.label}</Text>
                   <Text style={styles.menuValue} numberOfLines={1} ellipsizeMode="tail">
@@ -129,7 +205,6 @@ export default function DoctorProfile() {
         </View>
       ))}
 
-      {/* Logout */}
       <TouchableOpacity
         style={styles.logoutBtn}
         onPress={handleLogout}
@@ -138,11 +213,11 @@ export default function DoctorProfile() {
         accessibilityRole="button"
         accessibilityLabel="Sair da conta"
       >
-        <Ionicons name="log-out-outline" size={20} color={colors.error} />
-        <Text style={styles.logoutText}>Sair da Conta</Text>
+        <Ionicons name="log-out-outline" size={18} color={colors.error} />
+        <Text style={styles.logoutText}>SAIR DA CONTA</Text>
       </TouchableOpacity>
 
-      <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
+      <Text style={styles.version}>RENOVEJA+ V1.0.0</Text>
       <View style={{ height: insets.bottom + 24 }} />
     </ScrollView>
   );
@@ -151,61 +226,117 @@ export default function DoctorProfile() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
-  // Header
   header: {
     alignItems: 'center',
-    paddingBottom: 28,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 32,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   avatarCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.4)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
     color: '#fff',
+    letterSpacing: 1,
   },
   headerName: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.5,
   },
   headerEmail: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: typography.fontFamily.regular,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
   },
   crmBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 100,
   },
   crmText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: typography.fontFamily.semibold,
     fontWeight: '600',
     color: '#fff',
+    letterSpacing: 0.3,
   },
 
-  // Menu
+  recipeDataCard: {
+    marginTop: 24,
+    marginHorizontal: pad,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  recipeDataTitle: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
+  recipeDataHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  saveRecipeDataBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  saveRecipeDataBtnDisabled: {
+    opacity: 0.7,
+  },
+  saveRecipeDataBtnText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.6,
+  },
+
   menuSection: {
-    marginTop: 20,
+    marginTop: 24,
     paddingHorizontal: pad,
   },
   sectionTitle: {
@@ -213,9 +344,8 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
+    letterSpacing: 1.2,
+    marginBottom: 10,
     marginLeft: 4,
   },
   menuItemsColumn: {
@@ -225,39 +355,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   menuItemPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.99 }],
   },
   menuIconWrap: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 10,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   menuLabel: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: typography.fontFamily.medium,
     fontWeight: '500',
     color: colors.text,
   },
   menuValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: typography.fontFamily.regular,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     minWidth: 0,
+    flexShrink: 1,
+    maxWidth: '50%',
+    textAlign: 'right',
   },
   menuChevronWrap: {
     alignSelf: 'stretch',
@@ -266,31 +400,32 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // Logout
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginHorizontal: pad,
-    marginTop: 28,
+    marginTop: 32,
     paddingVertical: 14,
-    borderRadius: 26,
+    borderRadius: 14,
     backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FECACA',
   },
   logoutText: {
-    fontSize: 15,
-    fontFamily: typography.fontFamily.semibold,
+    fontSize: 13,
+    fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: colors.error,
+    letterSpacing: 0.6,
   },
 
   version: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: 16,
+    letterSpacing: 1,
   },
 });

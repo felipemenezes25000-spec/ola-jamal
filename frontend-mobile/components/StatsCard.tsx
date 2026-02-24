@@ -29,7 +29,7 @@ export function StatsCard({
         <Ionicons name={icon} size={22} color={iconColor} />
       </View>
       <Text style={styles.value}>{displayValue}</Text>
-      <Text style={styles.label} numberOfLines={1}>{label}</Text>
+      <Text style={styles.label} numberOfLines={2}>{label}</Text>
     </>
   );
 
@@ -54,16 +54,17 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 16,
+    borderRadius: 14,
+    paddingVertical: 14,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.card,
+    elevation: 2,
   },
   pressed: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.88,
+    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
   },
   iconWrap: {
     width: 40,
@@ -71,18 +72,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   value: {
-    fontSize: 22,
+    fontSize: 24,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '800',
     color: colors.text,
     marginBottom: 4,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.textSecondary,
+    fontSize: 9,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: colors.textMuted,
     textAlign: 'center',
+    minHeight: 24,
+    letterSpacing: 0.8,
   },
 });

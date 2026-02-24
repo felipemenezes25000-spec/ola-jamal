@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
@@ -77,6 +78,7 @@ const ALERT_CATEGORY_LABELS: Record<AlertCategory, string> = {
 export default function DoctorNotifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const { refreshUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,12 +184,17 @@ export default function DoctorNotifications() {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: headerPaddingTop, paddingHorizontal: horizontalPad }]}
       >
-        <Text style={styles.title}>Alertas</Text>
-        {unreadCount > 0 && (
-          <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
-            <Text style={styles.markAllText}>Marcar lidas</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text style={styles.title}>ALERTAS</Text>
+            <Text style={styles.subtitle}>Notificações e atualizações</Text>
+          </View>
+          {unreadCount > 0 && (
+            <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
+              <Text style={styles.markAllText}>MARCAR LIDAS</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </LinearGradient>
 
       {(categoryCounts.payment > 0 || categoryCounts.new_request > 0 || categoryCounts.other > 0) && (
@@ -222,7 +229,7 @@ export default function DoctorNotifications() {
           renderSectionHeader={({ section: { title } }) => (
             <Text style={styles.groupLabel}>{title}</Text>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
@@ -230,9 +237,9 @@ export default function DoctorNotifications() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={styles.emptyIconWrap}>
-                <Ionicons name="notifications-off-outline" size={40} color={colors.textMuted} />
+                <Ionicons name="notifications-off-outline" size={36} color={colors.textMuted} />
               </View>
-              <Text style={styles.emptyTitle}>Você está em dia!</Text>
+              <Text style={styles.emptyTitle}>VOCÊ ESTÁ EM DIA</Text>
               <Text style={styles.emptySubtitle}>Nenhuma novidade no momento</Text>
             </View>
           }
@@ -245,44 +252,66 @@ export default function DoctorNotifications() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
+    paddingBottom: 28,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 28,
   },
-  title: { fontSize: 22, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
+  headerText: { flex: 1 },
+  title: {
+    fontSize: 22,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.8,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.regular,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
   categoryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     paddingHorizontal: doctorDS.screenPaddingHorizontal,
+    paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
   categoryChip: {
     backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: borderRadius.pill,
+    borderRadius: 10,
   },
   categoryChipText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: colors.primary,
+    letterSpacing: 0.3,
   },
   markAllBtn: {
     paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 10,
   },
-  markAllText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, color: '#fff', fontWeight: '600' },
+  markAllText: { fontSize: 10, fontFamily: typography.fontFamily.bold, color: '#fff', fontWeight: '700', letterSpacing: 0.5 },
   listContent: {
     paddingHorizontal: doctorDS.screenPaddingHorizontal,
-    paddingBottom: 120,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: doctorDS.cardRadius,
+    borderRadius: 14,
     padding: spacing.md,
   },
   cardUnread: {
@@ -291,30 +320,31 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.primary,
   },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: 14,
   },
   cardBody: { flex: 1, minWidth: 0 },
-  cardTitle: { fontSize: 15, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.text },
+  cardTitle: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.text },
   cardTitleUnread: { fontWeight: '700' },
   cardMessage: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginTop: 2, lineHeight: 18 },
-  cardTime: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: 4 },
+  cardTime: { fontSize: 11, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: 4 },
   unreadDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     backgroundColor: colors.primary,
     marginLeft: spacing.sm,
   },
   groupLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
+    color: colors.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
@@ -327,13 +357,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emptyIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyTitle: { fontSize: 17, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.textSecondary },
-  emptySubtitle: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textMuted },
+  emptyTitle: { fontSize: 14, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.8 },
+  emptySubtitle: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textMuted },
 });

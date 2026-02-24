@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
-import { fetchPayment, fetchPixCode } from '../../lib/api';
+import { fetchPayment, fetchPixCode, syncPaymentStatus } from '../../lib/api';
 import { formatBRL } from '../../lib/utils/format';
 import { PaymentResponseDto } from '../../types/database';
 
@@ -32,6 +32,8 @@ export default function PaymentScreen() {
   const [polling, setPolling] = useState(false);
   const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCountRef = useRef(0);
+  const MAX_POLLS = 180; // 180 × 5s = 15 min
 
   useEffect(() => {
     loadPayment();
@@ -75,15 +77,26 @@ export default function PaymentScreen() {
 
   const startPolling = () => {
     if (pollRef.current) clearInterval(pollRef.current);
+    pollCountRef.current = 0;
     setPolling(true);
     pollRef.current = setInterval(async () => {
+      pollCountRef.current += 1;
+      if (pollCountRef.current >= MAX_POLLS) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setPolling(false);
+        return;
+      }
       try {
-        const updated = await fetchPayment(paymentId!);
+        // A cada 6 polls (30s), sincroniza com MP para resolver webhooks falhados
+        const useSync = pollCountRef.current % 6 === 0 && payment?.requestId;
+        const updated = useSync
+          ? await syncPaymentStatus(payment!.requestId)
+          : await fetchPayment(paymentId!);
         setPayment(updated);
         if (updated.status === 'approved') {
           if (pollRef.current) clearInterval(pollRef.current);
           setPolling(false);
-          Alert.alert('✅ Pagamento confirmado!', 'Seu pagamento foi aprovado com sucesso.', [
+          Alert.alert('Pagamento confirmado!', 'Seu pagamento foi aprovado com sucesso.', [
             { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${updated.requestId}`) },
           ]);
         }
@@ -101,19 +114,33 @@ export default function PaymentScreen() {
   };
 
   const handleCheckStatus = async () => {
+    if (!payment?.requestId) return;
     setPolling(true);
     try {
-      const updated = await fetchPayment(paymentId!);
-      setPayment(updated);
-      if (updated.status === 'approved') {
+      // Sincroniza com Mercado Pago (resolve caso webhook tenha falhado)
+      const synced = await syncPaymentStatus(payment.requestId);
+      setPayment(synced);
+      if (synced.status === 'approved') {
         if (pollRef.current) clearInterval(pollRef.current);
-        Alert.alert('✅ Pagamento confirmado!', '', [
-          { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${updated.requestId}`) },
+        Alert.alert('Pagamento confirmado!', 'Seu pagamento foi aprovado.', [
+          { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${synced.requestId}`) },
         ]);
       } else {
-        Alert.alert('Aguardando', 'Pagamento ainda não confirmado. Tente novamente em alguns segundos.');
+        Alert.alert('Aguardando', 'Pagamento ainda não confirmado pelo Mercado Pago. Tente novamente em alguns segundos.');
       }
     } catch (e: unknown) {
+      // Fallback: tenta buscar o pagamento normalmente
+      try {
+        const updated = await fetchPayment(paymentId!);
+        setPayment(updated);
+        if (updated.status === 'approved') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          Alert.alert('Pagamento confirmado!', '', [
+            { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${updated.requestId}`) },
+          ]);
+          return;
+        }
+      } catch { /* ignore fallback error */ }
       Alert.alert('Erro', (e as Error)?.message || String(e) || 'Erro ao verificar status');
     } finally {
       setPolling(false);

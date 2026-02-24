@@ -191,9 +191,14 @@ export async function acceptConsultation(
   return apiClient.post(`/api/requests/${requestId}/accept-consultation`, {});
 }
 
-/** Médico inicia a consulta (status Paid → InConsultation). */
+/** Médico inicia a consulta (status Paid → InConsultation). O timer só começa quando ambos reportam chamada conectada. */
 export async function startConsultation(requestId: string): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/start-consultation`, {});
+}
+
+/** Médico ou paciente reporta que a chamada de vídeo está conectada (WebRTC). Quando ambos tiverem reportado, o timer começa. */
+export async function reportCallConnected(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/report-call-connected`, {});
 }
 
 /** Médico encerra a consulta; opcionalmente envia notas clínicas. */
@@ -295,6 +300,14 @@ export async function updateExamContent(
   return apiClient.patch(`/api/requests/${requestId}/exam-content`, data);
 }
 
+export async function autoFinishConsultation(requestId: string): Promise<RequestResponseDto> {
+  return apiClient.post(`/api/requests/${requestId}/auto-finish-consultation`, {});
+}
+
+export async function getTimeBankBalance(consultationType: string): Promise<{ balanceSeconds: number; balanceMinutes: number; consultationType: string }> {
+  return apiClient.get(`/api/requests/time-bank?consultationType=${encodeURIComponent(consultationType)}`);
+}
+
 // ============================================
 // PAYMENT MANAGEMENT
 // ============================================
@@ -306,6 +319,9 @@ export interface CreatePaymentData {
   installments?: number;
   paymentMethodId?: string;
   issuerId?: number;
+  payerEmail?: string;
+  payerCpf?: string;
+  saveCard?: boolean;
 }
 
 export async function createPayment(data: CreatePaymentData): Promise<PaymentResponseDto> {
@@ -332,6 +348,11 @@ export async function confirmPayment(paymentId: string): Promise<PaymentResponse
 
 export async function confirmPaymentByRequest(requestId: string): Promise<PaymentResponseDto> {
   return apiClient.post(`/api/payments/confirm-by-request/${requestId}`, {});
+}
+
+/** Sincroniza status do pagamento com Mercado Pago (útil quando webhook falha). */
+export async function syncPaymentStatus(requestId: string): Promise<PaymentResponseDto> {
+  return apiClient.post(`/api/payments/sync-status/${requestId}`, {});
 }
 
 /** Retorna URL do Checkout Pro e ID do pagamento para abrir no navegador e exibir na tela */
@@ -423,6 +444,19 @@ export async function updateDoctorAvailability(
   return apiClient.put(`/api/doctors/${doctorId}/availability`, { available });
 }
 
+/** Perfil do médico logado (inclui endereço/telefone profissional). */
+export async function getMyDoctorProfile(): Promise<DoctorProfileDto | null> {
+  return apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
+}
+
+/** Atualiza endereço e telefone profissional (obrigatórios para assinar receitas). */
+export async function updateDoctorProfile(data: {
+  professionalAddress: string | null;
+  professionalPhone: string | null;
+}): Promise<DoctorProfileDto> {
+  return apiClient.patch('/api/doctors/me/profile', data);
+}
+
 export async function validateCrm(
   crm: string,
   uf: string
@@ -476,16 +510,24 @@ export async function fetchSpecialties(): Promise<string[]> {
 
 export async function uploadCertificate(
   pfxUri: string,
-  password: string
+  password: string,
+  /** On web, pass the File object from DocumentPicker asset.file */
+  webFile?: File
 ): Promise<UploadCertificateResponseDto> {
   const formData = new FormData();
   const filename = pfxUri.split('/').pop() || 'certificate.pfx';
 
-  formData.append('pfxFile', {
-    uri: pfxUri,
-    name: filename,
-    type: 'application/x-pkcs12',
-  } as any);
+  if (webFile) {
+    // Web: use the real File object
+    formData.append('pfxFile', webFile, webFile.name || filename);
+  } else {
+    // React Native: use the uri-based object
+    formData.append('pfxFile', {
+      uri: pfxUri,
+      name: filename,
+      type: 'application/x-pkcs12',
+    } as any);
+  }
   formData.append('password', password);
 
   return apiClient.post('/api/certificates/upload', formData, true);

@@ -79,8 +79,11 @@ public interface IRequestService
         Guid doctorId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Médico inicia a consulta (status Paid → InConsultation).</summary>
+    /// <summary>Médico inicia a consulta (status Paid → InConsultation). Timer só começa quando ambos reportam chamada conectada.</summary>
     Task<RequestResponseDto> StartConsultationAsync(Guid id, Guid doctorId, CancellationToken cancellationToken = default);
+
+    /// <summary>Médico ou paciente reporta que está com WebRTC conectado. Quando ambos tiverem reportado, ConsultationStartedAt é definido e o timer começa.</summary>
+    Task<RequestResponseDto> ReportCallConnectedAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
 
     /// <summary>Médico encerra a consulta, persiste notas, deleta sala Daily e notifica paciente.</summary>
     Task<RequestResponseDto> FinishConsultationAsync(Guid id, Guid doctorId, FinishConsultationDto? dto, CancellationToken cancellationToken = default);
@@ -127,4 +130,10 @@ public interface IRequestService
     /// Obtém bytes do PDF assinado via token temporário (para links abertos em navegador).
     /// </summary>
     Task<byte[]?> GetSignedDocumentByTokenAsync(Guid id, string? token, CancellationToken cancellationToken = default);
+
+    /// <summary>Encerramento automático da consulta pelo cliente quando o timer expirar.</summary>
+    Task<RequestResponseDto> AutoFinishConsultationAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Retorna o saldo do banco de horas do paciente para o tipo de consulta especificado.</summary>
+    Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(Guid userId, string consultationType, CancellationToken cancellationToken = default);
 }

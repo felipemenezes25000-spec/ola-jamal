@@ -32,7 +32,7 @@ export function SegmentedControl({
 }: SegmentedControlProps) {
     const { width: screenWidth } = useWindowDimensions();
     const isCompact = screenWidth < 360;
-    const fontSize = isCompact ? 12 : 14;
+    const fontSize = isCompact ? 10 : 11;
 
     return (
         <View style={styles.wrapper}>
@@ -59,8 +59,10 @@ export function SegmentedControl({
                                     isSelected && styles.labelActive,
                                 ]}
                                 numberOfLines={1}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.8}
                             >
-                                {item.label}
+                                {item.label.toUpperCase()}
                             </Text>
                         </Pressable>
                     );
@@ -79,7 +81,7 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         backgroundColor: colors.muted,
-        borderRadius: borderRadius.md,
+        borderRadius: 12,
         padding: 3,
         gap: 2,
     },
@@ -88,7 +90,7 @@ const styles = StyleSheet.create({
         minHeight: MIN_TOUCH,
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: borderRadius.md - 2,
+        borderRadius: 10,
         paddingHorizontal: spacing.xs,
         paddingVertical: spacing.sm,
     },
@@ -96,14 +98,15 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         shadowColor: '#0077B6',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.12,
+        shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
     },
     label: {
-        fontFamily: typography.fontFamily.semibold,
-        fontWeight: '600',
+        fontFamily: typography.fontFamily.bold,
+        fontWeight: '700',
         color: colors.textMuted,
+        letterSpacing: 0.3,
     },
     labelActive: {
         color: colors.primary,

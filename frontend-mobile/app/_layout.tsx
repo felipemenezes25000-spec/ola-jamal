@@ -1,4 +1,3 @@
-import "../global.css";
 import React, { useEffect, useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
@@ -84,6 +83,7 @@ export default function RootLayout() {
                 <Stack.Screen name="doctor-request/editor/[id]" />
                 <Stack.Screen name="doctor-patient/[patientId]" />
                 <Stack.Screen name="payment/[id]" />
+                <Stack.Screen name="payment/request/[requestId]" />
                 <Stack.Screen name="payment/card" />
                 <Stack.Screen name="certificate/upload" />
                 <Stack.Screen name="video/[requestId]" />

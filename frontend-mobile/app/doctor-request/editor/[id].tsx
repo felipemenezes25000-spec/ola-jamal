@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  Dimensions,
+  useWindowDimensions,
   KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -33,6 +33,7 @@ import { DoctorCard } from '../../../components/ui/DoctorCard';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
 import { showToast } from '../../../components/ui/Toast';
+import { FormattedAiSummary } from '../../../components/FormattedAiSummary';
 
 const RISK_COLORS: Record<string, { bg: string; text: string }> = {
   low: { bg: colors.successLight, text: colors.success },
@@ -74,11 +75,18 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+/** Gera HTML com embed do PDF para WebView no native (data URI não é exibido diretamente). */
+function buildPdfEmbedHtml(dataUri: string): string {
+  const base64 = dataUri.replace(/^data:application\/pdf;base64,/, '');
+  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/><style>*{margin:0;padding:0}html,body{width:100%;height:100%;overflow:auto}embed{width:100%;height:100%;border:0}</style></head><body><embed src="data:application/pdf;base64,${base64}" type="application/pdf" width="100%" height="100%"/></body></html>`;
+}
+
 export default function PrescriptionEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [medications, setMedications] = useState<string[]>([]);
@@ -90,9 +98,28 @@ export default function PrescriptionEditorScreen() {
   const [signing, setSigning] = useState(false);
   const [certPassword, setCertPassword] = useState('');
   const [showSignForm, setShowSignForm] = useState(false);
+  const [signFormDoctorProfileBlocked, setSignFormDoctorProfileBlocked] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const pdfBlobUrlRef = useRef<string | null>(null);
+
+  /** Ao abrir o formulário de assinatura, verifica se o perfil do médico está completo para evitar tentativa inútil. */
+  useEffect(() => {
+    if (!showSignForm || !requestId) return;
+    let cancelled = false;
+    validatePrescription(requestId)
+      .then((v) => {
+        if (cancelled) return;
+        const needs = (v.missingFields ?? []).some(
+          (f) => f.includes('médico.endereço') || f.includes('médico.telefone')
+        );
+        setSignFormDoctorProfileBlocked(!v.valid && needs);
+      })
+      .catch(() => {
+        if (!cancelled) setSignFormDoctorProfileBlocked(false);
+      });
+    return () => { cancelled = true; };
+  }, [showSignForm, requestId]);
 
   const loadRequest = useCallback(async () => {
     if (!requestId) return;
@@ -115,6 +142,11 @@ export default function PrescriptionEditorScreen() {
     setPdfLoading(true);
     try {
       const blob = await getPreviewPdf(requestId);
+      if (blob.size === 0) {
+        setPdfUri(null);
+        showToast({ message: 'Preview não disponível. Verifique se há medicamentos na receita.', type: 'warning' });
+        return;
+      }
       if (Platform.OS === 'web') {
         if (pdfBlobUrlRef.current) {
           URL.revokeObjectURL(pdfBlobUrlRef.current);
@@ -130,6 +162,7 @@ export default function PrescriptionEditorScreen() {
     } catch (e: any) {
       setPdfUri(null);
       console.warn('Erro ao carregar preview PDF:', e?.message);
+      showToast({ message: e?.message || 'Não foi possível carregar o preview da receita.', type: 'error' });
     } finally {
       setPdfLoading(false);
     }
@@ -198,17 +231,17 @@ export default function PrescriptionEditorScreen() {
         const action = needsPatientProfile
           ? 'O paciente precisa completar sexo, data de nascimento ou endereço no perfil.'
           : needsDoctorProfile
-            ? 'Complete seu endereço e telefone profissional no perfil do médico.'
+            ? 'Para assinar receita simples, é obrigatório preencher endereço e telefone profissional no seu perfil de médico.'
             : 'Corrija os campos indicados antes de assinar.';
         Alert.alert(
           'Receita incompleta',
           `${action}\n\n• ${checklist}`,
-          [
-            { text: 'OK' },
-            ...(needsDoctorProfile
-              ? [{ text: 'Ir ao meu perfil', onPress: () => router.push('/(doctor)/profile' as any) }]
-              : []),
-          ]
+          needsDoctorProfile
+            ? [
+                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as any) },
+                { text: 'OK', style: 'cancel' },
+              ]
+            : [{ text: 'OK' }]
         );
         setSigning(false);
         return;
@@ -226,12 +259,14 @@ export default function PrescriptionEditorScreen() {
         );
         Alert.alert(
           'Receita incompleta',
-          `Verifique os campos obrigatórios:\n\n• ${checklist}`,
+          needsDoctorProfile
+            ? `Para assinar, preencha endereço e telefone profissional no seu perfil de médico.\n\n• ${checklist}`
+            : `Verifique os campos obrigatórios:\n\n• ${checklist}`,
           needsDoctorProfile
             ? [
-              { text: 'OK' },
-              { text: 'Ir ao meu perfil', onPress: () => router.push('/(doctor)/profile' as any) },
-            ]
+                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as any) },
+                { text: 'OK', style: 'cancel' },
+              ]
             : [{ text: 'OK' }]
         );
       } else {
@@ -295,40 +330,59 @@ export default function PrescriptionEditorScreen() {
     );
   }
 
-  const pdfViewHeight = Math.min(500, Dimensions.get('window').height - 180);
+  const pdfViewHeight = Math.max(320, Math.min(500, windowHeight - 220));
+
+  const bottomBarPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
+
+  /** Botão "Assinar Digitalmente" só aparece após aprovação e pagamento (status paid). */
+  const canSign = request?.status === 'paid' && request?.requestType !== 'consultation';
 
   return (
     <SafeAreaView style={st.container} edges={['top']}>
-      <DoctorHeader title="Editar Receita" onBack={() => router.back()} />
+      <DoctorHeader
+        title="Editar Receita"
+        onBack={() => router.back()}
+        right={
+          <TouchableOpacity
+            onPress={() =>
+              Alert.alert(
+                'Me ajuda',
+                'Preview: salve a receita para gerar o PDF. Toque no preview para rolar e dar zoom (pinça).\n\nPaciente e médico: confira os dados no topo. Para assinar digitalmente, use o botão ao final da tela.',
+                [{ text: 'OK' }]
+              )
+            }
+            style={st.helpBtn}
+            hitSlop={12}
+          >
+            <Ionicons name="help-circle-outline" size={22} color="#fff" />
+            <Text style={st.helpBtnText}>Me ajuda</Text>
+          </TouchableOpacity>
+        }
+      />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           style={st.scroll}
-          contentContainerStyle={st.scrollContent}
+          contentContainerStyle={[st.scrollContent, { paddingBottom: 160 + bottomBarPadding }]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
         >
-          {/* Prescription Kind */}
+          {/* Paciente e Médico */}
           <DoctorCard style={st.cardMargin}>
-            <Text style={st.sectionTitle}>TIPO DE RECEITA</Text>
-            <Text style={st.hint}>Selecione o modelo (CFM, RDC 471/2021, ANVISA/SNCR)</Text>
-            <View style={st.kindRow}>
-              {(['simple', 'antimicrobial', 'controlled_special'] as PrescriptionKind[]).map((k) => (
-                <TouchableOpacity
-                  key={k}
-                  style={[st.kindOption, prescriptionKind === k && st.kindOptionActive]}
-                  onPress={() => setPrescriptionKind(k)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[st.kindOptionText, prescriptionKind === k && st.kindOptionTextActive]}>
-                    {k === 'simple' ? 'Simples' : k === 'antimicrobial' ? 'Antimicrobiano' : 'Controle especial'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={st.sectionTitle}>DADOS DO ATENDIMENTO</Text>
+            <View style={st.dataRow}>
+              <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+              <Text style={st.dataLabel}>Paciente: </Text>
+              <Text style={st.dataValue}>{request.patientName || '—'}</Text>
+            </View>
+            <View style={st.dataRow}>
+              <Ionicons name="medkit-outline" size={18} color={colors.textMuted} />
+              <Text style={st.dataLabel}>Médico: </Text>
+              <Text style={st.dataValue}>{request.doctorName || '—'}</Text>
             </View>
           </DoctorCard>
 
-          {/* PDF Preview */}
+          {/* PDF Preview — logo abaixo dos dados para sempre aparecer na tela */}
           <DoctorCard style={[st.cardMargin, st.pdfCard]}>
             <View style={st.pdfHeader}>
               <Ionicons name="document-text" size={22} color={colors.primary} />
@@ -352,10 +406,11 @@ export default function PrescriptionEditorScreen() {
               <View style={[st.pdfContainer, { height: pdfViewHeight }]}>
                 {Platform.OS === 'web' ? (
                   <View style={st.iframeWrapper}>
-                    {/* @ts-ignore - iframe is valid on web */}
-                    <iframe
-                      src={pdfUri}
-                      title="Preview da receita"
+                    {/* object/embed mais confiável que iframe para PDF em todos os navegadores */}
+                    {/* @ts-ignore - object/embed são válidos no web */}
+                    <object
+                      data={pdfUri}
+                      type="application/pdf"
                       style={{
                         width: '100%',
                         height: pdfViewHeight,
@@ -363,12 +418,25 @@ export default function PrescriptionEditorScreen() {
                         borderRadius: 8,
                         backgroundColor: colors.background,
                       }}
-                    />
+                      title="Preview da receita"
+                    >
+                      <embed
+                        src={pdfUri}
+                        type="application/pdf"
+                        style={{
+                          width: '100%',
+                          height: pdfViewHeight,
+                          border: 'none',
+                          borderRadius: 8,
+                          backgroundColor: colors.background,
+                        }}
+                      />
+                    </object>
                   </View>
                 ) : (
                   <ZoomablePdfView>
                     <WebView
-                      source={{ uri: pdfUri }}
+                      source={{ html: buildPdfEmbedHtml(pdfUri) }}
                       style={[st.webview, { height: pdfViewHeight }]}
                       scrollEnabled
                       originWhitelist={['*']}
@@ -389,12 +457,32 @@ export default function PrescriptionEditorScreen() {
             )}
           </DoctorCard>
 
+          {/* Prescription Kind */}
+          <DoctorCard style={st.cardMargin}>
+            <Text style={st.sectionTitle}>TIPO DE RECEITA</Text>
+            <Text style={st.hint}>Selecione o modelo (CFM, RDC 471/2021, ANVISA/SNCR)</Text>
+            <View style={st.kindRow}>
+              {(['simple', 'antimicrobial', 'controlled_special'] as PrescriptionKind[]).map((k) => (
+                <TouchableOpacity
+                  key={k}
+                  style={[st.kindOption, prescriptionKind === k && st.kindOptionActive]}
+                  onPress={() => setPrescriptionKind(k)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[st.kindOptionText, prescriptionKind === k && st.kindOptionTextActive]}>
+                    {k === 'simple' ? 'Simples' : k === 'antimicrobial' ? 'Antimicrobiano' : 'Controle especial'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </DoctorCard>
+
           {/* AI Analysis */}
           {request.aiSummaryForDoctor && (
             <DoctorCard style={[st.cardMargin, st.aiCard]}>
               <View style={st.aiHeader}>
                 <Ionicons name="sparkles" size={20} color={colors.primary} />
-                <Text style={st.aiTitle}>AI Copilot — apoio à prescrição</Text>
+                <Text style={st.aiTitle}>COPILOTO IA</Text>
                 {request.aiRiskLevel && (
                   <View style={[st.riskBadge, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || colors.muted }]}>
                     <Text style={[st.riskText, { color: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text }]}>
@@ -403,18 +491,11 @@ export default function PrescriptionEditorScreen() {
                   </View>
                 )}
               </View>
-              {/* AI Disclaimer */}
               <View style={st.aiDisclaimer}>
                 <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-                <Text style={st.aiDisclaimerText}>Conteúdo gerado automaticamente. Revise e confirme.</Text>
+                <Text style={st.aiDisclaimerText}>Sugestões geradas por IA — decisão final do médico.</Text>
               </View>
-              <Text style={st.aiSummary}>
-                {String(request.aiSummaryForDoctor || '')
-                  .split(/\n+/)
-                  .map((p) => (p.trim() ? p.trim() : null))
-                  .filter(Boolean)
-                  .join('\n\n')}
-              </Text>
+              <FormattedAiSummary text={request.aiSummaryForDoctor} />
               {request.aiUrgency && (
                 <View style={st.urgencyRow}>
                   <Ionicons name="time" size={16} color={colors.textSecondary} />
@@ -527,6 +608,21 @@ export default function PrescriptionEditorScreen() {
           {/* Sign Form */}
           {showSignForm && (
             <DoctorCard style={[st.cardMargin, st.signFormCard]}>
+              {signFormDoctorProfileBlocked && (
+                <View style={st.profileBlockedBanner}>
+                  <Ionicons name="warning" size={18} color="#B45309" />
+                  <Text style={st.profileBlockedBannerText}>
+                    Complete endereço e telefone profissional no seu perfil para poder assinar.
+                  </Text>
+                  <TouchableOpacity
+                    style={st.profileBlockedBannerBtn}
+                    onPress={() => { setShowSignForm(false); setSignFormDoctorProfileBlocked(false); router.push('/(doctor)/profile' as any); }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={st.profileBlockedBannerBtnText}>IR AO MEU PERFIL</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
               <View style={st.signFormHeader}>
                 <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
                 <Text style={st.signFormTitle}>ASSINATURA DIGITAL</Text>
@@ -542,12 +638,11 @@ export default function PrescriptionEditorScreen() {
                 placeholder="Senha"
                 secureTextEntry
                 placeholderTextColor={colors.textMuted}
-                autoFocus
               />
               <View style={st.signBtns}>
                 <TouchableOpacity
                   style={st.cancelSignBtn}
-                  onPress={() => { setShowSignForm(false); setCertPassword(''); }}
+                  onPress={() => { setShowSignForm(false); setCertPassword(''); setSignFormDoctorProfileBlocked(false); }}
                   activeOpacity={0.7}
                 >
                   <Text style={st.cancelSignText}>Cancelar</Text>
@@ -558,20 +653,22 @@ export default function PrescriptionEditorScreen() {
           )}
         </ScrollView>
 
-        {/* Bottom Action Bar */}
+        {/* Bottom Action Bar — botões em coluna para texto em uma linha. Assinar só após aprovado e pago. */}
         {!showSignForm && (
-          <View style={[st.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          <View style={[st.bottomBar, { paddingBottom: bottomBarPadding }]}>
             <PrimaryButton
-              label="Salvar e atualizar preview"
+              label="Salvar e atualizar"
               onPress={handleSave}
               loading={saving}
-              style={st.bottomPrimaryBtn}
+              style={st.bottomBarButton}
             />
-            <PrimaryButton
-              label="Assinar Digitalmente"
-              onPress={() => setShowSignForm(true)}
-              style={st.bottomPrimaryBtn}
-            />
+            {canSign && (
+              <PrimaryButton
+                label="Assinar digitalmente"
+                onPress={() => setShowSignForm(true)}
+                style={st.bottomBarButton}
+              />
+            )}
           </View>
         )}
       </KeyboardAvoidingView>
@@ -596,7 +693,14 @@ const st = StyleSheet.create({
   navTitle: { fontSize: 18, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text, flex: 1, textAlign: 'center' },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: doctorDS.screenPaddingHorizontal, paddingBottom: 100 },
+  scrollContent: { padding: doctorDS.screenPaddingHorizontal },
+
+  helpBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  helpBtnText: { fontSize: 12, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#fff' },
+
+  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs },
+  dataLabel: { fontSize: 13, fontFamily: typography.fontFamily.medium, color: colors.textMuted, fontWeight: '500' },
+  dataValue: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, flex: 1 },
 
   cardMargin: { marginBottom: spacing.md },
   card: {
@@ -615,7 +719,7 @@ const st = StyleSheet.create({
   refreshBtnText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
   pdfContainer: { marginTop: spacing.sm, overflow: 'hidden', borderRadius: 8 },
   iframeWrapper: { width: '100%', flex: 1, overflow: 'hidden', borderRadius: 8 },
-  webview: { width: '100%', height: Math.min(600, Dimensions.get('window').height - 200) },
+  webview: { width: '100%', height: 500 },
   pdfPlaceholder: { height: 200, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8 },
   pdfPlaceholderText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' },
   retryBtn: { marginTop: spacing.sm, paddingVertical: 8, paddingHorizontal: spacing.md, backgroundColor: colors.primarySoft, borderRadius: 8 },
@@ -643,9 +747,9 @@ const st = StyleSheet.create({
 
   // Suggestions
   suggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
-  suggestionText: { flex: 1, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, marginRight: spacing.sm },
+  suggestionText: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, marginRight: spacing.sm },
   plusMinusRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  plusMinusBtn: { padding: 4 },
+  plusMinusBtn: { padding: 4, flexShrink: 0 },
 
   // CID
   input: {
@@ -715,6 +819,34 @@ const st = StyleSheet.create({
 
   // Sign Form
   signFormCard: { borderWidth: 1.5, borderColor: colors.primary + '40' },
+  profileBlockedBanner: {
+    backgroundColor: colors.warningLight,
+    borderRadius: 10,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: '#B45309',
+  },
+  profileBlockedBannerText: {
+    fontSize: 13,
+    color: colors.text,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  profileBlockedBannerBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  profileBlockedBannerBtnText: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.4,
+  },
   signFormHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
   signFormTitle: { fontSize: 12, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
   signFormDesc: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginBottom: spacing.md, lineHeight: 20 },
@@ -724,8 +856,10 @@ const st = StyleSheet.create({
   cancelSignText: { fontFamily: typography.fontFamily.semibold, color: colors.textSecondary, fontWeight: '600', fontSize: 15 },
   signConfirmBtn: { flex: 1, flexDirection: 'row', backgroundColor: colors.primary, padding: spacing.md, borderRadius: borderRadius.card, alignItems: 'center', justifyContent: 'center', gap: 6, ...shadows.button },
 
-  // Bottom Action Bar
+  // Bottom Action Bar — botões em coluna, largura total, texto em uma linha
   bottomBar: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
     paddingHorizontal: doctorDS.screenPaddingHorizontal,
     paddingTop: spacing.md,
     backgroundColor: colors.surface,
@@ -733,6 +867,10 @@ const st = StyleSheet.create({
     borderTopColor: colors.border,
     gap: spacing.sm,
     ...shadows.sm,
+  },
+  bottomBarButton: {
+    width: '100%',
+    minHeight: 52,
   },
   actionBtn: {
     flexDirection: 'row',
@@ -746,5 +884,6 @@ const st = StyleSheet.create({
   saveBtn: { backgroundColor: colors.primary },
   signPrimaryBtn: { flex: 1 },
   bottomPrimaryBtn: { flex: 1 },
+  bottomPrimaryBtnFull: { flex: 1, minWidth: 0 },
   btnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: '#fff' },
 });

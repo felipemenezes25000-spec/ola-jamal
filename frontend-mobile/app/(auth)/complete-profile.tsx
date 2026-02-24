@@ -34,6 +34,7 @@ export default function CompleteProfileScreen() {
   const { user, completeProfile, cancelRegistration } = useAuth();
   const router = useRouter();
   const isPatient = user?.role === 'patient';
+  const addressRequired = true; // Endereço obrigatório para paciente e médico
 
   const clearError = (field: string) => {
     setFieldErrors((prev) => {
@@ -89,14 +90,13 @@ export default function CompleteProfileScreen() {
     if (!cp) err.cpf = 'CPF é obrigatório.';
     else if (cp.length !== 11) err.cpf = 'O CPF deve ter 11 dígitos.';
 
-    if (isPatient) {
-      if (!str) err.street = 'Rua é obrigatória.';
-      if (!num) err.number = 'Número é obrigatório.';
-      if (!neigh) err.neighborhood = 'Bairro é obrigatório.';
-      if (!ci) err.city = 'Cidade é obrigatória.';
-      if (!st) err.state = 'UF é obrigatória.';
-      else if (st.length !== 2) err.state = 'Informe a sigla com 2 letras.';
-    }
+    // Endereço obrigatório para paciente e médico
+    if (!str) err.street = 'Rua é obrigatória.';
+    if (!num) err.number = 'Número é obrigatório.';
+    if (!neigh) err.neighborhood = 'Bairro é obrigatório.';
+    if (!ci) err.city = 'Cidade é obrigatória.';
+    if (!st) err.state = 'UF é obrigatória.';
+    else if (st.length !== 2) err.state = 'Informe a sigla com 2 letras.';
 
     if (Object.keys(err).length > 0) {
       setFieldErrors(err);
@@ -161,7 +161,7 @@ export default function CompleteProfileScreen() {
         />
         <AppInput
           label="Rua"
-          required={isPatient}
+          required={addressRequired}
           placeholder="Nome da rua"
           value={street}
           onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
@@ -171,7 +171,7 @@ export default function CompleteProfileScreen() {
         <View style={styles.row}>
           <AppInput
             label="Número"
-            required={isPatient}
+            required={addressRequired}
             placeholder="Nº"
             value={number}
             onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
@@ -189,7 +189,7 @@ export default function CompleteProfileScreen() {
         </View>
         <AppInput
           label="Bairro"
-          required={isPatient}
+          required={addressRequired}
           placeholder="Bairro"
           value={neighborhood}
           onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
@@ -199,7 +199,7 @@ export default function CompleteProfileScreen() {
         <View style={styles.row}>
           <AppInput
             label="Cidade"
-            required={isPatient}
+            required={addressRequired}
             placeholder="Cidade"
             value={city}
             onChangeText={(t: string) => { setCity(t); clearError('city'); }}
@@ -208,7 +208,7 @@ export default function CompleteProfileScreen() {
           />
           <AppInput
             label="UF"
-            required={isPatient}
+            required={addressRequired}
             placeholder="UF"
             value={state}
             onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}

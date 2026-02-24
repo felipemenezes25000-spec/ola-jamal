@@ -13,6 +13,7 @@ namespace RenoveJa.Api.Controllers;
 
 /// <summary>
 /// Endpoints para transcrição e anamnese em tempo quase real durante a consulta por vídeo.
+/// Suporta diarização: campo "stream" = "local" (médico) ou "remote" (paciente).
 /// </summary>
 [ApiController]
 [Route("api/consultation")]
@@ -27,18 +28,20 @@ public class ConsultationController(
     ILogger<ConsultationController> logger) : ControllerBase
 {
     private const string AnamnesisThrottleKeyPrefix = "consultation_anamnesis_last_";
-    private static readonly TimeSpan AnamnesisThrottleInterval = TimeSpan.FromSeconds(45);
-    private const int MinTranscriptLengthForAnamnesis = 300;
+    private static readonly TimeSpan AnamnesisThrottleInterval = TimeSpan.FromSeconds(20);
+    private const int MinTranscriptLengthForAnamnesis = 200;
 
     /// <summary>
-    /// Recebe um chunk de áudio do paciente, transcreve, acumula e envia atualizações ao médico via SignalR.
-    /// Só o médico da consulta pode enviar; a solicitação deve estar em InConsultation.
+    /// Recebe um chunk de áudio, transcreve e acumula.
+    /// Campo opcional "stream": "local" (médico) | "remote" (paciente, padrão).
+    /// Transcrições são prefixadas com [Médico] ou [Paciente] para diarização.
     /// </summary>
     [HttpPost("transcribe")]
-    [RequestSizeLimit(5 * 1024 * 1024)] // 5 MB
+    [RequestSizeLimit(5 * 1024 * 1024)]
     public async Task<IActionResult> Transcribe(
         [FromForm] Guid requestId,
         [FromForm] IFormFile? file,
+        [FromForm] string? stream,
         CancellationToken cancellationToken)
     {
         var doctorId = GetUserId();
@@ -53,43 +56,64 @@ public class ConsultationController(
         if (file == null || file.Length == 0)
             return BadRequest("Audio file is required");
 
-        await using var stream = file.OpenReadStream();
+        await using var fileStream = file.OpenReadStream();
         using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms, cancellationToken);
+        await fileStream.CopyToAsync(ms, cancellationToken);
         var audioBytes = ms.ToArray();
 
         sessionStore.EnsureSession(requestId, request.PatientId);
 
-        var text = await transcriptionService.TranscribeAsync(audioBytes, file.FileName, cancellationToken);
-        if (string.IsNullOrWhiteSpace(text))
+        var rawText = await transcriptionService.TranscribeAsync(audioBytes, file.FileName, cancellationToken);
+        if (string.IsNullOrWhiteSpace(rawText))
         {
             return Ok(new { transcribed = false, message = "No speech detected or transcription unavailable." });
         }
 
-        sessionStore.AppendTranscript(requestId, text);
+        // Diarização: prefixar com o locutor baseado no campo "stream"
+        var isLocal = string.Equals(stream, "local", StringComparison.OrdinalIgnoreCase);
+        var prefix = isLocal ? "[Médico]" : "[Paciente]";
+        var labeledText = $"{prefix} {rawText}";
+
+        sessionStore.AppendTranscript(requestId, labeledText);
         var fullText = sessionStore.GetTranscript(requestId);
 
         var group = VideoSignalingHub.GroupName(requestId.ToString());
-        await hubContext.Clients.Group(group).SendAsync("TranscriptUpdate", new TranscriptUpdateDto(fullText), cancellationToken);
+        await hubContext.Clients.Group(group)
+            .SendAsync("TranscriptUpdate", new TranscriptUpdateDto(fullText), cancellationToken);
 
-        // Anamnese + sugestões com throttle (ex.: a cada 45 s quando há texto suficiente)
+        // Anamnese + sugestões com throttle reduzido para 20s
         var throttleKey = AnamnesisThrottleKeyPrefix + requestId;
         if (fullText.Length >= MinTranscriptLengthForAnamnesis &&
             !memoryCache.TryGetValue(throttleKey, out _))
         {
-            memoryCache.Set(throttleKey, DateTime.UtcNow, new MemoryCacheEntryOptions().SetAbsoluteExpiration(AnamnesisThrottleInterval));
+            memoryCache.Set(throttleKey, true,
+                new MemoryCacheEntryOptions().SetAbsoluteExpiration(AnamnesisThrottleInterval));
+
             var (previousAnamnesisJson, _) = sessionStore.GetAnamnesisState(requestId);
-            var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(fullText, previousAnamnesisJson, cancellationToken);
-            if (result != null)
+            _ = Task.Run(async () =>
             {
-                var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
-                sessionStore.UpdateAnamnesis(requestId, result.AnamnesisJson, suggestionsJson);
-                await hubContext.Clients.Group(group).SendAsync("AnamnesisUpdate", new AnamnesisUpdateDto(result.AnamnesisJson), cancellationToken);
-                await hubContext.Clients.Group(group).SendAsync("SuggestionUpdate", new SuggestionUpdateDto(result.Suggestions), cancellationToken);
-            }
+                try
+                {
+                    var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(
+                        fullText, previousAnamnesisJson, CancellationToken.None);
+                    if (result != null)
+                    {
+                        var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
+                        sessionStore.UpdateAnamnesis(requestId, result.AnamnesisJson, suggestionsJson);
+                        await hubContext.Clients.Group(group)
+                            .SendAsync("AnamnesisUpdate", new AnamnesisUpdateDto(result.AnamnesisJson));
+                        await hubContext.Clients.Group(group)
+                            .SendAsync("SuggestionUpdate", new SuggestionUpdateDto(result.Suggestions));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Anamnesis update failed for request {RequestId}", requestId);
+                }
+            }, CancellationToken.None);
         }
 
-        return Ok(new { transcribed = true, text, fullLength = fullText.Length });
+        return Ok(new { transcribed = true, text = rawText, stream = prefix, fullLength = fullText.Length });
     }
 
     private Guid GetUserId()
