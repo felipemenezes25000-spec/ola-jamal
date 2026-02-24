@@ -108,11 +108,13 @@ Log.Logger = new LoggerConfiguration()
 var builder = WebApplication.CreateBuilder(args);
 
 // Escutar em todas as interfaces (0.0.0.0) para acesso via IP na rede (ex: 192.168.15.69:5000)
-// Se ASPNETCORE_URLS já estiver definido (ex: em produção), não sobrescreve
+// Se ASPNETCORE_URLS já estiver definido (ex: em produção), não sobrescreve.
+// Em plataformas como Railway, a variável PORT é injetada (ex.: 8080) e precisa ser respeitada.
 var urlsEnv = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 if (string.IsNullOrWhiteSpace(urlsEnv))
 {
-    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
 builder.Host.UseSerilog();
