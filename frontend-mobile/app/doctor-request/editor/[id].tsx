@@ -78,7 +78,7 @@ function blobToBase64(blob: Blob): Promise<string> {
 /** Gera HTML com PDF.js para WebView no Android (embed/object não funcionam no WebView Android). */
 function buildPdfEmbedHtml(dataUri: string): string {
   const base64 = dataUri.replace(/^data:application\/pdf;base64,/, '');
-  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=3"/><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;background:#f8f9fa}canvas{display:block;width:100%;height:auto;margin-bottom:2px;background:#fff}#loading{text-align:center;padding:32px;color:#64748b;font-family:sans-serif;font-size:14px}#error{display:none;text-align:center;padding:32px;color:#dc2626;font-family:sans-serif;font-size:14px}</style></head><body><div id="loading">Gerando preview...</div><div id="error">Não foi possível renderizar o PDF.</div><div id="pages"></div><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script><script>var b64='${base64}';pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){document.getElementById('loading').style.display='none';var pages=document.getElementById('pages');var dpr=window.devicePixelRatio||2;function rp(n){return pdf.getPage(n).then(function(p){var vp=p.getViewport({scale:dpr});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;pages.appendChild(c);return p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;});}var ch=Promise.resolve();for(var n=1;n<=pdf.numPages;n++){ch=ch.then(rp.bind(null,n));}}).catch(function(e){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';});<\/script></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=3,user-scalable=yes"/><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#f8f9fa;overflow-x:hidden}canvas{display:block;width:100%!important;height:auto!important;margin-bottom:2px;background:#fff}#loading{text-align:center;padding:32px;color:#64748b;font-family:sans-serif;font-size:14px}#error{display:none;text-align:center;padding:32px;color:#dc2626;font-family:sans-serif;font-size:14px}</style></head><body><div id="loading">Gerando preview...</div><div id="error">Não foi possível renderizar o PDF. Toque em Atualizar para tentar novamente.</div><div id="pages"></div><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script><script>try{var b64='${base64}';pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){document.getElementById('loading').style.display='none';var pages=document.getElementById('pages');var scale=2;function rp(n){return pdf.getPage(n).then(function(p){var vp=p.getViewport({scale:scale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;pages.appendChild(c);return p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;});}var ch=Promise.resolve();for(var n=1;n<=pdf.numPages;n++){ch=ch.then(rp.bind(null,n));}}).catch(function(e){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';document.getElementById('error').textContent='Erro: '+e.message;});}catch(e){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';document.getElementById('error').textContent='Erro ao processar PDF: '+e.message;}<\/script></body></html>`;
 }
 
 export default function PrescriptionEditorScreen() {
@@ -444,6 +444,18 @@ export default function PrescriptionEditorScreen() {
                       domStorageEnabled
                       thirdPartyCookiesEnabled
                       mixedContentMode="compatibility"
+                      allowFileAccess
+                      allowFileAccessFromFileURLs
+                      allowUniversalAccessFromFileURLs
+                      startInLoadingState
+                      renderLoading={() => (
+                        <View style={[st.pdfPlaceholder, { minHeight: pdfViewHeight, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                          <ActivityIndicator size="large" color={colors.primary} />
+                          <Text style={st.pdfPlaceholderText}>Renderizando PDF...</Text>
+                        </View>
+                      )}
+                      onError={(e) => console.warn('WebView error:', e.nativeEvent)}
+                      onHttpError={(e) => console.warn('WebView HTTP error:', e.nativeEvent)}
                     />
                   </ZoomablePdfView>
                 )}

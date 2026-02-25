@@ -517,6 +517,7 @@ export default function RequestDetailScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setSelectedImageUri(null)}
+        statusBarTranslucent
       >
         <View style={styles.modalContainer}>
           <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedImageUri(null)} activeOpacity={0.7}>

@@ -52,10 +52,13 @@ export function ZoomableImage({ uri }: ZoomableImageProps) {
 
   const panGesture = Gesture.Pan()
     .minPointers(1)
+    .minDistance(5)
     .onUpdate((e) => {
       if (scale.value > 1) {
-        translateX.value = savedTranslateX.value + e.translationX;
-        translateY.value = savedTranslateY.value + e.translationY;
+        const maxTx = (screenW * (scale.value - 1)) / 2;
+        const maxTy = (screenH * 0.85 * (scale.value - 1)) / 2;
+        translateX.value = clamp(savedTranslateX.value + e.translationX, -maxTx, maxTx);
+        translateY.value = clamp(savedTranslateY.value + e.translationY, -maxTy, maxTy);
       }
     })
     .onEnd(() => {

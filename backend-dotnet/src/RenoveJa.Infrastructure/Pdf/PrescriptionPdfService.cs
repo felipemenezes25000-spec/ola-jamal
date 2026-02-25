@@ -306,7 +306,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         if (logoBytes != null)
         {
             var logoImg = new Image(ImageDataFactory.Create(logoBytes))
-                .SetWidth(110)
+                .SetWidth(80).SetMaxHeight(45)
                 .SetAutoScaleHeight(true)
                 .SetMarginBottom(2);
             logoCell.Add(logoImg);
@@ -526,7 +526,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         if (logoBytes != null)
         {
             var logoImg = new Image(ImageDataFactory.Create(logoBytes))
-                .SetWidth(110)
+                .SetWidth(80).SetMaxHeight(45)
                 .SetAutoScaleHeight(true)
                 .SetMarginBottom(2);
             logoCell.Add(logoImg);
@@ -759,7 +759,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         if (logoBytes != null)
         {
             var logoImg = new Image(ImageDataFactory.Create(logoBytes))
-                .SetWidth(110)
+                .SetWidth(80).SetMaxHeight(45)
                 .SetAutoScaleHeight(true)
                 .SetMarginBottom(2);
             logoCell.Add(logoImg);

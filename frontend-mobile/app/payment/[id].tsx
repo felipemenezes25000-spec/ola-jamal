@@ -49,6 +49,29 @@ export default function PaymentScreen() {
         Alert.alert('✅ Pagamento confirmado!', 'Seu pagamento já foi aprovado.', [
           { text: 'OK', onPress: () => router.back() },
         ]);
+        return;
+      }
+      // Se o pagamento já tem dados PIX (criado via /payment/request/[requestId]),
+      // pular direto para a tela do QR code sem precisar clicar novamente
+      if (data.paymentMethod === 'pix' && (data.pixQrCodeBase64 || data.pixCopyPaste)) {
+        setScreen('pix');
+        setPixCode(data.pixCopyPaste || '');
+        startPolling();
+      } else if (data.paymentMethod === 'pix') {
+        // Pagamento PIX criado mas sem QR code ainda — buscar e ir direto
+        setScreen('pix');
+        try {
+          const code = await fetchPixCode(data.id);
+          setPixCode(code);
+        } catch (e) {
+          console.error('Error fetching PIX code:', e);
+        }
+        // Re-fetch payment to get QR code base64 that may have been generated
+        try {
+          const refreshed = await fetchPayment(paymentId);
+          setPayment(refreshed);
+        } catch {}
+        startPolling();
       }
     } catch (e: unknown) {
       Alert.alert('Erro', (e as Error)?.message || String(e) || 'Erro ao carregar pagamento');
