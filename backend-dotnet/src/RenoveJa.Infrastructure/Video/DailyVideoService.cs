@@ -97,8 +97,12 @@ public class DailyVideoService : IDailyVideoService
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
 
-            // 409 = room already exists — fetch existing room
-            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            // 409 Conflict ou 400 com "already exists" — sala já existe no Daily, reutilizar
+            var isRoomExists = response.StatusCode == System.Net.HttpStatusCode.Conflict
+                || (response.StatusCode == System.Net.HttpStatusCode.BadRequest
+                    && errorBody.Contains("already exists", StringComparison.OrdinalIgnoreCase));
+
+            if (isRoomExists)
             {
                 _logger.LogInformation("Daily room {RoomName} already exists, fetching it", roomName);
                 return await GetRoomAsync(roomName, ct);
