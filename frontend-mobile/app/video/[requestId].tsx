@@ -48,6 +48,7 @@ import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { apiClient } from '../../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyCall, type ConnectionQuality } from '../../hooks/useDailyCall';
+import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PANEL_WIDTH = Math.min(340, SCREEN_W * 0.85);
@@ -111,10 +112,8 @@ export default function VideoCallScreen() {
   const [bankBalance, setBankBalance] = useState<{ minutes: number; seconds: number } | null>(null);
   const [consultationType, setConsultationType] = useState<string>('medico_clinico');
 
-  // Audio recording for transcription (doctor only)
-  const audioRecorderRef = useRef<any>(null);
-  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
+  // Audio recording for transcription (doctor only) — real implementation
+  const audioRecorder = useAudioRecorder(rid);
 
   // Anamnesis & Transcript (doctor)
   const [panelOpen, setPanelOpen] = useState(false);
@@ -267,12 +266,17 @@ export default function VideoCallScreen() {
       const result = await startConsultation(rid);
       if (result.consultationStartedAt) setConsultationStartedAt(result.consultationStartedAt);
       connectSignalR();
-      // Start audio recording for transcription
-      startAudioRecording();
+      // Start real audio recording for transcription
+      if (isDoctor) {
+        const started = await audioRecorder.start();
+        if (!started) {
+          console.warn('Audio recording failed to start — transcription won\'t work');
+        }
+      }
     } catch (e: any) {
       console.warn('Failed to start consultation:', e?.message);
     }
-  }, [rid, connectSignalR]);
+  }, [rid, connectSignalR, isDoctor, audioRecorder]);
 
   // Effect: when doctor joins, DON'T auto-start. Wait for button press.
   useEffect(() => {
@@ -293,33 +297,6 @@ export default function VideoCallScreen() {
       .then(res => setBankBalance({ minutes: res.balanceMinutes, seconds: res.balanceSeconds }))
       .catch(() => {});
   }, [isDoctor, rid]);
-
-  // ── Audio recording for transcription (doctor) ──
-
-  const startAudioRecording = useCallback(() => {
-    if (!isDoctor || !rid || Platform.OS === 'web') return;
-    // On native, we'll use the Daily call's audio track for transcription
-    // For web, we'd use MediaRecorder API
-    // The transcription is sent via chunks every 10 seconds
-    setIsRecording(true);
-    
-    // Start periodic transcription polling via Daily audio
-    recordingIntervalRef.current = setInterval(async () => {
-      try {
-        const call = (useDailyCall as any).__callRef?.current;
-        // For now, send a silent keepalive to trigger any pending transcription processing
-        // Real audio capture requires platform-specific implementation
-      } catch {}
-    }, 10000);
-  }, [isDoctor, rid]);
-
-  const stopAudioRecording = useCallback(() => {
-    setIsRecording(false);
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-      recordingIntervalRef.current = null;
-    }
-  }, []);
 
   // Report call connected when remote joins
   useEffect(() => {
@@ -352,7 +329,7 @@ export default function VideoCallScreen() {
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
-  // Countdown / Auto-finish — ao zerar o tempo, encerra a chamada automaticamente
+  // Countdown / Auto-finish
   useEffect(() => {
     if (!contractedMinutes || contractedMinutes <= 0) return;
     const rem = contractedMinutes * 60 - callSeconds;
@@ -366,17 +343,18 @@ export default function VideoCallScreen() {
     }
     if (rem <= 0 && !autoFinishedRef.current) {
       autoFinishedRef.current = true;
-      // Fecha a chamada automaticamente ao bater o tempo (ex.: 5 min)
-      doEnd(true);
+      Alert.alert('Tempo esgotado', 'O tempo contratado expirou.', [{
+        text: 'OK', onPress: () => doEnd(true),
+      }]);
     }
-  }, [callSeconds, contractedMinutes, doEnd]);
+  }, [callSeconds, contractedMinutes]);
 
   // Cleanup
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    stopAudioRecording();
+    audioRecorder.stop();
     disconnectSignalR();
-  }, [disconnectSignalR, stopAudioRecording]);
+  }, [disconnectSignalR, audioRecorder]);
 
   // End call
   const doEnd = useCallback(async (autoFinish = false) => {
@@ -396,7 +374,8 @@ export default function VideoCallScreen() {
     } catch {}
     setEnding(false);
     cleanup();
-    router.back();
+    // Navigate to consultation summary to show AI anamnesis results
+    router.replace(`/consultation-summary/${rid}` as any);
   }, [leave, rid, clinicalNotes, cleanup, router]);
 
   const onEndPress = () => {
@@ -536,10 +515,16 @@ export default function VideoCallScreen() {
       )}
 
       {/* Doctor: Recording indicator */}
-      {isDoctor && timerStarted && (
+      {isDoctor && timerStarted && audioRecorder.isRecording && (
         <View style={[S.recIndicator, { top: insets.top + 60 + 100 }]}>
           <View style={S.recDot} />
-          <Text style={S.recText}>Gravando</Text>
+          <Text style={S.recText}>Gravando · {audioRecorder.chunksSent} transcrições</Text>
+        </View>
+      )}
+      {isDoctor && timerStarted && audioRecorder.error && (
+        <View style={[S.recIndicator, { top: insets.top + 60 + 100, backgroundColor: 'rgba(245,158,11,0.8)' }]}>
+          <Ionicons name="warning" size={12} color="#fff" />
+          <Text style={S.recText}>Mic: {audioRecorder.error}</Text>
         </View>
       )}
 

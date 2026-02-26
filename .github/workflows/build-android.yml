@@ -23,6 +23,8 @@ jobs:
     defaults:
       run:
         working-directory: frontend-mobile
+    env:
+      NODE_ENV: production
 
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +54,16 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
         env:
           EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+
+      - name: Verify newArchEnabled in gradle.properties
+        run: |
+          if grep -q "newArchEnabled=true" android/gradle.properties; then
+            echo "✓ New Architecture is enabled"
+          else
+            echo "⚠ Forcing newArchEnabled=true in gradle.properties"
+            sed -i 's/newArchEnabled=false/newArchEnabled=true/' android/gradle.properties
+          fi
+          grep "newArchEnabled" android/gradle.properties
 
       - name: Inject google-services.json
         run: |

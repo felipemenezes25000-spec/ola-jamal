@@ -308,6 +308,20 @@ export async function getTimeBankBalance(consultationType: string): Promise<{ ba
   return apiClient.get(`/api/requests/time-bank?consultationType=${encodeURIComponent(consultationType)}`);
 }
 
+/** Envia chunk de áudio para transcrição em tempo real (médico). */
+export async function transcribeAudioChunk(
+  requestId: string,
+  audioBlob: Blob | { uri: string; name: string; type: string },
+  stream: 'local' | 'remote' = 'remote'
+): Promise<{ transcribed: boolean; text?: string; fullLength?: number }> {
+  const formData = new FormData();
+  formData.append('requestId', requestId);
+  formData.append('stream', stream);
+  // React Native FormData accepts { uri, name, type } objects for file uploads
+  formData.append('file', audioBlob as any);
+  return apiClient.post('/api/consultation/transcribe', formData, true);
+}
+
 // ============================================
 // PAYMENT MANAGEMENT
 // ============================================
