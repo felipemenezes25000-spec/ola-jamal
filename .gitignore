@@ -8,6 +8,10 @@ node_modules/
 # Build / artifacts
 dist/
 .expo/
+# Permitir tipagem de rotas do Expo (consultation-summary, etc.)
+!frontend-mobile/.expo/
+!frontend-mobile/.expo/types/
+!frontend-mobile/.expo/types/router.d.ts
 [Bb]in/
 [Oo]bj/
 [Ll]og/
