@@ -234,7 +234,10 @@ public class DigitalCertificateService : IDigitalCertificateService
 
             // Descriptografa o PFX (extrai bytes e senha armazenada)
             var (pfxBytes, storedPassword) = DecryptPfxFull(encryptedPfxData);
-            var passwordToUse = !string.IsNullOrWhiteSpace(pfxPassword) ? pfxPassword : storedPassword;
+            // Prioriza a senha armazenada (validada no upload). Evita "PKCS12 key store MAC invalid" por diferença de whitespace/encoding na digitada.
+            var passwordToUse = !string.IsNullOrWhiteSpace(storedPassword)
+                ? storedPassword
+                : (pfxPassword ?? "").Trim();
             if (string.IsNullOrWhiteSpace(passwordToUse))
             {
                 return new DigitalSignatureResult(false, "Senha do certificado PFX é obrigatória para assinar. Envie PfxPassword no corpo da requisição.", null, null, null);
@@ -267,7 +270,10 @@ public class DigitalCertificateService : IDigitalCertificateService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao assinar PDF com certificado {CertificateId}", certificateId);
-            return new DigitalSignatureResult(false, $"Erro ao assinar: {ex.Message}", null, null, null);
+            var msg = ex.Message.Contains("MAC", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase)
+                ? "Senha do certificado inválida. Use a mesma senha configurada no upload do certificado."
+                : $"Erro ao assinar: {ex.Message}";
+            return new DigitalSignatureResult(false, msg, null, null, null);
         }
     }
 
@@ -411,8 +417,22 @@ public class DigitalCertificateService : IDigitalCertificateService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "OCSP/CRL indisponível ou falha na revogação. Assinando sem revogação embutida (fallback).");
-            signer.SignDetached(pks, certArray, null, null, tsaClient, EstimatedSizeWithLtv, PdfSigner.CryptoStandard.CMS);
+            // iText7: após falha do primeiro SignDetached o documento fica "pre closed"; não reutilizar o mesmo signer.
+            _logger.LogWarning(ex, "OCSP/CRL indisponível ou falha na revogação. Assinando sem revogação embutida (fallback com novo signer).");
+            byte[] fallbackResult;
+            using (var inputStream2 = new MemoryStream(pdfBytes))
+            using (var outputStream2 = new MemoryStream())
+            using (var reader2 = new PdfReader(inputStream2))
+            {
+                var signer2 = new PdfSigner(reader2, outputStream2, new StampingProperties());
+                signer2.SetReason($"Receita digital assinada conforme ICP-Brasil (MP 2.200-2/2001) - CRM {certificate.CrmNumber ?? "N/A"}");
+                signer2.SetLocation("RenoveJá Saúde - Sistema de Receitas Digitais");
+                signer2.SetContact(certificate.ExtractDoctorName() ?? "Médico");
+                signer2.SetFieldName($"sig_{Guid.NewGuid():N}");
+                signer2.SignDetached(pks, certArray, null, null, tsaClient, EstimatedSizeWithLtv, PdfSigner.CryptoStandard.CMS);
+                fallbackResult = outputStream2.ToArray();
+            }
+            return fallbackResult;
         }
 
         _logger.LogInformation(
