@@ -170,14 +170,19 @@ export default function VideoCallScreen() {
     if (!rid || !isDoctor) return;
     try {
       const signalR = require('@microsoft/signalr');
-      const baseUrl = (apiClient as any).baseURL ?? (apiClient as any).defaults?.baseURL ?? '';
-      const apiBase = baseUrl.replace(/\/api\/?$/, '');
-      // Get token from stored auth
+      let apiBase = apiClient.getBaseUrl(); // e.g. 'http://192.168.x.x:5000' or '' for web
+      apiBase = apiBase.replace(/\/api\/?$/, '');
+      // Get token from stored auth (same key used by api-client.ts)
       let authToken = '';
       try {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        authToken = (await AsyncStorage.getItem('auth_token')) ?? '';
+        authToken = (await AsyncStorage.getItem('@renoveja:auth_token')) ?? '';
       } catch {}
+
+      if (!authToken) {
+        console.warn('[SignalR] No auth token found — cannot connect');
+        return;
+      }
 
       const conn = new signalR.HubConnectionBuilder()
         .withUrl(`${apiBase}/hubs/video`, {

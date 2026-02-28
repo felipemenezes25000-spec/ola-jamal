@@ -86,10 +86,9 @@ export function useAudioRecorder(requestId: string): UseAudioRecorderReturn {
         const fileName = `chunk_${chunkIndexRef.current}.${extension}`;
         chunkIndexRef.current++;
 
-        // React Native FormData accepts { uri, name, type } objects for file uploads
-        // This is the standard way to upload files in RN — no Blob conversion needed
+        // React Native FormData accepts { uri, name, type } — use URI as-is (expo-av) on both platforms
         const fileObject = {
-          uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+          uri,
           name: fileName,
           type: mimeType,
         };
@@ -169,13 +168,13 @@ export function useAudioRecorder(requestId: string): UseAudioRecorderReturn {
         return false;
       }
 
-      // Configure audio mode for recording during call
+      // Configure audio mode for recording during call (DuckOthers allows recording alongside Daily.co)
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
         interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
         shouldDuckAndroid: false,
         playThroughEarpieceAndroid: false,
       });

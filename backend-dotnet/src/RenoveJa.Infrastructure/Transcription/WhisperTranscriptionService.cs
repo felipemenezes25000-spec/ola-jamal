@@ -57,6 +57,8 @@ public class WhisperTranscriptionService : ITranscriptionService
         var name = string.IsNullOrEmpty(fileName) ? $"chunk.{extension}" : fileName;
 
         using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(Model), "model");
+        content.Add(new StringContent("pt"), "language"); // Português brasileiro — melhora precisão e velocidade
         content.Add(new StreamContent(new MemoryStream(audioBytes)), "file", name);
         content.Headers.ContentType!.Parameters.Clear();
         var filePart = content.First(p => p.Headers.ContentDisposition?.Name == "\"file\"");

@@ -33,7 +33,12 @@ export default function PaymentScreen() {
   const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  const paymentRef = useRef<PaymentResponseDto | null>(null);
   const MAX_POLLS = 180; // 180 × 5s = 15 min
+
+  useEffect(() => {
+    paymentRef.current = payment;
+  }, [payment]);
 
   useEffect(() => {
     loadPayment();
@@ -109,11 +114,13 @@ export default function PaymentScreen() {
         setPolling(false);
         return;
       }
+      const currentPayment = paymentRef.current;
+      const reqId = currentPayment?.requestId;
       try {
         // A cada 6 polls (30s), sincroniza com MP para resolver webhooks falhados
-        const useSync = pollCountRef.current % 6 === 0 && payment?.requestId;
-        const updated = useSync
-          ? await syncPaymentStatus(payment!.requestId)
+        const useSync = pollCountRef.current % 6 === 0 && reqId;
+        const updated = useSync && reqId
+          ? await syncPaymentStatus(reqId)
           : await fetchPayment(paymentId!);
         setPayment(updated);
         if (updated.status === 'approved') {
