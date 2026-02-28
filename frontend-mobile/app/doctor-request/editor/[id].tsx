@@ -27,7 +27,6 @@ import {
 } from '../../../lib/api';
 import { RequestResponseDto, PrescriptionKind } from '../../../types/database';
 import { searchCid } from '../../../lib/cid-medications';
-import { ZoomablePdfView } from '../../../components/ZoomablePdfView';
 import { DoctorHeader } from '../../../components/ui/DoctorHeader';
 import { DoctorCard } from '../../../components/ui/DoctorCard';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
@@ -63,22 +62,158 @@ function parseAiMedications(aiExtractedJson: string | null): string[] {
   return [];
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1] || '');
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+/**
+ * Converte Blob → base64 de forma compatível com Web e React Native.
+ *
+ * Em React Native, FileReader.readAsDataURL() não funciona de forma confiável
+ * com Blobs retornados por fetch().blob(). A abordagem segura é:
+ *   1. Converter o Blob para ArrayBuffer (funciona em todas as plataformas)
+ *   2. Converter os bytes para base64 manualmente
+ *
+ * No Web, FileReader funciona, mas usamos arrayBuffer por consistência.
+ */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // Em plataformas nativas, btoa pode não existir ou falhar com bytes > 127.
+  // Construímos manualmente em chunks para evitar stack overflow em PDFs grandes.
+  if (typeof btoa === 'function') {
+    // Web / Hermes com polyfill: btoa aceita binary string
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      for (let j = 0; j < chunk.length; j++) {
+        binary += String.fromCharCode(chunk[j]);
+      }
+    }
+    return btoa(binary);
+  }
+
+  // Fallback manual base64 (caso raro: engine sem btoa)
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    result += chars[b0 >> 2];
+    result += chars[((b0 & 3) << 4) | (b1 >> 4)];
+    result += i + 1 < bytes.length ? chars[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+    result += i + 2 < bytes.length ? chars[b2 & 63] : '=';
+  }
+  return result;
 }
 
-/** Gera HTML com PDF.js para WebView no Android (embed/object não funcionam no WebView Android). */
-function buildPdfEmbedHtml(dataUri: string): string {
-  const base64 = dataUri.replace(/^data:application\/pdf;base64,/, '');
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=3,user-scalable=yes"/><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#f8f9fa;overflow-x:hidden}canvas{display:block;width:100%!important;height:auto!important;margin-bottom:2px;background:#fff}#loading{text-align:center;padding:32px;color:#64748b;font-family:sans-serif;font-size:14px}#error{display:none;text-align:center;padding:32px;color:#dc2626;font-family:sans-serif;font-size:14px}</style></head><body><div id="loading">Gerando preview...</div><div id="error">Não foi possível renderizar o PDF. Toque em Atualizar para tentar novamente.</div><div id="pages"></div><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script><script>try{var b64='${base64}';pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){document.getElementById('loading').style.display='none';var pages=document.getElementById('pages');var scale=2;function rp(n){return pdf.getPage(n).then(function(p){var vp=p.getViewport({scale:scale});var c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;pages.appendChild(c);return p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;});}var ch=Promise.resolve();for(var n=1;n<=pdf.numPages;n++){ch=ch.then(rp.bind(null,n));}}).catch(function(e){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';document.getElementById('error').textContent='Erro: '+e.message;});}catch(e){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';document.getElementById('error').textContent='Erro ao processar PDF: '+e.message;}<\/script></body></html>`;
+/**
+ * Gera HTML com PDF.js para WebView no Android.
+ *
+ * IMPORTANTE: NÃO injeta o base64 como string literal no JS.
+ * String literals muito grandes (>128KB) são silenciosamente truncadas
+ * pelo parser JS do Android WebView, causando tela branca sem erro.
+ *
+ * Em vez disso, passamos o base64 via postMessage após o carregamento do PDF.js.
+ * O HTML fica leve e o base64 é enviado pelo canal de mensagem da WebView.
+ */
+function buildPdfEmbedHtml(): string {
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=3,user-scalable=yes"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#f8f9fa;overflow-x:hidden}
+canvas{display:block;width:100%!important;height:auto!important;margin-bottom:2px;background:#fff}
+#status{text-align:center;padding:32px;color:#64748b;font-family:sans-serif;font-size:14px}
+#status.error{color:#dc2626}
+</style>
+</head><body>
+<div id="status">Carregando PDF.js...</div>
+<div id="pages"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>
+<script>
+var statusEl = document.getElementById('status');
+var pagesEl = document.getElementById('pages');
+var pdfReady = false;
+var dataReady = false;
+var pdfBase64 = null;
+
+function showError(msg) {
+  statusEl.className = 'error';
+  statusEl.textContent = msg;
+  statusEl.style.display = 'block';
+}
+
+function tryRender() {
+  if (!pdfReady || !dataReady || !pdfBase64) return;
+  statusEl.textContent = 'Renderizando...';
+  try {
+    var bin = atob(pdfBase64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    pdfjsLib.getDocument({data: bytes}).promise.then(function(pdf) {
+      statusEl.style.display = 'none';
+      var scale = 2;
+      function rp(n) {
+        return pdf.getPage(n).then(function(p) {
+          var vp = p.getViewport({scale: scale});
+          var c = document.createElement('canvas');
+          c.width = vp.width;
+          c.height = vp.height;
+          pagesEl.appendChild(c);
+          return p.render({canvasContext: c.getContext('2d'), viewport: vp}).promise;
+        });
+      }
+      var chain = Promise.resolve();
+      for (var n = 1; n <= pdf.numPages; n++) {
+        chain = chain.then(rp.bind(null, n));
+      }
+      chain.catch(function(e) { showError('Erro ao renderizar: ' + e.message); });
+    }).catch(function(e) {
+      showError('Erro ao abrir PDF: ' + e.message);
+    });
+  } catch(e) {
+    showError('Erro ao decodificar: ' + e.message);
+  }
+}
+
+// Verifica se PDF.js carregou
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfReady = true;
+  statusEl.textContent = 'Aguardando dados do PDF...';
+  tryRender();
+} else {
+  // PDF.js pode não ter carregado ainda (CDN lento)
+  var checkInterval = setInterval(function() {
+    if (typeof pdfjsLib !== 'undefined') {
+      clearInterval(checkInterval);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfReady = true;
+      tryRender();
+    }
+  }, 200);
+  // Timeout de 15s para o CDN
+  setTimeout(function() {
+    clearInterval(checkInterval);
+    if (!pdfReady) showError('Não foi possível carregar PDF.js. Verifique a conexão e toque em Atualizar.');
+  }, 15000);
+}
+
+// Recebe base64 do React Native via postMessage
+document.addEventListener('message', function(e) {
+  pdfBase64 = e.data;
+  dataReady = true;
+  tryRender();
+});
+window.addEventListener('message', function(e) {
+  pdfBase64 = e.data;
+  dataReady = true;
+  tryRender();
+});
+<\/script>
+</body></html>`;
 }
 
 export default function PrescriptionEditorScreen() {
@@ -102,6 +237,19 @@ export default function PrescriptionEditorScreen() {
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const pdfBlobUrlRef = useRef<string | null>(null);
+  const webViewRef = useRef<WebView | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  /** Ao abrir o formulário de assinatura, rola até o final para que o TextInput da senha fique visível. */
+  useEffect(() => {
+    if (showSignForm && scrollViewRef.current) {
+      // Pequeno delay para o layout do form renderizar antes de rolar
+      const timer = setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [showSignForm]);
 
   /** Ao abrir o formulário de assinatura, verifica se o perfil do médico está completo para evitar tentativa inútil. */
   useEffect(() => {
@@ -142,11 +290,12 @@ export default function PrescriptionEditorScreen() {
     setPdfLoading(true);
     try {
       const blob = await getPreviewPdf(requestId);
-      if (blob.size === 0) {
+      if (!blob || blob.size === 0) {
         setPdfUri(null);
         showToast({ message: 'Preview não disponível. Verifique se há medicamentos na receita.', type: 'warning' });
         return;
       }
+      if (__DEV__) console.info('[PDF_PREVIEW] Blob recebido:', { size: blob.size, type: blob.type });
       if (Platform.OS === 'web') {
         if (pdfBlobUrlRef.current) {
           URL.revokeObjectURL(pdfBlobUrlRef.current);
@@ -157,6 +306,13 @@ export default function PrescriptionEditorScreen() {
         setPdfUri(url);
       } else {
         const base64 = await blobToBase64(blob);
+        if (!base64 || base64.length < 100) {
+          if (__DEV__) console.warn('[PDF_PREVIEW] base64 vazio ou muito pequeno:', base64?.length);
+          setPdfUri(null);
+          showToast({ message: 'Erro ao processar o PDF. Tente novamente.', type: 'error' });
+          return;
+        }
+        if (__DEV__) console.info('[PDF_PREVIEW] base64 gerado com sucesso:', { length: base64.length });
         setPdfUri(`data:application/pdf;base64,${base64}`);
       }
     } catch (e: any) {
@@ -183,6 +339,22 @@ export default function PrescriptionEditorScreen() {
       }
     };
   }, [request?.id, request?.requestType, loadPdfPreview]);
+
+  /**
+   * Quando pdfUri muda (ex.: após Salvar ou Atualizar), re-envia o base64 à WebView.
+   * Se a WebView já recebeu onLoad, o postMessage atualiza os dados.
+   * Como fallback, usamos key={pdfUri} na WebView para forçar remount.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'web' && pdfUri && webViewRef.current) {
+      const base64 = pdfUri.replace(/^data:application\/pdf;base64,/, '');
+      // Pequeno delay para garantir que a WebView está pronta
+      const timer = setTimeout(() => {
+        webViewRef.current?.postMessage(base64);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [pdfUri]);
 
   const handleSave = async () => {
     const meds = medications.map((m) => m.trim()).filter(Boolean);
@@ -360,8 +532,13 @@ export default function PrescriptionEditorScreen() {
         }
       />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+      >
         <ScrollView
+          ref={scrollViewRef}
           style={st.scroll}
           contentContainerStyle={[st.scrollContent, { paddingBottom: 160 + bottomBarPadding }]}
           keyboardShouldPersistTaps="handled"
@@ -434,30 +611,38 @@ export default function PrescriptionEditorScreen() {
                     </object>
                   </View>
                 ) : (
-                  <ZoomablePdfView>
-                    <WebView
-                      source={{ html: buildPdfEmbedHtml(pdfUri), baseUrl: 'https://cdnjs.cloudflare.com' }}
-                      style={[st.webview, { height: pdfViewHeight }]}
-                      scrollEnabled
-                      originWhitelist={['*']}
-                      javaScriptEnabled
-                      domStorageEnabled
-                      thirdPartyCookiesEnabled
-                      mixedContentMode="compatibility"
-                      allowFileAccess
-                      allowFileAccessFromFileURLs
-                      allowUniversalAccessFromFileURLs
-                      startInLoadingState
-                      renderLoading={() => (
-                        <View style={[st.pdfPlaceholder, { minHeight: pdfViewHeight, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
-                          <ActivityIndicator size="large" color={colors.primary} />
-                          <Text style={st.pdfPlaceholderText}>Renderizando PDF...</Text>
-                        </View>
-                      )}
-                      onError={(e) => console.warn('WebView error:', e.nativeEvent)}
-                      onHttpError={(e) => console.warn('WebView HTTP error:', e.nativeEvent)}
-                    />
-                  </ZoomablePdfView>
+                  <WebView
+                    key={pdfUri}
+                    ref={webViewRef}
+                    source={{ html: buildPdfEmbedHtml(), baseUrl: 'https://cdnjs.cloudflare.com' }}
+                    style={[st.webview, { height: pdfViewHeight }]}
+                    scrollEnabled
+                    nestedScrollEnabled
+                    originWhitelist={['*']}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    thirdPartyCookiesEnabled
+                    mixedContentMode="compatibility"
+                    allowFileAccess
+                    allowFileAccessFromFileURLs
+                    allowUniversalAccessFromFileURLs
+                    startInLoadingState
+                    onLoad={() => {
+                      // Envia o base64 via postMessage — evita inline gigante no HTML
+                      if (pdfUri && webViewRef.current) {
+                        const base64 = pdfUri.replace(/^data:application\/pdf;base64,/, '');
+                        webViewRef.current.postMessage(base64);
+                      }
+                    }}
+                    renderLoading={() => (
+                      <View style={[st.pdfPlaceholder, { minHeight: pdfViewHeight, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={st.pdfPlaceholderText}>Renderizando PDF...</Text>
+                      </View>
+                    )}
+                    onError={(e) => console.warn('WebView error:', e.nativeEvent)}
+                    onHttpError={(e) => console.warn('WebView HTTP error:', e.nativeEvent)}
+                  />
                 )}
               </View>
             ) : (
@@ -653,7 +838,16 @@ export default function PrescriptionEditorScreen() {
                 onChangeText={setCertPassword}
                 placeholder="Senha"
                 secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
+                returnKeyType="done"
+                onSubmitEditing={handleSign}
                 placeholderTextColor={colors.textMuted}
+                onFocus={() => {
+                  // No Android, garantir que o campo fica visível quando o teclado abre
+                  setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 400);
+                }}
               />
               <View style={st.signBtns}>
                 <TouchableOpacity

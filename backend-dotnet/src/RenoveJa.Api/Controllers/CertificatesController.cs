@@ -210,6 +210,66 @@ public class CertificatesController : ControllerBase
     }
 
     /// <summary>
+    /// Diagnóstico do fluxo de assinatura: testa perfil → certificado válido → certificado ativo.
+    /// Retorna um checklist indicando em qual etapa está o problema (útil para debugar assinatura).
+    /// </summary>
+    [HttpPost("diagnose")]
+    public async Task<IActionResult> Diagnose(CancellationToken cancellationToken = default)
+    {
+        var doctorProfileId = await _currentUserService.GetDoctorProfileIdAsync();
+        if (doctorProfileId == null)
+        {
+            return Ok(new CertificateDiagnoseResponseDto(
+                ProfileOk: false,
+                ProfileMessage: "Perfil de médico não encontrado. Complete o cadastro como médico.",
+                CertificateOk: false,
+                CertificateMessage: null,
+                HasActiveCertificate: false,
+                ActiveCertificateMessage: null,
+                FailedStep: "profile",
+                Suggestion: "Complete seu cadastro como médico em Perfil / Configurações."));
+        }
+
+        var hasValid = await _certificateService.HasValidCertificateAsync(doctorProfileId.Value, cancellationToken);
+        if (!hasValid)
+        {
+            return Ok(new CertificateDiagnoseResponseDto(
+                ProfileOk: true,
+                ProfileMessage: "OK",
+                CertificateOk: false,
+                CertificateMessage: "Nenhum certificado válido encontrado.",
+                HasActiveCertificate: false,
+                ActiveCertificateMessage: null,
+                FailedStep: "certificate",
+                Suggestion: "Cadastre um certificado digital (PFX) em Configurações > Certificado digital."));
+        }
+
+        var active = await _certificateService.GetActiveCertificateAsync(doctorProfileId.Value, cancellationToken);
+        if (active == null)
+        {
+            return Ok(new CertificateDiagnoseResponseDto(
+                ProfileOk: true,
+                ProfileMessage: "OK",
+                CertificateOk: true,
+                CertificateMessage: "OK",
+                HasActiveCertificate: false,
+                ActiveCertificateMessage: "Certificado válido mas nenhum ativo para assinatura.",
+                FailedStep: "active_certificate",
+                Suggestion: "Revogue o certificado atual e faça upload novamente, ou contate o suporte."));
+        }
+
+        return Ok(new CertificateDiagnoseResponseDto(
+            ProfileOk: true,
+            ProfileMessage: "OK",
+            CertificateOk: true,
+            CertificateMessage: "OK",
+            HasActiveCertificate: true,
+            ActiveCertificateMessage: $"Certificado ativo: {active.SubjectName}, válido até {active.NotAfter:dd/MM/yyyy}.",
+            FailedStep: null,
+            Suggestion: "Se a assinatura falhar ao assinar um documento, verifique a senha do PFX. Use a mensagem de erro exata retornada pela API."));
+    }
+
+    /// <summary>
     /// Revoga um certificado.
     /// </summary>
     [HttpPost("{id}/revoke")]

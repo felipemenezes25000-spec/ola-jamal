@@ -59,3 +59,17 @@ public record CertificateInfoDto(
 /// </summary>
 public record RevokeCertificateDto(
     string Reason);
+
+/// <summary>
+/// Resposta do endpoint de diagnóstico do fluxo de assinatura.
+/// Indica em qual etapa o fluxo falha (perfil → certificado → PFX → assinatura).
+/// </summary>
+public record CertificateDiagnoseResponseDto(
+    bool ProfileOk,
+    string? ProfileMessage,
+    bool CertificateOk,
+    string? CertificateMessage,
+    bool HasActiveCertificate,
+    string? ActiveCertificateMessage,
+    string? FailedStep,
+    string? Suggestion);

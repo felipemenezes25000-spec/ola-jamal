@@ -950,14 +950,16 @@ public class RequestService(
         {
             var doctorProfile = await doctorRepository.GetByUserIdAsync(request.DoctorId.Value, cancellationToken);
 
-            if (doctorProfile != null)
-            {
-                // 1. Verificar se médico tem certificado válido
-                var hasCertificate = await digitalCertificateService.HasValidCertificateAsync(doctorProfile.Id, cancellationToken);
+            if (doctorProfile == null)
+                throw new InvalidOperationException("Perfil de médico não encontrado. Complete o cadastro como médico.");
 
-                if (hasCertificate)
-                {
-                    // Senha do PFX obrigatória no fluxo automático de assinatura
+            // 1. Verificar se médico tem certificado válido
+            var hasCertificate = await digitalCertificateService.HasValidCertificateAsync(doctorProfile.Id, cancellationToken);
+            if (!hasCertificate)
+                throw new InvalidOperationException("Certificado digital não encontrado ou inválido. Cadastre um certificado em Configurações.");
+
+            {
+                // Senha do PFX obrigatória no fluxo automático de assinatura
                     if (string.IsNullOrWhiteSpace(dto.PfxPassword))
                     {
                         throw new InvalidOperationException(
@@ -1041,7 +1043,7 @@ public class RequestService(
                             pdfFileName = $"receita-assinada-{request.Id}.pdf";
                         }
                         else
-                            logger.LogWarning("Falha ao gerar PDF de receita para request {RequestId}: {Error}", id, pdfResult.ErrorMessage);
+                            throw new InvalidOperationException("Falha ao gerar PDF da receita. " + (pdfResult.ErrorMessage ?? "Verifique os dados da receita e tente novamente."));
                     }
                     else if (request.RequestType == Domain.Enums.RequestType.Exam)
                     {
@@ -1075,15 +1077,19 @@ public class RequestService(
                             pdfFileName = $"pedido-exame-assinado-{request.Id}.pdf";
                         }
                         else
-                            logger.LogWarning("Falha ao gerar PDF de exame para request {RequestId}: {Error}", id, pdfResult.ErrorMessage);
+                            throw new InvalidOperationException("Falha ao gerar PDF do exame. " + (pdfResult.ErrorMessage ?? "Verifique os dados do pedido e tente novamente."));
                     }
 
-                    if (pdfBytes != null && !string.IsNullOrEmpty(pdfFileName))
-                    {
-                        var certInfo = await digitalCertificateService.GetActiveCertificateAsync(doctorProfile.Id, cancellationToken);
-                        if (certInfo != null)
-                        {
-                            var signResult = await digitalCertificateService.SignPdfAsync(
+                    if (pdfBytes == null || string.IsNullOrEmpty(pdfFileName))
+                        throw new InvalidOperationException(request.RequestType == Domain.Enums.RequestType.Prescription
+                            ? "Não foi possível gerar o PDF da receita. Verifique se há ao menos um medicamento informado."
+                            : "Não foi possível gerar o PDF do exame. Verifique se há ao menos um exame informado.");
+
+                    var certInfo = await digitalCertificateService.GetActiveCertificateAsync(doctorProfile.Id, cancellationToken);
+                    if (certInfo == null)
+                        throw new InvalidOperationException("Certificado ativo não encontrado. Cadastre ou reative um certificado em Configurações.");
+
+                    var signResult = await digitalCertificateService.SignPdfAsync(
                                 certInfo.Id,
                                 pdfBytes,
                                 pdfFileName,
@@ -1132,12 +1138,9 @@ public class RequestService(
                                 return MapRequestToDto(request);
                             }
 
-                            logger.LogWarning("Falha ao assinar PDF para request {RequestId}: {Error}", id, signResult.ErrorMessage);
-                        }
-                    }
+                    throw new InvalidOperationException("Falha ao assinar o PDF: " + (signResult.ErrorMessage ?? "Senha do certificado incorreta ou certificado inválido. Verifique a senha do PFX."));
                 }
             }
-        }
 
         // Fallback: aceitar URL externa apenas se o médico fornecer explicitamente
         if (string.IsNullOrWhiteSpace(dto.SignedDocumentUrl))
