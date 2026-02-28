@@ -83,7 +83,7 @@ export default function NewExam() {
       images,
     });
     if (!validation.success) {
-      Alert.alert('Exames necessários', validation.firstError ?? 'Informe pelo menos um exame desejado.');
+      Alert.alert('Preencha os campos', validation.firstError ?? 'Informe os exames desejados e os sintomas.');
       return;
     }
 
@@ -92,7 +92,7 @@ export default function NewExam() {
       const result = await createExamRequest({
         examType: validation.data!.examType ?? 'laboratorial',
         exams: validation.data!.exams ?? [],
-        symptoms: validation.data!.symptoms || undefined,
+        symptoms: validation.data!.symptoms ?? '',
         images: (validation.data!.images?.length ?? 0) > 0 ? validation.data!.images : undefined,
       });
       // A IA analisa na hora – se rejeitou (imagem incoerente), avisar imediatamente
@@ -184,10 +184,10 @@ export default function NewExam() {
         )}
 
         {/* Symptoms */}
-        <Text style={styles.overline}>SINTOMAS</Text>
+        <Text style={styles.overline}>SINTOMAS (Obrigatório)</Text>
         <TextInput
           style={styles.textarea}
-          placeholder="Descreva seus sintomas (opcional)..."
+          placeholder="Descreva seus sintomas"
           placeholderTextColor={c.text.tertiary}
           value={symptoms}
           onChangeText={setSymptoms}

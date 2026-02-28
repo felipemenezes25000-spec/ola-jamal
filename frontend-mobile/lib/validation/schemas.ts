@@ -150,15 +150,15 @@ export const createExamSchema = z
   .object({
     examType: z.string().optional(),
     exams: z.array(z.string()).optional().default([]),
-    symptoms: z.string().transform(normalizeText).optional().default(''),
+    symptoms: z
+      .string()
+      .transform(normalizeText)
+      .pipe(z.string().min(1, 'Descreva seus sintomas (obrigatório)')),
     images: z.array(z.string()).optional().default([]),
   })
   .refine(
-    (d) =>
-      (d.exams && d.exams.length > 0) ||
-      (d.images && d.images.length > 0) ||
-      (d.symptoms && d.symptoms.length > 0),
-    { message: 'Informe pelo menos um exame, imagens ou sintomas/indicação.', path: ['exams'] }
+    (d) => (d.exams && d.exams.length > 0) || (d.images && d.images.length > 0),
+    { message: 'Informe pelo menos um exame desejado ou envie a foto do pedido.', path: ['exams'] }
   );
 
 export const rejectRequestSchema = z.object({
