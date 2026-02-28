@@ -71,39 +71,39 @@ function parseAiMedications(aiExtractedJson: string | null): string[] {
  *   2. Converter os bytes para base64 manualmente
  *
  * No Web, FileReader funciona, mas usamos arrayBuffer por consistência.
+ *
+ * React Native (Hermes): blob.arrayBuffer() does NOT exist.
+ * Use FileReader which works on both web and native.
  */
 async function blobToBase64(blob: Blob): Promise<string> {
+  // React Native (Hermes): blob.arrayBuffer() does NOT exist.
+  // Use FileReader which works on both web and native.
+  if (Platform.OS !== 'web') {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        // dataUrl = "data:application/pdf;base64,XXXX..."
+        const base64 = dataUrl?.split(',')[1] ?? '';
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error('FileReader failed'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // Web: arrayBuffer is available
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
-
-  // Em plataformas nativas, btoa pode não existir ou falhar com bytes > 127.
-  // Construímos manualmente em chunks para evitar stack overflow em PDFs grandes.
-  if (typeof btoa === 'function') {
-    // Web / Hermes com polyfill: btoa aceita binary string
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize);
-      for (let j = 0; j < chunk.length; j++) {
-        binary += String.fromCharCode(chunk[j]);
-      }
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
     }
-    return btoa(binary);
   }
-
-  // Fallback manual base64 (caso raro: engine sem btoa)
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let result = '';
-  for (let i = 0; i < bytes.length; i += 3) {
-    const b0 = bytes[i];
-    const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
-    const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
-    result += chars[b0 >> 2];
-    result += chars[((b0 & 3) << 4) | (b1 >> 4)];
-    result += i + 1 < bytes.length ? chars[((b1 & 15) << 2) | (b2 >> 6)] : '=';
-    result += i + 2 < bytes.length ? chars[b2 & 63] : '=';
-  }
-  return result;
+  return btoa(binary);
 }
 
 /**

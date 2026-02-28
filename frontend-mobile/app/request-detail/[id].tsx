@@ -16,6 +16,8 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
 import { fetchRequestById, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { getDisplayPrice } from '../../lib/config/pricing';
@@ -173,9 +175,30 @@ export default function RequestDetailScreen() {
         window?.open?.(request.signedDocumentUrl, '_blank');
         return;
       }
-      await Linking.openURL(request.signedDocumentUrl);
+      // Download PDF to device and share/open it
+      const fileName = request.requestType === 'exam'
+        ? `pedido-exame-${request.id.slice(0, 8)}.pdf`
+        : `receita-${request.id.slice(0, 8)}.pdf`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      const download = await FileSystem.downloadAsync(request.signedDocumentUrl, fileUri);
+      if (download.status !== 200) {
+        // Fallback: open in browser
+        await Linking.openURL(request.signedDocumentUrl);
+        return;
+      }
+      // Share the downloaded file (opens native share sheet / PDF viewer)
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
+      } else {
+        await Linking.openURL(request.signedDocumentUrl);
+      }
     } catch (e: unknown) {
-      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
+      // Fallback to browser
+      try {
+        await Linking.openURL(request.signedDocumentUrl!);
+      } catch {
+        Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
+      }
     }
   };
 

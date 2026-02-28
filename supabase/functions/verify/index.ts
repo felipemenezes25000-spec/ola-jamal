@@ -215,9 +215,29 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // URL de 2ª via: sempre disponível após validar o código (backend valida code e entrega o PDF)
-  const base = API_BASE_URL.replace(/\/$/, "");
-  const downloadUrl = `${base}/api/verify/${r.id}/document?code=${encodeURIComponent(codeTrim)}`;
+  // URL de 2ª via: gera signed URL diretamente do Supabase Storage (funciona mesmo sem API_BASE_URL acessível)
+  let downloadUrl: string | undefined;
+
+  if (r.pdf_storage_path) {
+    try {
+      const { data: signedUrlData, error: signedUrlError } = await supabase
+        .storage
+        .from("prescriptions")
+        .createSignedUrl(r.pdf_storage_path, 3600); // 1 hora de validade
+
+      if (signedUrlData?.signedUrl && !signedUrlError) {
+        downloadUrl = signedUrlData.signedUrl;
+      }
+    } catch {
+      // Fallback: tentar via API backend
+    }
+  }
+
+  // Fallback: URL via API backend (requer API_BASE_URL acessível)
+  if (!downloadUrl) {
+    const base = API_BASE_URL.replace(/\/$/, "");
+    downloadUrl = `${base}/api/verify/${r.id}/document?code=${encodeURIComponent(codeTrim)}`;
+  }
 
   const crmMasked =
     r.prescriber_crm_uf && r.prescriber_crm_last4

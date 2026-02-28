@@ -269,19 +269,41 @@ export default function VideoCallScreen() {
     setTimerStarted(true);
     try {
       const result = await startConsultation(rid);
-      if (result.consultationStartedAt) setConsultationStartedAt(result.consultationStartedAt);
+      // Backend may or may not set consultationStartedAt immediately.
+      // If not set yet (waiting for both parties), we start the timer locally
+      // so the doctor sees immediate feedback.
+      if (result.consultationStartedAt) {
+        setConsultationStartedAt(result.consultationStartedAt);
+      } else {
+        // Start timer locally — the server will sync later
+        setConsultationStartedAt(new Date().toISOString());
+      }
+      // Also report doctor as connected to help trigger server-side timer
+      reportCallConnected(rid).catch(() => {});
       connectSignalR();
       // Start real audio recording for transcription
       if (isDoctor) {
+        // Small delay to let audio session stabilize after Daily.co
+        await new Promise(r => setTimeout(r, 500));
         const started = await audioRecorder.start();
         if (!started) {
           console.warn('Audio recording failed to start — transcription won\'t work');
+          // Retry once after a longer delay
+          await new Promise(r => setTimeout(r, 1500));
+          const retried = await audioRecorder.start();
+          if (!retried) {
+            console.warn('Audio recording retry also failed');
+          }
         }
       }
     } catch (e: any) {
       console.warn('Failed to start consultation:', e?.message);
+      // Still set local timer so UI isn't stuck
+      if (!consultationStartedAt) {
+        setConsultationStartedAt(new Date().toISOString());
+      }
     }
-  }, [rid, connectSignalR, isDoctor, audioRecorder]);
+  }, [rid, connectSignalR, isDoctor, audioRecorder, consultationStartedAt]);
 
   // Effect: when doctor joins, DON'T auto-start. Wait for button press.
   useEffect(() => {
