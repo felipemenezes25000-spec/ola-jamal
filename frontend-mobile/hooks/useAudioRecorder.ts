@@ -175,7 +175,7 @@ export function useAudioRecorder(requestId: string): UseAudioRecorderReturn {
         staysActiveInBackground: true,
         interruptionModeIOS: InterruptionModeIOS.DoNotMix,
         interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
-        shouldDuckAndroid: false,
+        shouldDuckAndroid: true,
         playThroughEarpieceAndroid: false,
       });
 

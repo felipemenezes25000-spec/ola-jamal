@@ -134,30 +134,51 @@ export default function Verify() {
         {state === 'success' && result && (
           <div style={styles.success}>
             <p style={styles.validBadge}>✓ Receita válida</p>
-            {result.meta.issuedDate && (
-              <p><strong>Emitida em</strong> {result.meta.issuedDate}</p>
-            )}
-            {result.meta.patientInitials && (
-              <p><strong>Paciente</strong> {result.meta.patientInitials}</p>
-            )}
-            {result.meta.crmMasked && (
-              <p><strong>Profissional</strong> {result.meta.crmMasked}</p>
-            )}
-            {downloadUrl ? (
-              <button
-                type="button"
-                onClick={() => window.open(downloadUrl, '_blank', 'noopener,noreferrer')}
-                style={styles.downloadButton}
-              >
-                Baixar PDF (2ª via)
-              </button>
-            ) : (
-              <span title="Em breve" style={styles.downloadButtonWrap}>
-                <button type="button" disabled style={styles.downloadButton}>
-                  Baixar PDF (2ª via)
-                </button>
-              </span>
-            )}
+            <div style={styles.metaGrid}>
+              {result.meta.issuedDate && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>Emitida em</span>
+                  <span style={styles.metaValue}>{result.meta.issuedDate}</span>
+                </div>
+              )}
+              {result.meta.patientInitials && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>Paciente</span>
+                  <span style={styles.metaValue}>{result.meta.patientInitials}</span>
+                </div>
+              )}
+              {result.meta.crmMasked && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>Profissional</span>
+                  <span style={styles.metaValue}>{result.meta.crmMasked}</span>
+                </div>
+              )}
+            </div>
+            <p style={styles.successNote}>Verificação concluída com sucesso.</p>
+            <button
+              type="button"
+              onClick={() => {
+                if (downloadUrl) {
+                  window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+                } else {
+                  alert('Download não disponível. O PDF pode ainda estar sendo processado.');
+                }
+              }}
+              style={{
+                ...styles.downloadButton,
+                opacity: downloadUrl ? 1 : 0.5,
+                cursor: downloadUrl ? 'pointer' : 'not-allowed',
+              }}
+            >
+              Baixar PDF (2ª via)
+            </button>
+            <button
+              type="button"
+              onClick={() => { setState('idle'); setCode(''); setResult(null); setDownloadUrl(null); }}
+              style={styles.buttonSecondary}
+            >
+              Verificar outro código
+            </button>
           </div>
         )}
 
@@ -288,6 +309,29 @@ const styles: Record<string, React.CSSProperties> = {
   error: {
     color: '#dc2626',
     margin: 0,
+  },
+  metaGrid: {
+    marginBottom: 16,
+  },
+  metaRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '8px 0',
+    borderBottom: '1px solid #f1f5f9',
+  },
+  metaLabel: {
+    color: '#64748b',
+    fontSize: 14,
+  },
+  metaValue: {
+    fontWeight: 600,
+    color: '#1e293b',
+    fontSize: 14,
+  },
+  successNote: {
+    color: '#64748b',
+    fontSize: 12,
+    marginBottom: 16,
   },
   guardrail: {
     marginTop: 24,
