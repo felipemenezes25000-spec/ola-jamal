@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../lib/theme';
 import { RequestType, RequestStatus } from '../types/database';
+import { STATUS_LABELS_PT } from '../lib/domain/statusLabels';
 
 const c = theme.colors;
 
@@ -16,7 +17,7 @@ interface Step {
 const PRESCRIPTION_STEPS: Step[] = [
   { key: 'submitted', label: 'Enviado', icon: 'paper-plane-outline', statuses: ['submitted'] },
   { key: 'analysis', label: 'Análise IA', icon: 'scan-outline', statuses: ['analyzing'] },
-  { key: 'review', label: 'Em Análise', icon: 'eye-outline', statuses: ['in_review'] },
+  { key: 'review', label: STATUS_LABELS_PT.in_review, icon: 'eye-outline', statuses: ['in_review'] },
   { key: 'payment', label: 'Pagamento', icon: 'card-outline', statuses: ['approved_pending_payment', 'pending_payment'] },
   { key: 'signed', label: 'Assinado', icon: 'shield-checkmark-outline', statuses: ['paid', 'signed'] },
   { key: 'delivered', label: 'Entregue', icon: 'checkmark-done-circle-outline', statuses: ['delivered'] },

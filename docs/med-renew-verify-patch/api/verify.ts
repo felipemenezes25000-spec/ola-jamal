@@ -1,15 +1,9 @@
 /**
  * Verificação de receita via API backend (POST /api/prescriptions/verify).
  * Validação server-side; sem mock ou fallback — a UI exibe apenas os campos retornados.
- * Se VITE_API_URL não estiver definida, usa a mesma origem (window.location.origin) para front e API no mesmo domínio.
  */
 
-function getApiBaseUrl(): string {
-  const env = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '');
-  if (env) return env;
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-  return '';
-}
+const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 export interface VerifyPayload {
   id: string;
@@ -60,9 +54,8 @@ function reasonToMessage(reason: string | undefined): string {
 }
 
 export async function verifyReceita(payload: VerifyPayload): Promise<VerifyResponse> {
-  const apiBase = getApiBaseUrl();
-  if (!apiBase) {
-    return { status: 'error', message: 'URL da API não configurada. Defina VITE_API_URL ou use o mesmo domínio.' };
+  if (!API_URL) {
+    return { status: 'error', message: 'Variável de ambiente VITE_API_URL não configurada.' };
   }
 
   const id = payload.id.trim();
@@ -72,7 +65,7 @@ export async function verifyReceita(payload: VerifyPayload): Promise<VerifyRespo
     return { status: 'error', message: 'ID e código são obrigatórios.' };
   }
 
-  const url = `${apiBase}/api/prescriptions/verify`;
+  const url = `${API_URL}/api/prescriptions/verify`;
   let res: Response;
   let data: PrescriptionVerifyResponse;
 
@@ -85,8 +78,7 @@ export async function verifyReceita(payload: VerifyPayload): Promise<VerifyRespo
         verificationCode: code,
       }),
     });
-    const json = await res.json().catch(() => ({}));
-    data = json as PrescriptionVerifyResponse;
+    data = (await res.json()) as PrescriptionVerifyResponse;
   } catch (err) {
     const isNetwork =
       err instanceof TypeError &&
@@ -100,9 +92,10 @@ export async function verifyReceita(payload: VerifyPayload): Promise<VerifyRespo
   }
 
   if (!res.ok) {
-    const errBody = data as unknown as { error?: string; message?: string; detail?: string };
-    const msg = errBody?.error ?? errBody?.message ?? errBody?.detail ?? `Erro do servidor (${res.status}).`;
-    return { status: 'error', message: msg };
+    return {
+      status: 'error',
+      message: (data as unknown as { error?: string })?.error ?? `HTTP ${res.status}`,
+    };
   }
 
   if (!data.isValid) {

@@ -16,12 +16,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { colors, gradients } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getRequests } from '../../lib/api';
+import { STATUS_LABELS_PT } from '../../lib/domain/statusLabels';
 import { RequestResponseDto } from '../../types/database';
 import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
 import { LargeActionCard } from '../../components/ui/LargeActionCard';
 import { InfoCard } from '../../components/ui/InfoCard';
+import { HeaderInfo } from '../../components/ui/HeaderInfo';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 
@@ -120,7 +122,7 @@ export default function PatientHome() {
       <View style={styles.statsRow}>
         <StatsCard
           icon="analytics"
-          label="Em análise"
+          label={STATUS_LABELS_PT.in_review}
           value={stats.pending}
           iconColor={colors.warning}
           iconBgColor="#FEF3C7"
@@ -156,8 +158,11 @@ export default function PatientHome() {
 
       {/* ─── Quick Actions (largura total, menos margem) ─── */}
       <View style={styles.actionsSection}>
-        <Text style={styles.sectionTitle}>O que deseja fazer?</Text>
-        <Text style={styles.sectionHint} numberOfLines={2} ellipsizeMode="tail">Toque em uma opção abaixo para começar: renovar receita, pedir exame ou falar com um profissional.</Text>
+        <HeaderInfo
+          title="Falar com um profissional de saúde"
+          subtitle="Acesse um profissional médico para:"
+          accessibilityLabel="Falar com um profissional de saúde. Acesse um profissional médico para: renovar receitas, solicitar exames ou consulta por teleatendimento."
+        />
         <View style={styles.actionsColumn}>
           <LargeActionCard
             icon={

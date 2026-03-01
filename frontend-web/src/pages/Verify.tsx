@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { verifyReceita, type VerifySuccess } from '../api/verify';
 
 type VerifyState = 'idle' | 'loading' | 'success' | 'error';
@@ -7,41 +7,42 @@ type VerifyState = 'idle' | 'loading' | 'success' | 'error';
 const GUARDRAIL_ALERT =
   'Importante: Decisão e responsabilidade é do profissional. Conteúdo exibido para verificação.';
 
-function mapErrorToMessage(code: string | undefined): string {
-  switch (code) {
-    case 'invalid_code': return 'Código inválido.';
-    case 'invalid_code_format': return 'Código deve ter exatamente 6 dígitos.';
-    case 'invalid_token': return 'Token inválido ou expirado.';
-    case 'revoked': return 'Receita revogada.';
-    case 'expired': return 'Receita expirada.';
-    case 'not_found': return 'Receita não encontrada.';
-    case 'invalid_id': return 'ID inválido na URL.';
-    default: return code ? String(code) : 'Falha ao verificar. Tente novamente.';
+/** Formata ISO string da API para exibição em pt-BR (apenas dados retornados pela API). */
+function formatIsoDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return iso;
   }
 }
 
-async function verifyOrThrow(id: string, code: string, v?: string): Promise<VerifySuccess> {
-  const res = await verifyReceita({ id, code, v });
-  if (res.status === 'error') {
-    throw new Error(mapErrorToMessage(res.error));
+function formatIsoDateTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
   }
-  if (res.status !== 'valid') {
-    const err = 'error' in res ? res.error : undefined;
-    throw new Error(mapErrorToMessage(err));
-  }
-  return res;
 }
 
 export default function Verify() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
-  const v = searchParams.get('v') ?? undefined;
 
   const [code, setCode] = useState('');
   const [state, setState] = useState<VerifyState>('idle');
   const [result, setResult] = useState<VerifySuccess | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -50,41 +51,22 @@ export default function Verify() {
       setState('loading');
       setErrorMessage('');
       setResult(null);
-      setDownloadUrl(null);
-      try {
-        const api = await verifyOrThrow(id.trim(), code.trim(), v || undefined);
+      const res = await verifyReceita({ id: id.trim(), code: code.trim() });
 
-        const meta = api?.meta ?? {};
-        const issuedAt = meta.issuedAt ?? meta.emitida ?? new Date().toISOString();
-        const patientInitials = meta.patientInitials ?? meta.paciente ?? '—';
-        const crmMasked = meta.crmMasked ?? meta.crm ?? 'CRM/UF • ****';
-
-        setResult({
-          status: 'valid',
-          meta: {
-            issuedAt,
-            issuedDate: api?.meta?.issuedDate ?? (issuedAt ? new Date(issuedAt).toLocaleDateString('pt-BR') : undefined),
-            patientInitials,
-            crmMasked,
-          },
-          downloadUrl: api?.downloadUrl,
-        });
-        setDownloadUrl(api?.downloadUrl ?? null);
-        setState('success');
-      } catch (err) {
-        const isNetworkError =
-          err instanceof TypeError &&
-          (err.message === 'Failed to fetch' || err.message.includes('fetch'));
-        const msg = isNetworkError
-          ? 'Não foi possível conectar ao servidor. Verifique sua internet e se a URL do Supabase está correta.'
-          : err instanceof Error
-            ? err.message
-            : 'Erro de conexão.';
-        setErrorMessage(msg);
+      if (res.status === 'error') {
+        setErrorMessage(res.message);
         setState('error');
+        return;
       }
+      if (res.status === 'invalid') {
+        setErrorMessage(res.message);
+        setState('error');
+        return;
+      }
+      setResult(res.data);
+      setState('success');
     },
-    [id, code, v]
+    [id, code]
   );
 
   if (!id) {
@@ -135,22 +117,34 @@ export default function Verify() {
           <div style={styles.success}>
             <p style={styles.validBadge}>✓ Receita válida</p>
             <div style={styles.metaGrid}>
-              {result.meta.issuedDate && (
+              {result.issuedAt && (
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>Emitida em</span>
-                  <span style={styles.metaValue}>{result.meta.issuedDate}</span>
+                  <span style={styles.metaValue}>{formatIsoDate(result.issuedAt)}</span>
                 </div>
               )}
-              {result.meta.patientInitials && (
+              {result.signedAt != null && result.signedAt !== '' && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>Assinada em</span>
+                  <span style={styles.metaValue}>{formatIsoDateTime(result.signedAt)}</span>
+                </div>
+              )}
+              {result.patientName != null && result.patientName !== '' && (
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>Paciente</span>
-                  <span style={styles.metaValue}>{result.meta.patientInitials}</span>
+                  <span style={styles.metaValue}>{result.patientName}</span>
                 </div>
               )}
-              {result.meta.crmMasked && (
+              {(result.doctorName != null && result.doctorName !== '') && (
                 <div style={styles.metaRow}>
-                  <span style={styles.metaLabel}>Profissional</span>
-                  <span style={styles.metaValue}>{result.meta.crmMasked}</span>
+                  <span style={styles.metaLabel}>Médico</span>
+                  <span style={styles.metaValue}>{result.doctorName}</span>
+                </div>
+              )}
+              {result.doctorCrm != null && result.doctorCrm !== '' && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>CRM</span>
+                  <span style={styles.metaValue}>{result.doctorCrm}</span>
                 </div>
               )}
             </div>
@@ -158,23 +152,23 @@ export default function Verify() {
             <button
               type="button"
               onClick={() => {
-                if (downloadUrl) {
-                  window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+                if (result.downloadUrl) {
+                  window.open(result.downloadUrl, '_blank', 'noopener,noreferrer');
                 } else {
                   alert('Download não disponível. O PDF pode ainda estar sendo processado.');
                 }
               }}
               style={{
                 ...styles.downloadButton,
-                opacity: downloadUrl ? 1 : 0.5,
-                cursor: downloadUrl ? 'pointer' : 'not-allowed',
+                opacity: result.downloadUrl ? 1 : 0.5,
+                cursor: result.downloadUrl ? 'pointer' : 'not-allowed',
               }}
             >
               Baixar PDF (2ª via)
             </button>
             <button
               type="button"
-              onClick={() => { setState('idle'); setCode(''); setResult(null); setDownloadUrl(null); }}
+              onClick={() => { setState('idle'); setCode(''); setResult(null); }}
               style={styles.buttonSecondary}
             >
               Verificar outro código

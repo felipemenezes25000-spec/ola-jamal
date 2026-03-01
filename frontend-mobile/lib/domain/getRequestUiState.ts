@@ -14,6 +14,7 @@
  */
 
 import type { RequestResponseDto } from '../../types/database';
+import { STATUS_DISPLAY_LABELS_PT } from './statusLabels';
 
 export type RequestUiState =
   | 'needs_action'
@@ -71,30 +72,8 @@ const STATE_COLORS: Record<RequestUiState, RequestUiColorKey> = {
   historical:      'historical',
 };
 
-/** Labels específicos por status do backend para exibição em cards */
-const STATUS_DISPLAY_LABELS: Record<string, string> = {
-  // Canônicos: prescription/exam
-  submitted:                'Na fila',
-  in_review:                'Em análise',
-  approved_pending_payment: 'Aguardando pagamento',
-  paid:                     'Pago',
-  signed:                   'Assinado',
-  delivered:                'Entregue',
-  // Canônicos: consultation
-  searching_doctor:         'Na fila',
-  consultation_ready:       'Consulta pronta',
-  in_consultation:          'Em consulta',
-  consultation_finished:    'Finalizada',
-  // Canônicos: common
-  rejected:                 'Rejeitado',
-  cancelled:                'Cancelado',
-  // Legados
-  pending:                  'Pendente',
-  analyzing:                'Analisando',
-  pending_payment:          'Aguardando pagamento',
-  approved:                 'Aprovado',
-  completed:                'Concluído',
-};
+/** Labels por status do backend (centralizado em statusLabels.ts) */
+const STATUS_DISPLAY_LABELS = STATUS_DISPLAY_LABELS_PT;
 
 /**
  * Retorna estado de UI, label e cor para um request (ou apenas status).

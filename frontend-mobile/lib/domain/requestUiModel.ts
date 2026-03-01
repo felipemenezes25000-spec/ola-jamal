@@ -12,6 +12,7 @@
 
 import type { RequestResponseDto } from '../../types/database';
 import { UI_STATUS_COLORS, type RequestUiColorKey } from './getRequestUiState';
+import { STATUS_LABELS_PT } from './statusLabels';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -188,7 +189,7 @@ function getPrescriptionExamPhaseConfig(role: Role, status: NormalizedStatus): P
       case 'submitted':
         return { phase: 'sent', title: 'Enviado', actions: { canCancel: true }, countersBucket: 'pending' };
       case 'in_review':
-        return { phase: 'review', title: 'Em análise', actions: { canCancel: true }, countersBucket: 'pending' };
+        return { phase: 'review', title: STATUS_LABELS_PT.in_review, actions: { canCancel: true }, countersBucket: 'pending' };
       case 'approved_pending_payment':
         return {
           phase: 'awaiting_payment',
@@ -234,7 +235,7 @@ function getPrescriptionExamPhaseConfig(role: Role, status: NormalizedStatus): P
     case 'in_review':
       return {
         phase: 'review',
-        title: 'Em análise',
+        title: STATUS_LABELS_PT.in_review,
         actions: { canApprove: true, canReject: true },
         countersBucket: 'pending',
       };
@@ -384,14 +385,14 @@ function buildTimelineForPrescriptionExam(
   const patientSteps = [
     { id: 'sent', label: 'Enviado', phases: ['sent'] as UiPhase[] },
     ...(hasAiStep ? [{ id: 'ai', label: 'Análise IA', phases: ['ai'] as UiPhase[] }] : []),
-    { id: 'review', label: 'Em análise', phases: ['review'] as UiPhase[] },
+    { id: 'review', label: STATUS_LABELS_PT.in_review, phases: ['review'] as UiPhase[] },
     { id: 'payment', label: 'Pagamento', phases: ['awaiting_payment'] as UiPhase[] },
     { id: 'signed', label: 'Assinado', phases: ['waiting_doctor', 'signed'] as UiPhase[] },
     { id: 'delivered', label: 'Entregue', phases: ['delivered'] as UiPhase[] },
   ];
   const doctorSteps = [
     { id: 'new', label: 'Novo', phases: ['sent'] as UiPhase[] },
-    { id: 'review', label: 'Em análise', phases: ['review'] as UiPhase[] },
+    { id: 'review', label: STATUS_LABELS_PT.in_review, phases: ['review'] as UiPhase[] },
     { id: 'payment', label: 'Aguardando pagamento', phases: ['awaiting_payment'] as UiPhase[] },
     { id: 'sign', label: 'Assinar', phases: ['ready_to_sign'] as UiPhase[] },
     { id: 'delivered', label: 'Entregue', phases: ['signed', 'delivered'] as UiPhase[] },
@@ -495,21 +496,11 @@ export function getUiModel(request: RequestResponseDto | { status: string; reque
 }
 
 function getBadgeLabel(title: string, status: NormalizedStatus, role: Role, kind: RequestKind): string {
-  const labels: Record<string, string> = {
-    submitted: role === 'patient' ? 'Enviado' : 'Novo pedido',
-    in_review: 'Em análise',
-    approved_pending_payment: 'Aguardando pagamento',
-    paid: role === 'patient' ? 'Aguardando médico' : 'Pronto para assinar',
-    signed: 'Assinado',
-    delivered: 'Entregue',
-    searching_doctor: 'Buscando médico',
-    consultation_ready: kind === 'consultation' ? 'Consulta pronta' : title,
-    in_consultation: 'Em consulta',
-    consultation_finished: 'Finalizada',
-    rejected: 'Rejeitado',
-    cancelled: 'Cancelado',
-  };
-  return labels[status] ?? title;
+  const base = STATUS_LABELS_PT[status];
+  if (status === 'submitted') return role === 'patient' ? 'Enviado' : 'Novo pedido';
+  if (status === 'paid') return role === 'patient' ? 'Aguardando médico' : 'Pronto para assinar';
+  if (status === 'consultation_ready') return kind === 'consultation' ? 'Consulta pronta' : title;
+  return base ?? title;
 }
 
 // ─── Helpers para contadores (single source of truth) ────────────────────────
@@ -520,7 +511,7 @@ export function getCountersForPatient(requests: RequestResponseDto[]) {
   let ready = 0;
   for (const r of requests) {
     const ui = getUiModel(r, 'patient');
-    // "Em análise" deve refletir somente fases de análise (review/ai).
+    // "Em análise médica" deve refletir somente fases de análise (review/ai).
     if (ui.phase === 'review' || ui.phase === 'ai') pending++;
     if (ui.actions.canPay) toPay++;
     if (ui.phase === 'signed' || ui.phase === 'delivered') ready++;
