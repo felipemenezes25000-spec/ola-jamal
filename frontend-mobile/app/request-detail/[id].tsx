@@ -19,7 +19,6 @@ import * as WebBrowser from 'expo-web-browser';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
-import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
 import { fetchRequestById, markRequestDelivered, cancelRequest, getDocumentDownloadUrl } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
