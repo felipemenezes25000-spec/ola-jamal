@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Options;
+using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Verification;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
@@ -10,16 +12,14 @@ namespace RenoveJa.Api.Controllers;
 /// <summary>
 /// Controller público (sem autenticação) para verificação de receitas digitais.
 ///
-/// A verificação pública para farmacêuticos e pacientes é feita exclusivamente via:
-///   - Frontend web: https://renovejasaude.com.br/verify/{id}
-///   - Supabase Edge Function: POST /functions/v1/verify
+/// O QR Code da receita aponta para <c>GET /api/verify/{id}</c>.
+/// O Validador ITI (validar.iti.gov.br) chama com <c>_format=application/validador-iti+json</c>
+/// e <c>_secretCode</c>; browsers normais são redirecionados para o frontend-web.
 ///
-/// Este controller mantém:
-///   1. GET  /api/verify/{id} — protocolo ITI (validar.iti.gov.br) para validação de assinatura PAdES ICP-Brasil.
-///      Responde SOMENTE quando _format=application/validador-iti+json está presente; caso contrário redireciona
-///      para o frontend-web.
-///   2. POST /api/verify/{id}/full — ponte de retrocompatibilidade para clientes legados com código de 4 dígitos.
-///   3. GET  /api/verify/{id}/document?code=xxx — stream do PDF após validar código de 6 dígitos (uso pelo frontend web).
+/// Endpoints:
+///   1. GET  /api/verify/{id}              — protocolo ITI + redirect para frontend.
+///   2. POST /api/verify/{id}/full         — retrocompatibilidade (código de 4 dígitos).
+///   3. GET  /api/verify/{id}/document     — stream do PDF após validar código.
 /// </summary>
 [ApiController]
 [Route("api/verify")]
@@ -29,11 +29,16 @@ public class VerificationController(
     IPrescriptionVerifyRepository prescriptionVerifyRepository,
     IRequestRepository requestRepository,
     IHttpClientFactory httpClientFactory,
+    IOptions<VerificationConfig> verificationConfig,
+    IOptions<ApiConfig> apiConfig,
     ILogger<VerificationController> logger) : ControllerBase
 {
     /// <summary>
-    /// Endpoint exclusivo para o protocolo ITI (validar.iti.gov.br).
-    /// Quando chamado sem o parâmetro _format, redireciona para o frontend-web de verificação.
+    /// Endpoint unificado: protocolo ITI + redirect para frontend.
+    /// <para>
+    /// Com <c>_format=application/validador-iti+json</c> e <c>_secretCode</c>: responde JSON do ITI.
+    /// Sem esses parâmetros: redireciona para o frontend de verificação.
+    /// </para>
     /// </summary>
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetItiVerification(
@@ -42,26 +47,31 @@ public class VerificationController(
         [FromQuery] string? _secretCode,
         CancellationToken cancellationToken)
     {
-        // Protocolo ITI: validar.iti.gov.br chama com _format=application/validador-iti+json e _secretCode
         if (string.Equals(_format, "application/validador-iti+json", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrWhiteSpace(_secretCode))
         {
             logger.LogInformation("Verify ITI: requestId={RequestId}", id);
             try
             {
-                var full = await verificationService.GetFullVerificationAsync(id, _secretCode.Trim(), cancellationToken);
+                var code = _secretCode.Trim();
+                var full = await verificationService.GetFullVerificationAsync(id, code, cancellationToken);
                 if (full == null)
                     return NotFound(new { error = "Receita não encontrada." });
 
                 if (string.IsNullOrWhiteSpace(full.SignedDocumentUrl))
                     return NotFound(new { error = "Documento assinado não disponível para esta receita." });
 
+                var apiBase = (apiConfig.Value?.BaseUrl ?? "").TrimEnd('/');
+                var pdfUrl = !string.IsNullOrEmpty(apiBase)
+                    ? $"{apiBase}/api/verify/{id}/document?code={Uri.EscapeDataString(code)}"
+                    : full.SignedDocumentUrl;
+
                 return Ok(new
                 {
                     version = "1.0.0",
                     prescription = new
                     {
-                        signatureFiles = new[] { new { url = full.SignedDocumentUrl } }
+                        signatureFiles = new[] { new { url = pdfUrl } }
                     }
                 });
             }
@@ -71,10 +81,15 @@ public class VerificationController(
             }
         }
 
-        // Acesso regular (farmacêutico escaneando QR): redireciona para o frontend-web.
-        // O frontend-web chama a Supabase Edge Function para verificação.
-        logger.LogInformation("Verify redirect to frontend-web: requestId={RequestId}", id);
-        return RedirectPermanent($"/verify/{id}");
+        var frontendUrl = verificationConfig.Value?.FrontendUrl?.TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(frontendUrl))
+        {
+            logger.LogInformation("Verify redirect to frontend: requestId={RequestId}", id);
+            return Redirect($"{frontendUrl}/{id}");
+        }
+
+        logger.LogInformation("Verify redirect (relative): requestId={RequestId}", id);
+        return Redirect($"/verify/{id}");
     }
 
     /// <summary>

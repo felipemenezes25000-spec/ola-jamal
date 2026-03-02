@@ -156,8 +156,14 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             if (exams.Count == 0) exams = new List<string> { "Exames conforme solicitação médica" };
 
             var accessCode = data.AccessCode ?? GenerateAccessCode(data.RequestId);
-            var baseUrl = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl) ? _verificationConfig.BaseUrl.TrimEnd('/') : DefaultVerificationBaseUrl;
-            var verificationUrl = $"{baseUrl}/{data.RequestId}";
+            var apiBase = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl)
+                ? _verificationConfig.BaseUrl.TrimEnd('/')
+                : DefaultVerificationBaseUrl;
+            var frontendBase = !string.IsNullOrWhiteSpace(_verificationConfig.FrontendUrl)
+                ? _verificationConfig.FrontendUrl.TrimEnd('/')
+                : apiBase;
+            var qrUrl = $"{apiBase}/{data.RequestId}";
+            var displayUrl = $"{frontendBase}/{data.RequestId}";
 
             using var ms = new MemoryStream();
             using var writer = new PdfWriter(ms);
@@ -188,7 +194,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddExamList(doc, exams, data.Notes, f, fb, fi);
 
             // QR
-            AddVerificationBlock(doc, verificationUrl, accessCode, f, fb);
+            AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
 
             // Doctor
             AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
@@ -212,7 +218,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private void RenderSimplePdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> meds)
     {
-        var (verificationUrl, accessCode) = GetPdfUrls(data);
+        var (qrUrl, displayUrl, accessCode) = GetPdfUrls(data);
         using var writer = new PdfWriter(ms);
         using var pdf = new PdfDocument(writer);
         SetMetadata(pdf, $"Receita Simples - {data.PatientName}", data.DoctorName, data.DoctorCrm, data.DoctorCrmState, "simples");
@@ -231,7 +237,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddSectionLabel(doc, "MEDICAMENTO", fb);
             AddMedicationBlock(doc, meds[i], fb, f, fi);
             AddObservationBlock(doc, meds[i], data.AdditionalNotes, f, fb, fi);
-            AddVerificationBlock(doc, verificationUrl, accessCode, f, fb);
+            AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
             AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
             AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
         }
@@ -244,7 +250,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private void RenderAntimicrobialPdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> meds)
     {
-        var (verificationUrl, accessCode) = GetPdfUrls(data);
+        var (qrUrl, displayUrl, accessCode) = GetPdfUrls(data);
         using var writer = new PdfWriter(ms);
         using var pdf = new PdfDocument(writer);
         SetMetadata(pdf, $"Receita Antimicrobiana - {data.PatientName}", data.DoctorName, data.DoctorCrm, data.DoctorCrmState, "antimicrobiana");
@@ -266,7 +272,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddSectionLabel(doc, "MEDICAMENTO", fb);
             AddMedicationBlock(doc, meds[i], fb, f, fi);
             AddObservationBlock(doc, meds[i], data.AdditionalNotes, f, fb, fi);
-            AddVerificationBlock(doc, verificationUrl, accessCode, f, fb);
+            AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
             AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
             AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
         }
@@ -279,7 +285,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private void RenderControlledSpecialPdf(MemoryStream ms, PrescriptionPdfData data, List<PrescriptionMedicationItem> meds)
     {
-        var (verificationUrl, accessCode) = GetPdfUrls(data);
+        var (qrUrl, displayUrl, accessCode) = GetPdfUrls(data);
         using var writer = new PdfWriter(ms);
         using var pdf = new PdfDocument(writer);
         SetMetadata(pdf, $"Receita Controle Especial - {data.PatientName}", data.DoctorName, data.DoctorCrm, data.DoctorCrmState, "controle especial");
@@ -335,7 +341,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
                 "Data dispensação: ___/___/_____ Assinatura: _________________",
             }, f, fb);
 
-            AddVerificationBlock(doc, verificationUrl, accessCode, f, fb);
+            AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
             AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
         }
         doc.Close();
@@ -523,10 +529,14 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         doc.Add(card);
     }
 
-    /// <summary>Verification block: QR + instructions</summary>
-    private static void AddVerificationBlock(Document doc, string url, string code, PdfFont f, PdfFont fb)
+    /// <summary>
+    /// Verification block: QR + instructions.
+    /// <paramref name="qrUrl"/> is encoded in the QR (API endpoint, compatible with validar.iti.gov.br).
+    /// <paramref name="displayUrl"/> is the user-friendly frontend URL shown as text.
+    /// </summary>
+    private static void AddVerificationBlock(Document doc, string qrUrl, string displayUrl, string code, PdfFont f, PdfFont fb)
     {
-        var qrBytes = GenerateQrCode(url);
+        var qrBytes = GenerateQrCode(qrUrl);
         if (qrBytes == null) return;
 
         AddThinRule(doc);
@@ -546,7 +556,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         codePara.Add(new Text(code).SetFont(fb).SetFontSize(12).SetFontColor(PrimaryDark));
         left.Add(codePara.SetMarginBottom(4));
 
-        left.Add(new Paragraph(url).SetFont(f).SetFontSize(6.5f).SetFontColor(TextLight));
+        left.Add(new Paragraph(displayUrl).SetFont(f).SetFontSize(6.5f).SetFontColor(TextLight));
         table.AddCell(left);
 
         var right = new Cell().SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE);
@@ -659,12 +669,19 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         info.SetKeywords("receita digital, ICP-Brasil, RenoveJá, prescrição médica");
     }
 
-    private (string verificationUrl, string accessCode) GetPdfUrls(PrescriptionPdfData data)
+    private (string qrUrl, string displayUrl, string accessCode) GetPdfUrls(PrescriptionPdfData data)
     {
-        var baseUrl = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl) ? _verificationConfig.BaseUrl.TrimEnd('/') : DefaultVerificationBaseUrl;
-        var verificationUrl = data.VerificationUrl ?? $"{baseUrl}/{data.RequestId}";
+        var apiBase = !string.IsNullOrWhiteSpace(_verificationConfig.BaseUrl)
+            ? _verificationConfig.BaseUrl.TrimEnd('/')
+            : DefaultVerificationBaseUrl;
+        var frontendBase = !string.IsNullOrWhiteSpace(_verificationConfig.FrontendUrl)
+            ? _verificationConfig.FrontendUrl.TrimEnd('/')
+            : apiBase;
+
+        var qrUrl = data.VerificationUrl ?? $"{apiBase}/{data.RequestId}";
+        var displayUrl = $"{frontendBase}/{data.RequestId}";
         var accessCode = data.AccessCode ?? GenerateAccessCode(data.RequestId);
-        return (verificationUrl, accessCode);
+        return (qrUrl, displayUrl, accessCode);
     }
 
     private static List<PrescriptionMedicationItem> BuildMedicationItems(PrescriptionPdfData data)

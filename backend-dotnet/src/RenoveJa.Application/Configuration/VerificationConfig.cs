@@ -2,17 +2,27 @@ namespace RenoveJa.Application.Configuration;
 
 /// <summary>
 /// Configuração para verificação de receitas (QR Code, página de verificação, integração ITI).
-/// Define a URL base onde o QR Code da receita aponta (ex: https://api.renovejasaude.com.br/api/verify ou domínio customizado).
+/// <para>
+/// O QR Code aponta para <c>{BaseUrl}/{requestId}</c> (endpoint da API).
+/// O Validador ITI chama essa URL com <c>_format=application/validador-iti+json</c> e <c>_secretCode</c>.
+/// Browsers normais são redirecionados para <c>{FrontendUrl}/{requestId}</c>.
+/// </para>
 /// </summary>
 public class VerificationConfig
 {
     public const string SectionName = "Verification";
 
     /// <summary>
-    /// URL base para verificação (ex: https://api.renovejasaude.com.br/api/verify ou https://verificar.seudominio.com.br).
-    /// O QR Code apontará para {BaseUrl}/{requestId}.
-    /// O Validador ITI (validar.iti.gov.br) chama essa URL com _format=application/validador-iti+json e _secretCode para obter o PDF e validar.
-    /// Se vazio, usa fallback https://renoveja.com/verificar (apenas para compatibilidade).
+    /// URL base do endpoint da API (codificada no QR Code).
+    /// Ex: <c>https://seu-servico.onrender.com/api/verify</c>.
+    /// O QR apontará para <c>{BaseUrl}/{requestId}</c>.
     /// </summary>
     public string BaseUrl { get; set; } = "";
+
+    /// <summary>
+    /// URL base do frontend de verificação (para redirect de browsers e texto exibido no PDF).
+    /// Ex: <c>https://renovejasaude.com.br/verify</c>.
+    /// Se vazio, o redirect usa caminho relativo <c>/verify/{id}</c>.
+    /// </summary>
+    public string FrontendUrl { get; set; } = "";
 }

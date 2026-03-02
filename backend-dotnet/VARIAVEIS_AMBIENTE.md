@@ -13,7 +13,8 @@ Este documento descreve as variáveis de ambiente necessárias para o backend e 
 | `Supabase__Url` | `Supabase:Url` | URL do projeto Supabase (ex: `https://xxx.supabase.co`) | DB, Storage, Auth |
 | `Supabase__ServiceKey` | `Supabase:ServiceKey` | Chave **secret** (formato `sb_secret_...` ou JWT `eyJ...`). **Não** usar `sb_publishable_` ou `sb_anon_` | DB, Storage, Auth |
 | `OpenAI__ApiKey` | `OpenAI:ApiKey` | Chave da API OpenAI (formato `sk-proj-...`) | Análise de receitas e exames por IA |
-| `Verification__BaseUrl` | `Verification:BaseUrl` | URL base para verificação (QR Code, ITI). Ex: `https://sua-api.com/api/verify` | Integração validar.iti.gov.br |
+| `Verification__BaseUrl` | `Verification:BaseUrl` | URL base do endpoint da API (codificada no QR Code). Ex: `https://sua-api.onrender.com/api/verify` | Integração validar.iti.gov.br |
+| `Verification__FrontendUrl` | `Verification:FrontendUrl` | URL base do frontend de verificação (redirect + texto do PDF). Ex: `https://renovejasaude.com.br/verify` | Redirect de browsers |
 | `ASPNETCORE_ENVIRONMENT` | - | `Development` para mais logs e CORS aberto | Ambiente |
 
 ### Formato da Supabase:ServiceKey

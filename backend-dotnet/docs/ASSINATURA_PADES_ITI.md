@@ -16,30 +16,29 @@ O relatório pode mostrar "Tipo de assinatura: Destacada" — isso refere-se à 
 ## Integração com validar.iti.gov.br
 
 1. **QR Code na receita**  
-   O PDF contém um QR Code que aponta para a URL de verificação configurável (`Verification:BaseUrl`). Ex.:  
-   `https://sua-api.com/api/verify/{requestId}`
+   O PDF contém um QR Code que aponta para o endpoint da API (`Verification:BaseUrl`).  
+   Ex.: `https://sua-api.onrender.com/api/verify/{requestId}`  
+   O texto impresso no PDF mostra a URL amigável do frontend (`Verification:FrontendUrl`).
 
 2. **Configuração**  
-   Defina em `appsettings.json` ou variável de ambiente `Verification__BaseUrl`:
+   Defina em `appsettings.json` ou variáveis de ambiente:
 
    ```json
    "Verification": {
-     "BaseUrl": "https://api.renovejasaude.com.br/api/verify"
+     "BaseUrl": "https://sua-api.onrender.com/api/verify",
+     "FrontendUrl": "https://renovejasaude.com.br/verify"
    }
    ```
 
-   A API deve estar acessível publicamente (HTTPS).
+   - `BaseUrl` → endpoint da API (codificado no QR Code). Deve estar acessível publicamente (HTTPS).
+   - `FrontendUrl` → URL do frontend de verificação (usada no texto do PDF e para redirect de browsers).
 
-3. **Validação no ITI**  
-   - Acesse https://validar.iti.gov.br  
-   - Use a opção **"QR Code"**  
-   - Escaneie o QR Code da receita  
-   - O Validador chama `GET {BaseUrl}/{requestId}?_format=application/validador-iti+json&_secretCode={código}`  
-   - A API retorna o JSON com a URL do PDF assinado  
-   - O ITI baixa o PDF e valida a assinatura PAdES
+3. **Fluxo do QR Code**  
+   - **Validador ITI**: chama `GET {BaseUrl}/{requestId}?_format=application/validador-iti+json&_secretCode={código}` → API retorna JSON com URL do PDF → ITI baixa e valida.
+   - **Browser normal** (farmacêutico): abre o QR → API detecta que não há `_format` → redireciona para `{FrontendUrl}/{requestId}`.
 
 4. **Código de acesso**  
-   O `_secretCode` corresponde ao código de 4 dígitos exibido na receita (acesso ao paciente).
+   O `_secretCode` corresponde ao código de 6 dígitos exibido na receita.
 
 ## Resumo da validação
 
