@@ -50,9 +50,11 @@ No **Dashboard do Render** → seu serviço (API) → **Environment**:
 |----------|---------|-------------|
 | `ASPNETCORE_ENVIRONMENT` | `Production` | Sim |
 | `Api__BaseUrl` | `https://SEU-SERVICO.onrender.com` (ou domínio customizado) | Sim (para montar `downloadUrl`) |
+| `Api__DocumentTokenSecret` | Uma chave secreta com pelo menos 32 caracteres | Sim, para **baixar/visualizar PDF** pelo app (link abre no navegador sem Bearer). Sem ela, o link de documento vem sem token e ao abrir aparece "Token de autenticação inválido ou ausente." |
 | Supabase, OpenAI, etc. | Conforme seu `.env` / documentação | Conforme app |
 
-`Api__BaseUrl` é usada para gerar o link de download do PDF na resposta (`downloadUrl`). Deve ser a URL pública pela qual a API é acessada.
+- **Api__BaseUrl:** usada para gerar o link de download do PDF na resposta (`downloadUrl`). Deve ser a URL pública pela qual a API é acessada.
+- **Api__DocumentTokenSecret:** usada para assinar tokens de acesso a documentos. Quando o usuário toca em "Visualizar PDF Assinado" no app (ou abre o link em outra aba), o navegador faz GET em `/api/requests/{id}/document`. Sem essa variável, a API não gera `?token=...` no link e a abertura no navegador falha com 401. Configure no Render (ex.: uma string aleatória de 32+ caracteres).
 
 ### 3.3 CORS no Render (produção)
 
@@ -218,13 +220,18 @@ Use esta lista para garantir que tudo está certo:
 - **Causa:** `downloadUrl` na resposta usa `Api__BaseUrl`; se estiver errada ou inacessível, o link quebra.
 - **Solução:** Garantir `Api__BaseUrl` no Render = URL pública da API. O link será `{Api__BaseUrl}/api/verify/{id}/document?code=xxx`.
 
+### "Token de autenticação inválido ou ausente" ao baixar/visualizar receita (app ou link)
+
+- **Causa:** O usuário abre o link do PDF (ex.: "Visualizar PDF Assinado" no app ou link enviado por e-mail). A URL é `GET /api/requests/{id}/document`. Esse endpoint aceita **Bearer** (app autenticado) ou **?token=** (link para abrir no navegador). Se a variável **Api__DocumentTokenSecret** não estiver configurada no Render, a API não gera o token e devolve um link sem `?token=`. Ao abrir no navegador (sem Bearer), a API responde 401 com essa mensagem.
+- **Solução:** No Render, em **Environment**, adicionar **Api__DocumentTokenSecret** com uma string secreta de **pelo menos 32 caracteres** (ex.: uma chave aleatória em base64). Salvar e redeployar. Depois disso, os links de documento passam a incluir `?token=...` e abrem corretamente no navegador.
+
 ---
 
 ## 8. Resumo rápido
 
 | Onde | O que verificar / ajustar |
 |------|----------------------------|
-| **Render** | API no ar; `Api__BaseUrl`; CORS com o domínio do site; POST `/api/prescriptions/verify` respondendo. |
+| **Render** | API no ar; `Api__BaseUrl`; **Api__DocumentTokenSecret** (para links de PDF no app/email); CORS com o domínio do site; POST `/api/prescriptions/verify` respondendo. |
 | **Vercel** | `VITE_API_URL` = URL do Render; Redeploy após mudar. |
 | **Browser** | Requisição POST indo para o Render; sem 405; sem erro de CORS; resultado correto na tela. |
 

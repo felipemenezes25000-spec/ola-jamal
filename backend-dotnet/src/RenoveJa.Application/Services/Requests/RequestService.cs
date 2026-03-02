@@ -1786,9 +1786,9 @@ public class RequestService(
         {
             var baseUrl = $"{_apiBaseUrl.TrimEnd('/')}/api/requests/{request.Id}/document";
             var docToken = documentTokenService.GenerateDocumentToken(request.Id, 15);
-            signedUrl = string.IsNullOrEmpty(docToken)
-                ? baseUrl
-                : $"{baseUrl}?token={Uri.EscapeDataString(docToken)}";
+            if (!string.IsNullOrEmpty(docToken))
+                signedUrl = $"{baseUrl}?token={Uri.EscapeDataString(docToken)}";
+            // Se Api__DocumentTokenSecret não estiver configurado, docToken é null e mantemos a URL original (ex.: Supabase signed URL) para o link abrir no navegador.
         }
 
         return new RequestResponseDto(
