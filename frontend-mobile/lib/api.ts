@@ -660,6 +660,19 @@ export async function cancelRequest(requestId: string): Promise<RequestResponseD
   return apiClient.post(`/api/requests/${requestId}/cancel`, {});
 }
 
+/**
+ * Retorna a URL autenticada para download do PDF assinado via proxy do backend.
+ * Evita expor a URL pública do Supabase Storage ao usuário.
+ * O endpoint GET /api/requests/{id}/document aceita Bearer token ou ?token= query param.
+ */
+export async function getDocumentDownloadUrl(requestId: string): Promise<string> {
+  const baseUrl = apiClient.getBaseUrl();
+  const token = await apiClient.getAuthToken();
+  // Usa query param token para que o download funcione em navegador/WebBrowser
+  // (onde não temos controle sobre headers Authorization)
+  return `${baseUrl}/api/requests/${requestId}/document${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+}
+
 /** Ordena pedidos do mais recente para o mais antigo (createdAt desc, desempate updatedAt desc). */
 export function sortRequestsByNewestFirst(items: RequestResponseDto[]): RequestResponseDto[] {
   return [...items].sort((a, b) => {

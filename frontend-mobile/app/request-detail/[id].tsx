@@ -19,7 +19,9 @@ import * as WebBrowser from 'expo-web-browser';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
-import { fetchRequestById, markRequestDelivered, cancelRequest } from '../../lib/api';
+import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
+import { fetchRequestById, markRequestDelivered, cancelRequest, getDocumentDownloadUrl } from '../../lib/api';
+import { apiClient } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
 import { formatBRL, formatDateBR } from '../../lib/utils/format';
 import { RequestResponseDto } from '../../types/database';
@@ -171,34 +173,39 @@ export default function RequestDetailScreen() {
     if (!request?.signedDocumentUrl) return;
     try {
       await markAsDeliveredIfSigned();
-      if (Platform.OS === 'web') {
-        window?.open?.(request.signedDocumentUrl, '_blank');
-        return;
-      }
-      // Download PDF to device and share/open it
       const fileName = request.requestType === 'exam'
         ? `pedido-exame-${request.id.slice(0, 8)}.pdf`
         : `receita-${request.id.slice(0, 8)}.pdf`;
-      const fileUri = FileSystem.documentDirectory + fileName;
-      const download = await FileSystem.downloadAsync(request.signedDocumentUrl, fileUri);
-      if (download.status !== 200) {
-        // Fallback: open in browser
-        await Linking.openURL(request.signedDocumentUrl);
+
+      if (Platform.OS === 'web') {
+        // Web: abre URL do backend proxy (não expõe Supabase)
+        const downloadUrl = await getDocumentDownloadUrl(request.id);
+        window?.open?.(downloadUrl, '_blank');
         return;
       }
-      // Share the downloaded file (opens native share sheet / PDF viewer)
+
+      // Mobile: baixa via backend proxy com Authorization header
+      const baseUrl = apiClient.getBaseUrl();
+      const proxyUrl = `${baseUrl}/api/requests/${request.id}/document`;
+      const token = await apiClient.getAuthToken();
+      const fileUri = FileSystem.documentDirectory + fileName;
+      const download = await FileSystem.downloadAsync(proxyUrl, fileUri, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (download.status !== 200) {
+        Alert.alert('Erro', 'Não foi possível baixar o documento. Tente novamente.');
+        return;
+      }
+      // Abre native share sheet / PDF viewer
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
       } else {
-        await Linking.openURL(request.signedDocumentUrl);
+        // Fallback: abre o arquivo local
+        await Linking.openURL(download.uri);
       }
     } catch (e: unknown) {
-      // Fallback to browser
-      try {
-        await Linking.openURL(request.signedDocumentUrl!);
-      } catch {
-        Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
-      }
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
     }
   };
 
@@ -206,7 +213,27 @@ export default function RequestDetailScreen() {
     if (!request?.signedDocumentUrl) return;
     try {
       await markAsDeliveredIfSigned();
-      await WebBrowser.openBrowserAsync(request.signedDocumentUrl);
+      if (Platform.OS === 'web') {
+        const downloadUrl = await getDocumentDownloadUrl(request.id);
+        window?.open?.(downloadUrl, '_blank');
+        return;
+      }
+      // Mobile: baixa primeiro via proxy e abre com Sharing (evita expor URL)
+      const baseUrl = apiClient.getBaseUrl();
+      const proxyUrl = `${baseUrl}/api/requests/${request.id}/document`;
+      const token = await apiClient.getAuthToken();
+      const fileName = request.requestType === 'exam'
+        ? `pedido-exame-${request.id.slice(0, 8)}.pdf`
+        : `receita-${request.id.slice(0, 8)}.pdf`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      const download = await FileSystem.downloadAsync(proxyUrl, fileUri, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (download.status === 200 && await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
+      } else {
+        Alert.alert('Erro', 'Não foi possível abrir o documento. Tente baixar.');
+      }
     } catch (e: unknown) {
       Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível abrir o documento.');
     }
