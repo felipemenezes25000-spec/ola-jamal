@@ -62,6 +62,15 @@ public class MedicalRequest : AggregateRoot
     public bool? AiReadabilityOk { get; private set; }
     public string? AiMessageToUser { get; private set; }
 
+    // ── Conduta Médica e Observações ──
+    public string? AutoObservation { get; private set; }
+    public string? DoctorConductNotes { get; private set; }
+    public bool IncludeConductInPdf { get; private set; } = true;
+    public string? AiConductSuggestion { get; private set; }
+    public string? AiSuggestedExams { get; private set; }
+    public DateTime? ConductUpdatedAt { get; private set; }
+    public Guid? ConductUpdatedBy { get; private set; }
+
     public DateTime UpdatedAt { get; private set; }
 
     private MedicalRequest() : base()
@@ -236,7 +245,14 @@ public class MedicalRequest : AggregateRoot
         decimal? pricePerMinute = null,
         DateTime? consultationStartedAt = null,
         DateTime? doctorCallConnectedAt = null,
-        DateTime? patientCallConnectedAt = null)
+        DateTime? patientCallConnectedAt = null,
+        string? autoObservation = null,
+        string? doctorConductNotes = null,
+        bool? includeConductInPdf = null,
+        string? aiConductSuggestion = null,
+        string? aiSuggestedExams = null,
+        DateTime? conductUpdatedAt = null,
+        Guid? conductUpdatedBy = null)
     {
         var request = new MedicalRequest(
             id,
@@ -285,6 +301,13 @@ public class MedicalRequest : AggregateRoot
         request.ConsultationStartedAt = consultationStartedAt;
         request.DoctorCallConnectedAt = doctorCallConnectedAt;
         request.PatientCallConnectedAt = patientCallConnectedAt;
+        request.AutoObservation = autoObservation;
+        request.DoctorConductNotes = doctorConductNotes;
+        request.IncludeConductInPdf = includeConductInPdf ?? true;
+        request.AiConductSuggestion = aiConductSuggestion;
+        request.AiSuggestedExams = aiSuggestedExams;
+        request.ConductUpdatedAt = conductUpdatedAt;
+        request.ConductUpdatedBy = conductUpdatedBy;
 
         return request;
     }
@@ -297,6 +320,38 @@ public class MedicalRequest : AggregateRoot
         AiUrgency = urgency;
         AiReadabilityOk = readabilityOk;
         AiMessageToUser = messageToUser;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void SetAutoObservation(string observation)
+    {
+        if (!string.IsNullOrWhiteSpace(AutoObservation)) return;
+        AutoObservation = observation;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Médico pode editar ou remover a observação automática — decisão final é sempre do médico.</summary>
+    public void OverrideAutoObservation(string? observation, Guid doctorId)
+    {
+        AutoObservation = observation;
+        ConductUpdatedAt = DateTime.UtcNow;
+        ConductUpdatedBy = doctorId;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void UpdateConduct(string? conductNotes, bool includeConductInPdf, Guid doctorId)
+    {
+        DoctorConductNotes = conductNotes;
+        IncludeConductInPdf = includeConductInPdf;
+        ConductUpdatedAt = DateTime.UtcNow;
+        ConductUpdatedBy = doctorId;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void SetAiConductSuggestion(string? suggestion, string? suggestedExamsJson = null)
+    {
+        AiConductSuggestion = suggestion;
+        AiSuggestedExams = suggestedExamsJson;
         UpdatedAt = DateTime.UtcNow;
     }
 

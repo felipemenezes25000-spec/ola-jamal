@@ -91,7 +91,13 @@ public record RequestResponseDto(
     int? ContractedMinutes = null,
     decimal? PricePerMinute = null,
     /// <summary>Quando o médico iniciou a consulta (sincroniza o timer entre médico e paciente).</summary>
-    DateTime? ConsultationStartedAt = null
+    DateTime? ConsultationStartedAt = null,
+    string? AutoObservation = null,
+    string? DoctorConductNotes = null,
+    bool IncludeConductInPdf = true,
+    string? AiConductSuggestion = null,
+    string? AiSuggestedExams = null,
+    DateTime? ConductUpdatedAt = null
 );
 
 /// <summary>Médico atualiza medicamentos, notas e tipo de receita antes da assinatura.</summary>
@@ -108,6 +114,16 @@ public record ReanalyzeExamDto(IReadOnlyList<string>? ExamImageUrls = null, stri
 
 /// <summary>Encerrar consulta: notas clínicas opcionais.</summary>
 public record FinishConsultationDto(string? ClinicalNotes = null);
+
+/// <summary>Médico atualiza conduta e observações do pedido.</summary>
+public record UpdateConductDto(
+    string? ConductNotes = null,
+    bool IncludeConductInPdf = true,
+    /// <summary>Se informado, médico sobrescreve a observação automática (null = remover, string = editar).</summary>
+    string? AutoObservationOverride = null,
+    /// <summary>Se true, aplica o override da observação. Se false/omitido, mantém a observação original.</summary>
+    bool ApplyObservationOverride = false
+);
 
 /// <summary>Resposta do accept-consultation. video_room em snake_case para compatibilidade com frontend.</summary>
 public record AcceptConsultationResponseDto(

@@ -323,6 +323,30 @@ export async function transcribeAudioChunk(
 }
 
 // ============================================
+// CONDUCT MANAGEMENT
+// ============================================
+
+export interface UpdateConductData {
+  conductNotes?: string | null;
+  includeConductInPdf?: boolean;
+}
+
+export async function updateConduct(
+  requestId: string,
+  data: UpdateConductData,
+): Promise<RequestResponseDto> {
+  return apiClient.put(`/api/requests/${requestId}/conduct`, data);
+}
+
+export function parseAiSuggestedExams(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter((e: unknown) => typeof e === 'string') : [];
+  } catch { return []; }
+}
+
+// ============================================
 // PAYMENT MANAGEMENT
 // ============================================
 

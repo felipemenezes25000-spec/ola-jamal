@@ -29,6 +29,7 @@ public class RequestServiceTests
     private readonly Mock<IPrescriptionPdfService> _pdfServiceMock;
     private readonly Mock<IDigitalCertificateService> _certServiceMock;
     private readonly Mock<IConsultationTimeBankRepository> _consultationTimeBankRepoMock;
+    private readonly Mock<IAiConductSuggestionService> _aiConductSuggestionServiceMock;
     private readonly Mock<ILogger<RequestService>> _loggerMock;
     private readonly RequestService _sut;
 
@@ -47,6 +48,7 @@ public class RequestServiceTests
         _pdfServiceMock = new Mock<IPrescriptionPdfService>();
         _certServiceMock = new Mock<IDigitalCertificateService>();
         _consultationTimeBankRepoMock = new Mock<IConsultationTimeBankRepository>();
+        _aiConductSuggestionServiceMock = new Mock<IAiConductSuggestionService>();
         _loggerMock = new Mock<ILogger<RequestService>>();
         var aiPrescriptionGeneratorMock = new Mock<IAiPrescriptionGeneratorService>();
         var prescriptionVerifyRepoMock = new Mock<IPrescriptionVerifyRepository>();
@@ -74,6 +76,7 @@ public class RequestServiceTests
             apiConfigMock.Object,
             documentTokenServiceMock.Object,
             _consultationTimeBankRepoMock.Object,
+            _aiConductSuggestionServiceMock.Object,
             _loggerMock.Object);
     }
 

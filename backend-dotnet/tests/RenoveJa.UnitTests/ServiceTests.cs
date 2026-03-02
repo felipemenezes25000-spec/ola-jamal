@@ -476,6 +476,7 @@ public class ExtendedRequestServiceTests
     private readonly Mock<IOptions<ApiConfig>> _apiConfigMock = new();
     private readonly Mock<IDocumentTokenService> _documentTokenServiceMock = new();
     private readonly Mock<IConsultationTimeBankRepository> _consultationTimeBankRepoMock = new();
+    private readonly Mock<IAiConductSuggestionService> _aiConductSuggestionServiceMock = new();
     private readonly Mock<ILogger<global::RenoveJa.Application.Services.Requests.RequestService>> _loggerMock = new();
     private readonly global::RenoveJa.Application.Services.Requests.RequestService _sut;
 
@@ -492,6 +493,7 @@ public class ExtendedRequestServiceTests
             _prescriptionVerifyRepoMock.Object,
             _httpClientFactoryMock.Object, _apiConfigMock.Object,
             _documentTokenServiceMock.Object, _consultationTimeBankRepoMock.Object,
+            _aiConductSuggestionServiceMock.Object,
             _loggerMock.Object);
     }
 

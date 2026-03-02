@@ -659,6 +659,18 @@ public class RequestsController(
         return Ok(new { balanceSeconds, balanceMinutes, consultationType = type });
     }
 
+    [HttpPut("{id}/conduct")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> UpdateConduct(
+        Guid id,
+        [FromBody] UpdateConductDto dto,
+        CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var result = await requestService.UpdateConductAsync(id, dto, doctorId, cancellationToken);
+        return Ok(result);
+    }
+
     private Guid GetUserId()
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);

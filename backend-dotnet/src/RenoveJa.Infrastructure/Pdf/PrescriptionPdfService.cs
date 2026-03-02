@@ -193,6 +193,9 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddSectionLabel(doc, "EXAMES SOLICITADOS", fb);
             AddExamList(doc, exams, data.Notes, f, fb, fi);
 
+            // Observation + Conduct
+            AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
+
             // QR
             AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
 
@@ -237,6 +240,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddSectionLabel(doc, "MEDICAMENTO", fb);
             AddMedicationBlock(doc, meds[i], fb, f, fi);
             AddObservationBlock(doc, meds[i], data.AdditionalNotes, f, fb, fi);
+            AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
             AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
             AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
             AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
@@ -272,6 +276,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddSectionLabel(doc, "MEDICAMENTO", fb);
             AddMedicationBlock(doc, meds[i], fb, f, fi);
             AddObservationBlock(doc, meds[i], data.AdditionalNotes, f, fb, fi);
+            AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
             AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
             AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
             AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
@@ -341,6 +346,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
                 "Data dispensação: ___/___/_____ Assinatura: _________________",
             }, f, fb);
 
+            AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
             AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
             AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
         }
@@ -527,6 +533,54 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
         card.AddCell(cell);
         doc.Add(card);
+    }
+
+    private static void AddObservationAndConductBlock(Document doc, string? autoObservation, string? doctorConductNotes, bool includeConductInPdf, string? doctorName, PdfFont f, PdfFont fb, PdfFont fi)
+    {
+        var hasObs = !string.IsNullOrWhiteSpace(autoObservation);
+        var hasConduct = includeConductInPdf && !string.IsNullOrWhiteSpace(doctorConductNotes);
+        if (!hasObs && !hasConduct) return;
+
+        AddThinRule(doc);
+
+        if (hasObs)
+        {
+            doc.Add(new Paragraph("OBSERVAÇÃO ORIENTATIVA")
+                .SetFont(fb).SetFontSize(8.5f)
+                .SetFontColor(TextMedium)
+                .SetCharacterSpacing(0.8f)
+                .SetMarginBottom(4));
+
+            doc.Add(new Paragraph(autoObservation!)
+                .SetFont(fi).SetFontSize(8)
+                .SetFontColor(TextMedium)
+                .SetMarginBottom(2));
+
+            doc.Add(new Paragraph("Orientação auxiliar da plataforma. Não substitui avaliação médica. A decisão clínica é do médico responsável.")
+                .SetFont(fi).SetFontSize(6.5f)
+                .SetFontColor(TextLight)
+                .SetMarginBottom(6));
+        }
+
+        if (hasConduct)
+        {
+            doc.Add(new Paragraph("CONDUTA MÉDICA")
+                .SetFont(fb).SetFontSize(8.5f)
+                .SetFontColor(Accent)
+                .SetCharacterSpacing(0.8f)
+                .SetMarginBottom(4));
+
+            if (!string.IsNullOrWhiteSpace(doctorName))
+                doc.Add(new Paragraph($"Dr(a). {doctorName}")
+                    .SetFont(f).SetFontSize(7.5f)
+                    .SetFontColor(TextLight)
+                    .SetMarginBottom(4));
+
+            doc.Add(new Paragraph(doctorConductNotes!)
+                .SetFont(f).SetFontSize(8.5f)
+                .SetFontColor(TextDark)
+                .SetMarginBottom(8));
+        }
     }
 
     /// <summary>

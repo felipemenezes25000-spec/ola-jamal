@@ -42,7 +42,15 @@ export default function TermsScreen() {
           </Section>
 
           <Section title="5. Uso de inteligência artificial">
-            A plataforma utiliza recursos de inteligência artificial para triagem e para auxílio na leitura de receitas e exames, com o objetivo de agilizar o fluxo de atendimento. As decisões clínicas finais permanecem sob responsabilidade do médico. O usuário está ciente e concorda com o uso dessas ferramentas nos termos da Política de Privacidade.
+            A plataforma utiliza recursos de inteligência artificial para triagem pré-atendimento, auxílio na leitura de receitas e exames, geração de sugestões de conduta médica, e interação proativa com o paciente por meio de assistente virtual. As decisões clínicas finais permanecem sob responsabilidade exclusiva do médico. O usuário está ciente e concorda com o uso dessas ferramentas nos termos da Política de Privacidade.
+          </Section>
+
+          <Section title="5.1. Assistente virtual de triagem">
+            O assistente virtual de triagem é uma ferramenta de apoio que acompanha o paciente durante o uso do aplicativo. Suas funções incluem: orientar sobre o fluxo de cada serviço; fornecer lembretes sobre a importância do acompanhamento médico presencial; sugerir teleconsulta quando identificar padrões que indiquem necessidade de atenção profissional; e informar sobre cuidados gerais de saúde. O assistente não realiza diagnóstico, não prescreve medicamentos e não substitui a avaliação médica. As mensagens são geradas automaticamente com base em regras predefinidas e análise de contexto, podendo utilizar inteligência artificial.
+          </Section>
+
+          <Section title="5.2. Conduta médica e observações">
+            A plataforma permite que o médico registre condutas e recomendações clínicas no prontuário eletrônico do paciente. Observações automáticas de caráter orientativo são incluídas nos documentos emitidos (receitas e pedidos de exame) com o objetivo de reforçar a importância do acompanhamento médico contínuo. Estas observações não substituem a avaliação médica individual. O médico pode editar, complementar ou remover as observações antes da assinatura do documento.
           </Section>
 
           <Section title="6.1. Consultas por vídeo – informação ao paciente">

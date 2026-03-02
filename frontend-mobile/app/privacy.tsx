@@ -33,6 +33,10 @@ export default function PrivacyScreen() {
             Coletamos dados de identificação e cadastro (nome, e-mail, telefone, CPF, data de nascimento, endereço quando aplicável) e dados sensíveis de saúde necessários ao atendimento: informações relacionadas a solicitações de receitas, exames e consultas, incluindo imagens e textos que você envia. Para médicos, podem ser tratados ainda CRM, especialidade e dados do certificado digital (a senha do certificado não é armazenada; é utilizada apenas no momento da assinatura). Nas consultas por vídeo: tratamos dados de voz na forma de transcrição em texto (não há gravação de áudio ou vídeo) e o texto processado por IA para fins de apoio à consulta, registro em prontuário e melhoria do serviço, em conformidade com a LGPD e com as normas do CFM; o tempo de retenção é alinhado ao prontuário e à legislação aplicável.
           </Section>
 
+          <Section title="3.1. Dados do assistente virtual e conduta médica">
+            Além dos dados descritos na seção anterior, coletamos e tratamos: dados de interação com o assistente virtual de triagem, incluindo mensagens visualizadas e ações tomadas, para melhoria do serviço; condutas médicas registradas pelo profissional de saúde, que integram o prontuário eletrônico; e observações automáticas geradas pela plataforma, de caráter orientativo. Estes dados são tratados com as mesmas salvaguardas aplicadas aos demais dados de saúde, em conformidade com a LGPD.
+          </Section>
+
           <Section title="4. Compartilhamento e não comercialização">
             Seus dados não são vendidos nem cedidos a terceiros para fins de marketing. O compartilhamento ocorre apenas quando necessário à prestação do serviço (por exemplo, com o profissional de saúde que realiza o atendimento, com processadores de pagamento dentro dos limites contratuais) ou para cumprimento de obrigação legal ou determinação de autoridade competente. Podemos utilizar processadores que assumem obrigações de confidencialidade e segurança.
           </Section>

@@ -122,6 +122,18 @@ export interface RequestResponseDto {
   pricePerMinute?: number | null;
   /** Quando o médico iniciou a consulta (sincroniza o timer entre médico e paciente) */
   consultationStartedAt?: string | null;
+  /** Observação orientativa gerada pela plataforma na criação */
+  autoObservation?: string | null;
+  /** Conduta médica registrada pelo médico */
+  doctorConductNotes?: string | null;
+  /** Se a conduta será incluída no PDF assinado */
+  includeConductInPdf?: boolean | null;
+  /** Sugestão de conduta da IA para o médico */
+  aiConductSuggestion?: string | null;
+  /** Exames sugeridos pela IA (JSON array string) */
+  aiSuggestedExams?: string | null;
+  /** Última atualização da conduta (audit) */
+  conductUpdatedAt?: string | null;
 }
 
 // ============================================

@@ -42,6 +42,7 @@ public class RequestService(
     IOptions<ApiConfig> apiConfig,
     IDocumentTokenService documentTokenService,
     IConsultationTimeBankRepository consultationTimeBankRepository,
+    IAiConductSuggestionService aiConductSuggestionService,
     ILogger<RequestService> logger) : IRequestService
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
@@ -78,6 +79,29 @@ public class RequestService(
         {
             return DateTime.UtcNow;
         }
+    }
+
+    private static string GenerateAutoObservation(
+        RequestType requestType,
+        PrescriptionType? prescriptionType = null,
+        string? examType = null)
+    {
+        return (requestType, prescriptionType?.ToString()?.ToLowerInvariant(), examType?.ToLowerInvariant()) switch
+        {
+            (RequestType.Prescription, "controlled", _) =>
+                "Receita de medicação controlada. Paciente orientado sobre a importância do retorno ao médico que acompanha o tratamento. A renovação digital não substitui a avaliação presencial periódica obrigatória.",
+            (RequestType.Prescription, "blue", _) =>
+                "Receita de medicação de alta vigilância. Paciente orientado sobre o acompanhamento rigoroso necessário com o médico prescritor. Renovação digital não substitui avaliação clínica presencial.",
+            (RequestType.Prescription, _, _) =>
+                "Paciente orientado a manter retorno ao médico que acompanha o tratamento. Renovação digital é conveniência — não substitui o seguimento clínico contínuo.",
+            (RequestType.Exam, _, "imagem") =>
+                "Pedido de exame de imagem para complementação diagnóstica. Paciente orientado a retornar ao médico solicitante com o resultado para definição de conduta.",
+            (RequestType.Exam, _, _) =>
+                "Pedido de exames para complementação ou investigação diagnóstica. Paciente orientado a retornar ao médico solicitante para avaliação dos resultados.",
+            (RequestType.Consultation, _, _) =>
+                "Teleconsulta realizada para orientação e esclarecimento de dúvidas. Paciente orientado que a consulta digital complementa, mas não substitui, o acompanhamento presencial quando indicado.",
+            _ => "Paciente orientado a manter acompanhamento regular com seu médico.",
+        };
     }
 
     /// <summary>Monta o endereço do paciente para o PDF (rua, número, complemento - bairro, cidade - UF).</summary>
@@ -185,6 +209,10 @@ public class RequestService(
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
 
+        var autoObs = GenerateAutoObservation(RequestType.Prescription, prescriptionType);
+        medicalRequest.SetAutoObservation(autoObs);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+
         try
         {
             await RunPrescriptionAiAndUpdateAsync(medicalRequest, cancellationToken);
@@ -233,6 +261,10 @@ public class RequestService(
             request.ExamImages);
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
+
+        var autoObs = GenerateAutoObservation(RequestType.Exam, examType: request.ExamType);
+        medicalRequest.SetAutoObservation(autoObs);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
 
         try
         {
@@ -317,6 +349,10 @@ public class RequestService(
             pricePerMinute);
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
+
+        var autoObs = GenerateAutoObservation(RequestType.Consultation);
+        medicalRequest.SetAutoObservation(autoObs);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
 
         // Debitar minutos gratuitos do banco de horas
         if (freeMinutes > 0)
@@ -598,6 +634,12 @@ public class RequestService(
             var price = priceFromDb.Value;
             request.Approve(price, dto.Notes, dto.Medications, dto.Exams);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+            _ = Task.Run(async () =>
+            {
+                try { await GenerateAndSetConductSuggestionAsync(request.Id, cancellationToken); }
+                catch (Exception ex) { logger.LogWarning(ex, "AI conduct suggestion failed for {RequestId}", request.Id); }
+            }, cancellationToken);
 
             await CreateNotificationAsync(
                 request.PatientId,
@@ -1053,7 +1095,10 @@ public class RequestService(
                             PatientBirthDate: patientUser?.BirthDate,
                             MedicationItems: aiMedItems,
                             DoctorAddress: doctorProfile.ProfessionalAddress,
-                            DoctorPhone: doctorProfile.ProfessionalPhone);
+                            DoctorPhone: doctorProfile.ProfessionalPhone,
+                            AutoObservation: request.AutoObservation,
+                            DoctorConductNotes: request.DoctorConductNotes,
+                            IncludeConductInPdf: request.IncludeConductInPdf);
 
                         var pdfResult = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
@@ -1087,7 +1132,10 @@ public class RequestService(
                             PatientAddress: FormatPatientAddress(patientUser),
                             DoctorAddress: doctorProfile.ProfessionalAddress,
                             DoctorPhone: doctorProfile.ProfessionalPhone,
-                            ClinicalIndication: request.Symptoms);
+                            ClinicalIndication: request.Symptoms,
+                            AutoObservation: request.AutoObservation,
+                            DoctorConductNotes: request.DoctorConductNotes,
+                            IncludeConductInPdf: request.IncludeConductInPdf);
 
                         var pdfResult = await prescriptionPdfService.GenerateExamRequestAsync(examPdfData, cancellationToken);
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
@@ -1477,7 +1525,10 @@ public class RequestService(
             PatientBirthDate: patientUser?.BirthDate,
             MedicationItems: aiMedItems2,
             DoctorAddress: doctorProfile?.ProfessionalAddress,
-            DoctorPhone: doctorProfile?.ProfessionalPhone);
+            DoctorPhone: doctorProfile?.ProfessionalPhone,
+            AutoObservation: request.AutoObservation,
+            DoctorConductNotes: request.DoctorConductNotes,
+            IncludeConductInPdf: request.IncludeConductInPdf);
 
         var result = await prescriptionPdfService.GenerateAsync(pdfData, cancellationToken);
         return result.Success ? result.PdfBytes : null;
@@ -1520,7 +1571,10 @@ public class RequestService(
             PatientAddress: FormatPatientAddress(patientUser),
             DoctorAddress: doctorProfile?.ProfessionalAddress,
             DoctorPhone: doctorProfile?.ProfessionalPhone,
-            ClinicalIndication: request.Symptoms);
+            ClinicalIndication: request.Symptoms,
+            AutoObservation: request.AutoObservation,
+            DoctorConductNotes: request.DoctorConductNotes,
+            IncludeConductInPdf: request.IncludeConductInPdf);
 
         var result = await prescriptionPdfService.GenerateExamRequestAsync(examPdfData, cancellationToken);
         return result.Success ? result.PdfBytes : null;
@@ -1794,6 +1848,62 @@ public class RequestService(
         return result;
     }
 
+    private async Task GenerateAndSetConductSuggestionAsync(Guid requestId, CancellationToken cancellationToken)
+    {
+        var request = await requestRepository.GetByIdAsync(requestId, cancellationToken);
+        if (request == null) return;
+
+        var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
+
+        var input = new AiConductSuggestionInput(
+            RequestType: request.RequestType.ToString(),
+            PrescriptionType: request.PrescriptionType?.ToString(),
+            ExamType: request.ExamType,
+            PatientName: request.PatientName,
+            PatientBirthDate: patientUser?.BirthDate,
+            PatientGender: patientUser?.Gender,
+            Symptoms: request.Symptoms,
+            Medications: request.Medications?.Count > 0 ? request.Medications : null,
+            Exams: request.Exams?.Count > 0 ? request.Exams : null,
+            AiSummaryForDoctor: request.AiSummaryForDoctor,
+            AiExtractedJson: request.AiExtractedJson,
+            DoctorNotes: request.Notes);
+
+        var result = await aiConductSuggestionService.GenerateAsync(input, cancellationToken);
+        if (result == null) return;
+
+        var examsJson = result.SuggestedExams?.Count > 0
+            ? JsonSerializer.Serialize(result.SuggestedExams)
+            : null;
+
+        request.SetAiConductSuggestion(result.ConductSuggestion, examsJson);
+        await requestRepository.UpdateAsync(request, cancellationToken);
+
+        logger.LogInformation("AI conduct suggestion generated for request {RequestId}", requestId);
+    }
+
+    public async Task<RequestResponseDto> UpdateConductAsync(
+        Guid requestId,
+        UpdateConductDto dto,
+        Guid doctorId,
+        CancellationToken cancellationToken = default)
+    {
+        var request = await requestRepository.GetByIdAsync(requestId, cancellationToken)
+            ?? throw new InvalidOperationException($"Request {requestId} not found.");
+
+        if (request.DoctorId.HasValue && request.DoctorId.Value != doctorId)
+            throw new UnauthorizedAccessException("Somente o médico responsável pode atualizar a conduta.");
+
+        request.UpdateConduct(dto.ConductNotes, dto.IncludeConductInPdf, doctorId);
+
+        if (dto.ApplyObservationOverride)
+            request.OverrideAutoObservation(dto.AutoObservationOverride, doctorId);
+
+        await requestRepository.UpdateAsync(request, cancellationToken);
+
+        return MapRequestToDto(request);
+    }
+
     private RequestResponseDto MapRequestToDto(
         MedicalRequest request,
         string? consultationTranscript = null,
@@ -1847,7 +1957,13 @@ public class RequestService(
             request.ConsultationType,
             request.ContractedMinutes,
             request.PricePerMinute,
-            request.ConsultationStartedAt);
+            request.ConsultationStartedAt,
+            request.AutoObservation,
+            request.DoctorConductNotes,
+            request.IncludeConductInPdf,
+            request.AiConductSuggestion,
+            request.AiSuggestedExams,
+            request.ConductUpdatedAt);
     }
 
     private static VideoRoomResponseDto MapVideoRoomToDto(VideoRoom room)

@@ -276,6 +276,7 @@ builder.Services.AddScoped<IPushNotificationSender, RenoveJa.Infrastructure.Noti
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IAiReadingService, RenoveJa.Infrastructure.AiReading.OpenAiReadingService>();
 builder.Services.AddScoped<IAiPrescriptionGeneratorService, RenoveJa.Infrastructure.AiReading.OpenAiPrescriptionGeneratorService>();
+builder.Services.AddScoped<IAiConductSuggestionService, RenoveJa.Infrastructure.AiReading.OpenAiConductSuggestionService>();
 builder.Services.AddScoped<IPrescriptionVerifyRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerifyRepository>();
 builder.Services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();
 builder.Services.AddScoped<ITranscriptionService, RenoveJa.Infrastructure.Transcription.WhisperTranscriptionService>();

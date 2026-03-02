@@ -40,7 +40,10 @@ public record PrescriptionPdfData(
     string? PatientGender = null,
     string? PatientPhone = null,
     string? DoctorAddress = null,
-    string? DoctorPhone = null);
+    string? DoctorPhone = null,
+    string? AutoObservation = null,
+    string? DoctorConductNotes = null,
+    bool IncludeConductInPdf = true);
 
 /// <summary>
 /// Resultado da geração do PDF.
@@ -71,7 +74,10 @@ public record ExamPdfData(
     string? PatientAddress = null,
     string? DoctorAddress = null,
     string? DoctorPhone = null,
-    string? ClinicalIndication = null);
+    string? ClinicalIndication = null,
+    string? AutoObservation = null,
+    string? DoctorConductNotes = null,
+    bool IncludeConductInPdf = true);
 
 /// <summary>
 /// Serviço para geração de PDFs de receitas médicas e pedidos de exame.

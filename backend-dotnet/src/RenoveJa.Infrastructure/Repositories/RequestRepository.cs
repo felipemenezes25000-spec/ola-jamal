@@ -262,7 +262,14 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             pricePerMinute: model.PricePerMinute,
             consultationStartedAt: model.ConsultationStartedAt,
             doctorCallConnectedAt: model.DoctorCallConnectedAt,
-            patientCallConnectedAt: model.PatientCallConnectedAt);
+            patientCallConnectedAt: model.PatientCallConnectedAt,
+            autoObservation: model.AutoObservation,
+            doctorConductNotes: model.DoctorConductNotes,
+            includeConductInPdf: model.IncludeConductInPdf,
+            aiConductSuggestion: model.AiConductSuggestion,
+            aiSuggestedExams: model.AiSuggestedExams,
+            conductUpdatedAt: model.ConductUpdatedAt,
+            conductUpdatedBy: model.ConductUpdatedBy);
     }
 
     private static RequestModel MapToModel(MedicalRequest request)
@@ -297,6 +304,13 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             AiUrgency = request.AiUrgency,
             AiReadabilityOk = request.AiReadabilityOk,
             AiMessageToUser = request.AiMessageToUser,
+            AutoObservation = request.AutoObservation,
+            DoctorConductNotes = request.DoctorConductNotes,
+            IncludeConductInPdf = request.IncludeConductInPdf,
+            AiConductSuggestion = request.AiConductSuggestion,
+            AiSuggestedExams = request.AiSuggestedExams,
+            ConductUpdatedAt = request.ConductUpdatedAt,
+            ConductUpdatedBy = request.ConductUpdatedBy,
             ConsultationType = request.ConsultationType,
             ContractedMinutes = request.ContractedMinutes,
             PricePerMinute = request.PricePerMinute,

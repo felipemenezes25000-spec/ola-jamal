@@ -13,6 +13,7 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { AuthProvider } from '../contexts/AuthContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
+import { TriageAssistantProvider } from '../contexts/TriageAssistantProvider';
 import { ToastProvider } from '../components/ui/Toast';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -71,6 +72,7 @@ export default function RootLayout() {
       <AuthProvider>
         <PushNotificationProvider>
           <NotificationProvider>
+            <TriageAssistantProvider>
             <ToastProvider>
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
@@ -95,6 +97,7 @@ export default function RootLayout() {
                 <Stack.Screen name="help-faq" />
               </Stack>
             </ToastProvider>
+            </TriageAssistantProvider>
           </NotificationProvider>
         </PushNotificationProvider>
       </AuthProvider>

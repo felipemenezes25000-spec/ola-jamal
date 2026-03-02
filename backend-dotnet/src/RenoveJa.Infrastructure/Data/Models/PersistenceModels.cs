@@ -136,6 +136,20 @@ public class RequestModel
     public string? AiUrgency { get; set; }
     public bool? AiReadabilityOk { get; set; }
     public string? AiMessageToUser { get; set; }
+    [JsonPropertyName("auto_observation")]
+    public string? AutoObservation { get; set; }
+    [JsonPropertyName("doctor_conduct_notes")]
+    public string? DoctorConductNotes { get; set; }
+    [JsonPropertyName("include_conduct_in_pdf")]
+    public bool? IncludeConductInPdf { get; set; }
+    [JsonPropertyName("ai_conduct_suggestion")]
+    public string? AiConductSuggestion { get; set; }
+    [JsonPropertyName("ai_suggested_exams")]
+    public string? AiSuggestedExams { get; set; }
+    [JsonPropertyName("conduct_updated_at")]
+    public DateTime? ConductUpdatedAt { get; set; }
+    [JsonPropertyName("conduct_updated_by")]
+    public Guid? ConductUpdatedBy { get; set; }
     [JsonPropertyName("consultation_type")]
     public string? ConsultationType { get; set; }
     [JsonPropertyName("contracted_minutes")]

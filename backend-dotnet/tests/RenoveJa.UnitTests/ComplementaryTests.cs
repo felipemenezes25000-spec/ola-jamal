@@ -463,6 +463,7 @@ public class RequestServiceFullTests
     private readonly Mock<IOptions<ApiConfig>> _apiConfigMock = new();
     private readonly Mock<IDocumentTokenService> _documentTokenServiceMock = new();
     private readonly Mock<IConsultationTimeBankRepository> _consultationTimeBankRepoMock = new();
+    private readonly Mock<IAiConductSuggestionService> _aiConductSuggestionServiceMock = new();
     private readonly Mock<ILogger<RequestService>> _loggerMock = new();
     private readonly RequestService _sut;
 
@@ -479,6 +480,7 @@ public class RequestServiceFullTests
             _prescriptionVerifyRepoMock.Object,
             _httpClientFactoryMock.Object, _apiConfigMock.Object,
             _documentTokenServiceMock.Object, _consultationTimeBankRepoMock.Object,
+            _aiConductSuggestionServiceMock.Object,
             _loggerMock.Object);
     }
 

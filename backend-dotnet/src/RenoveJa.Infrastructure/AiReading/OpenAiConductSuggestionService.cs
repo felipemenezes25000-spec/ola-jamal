@@ -1,0 +1,191 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RenoveJa.Application.Configuration;
+using RenoveJa.Application.Interfaces;
+
+namespace RenoveJa.Infrastructure.AiReading;
+
+public class OpenAiConductSuggestionService : IAiConductSuggestionService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IOptions<OpenAIConfig> _config;
+    private readonly ILogger<OpenAiConductSuggestionService> _logger;
+
+    private const string ApiBaseUrl = "https://api.openai.com/v1";
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        WriteIndented = false
+    };
+
+    public OpenAiConductSuggestionService(
+        IHttpClientFactory httpClientFactory,
+        IOptions<OpenAIConfig> config,
+        ILogger<OpenAiConductSuggestionService> logger)
+    {
+        _httpClientFactory = httpClientFactory;
+        _config = config;
+        _logger = logger;
+    }
+
+    public async Task<AiConductSuggestionResult?> GenerateAsync(
+        AiConductSuggestionInput input,
+        CancellationToken cancellationToken = default)
+    {
+        var apiKey = _config.Value?.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("OpenAI API key not configured — skipping conduct suggestion");
+            return null;
+        }
+
+        try
+        {
+            var systemPrompt = BuildSystemPrompt();
+            var userPrompt = BuildUserPrompt(input);
+
+            var requestBody = new
+            {
+                model = _config.Value?.Model ?? "gpt-4o",
+                temperature = 0.3,
+                max_tokens = 800,
+                response_format = new { type = "json_object" },
+                messages = new[]
+                {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = userPrompt }
+                }
+            };
+
+            var json = JsonSerializer.Serialize(requestBody, JsonOptions);
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync($"{ApiBaseUrl}/chat/completions", content, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("OpenAI conduct suggestion failed: {StatusCode}", response.StatusCode);
+                return null;
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(responseJson);
+            var message = doc.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString();
+
+            if (string.IsNullOrWhiteSpace(message))
+                return null;
+
+            return ParseResult(message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating conduct suggestion");
+            return null;
+        }
+    }
+
+    private static string BuildSystemPrompt()
+    {
+        return """
+            Você é um ASSISTENTE AUXILIAR de apoio ao médico na plataforma RenoveJá+.
+            Sua função é SUGERIR uma conduta médica breve. O MÉDICO tem a decisão final absoluta.
+            Você NÃO executa nenhuma ação clínica. Você apenas SUGERE — o médico decide.
+
+            REGRAS ABSOLUTAS:
+            - Você é SOMENTE um auxílio. A decisão final é SEMPRE do médico.
+            - Você NÃO diagnostica, NÃO prescreve, NÃO determina tratamento.
+            - Suas sugestões serão REVISADAS pelo médico antes de qualquer uso.
+            - O médico pode aceitar, editar, ignorar ou descartar completamente sua sugestão.
+            - Máximo 4 linhas de conduta. Seja objetivo e clinicamente relevante.
+            - Use linguagem profissional médica, mas compreensível ao paciente.
+            - Se houver medicação controlada ou de alto risco, sugira retorno presencial.
+            - Se houver exames complexos, sugira exames complementares.
+            - NÃO sugira tratamentos específicos (dosagens, marcas). Apenas orientações de acompanhamento.
+            - NÃO use termos como "diagnóstico", "você tem", "prescrevo", "determino", "indico".
+            - Comece sempre com "Sugestão:" para deixar claro que é uma sugestão.
+
+            Responda APENAS com JSON válido, sem markdown:
+            {
+              "conduct_suggestion": "string — sugestão de conduta (max 4 linhas, o médico decide se aceita)",
+              "suggested_exams": ["array de strings — exames complementares sugeridos, ou array vazio"]
+            }
+            """;
+    }
+
+    private static string BuildUserPrompt(AiConductSuggestionInput input)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Tipo de solicitação: {input.RequestType}");
+
+        if (!string.IsNullOrWhiteSpace(input.PrescriptionType))
+            sb.AppendLine($"Tipo de receita: {input.PrescriptionType}");
+        if (!string.IsNullOrWhiteSpace(input.ExamType))
+            sb.AppendLine($"Tipo de exame: {input.ExamType}");
+        if (!string.IsNullOrWhiteSpace(input.PatientName))
+            sb.AppendLine($"Paciente: {input.PatientName}");
+        if (input.PatientBirthDate.HasValue)
+            sb.AppendLine($"Data de nascimento: {input.PatientBirthDate:dd/MM/yyyy}");
+        if (!string.IsNullOrWhiteSpace(input.PatientGender))
+            sb.AppendLine($"Gênero: {input.PatientGender}");
+        if (!string.IsNullOrWhiteSpace(input.Symptoms))
+            sb.AppendLine($"Sintomas: {input.Symptoms}");
+        if (input.Medications?.Count > 0)
+            sb.AppendLine($"Medicamentos: {string.Join(", ", input.Medications)}");
+        if (input.Exams?.Count > 0)
+            sb.AppendLine($"Exames: {string.Join(", ", input.Exams)}");
+        if (!string.IsNullOrWhiteSpace(input.AiSummaryForDoctor))
+            sb.AppendLine($"Resumo IA: {input.AiSummaryForDoctor}");
+        if (!string.IsNullOrWhiteSpace(input.DoctorNotes))
+            sb.AppendLine($"Notas do médico: {input.DoctorNotes}");
+
+        sb.AppendLine();
+        sb.AppendLine("Gere uma sugestão de conduta e exames complementares se aplicável.");
+
+        return sb.ToString();
+    }
+
+    private AiConductSuggestionResult? ParseResult(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            string? conduct = null;
+            if (root.TryGetProperty("conduct_suggestion", out var cs) && cs.ValueKind == JsonValueKind.String)
+                conduct = cs.GetString()?.Trim();
+
+            var exams = new List<string>();
+            if (root.TryGetProperty("suggested_exams", out var se) && se.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in se.EnumerateArray())
+                {
+                    var val = item.GetString()?.Trim();
+                    if (!string.IsNullOrEmpty(val))
+                        exams.Add(val);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(conduct) && exams.Count == 0)
+                return null;
+
+            return new AiConductSuggestionResult(conduct, exams.Count > 0 ? exams : null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse conduct suggestion JSON: {Json}", json);
+            return null;
+        }
+    }
+}

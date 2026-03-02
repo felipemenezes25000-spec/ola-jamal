@@ -136,4 +136,7 @@ public interface IRequestService
 
     /// <summary>Retorna o saldo do banco de horas do paciente para o tipo de consulta especificado.</summary>
     Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(Guid userId, string consultationType, CancellationToken cancellationToken = default);
+
+    /// <summary>Médico atualiza conduta do pedido (audit trail automático).</summary>
+    Task<RequestResponseDto> UpdateConductAsync(Guid requestId, UpdateConductDto dto, Guid doctorId, CancellationToken cancellationToken = default);
 }
