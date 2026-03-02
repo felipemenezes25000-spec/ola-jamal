@@ -101,7 +101,11 @@ export async function verifyReceita(payload: VerifyPayload): Promise<VerifyRespo
 
   if (!res.ok) {
     const errBody = data as unknown as { error?: string; message?: string; detail?: string };
-    const msg = errBody?.error ?? errBody?.message ?? errBody?.detail ?? `Erro do servidor (${res.status}).`;
+    let msg = errBody?.error ?? errBody?.message ?? errBody?.detail ?? `Erro do servidor (${res.status}).`;
+    if (res.status === 405) {
+      msg =
+        '405 Método não permitido. Verifique se VITE_API_URL aponta para a URL da API (ex.: no Render), e não para o domínio do site. Faça redeploy após alterar.';
+    }
     return { status: 'error', message: msg };
   }
 
