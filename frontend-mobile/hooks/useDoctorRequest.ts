@@ -116,9 +116,10 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
       setRequest(updated);
       _requestCache.set(requestId, updated);
       showToast({ message: 'Conduta salva no prontuário.', type: 'success' });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Falha ao salvar conduta. Tente novamente.';
       showToast({
-        message: e?.message || 'Falha ao salvar conduta. Tente novamente.',
+        message,
         type: 'error',
       });
     } finally {
@@ -201,7 +202,7 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
           `${action}\n\n• ${checklist}`,
           needsDoctorProfile
             ? [
-                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as any) },
+                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as never) },
                 { text: 'OK', style: 'cancel' },
               ]
             : [{ text: 'OK' }]
@@ -215,11 +216,12 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
       setShowSignForm(false);
       setCertPassword('');
       showToast({ message: 'Documento assinado digitalmente!', type: 'success' });
-    } catch (e: any) {
+    } catch (e: unknown) {
       setCertPassword('');
-      if (e?.missingFields?.length || e?.messages?.length) {
-        const checklist = (e.messages ?? [e.message]).join('\n• ');
-        const needsDoctorProfile = (e.missingFields ?? []).some(
+      const err = e as { missingFields?: string[]; messages?: string[]; message?: string } | undefined;
+      if (err?.missingFields?.length || err?.messages?.length) {
+        const checklist = (err?.messages ?? [err?.message ?? 'Erro']).join('\n• ');
+        const needsDoctorProfile = (err?.missingFields ?? []).some(
           (f: string) => f.includes('médico.endereço') || f.includes('médico.telefone')
         );
         Alert.alert(
@@ -229,13 +231,14 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
             : `Verifique os campos obrigatórios:\n\n• ${checklist}`,
           needsDoctorProfile
             ? [
-                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as any) },
+                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as never) },
                 { text: 'OK', style: 'cancel' },
               ]
             : [{ text: 'OK' }]
         );
       } else {
-        showToast({ message: e?.message || 'Senha incorreta ou erro na assinatura.', type: 'error' });
+        const message = e instanceof Error ? e.message : 'Senha incorreta ou erro na assinatura.';
+        showToast({ message, type: 'error' });
       }
     } finally {
       setActionLoading(false);

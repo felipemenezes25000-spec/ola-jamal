@@ -94,7 +94,7 @@ export default function DoctorNotifications() {
     try {
       const data = await getNotifications({ page: 1, pageSize: 50 });
       setNotifications(data.items || []);
-    } catch (e: any) { if (e?.status !== 401) console.error(e); }
+    } catch (e: unknown) { if ((e as { status?: number })?.status !== 401) console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
@@ -114,7 +114,7 @@ export default function DoctorNotifications() {
       await markNotificationRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       refreshUnreadCount();
-      const requestId = item?.data?.requestId;
+      const requestId = item?.data?.requestId as string | undefined;
       if (requestId) {
         router.push(`/doctor-request/${requestId}`);
       }

@@ -95,9 +95,11 @@ public class HealthController : ControllerBase
     /// Detailed readiness status for Kubernetes/load balancers.
     /// </summary>
     [HttpGet("readiness")]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> Readiness(CancellationToken ct)
+    [AllowAnonymous]
+    public async Task<IActionResult> GetReadiness(CancellationToken ct)
     {
+        var detailed = User.Identity?.IsAuthenticated == true;
+
         var checks = new Dictionary<string, object>();
         var dbOk = false;
         var storageOk = false;
@@ -108,12 +110,13 @@ public class HealthController : ControllerBase
         try
         {
             _ = await _requestRepository.GetByIdAsync(Guid.Empty, ct);
-            checks["database"] = new { status = "ok", message = "Connected" };
+            checks["database"] = new { status = "ok" };
             dbOk = true;
         }
         catch (Exception ex)
         {
-            checks["database"] = new { status = "error", message = ex.Message };
+            checks["database"] = new { status = "error" };
+            if (detailed) checks["database"] = new { status = "error", message = ex.Message };
             _logger.LogWarning(ex, "Readiness: database check failed");
         }
 
@@ -125,23 +128,29 @@ public class HealthController : ControllerBase
             req.Headers.Add("Authorization", $"Bearer {_supabaseConfig.ServiceKey}");
             var res = await _httpClient.SendAsync(req, ct);
             storageOk = res.IsSuccessStatusCode;
-            checks["storage"] = new { status = storageOk ? "ok" : "error", code = (int)res.StatusCode };
+            checks["storage"] = detailed
+                ? new { status = storageOk ? "ok" : "error", code = (int)res.StatusCode }
+                : (object)new { status = storageOk ? "ok" : "error" };
         }
         catch (Exception ex)
         {
-            checks["storage"] = new { status = "error", message = ex.Message };
+            checks["storage"] = new { status = "error" };
+            if (detailed) checks["storage"] = new { status = "error", message = ex.Message };
             _logger.LogWarning(ex, "Readiness: storage check failed");
         }
 
         // Payment gateway (MercadoPago config present)
         paymentOk = !string.IsNullOrWhiteSpace(_mercadoPagoConfig.AccessToken);
-        checks["payment"] = new { status = paymentOk ? "ok" : "degraded", message = paymentOk ? "Configured" : "MercadoPago AccessToken not configured" };
+        checks["payment"] = detailed
+            ? new { status = paymentOk ? "ok" : "degraded", message = paymentOk ? "Configured" : "MercadoPago AccessToken not configured" }
+            : (object)new { status = paymentOk ? "ok" : "degraded" };
 
         // AI service (OpenAI config present)
         aiOk = !string.IsNullOrWhiteSpace(_openAiConfig.ApiKey);
-        checks["ai"] = new { status = aiOk ? "ok" : "degraded", message = aiOk ? "Configured" : "OpenAI ApiKey not configured" };
+        checks["ai"] = detailed
+            ? new { status = aiOk ? "ok" : "degraded", message = aiOk ? "Configured" : "OpenAI ApiKey not configured" }
+            : (object)new { status = aiOk ? "ok" : "degraded" };
 
-        // Overall: unhealthy if critical (db/storage) fail; degraded if non-critical (payment/ai) fail; healthy if all pass
         string overall;
         if (!dbOk || !storageOk)
             overall = "unhealthy";

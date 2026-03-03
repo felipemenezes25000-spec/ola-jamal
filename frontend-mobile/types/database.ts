@@ -171,7 +171,7 @@ export interface NotificationResponseDto {
   message: string;
   notificationType: NotificationType;
   read: boolean;
-  data: Record<string, any> | null;
+  data: Record<string, unknown> | null;
   createdAt: string;
 }
 
