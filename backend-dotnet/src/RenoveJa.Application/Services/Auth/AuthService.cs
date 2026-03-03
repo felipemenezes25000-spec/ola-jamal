@@ -380,7 +380,12 @@ public class AuthService(
         string token,
         CancellationToken cancellationToken = default)
     {
-        var authToken = await tokenRepository.GetByTokenAsync(token, cancellationToken);
+        // Normaliza o token que veio do header/query (pode estar URL-encoded, ex.: %3D%3D em vez de ==)
+        var normalizedToken = Uri.UnescapeDataString(token?.Trim() ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(normalizedToken))
+            throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
+
+        var authToken = await tokenRepository.GetByTokenAsync(normalizedToken, cancellationToken);
         
         if (authToken == null || authToken.IsExpired())
             throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
