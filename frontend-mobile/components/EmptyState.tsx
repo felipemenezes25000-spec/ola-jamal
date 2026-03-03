@@ -9,7 +9,6 @@ interface EmptyStateProps {
   icon: IconName;
   title: string;
   subtitle?: string;
-  emoji?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
@@ -18,7 +17,6 @@ export function EmptyState({
   icon,
   title,
   subtitle,
-  emoji,
   actionLabel,
   onAction,
 }: EmptyStateProps) {
@@ -57,9 +55,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
-  },
-  emoji: {
-    fontSize: 36,
   },
   title: {
     fontSize: 14,

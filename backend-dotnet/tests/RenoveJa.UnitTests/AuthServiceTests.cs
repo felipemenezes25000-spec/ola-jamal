@@ -38,6 +38,8 @@ public class AuthServiceTests
             _tokenRepositoryMock.Object,
             _passwordResetTokenRepositoryMock.Object,
             _emailServiceMock.Object,
+            new Mock<IClinicalRecordService>().Object,
+            new Mock<IConsentRepository>().Object,
             smtpConfig,
             googleAuthConfig);
     }

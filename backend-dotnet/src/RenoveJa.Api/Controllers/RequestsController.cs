@@ -17,6 +17,7 @@ public class RequestsController(
     IRequestService requestService,
     IStorageService storageService,
     IPrescriptionPdfService pdfService,
+    IAuditEventService auditEventService,
     ILogger<RequestsController> logger) : ControllerBase
 {
     private static readonly string[] AllowedImageContentTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
@@ -136,9 +137,8 @@ public class RequestsController(
                 ? Ok(new { request = result.Request, payment = result.Payment })
                 : Ok(new { request = result.Request });
         }
-        catch (Exception e)
+        catch (Exception)
         {
-            Console.WriteLine(e);
             throw;
         }
     }
@@ -249,10 +249,8 @@ public class RequestsController(
         if (page < 1) page = 1;
         var userId = GetUserId();
         logger.LogInformation("[GetRequests] GET /api/requests userId={UserId} (from token), page={Page}, pageSize={PageSize}", userId, page, pageSize);
-        Console.WriteLine($"[GetRequests] GET /api/requests userId={userId}, page={page}, pageSize={pageSize}");
         var requests = await requestService.GetUserRequestsPagedAsync(userId, status, type, page, pageSize, cancellationToken);
         logger.LogInformation("[GetRequests] returning TotalCount={TotalCount}", requests.TotalCount);
-        Console.WriteLine($"[GetRequests] returning TotalCount={requests.TotalCount}");
         return Ok(requests);
     }
 
@@ -279,6 +277,7 @@ public class RequestsController(
     {
         var doctorId = GetUserId();
         var requests = await requestService.GetPatientRequestsAsync(doctorId, patientId, cancellationToken);
+        _ = auditEventService.LogReadAsync(doctorId, "PatientRequests", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
         return Ok(requests);
     }
 
@@ -292,6 +291,7 @@ public class RequestsController(
     {
         var userId = GetUserId();
         var request = await requestService.GetRequestByIdAsync(id, userId, cancellationToken);
+        _ = auditEventService.LogReadAsync(userId, "Request", id, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
         return Ok(request);
     }
 
@@ -344,6 +344,7 @@ public class RequestsController(
     /// Atribui a solicitação à fila (próximo médico disponível).
     /// </summary>
     [HttpPost("{id}/assign-queue")]
+    [Authorize(Roles = "doctor")]
     public async Task<IActionResult> AssignQueue(
         Guid id,
         CancellationToken cancellationToken)
@@ -564,19 +565,28 @@ public class RequestsController(
         }
         else
         {
+            Guid userId;
             try
             {
-                var userId = GetUserId();
-                bytes = await requestService.GetSignedDocumentAsync(id, userId, cancellationToken);
+                userId = GetUserId();
             }
             catch (UnauthorizedAccessException)
             {
                 return Unauthorized(new { error = "Token de autenticação inválido ou ausente." });
             }
+
+            var req = await requestService.GetRequestByIdAsync(id, userId, cancellationToken);
+            var isOwner = req.PatientId == userId
+                          || (req.DoctorId.HasValue && req.DoctorId.Value == userId);
+            if (!isOwner)
+                return StatusCode(403, new { error = "Você não tem permissão para acessar este documento." });
+
+            bytes = await requestService.GetSignedDocumentAsync(id, userId, cancellationToken);
         }
 
         if (bytes == null || bytes.Length == 0)
             return NotFound(new { error = "Documento assinado não disponível ou você não tem permissão para acessá-lo." });
+        _ = auditEventService.LogReadAsync(null, "SignedDocument", id, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
         return File(bytes, "application/pdf", $"documento-{id}.pdf");
     }
 

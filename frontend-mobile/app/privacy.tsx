@@ -22,11 +22,11 @@ export default function PrivacyScreen() {
 
         <AppCard style={styles.card}>
           <Section title="1. Compromisso e base legal">
-            A {COMPANY.name} está comprometida com a proteção dos seus dados pessoais em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei 13.709/2018), com o Marco Civil da Internet (Lei 12.965/2014) e com o Código de Defesa do Consumidor quando aplicável. O tratamento de dados de saúde é realizado com base em consentimento, execução de contrato e obrigação legal, conforme previsto na LGPD.
+          A {COMPANY.name} está comprometida com a proteção dos seus dados pessoais em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei 13.709/2018), com o Marco Civil da Internet (Lei 12.965/2014) e com o Código de Defesa do Consumidor quando aplicável. O tratamento de dados de saúde é realizado com base, conforme o caso, na execução de contrato, no cumprimento de obrigação legal ou regulatória e na tutela da saúde (artigos 7º e 11 da LGPD), podendo ainda se apoiar em consentimento quando exigido pela legislação.
           </Section>
 
           <Section title="2. Controlador e finalidade">
-            O controlador dos dados é {COMPANY.name}, CNPJ {COMPANY.cnpj}, com sede em {COMPANY.address}. Contato e canal para exercício de direitos em proteção de dados: {COMPANY.fullContact}. Os dados são tratados para: prestação dos serviços de telemedicina (consultas, receitas, exames), processamento de pagamentos, comunicação sobre atendimento, cumprimento de obrigações legais e regulatórias (incluindo prontuário e normas do CFM), e melhoria dos serviços. Não utilizamos seus dados para finalidades incompatíveis com essas finalidades.
+            O controlador dos dados é {COMPANY.name}, CNPJ {COMPANY.cnpj}, com sede em {COMPANY.address}. Contato e canal para exercício de direitos em proteção de dados: {COMPANY.fullContact}. Os dados são tratados para: prestação dos serviços de telemedicina (consultas, receitas, exames), processamento de pagamentos, comunicação sobre atendimento, cumprimento de obrigações legais e regulatórias (incluindo prontuário e normas do CFM), e melhoria dos serviços. Não utilizamos seus dados para finalidades incompatíveis com essas finalidades. A infraestrutura de armazenamento e processamento pode envolver provedores de computação em nuvem localizados no Brasil e no exterior, sempre com salvaguardas adequadas e contratos que asseguram proteção compatível com a LGPD.
           </Section>
 
           <Section title="3. Dados que coletamos">
@@ -64,7 +64,7 @@ function Section({
   last,
 }: {
   title: string;
-  children: string;
+  children: React.ReactNode;
   last?: boolean;
 }) {
   return (

@@ -1,12 +1,13 @@
 import React from 'react';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../lib/themeDoctor';
+import { colors } from '../../lib/theme';
 
 interface TabBarIconProps {
   name: keyof typeof Ionicons.glyphMap;
   color: string;
   focused: boolean;
+  variant?: 'patient' | 'doctor';
 }
 
 export function TabBarIcon({ name, color, focused }: TabBarIconProps) {

@@ -88,12 +88,12 @@ export function SkeletonList({ count = 4 }: { count?: number }) {
 const skStyles = StyleSheet.create({
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 14,
+        borderRadius: 16,
         padding: 16,
-        marginBottom: 8,
-        shadowColor: '#0077B6',
+        marginBottom: 10,
+        shadowColor: '#2CB1FF',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.06,
         shadowRadius: 12,
         elevation: 3,
     },

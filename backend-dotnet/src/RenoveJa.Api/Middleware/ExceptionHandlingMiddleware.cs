@@ -26,6 +26,17 @@ public class ExceptionHandlingMiddleware(
         {
             var path = context.Request.Path.Value ?? "";
             var method = context.Request.Method;
+
+            if (ex is OperationCanceledException)
+            {
+                logger.LogDebug("Request cancelled by client: {Method} {Path}", method, path);
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = 499;
+                }
+                return;
+            }
+
             logger.LogError(ex,
                 "[EXCEPTION] {Method} {Path} | Tipo={ExceptionType} | Message={Message} | InnerException={Inner}",
                 method, path, ex.GetType().Name, ex.Message,
@@ -36,6 +47,12 @@ public class ExceptionHandlingMiddleware(
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        var requestId = context.Items.TryGetValue("CorrelationId", out var cid) && cid is string s
+            ? s
+            : context.TraceIdentifier;
+
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
         if (exception is ValidationException ve)
         {
             context.Response.ContentType = "application/json";
@@ -45,13 +62,10 @@ public class ExceptionHandlingMiddleware(
             {
                 status = 400,
                 message = errors.Count == 1 ? errors[0] : "Verifique os campos: " + string.Join("; ", errors),
-                errors
+                errors,
+                requestId
             };
-            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-            return context.Response.WriteAsync(json);
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
         }
 
         if (exception is PrescriptionValidationException pve)
@@ -63,21 +77,18 @@ public class ExceptionHandlingMiddleware(
                 status = 400,
                 message = "Receita incompleta: verifique os campos obrigatórios.",
                 missingFields = pve.MissingFields,
-                messages = pve.Messages
+                messages = pve.Messages,
+                requestId
             };
-            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-            return context.Response.WriteAsync(json);
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
         }
 
         var (statusCode, message) = exception switch
         {
             AuthConflictException => (HttpStatusCode.Conflict, exception.Message),
             DomainException => (HttpStatusCode.BadRequest, exception.Message),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, exception.Message),
-            InvalidOperationException => (HttpStatusCode.BadRequest, exception.Message),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized"),
+            InvalidOperationException => (HttpStatusCode.BadRequest, "Invalid operation"),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),
             _ => (HttpStatusCode.InternalServerError, "An error occurred while processing your request")
         };
@@ -89,14 +100,9 @@ public class ExceptionHandlingMiddleware(
         {
             status = (int)statusCode,
             message,
-            details = context.Request.Path.Value
+            requestId
         };
 
-        var jsonDefault = JsonSerializer.Serialize(defaultResponse, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        return context.Response.WriteAsync(jsonDefault);
+        return context.Response.WriteAsync(JsonSerializer.Serialize(defaultResponse, jsonOptions));
     }
 }

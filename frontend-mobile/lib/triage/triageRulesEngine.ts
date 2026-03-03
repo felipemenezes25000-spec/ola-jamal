@@ -72,47 +72,43 @@ export function evaluateTriageRules(input: TriageInput): TriageMessage | null {
 // ── HOME ────────────────────────────────────────────────────
 
 function rulesHome(i: TriageInput): TriageMessage | null {
-  // Welcome (first-time user)
   if (!i.totalRequests || i.totalRequests === 0) {
     return {
       key: 'home:welcome',
-      text: 'Bem-vindo ao RenoveJá+! Aqui você renova receitas, solicita exames e faz teleconsultas.',
+      text: 'Que bom ter você aqui! No RenoveJá+ você renova receitas, pede exames e faz teleconsultas — tudo com médicos de verdade.',
       severity: 'positive', avatarState: 'positive',
-      cta: 'ver_servicos', ctaLabel: 'Conhecer',
+      cta: 'ver_servicos', ctaLabel: 'Conhecer serviços',
       cooldownMs: MS.WELCOME, canMute: true,
     };
   }
 
-  // Muitas renovações recentes → sugerir consulta
   if (i.recentPrescriptionCount && i.recentPrescriptionCount >= 3) {
     return {
       key: 'home:many_renewals',
-      text: 'Percebi que você tem renovado receitas com frequência. Já alinhou o tratamento com seu médico de origem? É muito importante manter esse acompanhamento.',
+      text: 'Notei que você renovou receitas algumas vezes recentemente. Que tal conversar com um médico para garantir que tudo está no caminho certo?',
       severity: 'attention', avatarState: 'alert',
-      cta: 'teleconsulta', ctaLabel: 'Tirar Dúvidas no Plantão',
+      cta: 'teleconsulta', ctaLabel: 'Falar com médico',
       cooldownMs: MS.PROACTIVE, canMute: true,
       analyticsEvent: 'triage.home.many_renewals',
     };
   }
 
-  // Exames recentes sem retorno
   if (i.recentExamCount && i.recentExamCount >= 2) {
     return {
       key: 'home:pending_results',
-      text: 'Que bom que você cuida da saúde! Lembre-se de levar os resultados dos exames ao seu médico — é ele quem define a melhor conduta.',
+      text: 'Parabéns por cuidar da sua saúde! Não esqueça de levar os resultados ao seu médico — ele vai orientar os próximos passos.',
       severity: 'info', avatarState: 'positive',
-      cta: 'consulta_breve', ctaLabel: 'Agendar Retorno',
+      cta: 'consulta_breve', ctaLabel: 'Agendar retorno',
       cooldownMs: MS.PROACTIVE, canMute: true,
     };
   }
 
-  // Muito tempo sem consulta
   if (i.lastConsultationDays && i.lastConsultationDays > 180) {
     return {
       key: 'home:long_no_consult',
-      text: 'Faz um tempinho que não nos vemos! Manter consultas regulares é fundamental para um tratamento seguro. Posso te ajudar a agendar.',
+      text: 'Faz um tempinho que não conversamos! Consultas regulares fazem toda a diferença no seu tratamento. Posso te ajudar a agendar.',
       severity: 'info', avatarState: 'neutral',
-      cta: 'teleconsulta', ctaLabel: 'Agendar Consulta',
+      cta: 'teleconsulta', ctaLabel: 'Agendar consulta',
       cooldownMs: MS.PROACTIVE, canMute: true,
     };
   }
@@ -129,7 +125,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
     case 'entry':
       return {
         key: 'rx:entry',
-        text: 'Escolha o tipo de receita. Se tiver dúvidas, prefira uma teleconsulta.',
+        text: 'Vamos renovar sua receita! Escolha o tipo abaixo. Se tiver dúvidas, estou aqui.',
         severity: 'info', avatarState: 'neutral', cta: null,
         cooldownMs: getStepCooldown(i.totalRequests),
         canMute: true,
@@ -140,17 +136,17 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
         return {
           key: `rx:controlled:${i.prescriptionType}`,
           text: i.prescriptionType === 'azul'
-            ? 'Receita azul exige vigilância rigorosa. Confirme os documentos e dosagens.'
-            : 'Receita controlada. Certifique-se de que a receita original está legível.',
+            ? 'Receita azul requer atenção especial. Tenha a receita original em mãos e confira os dados.'
+            : 'Receita controlada — garanta que a foto esteja bem legível para facilitar a análise.',
           severity: 'attention', avatarState: 'alert',
-          cta: 'consulta_breve', ctaLabel: 'Falar com Médico',
+          cta: 'consulta_breve', ctaLabel: 'Falar com médico',
           cooldownMs: getStepCooldown(i.totalRequests),
           analyticsEvent: `triage.rx.${i.prescriptionType}`,
         };
       }
       return {
         key: 'rx:simple',
-        text: 'Tire uma foto nítida da receita com boa iluminação.',
+        text: 'Ótimo! Agora tire uma foto nítida da receita, com boa iluminação e sem sombras.',
         severity: 'positive', avatarState: 'positive', cta: null,
         cooldownMs: getStepCooldown(i.totalRequests),
         canMute: true,
@@ -160,7 +156,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
       if (i.imagesCount === 0) return null;
       return {
         key: 'rx:photos',
-        text: `${i.imagesCount} foto${i.imagesCount === 1 ? '' : 's'} adicionada${i.imagesCount === 1 ? '' : 's'}. Verifique se está legível antes de enviar.`,
+        text: `${i.imagesCount === 1 ? 'Foto adicionada' : `${i.imagesCount} fotos adicionadas`}! Confira se está tudo legível antes de enviar.`,
         severity: 'positive', avatarState: 'positive', cta: null,
         cooldownMs: getStepCooldown(i.totalRequests),
         canMute: true,
@@ -169,34 +165,31 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
     case 'analyzing':
       return {
         key: 'rx:analyzing',
-        text: 'Verificando legibilidade e conteúdo da receita...',
+        text: 'Analisando sua receita com IA... isso leva poucos segundos.',
         severity: 'info', avatarState: 'thinking', cta: null,
         cooldownMs: getStepCooldown(i.totalRequests),
       };
 
     case 'result':
-      // IA flagged risk
       if (i.aiRiskLevel === 'high') {
         return {
           key: 'rx:high_risk',
-          text: 'Percebi que essa medicação exige cuidado especial. Tem passado com regularidade pelo seu médico? Estou aqui se precisar de orientação.',
+          text: 'Essa medicação requer acompanhamento especial. Mantenha seu médico de confiança informado sobre o uso contínuo.',
           severity: 'attention', avatarState: 'alert',
-          cta: 'consulta_breve', ctaLabel: 'Falar com Médico',
+          cta: 'consulta_breve', ctaLabel: 'Falar com médico',
           cooldownMs: MS.INSIGHT,
           analyticsEvent: 'triage.rx.high_risk',
         };
       }
-      // IA returned readability issue
       if (i.aiReadabilityOk === false) {
         return {
           key: 'rx:unreadable',
-          text: 'A foto da receita pode estar um pouco difícil de ler. Que tal enviar outra com mais luz? Isso ajuda o médico a analisar mais rapidamente!',
+          text: 'A foto ficou um pouco difícil de ler. Tente outra com mais luz — isso agiliza a análise do médico!',
           severity: 'attention', avatarState: 'alert', cta: null,
           cooldownMs: MS.STEP,
           analyticsEvent: 'triage.rx.unreadable',
         };
       }
-      // Custom AI message
       if (i.aiMessageToUser) {
         return {
           key: 'rx:ai_message',
@@ -207,7 +200,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
       }
       return {
         key: 'rx:success',
-        text: 'Receita recebida com sucesso! Em breve um médico vai analisar e aprovar. Qualquer dúvida, estou aqui.',
+        text: 'Receita recebida! Um médico vai analisar em breve. Pode ficar tranquilo, eu aviso quando estiver pronta.',
         severity: 'positive', avatarState: 'positive', cta: null,
         cooldownMs: getStepCooldown(i.totalRequests),
         canMute: true,
@@ -224,7 +217,7 @@ function rulesExam(i: TriageInput): TriageMessage | null {
     case 'entry':
       return {
         key: 'exam:entry',
-        text: 'Informe os exames que precisa. Se tiver pedido médico, tire uma foto.',
+        text: 'Vamos solicitar seus exames! Informe quais precisa. Se tiver um pedido médico, tire uma foto.',
         severity: 'info', avatarState: 'neutral', cta: null,
         cooldownMs: getStepCooldown(i.totalRequests),
         canMute: true,
@@ -234,7 +227,7 @@ function rulesExam(i: TriageInput): TriageMessage | null {
       if (i.examType === 'imagem') {
         return {
           key: 'exam:imagem',
-          text: 'Exames de imagem geralmente requerem preparo. Verifique com o laboratório.',
+          text: 'Exames de imagem podem exigir preparo especial. Verifique as orientações com o laboratório antes.',
           severity: 'info', avatarState: 'neutral', cta: null,
           cooldownMs: getStepCooldown(i.totalRequests),
           canMute: true,
@@ -246,9 +239,9 @@ function rulesExam(i: TriageInput): TriageMessage | null {
       if (i.exams && hasComplexExams(i.exams)) {
         return {
           key: 'exam:complex',
-          text: 'Que legal que você está se cuidando! Percebi que esses exames investigam condições importantes. Você tem retornado ao seu médico com os resultados? Estamos aqui se precisar conversar.',
+          text: 'Esses exames investigam condições importantes. Lembre de levar os resultados ao seu médico para uma avaliação completa.',
           severity: 'attention', avatarState: 'alert',
-          cta: 'teleconsulta', ctaLabel: 'Conversar no Plantão',
+          cta: 'teleconsulta', ctaLabel: 'Falar com médico',
           cooldownMs: MS.INSIGHT,
           analyticsEvent: 'triage.exam.complex',
         };
@@ -256,19 +249,18 @@ function rulesExam(i: TriageInput): TriageMessage | null {
       if (i.exams && i.exams.length > 5) {
         return {
           key: 'exam:many',
-          text: `Uau, ${i.exams.length} exames! Você está bem cuidada(o). Lembre de levar todos os resultados ao seu médico para ele orientar o próximo passo.`,
+          text: `São ${i.exams.length} exames — que bom que você cuida da saúde! Leve todos os resultados ao seu médico para orientação.`,
           severity: 'info', avatarState: 'positive',
-          cta: 'consulta_breve', ctaLabel: 'Agendar Retorno',
+          cta: 'consulta_breve', ctaLabel: 'Agendar retorno',
           cooldownMs: MS.INSIGHT,
         };
       }
-      // Suprimir mensagem genérica quando paciente já fez tudo (foto + exames)
       if (i.imagesCount && i.imagesCount > 0 && i.exams && i.exams.length > 0) {
         return null;
       }
       return {
         key: 'exam:ok',
-        text: 'Pedido de exames recebido! Leve os resultados ao seu médico — ele vai indicar a melhor conduta.',
+        text: 'Pedido recebido! Quando tiver os resultados, leve ao seu médico — ele vai orientar a conduta.',
         severity: 'positive', avatarState: 'positive', cta: null,
         cooldownMs: getStepCooldown(i.totalRequests),
         canMute: true,
@@ -284,7 +276,7 @@ function rulesConsultation(i: TriageInput): TriageMessage | null {
   if (i.step === 'entry') {
     return {
       key: 'consult:entry',
-      text: 'Descreva seus sintomas: o que sente, há quanto tempo e medicamentos que toma.',
+      text: 'Conte ao médico o que está sentindo, há quanto tempo e se toma algum medicamento. Isso ajuda muito no atendimento!',
       severity: 'info', avatarState: 'neutral', cta: null,
       cooldownMs: getStepCooldown(i.totalRequests),
       canMute: true,
@@ -293,7 +285,7 @@ function rulesConsultation(i: TriageInput): TriageMessage | null {
   if (i.step === 'symptoms_entered' && i.symptoms && i.symptoms.length < 20) {
     return {
       key: 'consult:short_symptoms',
-      text: 'Quanto mais detalhes, melhor o atendimento. Inclua quando começou.',
+      text: 'Tente adicionar mais detalhes — quando começou, o que piora ou melhora. Isso faz diferença no atendimento!',
       severity: 'info', avatarState: 'neutral', cta: null,
       cooldownMs: getStepCooldown(i.totalRequests),
       canMute: true,
@@ -315,7 +307,7 @@ function rulesDetail(i: TriageInput): TriageMessage | null {
     if (kind === 'consultation') {
       return {
         key: 'detail:pay_consultation',
-        text: 'Na próxima tela você escolhe como pagar a consulta. Após a aprovação, liberamos o acesso para entrar na videochamada.',
+        text: 'Falta só o pagamento! Depois disso, você entra direto na videochamada com o médico.',
         severity: 'info', avatarState: 'neutral', cta: null,
         cooldownMs: MS.STEP,
         canMute: true,
@@ -323,28 +315,26 @@ function rulesDetail(i: TriageInput): TriageMessage | null {
     }
     return {
       key: kind === 'exam' ? 'detail:pay_exam' : 'detail:pay_prescription',
-      text: 'Na próxima tela você escolhe como pagar. Assim que o pagamento for aprovado, o documento fica disponível neste pedido.',
+      text: 'Quase lá! Após o pagamento, seu documento fica disponível aqui mesmo para download.',
       severity: 'info', avatarState: 'neutral', cta: null,
       cooldownMs: MS.STEP,
       canMute: true,
     };
   }
 
-  // Has doctor conduct → highlight
   if (i.doctorConductNotes) {
     return {
       key: 'detail:conduct_available',
-      text: 'O médico deixou recomendações especiais para você aqui. Leia com atenção — são orientações personalizadas para o seu cuidado!',
+      text: 'O médico deixou orientações personalizadas para você. Leia com atenção — foram feitas pensando no seu caso!',
       severity: 'info', avatarState: 'positive', cta: null,
       cooldownMs: MS.INSIGHT,
     };
   }
 
-  // Signed/delivered → remind follow-up
   if (i.status === 'signed' || i.status === 'delivered') {
     return {
       key: 'detail:completed',
-      text: 'Tudo certo! Documento pronto. Lembre de manter o retorno ao seu médico — o acompanhamento contínuo faz toda a diferença.',
+      text: 'Documento pronto! Não esqueça de manter o acompanhamento com seu médico — faz toda a diferença.',
       severity: 'positive', avatarState: 'positive', cta: null,
       cooldownMs: MS.INSIGHT,
     };
@@ -447,10 +437,10 @@ function rulesDoctorDetail(i: TriageInput): TriageMessage | null {
 
 function rulesDoctorProntuario(i: TriageInput): TriageMessage | null {
   // Fatos de uso do app pelo paciente, para orientar a conversa
-  if (i.recentPrescriptionCount && i.recentPrescriptionCount >= 3) {
+  if (i.recentPrescriptionCount && i.recentPrescriptionCount >= 3 && (!i.lastConsultationDays || i.lastConsultationDays > 90)) {
     return {
       key: 'doctor:prontuario:many_renewals',
-      text: `Este paciente renovou receitas ${i.recentPrescriptionCount} vez(es) nos últimos meses nesta plataforma.`,
+      text: `Este paciente renovou receitas ${i.recentPrescriptionCount} vez(es) nos últimos meses nesta plataforma. Considere explorar a adesão e necessidade de ajuste terapêutico.`,
       severity: 'info',
       avatarState: 'neutral',
       cta: null,
@@ -462,7 +452,7 @@ function rulesDoctorProntuario(i: TriageInput): TriageMessage | null {
   if (i.recentExamCount && i.recentExamCount >= 2 && i.lastConsultationDays && i.lastConsultationDays > 180) {
     return {
       key: 'doctor:prontuario:exams_no_consult',
-      text: `Fez exames recentemente, mas não há consulta registrada aqui há ${i.lastConsultationDays} dia(s). Use essa informação para aprofundar o histórico.`,
+      text: `Fez exames recentemente, mas não há consulta registrada aqui há ${i.lastConsultationDays} dia(s). Pode ser útil investigar se houve acompanhamento presencial ou por outro serviço.`,
       severity: 'info',
       avatarState: 'neutral',
       cta: null,

@@ -15,7 +15,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { fetchRequestById, markRequestDelivered, cancelRequest, getDocumentDownloadUrl } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
@@ -525,7 +525,7 @@ export default function RequestDetailScreen() {
           {canDownload && (
             <>
               <PrimaryButton
-                label="Baixar Receita"
+                label={request.requestType === 'exam' ? 'Baixar Pedido de Exame' : request.requestType === 'consultation' ? 'Baixar Documento' : 'Baixar Receita'}
                 icon="download"
                 onPress={handleDownload}
               />
@@ -559,6 +559,22 @@ export default function RequestDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Dra. Renova fixa acima dos botões / tab bar */}
+      {!request.doctorConductNotes && (
+        <View style={styles.aiBannerSticky}>
+          <AssistantBanner
+            onAction={(action) => {
+              if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
+                router.push('/new-request/consultation');
+              }
+              if (action === 'ver_servicos') {
+                router.push('/(patient)/requests');
+              }
+            }}
+          />
+        </View>
+      )}
 
       {/* Modal com zoom nas imagens */}
       <Modal
@@ -666,4 +682,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  aiBannerSticky: { position: 'absolute', left: 0, right: 0, bottom: spacing.lg * 2 },
 });

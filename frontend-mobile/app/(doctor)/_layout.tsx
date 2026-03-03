@@ -4,6 +4,7 @@ import { Tabs, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../lib/themeDoctor';
+import { haptics } from '../../lib/haptics';
 import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { PulsingNotificationIcon } from '../../components/PulsingNotificationIcon';
@@ -32,12 +33,13 @@ export default function DoctorLayout() {
     <>
       <StatusBar style="light" />
       <Tabs
+        screenListeners={{
+          tabPress: () => haptics.selection(),
+        }}
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: '#2EC4B6',
           tabBarInactiveTintColor: colors.textMuted,
-          tabBarPressColor: 'rgba(46, 196, 182, 0.12)',
-          tabBarPressOpacity: 0.8,
           tabBarStyle: {
             backgroundColor: colors.surface,
             borderTopColor: colors.borderLight,
@@ -85,7 +87,7 @@ export default function DoctorLayout() {
         <Tabs.Screen
           name="requests"
           options={{
-            title: 'Dashboard',
+            title: 'Pedidos',
             tabBarIcon: ({ color, focused }) => (
               <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} focused={focused} variant="doctor" />
             ),

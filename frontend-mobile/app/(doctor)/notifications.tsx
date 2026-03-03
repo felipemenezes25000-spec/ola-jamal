@@ -75,6 +75,9 @@ const ALERT_CATEGORY_LABELS: Record<AlertCategory, string> = {
   other: 'Outros',
 };
 
+const ListSeparator = () => <View style={{ height: 8 }} />;
+const SectionGap = () => <View style={{ height: 4 }} />;
+
 export default function DoctorNotifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -91,7 +94,7 @@ export default function DoctorNotifications() {
     try {
       const data = await getNotifications({ page: 1, pageSize: 50 });
       setNotifications(data.items || []);
-    } catch (e: any) { if (e?.status !== 401) console.error(e); }
+    } catch (e: unknown) { if ((e as { status?: number })?.status !== 401) console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
@@ -111,11 +114,11 @@ export default function DoctorNotifications() {
       await markNotificationRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       refreshUnreadCount();
-      const requestId = item?.data?.requestId;
+      const requestId = item?.data?.requestId as string | undefined;
       if (requestId) {
         router.push(`/doctor-request/${requestId}`);
       }
-    } catch { }
+    } catch (e) { console.warn('Failed to mark notification as read:', e); }
   };
 
   const handleMarkAllRead = async () => {
@@ -123,7 +126,7 @@ export default function DoctorNotifications() {
       await markAllNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       refreshUnreadCount();
-    } catch { }
+    } catch (e) { console.warn('Failed to mark all notifications as read:', e); }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -158,6 +161,8 @@ export default function DoctorNotifications() {
         style={[styles.card, !item.read && styles.cardUnread]}
         onPress={() => handleMarkRead(item.id, item)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Notificação: ${item.title}`}
       >
         <View style={[styles.iconWrap, { backgroundColor: iconColor + '18' }]}>
           <Ionicons name={getNotificationIcon(item.notificationType)} size={22} color={iconColor} />
@@ -190,7 +195,12 @@ export default function DoctorNotifications() {
             <Text style={styles.subtitle}>Notificações e atualizações</Text>
           </View>
           {unreadCount > 0 && (
-            <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
+            <TouchableOpacity
+              onPress={handleMarkAllRead}
+              style={styles.markAllBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Marcar todas como lidas"
+            >
               <Text style={styles.markAllText}>MARCAR LIDAS</Text>
             </TouchableOpacity>
           )}
@@ -230,8 +240,8 @@ export default function DoctorNotifications() {
             <Text style={styles.groupLabel}>{title}</Text>
           )}
           contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
+          ItemSeparatorComponent={ListSeparator}
+          SectionSeparatorComponent={SectionGap}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={

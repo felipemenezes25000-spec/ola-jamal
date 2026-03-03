@@ -1,6 +1,10 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Payments;
@@ -8,7 +12,6 @@ using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Payments;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
-using System.Security.Claims;
 
 namespace RenoveJa.Api.Controllers;
 
@@ -101,6 +104,7 @@ public class PaymentsController(
     /// Confirma um pagamento pelo ID do pagamento.
     /// </summary>
     [HttpPost("{id}/confirm")]
+    [Authorize]
     public async Task<IActionResult> ConfirmPayment(
         Guid id,
         CancellationToken cancellationToken)
@@ -114,6 +118,7 @@ public class PaymentsController(
     /// Use o ID da solicitação, não o ID do pagamento.
     /// </summary>
     [HttpPost("confirm-by-request/{requestId}")]
+    [Authorize]
     public async Task<IActionResult> ConfirmPaymentByRequest(
         Guid requestId,
         CancellationToken cancellationToken)
@@ -195,6 +200,7 @@ public class PaymentsController(
     /// </summary>
     [HttpPost("webhook")]
     [AllowAnonymous]
+    [EnableRateLimiting("fixed")]
     public async Task<IActionResult> Webhook(
         CancellationToken cancellationToken)
     {
@@ -204,7 +210,6 @@ public class PaymentsController(
         var contentLength = Request.ContentLength ?? 0;
         var queryKeys = string.Join(", ", Request.Query.Keys);
 
-        Console.WriteLine($"[WEBHOOK-IN] QueryString={queryStringRaw}, ContentType={contentType}, ContentLength={contentLength}, QueryKeys=[{queryKeys}]");
         logger.LogInformation("[WEBHOOK-IN] QueryString={QueryString}, ContentType={ContentType}, ContentLength={ContentLength}, QueryKeys=[{QueryKeys}]",
             queryStringRaw, contentType, contentLength, queryKeys);
 
@@ -215,7 +220,6 @@ public class PaymentsController(
         // SEMPRE ler body bruto primeiro (EnableBuffering já foi chamado no middleware)
         try
         {
-            Console.WriteLine($"[WEBHOOK-BODY] Tentando ler body. Body.Position antes: {Request.Body.Position}, CanSeek: {Request.Body.CanSeek}");
             Request.Body.Position = 0;
             using var reader = new StreamReader(Request.Body, System.Text.Encoding.UTF8);
             var rawBody = await reader.ReadToEndAsync(cancellationToken);
@@ -225,7 +229,6 @@ public class PaymentsController(
                 ? rawBody.Substring(0, Math.Min(500, rawBody.Length))
                 : "(vazio)";
 
-            Console.WriteLine($"[WEBHOOK-BODY] Body lido. Length={rawBody?.Length ?? 0}, Preview={bodyPreview}");
             logger.LogInformation("Payments Webhook: body length={Length}, contentType={ContentType}, preview={Preview}",
                 rawBody?.Length ?? 0, Request.ContentType ?? "null", bodyPreview);
 
@@ -320,7 +323,6 @@ public class PaymentsController(
         // Fallback: tentar query string (alguns webhooks antigos do MP podem usar query)
         var dataIdFromQuery = GetPaymentIdFromQuery();
 
-        Console.WriteLine($"[WEBHOOK-QUERY] dataIdFromQuery={dataIdFromQuery ?? "null"}, dataIdFromBody={dataIdFromBody ?? "null"}");
         logger.LogInformation("[WEBHOOK-QUERY] dataIdFromQuery={FromQuery}, dataIdFromBody={FromBody}",
             dataIdFromQuery ?? "null", dataIdFromBody ?? "null");
 
@@ -336,8 +338,6 @@ public class PaymentsController(
         if (string.IsNullOrWhiteSpace(dataIdForProcessing))
         {
             queryKeys = string.Join(", ", Request.Query.Keys);
-            var errorMsg = $"Missing payment id in query or body. QueryString={Request.QueryString.Value ?? "null"}, QueryKeys=[{queryKeys}], ContentType={Request.ContentType ?? "null"}, ContentLength={Request.ContentLength ?? 0}, dataIdFromQuery={dataIdFromQuery ?? "null"}, dataIdFromBody={dataIdFromBody ?? "null"}";
-            Console.WriteLine($"[WEBHOOK-ERROR] {errorMsg}");
             logger.LogWarning("Payments Webhook: sem id na query nem no body. QueryString={QueryString}, QueryKeys=[{Keys}], ContentType={ContentType}, ContentLength={Length}, dataIdFromQuery={FromQuery}, dataIdFromBody={FromBody}",
                 Request.QueryString.Value ?? "null", queryKeys, Request.ContentType ?? "null", Request.ContentLength ?? 0, dataIdFromQuery ?? "null", dataIdFromBody ?? "null");
             return BadRequest(new { error = "Missing payment id in query or body" });
@@ -395,7 +395,7 @@ public class PaymentsController(
         {
             var xSignature = Request.Headers["x-signature"].FirstOrDefault();
 
-            if (paymentService is PaymentService ps && !ps.ValidateWebhookSignature(xSignature, xRequestId, dataIdForHmac))
+            if (!ValidateWebhookSignature(dataIdForHmac, xSignature, xRequestId))
             {
                 // MP envia webhooks em dois formatos: novo (?data.id=&type=) e legado (?id=&topic=).
                 // O formato legado pode falhar no HMAC. Se o pagamento já foi processado (por outro webhook), retornar 200 idempotente.
@@ -444,7 +444,6 @@ public class PaymentsController(
                     await webhookEventRepository.UpdateAsync(existing, cancellationToken);
                     logger.LogWarning("[WEBHOOK-EVENT] Webhook duplicado detectado. X-Request-Id={RequestId}, PaymentId={PaymentId}",
                         xRequestId, dataIdForProcessing);
-                    Console.WriteLine($"[WEBHOOK-EVENT] Duplicado. X-Request-Id={xRequestId}");
                     return Ok(new { message = "Webhook já processado (duplicado)", duplicate = true });
                 }
             }
@@ -482,7 +481,6 @@ public class PaymentsController(
             webhookEvent = await webhookEventRepository.CreateAsync(webhookEvent, cancellationToken);
             logger.LogInformation("[WEBHOOK-EVENT] Evento persistido. EventId={EventId}, PaymentId={PaymentId}, X-Request-Id={RequestId}",
                 webhookEvent.Id, dataIdForProcessing, xRequestId ?? "null");
-            Console.WriteLine($"[WEBHOOK-EVENT] Persistido. EventId={webhookEvent.Id}, PaymentId={dataIdForProcessing}");
         }
         catch (Exception ex)
         {
@@ -508,7 +506,6 @@ public class PaymentsController(
                     {
                         logger.LogInformation("[WEBHOOK-EVENT] Processado com sucesso. EventId={EventId}, PaymentId={PaymentId}",
                             webhookEvent.Id, dataIdForProcessing);
-                        Console.WriteLine($"[WEBHOOK-EVENT] Processado. EventId={webhookEvent.Id}");
                     }
                 }
                 catch (Exception persistEx)
@@ -533,7 +530,6 @@ public class PaymentsController(
             }
             logger.LogError(ex, "[WEBHOOK-EVENT] Erro ao processar webhook. PaymentId={PaymentId}",
                 dataIdForProcessing);
-            Console.WriteLine($"[WEBHOOK-EVENT] Erro. PaymentId={dataIdForProcessing}, Error={ex.Message}");
             throw;
         }
 
@@ -549,20 +545,15 @@ public class PaymentsController(
     private string? GetPaymentIdFromQuery()
     {
         var queryStringRaw = Request.QueryString.Value ?? "";
-        Console.WriteLine($"[GET-PAYMENT-ID] QueryString bruto: {queryStringRaw}");
-        Console.WriteLine($"[GET-PAYMENT-ID] Query.Keys: [{string.Join(", ", Request.Query.Keys)}]");
 
         // 1) Acesso direto (funciona na maioria dos casos)
         var dataIdDirect = Request.Query["data.id"].FirstOrDefault();
         var dataIdUnderscore = Request.Query["data_id"].FirstOrDefault();
         var idDirect = Request.Query["id"].FirstOrDefault();
 
-        Console.WriteLine($"[GET-PAYMENT-ID] Tentativa 1 - data.id={dataIdDirect ?? "null"}, data_id={dataIdUnderscore ?? "null"}, id={idDirect ?? "null"}");
-
         var fromCollection = dataIdDirect ?? dataIdUnderscore ?? idDirect;
         if (!string.IsNullOrWhiteSpace(fromCollection) && fromCollection.All(char.IsDigit))
         {
-            Console.WriteLine($"[GET-PAYMENT-ID] Encontrado via collection: {fromCollection}");
             return fromCollection;
         }
 
@@ -570,7 +561,6 @@ public class PaymentsController(
         var fromKeys = GetDataIdFromQueryFallback();
         if (!string.IsNullOrWhiteSpace(fromKeys))
         {
-            Console.WriteLine($"[GET-PAYMENT-ID] Encontrado via fallback keys: {fromKeys}");
             return fromKeys;
         }
 
@@ -578,11 +568,9 @@ public class PaymentsController(
         var raw = Request.QueryString.Value;
         if (string.IsNullOrWhiteSpace(raw) || raw.Length < 10)
         {
-            Console.WriteLine($"[GET-PAYMENT-ID] QueryString muito curto ou vazio: {raw ?? "null"}");
             return null;
         }
         var query = raw.TrimStart('?');
-        Console.WriteLine($"[GET-PAYMENT-ID] Tentativa 3 - Parse manual do QueryString: {query}");
         foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var eq = pair.IndexOf('=');
@@ -590,15 +578,12 @@ public class PaymentsController(
                 continue;
             var key = Uri.UnescapeDataString(pair[..eq].Trim());
             var value = Uri.UnescapeDataString(pair[(eq + 1)..].Trim());
-            Console.WriteLine($"[GET-PAYMENT-ID] Par chave-valor: {key}={value}");
             if ((key.Equals("data.id", StringComparison.OrdinalIgnoreCase) || key.Equals("data_id", StringComparison.OrdinalIgnoreCase) || key.Equals("id", StringComparison.OrdinalIgnoreCase))
                 && value.Length > 0 && value.Length < 20 && value.All(char.IsDigit))
             {
-                Console.WriteLine($"[GET-PAYMENT-ID] Encontrado via parse manual: {value}");
                 return value;
             }
         }
-        Console.WriteLine($"[GET-PAYMENT-ID] Nenhum ID encontrado em nenhuma tentativa");
         return null;
     }
 
@@ -628,6 +613,38 @@ public class PaymentsController(
                 : idVal.GetString();
         }
         return webhook?.Id;
+    }
+
+    private bool ValidateWebhookSignature(string? dataId, string? xSignature, string? xRequestId)
+    {
+        var secret = mpConfig.Value.WebhookSecret;
+        if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(xSignature))
+            return false;
+
+        string? ts = null;
+        string? v1 = null;
+        foreach (var part in xSignature.Split(','))
+        {
+            var trimmed = part.Trim();
+            if (trimmed.StartsWith("ts="))
+                ts = trimmed[3..];
+            else if (trimmed.StartsWith("v1="))
+                v1 = trimmed[3..];
+        }
+
+        if (string.IsNullOrEmpty(ts) || string.IsNullOrEmpty(v1))
+            return false;
+
+        var manifest = string.IsNullOrWhiteSpace(dataId)
+            ? $"request-id:{xRequestId};ts:{ts};"
+            : string.IsNullOrWhiteSpace(xRequestId)
+                ? $"id:{dataId};ts:{ts};"
+                : $"id:{dataId};request-id:{xRequestId};ts:{ts};";
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(manifest));
+        var computed = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+        return string.Equals(computed, v1, StringComparison.OrdinalIgnoreCase);
     }
 
     private Guid GetUserId()

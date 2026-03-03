@@ -11,6 +11,7 @@ export interface DoctorCardProps {
   style?: StyleProp<ViewStyle>;
   noPadding?: boolean;
   onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
 export function DoctorCard({
@@ -18,6 +19,7 @@ export function DoctorCard({
   style,
   noPadding = false,
   onPress,
+  accessibilityLabel,
 }: DoctorCardProps) {
   const cardStyle: StyleProp<ViewStyle> = [
     styles.card,
@@ -31,6 +33,7 @@ export function DoctorCard({
         onPress={onPress}
         style={({ pressed }) => [...cardStyle, pressed && styles.pressed]}
         accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
       >
         {children}
       </Pressable>

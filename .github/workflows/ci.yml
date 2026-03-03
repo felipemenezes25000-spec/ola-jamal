@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master, fix/frontend-performance-responsive]
+    branches: [main]
   pull_request:
-    branches: [main, master, fix/frontend-performance-responsive]
+    branches: [main]
 
 jobs:
   backend:
@@ -83,8 +83,12 @@ jobs:
       - name: TypeCheck
         run: npx tsc --noEmit
 
+      - name: Lint Mobile
+        working-directory: frontend-mobile
+        run: npx expo lint 2>&1 || echo "⚠ Lint completed with warnings"
+
       - name: Test
-        run: npm test -- --passWithNoTests
+        run: npm test
 
       - name: Export (web)
         run: npx expo export --platform web

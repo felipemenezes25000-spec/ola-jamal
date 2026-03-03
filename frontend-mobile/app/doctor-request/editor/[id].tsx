@@ -263,8 +263,8 @@ export default function PrescriptionEditorScreen() {
     validatePrescription(requestId)
       .then((v) => {
         if (cancelled) return;
-        const needs = (v.missingFields ?? []).some(
-          (f) => f.includes('médico.endereço') || f.includes('médico.telefone')
+        const needs = !v.valid && (v.missingFields ?? []).some(
+          (f: string) => f.includes('médico.endereço') || f.includes('médico.telefone')
         );
         setSignFormDoctorProfileBlocked(!v.valid && needs);
       })
@@ -346,22 +346,6 @@ export default function PrescriptionEditorScreen() {
       }
     };
   }, [request?.id, request?.requestType, loadPdfPreview]);
-
-  /**
-   * Quando pdfUri muda (ex.: após Salvar ou Atualizar), re-envia o base64 à WebView.
-   * Se a WebView já recebeu onLoad, o postMessage atualiza os dados.
-   * Como fallback, usamos key={pdfUri} na WebView para forçar remount.
-   */
-  useEffect(() => {
-    if (Platform.OS !== 'web' && pdfUri && webViewRef.current) {
-      const base64 = pdfUri.replace(/^data:application\/pdf;base64,/, '');
-      // Pequeno delay para garantir que a WebView está pronta
-      const timer = setTimeout(() => {
-        webViewRef.current?.postMessage(base64);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [pdfUri]);
 
   const handleSave = async () => {
     const meds = medications.map((m) => m.trim()).filter(Boolean);
@@ -516,7 +500,7 @@ export default function PrescriptionEditorScreen() {
   const bottomBarPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
 
   /** Botão "Assinar Digitalmente" só aparece após aprovação e pagamento (status paid). */
-  const canSign = request?.status === 'paid' && request?.requestType !== 'consultation';
+  const canSign = request?.status === 'paid';
 
   return (
     <SafeAreaView style={st.container} edges={['top']}>
@@ -879,7 +863,7 @@ export default function PrescriptionEditorScreen() {
                 >
                   <Text style={st.cancelSignText}>Cancelar</Text>
                 </TouchableOpacity>
-                <PrimaryButton label="Assinar e enviar" onPress={handleSign} loading={signing} style={st.signConfirmBtn} />
+                <PrimaryButton label="Assinar" onPress={handleSign} loading={signing} style={st.signConfirmBtn} />
               </View>
             </DoctorCard>
           )}

@@ -26,6 +26,7 @@ import { InfoCard } from '../../components/ui/InfoCard';
 import { HeaderInfo } from '../../components/ui/HeaderInfo';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { FadeIn } from '../../components/ui/FadeIn';
 import { AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import {
@@ -128,6 +129,7 @@ export default function PatientHome() {
           <SkeletonList count={4} />
         </View>
       ) : (
+        <FadeIn visible={!loading} duration={300}>
         <ScrollView
           style={styles.container}
           contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
@@ -143,7 +145,7 @@ export default function PatientHome() {
         >
       {/* Header: só saudação + avatar (igual ao web) */}
       <LinearGradient
-        colors={[...gradients.patientHeader]}
+        colors={gradients.patientHeader as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 12 }]}
@@ -156,6 +158,8 @@ export default function PatientHome() {
           <Pressable
             style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8 }]}
             onPress={() => router.push('/(patient)/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir perfil"
           >
             <Text style={styles.avatarInitial}>{initial}</Text>
           </Pressable>
@@ -224,6 +228,7 @@ export default function PatientHome() {
             description="Solicitar renovação de receita médica"
             variant="primary"
             onPress={() => router.push('/new-request/prescription')}
+            accessibilityLabel="Solicitar renovação de receita médica"
           />
           <LargeActionCard
             icon={
@@ -235,19 +240,40 @@ export default function PatientHome() {
             description="Solicitar exames e laudos"
             variant="exam"
             onPress={() => router.push('/new-request/exam')}
+            accessibilityLabel="Solicitar pedido de exame"
           />
           <LargeActionCard
             icon={
               <View style={[styles.actionIconBox, { backgroundColor: colors.accentSoft }]}>
-                <Ionicons name="videocam" size={24} color={colors.primary} />
+                <Ionicons name="videocam" size={24} color={colors.accent} />
               </View>
             }
             title="Consulta Breve +"
             description="Atendimento por vídeo com o médico"
             variant="consultation"
             onPress={() => router.push('/new-request/consultation')}
+            accessibilityLabel="Agendar consulta por vídeo"
           />
         </View>
+      </View>
+
+      {/* ─── Prontuário ─── */}
+      <View style={styles.section}>
+        <Pressable
+          style={({ pressed }) => [styles.recordCard, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+          onPress={() => router.push('/(patient)/record')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir meu prontuário médico"
+        >
+          <View style={styles.recordIconWrap}>
+            <Ionicons name="folder-open" size={24} color={colors.primary} />
+          </View>
+          <View style={styles.recordTextWrap}>
+            <Text style={styles.recordTitle}>Meu Prontuário</Text>
+            <Text style={styles.recordSubtitle}>Veja seu histórico de atendimentos, receitas e exames</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
       </View>
 
       {/* ─── Recent Requests ─── */}
@@ -258,6 +284,8 @@ export default function PatientHome() {
             <Pressable
               onPress={() => router.push('/(patient)/requests')}
               style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.7 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Ver todos os pedidos"
             >
               <Text style={styles.seeAllText}>Ver todos</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
@@ -285,13 +313,16 @@ export default function PatientHome() {
           {/* Espaço extra para não colar na tab bar */}
           <View style={{ height: uiTokens.cardGap * 3 }} />
         </ScrollView>
+        </FadeIn>
       )}
 
       {/* Dra. Renova fixa acima da tab bar */}
       <View style={styles.aiBannerSticky}>
         <AssistantBanner
           onAction={(action) => {
-            if (action === 'teleconsulta') router.push('/new-request/consultation');
+            if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
+              router.push('/new-request/consultation');
+            }
             if (action === 'ver_servicos') {
               router.push('/(patient)/requests');
             }
@@ -438,5 +469,40 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // ─── Record Card (Prontuário) ───
+  recordCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  recordIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  recordTextWrap: { flex: 1 },
+  recordTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  recordSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 18,
   },
 });

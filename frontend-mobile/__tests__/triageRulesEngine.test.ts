@@ -94,7 +94,7 @@ describe('triageRulesEngine', () => {
         context: 'prescription', step: 'type_selected', prescriptionType: 'azul',
       }));
       expect(result?.key).toBe('rx:controlled:azul');
-      expect(result?.text).toContain('vigilância rigorosa');
+      expect(result?.text.toLowerCase()).toContain('atenção especial');
     });
 
     it('shows simple tip for simples', () => {
@@ -196,17 +196,40 @@ describe('triageRulesEngine', () => {
   // ── Message quality ───────────────────────────────────────
   describe('message quality', () => {
     it('all messages have unique keys', () => {
-      const contexts = ['home', 'prescription', 'exam', 'consultation', 'detail'] as const;
-      const steps = ['entry', 'type_selected', 'result', 'idle'] as const;
+      const cases: Partial<TriageInput>[] = [
+        { context: 'home', totalRequests: 0 },
+        { context: 'home', totalRequests: 10, recentPrescriptionCount: 3 },
+        { context: 'home', totalRequests: 5, recentExamCount: 2 },
+        { context: 'home', totalRequests: 6, lastConsultationDays: 200 },
+        { context: 'prescription', step: 'entry' },
+        { context: 'prescription', step: 'type_selected', prescriptionType: 'controlado' },
+        { context: 'prescription', step: 'type_selected', prescriptionType: 'azul' },
+        { context: 'prescription', step: 'type_selected', prescriptionType: 'simples' },
+        { context: 'prescription', step: 'photos_added', imagesCount: 1 },
+        { context: 'prescription', step: 'analyzing' },
+        { context: 'prescription', step: 'result', aiRiskLevel: 'high' },
+        { context: 'prescription', step: 'result', aiReadabilityOk: false },
+        { context: 'prescription', step: 'result', aiMessageToUser: 'Mensagem IA' },
+        { context: 'prescription', step: 'result' },
+        { context: 'exam', step: 'entry' },
+        { context: 'exam', step: 'type_selected', examType: 'imagem' },
+        { context: 'exam', step: 'result', exams: ['Ressonância'] },
+        { context: 'exam', step: 'result', exams: ['A', 'B', 'C', 'D', 'E', 'F'] },
+        { context: 'exam', step: 'result', exams: ['Hemograma'] },
+        { context: 'consultation', step: 'entry' },
+        { context: 'consultation', step: 'symptoms_entered', symptoms: 'Dor' },
+        { context: 'detail', step: 'entry', status: 'approved_pending_payment', requestType: 'consultation' },
+        { context: 'detail', step: 'entry', status: 'pending_payment', requestType: 'exam' },
+        { context: 'detail', step: 'idle', doctorConductNotes: 'ok' },
+        { context: 'detail', step: 'idle', status: 'signed' },
+      ];
       const keys = new Set<string>();
 
-      for (const context of contexts) {
-        for (const step of steps) {
-          const result = evaluateTriageRules(input({ context, step }));
-          if (result) {
-            expect(keys.has(result.key)).toBe(false);
-            keys.add(result.key);
-          }
+      for (const c of cases) {
+        const result = evaluateTriageRules(input(c));
+        if (result) {
+          expect(keys.has(result.key)).toBe(false);
+          keys.add(result.key);
         }
       }
     });

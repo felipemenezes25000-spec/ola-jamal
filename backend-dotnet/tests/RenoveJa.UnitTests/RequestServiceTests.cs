@@ -57,6 +57,7 @@ public class RequestServiceTests
         apiConfigMock.Setup(x => x.Value).Returns(new ApiConfig { BaseUrl = "" });
         var documentTokenServiceMock = new Mock<IDocumentTokenService>();
         var requestEventsPublisherMock = new Mock<IRequestEventsPublisher>();
+        var signedRequestClinicalSyncMock = new Mock<ISignedRequestClinicalSyncService>();
 
         _sut = new RequestService(
             _requestRepoMock.Object,
@@ -79,6 +80,7 @@ public class RequestServiceTests
             _consultationTimeBankRepoMock.Object,
             _aiConductSuggestionServiceMock.Object,
             requestEventsPublisherMock.Object,
+            signedRequestClinicalSyncMock.Object,
             _loggerMock.Object);
     }
 

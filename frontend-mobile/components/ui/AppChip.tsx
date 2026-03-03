@@ -39,6 +39,7 @@ export function AppChip({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ selected, disabled }}
+      accessibilityLabel={`Filtrar por ${label}`}
     >
       <Text
         style={[styles.chipText, selected && { color: accentColor, fontWeight: '700' }]}

@@ -6,17 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../../lib/themeDoctor';
-import { getPatientRequests } from '../../lib/api';
+import { getPatientRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
@@ -54,16 +54,19 @@ export default function DoctorPatientProntuario() {
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const id = Array.isArray(patientId) ? patientId[0] : patientId ?? '';
 
   const loadData = useCallback(async () => {
     if (!id) return;
     try {
+      setLoadError(false);
       const data = await getPatientRequests(id);
       setRequests(data);
     } catch (e) {
       console.error(e);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,8 +82,56 @@ export default function DoctorPatientProntuario() {
     loadData();
   };
 
-  const patientName = requests[0]?.patientName ?? 'Paciente';
+  const sortedRequests = useMemo(() => sortRequestsByNewestFirst(requests), [requests]);
+
+  const patientName = sortedRequests[0]?.patientName ?? 'Paciente';
   const headerPaddingTop = insets.top + 8;
+
+  const [typeFilter, setTypeFilter] = useState<'all' | 'prescription' | 'exam' | 'consultation'>('all');
+
+  const filteredRequests = useMemo(
+    () =>
+      sortedRequests.filter((r) =>
+        typeFilter === 'all' ? true : r.requestType === typeFilter
+      ),
+    [sortedRequests, typeFilter]
+  );
+
+  function buildMiniSummary(req: RequestResponseDto): string | null {
+    if (req.requestType === 'consultation') {
+      if (req.symptoms && req.symptoms.trim().length > 0) {
+        return req.symptoms.trim();
+      }
+      if (req.doctorConductNotes && req.doctorConductNotes.trim().length > 0) {
+        return req.doctorConductNotes.trim();
+      }
+      if (req.aiSummaryForDoctor && req.aiSummaryForDoctor.trim().length > 0) {
+        return req.aiSummaryForDoctor.trim();
+      }
+      return null;
+    }
+    if (req.requestType === 'prescription') {
+      const meds = req.medications ?? [];
+      if (!meds.length) return null;
+      const first = meds[0];
+      const extra = meds.length > 1 ? ` (+${meds.length - 1} med.)` : '';
+      const kind =
+        req.prescriptionKind === 'antimicrobial'
+          ? ' · Antimicrobiana'
+          : req.prescriptionKind === 'controlled_special'
+          ? ' · Controle especial'
+          : '';
+      return `${first}${extra}${kind}`;
+    }
+    if (req.requestType === 'exam') {
+      const exams = req.exams ?? [];
+      if (!exams.length) return null;
+      const first = exams[0];
+      const extra = exams.length > 1 ? ` (+${exams.length - 1} exames)` : '';
+      return `${first}${extra}`;
+    }
+    return null;
+  }
 
   // Estatísticas de uso do app pelo paciente (para Dra. Renova médico)
   const totalRequests = requests.length;
@@ -121,7 +172,29 @@ export default function DoctorPatientProntuario() {
   if (loading) {
     return (
       <View style={styles.loadingWrap}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <DoctorHeader title="Prontuário" onBack={() => router.back()} />
+        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+          <SkeletonList count={5} />
+        </View>
+      </View>
+    );
+  }
+
+  if (loadError && requests.length === 0) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <DoctorHeader title="Prontuário" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Ionicons name="alert-circle-outline" size={56} color={colors.error} />
+          <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text, marginTop: 16 }}>Erro ao carregar</Text>
+          <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 6, textAlign: 'center' }}>Verifique sua conexão e tente novamente</Text>
+          <TouchableOpacity
+            onPress={loadData}
+            style={{ marginTop: 20, paddingVertical: 12, paddingHorizontal: 28, backgroundColor: colors.primary, borderRadius: 26 }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -133,91 +206,146 @@ export default function DoctorPatientProntuario() {
         subtitle={patientName}
         onBack={() => router.back()}
       />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ marginBottom: spacing.md }}>
-          <AssistantBanner />
-        </View>
-        {/* Resumo */}
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryIconWrap}>
-              <Ionicons name="person" size={24} color={colors.primary} />
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Resumo */}
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryIconWrap}>
+                <Ionicons name="person" size={24} color={colors.primary} />
+              </View>
+              <View style={styles.summaryBody}>
+                <Text style={styles.summaryLabel}>Total de pedidos</Text>
+                <Text style={styles.summaryValue}>{requests.length}</Text>
+              </View>
             </View>
-            <View style={styles.summaryBody}>
-              <Text style={styles.summaryLabel}>Total de pedidos</Text>
-              <Text style={styles.summaryValue}>{requests.length}</Text>
-            </View>
-          </View>
-          {requests.length > 0 && (
-            <Text style={styles.lastRequest}>
-              Último: {fmtDate(requests[0].createdAt)}
+            {requests.length > 0 && (
+              <Text style={styles.lastRequest}>
+              Último: {fmtDate(sortedRequests[0].createdAt)}
             </Text>
           )}
-        </View>
-
-        {/* Timeline */}
-        <Text style={styles.sectionTitle}>Pedidos</Text>
-        {requests.length === 0 ? (
-          <View style={styles.empty}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="document-text-outline" size={44} color={colors.textMuted} />
-            </View>
-            <Text style={styles.emptyTitle}>Nenhum pedido encontrado</Text>
-            <Text style={styles.emptySubtitle}>
-              Este paciente ainda não possui histórico de pedidos
-            </Text>
+          {requests.length > 0 && (
+            <TouchableOpacity
+              style={styles.summaryLinkBtn}
+              activeOpacity={0.7}
+              onPress={() => router.push(`/doctor-patient-summary/${id}` as any)}
+            >
+              <Ionicons name="list-circle" size={18} color={colors.primary} />
+              <Text style={styles.summaryLinkText}>Ver resumo clínico contínuo</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
           </View>
-        ) : (
-          requests.map((req) => {
-            const icon = TYPE_ICONS[req.requestType] || 'document';
-            const color = TYPE_COLORS[req.requestType] || colors.primary;
-            return (
-              <TouchableOpacity
-                key={req.id}
-                style={styles.timelineCard}
-                onPress={() => router.push(`/doctor-request/${req.id}`)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.timelineIcon, { backgroundColor: color + '18' }]}>
-                  <Ionicons name={icon} size={22} color={color} />
-                </View>
-                <View style={styles.timelineBody}>
-                  <View style={styles.timelineHeader}>
-                    <Text style={styles.timelineType}>
-                      {TYPE_LABELS[req.requestType] || req.requestType}
-                    </Text>
-                    <StatusBadge status={req.status} size="sm" />
+
+          {/* Timeline */}
+          <Text style={styles.sectionTitle}>Pedidos</Text>
+
+          {/* Filtros rápidos por tipo */}
+          {requests.length > 0 && (
+            <View style={styles.filterRow}>
+              {([
+                { key: 'all', label: 'Todos' },
+                { key: 'consultation', label: 'Consultas' },
+                { key: 'prescription', label: 'Receitas' },
+                { key: 'exam', label: 'Exames' },
+              ] as const).map((opt) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.filterChip,
+                    typeFilter === opt.key && styles.filterChipActive,
+                  ]}
+                  onPress={() => setTypeFilter(opt.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      typeFilter === opt.key && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {requests.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="document-text-outline" size={44} color={colors.textMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>Nenhum pedido encontrado</Text>
+              <Text style={styles.emptySubtitle}>
+                Este paciente ainda não possui histórico de pedidos
+              </Text>
+            </View>
+          ) : filteredRequests.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="filter" size={40} color={colors.textMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>Nada para o filtro atual</Text>
+              <Text style={styles.emptySubtitle}>
+                Tente mudar o tipo selecionado acima para ver outros registros.
+              </Text>
+            </View>
+          ) : (
+            filteredRequests.map((req) => {
+              const icon = TYPE_ICONS[req.requestType] || 'document';
+              const color = TYPE_COLORS[req.requestType] || colors.primary;
+              return (
+                <TouchableOpacity
+                  key={req.id}
+                  style={styles.timelineCard}
+                  onPress={() => router.push(`/doctor-request/${req.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.timelineIcon, { backgroundColor: color + '18' }]}>
+                    <Ionicons name={icon} size={22} color={color} />
                   </View>
-                  <Text style={styles.timelineDate}>{fmtDate(req.createdAt)}</Text>
-                  {req.requestType === 'consultation' && (req.consultationTranscript || req.consultationAnamnesis) && (
-                    <View style={styles.transcriptBadge}>
-                      <Ionicons name="document-text" size={12} color={colors.primary} />
-                      <Text style={styles.transcriptBadgeText}>Transcrição e anamnese disponíveis</Text>
+                  <View style={styles.timelineBody}>
+                    <View style={styles.timelineHeader}>
+                      <Text style={styles.timelineType}>
+                        {TYPE_LABELS[req.requestType] || req.requestType}
+                      </Text>
+                      <StatusBadge status={req.status} size="sm" />
                     </View>
-                  )}
-                  {req.aiSummaryForDoctor && (
-                    <Text style={styles.timelineSummary} numberOfLines={2}>
-                      {req.aiSummaryForDoctor}
-                    </Text>
-                  )}
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+                    <Text style={styles.timelineDate}>{fmtDate(req.createdAt)}</Text>
+                    {req.requestType === 'consultation' && (req.consultationTranscript || req.consultationAnamnesis) && (
+                      <View style={styles.transcriptBadge}>
+                        <Ionicons name="document-text" size={12} color={colors.primary} />
+                        <Text style={styles.transcriptBadgeText}>Transcrição e anamnese disponíveis</Text>
+                      </View>
+                    )}
+                    {buildMiniSummary(req) && (
+                      <Text style={styles.timelineSummary} numberOfLines={2}>
+                        {buildMiniSummary(req)}
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+      <View style={styles.aiBannerSticky}>
+        <AssistantBanner />
+      </View>
     </View>
   );
 }
@@ -286,6 +414,18 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.sm,
   },
+  summaryLinkBtn: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryLinkText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
@@ -293,6 +433,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: spacing.md,
     textTransform: 'uppercase',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: borderRadius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  filterChipTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   timelineCard: {
     flexDirection: 'row',
@@ -371,5 +538,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  aiBannerSticky: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.lg * 2,
   },
 });

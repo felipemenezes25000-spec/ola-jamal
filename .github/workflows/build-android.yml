@@ -1,4 +1,9 @@
 name: Build Android APK
+# Para signing release, configure os seguintes secrets no repositório:
+# - ANDROID_KEYSTORE_BASE64: keystore em base64 (keytool -genkey ...)
+# - ANDROID_KEYSTORE_PASSWORD: senha do keystore
+# - ANDROID_KEY_ALIAS: alias da chave
+# - ANDROID_KEY_PASSWORD: senha da chave
 
 on:
   workflow_dispatch:
@@ -12,9 +17,9 @@ on:
           - release
           - debug
       api_url:
-        description: "URL da API"
+        description: "URL da API (deixe vazio para usar o secret EXPO_PUBLIC_API_URL)"
         required: false
-        default: "https://ola-jamal.onrender.com"
+        default: ""
 
 jobs:
   build:
@@ -53,7 +58,7 @@ jobs:
       - name: Generate native project files
         run: npx expo prebuild --platform android --clean --no-install
         env:
-          EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+          EXPO_PUBLIC_API_URL: ${{ github.event.inputs.api_url || secrets.EXPO_PUBLIC_API_URL }}
 
       - name: Verify newArchEnabled in gradle.properties
         run: |
@@ -67,17 +72,32 @@ jobs:
 
       - name: Inject google-services.json
         run: |
-          if [ -z "$GOOGLE_SERVICES_B64" ]; then
+          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" ]; then
             echo "ERRO: secret GOOGLE_SERVICES_JSON_BASE64 não configurado no repositório!"
             exit 1
           fi
-          echo "$GOOGLE_SERVICES_B64" | base64 --decode > android/app/google-services.json
+          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
           node -e "const f=require('./android/app/google-services.json'); console.log('✓ google-services.json válido — projeto:', f.project_info.project_id)"
-        env:
-          GOOGLE_SERVICES_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
+
+      - name: Setup Android signing
+        if: inputs.build_type == 'release'
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "⚠ ANDROID_KEYSTORE_BASE64 não configurado. Build release usará debug signing."
+          else
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
+            echo "" >> android/gradle.properties
+            echo "RELEASE_STORE_FILE=release-keystore.jks" >> android/gradle.properties
+            echo "RELEASE_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/gradle.properties
+            echo "RELEASE_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/gradle.properties
+            echo "RELEASE_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/gradle.properties
+            echo "✓ Keystore configurado para signing release"
+          fi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
       - name: Build APK
         run: |
@@ -88,7 +108,7 @@ jobs:
             ./gradlew assembleDebug --no-daemon
           fi
         env:
-          EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+          EXPO_PUBLIC_API_URL: ${{ github.event.inputs.api_url || secrets.EXPO_PUBLIC_API_URL }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

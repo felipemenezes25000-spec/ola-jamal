@@ -17,6 +17,7 @@ import { RequestsEventsProvider } from '../contexts/RequestsEventsContext';
 import { TriageAssistantProvider } from '../contexts/TriageAssistantProvider';
 import { GlobalRequestUpdatedToast } from '../components/GlobalRequestUpdatedToast';
 import { RequestUpdateBanner } from '../components/RequestUpdateBanner';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { ToastProvider } from '../components/ui/Toast';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -79,6 +80,7 @@ export default function RootLayout() {
             <GlobalRequestUpdatedToast />
             <TriageAssistantProvider>
             <ToastProvider>
+              <OfflineBanner />
               <View style={styles.layoutContent}>
                 <RequestUpdateBanner />
                 <Stack screenOptions={{ headerShown: false }}>
@@ -91,6 +93,8 @@ export default function RootLayout() {
                 <Stack.Screen name="doctor-request/[id]" />
                 <Stack.Screen name="doctor-request/editor/[id]" />
                 <Stack.Screen name="doctor-patient/[patientId]" />
+                <Stack.Screen name="doctor-patient-summary/[patientId]" />
+                <Stack.Screen name="consultation-summary/[requestId]" />
                 <Stack.Screen name="payment/[id]" />
                 <Stack.Screen name="payment/request/[requestId]" />
                 <Stack.Screen name="payment/card" />

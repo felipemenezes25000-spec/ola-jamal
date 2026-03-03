@@ -74,6 +74,11 @@ export default function NewExam() {
   };
 
   const pickImage = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera para fotografar o pedido de exame.');
+      return;
+    }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (!result.canceled && result.assets[0]) {
       setImages([...images, result.assets[0].uri]);
@@ -137,7 +142,16 @@ export default function NewExam() {
       <View style={styles.body}>
         {/* Dra. Renova */}
         <View style={{ marginBottom: 12 }}>
-          <AssistantBanner onAction={(action) => { if (action === 'teleconsulta' || action === 'consulta_breve') router.push('/new-request/consultation'); }} />
+          <AssistantBanner
+            onAction={(action) => {
+              if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
+                router.push('/new-request/consultation');
+              }
+              if (action === 'ver_servicos') {
+                router.push('/(patient)/requests');
+              }
+            }}
+          />
         </View>
 
         {/* Exam Type */}
@@ -151,7 +165,7 @@ export default function NewExam() {
                 key={type.key}
                 selected={examType === type.key}
                 onPress={() => setExamType(type.key)}
-                style={[styles.typeCard, oneColumn && styles.typeCardFull]}
+                style={StyleSheet.flatten(oneColumn ? [styles.typeCard, styles.typeCardFull] : styles.typeCard)}
               >
                 <Ionicons
                   name={type.icon}

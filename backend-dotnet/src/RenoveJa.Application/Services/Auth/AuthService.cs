@@ -20,6 +20,8 @@ public class AuthService(
     IAuthTokenRepository tokenRepository,
     IPasswordResetTokenRepository passwordResetTokenRepository,
     IEmailService emailService,
+    IClinicalRecordService clinicalRecordService,
+    IConsentRepository consentRepository,
     IOptions<SmtpConfig> smtpConfig,
     IOptions<GoogleAuthConfig> googleAuthConfig) : IAuthService
 {
@@ -56,6 +58,7 @@ public class AuthService(
         {
             var token = AuthToken.Create(user.Id);
             await tokenRepository.CreateAsync(token, cancellationToken);
+            _ = RecordInitialConsentsAsync(user.Id, cancellationToken);
             return new AuthResponseDto(MapUserToDto(user), token.Token);
         }
         catch
@@ -344,6 +347,7 @@ public class AuthService(
             user = await userRepository.UpdateAsync(user, cancellationToken);
         }
 
+        _ = RecordInitialConsentsAsync(user.Id, cancellationToken);
         return MapUserToDto(user);
     }
 
@@ -380,7 +384,12 @@ public class AuthService(
         string token,
         CancellationToken cancellationToken = default)
     {
-        var authToken = await tokenRepository.GetByTokenAsync(token, cancellationToken);
+        // Normaliza o token que veio do header/query (pode estar URL-encoded, ex.: %3D%3D em vez de ==)
+        var normalizedToken = Uri.UnescapeDataString(token?.Trim() ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(normalizedToken))
+            throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
+
+        var authToken = await tokenRepository.GetByTokenAsync(normalizedToken, cancellationToken);
         
         if (authToken == null || authToken.IsExpired())
             throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
@@ -460,6 +469,54 @@ public class AuthService(
         var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.UpdatePassword(newHash);
         await userRepository.UpdateAsync(user, cancellationToken);
+    }
+
+    private async Task RecordInitialConsentsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var patient = await clinicalRecordService.EnsurePatientFromUserAsync(userId, cancellationToken);
+            var now = DateTime.UtcNow;
+            const string channel = "app_registration";
+            const string version = "v1.0";
+
+            var privacyConsent = ConsentRecord.Create(
+                patient.Id,
+                ConsentType.PrivacyPolicy,
+                LegalBasis.ContractExecution,
+                "Aceite da Política de Privacidade durante cadastro",
+                now,
+                channel,
+                version);
+            await consentRepository.CreateAsync(privacyConsent, cancellationToken);
+            patient.LinkConsentRecord(privacyConsent.Id);
+
+            var telemedicineConsent = ConsentRecord.Create(
+                patient.Id,
+                ConsentType.Telemedicine,
+                LegalBasis.HealthCareProvision,
+                "Aceite dos Termos de Uso e condições de telemedicina durante cadastro",
+                now,
+                channel,
+                version);
+            await consentRepository.CreateAsync(telemedicineConsent, cancellationToken);
+            patient.LinkConsentRecord(telemedicineConsent.Id);
+
+            var dataSharingConsent = ConsentRecord.Create(
+                patient.Id,
+                ConsentType.DataSharing,
+                LegalBasis.HealthCareProvision,
+                "Consentimento para compartilhamento de dados com médicos para prestação de serviço de saúde",
+                now,
+                channel,
+                version);
+            await consentRepository.CreateAsync(dataSharingConsent, cancellationToken);
+            patient.LinkConsentRecord(dataSharingConsent.Id);
+        }
+        catch
+        {
+            // Best effort: consent recording failure should not block registration
+        }
     }
 
     private static UserDto MapUserToDto(User user)

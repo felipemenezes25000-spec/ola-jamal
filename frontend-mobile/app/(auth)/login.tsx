@@ -146,14 +146,27 @@ export default function Login() {
   }, []);
 
   const handleGooglePress = useCallback(async () => {
-    if (!googleWebClientId?.trim()) {
+    if (!hasGoogleConfig || !googleWebClientId?.trim()) {
+      if (__DEV__) {
+        console.warn('[Login] Google OAuth não configurado. Ver CONFIG_GOOGLE_OAUTH.md e variáveis EXPO_PUBLIC_GOOGLE_*.', {
+          googleWebClientId,
+          googleAndroidClientId,
+          googleIosClientId,
+        });
+      }
       Alert.alert(
-        'Google Login',
-        'Configure EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env ou app.config. Veja GOOGLE_OAUTH_SETUP.md.'
+        'Login com Google indisponível',
+        'No momento o login com Google não está disponível neste dispositivo. Tente entrar com email e senha.'
       );
       return;
     }
-    if (!request) return;
+    if (!request) {
+      Alert.alert(
+        'Login com Google indisponível',
+        'Não foi possível iniciar o fluxo de login com Google. Feche o app e tente novamente.'
+      );
+      return;
+    }
     setGoogleLoading(true);
     try {
       const result = await promptGoogle();
@@ -273,7 +286,7 @@ export default function Login() {
         title="Continuar com Google"
         onPress={handleGooglePress}
         loading={googleLoading}
-        disabled={!request}
+        disabled={!request || !hasGoogleConfig}
         variant="outline"
         fullWidth
         icon="logo-google"

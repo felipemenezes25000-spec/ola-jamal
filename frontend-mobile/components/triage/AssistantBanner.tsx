@@ -8,7 +8,10 @@
 
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Modal } from 'react-native';
-import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import Reanimated, {
+  FadeInDown,
+  FadeOutUp,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { theme, colors } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
@@ -63,13 +66,13 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
   const accent = ACCENT[current.severity];
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(350).springify().damping(18).stiffness(140)}
-      exiting={FadeOutUp.duration(200)}
-      style={[styles.container, containerStyle]}
-      accessibilityRole="alert"
-      accessibilityLabel={`Assistente de triagem: ${current.text}`}
-    >
+      <Reanimated.View
+        entering={FadeInDown.duration(350).springify().damping(18).stiffness(140)}
+        exiting={FadeOutUp.duration(200)}
+        style={[styles.container, containerStyle]}
+        accessibilityRole="alert"
+        accessibilityLabel={`Assistente de triagem: ${current.text}`}
+      >
       {/* Accent stripe */}
       <View style={[styles.accentBar, { backgroundColor: accent }]} />
 
@@ -173,7 +176,7 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
           </View>
         </View>
       </Modal>
-    </Animated.View>
+      </Reanimated.View>
   );
 }
 

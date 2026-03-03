@@ -235,7 +235,10 @@ public class AuthServiceExtendedTests
         _sut = new AuthService(
             _userRepoMock.Object, _doctorRepoMock.Object,
             _tokenRepoMock.Object, _resetTokenRepoMock.Object,
-            _emailServiceMock.Object, smtpConfig, googleConfig);
+            _emailServiceMock.Object,
+            new Mock<IClinicalRecordService>().Object,
+            new Mock<IConsentRepository>().Object,
+            smtpConfig, googleConfig);
     }
 
     private static User CreatePatient(Guid id) =>
@@ -465,6 +468,7 @@ public class RequestServiceFullTests
     private readonly Mock<IConsultationTimeBankRepository> _consultationTimeBankRepoMock = new();
     private readonly Mock<IAiConductSuggestionService> _aiConductSuggestionServiceMock = new();
     private readonly Mock<IRequestEventsPublisher> _requestEventsPublisherMock = new();
+    private readonly Mock<ISignedRequestClinicalSyncService> _signedRequestClinicalSyncMock = new();
     private readonly Mock<ILogger<RequestService>> _loggerMock = new();
     private readonly RequestService _sut;
 
@@ -483,6 +487,7 @@ public class RequestServiceFullTests
             _documentTokenServiceMock.Object, _consultationTimeBankRepoMock.Object,
             _aiConductSuggestionServiceMock.Object,
             _requestEventsPublisherMock.Object,
+            _signedRequestClinicalSyncMock.Object,
             _loggerMock.Object);
     }
 

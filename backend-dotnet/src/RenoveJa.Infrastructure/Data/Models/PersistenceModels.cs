@@ -487,3 +487,98 @@ public class CertificateModel
             UploadedAt, UploadedByIp, CreatedAt);
     }
 }
+
+/// <summary>Modelo de persistência de paciente clínico (tabela patients).</summary>
+public class PatientModel
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Cpf { get; set; } = string.Empty;
+    public DateTime? BirthDate { get; set; }
+    public string? Sex { get; set; }
+    public string? SocialName { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? AddressLine1 { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? ZipCode { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>Modelo de persistência de encontro clínico (tabela encounters).</summary>
+public class EncounterModel
+{
+    public Guid Id { get; set; }
+    public Guid PatientId { get; set; }
+    public Guid PractitionerId { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Status { get; set; } = "draft";
+    public DateTime StartedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
+    public string? Channel { get; set; }
+    public string? Reason { get; set; }
+    public string? Anamnesis { get; set; }
+    public string? PhysicalExam { get; set; }
+    public string? Plan { get; set; }
+    public string? MainIcd10Code { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>Modelo de persistência de documento médico (tabela medical_documents).</summary>
+public class MedicalDocumentModel
+{
+    public Guid Id { get; set; }
+    public Guid PatientId { get; set; }
+    public Guid PractitionerId { get; set; }
+    public Guid? EncounterId { get; set; }
+    public string DocumentType { get; set; } = string.Empty;
+    public string Status { get; set; } = "draft";
+    public Guid? PreviousDocumentId { get; set; }
+    public List<string> Medications { get; set; } = new();
+    public List<string> Exams { get; set; } = new();
+    public string? ReportBody { get; set; }
+    public string? ClinicalJustification { get; set; }
+    public string? Priority { get; set; }
+    public string? Icd10Code { get; set; }
+    public int? LeaveDays { get; set; }
+    public string? GeneralInstructions { get; set; }
+    public string? SignatureHash { get; set; }
+    public string? SignatureAlgorithm { get; set; }
+    public string? SignatureCertificate { get; set; }
+    public DateTime? SignedAt { get; set; }
+    public bool? SignatureIsValid { get; set; }
+    public string? SignatureValidationResult { get; set; }
+    public string? SignaturePolicyOid { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>Modelo de persistência de registro de consentimento (tabela consent_records).</summary>
+public class ConsentRecordModel
+{
+    public Guid Id { get; set; }
+    public Guid PatientId { get; set; }
+    public string ConsentType { get; set; } = string.Empty;
+    public string LegalBasis { get; set; } = string.Empty;
+    public string Purpose { get; set; } = string.Empty;
+    public DateTime AcceptedAt { get; set; }
+    public string Channel { get; set; } = string.Empty;
+    public string? TextVersion { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>Modelo de persistência de evento de auditoria clínica (tabela audit_events).</summary>
+public class AuditEventModel
+{
+    public Guid Id { get; set; }
+    public Guid? UserId { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string EntityType { get; set; } = string.Empty;
+    public Guid? EntityId { get; set; }
+    public string? Channel { get; set; }
+    public string? IpAddress { get; set; }
+    public string? UserAgent { get; set; }
+    public string? CorrelationId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

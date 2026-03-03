@@ -1,4 +1,7 @@
 import { apiClient } from './api-client';
+
+type RNFile = { uri: string; type: string; name: string };
+
 import {
   RequestResponseDto,
   RequestStatus,
@@ -12,6 +15,9 @@ import {
   PushTokenDto,
   CertificateInfoDto,
   UploadCertificateResponseDto,
+  PatientSummaryDto,
+  EncounterSummaryDto,
+  MedicalDocumentSummaryDto,
 } from '../types/database';
 
 // ============================================
@@ -62,7 +68,7 @@ export async function createPrescriptionRequest(
         uri,
         name: filename,
         type,
-      } as any);
+      } as unknown as Blob);
     }
 
     return apiClient.post('/api/requests/prescription', formData, true);
@@ -102,7 +108,7 @@ export async function createExamRequest(
         uri,
         name: filename,
         type,
-      } as any);
+      } as unknown as Blob);
     }
 
     return apiClient.post('/api/requests/exam', formData, true);
@@ -269,12 +275,13 @@ export async function validatePrescription(
       missingFields: res?.missingFields ?? [],
       messages: res?.messages ?? [],
     };
-  } catch (e: any) {
-    if (e?.status === 400 && (e?.missingFields ?? e?.messages)) {
+  } catch (e: unknown) {
+    const err = e as Record<string, unknown> | undefined;
+    if (err && (err as { status?: number }).status === 400 && ((err as { missingFields?: unknown }).missingFields ?? (err as { messages?: unknown }).messages)) {
       return {
         valid: false,
-        missingFields: e.missingFields ?? [],
-        messages: e.messages ?? [e.message],
+        missingFields: (err as { missingFields?: string[] }).missingFields ?? [],
+        messages: (err as { messages?: string[]; message?: string }).messages ?? [(err as { message?: string }).message ?? 'Erro desconhecido'],
       };
     }
     throw e;
@@ -318,7 +325,7 @@ export async function transcribeAudioChunk(
   formData.append('requestId', requestId);
   formData.append('stream', stream);
   // React Native FormData accepts { uri, name, type } objects for file uploads
-  formData.append('file', audioBlob as any);
+  formData.append('file', audioBlob as unknown as Blob);
   return apiClient.post('/api/consultation/transcribe', formData, true);
 }
 
@@ -564,7 +571,7 @@ export async function uploadCertificate(
       uri: pfxUri,
       name: filename,
       type: 'application/x-pkcs12',
-    } as any);
+    } as unknown as Blob);
   }
   formData.append('password', password);
 
@@ -580,8 +587,8 @@ export async function getCertificateStatus(): Promise<{ hasValidCertificate: boo
 export async function getActiveCertificate(): Promise<CertificateInfoDto | null> {
   try {
     return await apiClient.get('/api/certificates/active');
-  } catch (error: any) {
-    if (error.status === 404) return null;
+  } catch (error: unknown) {
+    if ((error as { status?: number })?.status === 404) return null;
     throw error;
   }
 }
@@ -599,7 +606,7 @@ export async function getMercadoPagoPublicKey(): Promise<{ publicKey: string }> 
   return apiClient.get('/api/integrations/mercadopago-public-key');
 }
 
-export async function getIntegrationStatus(): Promise<any> {
+export async function getIntegrationStatus(): Promise<Record<string, unknown>> {
   return apiClient.get('/api/integrations/status');
 }
 
@@ -625,7 +632,8 @@ export async function fetchDoctorStats(): Promise<DoctorStats> {
       completedCount: res.completedCount ?? 0,
       totalEarnings: res.totalEarnings ?? 0,
     };
-  } catch {
+  } catch (e) {
+    console.warn('Failed to fetch doctor stats:', e);
     return { pendingCount: 0, inReviewCount: 0, completedCount: 0, totalEarnings: 0 };
   }
 }
@@ -637,10 +645,32 @@ export async function fetchDoctorStats(): Promise<DoctorStats> {
 export async function fetchVideoRoomByRequest(requestId: string): Promise<VideoRoomResponseDto | null> {
   try {
     return await apiClient.get(`/api/video/rooms/by-request/${requestId}`);
-  } catch (error: any) {
-    if (error.status === 404) return null;
+  } catch (error: unknown) {
+    if ((error as { status?: number })?.status === 404) return null;
     throw error;
   }
+}
+
+// ============================================
+// CLINICAL / FHIR-LITE (prontuário)
+// ============================================
+
+export async function fetchMyPatientSummary(): Promise<PatientSummaryDto> {
+  return apiClient.get('/api/fhir-lite/patient-summary');
+}
+
+export async function fetchMyEncounters(
+  limit = 50,
+  offset = 0
+): Promise<EncounterSummaryDto[]> {
+  return apiClient.get('/api/fhir-lite/encounters', { limit, offset });
+}
+
+export async function fetchMyDocuments(
+  limit = 50,
+  offset = 0
+): Promise<MedicalDocumentSummaryDto[]> {
+  return apiClient.get('/api/fhir-lite/documents', { limit, offset });
 }
 
 // ============================================

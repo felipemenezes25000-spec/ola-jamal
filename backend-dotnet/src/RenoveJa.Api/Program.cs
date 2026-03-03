@@ -1,6 +1,7 @@
 using DotNetEnv;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Auth;
+using RenoveJa.Application.Services.Clinical;
 using RenoveJa.Infrastructure.AiReading;
 using RenoveJa.Application.Services.Audit;
 using RenoveJa.Application.Services.Requests;
@@ -103,7 +104,7 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.Console(outputTemplate: logTemplate)
     .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: 30, outputTemplate: logTemplate)
+        retainedFileCountLimit: 30, fileSizeLimitBytes: 50_000_000, rollOnFileSizeLimit: true, outputTemplate: logTemplate)
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -253,6 +254,11 @@ builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
 builder.Services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
 builder.Services.AddScoped<IConsultationTimeBankRepository, ConsultationTimeBankRepository>();
+builder.Services.AddScoped<IPatientRepository, PatientRepository>();
+builder.Services.AddScoped<IEncounterRepository, EncounterRepository>();
+builder.Services.AddScoped<IMedicalDocumentRepository, MedicalDocumentRepository>();
+builder.Services.AddScoped<IConsentRepository, ConsentRepository>();
+builder.Services.AddScoped<IAuditEventRepository, AuditEventRepository>();
 
 // Register Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -264,6 +270,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IAuditEventService, AuditEventService>();
+builder.Services.AddScoped<IClinicalRecordService, ClinicalRecordService>();
+builder.Services.AddScoped<ISignedRequestClinicalSyncService, SignedRequestClinicalSyncService>();
 builder.Services.AddScoped<IVerificationService, RenoveJa.Application.Services.Verification.VerificationService>();
 
 // Register Infrastructure Services
@@ -334,8 +343,8 @@ builder.Services.AddCors(options =>
         var origins = (allowedOrigins != null && allowedOrigins.Length > 0) ? allowedOrigins : defaultOrigins;
 
         policy.SetIsOriginAllowed(origin => IsAllowedOrigin(origin, origins))
-              .AllowAnyMethod()
-              .AllowAnyHeader()
+              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+              .WithHeaders("Authorization", "Content-Type", "Accept", "X-Requested-With", "X-Request-Id", "X-Correlation-Id")
               .AllowCredentials();
     });
 
@@ -371,6 +380,17 @@ builder.Services.AddCors(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429;
+
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 200,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 20
+            }));
 
     // Limiter global: 100 requests por minuto por IP
     options.AddPolicy("fixed", httpContext =>
@@ -452,6 +472,22 @@ if (app.Environment.IsDevelopment())
 else
     app.UseCors();
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    ctx.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    ctx.Response.Headers["X-XSS-Protection"] = "0";
+    await next();
+});
+
 // Remove trailing slash internamente (sem redirect) para evitar 405 em webhooks.
 // POST /api/payments/webhook/ -> reescrito para POST /api/payments/webhook
 var rewriteOptions = new RewriteOptions()
@@ -467,12 +503,15 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseSwagger();
-app.UseSwaggerUI();
-
-app.UseRateLimiter();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+app.UseRateLimiter();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ApiRequestLoggingMiddleware>();
 

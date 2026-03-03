@@ -19,7 +19,8 @@ export default {
       infoPlist: {
         UIBackgroundModes: ["voip"],
         NSCameraUsageDescription: "RenoveJá+ precisa de acesso à câmera para videoconsultas",
-        NSMicrophoneUsageDescription: "RenoveJá+ precisa de acesso ao microfone para videoconsultas"
+        NSMicrophoneUsageDescription: "RenoveJá+ precisa de acesso ao microfone para videoconsultas",
+        NSPhotoLibraryUsageDescription: "RenoveJá+ precisa de acesso à galeria para enviar fotos de receitas e documentos"
       }
     },
     android: {
@@ -70,7 +71,7 @@ export default {
     },
     extra: {
       // No dispositivo físico use o IP da sua máquina: EXPO_PUBLIC_API_URL=http://192.168.15.69:5000
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_URL || "https://ola-jamal.onrender.com",
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_URL || "",
       // Google OAuth — necessário para login com Google (iOS exige iosClientId)
       googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "",
       googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",

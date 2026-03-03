@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../lib/theme';
+import { haptics } from '../../lib/haptics';
 import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,12 +28,13 @@ export default function PatientLayout() {
 
   return (
     <Tabs
+      screenListeners={{
+        tabPress: () => haptics.selection(),
+      }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#2CB1FF',
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarPressColor: 'rgba(44, 177, 255, 0.12)',
-        tabBarPressOpacity: 0.8,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.borderLight,
@@ -83,6 +85,15 @@ export default function PatientLayout() {
           title: 'Pedidos',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'document-text' : 'document-text-outline'} color={color} focused={focused} variant="patient" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="record"
+        options={{
+          title: 'Prontuário',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'folder-open' : 'folder-open-outline'} color={color} focused={focused} variant="patient" />
           ),
         }}
       />

@@ -2,7 +2,7 @@
 // USER & AUTH TYPES (matches Auth/AuthDtos.cs)
 // ============================================
 
-export type UserRole = 'patient' | 'doctor';
+export type UserRole = 'patient' | 'doctor' | 'admin';
 
 export interface UserDto {
   id: string;
@@ -140,7 +140,7 @@ export interface RequestResponseDto {
 // PAYMENT TYPES (matches Payments/PaymentDtos.cs)
 // ============================================
 
-export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled';
 
 export interface PaymentResponseDto {
   id: string;
@@ -171,7 +171,7 @@ export interface NotificationResponseDto {
   message: string;
   notificationType: NotificationType;
   read: boolean;
-  data: Record<string, any> | null;
+  data: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -270,6 +270,52 @@ export interface PushTokenDto {
   active: boolean;
   createdAt: string;
   updatedAt?: string; // Backend não retorna; opcional para compatibilidade
+}
+
+// ============================================
+// CLINICAL / FHIR-LITE TYPES (matches Clinical/ClinicalDtos.cs)
+// ============================================
+
+export interface PatientSummaryDto {
+  id: string;
+  identifier: { cpf: string };
+  name: { full: string; social?: string | null };
+  birthDate: string | null;
+  sex: string | null;
+  contact: { phone?: string | null; email?: string | null };
+  address?: {
+    line1?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zipCode?: string | null;
+  } | null;
+  stats: {
+    totalRequests: number;
+    totalPrescriptions: number;
+    totalExams: number;
+    totalConsultations: number;
+    lastConsultationDate?: string | null;
+    lastConsultationDaysAgo?: number | null;
+  };
+  medications: string[];
+  exams: string[];
+}
+
+export interface EncounterSummaryDto {
+  id: string;
+  type: string;
+  startedAt: string;
+  finishedAt: string | null;
+  mainIcd10Code: string | null;
+}
+
+export interface MedicalDocumentSummaryDto {
+  id: string;
+  documentType: string;
+  status: string;
+  createdAt: string;
+  signedAt: string | null;
+  encounterId: string | null;
 }
 
 // ============================================

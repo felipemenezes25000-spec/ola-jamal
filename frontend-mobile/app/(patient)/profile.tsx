@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, gradients, shadows, doctorDS } from '../../lib/themeDoctor';
+import { colors, gradients, shadows } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -88,7 +88,7 @@ export default function PatientProfile() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header with gradient */}
       <LinearGradient
-        colors={[...gradients.doctorHeader]}
+        colors={gradients.patientHeader as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 16 }]}
@@ -107,7 +107,7 @@ export default function PatientProfile() {
         <InfoRow
           icon="finger-print-outline"
           label="CPF"
-          value={user?.cpf ? `***.***.${String(user.cpf).replace(/\D/g, '').slice(-6)}` : 'Não informado'}
+          value={user?.cpf ? `***.***.**${String(user.cpf).replace(/\D/g, '').slice(-3).replace(/^(\d)/, '-$1')}` : 'Não informado'}
         />
         {user?.city && (
           <>
@@ -128,6 +128,7 @@ export default function PatientProfile() {
                 style={({ pressed }) => [styles.menuItemCard, pressed && styles.menuItemPressed]}
                 onPress={item.onPress}
                 accessibilityRole="button"
+                accessibilityLabel={item.label}
               >
                 <View style={styles.menuIconWrap}>
                   <Ionicons name={item.icon} size={20} color={colors.primary} />
@@ -162,7 +163,7 @@ export default function PatientProfile() {
         )}
       </TouchableOpacity>
 
-      <Text style={styles.version}>RenoveJá+ v1.0.0</Text>
+      <Text style={styles.version}>RenoveJá+ v{require('expo-constants').default?.expoConfig?.version ?? '1.0.0'}</Text>
 
       <View style={{ height: insets.bottom + 24 }} />
     </ScrollView>

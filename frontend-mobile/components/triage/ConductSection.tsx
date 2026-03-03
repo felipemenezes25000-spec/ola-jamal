@@ -105,7 +105,7 @@ export function ConductSection({
               style={({ pressed }) => [styles.aiBtn, styles.aiBtnPrimary, pressed && styles.pressed]}
               onPress={useSuggestion}
             >
-              <Ionicons name="checkmark" size={14} color="#FFF" />
+              <Ionicons name="checkmark" size={14} color={colors.white} />
               <Text style={styles.aiBtnPrimaryText}>Usar</Text>
             </Pressable>
             <Pressable
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft, paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 100,
   },
   autoObsBadgeText: { fontSize: 8, fontWeight: '700', color: colors.primary, letterSpacing: 0.3 },
-  autoObsText: { fontSize: 12, lineHeight: 17, color: '#475569', fontStyle: 'italic' },
+  autoObsText: { fontSize: 12, lineHeight: 17, color: colors.textSecondary, fontStyle: 'italic' },
 
   // AI suggestion card
   aiCard: {
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   },
   aiCardTitle: { fontSize: 13, fontWeight: '700', color: '#7C3AED' },
   aiCardSubtitle: { fontSize: 10, color: '#A78BFA', marginTop: 1 },
-  aiCardText: { fontSize: 12.5, lineHeight: 18, color: '#475569', marginBottom: 12 },
+  aiCardText: { fontSize: 12.5, lineHeight: 18, color: colors.textSecondary, marginBottom: 12 },
   aiCardActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   aiBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
   },
   aiBtnPrimary: { backgroundColor: '#7C3AED' },
-  aiBtnPrimaryText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
+  aiBtnPrimaryText: { fontSize: 12, fontWeight: '700', color: colors.white },
   aiBtnSecondary: { backgroundColor: '#EDE9FE' },
   aiBtnSecondaryText: { fontSize: 12, fontWeight: '600', color: '#7C3AED' },
   aiBtnGhostText: { fontSize: 12, fontWeight: '500', color: '#94A3B8' },
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: colors.primarySoft, paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: borderRadius.pill, borderWidth: 1, borderColor: '#B8DFFB',
+    borderRadius: borderRadius.pill, borderWidth: 1, borderColor: colors.accent,
   },
   chipText: { fontSize: 11.5, fontWeight: '500', color: colors.primaryDark },
 

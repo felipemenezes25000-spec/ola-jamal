@@ -41,8 +41,8 @@ export default function TermsScreen() {
             A {COMPANY.name} é responsável pelo meio tecnológico e pelo funcionamento da plataforma. O conteúdo clínico e as condutas médicas são de responsabilidade exclusiva do profissional que realiza o atendimento. O teleatendimento não substitui o exame físico quando este for indispensável; caberá ao médico a decisão de encaminhar o paciente ao presencial. O usuário (paciente) é responsável pela veracidade das informações fornecidas e pelo sigilo de sua senha.
           </Section>
 
-          <Section title="5. Uso de inteligência artificial">
-            A plataforma utiliza recursos de inteligência artificial para triagem pré-atendimento, auxílio na leitura de receitas e exames, geração de sugestões de conduta médica, e interação proativa com o paciente por meio de assistente virtual. As decisões clínicas finais permanecem sob responsabilidade exclusiva do médico. O usuário está ciente e concorda com o uso dessas ferramentas nos termos da Política de Privacidade.
+          <Section title="5.3. Uso de inteligência artificial">
+            A plataforma utiliza recursos de inteligência artificial para triagem pré-atendimento, auxílio na leitura de receitas e exames, geração de sugestões de conduta médica, e interação proativa com o paciente por meio de assistente virtual. As decisões clínicas finais permanecem sob responsabilidade exclusiva do médico. O usuário está ciente e concorda com o uso dessas ferramentas nos termos da Política de Privacidade. Alguns desses recursos podem ser operados por provedores externos de computação em nuvem, contratados pela plataforma, os quais assumem obrigações de confidencialidade e proteção de dados equivalentes às adotadas pela {COMPANY.name}.
           </Section>
 
           <Section title="5.1. Assistente virtual de triagem">
@@ -88,7 +88,7 @@ function Section({
   last,
 }: {
   title: string;
-  children: string;
+  children: React.ReactNode;
   last?: boolean;
 }) {
   return (

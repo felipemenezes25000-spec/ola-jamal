@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -15,13 +14,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, gradients, doctorDS } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, gradients } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto, RequestType } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
 import { EmptyState } from '../../components/EmptyState';
 import { RequestTypeFilter } from '../../components/RequestTypeFilter';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { FadeIn } from '../../components/ui/FadeIn';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const LOG_QUEUE = __DEV__ && false;
 const ListSeparator = () => <View style={styles.separator} />;
@@ -44,6 +46,7 @@ export default function PatientRequests() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -94,8 +97,8 @@ export default function PatientRequests() {
     if (filterConfig?.type) {
       result = result.filter((r) => r.requestType === filterConfig.type);
     }
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       result = result.filter(
         (r) =>
           r.doctorName?.toLowerCase().includes(q) ||
@@ -105,7 +108,7 @@ export default function PatientRequests() {
       );
     }
     setFilteredRequests(sortRequestsByNewestFirst(result));
-  }, [requests, filterConfig?.type, search]);
+  }, [requests, filterConfig?.type, debouncedSearch]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -128,7 +131,7 @@ export default function PatientRequests() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[...gradients.doctorHeader]}
+        colors={gradients.patientHeader as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, styles.headerGradient, { paddingTop: headerPaddingTop }]}
@@ -146,6 +149,7 @@ export default function PatientRequests() {
           value={search}
           onChangeText={setSearch}
           editable={!loading}
+          accessibilityLabel="Buscar pedidos"
         />
       </View>
 
@@ -159,19 +163,19 @@ export default function PatientRequests() {
 
       {loading && requests.length === 0 ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Carregando pedidos...</Text>
+          <SkeletonList count={5} />
         </View>
       ) : error ? (
         <View style={styles.errorWrap}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.errorTitle}>Não foi possível carregar</Text>
           <Text style={styles.errorMsg}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} accessibilityRole="button" accessibilityLabel="Tentar novamente">
             <Text style={styles.retryText}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
       ) : (
+        <FadeIn visible={!loading} duration={300}>
         <FlatList
           data={filteredRequests}
           keyExtractor={keyExtractor}
@@ -196,6 +200,7 @@ export default function PatientRequests() {
             ) : null
           }
         />
+        </FadeIn>
       )}
     </View>
   );
@@ -226,14 +231,13 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: spacing.sm },
   searchInput: { flex: 1, fontSize: 15, color: colors.text },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.sm },
-  loadingText: { fontSize: 14, color: colors.textMuted },
+  loadingWrap: { paddingHorizontal: 20, paddingTop: 20 },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: spacing.sm },
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.text },
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md },
   retryText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  listContent: { paddingTop: doctorDS.sectionGap, paddingHorizontal: uiTokens.screenPaddingHorizontal },
+  listContent: { paddingTop: 24, paddingHorizontal: uiTokens.screenPaddingHorizontal },
   listContentEmpty: { flexGrow: 1 },
   separator: { height: 8 },
 });

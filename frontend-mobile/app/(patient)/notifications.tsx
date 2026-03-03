@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, gradients, doctorDS } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, gradients } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
@@ -30,19 +30,25 @@ function getDateGroup(dateStr: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
 }
 
+const ListSeparator = () => <View style={{ height: 8 }} />;
+const SectionGap = () => <View style={{ height: 4 }} />;
+
 export default function PatientNotifications() {
   const router = useRouter();
   const { refreshUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
+      setError(false);
       const response = await getNotifications({ page: 1, pageSize: 50 });
       setNotifications(response.items || []);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
+    } catch (e) {
+      console.error('Error loading notifications:', e);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -117,6 +123,8 @@ export default function PatientNotifications() {
         style={[styles.card, !item.read && styles.cardUnread]}
         onPress={() => handleMarkRead(item.id, item)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Notificação: ${item.title}`}
       >
         <View style={[styles.iconContainer, { backgroundColor: icon.color + '15' }]}>
           <Ionicons name={icon.name} size={22} color={icon.color} />
@@ -147,14 +155,19 @@ export default function PatientNotifications() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[...gradients.doctorHeader]}
+        colors={gradients.patientHeader as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: headerPaddingTop }]}
       >
         <Text style={styles.title}>Notificações</Text>
         {notifications.some(n => !n.read) && (
-          <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
+          <TouchableOpacity
+            onPress={handleMarkAllRead}
+            style={styles.markAllBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Marcar todas notificações como lidas"
+          >
             <Text style={styles.markAll}>Marcar lidas</Text>
           </TouchableOpacity>
         )}
@@ -163,6 +176,22 @@ export default function PatientNotifications() {
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.loadingWrap}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+          <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textSecondary, marginTop: 16 }}>
+            Não foi possível carregar
+          </Text>
+          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
+            Verifique sua conexão e tente novamente
+          </Text>
+          <TouchableOpacity
+            onPress={loadData}
+            style={{ marginTop: 20, paddingVertical: 12, paddingHorizontal: 28, backgroundColor: colors.primary, borderRadius: 26 }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Tentar novamente</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <SectionList
@@ -173,8 +202,8 @@ export default function PatientNotifications() {
             <Text style={styles.groupLabel}>{title}</Text>
           )}
           contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
+          ItemSeparatorComponent={ListSeparator}
+          SectionSeparatorComponent={SectionGap}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -223,7 +252,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: doctorDS.cardRadius,
+    borderRadius: borderRadius.card,
     padding: spacing.md,
     alignItems: 'center',
   },

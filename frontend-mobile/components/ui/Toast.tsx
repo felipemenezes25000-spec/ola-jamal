@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../../lib/themeDoctor';
+import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { haptics } from '../../lib/haptics';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -45,6 +46,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
     const show = useCallback((cfg: ToastConfig) => {
         if (timerRef.current) clearTimeout(timerRef.current);
+        const t = cfg.type ?? 'info';
+        if (t === 'success') haptics.success();
+        else if (t === 'error') haptics.error();
+        else if (t === 'warning') haptics.warning();
+        else haptics.light();
         setConfig(cfg);
         setVisible(true);
         const useNative = Platform.OS !== 'web';
@@ -161,7 +167,7 @@ const styles = StyleSheet.create({
     },
     actionBtnText: {
         fontSize: 13,
-        fontFamily: typography.fontFamily.semiBold,
+        fontFamily: typography.fontFamily.semibold,
         fontWeight: '600',
         color: colors.primary,
     },

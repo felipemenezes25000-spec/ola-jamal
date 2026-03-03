@@ -31,6 +31,7 @@ export default function PaymentScreen() {
   const [screen, setScreen] = useState<PayScreen>('selection');
   const [polling, setPolling] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
   const paymentRef = useRef<PaymentResponseDto | null>(null);
@@ -150,6 +151,7 @@ export default function PaymentScreen() {
       // Sincroniza com Mercado Pago (resolve caso webhook tenha falhado)
       const synced = await syncPaymentStatus(payment.requestId);
       setPayment(synced);
+      setLastCheckedAt(new Date());
       if (synced.status === 'approved') {
         if (pollRef.current) clearInterval(pollRef.current);
         Alert.alert('Pagamento confirmado!', 'Seu pagamento foi aprovado.', [
@@ -305,6 +307,11 @@ export default function PaymentScreen() {
             </>
           )}
         </TouchableOpacity>
+        {lastCheckedAt && (
+          <Text style={styles.lastCheckedText}>
+            Última verificação: {lastCheckedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -399,4 +406,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 4,
   },
   checkButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  lastCheckedText: {
+    marginTop: spacing.sm,
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
 });

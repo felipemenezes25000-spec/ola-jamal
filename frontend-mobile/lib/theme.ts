@@ -201,10 +201,10 @@ export const theme = {
 
   typography: {
     fontFamily: {
-      regular: 'System',
-      medium: 'System',
-      semibold: 'System',
-      bold: 'System',
+      regular: 'PlusJakartaSans_400Regular',
+      medium: 'PlusJakartaSans_500Medium',
+      semibold: 'PlusJakartaSans_600SemiBold',
+      bold: 'PlusJakartaSans_700Bold',
     },
 
     fontSize: {
@@ -405,6 +405,7 @@ export const colors = {
   primary: theme.colors.primary.main,
   primaryDark: theme.colors.primary.dark,
   primaryLight: theme.colors.primary.soft,
+  primarySoft: theme.colors.primary.soft,
   primaryGhost: theme.colors.primary.ghost,
   secondary: theme.colors.secondary.main,
   secondaryDark: theme.colors.secondary.dark,
@@ -450,6 +451,8 @@ export const spacing = {
   xl: theme.spacing.xl,
   xxl: theme.spacing.xxl,
 };
+
+export const typography = theme.typography;
 
 export const borderRadius = {
   xs: theme.borderRadius.xs,

@@ -16,6 +16,7 @@ interface LargeActionCardProps {
   description: string;
   onPress: () => void;
   variant?: LargeActionCardVariant;
+  accessibilityLabel?: string;
 }
 
 export function LargeActionCard({
@@ -24,13 +25,14 @@ export function LargeActionCard({
   description,
   onPress,
   variant = 'primary',
+  accessibilityLabel,
 }: LargeActionCardProps) {
   return (
     <Pressable
       style={({ pressed }) => [styles.card, cardShadow, pressed && styles.pressed]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={accessibilityLabel ?? title}
     >
       <View style={styles.iconWrap}>{icon}</View>
       <View style={styles.textWrap}>

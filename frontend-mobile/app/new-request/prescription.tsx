@@ -154,7 +154,16 @@ export default function NewPrescription() {
       <View style={styles.body}>
         {/* Dra. Renova */}
         <View style={{ marginBottom: 12 }}>
-          <AssistantBanner onAction={(action) => { if (action === 'consulta_breve') router.push('/new-request/consultation'); }} />
+          <AssistantBanner
+            onAction={(action) => {
+              if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
+                router.push('/new-request/consultation');
+              }
+              if (action === 'ver_servicos') {
+                router.push('/(patient)/requests');
+              }
+            }}
+          />
         </View>
 
         {/* Type Selection */}
@@ -168,7 +177,7 @@ export default function NewPrescription() {
               key={type.key}
               selected={isSelectable && selectedType === type.key}
               onPress={isSelectable ? () => setSelectedType(type.key) : undefined}
-              style={[styles.typeCard, isComingSoon && styles.typeCardDisabled]}
+              style={StyleSheet.flatten(isComingSoon ? [styles.typeCard, styles.typeCardDisabled] : styles.typeCard)}
             >
               <View style={styles.typeContent}>
                 <View style={styles.typeTextContainer}>

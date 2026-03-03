@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\src\RenoveJa.Domain\RenoveJa.Domain.csproj" />
     <ProjectReference Include="..\..\src\RenoveJa.Application\RenoveJa.Application.csproj" />
     <ProjectReference Include="..\..\src\RenoveJa.Infrastructure\RenoveJa.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\RenoveJa.Api\RenoveJa.Api.csproj" />
   </ItemGroup>
 
 </Project>

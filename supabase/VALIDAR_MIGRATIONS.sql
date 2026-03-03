@@ -46,6 +46,37 @@ WITH checks AS (
   UNION ALL
   SELECT 'doctor_profiles.crm_validated', 'column',
          EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'doctor_profiles' AND column_name = 'crm_validated')
+  -- Prontuário mínimo
+  UNION ALL
+  SELECT 'public.patients', 'table',
+         EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'patients')
+  UNION ALL
+  SELECT 'public.encounters', 'table',
+         EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'encounters')
+  UNION ALL
+  SELECT 'public.medical_documents', 'table',
+         EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'medical_documents')
+  UNION ALL
+  SELECT 'public.consent_records', 'table',
+         EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'consent_records')
+  UNION ALL
+  SELECT 'public.audit_events', 'table',
+         EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'audit_events')
+  UNION ALL
+  SELECT 'patients.user_id', 'column',
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'patients' AND column_name = 'user_id')
+  UNION ALL
+  SELECT 'medical_documents.patient_id', 'column',
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'medical_documents' AND column_name = 'patient_id')
+  UNION ALL
+  SELECT 'medical_documents.document_type', 'column',
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'medical_documents' AND column_name = 'document_type')
+  UNION ALL
+  SELECT 'medical_documents.medications', 'column',
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'medical_documents' AND column_name = 'medications')
+  UNION ALL
+  SELECT 'medical_documents.exams', 'column',
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'medical_documents' AND column_name = 'exams')
 )
 SELECT
   obj AS "Objeto",

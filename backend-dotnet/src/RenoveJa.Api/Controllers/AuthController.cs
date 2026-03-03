@@ -39,7 +39,7 @@ public class AuthController(
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Auth Register falhou: {Email}", request.Email);
+            logger.LogError(e, "Auth Register falhou");
             throw;
         }
     }
@@ -47,6 +47,7 @@ public class AuthController(
     /// <summary>
     /// Registra um novo médico na plataforma.
     /// </summary>
+    [EnableRateLimiting("register")]
     [HttpPost("register-doctor")]
     public async Task<ActionResult<AuthResponseDto>> RegisterDoctor(
         [FromBody] RegisterDoctorRequestDto request,
@@ -63,6 +64,7 @@ public class AuthController(
     /// <summary>
     /// Realiza login com e-mail e senha.
     /// </summary>
+    [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login(
         [FromBody] LoginRequestDto request,
@@ -70,15 +72,14 @@ public class AuthController(
     {
         try
         {
-            logger.LogInformation("[Auth] Login attempt: Email={Email}", request?.Email ?? "(null)");
+            logger.LogInformation("[Auth] Login attempt");
             var response = await authService.LoginAsync(request!, cancellationToken);
-            logger.LogInformation("[Auth] Login success: Email={Email} UserId={UserId}", request!.Email, response.User.Id);
+            logger.LogInformation("[Auth] Login success: UserId={UserId}", response.User.Id);
             return Ok(response);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "[Auth] Login failed: Email={Email} | Exception={Type} | Message={Message}",
-                request?.Email ?? "(null)", ex.GetType().Name, ex.Message);
+            logger.LogError(ex, "[Auth] Login failed: Exception={Type}", ex.GetType().Name);
             throw;
         }
     }
@@ -114,6 +115,7 @@ public class AuthController(
     /// Autentica via Google OAuth.
     /// Se o usuário for novo, retorna profileComplete: false; o front deve exibir tela para concluir cadastro (phone, CPF, birth date).
     /// </summary>
+    [EnableRateLimiting("auth")]
     [HttpPost("google")]
     public async Task<ActionResult<AuthResponseDto>> GoogleAuth(
         [FromBody] GoogleAuthRequestDto request,
@@ -175,7 +177,7 @@ public class AuthController(
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Auth ForgotPassword falhou: {Email}", request.Email);
+            logger.LogError(e, "Auth ForgotPassword falhou");
             throw;
         }
     }
@@ -204,6 +206,7 @@ public class AuthController(
     /// <summary>
     /// Redefine a senha usando o token recebido por e-mail.
     /// </summary>
+    [EnableRateLimiting("auth")]
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(
         [FromBody] ResetPasswordRequestDto request,

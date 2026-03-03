@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { trackApiLatency } from './analytics';
 
 const TOKEN_KEY = '@renoveja:auth_token';
 
@@ -82,15 +83,20 @@ class ApiClient {
     };
   }
 
-  /** Envolve fetch com timeout e trata AbortError como erro de conexão. */
   private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
     const { signal, cleanup } = this.getTimeoutSignal();
+    const start = Date.now();
+    const endpoint = url.replace(this.baseUrl, '').split('?')[0];
+
     try {
       const res = await fetch(url, { ...init, signal });
       cleanup();
+      trackApiLatency(endpoint, Date.now() - start, res.status);
       return res;
     } catch (e: any) {
       cleanup();
+      trackApiLatency(endpoint, Date.now() - start, 0);
+
       if (e?.name === 'AbortError') {
         throw {
           message:

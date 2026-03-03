@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, doctorDS } from '../../lib/themeDoctor';
+import { haptics } from '../../lib/haptics';
 
 export type PrimaryButtonVariant = 'primary' | 'outline' | 'danger' | 'outline-danger';
 
@@ -69,7 +70,7 @@ export function PrimaryButton({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => { haptics.light(); onPress(); }}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.button,
@@ -115,8 +116,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   variantPrimary: {
-    backgroundColor: '#1B4965',
-    borderColor: '#0F2D44',
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   variantDanger: {
     backgroundColor: colors.error,
@@ -136,10 +137,10 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   enabledPrimary: {
-    shadowColor: '#1B4965',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     elevation: 6,
   },
   enabledDanger: {
@@ -150,8 +151,8 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   pressed: {
-    opacity: 0.95,
-    transform: [{ scale: 0.99 }],
+    opacity: 0.92,
+    transform: [{ scale: 0.97 }],
   },
   content: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@ import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { colors, spacing, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, getActiveCertificate } from '../../lib/api';
@@ -21,6 +22,7 @@ import { cacheRequest } from '../doctor-request/[id]';
 import { StatsCard } from '../../components/StatsCard';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { FadeIn } from '../../components/ui/FadeIn';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { DoctorCard } from '../../components/ui/DoctorCard';
 import {
@@ -94,13 +96,19 @@ export default function DoctorDashboard() {
     }
   }, []);
 
+  const { subscribe } = useRequestsEvents();
+
   useFocusEffect(
     useCallback(() => {
       loadData();
-      const interval = setInterval(loadData, 45000);
-      return () => clearInterval(interval);
     }, [loadData])
   );
+
+  useEffect(() => {
+    return subscribe(() => {
+      loadData();
+    });
+  }, [subscribe, loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -129,6 +137,7 @@ export default function DoctorDashboard() {
 
   return (
     <View style={styles.container}>
+      <FadeIn visible={!loading} duration={300}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
@@ -180,6 +189,8 @@ export default function DoctorDashboard() {
           <Pressable
             style={({ pressed }) => [styles.alertBanner, pressed && { opacity: 0.85 }]}
             onPress={() => router.push('/certificate/upload')}
+            accessibilityRole="button"
+            accessibilityLabel="Fazer upload do certificado digital"
           >
             <View style={styles.alertIconWrap}>
               <Ionicons name="warning" size={18} color="#B45309" />
@@ -197,6 +208,8 @@ export default function DoctorDashboard() {
           <Pressable
             onPress={() => router.push('/(doctor)/requests')}
             style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Ver todos os atendimentos"
           >
             <Text style={styles.seeAllText}>VER TUDO</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.primary} />
@@ -213,7 +226,7 @@ export default function DoctorDashboard() {
             const summary = getShortSummary(req);
             const actionLabel = getActionButtonLabel(req);
             return (
-              <DoctorCard key={req.id} style={styles.pendingCardWrap} onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }}>
+              <DoctorCard key={req.id} style={styles.pendingCardWrap} onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }} accessibilityLabel={`Atendimento de ${req.patientName || 'Paciente'}`}>
                 <View style={styles.pendingCardRow}>
                   <View style={styles.pendingCardMain}>
                     <Text style={styles.pendingCardType}>{typeLabel}</Text>
@@ -249,6 +262,7 @@ export default function DoctorDashboard() {
         )}
       </View>
       </ScrollView>
+      </FadeIn>
 
       {/* Dra. Renova fixa acima da tab bar (médico) */}
       <View style={styles.aiBannerSticky}>

@@ -147,7 +147,7 @@ export default function ConsultationScreen() {
               key={type.key}
               selected={consultationType === type.key}
               onPress={() => setConsultationType(type.key)}
-              style={[styles.typeCard, oneColumn && styles.typeCardFull]}
+              style={StyleSheet.flatten(oneColumn ? [styles.typeCard, styles.typeCardFull] : styles.typeCard)}
             >
               <Text style={[styles.typeName, consultationType === type.key && styles.typeNameSelected]} numberOfLines={1}>
                 {type.label}
@@ -200,7 +200,7 @@ export default function ConsultationScreen() {
         {!loadingBank && bankMinutes > 0 && (
           <AppCard style={styles.bankCard}>
             <View style={styles.bankRow}>
-              <Ionicons name="time" size={18} color={c.success?.main ?? '#16a34a'} />
+              <Ionicons name="time" size={18} color={c.status.success ?? '#16a34a'} />
               <Text style={styles.bankText}>
                 Você tem <Text style={styles.bankBold}>{bankMinutes} min</Text> gratuitos disponíveis no banco de horas
               </Text>

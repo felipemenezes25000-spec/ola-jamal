@@ -49,6 +49,7 @@ public class NotificationsController(INotificationService notificationService, I
         Guid id,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var notification = await notificationService.MarkAsReadAsync(id, cancellationToken);
         return Ok(notification);
     }

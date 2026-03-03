@@ -6,6 +6,7 @@ using RenoveJa.Domain.Enums;
 
 namespace RenoveJa.Api.Controllers;
 
+#if DEBUG
 /// <summary>
 /// Endpoints de desenvolvimento para gerar PDFs de exemplo (receita e exame) para teste.
 /// Use apenas em ambiente de desenvolvimento.
@@ -16,10 +17,12 @@ namespace RenoveJa.Api.Controllers;
 public class DevSampleController : ControllerBase
 {
     private readonly IPrescriptionPdfService _pdfService;
+    private readonly IWebHostEnvironment _env;
 
-    public DevSampleController(IPrescriptionPdfService pdfService)
+    public DevSampleController(IPrescriptionPdfService pdfService, IWebHostEnvironment env)
     {
         _pdfService = pdfService;
+        _env = env;
     }
 
     /// <summary>
@@ -28,6 +31,9 @@ public class DevSampleController : ControllerBase
     [HttpGet("sample-prescription-pdf")]
     public async Task<IActionResult> GetSamplePrescriptionPdf(CancellationToken cancellationToken)
     {
+        if (!_env.IsDevelopment())
+            return NotFound(new { error = "Endpoint disponível apenas em ambiente de desenvolvimento." });
+
         var requestId = Guid.NewGuid();
         var data = new PrescriptionPdfData(
             RequestId: requestId,
@@ -66,6 +72,9 @@ public class DevSampleController : ControllerBase
     [HttpGet("sample-exam-pdf")]
     public async Task<IActionResult> GetSampleExamPdf(CancellationToken cancellationToken)
     {
+        if (!_env.IsDevelopment())
+            return NotFound(new { error = "Endpoint disponível apenas em ambiente de desenvolvimento." });
+
         var requestId = Guid.NewGuid();
         var data = new ExamPdfData(
             RequestId: requestId,
@@ -106,3 +115,4 @@ public class DevSampleController : ControllerBase
         return Convert.ToHexString(hash.AsSpan(0, 4)).ToLowerInvariant();
     }
 }
+#endif

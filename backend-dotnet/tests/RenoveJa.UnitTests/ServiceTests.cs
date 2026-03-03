@@ -480,6 +480,7 @@ public class ExtendedRequestServiceTests
     private readonly Mock<IConsultationTimeBankRepository> _consultationTimeBankRepoMock = new();
     private readonly Mock<IAiConductSuggestionService> _aiConductSuggestionServiceMock = new();
     private readonly Mock<IRequestEventsPublisher> _requestEventsPublisherMock = new();
+    private readonly Mock<ISignedRequestClinicalSyncService> _signedRequestClinicalSyncMock = new();
     private readonly Mock<ILogger<global::RenoveJa.Application.Services.Requests.RequestService>> _loggerMock = new();
     private readonly global::RenoveJa.Application.Services.Requests.RequestService _sut;
 
@@ -498,6 +499,7 @@ public class ExtendedRequestServiceTests
             _documentTokenServiceMock.Object, _consultationTimeBankRepoMock.Object,
             _aiConductSuggestionServiceMock.Object,
             _requestEventsPublisherMock.Object,
+            _signedRequestClinicalSyncMock.Object,
             _loggerMock.Object);
     }
 

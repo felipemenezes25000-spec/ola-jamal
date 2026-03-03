@@ -60,6 +60,7 @@ interface Props {
   showRisk?: boolean;
   /** Quando true, não aplica marginHorizontal (uso em lista com padding próprio, ex. painel médico) */
   suppressHorizontalMargin?: boolean;
+  accessibilityLabel?: string;
 }
 
 function RequestCardInner({
@@ -69,11 +70,13 @@ function RequestCardInner({
   showPrice = false,
   showRisk = false,
   suppressHorizontalMargin = false,
+  accessibilityLabel,
 }: Props) {
   const typeConf = TYPE_CONFIG[request.requestType] || FALLBACK_TYPE;
   const preview = getMedicationPreview(request);
   const price = getDisplayPrice(request.price, request.requestType);
   const riskConf = showRisk && request.aiRiskLevel ? RISK_CONFIG[request.aiRiskLevel] : null;
+  const defaultLabel = `${typeConf.label}${request.patientName ? ` de ${request.patientName}` : ''}`;
 
   return (
     <Pressable
@@ -84,6 +87,7 @@ function RequestCardInner({
       ]}
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? defaultLabel}
     >
       <View style={[styles.accentStrip, { backgroundColor: typeConf.color }]} />
 
@@ -128,7 +132,8 @@ const RequestCard = React.memo(RequestCardInner, (prev, next) =>
   prev.showPatientName === next.showPatientName &&
   prev.showPrice === next.showPrice &&
   prev.showRisk === next.showRisk &&
-  prev.suppressHorizontalMargin === next.suppressHorizontalMargin
+  prev.suppressHorizontalMargin === next.suppressHorizontalMargin &&
+  prev.accessibilityLabel === next.accessibilityLabel
 );
 
 export default RequestCard;
