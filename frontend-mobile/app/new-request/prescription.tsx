@@ -23,6 +23,8 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppCard } from '../../components/ui/AppCard';
+import { AssistantBanner } from '../../components/triage';
+import { useTriageEval } from '../../hooks/useTriageEval';
 
 const t = theme;
 const c = t.colors;
@@ -99,6 +101,16 @@ export default function NewPrescription() {
     }
   };
 
+  /** Dra. Renova: dicas por etapa (tipo, fotos). */
+  useTriageEval({
+    context: 'prescription',
+    step: images.length > 0 ? 'photos_added' : 'type_selected',
+    role: 'patient',
+    requestType: 'prescription',
+    prescriptionType: selectedType,
+    imagesCount: images.length,
+  });
+
   const handleSubmit = async () => {
     if (images.length === 0) {
       Alert.alert('Foto necessária', 'Tire uma foto da receita antiga para continuar.');
@@ -140,6 +152,11 @@ export default function NewPrescription() {
       <AppHeader title="Renovação de Receita" />
 
       <View style={styles.body}>
+        {/* Dra. Renova */}
+        <View style={{ marginBottom: 12 }}>
+          <AssistantBanner onAction={(action) => { if (action === 'consulta_breve') router.push('/new-request/consultation'); }} />
+        </View>
+
         {/* Type Selection */}
         <Text style={styles.sectionLabel}>TIPO DE RECEITA</Text>
         <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de receita tocando em um dos cards abaixo.</Text>

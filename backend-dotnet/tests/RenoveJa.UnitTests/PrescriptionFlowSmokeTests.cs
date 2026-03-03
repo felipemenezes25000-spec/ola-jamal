@@ -88,7 +88,7 @@ public class PrescriptionFlowSmokeTests
         request.RequestType.Should().Be(RequestType.Prescription);
         request.PatientId.Should().Be(patientId);
         request.Medications.Should().ContainSingle();
-        request.AccessCode.Should().HaveLength(4).And.MatchRegex(@"^\d{4}$");
+        request.AccessCode.Should().HaveLength(6).And.MatchRegex(@"^\d{6}$");
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class PrescriptionFlowSmokeTests
         request.SignedDocumentUrl.Should().Be(signedUrl);
         request.SignatureId.Should().Be(signatureId);
         request.SignedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
-        request.AccessCode.Should().HaveLength(4).And.MatchRegex(@"^\d{4}$");
+        request.AccessCode.Should().HaveLength(6).And.MatchRegex(@"^\d{6}$");
     }
 
     [Fact]
@@ -336,19 +336,19 @@ public class PrescriptionFlowSmokeTests
     }
 
     [Fact]
-    public void VerificationService_GenerateAccessCode_ShouldBeDeterministicAndFourDigits()
+    public void VerificationService_GenerateAccessCode_ShouldBeDeterministicAndSixDigits()
     {
         var id = Guid.NewGuid();
         var code1 = VerificationService.GenerateAccessCode(id);
         var code2 = VerificationService.GenerateAccessCode(id);
 
-        code1.Should().HaveLength(4).And.MatchRegex(@"^\d{4}$");
+        code1.Should().HaveLength(6).And.MatchRegex(@"^\d{6}$");
         code1.Should().Be(code2, "deve ser determinístico para o mesmo ID");
 
         var otherId = Guid.NewGuid();
         var codeOther = VerificationService.GenerateAccessCode(otherId);
         // Não verificamos igualdade — pode colidir em casos raros (isso é aceitável por design)
-        codeOther.Should().HaveLength(4).And.MatchRegex(@"^\d{4}$");
+        codeOther.Should().HaveLength(6).And.MatchRegex(@"^\d{6}$");
     }
 
     // ─── Testes de domínio: exame ───────────────────────────────────────────────

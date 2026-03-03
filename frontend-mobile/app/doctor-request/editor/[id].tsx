@@ -23,6 +23,8 @@ import {
   signRequest,
   getPreviewPdf,
   updatePrescriptionContent,
+  updateConduct,
+  parseAiSuggestedExams,
   validatePrescription,
 } from '../../../lib/api';
 import { RequestResponseDto, PrescriptionKind } from '../../../types/database';
@@ -33,6 +35,7 @@ import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
 import { showToast } from '../../../components/ui/Toast';
 import { FormattedAiSummary } from '../../../components/FormattedAiSummary';
+import { ConductSection } from '../../../components/triage';
 
 const RISK_COLORS: Record<string, { bg: string; text: string }> = {
   low: { bg: colors.successLight, text: colors.success },
@@ -229,6 +232,8 @@ export default function PrescriptionEditorScreen() {
   const [rejectedSuggestions, setRejectedSuggestions] = useState<Set<string>>(new Set());
   const [cidQuery, setCidQuery] = useState('');
   const [notes, setNotes] = useState('');
+  const [conductNotes, setConductNotes] = useState('');
+  const [includeInPdf, setIncludeInPdf] = useState(true);
   const [saving, setSaving] = useState(false);
   const [signing, setSigning] = useState(false);
   const [certPassword, setCertPassword] = useState('');
@@ -277,6 +282,8 @@ export default function PrescriptionEditorScreen() {
       const meds = data.medications?.filter(Boolean) ?? [];
       setMedications(meds.length > 0 ? meds : []);
       setNotes(data.notes ?? '');
+      setConductNotes(data.doctorConductNotes ?? '');
+      setIncludeInPdf(data.includeConductInPdf !== false);
       setPrescriptionKind((data.prescriptionKind as PrescriptionKind) || 'simple');
     } catch (e) {
       console.error(e);
@@ -369,6 +376,7 @@ export default function PrescriptionEditorScreen() {
         notes: notes.trim() || undefined,
         prescriptionKind,
       });
+      await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
       await loadRequest();
       await loadPdfPreview();
       showToast({ message: 'Alterações salvas. Preview atualizado.', type: 'success' });
@@ -391,6 +399,7 @@ export default function PrescriptionEditorScreen() {
         notes: notes.trim() || undefined,
         prescriptionKind,
       });
+      await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
       const validation = await validatePrescription(requestId);
       if (!validation.valid) {
         const needsPatientProfile = (validation.missingFields ?? []).some(
@@ -803,6 +812,19 @@ export default function PrescriptionEditorScreen() {
               placeholderTextColor={colors.textMuted}
               multiline
               textAlignVertical="top"
+            />
+          </DoctorCard>
+
+          {/* Conduta médica (Dra. Renova) */}
+          <DoctorCard style={st.cardMargin}>
+            <ConductSection
+              value={conductNotes}
+              onChangeText={setConductNotes}
+              aiSuggestion={request.aiConductSuggestion}
+              suggestedExams={parseAiSuggestedExams(request.aiSuggestedExams)}
+              includeInPdf={includeInPdf}
+              onTogglePdf={setIncludeInPdf}
+              autoObservation={request.autoObservation}
             />
           </DoctorCard>
 

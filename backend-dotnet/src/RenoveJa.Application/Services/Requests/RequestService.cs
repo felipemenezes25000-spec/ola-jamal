@@ -89,18 +89,18 @@ public class RequestService(
         return (requestType, prescriptionType?.ToString()?.ToLowerInvariant(), examType?.ToLowerInvariant()) switch
         {
             (RequestType.Prescription, "controlled", _) =>
-                "Receita de medicação controlada. Paciente orientado sobre a importância do retorno ao médico que acompanha o tratamento. A renovação digital não substitui a avaliação presencial periódica obrigatória.",
+                "Paciente orientado sobre a importância do retorno regular ao médico que acompanha o tratamento de medicação controlada. A renovação digital é um recurso de conveniência e não substitui a avaliação presencial periódica, obrigatória para medicamentos com controle especial.",
             (RequestType.Prescription, "blue", _) =>
-                "Receita de medicação de alta vigilância. Paciente orientado sobre o acompanhamento rigoroso necessário com o médico prescritor. Renovação digital não substitui avaliação clínica presencial.",
+                "Solicitação de renovação de medicação de alta vigilância (receita azul). Paciente orientado sobre o acompanhamento rigoroso necessário com o médico prescritor. Renovação digital não substitui avaliação clínica presencial — a continuidade do tratamento deve ser avaliada periodicamente.",
             (RequestType.Prescription, _, _) =>
-                "Paciente orientado a manter retorno ao médico que acompanha o tratamento. Renovação digital é conveniência — não substitui o seguimento clínico contínuo.",
+                "Paciente orientado sobre a importância do retorno ao médico que acompanha o tratamento. A renovação digital é conveniência — não substitui o seguimento clínico contínuo. Recomenda-se retorno médico para reavaliação.",
             (RequestType.Exam, _, "imagem") =>
-                "Pedido de exame de imagem para complementação diagnóstica. Paciente orientado a retornar ao médico solicitante com o resultado para definição de conduta.",
+                "Solicitação de exame de imagem para complementação diagnóstica. Paciente orientado a retornar ao médico solicitante com o resultado para definição de conduta. Exames de imagem requerem interpretação clínica especializada.",
             (RequestType.Exam, _, _) =>
-                "Pedido de exames para complementação ou investigação diagnóstica. Paciente orientado a retornar ao médico solicitante para avaliação dos resultados.",
+                "Solicitação de exames para complementação ou investigação diagnóstica. Paciente orientado sobre a importância de retornar ao médico solicitante com os resultados, garantindo a segurança e a continuidade do cuidado.",
             (RequestType.Consultation, _, _) =>
-                "Teleconsulta realizada para orientação e esclarecimento de dúvidas. Paciente orientado que a consulta digital complementa, mas não substitui, o acompanhamento presencial quando indicado.",
-            _ => "Paciente orientado a manter acompanhamento regular com seu médico.",
+                "Teleconsulta realizada para orientação, esclarecimento de dúvidas e suporte ao cuidado. Paciente orientado de que a consulta digital complementa, mas não substitui, o acompanhamento presencial com o médico de referência quando indicado.",
+            _ => "Paciente orientado a manter acompanhamento regular com seu médico de referência.",
         };
     }
 

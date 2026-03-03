@@ -8,7 +8,6 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  Linking,
   Modal,
   useWindowDimensions,
 } from 'react-native';
@@ -16,8 +15,6 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { colors, spacing, borderRadius, shadows } from '../../lib/themeDoctor';
 import { fetchRequestById, markRequestDelivered, cancelRequest, getDocumentDownloadUrl } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
@@ -30,6 +27,8 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
 import { FormattedAiSummary } from '../../components/FormattedAiSummary';
+import { ObservationCard, AssistantBanner } from '../../components/triage';
+import { useTriageEval } from '../../hooks/useTriageEval';
 
 function getTypeLabel(type: string): string {
   switch (type) {
@@ -138,6 +137,15 @@ export default function RequestDetailScreen() {
     };
   }, [request?.status, request?.id, loadSilent]);
 
+  /** Dra. Renova: mensagens no contexto do detalhe (conduta disponível, documento pronto). */
+  useTriageEval({
+    context: 'detail',
+    step: 'idle',
+    role: 'patient',
+    status: request?.status ?? undefined,
+    doctorConductNotes: request?.doctorConductNotes ?? undefined,
+  });
+
   const handlePay = () => {
     if (payInFlightRef.current) return;
     payInFlightRef.current = true;
@@ -172,39 +180,12 @@ export default function RequestDetailScreen() {
     if (!request?.signedDocumentUrl) return;
     try {
       await markAsDeliveredIfSigned();
-      const fileName = request.requestType === 'exam'
-        ? `pedido-exame-${request.id.slice(0, 8)}.pdf`
-        : `receita-${request.id.slice(0, 8)}.pdf`;
+      const downloadUrl = await getDocumentDownloadUrl(request.id);
 
-      if (Platform.OS === 'web') {
-        // Web: abre URL do backend proxy (não expõe Supabase)
-        const downloadUrl = await getDocumentDownloadUrl(request.id);
-        window?.open?.(downloadUrl, '_blank');
-        return;
-      }
-
-      // Mobile: baixa via backend proxy com Authorization header
-      const baseUrl = apiClient.getBaseUrl();
-      const proxyUrl = `${baseUrl}/api/requests/${request.id}/document`;
-      const token = await apiClient.getAuthToken();
-      const fileUri = FileSystem.documentDirectory + fileName;
-      const download = await FileSystem.downloadAsync(proxyUrl, fileUri, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      if (download.status !== 200) {
-        Alert.alert('Erro', 'Não foi possível baixar o documento. Tente novamente.');
-        return;
-      }
-      // Abre native share sheet / PDF viewer
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
-      } else {
-        // Fallback: abre o arquivo local
-        await Linking.openURL(download.uri);
-      }
+      // Abre no navegador do sistema (exibe PDF ou permite download)
+      await WebBrowser.openBrowserAsync(downloadUrl);
     } catch (e: unknown) {
-      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível abrir o documento');
     }
   };
 
@@ -212,27 +193,8 @@ export default function RequestDetailScreen() {
     if (!request?.signedDocumentUrl) return;
     try {
       await markAsDeliveredIfSigned();
-      if (Platform.OS === 'web') {
-        const downloadUrl = await getDocumentDownloadUrl(request.id);
-        window?.open?.(downloadUrl, '_blank');
-        return;
-      }
-      // Mobile: baixa primeiro via proxy e abre com Sharing (evita expor URL)
-      const baseUrl = apiClient.getBaseUrl();
-      const proxyUrl = `${baseUrl}/api/requests/${request.id}/document`;
-      const token = await apiClient.getAuthToken();
-      const fileName = request.requestType === 'exam'
-        ? `pedido-exame-${request.id.slice(0, 8)}.pdf`
-        : `receita-${request.id.slice(0, 8)}.pdf`;
-      const fileUri = FileSystem.documentDirectory + fileName;
-      const download = await FileSystem.downloadAsync(proxyUrl, fileUri, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (download.status === 200 && await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
-      } else {
-        Alert.alert('Erro', 'Não foi possível abrir o documento. Tente baixar.');
-      }
+      const downloadUrl = await getDocumentDownloadUrl(request.id);
+      await WebBrowser.openBrowserAsync(downloadUrl);
     } catch (e: unknown) {
       Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível abrir o documento.');
     }
@@ -345,11 +307,32 @@ export default function RequestDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Dra. Renova — dicas no contexto do detalhe */}
+        <View style={{ marginBottom: 8 }}>
+          <AssistantBanner />
+        </View>
+
         {/* Status Tracker */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>STATUS DO PEDIDO</Text>
           <StatusTracker currentStatus={request.status} requestType={request.requestType} />
         </View>
+
+        {/* Observação automática e conduta médica (Dra. Renova) */}
+        {request.autoObservation && (
+          <View style={styles.card}>
+            <ObservationCard mode="auto" text={request.autoObservation} />
+          </View>
+        )}
+        {request.doctorConductNotes && (
+          <View style={styles.card}>
+            <ObservationCard
+              mode="conduct"
+              text={request.doctorConductNotes}
+              doctorName={request.doctorName}
+            />
+          </View>
+        )}
 
         {/* Details Card */}
         <View style={styles.card}>

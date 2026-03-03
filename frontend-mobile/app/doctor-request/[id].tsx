@@ -15,8 +15,6 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import {
@@ -711,25 +709,8 @@ export default function DoctorRequestDetail() {
               style={s.pdfBtn}
               onPress={async () => {
                 try {
-                  if (Platform.OS === 'web') {
-                    const downloadUrl = await getDocumentDownloadUrl(request.id);
-                    (window as any)?.open?.(downloadUrl, '_blank');
-                    return;
-                  }
-                  // Mobile: baixa via proxy e abre com Sharing
-                  const baseUrl = apiClient.getBaseUrl();
-                  const proxyUrl = `${baseUrl}/api/requests/${request.id}/document`;
-                  const token = await apiClient.getAuthToken();
-                  const fileName = `documento-${request.id.slice(0, 8)}.pdf`;
-                  const fileUri = FileSystem.documentDirectory + fileName;
-                  const download = await FileSystem.downloadAsync(proxyUrl, fileUri, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                  });
-                  if (download.status === 200 && await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
-                  } else {
-                    Alert.alert('Erro', 'Não foi possível abrir o documento.');
-                  }
+                  const downloadUrl = await getDocumentDownloadUrl(request.id);
+                  await WebBrowser.openBrowserAsync(downloadUrl);
                 } catch (e: unknown) {
                   Alert.alert('Erro', (e as Error)?.message || 'Não foi possível abrir o documento.');
                 }

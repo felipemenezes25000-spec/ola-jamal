@@ -42,8 +42,8 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
   const { current, dismiss, muteCurrent } = useTriageAssistant();
 
   const handleCTA = useCallback(() => {
-    if (current?.cta && onAction) {
-      onAction(current.cta);
+    if (current?.cta) {
+      onAction?.(current.cta);
       dismiss();
     }
   }, [current, onAction, dismiss]);

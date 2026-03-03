@@ -7,9 +7,10 @@ O RenoveJá assina os PDFs de receita digital usando **PAdES** (PDF Advanced Ele
 - **Padrão criptográfico**: PKCS#7/CMS (CryptoStandard.CMS no iText7)
 - **Algoritmo**: SHA-256
 - **Cadeia de certificados**: completa (assinante + intermediários + raiz)
-- **Timestamp TSA**: quando disponível (DigiCert ou fallback)
+- **DocMDP**: P=2 (CERTIFIED_FORM_FILLING) — evita "Assinatura Indeterminada" no validar.iti.gov.br
+- **OIDs ITI**: atributos assinados conforme Guia do ITI (2.16.76.1.12.1.1 prescrição, 2.16.76.1.4.2.2.1 CRM, 2.16.76.1.4.2.2.2 UF)
 
-O código está em `DigitalCertificateService.SignPdfWithBouncyCastle` e usa `PdfSigner.SignDetached` com `PdfSigner.CryptoStandard.CMS`. O Validador de Documentos Digitais do ITI (validar.iti.gov.br) aceita esse formato e emite relatório de conformidade com status "Aprovado" quando a assinatura é válida.
+O código está em `DigitalCertificateService.SignPdfWithBouncyCastle` e usa `ItiHealthOidsSignatureContainer` com `PdfSigner.SignExternalContainer`. O container constrói o CMS via BouncyCastle com os OIDs de documento de saúde exigidos pelo validar.iti.gov.br.
 
 O relatório pode mostrar "Tipo de assinatura: Destacada" — isso refere-se à estrutura interna do PDF; a assinatura permanece **embutida** no documento e é PAdES compatível.
 
@@ -25,13 +26,17 @@ O relatório pode mostrar "Tipo de assinatura: Destacada" — isso refere-se à 
 
    ```json
    "Verification": {
-     "BaseUrl": "https://sua-api.onrender.com/api/verify",
+     "BaseUrl": "https://sua-api.com/api/verify",
      "FrontendUrl": "https://renovejasaude.com.br/verify"
+   },
+   "Api": {
+     "BaseUrl": "https://sua-api.com"
    }
    ```
 
-   - `BaseUrl` → endpoint da API (codificado no QR Code). Deve estar acessível publicamente (HTTPS).
-   - `FrontendUrl` → URL do frontend de verificação (usada no texto do PDF e para redirect de browsers).
+   - `Verification.BaseUrl` → endpoint da API (codificado no QR Code). Deve estar acessível publicamente (HTTPS).
+   - `Verification.FrontendUrl` → URL do frontend de verificação (usada no texto do PDF e para redirect de browsers).
+   - `Api.BaseUrl` → domínio da API para montar a URL do PDF retornada ao ITI (`{Api.BaseUrl}/api/verify/{id}/document?code=XXX`).
 
 3. **Fluxo do QR Code**  
    - **Validador ITI**: chama `GET {BaseUrl}/{requestId}?_format=application/validador-iti+json&_secretCode={código}` → API retorna JSON com URL do PDF → ITI baixa e valida.

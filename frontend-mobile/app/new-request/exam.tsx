@@ -25,6 +25,8 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppInput } from '../../components/ui/AppInput';
+import { AssistantBanner } from '../../components/triage';
+import { useTriageEval } from '../../hooks/useTriageEval';
 
 const c = theme.colors;
 const s = theme.spacing;
@@ -48,6 +50,16 @@ export default function NewExam() {
   const [symptoms, setSymptoms] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  /** Dra. Renova: dicas por etapa (tipo imagem, exames). */
+  useTriageEval({
+    context: 'exam',
+    step: exams.length > 0 ? 'type_selected' : 'entry',
+    role: 'patient',
+    requestType: 'exam',
+    examType: examType,
+    exams,
+  });
 
   const addExam = () => {
     const exam = examInput.trim();
@@ -123,6 +135,11 @@ export default function NewExam() {
       <AppHeader title="Novo Exame" />
 
       <View style={styles.body}>
+        {/* Dra. Renova */}
+        <View style={{ marginBottom: 12 }}>
+          <AssistantBanner onAction={(action) => { if (action === 'teleconsulta' || action === 'consulta_breve') router.push('/new-request/consultation'); }} />
+        </View>
+
         {/* Exam Type */}
         <Text style={styles.overline}>TIPO DE EXAME</Text>
         <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>

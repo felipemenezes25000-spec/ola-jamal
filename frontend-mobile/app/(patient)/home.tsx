@@ -26,6 +26,8 @@ import { InfoCard } from '../../components/ui/InfoCard';
 import { HeaderInfo } from '../../components/ui/HeaderInfo';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { AssistantBanner } from '../../components/triage';
+import { useTriageEval } from '../../hooks/useTriageEval';
 
 export default function PatientHome() {
   const router = useRouter();
@@ -74,6 +76,38 @@ export default function PatientHome() {
   const recentRequests = useMemo(() => requests.slice(0, 2), [requests]);
   const firstName = user?.name?.split(' ')[0] || 'Paciente';
   const initial = firstName[0]?.toUpperCase() || 'P';
+
+  const recentPrescriptionCount = useMemo(
+    () => requests.filter((r) => r.requestType === 'prescription').length,
+    [requests]
+  );
+  const recentExamCount = useMemo(
+    () => requests.filter((r) => r.requestType === 'exam').length,
+    [requests]
+  );
+  const lastConsultation = useMemo(() => {
+    const cons = requests.filter((r) => r.requestType === 'consultation');
+    if (cons.length === 0) return null;
+    const sorted = [...cons].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return sorted[0];
+  }, [requests]);
+  const lastConsultationDays = lastConsultation
+    ? Math.floor(
+        (Date.now() - new Date(lastConsultation.createdAt).getTime()) / (24 * 60 * 60 * 1000)
+      )
+    : undefined;
+
+  useTriageEval({
+    context: 'home',
+    step: 'idle',
+    role: 'patient',
+    totalRequests: requests.length,
+    recentPrescriptionCount,
+    recentExamCount,
+    lastConsultationDays,
+  });
 
   if (loading) {
     return (
@@ -146,8 +180,16 @@ export default function PatientHome() {
         />
       </View>
 
-      {/* ─── Destaque: Triagem com IA ─── */}
+      {/* ─── Dra. Renova (assistente de triagem) ─── */}
       <View style={styles.aiBannerWrap}>
+        <AssistantBanner
+          onAction={(action) => {
+            if (action === 'teleconsulta') router.push('/new-request/consultation');
+            if (action === 'ver_servicos') {
+              // scroll to actions is below; user already sees them
+            }
+          }}
+        />
         <InfoCard
           icon="sparkles-outline"
           title="Triagem feita com IA"

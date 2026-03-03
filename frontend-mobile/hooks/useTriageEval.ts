@@ -17,8 +17,19 @@ export function useTriageEval(input: TriageInput): void {
   const { evaluate, clearScreen } = useTriageAssistant();
   const prevKeyRef = useRef('');
 
-  // Create a stable dependency key
-  const depKey = `${input.context}:${input.step}:${input.prescriptionType}:${input.examType}:${input.status}:${input.aiRiskLevel}`;
+  // Chave estável para re-avaliar quando contexto relevante mudar (step, tipo, status, conduta, fotos, etc.)
+  const depKey = [
+    input.context,
+    input.step,
+    input.prescriptionType,
+    input.examType,
+    input.status,
+    input.aiRiskLevel,
+    input.imagesCount ?? 0,
+    (input.exams?.length ?? 0),
+    input.doctorConductNotes ? '1' : '0',
+    (input.symptoms?.length ?? 0),
+  ].join(':');
 
   useEffect(() => {
     if (depKey === prevKeyRef.current) return;

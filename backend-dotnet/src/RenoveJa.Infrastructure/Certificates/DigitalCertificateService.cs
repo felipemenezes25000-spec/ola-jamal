@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using iText.Bouncycastle.Crypto;
 using iText.Bouncycastle.X509;
+using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.X509;
 using RenoveJa.Application.Configuration;
@@ -339,19 +340,12 @@ public class DigitalCertificateService : IDigitalCertificateService
 
     #region PDF Signing with iText7 + BouncyCastle Adapter
 
-    // TSA URLs for timestamping (fallback chain)
-    private static readonly string[] TsaUrls = new[]
-    {
-        "http://timestamp.digicert.com",
-        "http://tsa.starfieldtech.com",
-        "http://timestamp.globalsign.com/tsa/r6advanced1"
-    };
-
     /// <summary>
     /// Assina um PDF usando o PFX via iText7 BouncyCastle adapter.
     /// Padrão mais alto: PAdES (ISO/ETSI) com PKCS#7/CMS, SHA256, cadeia completa, timestamp TSA e revogação (OCSP + CRL) quando disponível.
-    /// Aceito pelo validar.iti.gov.br (ICP-Brasil) e por validadores Adobe quando a cadeia e a revogação forem válidas.
-    /// Em falha de OCSP/CRL (rede, AC indisponível), assina sem revogação embutida (fallback seguro).
+    /// Inclui DocMDP (P=2) para evitar "Assinatura Indeterminada" no validar.iti.gov.br.
+    /// Inclui OIDs ITI nos atributos assinados (prescrição, CRM, UF) via ItiHealthOidsSignatureContainer.
+    /// Aceito pelo validar.iti.gov.br (ICP-Brasil) e por validadores Adobe quando a cadeia for válida.
     /// </summary>
     private byte[] SignPdfWithBouncyCastle(byte[] pfxBytes, string pfxPassword, byte[] pdfBytes, DoctorCertificate certificate)
     {
@@ -392,73 +386,92 @@ public class DigitalCertificateService : IDigitalCertificateService
 
         signer.SetFieldName($"sig_{Guid.NewGuid():N}");
 
-        // Wrap BouncyCastle types into iText adapter types
+        // DocMDP (ISO 32000-1): evita "Assinatura Indeterminada" no validar.iti.gov.br.
+        // P=2: permite preenchimento de formulários, templates e inclusão de novas assinaturas.
+        signer.SetCertificationLevel(PdfSigner.CERTIFIED_FORM_FILLING);
+
+        // Cadeia BouncyCastle e iText (para container e clientes)
+        var bcChain = chainEntries.Select(c => c.Certificate).ToArray();
+        var certArray = bcChain.Select(c => new X509CertificateBC(c)).ToArray();
+        var (crmForOid, ufForOid) = ParseCrmForItiOids(certificate.CrmNumber);
+
+        var tsaClient = CreateTsaClient();
+        var crlClient = new CrlClientOnline(certArray);
+        var ocspClient = new OcspClientBouncyCastle();
+
+        var container = new ItiHealthOidsSignatureContainer(
+            (AsymmetricKeyParameter)pk.Key,
+            bcChain,
+            crmForOid,
+            ufForOid,
+            ocspClient,
+            crlClient,
+            tsaClient);
+
+        const int EstimatedSize = 32768;
+        try
+        {
+            signer.SignExternalContainer(container, EstimatedSize);
+            _logger.LogInformation(
+                "PDF assinado com PAdES (PKCS#7/CMS), SHA256, OIDs ITI, cadeia de {ChainLength} certificado(s)",
+                bcChain.Length);
+            return outputStream.ToArray();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Container OIDs ITI falhou. Fallback para SignDetached (sem OIDs).");
+            return SignPdfDetachedFallback(pdfBytes, store, keyAlias, certificate);
+        }
+    }
+
+    /// <summary>
+    /// Fallback: assina com SignDetached (sem OIDs ITI) quando o container falha.
+    /// </summary>
+    private byte[] SignPdfDetachedFallback(byte[] pdfBytes, Pkcs12Store store, string keyAlias, DoctorCertificate certificate)
+    {
+        var pk = store.GetKey(keyAlias);
+        var chainEntries = store.GetCertificateChain(keyAlias);
+        var certArray = chainEntries.Select(c => new X509CertificateBC(c.Certificate)).ToArray();
         var privateKeyWrapped = new PrivateKeyBC(pk.Key);
         var pks = new PrivateKeySignature(privateKeyWrapped, DigestAlgorithms.SHA256);
+        var tsaClient = CreateTsaClient();
 
-        // Full certificate chain (signing cert + intermediates + root)
-        var certArray = chainEntries
-            .Select(c => new X509CertificateBC(c.Certificate))
-            .ToArray();
+        using var inputStream = new MemoryStream(pdfBytes);
+        using var outputStream = new MemoryStream();
+        using var reader = new PdfReader(inputStream);
+        var signer = new PdfSigner(reader, outputStream, new StampingProperties());
 
-        // TSA for timestamping (recomendado para PAdES e validação Adobe)
-        ITSAClient? tsaClient = CreateTsaClient();
+        signer.SetReason($"Receita digital assinada conforme ICP-Brasil (MP 2.200-2/2001) - CRM {certificate.CrmNumber ?? "N/A"}");
+        signer.SetLocation("RenoveJá Saúde - Sistema de Receitas Digitais");
+        signer.SetContact(certificate.ExtractDoctorName() ?? "Médico");
+        signer.SetFieldName($"sig_{Guid.NewGuid():N}");
+        signer.SetCertificationLevel(PdfSigner.CERTIFIED_FORM_FILLING);
 
-        // Padrão mais alto: OCSP + CRL embutidos para revogação (Adobe e validadores exigem)
-        // estimatedSize 32KB para caber cadeia + OCSP + CRL + timestamp. Fallback sem revogação se falhar.
-        const int EstimatedSizeWithLtv = 32768;
-        bool withRevocation = false;
+        const int EstimatedSize = 32768;
         try
         {
             var crlList = new List<ICrlClient> { new CrlClientOnline(certArray) };
             var ocspClient = new OcspClientBouncyCastle();
-            signer.SignDetached(pks, certArray, crlList, ocspClient, tsaClient, EstimatedSizeWithLtv, PdfSigner.CryptoStandard.CMS);
-            withRevocation = true;
+            signer.SignDetached(pks, certArray, crlList, ocspClient, tsaClient, EstimatedSize, PdfSigner.CryptoStandard.CMS);
         }
         catch (Exception ex)
         {
-            // iText7: após falha do primeiro SignDetached o documento fica "pre closed"; não reutilizar o mesmo signer.
-            _logger.LogWarning(ex, "OCSP/CRL indisponível ou falha na revogação. Assinando sem revogação embutida (fallback com novo signer).");
-            byte[] fallbackResult;
-            using (var inputStream2 = new MemoryStream(pdfBytes))
-            using (var outputStream2 = new MemoryStream())
-            using (var reader2 = new PdfReader(inputStream2))
-            {
-                var signer2 = new PdfSigner(reader2, outputStream2, new StampingProperties());
-                signer2.SetReason($"Receita digital assinada conforme ICP-Brasil (MP 2.200-2/2001) - CRM {certificate.CrmNumber ?? "N/A"}");
-                signer2.SetLocation("RenoveJá Saúde - Sistema de Receitas Digitais");
-                signer2.SetContact(certificate.ExtractDoctorName() ?? "Médico");
-                signer2.SetFieldName($"sig_{Guid.NewGuid():N}");
-                signer2.SignDetached(pks, certArray, null, null, tsaClient, EstimatedSizeWithLtv, PdfSigner.CryptoStandard.CMS);
-                fallbackResult = outputStream2.ToArray();
-            }
-            return fallbackResult;
+            _logger.LogWarning(ex, "OCSP/CRL indisponível. Assinando sem revogação.");
+            signer.SignDetached(pks, certArray, null, null, tsaClient, EstimatedSize, PdfSigner.CryptoStandard.CMS);
         }
-
-        _logger.LogInformation(
-            "PDF assinado com PAdES (PKCS#7/CMS), SHA256, cadeia de {ChainLength} certificado(s){Tsa}{Revocation}",
-            certArray.Length,
-            tsaClient != null ? ", com timestamp TSA" : ", sem timestamp TSA",
-            withRevocation ? ", com OCSP/CRL" : ", sem OCSP/CRL (fallback)");
 
         return outputStream.ToArray();
     }
 
-    /// <summary>
-    /// Creates a TSA client for timestamping. Returns null if no TSA is reachable.
-    /// </summary>
-    private ITSAClient? CreateTsaClient()
+    private static ITSAClient? CreateTsaClient()
     {
-        try
+        var urls = new[] { "http://timestamp.digicert.com", "http://tsa.starfieldtech.com", "http://timestamp.globalsign.com/tsa/r6advanced1" };
+        foreach (var url in urls)
         {
-            // Use DigiCert as primary TSA (reliable, free)
-            return new TSAClientBouncyCastle(TsaUrls[0]);
+            try { return new TSAClientBouncyCastle(url); }
+            catch { }
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao criar cliente TSA para {Url}. Assinatura sem timestamp.", TsaUrls[0]);
-            return null;
-        }
+        return null;
     }
 
     #endregion
@@ -486,6 +499,21 @@ public class DigitalCertificateService : IDigitalCertificateService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Extrai CRM (número) e UF do CrmNumber para os OIDs ITI.
+    /// Formato esperado: "1234/SP" ou "1234-SP".
+    /// </summary>
+    private static (string CrmNumber, string Uf) ParseCrmForItiOids(string? crmNumber)
+    {
+        if (string.IsNullOrWhiteSpace(crmNumber))
+            return ("", "");
+
+        var parts = crmNumber.Split('/', '-');
+        return parts.Length >= 2
+            ? (parts[0].Trim(), parts[1].Trim())
+            : (crmNumber.Trim(), "");
     }
 
     private static string? ExtractCrmFromSubject(string subject)

@@ -179,7 +179,7 @@ public class VerificationServiceTests
         var c1 = VerificationService.GenerateAccessCode(id);
         var c2 = VerificationService.GenerateAccessCode(id);
         c1.Should().Be(c2);
-        c1.Should().HaveLength(4);
+        c1.Should().HaveLength(6);
     }
 
     [Fact]
@@ -189,8 +189,8 @@ public class VerificationServiceTests
         var c2 = VerificationService.GenerateAccessCode(Guid.NewGuid());
         // Very unlikely to be equal, but not impossible
         // Just verify format
-        c1.Should().HaveLength(4);
-        c2.Should().HaveLength(4);
+        c1.Should().HaveLength(6);
+        c2.Should().HaveLength(6);
     }
 
     [Theory]

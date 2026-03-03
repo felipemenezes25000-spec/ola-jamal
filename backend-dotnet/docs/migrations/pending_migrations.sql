@@ -2,6 +2,10 @@
 -- MIGRATIONS PENDENTES - RenoveJá
 -- Rodar no SQL Editor: https://supabase.com/dashboard/project/ifgxgppxsawauaceudec/sql/new
 -- Data: 2026-02-14
+--
+-- NOTA: As migrations oficiais estão em supabase/migrations/.
+-- Use `supabase db push` ou aplique-as manualmente na ordem.
+-- Este arquivo é um fallback manual se as migrations não foram aplicadas.
 -- ============================================================
 
 -- 1) Tabela doctor_certificates (NÃO existe no banco)
@@ -40,6 +44,26 @@ ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS crm_validated_at TIM
 
 -- 3) Coluna access_code em requests
 ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS access_code TEXT;
+
+-- 4) Triagem + Conduta (Dra. Renova) — observação automática, conduta médica, IA
+-- Se já rodou supabase/migrations/20260302000000_triage_assistant_conduct_observation.sql, pule este bloco.
+ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS auto_observation         TEXT;
+ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS doctor_conduct_notes     TEXT;
+ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS include_conduct_in_pdf   BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS ai_conduct_suggestion   TEXT;
+ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS ai_suggested_exams      TEXT;
+ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS conduct_updated_at     TIMESTAMPTZ;
+ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS conduct_updated_by      UUID REFERENCES public.users(id);
+CREATE TABLE IF NOT EXISTS public.feature_flags (
+  key   TEXT PRIMARY KEY,
+  value BOOLEAN NOT NULL DEFAULT TRUE,
+  note  TEXT
+);
+INSERT INTO public.feature_flags (key, value, note)
+VALUES ('triage_assistant_enabled', true, 'Assistente Dra. Renova')
+ON CONFLICT (key) DO NOTHING;
+CREATE INDEX IF NOT EXISTS idx_requests_has_conduct ON public.requests (doctor_conduct_notes) WHERE doctor_conduct_notes IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_conduct_audit ON public.requests (conduct_updated_by, conduct_updated_at) WHERE conduct_updated_at IS NOT NULL;
 
 -- ============================================================
 -- FIM

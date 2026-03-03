@@ -136,15 +136,13 @@ public class VerificationService(
     }
 
     /// <summary>
-    /// Gera o código de acesso de 4 dígitos baseado no hash SHA256 do requestId.
+    /// Gera o código de acesso de 6 dígitos, alinhado ao RequestService e PrescriptionPdfService.
     /// Determinístico: mesmo ID sempre gera o mesmo código. Usado como fallback para requests sem AccessCode salvo.
     /// </summary>
     public static string GenerateAccessCode(Guid requestId)
     {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(requestId.ToString()));
-        // Pega os últimos 2 bytes do hash e converte para 4 dígitos
-        var numericValue = BitConverter.ToUInt16(hash, hash.Length - 2);
-        return (numericValue % 10000).ToString("D4");
+        var hash = requestId.GetHashCode();
+        return (Math.Abs(hash) % 1_000_000).ToString("D6");
     }
 
     /// <summary>

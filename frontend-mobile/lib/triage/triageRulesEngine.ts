@@ -74,9 +74,9 @@ function rulesHome(i: TriageInput): TriageMessage | null {
   if (i.recentPrescriptionCount && i.recentPrescriptionCount >= 3) {
     return {
       key: 'home:many_renewals',
-      text: 'Você renova receitas com frequência. Que tal alinhar com seu médico?',
+      text: 'Percebi que você tem renovado receitas com frequência. Já alinhou o tratamento com seu médico de origem? É muito importante manter esse acompanhamento.',
       severity: 'attention', avatarState: 'alert',
-      cta: 'teleconsulta', ctaLabel: 'Agendar Consulta',
+      cta: 'teleconsulta', ctaLabel: 'Tirar Dúvidas no Plantão',
       cooldownMs: MS.PROACTIVE, canMute: true,
       analyticsEvent: 'triage.home.many_renewals',
     };
@@ -86,9 +86,9 @@ function rulesHome(i: TriageInput): TriageMessage | null {
   if (i.recentExamCount && i.recentExamCount >= 2) {
     return {
       key: 'home:pending_results',
-      text: 'Fez exames recentemente? Leve os resultados ao seu médico.',
-      severity: 'info', avatarState: 'neutral',
-      cta: 'agendar_retorno', ctaLabel: 'Consulta Breve',
+      text: 'Que bom que você cuida da saúde! Lembre-se de levar os resultados dos exames ao seu médico — é ele quem define a melhor conduta.',
+      severity: 'info', avatarState: 'positive',
+      cta: 'consulta_breve', ctaLabel: 'Agendar Retorno',
       cooldownMs: MS.PROACTIVE, canMute: true,
     };
   }
@@ -97,9 +97,9 @@ function rulesHome(i: TriageInput): TriageMessage | null {
   if (i.lastConsultationDays && i.lastConsultationDays > 180) {
     return {
       key: 'home:long_no_consult',
-      text: 'Faz tempo que você não consulta. Manter acompanhamento é importante.',
+      text: 'Faz um tempinho que não nos vemos! Manter consultas regulares é fundamental para um tratamento seguro. Posso te ajudar a agendar.',
       severity: 'info', avatarState: 'neutral',
-      cta: 'teleconsulta', ctaLabel: 'Agendar',
+      cta: 'teleconsulta', ctaLabel: 'Agendar Consulta',
       cooldownMs: MS.PROACTIVE, canMute: true,
     };
   }
@@ -163,9 +163,9 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
       if (i.aiRiskLevel === 'high') {
         return {
           key: 'rx:high_risk',
-          text: 'Medicação que exige cuidado especial. Mantenha acompanhamento regular.',
+          text: 'Percebi que essa medicação exige cuidado especial. Tem passado com regularidade pelo seu médico? Estou aqui se precisar de orientação.',
           severity: 'attention', avatarState: 'alert',
-          cta: 'consulta_breve', ctaLabel: 'Consultar Médico',
+          cta: 'consulta_breve', ctaLabel: 'Falar com Médico',
           cooldownMs: MS.INSIGHT,
           analyticsEvent: 'triage.rx.high_risk',
         };
@@ -174,7 +174,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
       if (i.aiReadabilityOk === false) {
         return {
           key: 'rx:unreadable',
-          text: 'A receita pode estar ilegível. Considere enviar nova foto.',
+          text: 'A foto da receita pode estar um pouco difícil de ler. Que tal enviar outra com mais luz? Isso ajuda o médico a analisar mais rapidamente!',
           severity: 'attention', avatarState: 'alert', cta: null,
           cooldownMs: MS.STEP,
           analyticsEvent: 'triage.rx.unreadable',
@@ -191,7 +191,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
       }
       return {
         key: 'rx:success',
-        text: 'Receita recebida! Um médico vai analisar e aprovar em breve.',
+        text: 'Receita recebida com sucesso! Em breve um médico vai analisar e aprovar. Qualquer dúvida, estou aqui.',
         severity: 'positive', avatarState: 'positive', cta: null,
         cooldownMs: MS.STEP,
       };
@@ -227,9 +227,9 @@ function rulesExam(i: TriageInput): TriageMessage | null {
       if (i.exams && hasComplexExams(i.exams)) {
         return {
           key: 'exam:complex',
-          text: 'Exames para investigação de condição específica. Discuta os resultados com seu médico.',
+          text: 'Que legal que você está se cuidando! Percebi que esses exames investigam condições importantes. Você tem retornado ao seu médico com os resultados? Estamos aqui se precisar conversar.',
           severity: 'attention', avatarState: 'alert',
-          cta: 'teleconsulta', ctaLabel: 'Agendar Retorno',
+          cta: 'teleconsulta', ctaLabel: 'Conversar no Plantão',
           cooldownMs: MS.INSIGHT,
           analyticsEvent: 'triage.exam.complex',
         };
@@ -237,15 +237,15 @@ function rulesExam(i: TriageInput): TriageMessage | null {
       if (i.exams && i.exams.length > 5) {
         return {
           key: 'exam:many',
-          text: `${i.exams.length} exames solicitados. Leve todos os resultados ao médico.`,
-          severity: 'info', avatarState: 'neutral',
+          text: `Uau, ${i.exams.length} exames! Você está bem cuidada(o). Lembre de levar todos os resultados ao seu médico para ele orientar o próximo passo.`,
+          severity: 'info', avatarState: 'positive',
           cta: 'consulta_breve', ctaLabel: 'Agendar Retorno',
           cooldownMs: MS.INSIGHT,
         };
       }
       return {
         key: 'exam:ok',
-        text: 'Pedido de exames recebido! Compartilhe os resultados com seu médico.',
+        text: 'Pedido de exames recebido! Leve os resultados ao seu médico — ele vai indicar a melhor conduta.',
         severity: 'positive', avatarState: 'positive', cta: null,
         cooldownMs: MS.STEP,
       };
@@ -283,8 +283,8 @@ function rulesDetail(i: TriageInput): TriageMessage | null {
   if (i.doctorConductNotes) {
     return {
       key: 'detail:conduct_available',
-      text: 'O médico registrou recomendações para você. Leia com atenção.',
-      severity: 'info', avatarState: 'neutral', cta: null,
+      text: 'O médico deixou recomendações especiais para você aqui. Leia com atenção — são orientações personalizadas para o seu cuidado!',
+      severity: 'info', avatarState: 'positive', cta: null,
       cooldownMs: MS.INSIGHT,
     };
   }
@@ -293,7 +293,7 @@ function rulesDetail(i: TriageInput): TriageMessage | null {
   if (i.status === 'signed' || i.status === 'delivered') {
     return {
       key: 'detail:completed',
-      text: 'Documento pronto! Mantenha o retorno com seu médico.',
+      text: 'Tudo certo! Documento pronto. Lembre de manter o retorno ao seu médico — o acompanhamento contínuo faz toda a diferença.',
       severity: 'positive', avatarState: 'positive', cta: null,
       cooldownMs: MS.INSIGHT,
     };

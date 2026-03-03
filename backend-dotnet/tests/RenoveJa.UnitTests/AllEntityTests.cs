@@ -854,7 +854,7 @@ public class ExtendedMedicalRequestTests
         r.ExamType.Should().Be("sangue");
         r.Exams.Should().Contain("Hemograma");
         r.Symptoms.Should().Be("Febre persistente");
-        r.AccessCode.Should().HaveLength(4);
+        r.AccessCode.Should().HaveLength(6);
     }
 
     [Fact]
@@ -1070,11 +1070,11 @@ public class ExtendedMedicalRequestTests
     }
 
     [Fact]
-    public void AccessCode_ShouldBe4Digits()
+    public void AccessCode_ShouldBe6Digits()
     {
         var r = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
         r.AccessCode.Should().NotBeNull();
-        r.AccessCode.Should().HaveLength(4);
+        r.AccessCode.Should().HaveLength(6);
         int.TryParse(r.AccessCode, out _).Should().BeTrue();
     }
 
