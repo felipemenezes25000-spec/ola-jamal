@@ -435,14 +435,32 @@ public class DigitalCertificateService : IDigitalCertificateService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Container OIDs ITI falhou. Fallback para SignDetached (sem OIDs).");
-            return SignPdfDetachedFallback(pdfBytes, store, keyAlias, certificate);
+            try
+            {
+                return SignPdfDetachedFallback(pdfBytes, store, keyAlias, certificate, useAppendMode: true, certifyDocument: true);
+            }
+            catch (Exception fallbackEx) when (IsPreClosedOrAlreadySignedError(fallbackEx))
+            {
+                // Alguns PDFs/libraries podem falhar com append mode + certificação (DocMDP).
+                // Segunda tentativa: modo conservador para priorizar sucesso da assinatura.
+                _logger.LogWarning(
+                    fallbackEx,
+                    "Fallback com append/certificação falhou. Tentando assinatura conservadora sem certificação/append.");
+                return SignPdfDetachedFallback(pdfBytes, store, keyAlias, certificate, useAppendMode: false, certifyDocument: false);
+            }
         }
     }
 
     /// <summary>
     /// Fallback: assina com SignDetached (sem OIDs ITI) quando o container falha.
     /// </summary>
-    private byte[] SignPdfDetachedFallback(byte[] pdfBytes, Pkcs12Store store, string keyAlias, DoctorCertificate certificate)
+    private byte[] SignPdfDetachedFallback(
+        byte[] pdfBytes,
+        Pkcs12Store store,
+        string keyAlias,
+        DoctorCertificate certificate,
+        bool useAppendMode = true,
+        bool certifyDocument = true)
     {
         var pk = store.GetKey(keyAlias);
         var chainEntries = store.GetCertificateChain(keyAlias);
@@ -454,17 +472,19 @@ public class DigitalCertificateService : IDigitalCertificateService
         using var inputStream = new MemoryStream(pdfBytes);
         using var outputStream = new MemoryStream();
         using var reader = new PdfReader(inputStream);
-        // Usa append mode aqui também para manter consistência e evitar erros em PDFs já modificados
-        var stampingProps = new StampingProperties().UseAppendMode();
+        var stampingProps = useAppendMode
+            ? new StampingProperties().UseAppendMode()
+            : new StampingProperties();
         var signer = new PdfSigner(reader, outputStream, stampingProps);
 
         signer.SetReason($"Receita digital assinada conforme ICP-Brasil (MP 2.200-2/2001) - CRM {certificate.CrmNumber ?? "N/A"}");
         signer.SetLocation("RenoveJá Saúde - Sistema de Receitas Digitais");
         signer.SetContact(certificate.ExtractDoctorName() ?? "Médico");
         signer.SetFieldName($"sig_{Guid.NewGuid():N}");
-        signer.SetCertificationLevel(PdfSigner.CERTIFIED_FORM_FILLING);
+        if (certifyDocument)
+            signer.SetCertificationLevel(PdfSigner.CERTIFIED_FORM_FILLING);
 
-        const int EstimatedSize = 32768;
+        const int EstimatedSize = 131072;
         try
         {
             var crlList = new List<ICrlClient> { new CrlClientOnline(certArray) };
@@ -478,6 +498,15 @@ public class DigitalCertificateService : IDigitalCertificateService
         }
 
         return outputStream.ToArray();
+    }
+
+    private static bool IsPreClosedOrAlreadySignedError(Exception ex)
+    {
+        var message = ex.ToString();
+        return message.Contains("pre closed", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Document has been already", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("already signed", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("certification", StringComparison.OrdinalIgnoreCase);
     }
 
     private static ITSAClient? CreateTsaClient()

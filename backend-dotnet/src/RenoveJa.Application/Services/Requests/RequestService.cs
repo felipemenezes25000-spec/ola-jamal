@@ -1046,6 +1046,7 @@ public class RequestService(
 
                     var doctorUser = await userRepository.GetByIdAsync(request.DoctorId.Value, cancellationToken);
                     var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
+                    var normalizedPfxPassword = dto.PfxPassword?.Trim();
 
                     byte[]? pdfBytes = null;
                     string? pdfFileName = null;
@@ -1121,7 +1122,7 @@ public class RequestService(
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
                         {
                             pdfBytes = pdfResult.PdfBytes;
-                            pdfFileName = $"receita-assinada-{request.Id}.pdf";
+                            pdfFileName = $"receita-assinada-{request.Id}-{DateTime.UtcNow:yyyyMMddHHmmssfff}.pdf";
                         }
                         else
                             throw new InvalidOperationException("Falha ao gerar PDF da receita. " + (pdfResult.ErrorMessage ?? "Verifique os dados da receita e tente novamente."));
@@ -1158,7 +1159,7 @@ public class RequestService(
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
                         {
                             pdfBytes = pdfResult.PdfBytes;
-                            pdfFileName = $"pedido-exame-assinado-{request.Id}.pdf";
+                            pdfFileName = $"pedido-exame-assinado-{request.Id}-{DateTime.UtcNow:yyyyMMddHHmmssfff}.pdf";
                         }
                         else
                             throw new InvalidOperationException("Falha ao gerar PDF do exame. " + (pdfResult.ErrorMessage ?? "Verifique os dados do pedido e tente novamente."));
@@ -1177,7 +1178,7 @@ public class RequestService(
                                 certInfo.Id,
                                 pdfBytes,
                                 pdfFileName,
-                                dto.PfxPassword,
+                                normalizedPfxPassword,
                                 cancellationToken);
 
                             if (signResult.Success)
@@ -1222,7 +1223,14 @@ public class RequestService(
                                 return MapRequestToDto(request);
                             }
 
-                    throw new InvalidOperationException("Falha ao assinar o PDF: " + (signResult.ErrorMessage ?? "Senha do certificado incorreta ou certificado inválido. Verifique a senha do PFX."));
+                    // Propaga a mensagem amigável vinda do serviço de certificado sem duplicar prefixos.
+                    var signErrorMessage = signResult.ErrorMessage;
+                    if (string.IsNullOrWhiteSpace(signErrorMessage))
+                    {
+                        signErrorMessage = "Não foi possível assinar o PDF. Verifique a senha do certificado digital e tente novamente.";
+                    }
+
+                    throw new InvalidOperationException(signErrorMessage);
                 }
             }
 

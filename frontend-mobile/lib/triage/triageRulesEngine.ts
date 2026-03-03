@@ -447,10 +447,10 @@ function rulesDoctorDetail(i: TriageInput): TriageMessage | null {
 
 function rulesDoctorProntuario(i: TriageInput): TriageMessage | null {
   // Fatos de uso do app pelo paciente, para orientar a conversa
-  if (i.recentPrescriptionCount && i.recentPrescriptionCount >= 3) {
+  if (i.recentPrescriptionCount && i.recentPrescriptionCount >= 3 && (!i.lastConsultationDays || i.lastConsultationDays > 90)) {
     return {
       key: 'doctor:prontuario:many_renewals',
-      text: `Este paciente renovou receitas ${i.recentPrescriptionCount} vez(es) nos últimos meses nesta plataforma.`,
+      text: `Este paciente renovou receitas ${i.recentPrescriptionCount} vez(es) nos últimos meses nesta plataforma. Considere explorar a adesão e necessidade de ajuste terapêutico.`,
       severity: 'info',
       avatarState: 'neutral',
       cta: null,
@@ -462,7 +462,7 @@ function rulesDoctorProntuario(i: TriageInput): TriageMessage | null {
   if (i.recentExamCount && i.recentExamCount >= 2 && i.lastConsultationDays && i.lastConsultationDays > 180) {
     return {
       key: 'doctor:prontuario:exams_no_consult',
-      text: `Fez exames recentemente, mas não há consulta registrada aqui há ${i.lastConsultationDays} dia(s). Use essa informação para aprofundar o histórico.`,
+      text: `Fez exames recentemente, mas não há consulta registrada aqui há ${i.lastConsultationDays} dia(s). Pode ser útil investigar se houve acompanhamento presencial ou por outro serviço.`,
       severity: 'info',
       avatarState: 'neutral',
       cta: null,

@@ -562,7 +562,16 @@ export default function RequestDetailScreen() {
       {/* Dra. Renova fixa acima dos botões / tab bar */}
       {!request.doctorConductNotes && (
         <View style={styles.aiBannerSticky}>
-          <AssistantBanner />
+          <AssistantBanner
+            onAction={(action) => {
+              if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
+                router.push('/new-request/consultation');
+              }
+              if (action === 'ver_servicos') {
+                router.push('/(patient)/requests');
+              }
+            }}
+          />
         </View>
       )}
 

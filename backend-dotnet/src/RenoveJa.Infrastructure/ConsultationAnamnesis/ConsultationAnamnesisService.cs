@@ -64,19 +64,25 @@ Responda em um ÚNICO JSON válido, sem markdown, com exatamente estes campos:
 
 {
   "anamnesis": {
-    "queixa_principal": "string — o que trouxe o paciente à consulta",
-    "historia_doenca_atual": "string — evolução, início, fatores de melhora/piora",
-    "sintomas": "string ou array — lista dos sintomas referidos",
+    "queixa_principal": "string — escreva como 'Queixa e duração: ...' (o que trouxe o paciente + há quanto tempo)",
+    "historia_doenca_atual": "string — escreva como 'Evolução / anamnese: ...' (evolução, início, fatores de melhora/piora, contexto)",
+    "sintomas": "string ou array — lista dos sintomas referidos, em linguagem clínica objetiva",
     "medicamentos_em_uso": "string ou array — medicamentos que o paciente já usa",
     "alergias": "string — alergias conhecidas (medicamentos, alimentos, outros)",
-    "antecedentes_relevantes": "string — histórico médico, cirurgias, comorbidades",
+    "antecedentes_relevantes": "string — histórico médico, cirurgias, comorbidades relevantes",
     "outros": "string — qualquer informação adicional relevante"
   },
-  "cid_sugerido": "string — CID-10 mais provável (ex: J06.9 - Infecção aguda das vias aéreas superiores) ou vazio se não há dados suficientes",
+  "cid_sugerido": "string — Hipótese (CID-10) mais provável (ex: 'Hipótese (CID): J06.9 - Infecção aguda das vias aéreas superiores') ou vazio se não há dados suficientes",
   "alertas_vermelhos": ["array de strings — sinais de alarme que requerem atenção imediata, ex: 'Dor torácica com irradiação para o braço esquerdo — avaliar SCA'"],
   "medicamentos_sugeridos": ["array de strings — opções terapêuticas com dosagem indicativa, ex: 'Dipirona 500mg VO 6/6h por 5 dias (analgesia/antitérmica)'"],
-  "suggestions": ["array de até 4 strings — hipóteses diagnósticas ou recomendações clínicas curtas, ex: 'Hipótese: HAS descompensada — verificar adesão ao tratamento'"]
+  "suggestions": ["array de até 4 strings — use frases curtas em formato clínico, incluindo pelo menos uma hipótese diagnóstica e uma conduta geral, ex: 'Hipótese (CID): J06.9 - Infecção aguda de vias aéreas superiores' e 'Conduta: Visando continuidade do tratamento, prescrevo analgesia sintomática e oriento retorno se piora dos sintomas'"]
 }
+
+MODELO RECOMENDADO PARA A NARRATIVA CLÍNICA (guia interno — adapte ao contexto):
+- Queixa e duração: ...
+- Evolução / anamnese: ...
+- Hipótese diagnóstica (CID): ...
+- Conduta: Visando continuidade do tratamento, prescrevo/oriento ...
 
 REGRAS:
 - Mantenha e enriqueça os campos da anamnese anterior quando não houver informação nova
@@ -84,6 +90,7 @@ REGRAS:
 - Não invente informações que não estejam no transcript
 - Alertas vermelhos: apenas se houver base clara no transcript (não suponha)
 - Medicamentos sugeridos: inclua apenas se a queixa principal estiver clara
+- Nas suggestions, dê preferência a frases que possam ser facilmente coladas em um prontuário clínico profissional
 - Seja objetivo e use terminologia médica adequada
 - Responda APENAS o JSON, sem texto antes ou depois
 """;

@@ -133,91 +133,104 @@ export default function DoctorPatientProntuario() {
         subtitle={patientName}
         onBack={() => router.back()}
       />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ marginBottom: spacing.md }}>
-          <AssistantBanner />
-        </View>
-        {/* Resumo */}
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryIconWrap}>
-              <Ionicons name="person" size={24} color={colors.primary} />
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Resumo */}
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryIconWrap}>
+                <Ionicons name="person" size={24} color={colors.primary} />
+              </View>
+              <View style={styles.summaryBody}>
+                <Text style={styles.summaryLabel}>Total de pedidos</Text>
+                <Text style={styles.summaryValue}>{requests.length}</Text>
+              </View>
             </View>
-            <View style={styles.summaryBody}>
-              <Text style={styles.summaryLabel}>Total de pedidos</Text>
-              <Text style={styles.summaryValue}>{requests.length}</Text>
-            </View>
-          </View>
-          {requests.length > 0 && (
-            <Text style={styles.lastRequest}>
+            {requests.length > 0 && (
+              <Text style={styles.lastRequest}>
               Último: {fmtDate(requests[0].createdAt)}
             </Text>
           )}
-        </View>
-
-        {/* Timeline */}
-        <Text style={styles.sectionTitle}>Pedidos</Text>
-        {requests.length === 0 ? (
-          <View style={styles.empty}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="document-text-outline" size={44} color={colors.textMuted} />
-            </View>
-            <Text style={styles.emptyTitle}>Nenhum pedido encontrado</Text>
-            <Text style={styles.emptySubtitle}>
-              Este paciente ainda não possui histórico de pedidos
-            </Text>
+          {requests.length > 0 && (
+            <TouchableOpacity
+              style={styles.summaryLinkBtn}
+              activeOpacity={0.7}
+              onPress={() => router.push(`/doctor-patient-summary/${id}` as any)}
+            >
+              <Ionicons name="list-circle" size={18} color={colors.primary} />
+              <Text style={styles.summaryLinkText}>Ver resumo clínico contínuo</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
           </View>
-        ) : (
-          requests.map((req) => {
-            const icon = TYPE_ICONS[req.requestType] || 'document';
-            const color = TYPE_COLORS[req.requestType] || colors.primary;
-            return (
-              <TouchableOpacity
-                key={req.id}
-                style={styles.timelineCard}
-                onPress={() => router.push(`/doctor-request/${req.id}`)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.timelineIcon, { backgroundColor: color + '18' }]}>
-                  <Ionicons name={icon} size={22} color={color} />
-                </View>
-                <View style={styles.timelineBody}>
-                  <View style={styles.timelineHeader}>
-                    <Text style={styles.timelineType}>
-                      {TYPE_LABELS[req.requestType] || req.requestType}
-                    </Text>
-                    <StatusBadge status={req.status} size="sm" />
+
+          {/* Timeline */}
+          <Text style={styles.sectionTitle}>Pedidos</Text>
+          {requests.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="document-text-outline" size={44} color={colors.textMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>Nenhum pedido encontrado</Text>
+              <Text style={styles.emptySubtitle}>
+                Este paciente ainda não possui histórico de pedidos
+              </Text>
+            </View>
+          ) : (
+            requests.map((req) => {
+              const icon = TYPE_ICONS[req.requestType] || 'document';
+              const color = TYPE_COLORS[req.requestType] || colors.primary;
+              return (
+                <TouchableOpacity
+                  key={req.id}
+                  style={styles.timelineCard}
+                  onPress={() => router.push(`/doctor-request/${req.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.timelineIcon, { backgroundColor: color + '18' }]}>
+                    <Ionicons name={icon} size={22} color={color} />
                   </View>
-                  <Text style={styles.timelineDate}>{fmtDate(req.createdAt)}</Text>
-                  {req.requestType === 'consultation' && (req.consultationTranscript || req.consultationAnamnesis) && (
-                    <View style={styles.transcriptBadge}>
-                      <Ionicons name="document-text" size={12} color={colors.primary} />
-                      <Text style={styles.transcriptBadgeText}>Transcrição e anamnese disponíveis</Text>
+                  <View style={styles.timelineBody}>
+                    <View style={styles.timelineHeader}>
+                      <Text style={styles.timelineType}>
+                        {TYPE_LABELS[req.requestType] || req.requestType}
+                      </Text>
+                      <StatusBadge status={req.status} size="sm" />
                     </View>
-                  )}
-                  {req.aiSummaryForDoctor && (
-                    <Text style={styles.timelineSummary} numberOfLines={2}>
-                      {req.aiSummaryForDoctor}
-                    </Text>
-                  )}
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+                    <Text style={styles.timelineDate}>{fmtDate(req.createdAt)}</Text>
+                    {req.requestType === 'consultation' && (req.consultationTranscript || req.consultationAnamnesis) && (
+                      <View style={styles.transcriptBadge}>
+                        <Ionicons name="document-text" size={12} color={colors.primary} />
+                        <Text style={styles.transcriptBadgeText}>Transcrição e anamnese disponíveis</Text>
+                      </View>
+                    )}
+                    {req.aiSummaryForDoctor && (
+                      <Text style={styles.timelineSummary} numberOfLines={2}>
+                        {req.aiSummaryForDoctor}
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+      <View style={styles.aiBannerSticky}>
+        <AssistantBanner />
+      </View>
     </View>
   );
 }
@@ -285,6 +298,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: spacing.sm,
+  },
+  summaryLinkBtn: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryLinkText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: '600',
+    color: colors.primary,
   },
   sectionTitle: {
     fontSize: 14,
@@ -371,5 +396,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  aiBannerSticky: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.lg * 2,
   },
 });

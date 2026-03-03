@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   signRequest,
   acceptConsultation,
   getDocumentDownloadUrl,
+  updateConduct,
 } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
@@ -86,6 +87,9 @@ export default function DoctorRequestDetail() {
   const [showSignForm, setShowSignForm] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
+  const [conductNotes, setConductNotes] = useState('');
+  const [includeConductInPdf, setIncludeConductInPdf] = useState(true);
+  const [savingConduct, setSavingConduct] = useState(false);
   const loadData = useCallback(async () => {
     if (!requestId) return;
     try {
@@ -104,6 +108,34 @@ export default function DoctorRequestDetail() {
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   useRequestUpdated(requestId || undefined, loadData);
+
+  // Sincroniza campos de conduta quando o request é carregado/atualizado
+  useEffect(() => {
+    if (!request) return;
+    setConductNotes(request.doctorConductNotes || '');
+    setIncludeConductInPdf(request.includeConductInPdf ?? true);
+  }, [request?.id, request?.doctorConductNotes, request?.includeConductInPdf]);
+
+  const handleSaveConduct = async () => {
+    if (!requestId || !request) return;
+    setSavingConduct(true);
+    try {
+      const updated = await updateConduct(request.id, {
+        conductNotes: conductNotes.trim() ? conductNotes.trim() : null,
+        includeConductInPdf,
+      });
+      setRequest(updated);
+      _requestCache.set(requestId, updated);
+      showToast({ message: 'Conduta salva no prontuário.', type: 'success' });
+    } catch (e: any) {
+      showToast({
+        message: e?.message || 'Falha ao salvar conduta. Tente novamente.',
+        type: 'error',
+      });
+    } finally {
+      setSavingConduct(false);
+    }
+  };
 
   const executeApprove = async () => {
     if (!requestId) return;
@@ -209,10 +241,12 @@ export default function DoctorRequestDetail() {
         onBack={() => router.back()}
         right={<StatusBadge status={request.status} />}
       />
-      <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: listPadding }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.sm }}>
-          <AssistantBanner />
-        </View>
+      <ScrollView
+        style={s.container}
+        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: listPadding }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Status tracker */}
         <DoctorCard style={s.cardMargin}><StatusTracker currentStatus={request.status} requestType={request.requestType} /></DoctorCard>
 
@@ -655,6 +689,96 @@ export default function DoctorRequestDetail() {
           </>
         )}
 
+        {/* Prontuário / Conduta da consulta (editável pelo médico) */}
+        {request.requestType === 'consultation' && (
+          <DoctorCard style={[s.cardMargin, s.formCard]}>
+            <View style={s.formHeader}>
+              <Ionicons name="journal" size={18} color={colors.primary} />
+              <Text style={s.formTitle}>PRONTUÁRIO / CONDUTA DA CONSULTA</Text>
+            </View>
+            <Text style={s.formDesc}>
+              Campo livre para registrar evolução, hipótese (CID) e conduta em linguagem clínica.
+              Somente o médico pode editar; o texto compõe o histórico do paciente.
+            </Text>
+
+            {request.aiConductSuggestion && (
+              <View style={{ marginBottom: spacing.sm }}>
+                <View style={s.aiHeader}>
+                  <Ionicons name="bulb" size={16} color={colors.primary} />
+                  <Text style={s.aiTitle}>Sugestão de conduta da IA</Text>
+                </View>
+                <Text style={[s.aiSummary, { fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.xs }]}>
+                  {request.aiConductSuggestion}
+                </Text>
+                <TouchableOpacity
+                  style={s.aiSummaryActionBtn}
+                  onPress={() => {
+                    const suggestion = request.aiConductSuggestion || '';
+                    setConductNotes(prev =>
+                      prev && prev.trim().length > 0
+                        ? `${prev.trim()}\n\n${suggestion}`
+                        : suggestion
+                    );
+                  }}
+                >
+                  <Ionicons name="document-text" size={14} color={colors.primary} />
+                  <Text style={s.aiSummaryActionText}>Usar sugestão no prontuário</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <TextInput
+              style={s.formTextArea}
+              placeholder={
+                'Sugestão de estruturação:\n' +
+                'Queixa e duração: ...\n' +
+                'Evolução / anamnese: ...\n' +
+                'Hipótese diagnóstica (CID): ...\n' +
+                'Conduta: Visando continuidade do tratamento, prescrevo...'
+              }
+              value={conductNotes}
+              onChangeText={setConductNotes}
+              multiline
+              textAlignVertical="top"
+              placeholderTextColor={colors.textMuted}
+            />
+
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm }}
+              onPress={() => setIncludeConductInPdf(prev => !prev)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  borderWidth: 1,
+                  borderColor: includeConductInPdf ? colors.primary : colors.border,
+                  backgroundColor: includeConductInPdf ? colors.primary : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 8,
+                }}
+              >
+                {includeConductInPdf && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              <Text style={{ fontSize: 13, color: colors.textSecondary, flex: 1 }}>
+                Incluir esta conduta no PDF e no histórico compartilhado com o paciente.
+              </Text>
+            </TouchableOpacity>
+
+            <View style={s.formBtns}>
+              <PrimaryButton
+                label="Salvar no prontuário"
+                onPress={handleSaveConduct}
+                loading={savingConduct}
+                style={s.primaryBtnFlex}
+              />
+            </View>
+          </DoctorCard>
+        )}
+
         {/* Sign Form */}
         {showSignForm && (
           <DoctorCard style={[s.cardMargin, s.formCard]}>
@@ -745,15 +869,45 @@ export default function DoctorRequestDetail() {
         {/* Actions */}
         {!showSignForm && !showRejectForm && (
           <View style={s.actions}>
-            {canAccept && <PrimaryButton label="Aceitar Consulta" onPress={handleAcceptConsultation} loading={actionLoading} style={s.actionBtnFull} />}
-            {canApprove && <PrimaryButton label="Aprovar" onPress={handleApprove} loading={actionLoading} style={s.actionBtnFull} />}
+            {canAccept && (
+              <PrimaryButton
+                label="Aceitar Consulta"
+                onPress={handleAcceptConsultation}
+                loading={actionLoading}
+                style={s.actionBtnFull}
+              />
+            )}
+            {canApprove && (
+              <PrimaryButton
+                label="Aprovar"
+                onPress={handleApprove}
+                loading={actionLoading}
+                style={s.actionBtnFull}
+              />
+            )}
             {canSign && request.requestType === 'prescription' && (
-              <PrimaryButton label="Visualizar e Assinar" showArrow onPress={() => router.push(`/doctor-request/editor/${requestId}`)} style={s.actionBtnFull} />
+              <PrimaryButton
+                label="Visualizar e Assinar"
+                showArrow
+                onPress={() => router.push(`/doctor-request/editor/${requestId}`)}
+                style={s.actionBtnFull}
+              />
             )}
             {canSign && request.requestType !== 'prescription' && (
-              <PrimaryButton label="Assinar Digitalmente" onPress={() => setShowSignForm(true)} style={s.actionBtnFull} />
+              <PrimaryButton
+                label="Assinar Digitalmente"
+                onPress={() => setShowSignForm(true)}
+                style={s.actionBtnFull}
+              />
             )}
-            {canVideo && <PrimaryButton label="Iniciar Consulta" showArrow onPress={() => router.push(`/video/${request.id}`)} style={s.actionBtnFull} />}
+            {canVideo && (
+              <PrimaryButton
+                label="Iniciar Consulta"
+                showArrow
+                onPress={() => router.push(`/video/${request.id}`)}
+                style={s.actionBtnFull}
+              />
+            )}
             {canReject && (
               <PrimaryButton
                 label="Rejeitar"
@@ -765,6 +919,9 @@ export default function DoctorRequestDetail() {
           </View>
         )}
       </ScrollView>
+      <View style={s.aiBannerSticky}>
+        <AssistantBanner />
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -898,6 +1055,12 @@ const s = StyleSheet.create({
   actions: { marginHorizontal: pad, marginTop: doctorDS.sectionGap, gap: spacing.sm },
   actionBtnFull: { width: '100%' },
   primaryBtnFlex: { flex: 1 },
+  aiBannerSticky: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.lg * 2,
+  },
 
   // Forms
   formCard: { borderWidth: 1, borderColor: colors.border },

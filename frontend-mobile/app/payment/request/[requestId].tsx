@@ -85,7 +85,20 @@ export default function PaymentRequestScreen() {
       router.replace(targetUrl);
     } catch (error: unknown) {
       const msg = getApiErrorMessage(error);
-      Alert.alert('Erro ao gerar pagamento', msg);
+      if (msg?.toLowerCase().includes('já possui pagamento aprovado')) {
+        Alert.alert(
+          'Pagamento já confirmado',
+          'Esta solicitação já tem um pagamento aprovado. Vamos te levar para o pedido para você acompanhar o documento.',
+          [
+            {
+              text: 'Ver pedido',
+              onPress: () => router.replace(`/request-detail/${rid}`),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Erro ao gerar pagamento', msg);
+      }
     } finally {
       setPixLoading(false);
       pixInFlightRef.current = false;
@@ -135,53 +148,72 @@ export default function PaymentRequestScreen() {
         <Text style={styles.headerTitle}>Pagamento</Text>
         <View style={{ width: 40 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={{ marginBottom: spacing.md }}>
-          <AssistantBanner />
-        </View>
-        <View style={styles.selectionCard}>
-          <View style={styles.selectionIcon}>
-            <Ionicons name="qr-code" size={40} color={colors.primary} />
-          </View>
-          <Text style={styles.selectionTitle}>Escolha a forma de pagamento</Text>
-          <Text style={styles.selectionDesc}>
-            Selecione o método de sua preferência para realizar o pagamento.
-          </Text>
-
-          <TouchableOpacity
-            style={styles.pixButton}
-            onPress={handleSelectPix}
-            disabled={pixLoading}
-            activeOpacity={0.8}
-          >
-            <View style={styles.pixButtonContent}>
-              <Ionicons name="qr-code" size={20} color="#fff" />
-              <Text style={styles.pixButtonText}>Pagar com PIX</Text>
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.selectionCard}>
+            <View style={styles.selectionIcon}>
+              <Ionicons name="qr-code" size={40} color={colors.primary} />
             </View>
-            {pixLoading && (
-              <View style={styles.pixButtonOverlay} pointerEvents="none">
-                <ActivityIndicator color="#fff" />
+            <Text style={styles.selectionTitle}>Escolha a forma de pagamento</Text>
+            <Text style={styles.selectionDesc}>
+              Selecione o método de sua preferência para realizar o pagamento.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.pixButton}
+              onPress={handleSelectPix}
+              disabled={pixLoading}
+              activeOpacity={0.8}
+            >
+              <View style={styles.pixButtonContent}>
+                <Ionicons name="qr-code" size={20} color="#fff" />
+                <Text style={styles.pixButtonText}>Pagar com PIX</Text>
               </View>
-            )}
-          </TouchableOpacity>
+              {pixLoading && (
+                <View style={styles.pixButtonOverlay} pointerEvents="none">
+                  <ActivityIndicator color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cardButton} onPress={handleSelectCard} activeOpacity={0.8}>
-            <Ionicons name="card" size={20} color={colors.primary} />
-            <Text style={styles.cardButtonText}>Pagar com Cartão</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cardButton}
+              onPress={handleSelectCard}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="card" size={20} color={colors.primary} />
+              <Text style={styles.cardButtonText}>Pagar com Cartão</Text>
+            </TouchableOpacity>
 
-          <View style={styles.priceDivider} />
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Valor</Text>
-            <Text style={styles.priceValue}>{formatBRL(amount)}</Text>
+            <View style={styles.priceDivider} />
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Valor</Text>
+              <Text style={styles.priceValue}>{formatBRL(amount)}</Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.securityRow}>
-          <Ionicons name="shield-checkmark" size={16} color={colors.success} />
-          <Text style={styles.securityText}>Pagamento 100% seguro</Text>
-        </View>
-      </ScrollView>
+          <View style={styles.securityRow}>
+            <Ionicons name="shield-checkmark" size={16} color={colors.success} />
+            <Text style={styles.securityText}>Pagamento 100% seguro</Text>
+          </View>
+        </ScrollView>
+      </View>
+      <View style={styles.aiBannerSticky}>
+        <AssistantBanner
+          onAction={(action) => {
+            if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
+              router.push('/new-request/consultation');
+            }
+            if (action === 'ver_servicos') {
+              router.push('/(patient)/requests');
+            }
+          }}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -287,4 +319,10 @@ const styles = StyleSheet.create({
   },
   securityText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   errorText: { fontSize: 16, color: colors.textSecondary },
+  aiBannerSticky: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.lg * 2,
+  },
 });

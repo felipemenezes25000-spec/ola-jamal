@@ -879,7 +879,7 @@ export default function PrescriptionEditorScreen() {
                 >
                   <Text style={st.cancelSignText}>Cancelar</Text>
                 </TouchableOpacity>
-                <PrimaryButton label="Assinar e enviar" onPress={handleSign} loading={signing} style={st.signConfirmBtn} />
+                <PrimaryButton label="Assinar" onPress={handleSign} loading={signing} style={st.signConfirmBtn} />
               </View>
             </DoctorCard>
           )}

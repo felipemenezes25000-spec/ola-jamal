@@ -177,8 +177,15 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             if (string.IsNullOrWhiteSpace(text))
                 return null;
 
-            // Validação: rejeitar se contiver termos que indicam decisão médica
-            var forbidden = new[] { "diagnóstico", "prescrevo", "indico", "você tem", "recomendo tratamento" };
+            // Validação: rejeitar se contiver termos que indicam decisão médica (inclui variações sem acento)
+            var forbidden = new[]
+            {
+                "diagnóstico", "diagnostico",
+                "prescrevo", "prescrição", "prescricao",
+                "indico", "indicação", "indicacao",
+                "você tem", "voce tem",
+                "recomendo tratamento", "tratamento recomendado"
+            };
             var lower = text.ToLowerInvariant();
             if (forbidden.Any(f => lower.Contains(f)))
             {
