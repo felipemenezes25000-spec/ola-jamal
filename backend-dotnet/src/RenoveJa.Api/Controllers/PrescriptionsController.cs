@@ -47,6 +47,7 @@ public class PrescriptionsController(
 
         if (code.Length != 4 && code.Length != 6)
         {
+            logger.LogDebug("Verificação de receita com código de tamanho inválido: {PrescriptionId}", id);
             return Ok(new PrescriptionVerifyResponse(
                 IsValid: false,
                 Status: "invalid",
@@ -62,6 +63,7 @@ public class PrescriptionsController(
         var codeValid = await prescriptionVerifyRepository.ValidateVerifyCodeAsync(id, code, cancellationToken);
         if (!codeValid)
         {
+            logger.LogDebug("Código de verificação inválido para receita {PrescriptionId}", id);
             return Ok(new PrescriptionVerifyResponse(
                 IsValid: false,
                 Status: "invalid",

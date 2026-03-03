@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using iText.Bouncycastle.Crypto;
 using iText.Bouncycastle.X509;
+using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.X509;
@@ -400,7 +401,7 @@ public class DigitalCertificateService : IDigitalCertificateService
         var ocspClient = new OcspClientBouncyCastle();
 
         var container = new ItiHealthOidsSignatureContainer(
-            (AsymmetricKeyParameter)pk.Key,
+            (Org.BouncyCastle.Crypto.AsymmetricKeyParameter)pk.Key,
             bcChain,
             crmForOid,
             ufForOid,

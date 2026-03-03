@@ -150,7 +150,7 @@ public class CpfHelperTests
     [Fact]
     public void ExtractDigits_ShouldReturnEmpty_WhenNull()
     {
-        CpfHelper.ExtractDigits(null).Should().BeEmpty();
+        CpfHelper.ExtractDigits(null!).Should().BeEmpty();
     }
 
     [Fact]

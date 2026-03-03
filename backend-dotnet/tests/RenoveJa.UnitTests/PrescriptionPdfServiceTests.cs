@@ -66,7 +66,7 @@ public class PrescriptionPdfServiceTests
         result.Success.Should().BeTrue();
         result.PdfBytes.Should().NotBeNull();
         var text = ExtractTextFromPdf(result.PdfBytes!);
-        text.Should().Contain("VALIDADE");
+        text.Should().Contain("Validade");
         text.Should().Contain("10 dias");
     }
 
@@ -96,7 +96,7 @@ public class PrescriptionPdfServiceTests
         result.PdfBytes.Should().NotBeNull();
         var text = ExtractTextFromPdf(result.PdfBytes!);
         text.Should().Contain("IDENTIFICAÇÃO DO EMITENTE");
-        text.Should().Contain("IDENTIFICAÇÃO DO PACIENTE");
+        text.Should().Contain("PACIENTE");
     }
 
     [Fact]

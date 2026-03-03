@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using iText.Commons.Bouncycastle.Cert;
 using iText.Kernel.Pdf;
@@ -7,11 +8,32 @@ using iText.Signatures;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Cms;
 using Org.BouncyCastle.Cms;
+using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Utilities.Collections;
 using Org.BouncyCastle.X509;
 using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
+using CmsAttribute = Org.BouncyCastle.Asn1.Cms.Attribute;
 
 namespace RenoveJa.Infrastructure.Certificates;
+
+/// <summary>Store simples que implementa IStore para BouncyCastle.Cryptography (sem X509StoreFactory).</summary>
+internal sealed class BcCertificateListStore : IStore<X509Certificate>
+{
+    private readonly X509Certificate[] _certs;
+    public BcCertificateListStore(X509Certificate[] certs) => _certs = certs;
+    public IEnumerable<X509Certificate> EnumerateMatches(ISelector<X509Certificate> selector) =>
+        selector == null ? _certs : _certs.Where(selector.Match);
+}
+
+/// <summary>Store simples para CRLs (BouncyCastle.Cryptography).</summary>
+internal sealed class BcCrlListStore : IStore<X509Crl>
+{
+    private readonly ICollection<X509Crl> _crls;
+    public BcCrlListStore(ICollection<X509Crl> crls) => _crls = crls;
+    public IEnumerable<X509Crl> EnumerateMatches(ISelector<X509Crl> selector) =>
+        selector == null ? _crls : _crls.Where(selector.Match);
+}
 
 /// <summary>
 /// Container de assinatura externa com OIDs de documento de saúde exigidos pelo ITI (validar.iti.gov.br).
@@ -32,7 +54,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
 
     private const string DigestOid = "2.16.840.1.101.3.4.2.1";     // SHA256
 
-    private readonly AsymmetricKeyParameter _privateKey;
+    private readonly Org.BouncyCastle.Crypto.AsymmetricKeyParameter _privateKey;
     private readonly X509Certificate[] _chain;
     private readonly string _crmNumber;
     private readonly string _uf;
@@ -42,7 +64,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
     private readonly IX509Certificate[] _chainItext; // iText.Commons.Bouncycastle.Cert.IX509Certificate
 
     public ItiHealthOidsSignatureContainer(
-        AsymmetricKeyParameter privateKey,
+        Org.BouncyCastle.Crypto.AsymmetricKeyParameter privateKey,
         X509Certificate[] chain,
         string? crmNumber,
         string? uf,
@@ -77,7 +99,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
         CmsAttributeTableGenerator? unsignedAttrGen = (_tsaClient != null) ? new TsaUnsignedAttributeGenerator(_tsaClient) : null;
         gen.AddSigner(_privateKey, _chain[0], encOid, DigestOid, signedAttrGen, unsignedAttrGen);
 
-        var certStore = X509StoreFactory.Create("Certificate/Collection", new X509CollectionStoreParameters(_chain));
+        var certStore = new BcCertificateListStore(_chain);
         gen.AddCertificates(certStore);
 
         TryAddCrls(gen);
@@ -102,13 +124,13 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
         var v = new Asn1EncodableVector();
 
         // 2.16.76.1.12.1.1 - Prescrição de medicamento (valor string vazia conforme ITI)
-        v.Add(new Attribute(new DerObjectIdentifier(OidPrescricao), new DerSet(new DerUtf8String(""))));
+        v.Add(new CmsAttribute(new DerObjectIdentifier(OidPrescricao), new DerSet(new DerUtf8String(""))));
 
         // 2.16.76.1.4.2.2.1 - CRM
-        v.Add(new Attribute(new DerObjectIdentifier(OidCrm), new DerSet(new DerUtf8String(_crmNumber))));
+        v.Add(new CmsAttribute(new DerObjectIdentifier(OidCrm), new DerSet(new DerUtf8String(_crmNumber))));
 
         // 2.16.76.1.4.2.2.2 - UF
-        v.Add(new Attribute(new DerObjectIdentifier(OidUf), new DerSet(new DerUtf8String(_uf))));
+        v.Add(new CmsAttribute(new DerObjectIdentifier(OidUf), new DerSet(new DerUtf8String(_uf))));
 
         return new AttributeTable(v);
     }
@@ -139,7 +161,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
             }
             if (crls.Count > 0)
             {
-                var crlStore = X509StoreFactory.Create("CRL/Collection", new X509CollectionStoreParameters(crls));
+                var crlStore = new BcCrlListStore(crls);
                 gen.AddCrls(crlStore);
             }
         }
@@ -172,7 +194,7 @@ internal sealed class TsaUnsignedAttributeGenerator : CmsAttributeTableGenerator
                 return new AttributeTable(new Asn1EncodableVector());
 
             var v = new Asn1EncodableVector();
-            v.Add(new Attribute(new DerObjectIdentifier("1.2.840.113549.1.9.16.2.14"), new DerSet(Asn1Object.FromByteArray(token))));
+            v.Add(new CmsAttribute(new DerObjectIdentifier("1.2.840.113549.1.9.16.2.14"), new DerSet(Asn1Object.FromByteArray(token))));
             return new AttributeTable(v);
         }
         catch

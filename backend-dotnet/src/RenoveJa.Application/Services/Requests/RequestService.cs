@@ -207,11 +207,11 @@ public class RequestService(
             request.PrescriptionImages,
             prescriptionKind);
 
-        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
 
         var autoObs = GenerateAutoObservation(RequestType.Prescription, prescriptionType);
         medicalRequest.SetAutoObservation(autoObs);
-        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
 
         try
         {
@@ -219,14 +219,15 @@ public class RequestService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "IA receita: falha inesperada para request {RequestId}. Solicitação criada, mas sem análise. O médico pode usar Reanalisar.", medicalRequest.Id);
+            if (logger != null)
+                logger.LogError(ex, "IA receita: falha inesperada para request {RequestId}. Solicitação criada, mas sem análise. O médico pode usar Reanalisar.", medicalRequest?.Id ?? Guid.Empty);
             // Não relança - a solicitação foi criada com sucesso; o médico pode clicar em "Reanalisar com IA"
         }
 
-        var latest = await requestRepository.GetByIdAsync(medicalRequest.Id, cancellationToken);
+        var latest = await requestRepository.GetByIdAsync(medicalRequest!.Id, cancellationToken);
         var req = latest ?? medicalRequest;
 
-        if (req.Status != RequestStatus.Rejected)
+        if (req != null && req.Status != RequestStatus.Rejected)
         {
             await CreateNotificationAsync(
                 userId,
@@ -237,7 +238,7 @@ public class RequestService(
             await NotifyAvailableDoctorsOfNewRequestAsync("receita", req, cancellationToken);
         }
 
-        return (MapRequestToDto(req), null);
+        return (MapRequestToDto(req!), null);
     }
 
     /// <summary>
@@ -260,11 +261,11 @@ public class RequestService(
             request.Symptoms,
             request.ExamImages);
 
-        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
 
         var autoObs = GenerateAutoObservation(RequestType.Exam, examType: request.ExamType);
         medicalRequest.SetAutoObservation(autoObs);
-        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
 
         try
         {
@@ -272,13 +273,14 @@ public class RequestService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "IA exame: falha inesperada para request {RequestId}. Solicitação criada, mas sem análise. O médico pode usar Reanalisar.", medicalRequest.Id);
+            if (logger != null)
+                logger.LogError(ex, "IA exame: falha inesperada para request {RequestId}. Solicitação criada, mas sem análise. O médico pode usar Reanalisar.", medicalRequest?.Id ?? Guid.Empty);
         }
 
-        var latest = await requestRepository.GetByIdAsync(medicalRequest.Id, cancellationToken);
+        var latest = await requestRepository.GetByIdAsync(medicalRequest!.Id, cancellationToken);
         var req = latest ?? medicalRequest;
 
-        if (req.Status != RequestStatus.Rejected)
+        if (req != null && req.Status != RequestStatus.Rejected)
         {
             await CreateNotificationAsync(
                 userId,
@@ -289,7 +291,7 @@ public class RequestService(
             await NotifyAvailableDoctorsOfNewRequestAsync("exame", req, cancellationToken);
         }
 
-        return (MapRequestToDto(req), null);
+        return (MapRequestToDto(req!), null);
     }
 
     /// <summary>
@@ -348,11 +350,11 @@ public class RequestService(
             durationMinutes,
             pricePerMinute);
 
-        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
 
         var autoObs = GenerateAutoObservation(RequestType.Consultation);
         medicalRequest.SetAutoObservation(autoObs);
-        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+        medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
 
         // Debitar minutos gratuitos do banco de horas
         if (freeMinutes > 0)
@@ -365,7 +367,7 @@ public class RequestService(
         if (totalPrice >= 0)
         {
             medicalRequest.SetEffectivePrice(totalPrice);
-            medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+            medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
         }
 
         await CreateNotificationAsync(
@@ -1744,7 +1746,7 @@ public class RequestService(
 
     private async Task RunPrescriptionAiAndUpdateAsync(MedicalRequest medicalRequest, CancellationToken cancellationToken)
     {
-        if (medicalRequest.PrescriptionImages.Count == 0)
+        if (medicalRequest.PrescriptionImages == null || medicalRequest.PrescriptionImages.Count == 0)
         {
             logger.LogInformation("IA receita: request {RequestId} sem imagens, pulando análise", medicalRequest.Id);
             return;
@@ -1786,10 +1788,10 @@ public class RequestService(
     {
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(medicalRequest.ExamType)) parts.Add($"Tipo: {medicalRequest.ExamType}");
-        if (medicalRequest.Exams.Count > 0) parts.Add("Exames: " + string.Join(", ", medicalRequest.Exams));
+        if (medicalRequest.Exams?.Count > 0) parts.Add("Exames: " + string.Join(", ", medicalRequest.Exams));
         if (!string.IsNullOrEmpty(medicalRequest.Symptoms)) parts.Add(medicalRequest.Symptoms);
         var textDescription = parts.Count > 0 ? string.Join("\n", parts) : null;
-        var imageUrls = medicalRequest.ExamImages.Count > 0 ? medicalRequest.ExamImages : null;
+        var imageUrls = medicalRequest.ExamImages?.Count > 0 ? medicalRequest.ExamImages : null;
         if (string.IsNullOrWhiteSpace(textDescription) && (imageUrls == null || imageUrls.Count == 0))
         {
             logger.LogInformation("IA exame: request {RequestId} sem texto nem imagens, pulando análise", medicalRequest.Id);

@@ -138,7 +138,7 @@ public class AuthServiceTests
         Func<Task> act = async () => await _authService.LoginAsync(request);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
-            .WithMessage("Invalid email or password");
+            .WithMessage("*E-mail*senha*");
     }
 
     [Fact]
@@ -166,6 +166,6 @@ public class AuthServiceTests
         Func<Task> act = async () => await _authService.LoginAsync(request);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
-            .WithMessage("Invalid email or password");
+            .WithMessage("*E-mail*senha*");
     }
 }

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, fix/frontend-performance-responsive]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, fix/frontend-performance-responsive]
 
 jobs:
   backend:
@@ -29,6 +29,15 @@ jobs:
 
       - name: Test
         run: dotnet test -c Release --no-build --verbosity normal
+
+  backend-docker:
+    name: Backend Docker (Render)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image (mesmo que Render)
+        run: docker build -f backend-dotnet/Dockerfile -t renoveja-backend:test .
 
   frontend-web:
     name: Frontend Web

@@ -268,7 +268,7 @@ public class MercadoPagoService(
         // CPF: enviado pelo formulário do Brick (qualquer pessoa pode pagar). MP exige CPF válido (11 dígitos, algoritmo módulo 11).
         // Erro 2067 = Invalid user identification number.
         string? cpfToSend = null;
-        if (CpfHelper.IsValidForPayment(payerCpf))
+        if (!string.IsNullOrEmpty(payerCpf) && CpfHelper.IsValidForPayment(payerCpf))
             cpfToSend = CpfHelper.ExtractDigits(payerCpf);
         if (!string.IsNullOrEmpty(cpfToSend))
             payer["identification"] = new { type = "CPF", number = cpfToSend };
