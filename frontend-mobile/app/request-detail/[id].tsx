@@ -29,7 +29,6 @@ import { CompatibleImage } from '../../components/CompatibleImage';
 import { FormattedAiSummary } from '../../components/FormattedAiSummary';
 import { ObservationCard, AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
-import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 
 function getTypeLabel(type: string): string {
   switch (type) {
@@ -117,9 +116,6 @@ export default function RequestDetailScreen() {
   }, [load]);
 
   useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId, load]));
-
-  /** Tempo real: quando o backend envia evento de atualização (pagamento, assinatura, etc.), atualiza a tela. */
-  useRequestUpdated(requestId ?? undefined, loadSilent);
 
   /** Polling: enquanto o pedido está aguardando pagamento, atualiza a cada 5s para refletir webhook. Máx 180 polls (~15 min). */
   const MAX_POLLS = 180;
@@ -325,29 +321,35 @@ export default function RequestDetailScreen() {
         <StatusBadge status={request.status} />
       </View>
 
-      <View style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* Status Tracker */}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>STATUS DO PEDIDO</Text>
-            <StatusTracker currentStatus={request.status} requestType={request.requestType} />
-          </View>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Status Tracker */}
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>STATUS DO PEDIDO</Text>
+          <StatusTracker currentStatus={request.status} requestType={request.requestType} />
+        </View>
 
-          {/* Observação automática e conduta médica (Dra. Renova) */}
-          {request.autoObservation && (
-            <View style={styles.card}>
-              <ObservationCard mode="auto" text={request.autoObservation} />
-            </View>
-          )}
-          {request.doctorConductNotes && (
-            <View style={styles.card}>
-              <ObservationCard
-                mode="conduct"
-                text={request.doctorConductNotes}
-                doctorName={request.doctorName}
-              />
-            </View>
-          )}
+        {/* Observação automática e conduta médica (Dra. Renova) */}
+        {request.autoObservation && (
+          <View style={styles.card}>
+            <ObservationCard mode="auto" text={request.autoObservation} />
+          </View>
+        )}
+        {request.doctorConductNotes && (
+          <View style={styles.card}>
+            <ObservationCard
+              mode="conduct"
+              text={request.doctorConductNotes}
+              doctorName={request.doctorName}
+            />
+          </View>
+        )}
+
+        {/* Dra. Renova — só quando não tem conduta visível (evita redundância) */}
+        {!request.doctorConductNotes && (
+          <View style={{ marginBottom: 8 }}>
+            <AssistantBanner />
+          </View>
+        )}
 
         {/* Details Card */}
         <View style={styles.card}>
@@ -556,15 +558,7 @@ export default function RequestDetailScreen() {
             />
           )}
         </View>
-        </ScrollView>
-      </View>
-
-      {/* Dra. Renova fixa acima dos botões / tab bar */}
-      {!request.doctorConductNotes && (
-        <View style={styles.aiBannerSticky}>
-          <AssistantBanner />
-        </View>
-      )}
+      </ScrollView>
 
       {/* Modal com zoom nas imagens */}
       <Modal
@@ -644,12 +638,6 @@ const styles = StyleSheet.create({
   riskBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.sm },
   riskText: { fontSize: 11, fontWeight: '700' },
   actions: { gap: spacing.sm, marginTop: spacing.md },
-  aiBannerSticky: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.lg * 2,
-  },
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.textSecondary },
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
   errorBtn: {

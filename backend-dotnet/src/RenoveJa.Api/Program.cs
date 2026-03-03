@@ -257,6 +257,7 @@ builder.Services.AddScoped<IConsultationTimeBankRepository, ConsultationTimeBank
 // Register Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDocumentTokenService, RenoveJa.Application.Services.DocumentTokenService>();
+builder.Services.AddScoped<IRequestEventsPublisher, RequestEventsPublisher>();
 builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -264,7 +265,6 @@ builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IVerificationService, RenoveJa.Application.Services.Verification.VerificationService>();
-builder.Services.AddSingleton<IRequestEventsPublisher, RequestEventsPublisher>();
 
 // Register Infrastructure Services
 builder.Services.AddScoped<IStorageService, SupabaseStorageService>();

@@ -39,9 +39,6 @@ import { CompatibleImage } from '../../components/CompatibleImage';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { parseAiSummary } from '../../components/FormattedAiSummary';
-import { AssistantBanner } from '../../components/triage';
-import { useTriageEval } from '../../hooks/useTriageEval';
-import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 
 /* ---- In-memory cache for instant display ---- */
 const _requestCache = new Map<string, RequestResponseDto>();
@@ -102,8 +99,6 @@ export default function DoctorRequestDetail() {
 
   // Single load on focus (covers mount + re-focus). No separate useEffect.
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
-
-  useRequestUpdated(requestId || undefined, loadData);
 
   const executeApprove = async () => {
     if (!requestId) return;
@@ -175,16 +170,6 @@ export default function DoctorRequestDetail() {
   const canVideo = request && ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
   const isInQueue = request && request.status === 'submitted' && !request.doctorId;
 
-  // Dra. Renova — fluxo do médico no detalhe do pedido (uso da plataforma)
-  useTriageEval({
-    context: 'doctor_detail',
-    step: 'idle',
-    role: 'doctor',
-    requestType: request?.requestType as any,
-    status: request?.status ?? undefined,
-    aiSummaryForDoctor: request?.aiSummaryForDoctor ?? undefined,
-  });
-
   if (loading) return (
     <View style={s.loadingContainer}>
       <DoctorHeader title="Carregando..." onBack={() => router.back()} />
@@ -210,9 +195,6 @@ export default function DoctorRequestDetail() {
         right={<StatusBadge status={request.status} />}
       />
       <ScrollView style={s.container} contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: listPadding }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.sm }}>
-          <AssistantBanner />
-        </View>
         {/* Status tracker */}
         <DoctorCard style={s.cardMargin}><StatusTracker currentStatus={request.status} requestType={request.requestType} /></DoctorCard>
 
