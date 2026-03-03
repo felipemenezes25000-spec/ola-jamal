@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using iText.Commons.Bouncycastle.Cert;
 using iText.Kernel.Pdf;
 using iText.Signatures;
 using Org.BouncyCastle.Asn1;
@@ -9,7 +10,6 @@ using Org.BouncyCastle.Cms;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.X509;
 using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
-using IX509Certificate = iText.Signatures.IX509Certificate;
 
 namespace RenoveJa.Infrastructure.Certificates;
 
@@ -39,7 +39,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
     private readonly IOcspClient? _ocspClient;
     private readonly ICrlClient? _crlClient;
     private readonly ITSAClient? _tsaClient;
-    private readonly IX509Certificate[] _chainItext;
+    private readonly IX509Certificate[] _chainItext; // iText.Commons.Bouncycastle.Cert.IX509Certificate
 
     public ItiHealthOidsSignatureContainer(
         AsymmetricKeyParameter privateKey,
@@ -57,7 +57,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
         _ocspClient = ocspClient;
         _crlClient = crlClient;
         _tsaClient = tsaClient;
-        _chainItext = chain.Select(c => new iText.Bouncycastle.X509.X509CertificateBC(c)).ToArray<IX509Certificate>();
+        _chainItext = chain.Select(c => (IX509Certificate)new iText.Bouncycastle.X509.X509CertificateBC(c)).ToArray<IX509Certificate>();
     }
 
     public byte[] Sign(Stream data)
@@ -97,7 +97,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
     /// Cria AttributeTable com OIDs ITI e valores reais de CRM e UF.
     /// O DefaultSignedAttributeTableGenerator do BouncyCastle mescla com contentType, signingTime, messageDigest.
     /// </summary>
-    private Asn1.Cms.AttributeTable BuildItiSignedAttributesWithValues()
+    private AttributeTable BuildItiSignedAttributesWithValues()
     {
         var v = new Asn1EncodableVector();
 
@@ -110,7 +110,7 @@ public sealed class ItiHealthOidsSignatureContainer : IExternalSignatureContaine
         // 2.16.76.1.4.2.2.2 - UF
         v.Add(new Attribute(new DerObjectIdentifier(OidUf), new DerSet(new DerUtf8String(_uf))));
 
-        return new Asn1.Cms.AttributeTable(v);
+        return new AttributeTable(v);
     }
 
     private string GetSignatureAlgorithmOid()
@@ -159,25 +159,26 @@ internal sealed class TsaUnsignedAttributeGenerator : CmsAttributeTableGenerator
 
     public TsaUnsignedAttributeGenerator(ITSAClient tsaClient) => _tsaClient = tsaClient;
 
-    public Asn1.Cms.AttributeTable GetAttributes(IDictionary<CmsAttributeTableParameter, object> parameters)
+    public AttributeTable GetAttributes(IDictionary<CmsAttributeTableParameter, object> parameters)
     {
         if (parameters == null || !parameters.TryGetValue(CmsAttributeTableParameter.Signature, out var sigObj) || sigObj is not byte[] sigBytes)
-            return new Asn1.Cms.AttributeTable(new Asn1EncodableVector());
+            return new AttributeTable(new Asn1EncodableVector());
 
         try
         {
             var sigHash = SHA256.HashData(sigBytes);
             var token = _tsaClient.GetTimeStampToken(sigHash);
             if (token == null || token.Length == 0)
-                return new Asn1.Cms.AttributeTable(new Asn1EncodableVector());
+                return new AttributeTable(new Asn1EncodableVector());
 
             var v = new Asn1EncodableVector();
             v.Add(new Attribute(new DerObjectIdentifier("1.2.840.113549.1.9.16.2.14"), new DerSet(Asn1Object.FromByteArray(token))));
-            return new Asn1.Cms.AttributeTable(v);
+            return new AttributeTable(v);
         }
         catch
         {
-            return new Asn1.Cms.AttributeTable(new Asn1EncodableVector());
+            return new AttributeTable(new Asn1EncodableVector());
         }
     }
 }
+
