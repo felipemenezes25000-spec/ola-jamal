@@ -556,6 +556,7 @@ export default function RequestDetailScreen() {
             />
           )}
         </View>
+        </ScrollView>
       </View>
 
       {/* Dra. Renova fixa acima dos botões / tab bar */}
