@@ -257,6 +257,18 @@ public class RequestsController(
     }
 
     /// <summary>
+    /// Estatísticas do médico (contagens e ganhos). Somente role doctor.
+    /// </summary>
+    [HttpGet("stats")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> GetStats(CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var (pendingCount, inReviewCount, completedCount, totalEarnings) = await requestService.GetDoctorStatsAsync(doctorId, cancellationToken);
+        return Ok(new { pendingCount, inReviewCount, completedCount, totalEarnings });
+    }
+
+    /// <summary>
     /// Médico obtém histórico de solicitações do paciente (prontuário).
     /// </summary>
     [HttpGet("by-patient/{patientId}")]

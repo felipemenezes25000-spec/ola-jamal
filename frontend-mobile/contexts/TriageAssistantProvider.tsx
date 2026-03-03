@@ -3,8 +3,12 @@
  *
  * Context + Provider para o assistente de triagem Dra. Renova.
  * Gerencia: current message, dedupe, cooldown check, dismiss, mute.
+ * Uso híbrido: regras primeiro (sempre), IA opcional para personalizar tom.
+ * IA NUNCA define nada — médico sempre decide.
  *
- * Feature flag: EXPO_PUBLIC_TRIAGE_ENABLED (default: "true")
+ * Feature flags:
+ *   EXPO_PUBLIC_TRIAGE_ENABLED (default: "true")
+ *   EXPO_PUBLIC_TRIAGE_AI_ENABLED (default: "true") — enriquecimento com IA
  */
 
 import React, {
@@ -18,11 +22,14 @@ import React, {
 } from 'react';
 import { evaluateTriageRules } from '../lib/triage/triageRulesEngine';
 import { canShow, markShown, muteKey, resetSessionCounts } from '../lib/triage/triagePersistence';
+import { trackTriageEvent } from '../lib/triage/triageAnalytics';
+import { enrichTriageMessage } from '../lib/triage/triageEnrichmentApi';
 import type { TriageMessage, TriageInput } from '../lib/triage/triage.types';
 
-// ── Feature flag ────────────────────────────────────────────
+// ── Feature flags ──────────────────────────────────────────
 
 const IS_ENABLED = process.env.EXPO_PUBLIC_TRIAGE_ENABLED !== 'false';
+const IS_AI_ENABLED = process.env.EXPO_PUBLIC_TRIAGE_AI_ENABLED !== 'false';
 
 // ── Context types ───────────────────────────────────────────
 
@@ -76,16 +83,39 @@ export function TriageAssistantProvider({ children }: { children: React.ReactNod
     const allowed = await canShow(message.key, message.cooldownMs);
     if (!allowed) return;
 
-    // Show it
+    // Show rule message immediately (nunca bloqueia)
     await markShown(message.key);
     screenKeyRef.current = message.key;
     setCurrent(message);
+
+    if (message.analyticsEvent) {
+      trackTriageEvent(message.analyticsEvent, {
+        key: message.key,
+        severity: message.severity,
+        hasCta: !!message.cta,
+      });
+    }
 
     // Add to history (max 3)
     setHistory(prev => {
       const next = [message, ...prev.filter(m => m.key !== message.key)];
       return next.slice(0, 3);
     });
+
+    // Enriquecimento IA em background (opcional, não bloqueia)
+    if (IS_AI_ENABLED) {
+      enrichTriageMessage(message, input).then((enriched) => {
+        if (!enriched) return;
+        // Só atualiza se ainda estamos mostrando esta mensagem
+        if (screenKeyRef.current === message.key) {
+          setCurrent({
+            ...message,
+            text: enriched.text,
+            isPersonalized: true,
+          });
+        }
+      });
+    }
   }, []);
 
   const dismiss = useCallback(() => {

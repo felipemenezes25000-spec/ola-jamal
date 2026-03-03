@@ -131,3 +131,38 @@ export async function getMutedKeys(): Promise<string[]> {
   const state = await load();
   return [...state.mutedKeys];
 }
+
+/** Retorna quantas vezes o usuário visitou a Home. */
+export async function getHomeVisitCount(): Promise<number> {
+  const state = await load();
+  return state.homeVisitCount ?? 0;
+}
+
+/** Incrementa contador de visitas à Home. */
+export async function incrementHomeVisit(): Promise<void> {
+  const state = await load();
+  state.homeVisitCount = (state.homeVisitCount ?? 0) + 1;
+  scheduleSave();
+}
+
+/** Marca InfoCard da home como dismissado (não mostrar mais). */
+export async function dismissHomeInfoCard(): Promise<void> {
+  const state = await load();
+  state.homeInfoCardDismissed = true;
+  scheduleSave();
+}
+
+/** Verifica se deve mostrar o InfoCard da home (primeiras 5 visitas, não dismissado). */
+export async function shouldShowHomeInfoCard(): Promise<boolean> {
+  const state = await load();
+  if (state.homeInfoCardDismissed) return false;
+  const count = state.homeVisitCount ?? 0;
+  return count < 5;
+}
+
+/** Reativa todas as mensagens mutadas (settings). */
+export async function unmuteAll(): Promise<void> {
+  const state = await load();
+  state.mutedKeys = [];
+  scheduleSave();
+}

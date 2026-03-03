@@ -616,27 +616,15 @@ export interface DoctorStats {
 
 export async function fetchDoctorStats(): Promise<DoctorStats> {
   try {
-    const allRequests = await fetchRequests({ pageSize: 1000 });
-    const requests = allRequests.items;
-
-    const pendingCount = requests.filter(
-      (r) => !r.doctorId && ['submitted', 'paid'].includes(r.status)
-    ).length;
-
-    const inReviewCount = requests.filter(
-      (r) => r.doctorId &&
-        ['in_review', 'approved', 'signed', 'consultation_ready', 'in_consultation'].includes(r.status)
-    ).length;
-
-    const completedCount = requests.filter(
-      (r) => r.doctorId && ['completed', 'delivered', 'consultation_finished'].includes(r.status)
-    ).length;
-
-    const totalEarnings = requests
-      .filter((r) => r.doctorId && ['completed', 'delivered', 'consultation_finished'].includes(r.status))
-      .reduce((sum, r) => sum + (r.price ?? 0), 0);
-
-    return { pendingCount, inReviewCount, completedCount, totalEarnings };
+    const res = await apiClient.get<{ pendingCount: number; inReviewCount: number; completedCount: number; totalEarnings: number }>(
+      '/api/requests/stats'
+    );
+    return {
+      pendingCount: res.pendingCount ?? 0,
+      inReviewCount: res.inReviewCount ?? 0,
+      completedCount: res.completedCount ?? 0,
+      totalEarnings: res.totalEarnings ?? 0,
+    };
   } catch {
     return { pendingCount: 0, inReviewCount: 0, completedCount: 0, totalEarnings: 0 };
   }

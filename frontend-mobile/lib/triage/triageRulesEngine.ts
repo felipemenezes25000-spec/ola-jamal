@@ -16,11 +16,20 @@ import type { TriageInput, TriageMessage, TriageStep } from './triage.types';
 // ── Cooldown constants ──────────────────────────────────────
 
 const MS = {
-  STEP:      5 * 60_000,       // 5min – dicas de etapa
+  STEP:      5 * 60_000,       // 5min – dicas de etapa (novato)
+  STEP_NOVICE: 60 * 60_000,    // 1h – 3–9 pedidos
+  STEP_VET:  24 * 3600_000,    // 24h – veteranos
   INSIGHT:   24 * 3600_000,    // 24h  – insights de histórico
   PROACTIVE: 12 * 3600_000,    // 12h  – proativas na home
   WELCOME:   7 * 24 * 3600_000, // 7d  – boas-vindas
 } as const;
+
+/** Cooldown dinâmico: novatos 5min, intermediários 1h, veteranos 24h. */
+function getStepCooldown(totalRequests?: number): number {
+  if (!totalRequests || totalRequests < 3) return MS.STEP;
+  if (totalRequests < 10) return MS.STEP_NOVICE;
+  return MS.STEP_VET;
+}
 
 // ── Blocked steps (momento crítico) ─────────────────────────
 
@@ -118,7 +127,8 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
         key: 'rx:entry',
         text: 'Escolha o tipo de receita. Se tiver dúvidas, prefira uma teleconsulta.',
         severity: 'info', avatarState: 'neutral', cta: null,
-        cooldownMs: MS.STEP,
+        cooldownMs: getStepCooldown(i.totalRequests),
+        canMute: true,
       };
 
     case 'type_selected':
@@ -130,7 +140,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
             : 'Receita controlada. Certifique-se de que a receita original está legível.',
           severity: 'attention', avatarState: 'alert',
           cta: 'consulta_breve', ctaLabel: 'Falar com Médico',
-          cooldownMs: MS.STEP,
+          cooldownMs: getStepCooldown(i.totalRequests),
           analyticsEvent: `triage.rx.${i.prescriptionType}`,
         };
       }
@@ -138,7 +148,8 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
         key: 'rx:simple',
         text: 'Tire uma foto nítida da receita com boa iluminação.',
         severity: 'positive', avatarState: 'positive', cta: null,
-        cooldownMs: MS.STEP,
+        cooldownMs: getStepCooldown(i.totalRequests),
+        canMute: true,
       };
 
     case 'photos_added':
@@ -147,7 +158,8 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
         key: 'rx:photos',
         text: `${i.imagesCount} foto${i.imagesCount === 1 ? '' : 's'} adicionada${i.imagesCount === 1 ? '' : 's'}. Verifique se está legível antes de enviar.`,
         severity: 'positive', avatarState: 'positive', cta: null,
-        cooldownMs: MS.STEP,
+        cooldownMs: getStepCooldown(i.totalRequests),
+        canMute: true,
       };
 
     case 'analyzing':
@@ -155,7 +167,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
         key: 'rx:analyzing',
         text: 'Verificando legibilidade e conteúdo da receita...',
         severity: 'info', avatarState: 'thinking', cta: null,
-        cooldownMs: MS.STEP,
+        cooldownMs: getStepCooldown(i.totalRequests),
       };
 
     case 'result':
@@ -193,7 +205,8 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
         key: 'rx:success',
         text: 'Receita recebida com sucesso! Em breve um médico vai analisar e aprovar. Qualquer dúvida, estou aqui.',
         severity: 'positive', avatarState: 'positive', cta: null,
-        cooldownMs: MS.STEP,
+        cooldownMs: getStepCooldown(i.totalRequests),
+        canMute: true,
       };
 
     default: return null;
@@ -209,7 +222,8 @@ function rulesExam(i: TriageInput): TriageMessage | null {
         key: 'exam:entry',
         text: 'Informe os exames que precisa. Se tiver pedido médico, tire uma foto.',
         severity: 'info', avatarState: 'neutral', cta: null,
-        cooldownMs: MS.STEP,
+        cooldownMs: getStepCooldown(i.totalRequests),
+        canMute: true,
       };
 
     case 'type_selected':
@@ -218,7 +232,8 @@ function rulesExam(i: TriageInput): TriageMessage | null {
           key: 'exam:imagem',
           text: 'Exames de imagem geralmente requerem preparo. Verifique com o laboratório.',
           severity: 'info', avatarState: 'neutral', cta: null,
-          cooldownMs: MS.STEP,
+          cooldownMs: getStepCooldown(i.totalRequests),
+          canMute: true,
         };
       }
       return null;
@@ -243,11 +258,16 @@ function rulesExam(i: TriageInput): TriageMessage | null {
           cooldownMs: MS.INSIGHT,
         };
       }
+      // Suprimir mensagem genérica quando paciente já fez tudo (foto + exames)
+      if (i.imagesCount && i.imagesCount > 0 && i.exams && i.exams.length > 0) {
+        return null;
+      }
       return {
         key: 'exam:ok',
         text: 'Pedido de exames recebido! Leve os resultados ao seu médico — ele vai indicar a melhor conduta.',
         severity: 'positive', avatarState: 'positive', cta: null,
-        cooldownMs: MS.STEP,
+        cooldownMs: getStepCooldown(i.totalRequests),
+        canMute: true,
       };
 
     default: return null;
@@ -262,7 +282,8 @@ function rulesConsultation(i: TriageInput): TriageMessage | null {
       key: 'consult:entry',
       text: 'Descreva seus sintomas: o que sente, há quanto tempo e medicamentos que toma.',
       severity: 'info', avatarState: 'neutral', cta: null,
-      cooldownMs: MS.STEP,
+      cooldownMs: getStepCooldown(i.totalRequests),
+      canMute: true,
     };
   }
   if (i.step === 'symptoms_entered' && i.symptoms && i.symptoms.length < 20) {
@@ -270,7 +291,8 @@ function rulesConsultation(i: TriageInput): TriageMessage | null {
       key: 'consult:short_symptoms',
       text: 'Quanto mais detalhes, melhor o atendimento. Inclua quando começou.',
       severity: 'info', avatarState: 'neutral', cta: null,
-      cooldownMs: MS.STEP,
+      cooldownMs: getStepCooldown(i.totalRequests),
+      canMute: true,
     };
   }
   return null;

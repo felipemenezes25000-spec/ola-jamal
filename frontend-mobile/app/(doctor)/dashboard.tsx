@@ -92,9 +92,6 @@ export default function DoctorDashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
   useFocusEffect(
     useCallback(() => {
       loadData();

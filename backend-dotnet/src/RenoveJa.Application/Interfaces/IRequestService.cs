@@ -139,4 +139,7 @@ public interface IRequestService
 
     /// <summary>Médico atualiza conduta do pedido (audit trail automático).</summary>
     Task<RequestResponseDto> UpdateConductAsync(Guid requestId, UpdateConductDto dto, Guid doctorId, CancellationToken cancellationToken = default);
+
+    /// <summary>Estatísticas do médico (contagens e ganhos). Somente role doctor.</summary>
+    Task<(int PendingCount, int InReviewCount, int CompletedCount, decimal TotalEarnings)> GetDoctorStatsAsync(Guid doctorId, CancellationToken cancellationToken = default);
 }

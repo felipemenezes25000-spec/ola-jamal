@@ -11,6 +11,7 @@ import {
   Pressable,
   Platform,
   ViewStyle,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, shadows, borderRadius, spacing } from '../../lib/themeDoctor';
@@ -21,19 +22,32 @@ interface InfoCardProps {
   description: string;
   badge?: string;
   onPress?: () => void;
+  /** Se fornecido, mostra botão para fechar/não mostrar novamente */
+  onDismiss?: () => void;
   style?: ViewStyle;
 }
 
-export function InfoCard({ icon, title, description, badge, onPress, style }: InfoCardProps) {
+export function InfoCard({ icon, title, description, badge, onPress, onDismiss, style }: InfoCardProps) {
   const Container = onPress ? Pressable : View;
 
   return (
+    <View style={[styles.wrapper, style]}>
+    {onDismiss && (
+      <TouchableOpacity
+        style={styles.dismissBtn}
+        onPress={onDismiss}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityLabel="Não mostrar novamente"
+      >
+        <Ionicons name="close" size={18} color={colors.textMuted} />
+      </TouchableOpacity>
+    )}
     <Container
-      style={({ pressed }: { pressed: boolean }) => [
-        styles.card,
-        onPress && pressed && styles.pressed,
-        style,
-      ]}
+      style={
+        onPress
+          ? ({ pressed }: { pressed: boolean }) => [styles.card, pressed && styles.pressed, style]
+          : [styles.card, style]
+      }
       {...(onPress ? { onPress } : {})}
       accessibilityRole={onPress ? 'button' : undefined}
     >
@@ -57,10 +71,21 @@ export function InfoCard({ icon, title, description, badge, onPress, style }: In
         </Text>
       </View>
     </Container>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+  },
+  dismissBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
+    padding: 4,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

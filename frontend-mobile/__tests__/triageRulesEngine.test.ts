@@ -152,6 +152,13 @@ describe('triageRulesEngine', () => {
       }));
       expect(result?.key).toBe('exam:ok');
     });
+
+    it('suppresses exam:ok when patient has photo and exams (suggestion #8)', () => {
+      const result = evaluateTriageRules(input({
+        context: 'exam', step: 'result', exams: ['Hemograma'], imagesCount: 1,
+      }));
+      expect(result).toBeNull();
+    });
   });
 
   // ── Consultation context ──────────────────────────────────

@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme, colors } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useTriageAssistant } from '../../contexts/TriageAssistantProvider';
+import { showToast } from '../ui/Toast';
 import type { AvatarState, CTAAction, Severity } from '../../lib/triage/triage.types';
 
 // ── Avatar palette (aligned with medical design system) ─────
@@ -49,7 +50,10 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
   }, [current, onAction, dismiss]);
 
   const handleLongPress = useCallback(async () => {
-    if (current?.canMute) await muteCurrent();
+    if (current?.canMute) {
+      await muteCurrent();
+      showToast({ message: 'Mensagem silenciada. Reative em Configurações.', type: 'info' });
+    }
   }, [current, muteCurrent]);
 
   if (!current) return null;
@@ -81,7 +85,15 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
 
         {/* Content */}
         <View style={styles.content}>
-          <Text style={styles.label}>Dra. Renova</Text>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Dra. Renova</Text>
+            {current.isPersonalized && (
+              <View style={styles.personalizedBadge}>
+                <Ionicons name="sparkles" size={9} color={theme.colors.accent.main} />
+                <Text style={styles.personalizedText}>personalizado</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.message} numberOfLines={2}>{current.text}</Text>
         </View>
 
@@ -113,8 +125,15 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
         )}
       </Pressable>
 
-      {/* Disclaimer micro-text */}
-      <Text style={styles.disclaimer}>Orientação geral · Não substitui avaliação médica · Decisão final é sempre do médico</Text>
+      {/* Disclaimer + hint de mute */}
+      <View style={styles.footer}>
+        {current.canMute && (
+          <Text style={styles.muteHint}>Segure para silenciar</Text>
+        )}
+        <Text style={styles.disclaimer}>
+          Orientação geral · Não substitui avaliação médica · Decisão final é sempre do médico
+        </Text>
+      </View>
     </Animated.View>
   );
 }
@@ -155,6 +174,23 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  personalizedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  personalizedText: {
+    fontSize: 9,
+    color: theme.colors.accent.main,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    letterSpacing: 0.3,
+  },
   label: {
     fontSize: 10,
     fontWeight: '700',
@@ -162,7 +198,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text.tertiary,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: 2,
   },
   message: {
     fontSize: 13,
@@ -202,12 +237,19 @@ const styles = StyleSheet.create({
     opacity: theme.opacity.pressed,
     transform: [{ scale: 0.96 }],
   },
+  footer: {
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    paddingTop: 2,
+  },
+  muteHint: {
+    fontSize: 9,
+    color: theme.colors.text.disabled,
+    marginBottom: 2,
+  },
   disclaimer: {
     fontSize: 9,
     color: theme.colors.text.disabled,
     fontStyle: 'italic',
-    paddingHorizontal: 14,
-    paddingBottom: 8,
-    paddingTop: 2,
   },
 });

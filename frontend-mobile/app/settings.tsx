@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/Card';
 import { fetchPushTokens, setPushPreference } from '../lib/api';
 import { colors, spacing, typography } from '../constants/theme';
+import { getMutedKeys, unmuteAll } from '../lib/triage/triagePersistence';
 
 /**
  * Tela de configurações acessada por "Editar Perfil" na aba Perfil.
@@ -16,6 +17,11 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
+  const [mutedCount, setMutedCount] = useState(0);
+
+  useEffect(() => {
+    getMutedKeys().then(keys => setMutedCount(keys.length));
+  }, []);
 
   useEffect(() => {
     fetchPushTokens()
@@ -25,6 +31,11 @@ export default function SettingsScreen() {
       })
       .catch(() => {});
   }, []);
+
+  const handleResetMuted = async () => {
+    await unmuteAll();
+    setMutedCount(0);
+  };
 
   const handlePushToggle = async (value: boolean) => {
     setPushEnabled(value);
@@ -55,6 +66,23 @@ export default function SettingsScreen() {
         <View style={{ width: 24 }} />
       </View>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Assistente Dra. Renova</Text>
+          <SettingItem
+            icon="chatbubble-ellipses-outline"
+            label={`Reativar mensagens silenciadas (${mutedCount})`}
+            right={
+              mutedCount > 0 ? (
+                <TouchableOpacity onPress={handleResetMuted}>
+                  <Text style={styles.linkText}>Reativar</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.mutedText}>Nenhuma</Text>
+              )
+            }
+          />
+        </Card>
+
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Notificações</Text>
           <SettingItem
@@ -119,4 +147,6 @@ const styles = StyleSheet.create({
   },
   itemLabel: { flex: 1, ...typography.bodySmallMedium, color: colors.gray800 },
   divider: { height: 1, backgroundColor: colors.gray100, marginVertical: spacing.xs },
+  linkText: { ...typography.bodySmallMedium, color: colors.primary, fontWeight: '600' },
+  mutedText: { ...typography.bodySmallMedium, color: colors.gray400 },
 });

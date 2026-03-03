@@ -87,9 +87,10 @@ export default function DoctorRequestDetail() {
     if (!requestId) return;
     try {
       const fresh = await getRequestById(requestId);
-      // DEBUG: verificar se imagens chegam na resposta da API
-      console.log('[DOCTOR_DETAIL] prescriptionImages:', JSON.stringify(fresh.prescriptionImages));
-      console.log('[DOCTOR_DETAIL] examImages:', JSON.stringify(fresh.examImages));
+      if (__DEV__) {
+        console.log('[DOCTOR_DETAIL] prescriptionImages:', JSON.stringify(fresh.prescriptionImages));
+        console.log('[DOCTOR_DETAIL] examImages:', JSON.stringify(fresh.examImages));
+      }
       setRequest(fresh);
       _requestCache.set(requestId, fresh);
     } catch { console.error('Error loading request'); }

@@ -2014,4 +2014,13 @@ public class RequestService(
         var balanceSeconds = await consultationTimeBankRepository.GetBalanceSecondsAsync(userId, normalizedType, cancellationToken);
         return (balanceSeconds, balanceSeconds / 60, normalizedType);
     }
+
+    public async Task<(int PendingCount, int InReviewCount, int CompletedCount, decimal TotalEarnings)> GetDoctorStatsAsync(
+        Guid doctorId, CancellationToken cancellationToken = default)
+    {
+        var user = await userRepository.GetByIdAsync(doctorId, cancellationToken);
+        if (user?.Role != UserRole.Doctor)
+            throw new UnauthorizedAccessException("Apenas médicos podem acessar as estatísticas.");
+        return await requestRepository.GetDoctorStatsAsync(doctorId, cancellationToken);
+    }
 }

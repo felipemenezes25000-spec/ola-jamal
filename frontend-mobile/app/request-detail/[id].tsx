@@ -117,18 +117,33 @@ export default function RequestDetailScreen() {
 
   useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId, load]));
 
-  /** Polling: enquanto o pedido está aguardando pagamento, atualiza a cada 5s para refletir webhook. */
+  /** Polling: enquanto o pedido está aguardando pagamento, atualiza a cada 5s para refletir webhook. Máx 180 polls (~15 min). */
+  const MAX_POLLS = 180;
+  const pollCountRef = useRef(0);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     const awaiting = request && AWAITING_PAYMENT_STATUSES.includes(request.status);
     if (!awaiting) {
+      pollCountRef.current = 0;
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
       return;
     }
-    pollIntervalRef.current = setInterval(loadSilent, 5000);
+    pollCountRef.current = 0;
+    const tick = () => {
+      pollCountRef.current += 1;
+      if (pollCountRef.current >= MAX_POLLS) {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        return;
+      }
+      loadSilent();
+    };
+    pollIntervalRef.current = setInterval(tick, 5000);
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
@@ -307,11 +322,6 @@ export default function RequestDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* Dra. Renova — dicas no contexto do detalhe */}
-        <View style={{ marginBottom: 8 }}>
-          <AssistantBanner />
-        </View>
-
         {/* Status Tracker */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>STATUS DO PEDIDO</Text>
@@ -331,6 +341,13 @@ export default function RequestDetailScreen() {
               text={request.doctorConductNotes}
               doctorName={request.doctorName}
             />
+          </View>
+        )}
+
+        {/* Dra. Renova — só quando não tem conduta visível (evita redundância) */}
+        {!request.doctorConductNotes && (
+          <View style={{ marginBottom: 8 }}>
+            <AssistantBanner />
           </View>
         )}
 

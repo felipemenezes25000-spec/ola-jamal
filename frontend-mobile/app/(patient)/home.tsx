@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,11 @@ import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import {
+  shouldShowHomeInfoCard,
+  incrementHomeVisit,
+  dismissHomeInfoCard,
+} from '../../lib/triage/triagePersistence';
 
 export default function PatientHome() {
   const router = useRouter();
@@ -38,6 +43,14 @@ export default function PatientHome() {
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showInfoCard, setShowInfoCard] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      incrementHomeVisit();
+      shouldShowHomeInfoCard().then(setShowInfoCard);
+    }, [])
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -59,7 +72,6 @@ export default function PatientHome() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const onRefresh = () => {
@@ -190,12 +202,18 @@ export default function PatientHome() {
             }
           }}
         />
-        <InfoCard
-          icon="sparkles-outline"
-          title="Triagem feita com IA"
-          description="Leitura inteligente de receitas e exames para agilizar seu atendimento."
-          badge="Tecnologia RenoveJá+"
-        />
+        {showInfoCard && (
+          <InfoCard
+            icon="sparkles-outline"
+            title="Triagem feita com IA"
+            description="Leitura inteligente de receitas e exames para agilizar seu atendimento."
+            badge="Tecnologia RenoveJá+"
+            onDismiss={async () => {
+              await dismissHomeInfoCard();
+              setShowInfoCard(false);
+            }}
+          />
+        )}
       </View>
 
       {/* ─── Quick Actions (largura total, menos margem) ─── */}

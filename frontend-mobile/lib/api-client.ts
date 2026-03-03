@@ -114,6 +114,7 @@ class ApiClient {
     if (!response.ok) {
       let errorMessage = `Erro ${response.status}: Ocorreu um erro na requisição`;
       let errors: Record<string, string[]> | undefined;
+      let unauthorizedHandled = false;
 
       try {
         const text = await response.text();
@@ -134,7 +135,8 @@ class ApiClient {
             missingFields: errorData.missingFields,
             messages: errorData.messages,
           };
-          if (response.status === 401 && this.onUnauthorized) {
+          if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
+            unauthorizedHandled = true;
             this.onUnauthorized();
           }
           if (__DEV__) {
@@ -156,7 +158,7 @@ class ApiClient {
         console.warn('[API] Erro:', response.status, errorMessage);
       }
 
-      if (response.status === 401 && this.onUnauthorized) {
+      if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
         this.onUnauthorized();
       }
 

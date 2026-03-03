@@ -112,6 +112,32 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         return models.Select(MapToDomain).ToList();
     }
 
+    public async Task<(int PendingCount, int InReviewCount, int CompletedCount, decimal TotalEarnings)> GetDoctorStatsAsync(Guid doctorId, CancellationToken cancellationToken = default)
+    {
+        // pending: sem médico em submitted/paid (fila)
+        var pendingFilter = "status=in.(submitted,paid)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
+        var pendingCount = await supabase.CountAsync(TableName, pendingFilter, cancellationToken);
+
+        // inReview: com médico em in_review, approved, signed, consultation_ready, in_consultation
+        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,signed,consultation_ready,in_consultation)";
+        var inReviewCount = await supabase.CountAsync(TableName, inReviewFilter, cancellationToken);
+
+        // completed: com médico em completed, delivered, consultation_finished
+        var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(completed,delivered,consultation_finished)";
+        var completedCount = await supabase.CountAsync(TableName, completedFilter, cancellationToken);
+
+        // totalEarnings: soma de price dos completed
+        var priceModels = await supabase.GetAllAsync<RequestPriceModel>(
+            TableName,
+            select: "price",
+            filter: completedFilter,
+            limit: 10000,
+            cancellationToken: cancellationToken);
+        var totalEarnings = priceModels.Sum(p => p.Price ?? 0);
+
+        return (pendingCount, inReviewCount, completedCount, totalEarnings);
+    }
+
     public async Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(request);

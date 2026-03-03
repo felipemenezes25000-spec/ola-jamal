@@ -61,6 +61,8 @@ export interface TriageMessage {
   analyticsEvent?: string;
   /** Se true, pode ser mutado permanentemente pelo usuário */
   canMute?: boolean;
+  /** Se true, o texto foi personalizado pela IA (apenas tom, nunca decisão) */
+  isPersonalized?: boolean;
 }
 
 // ── Input do motor de regras ────────────────────────────────
@@ -106,6 +108,10 @@ export interface TriagePersistedState {
   mutedKeys: string[];
   /** Contagem de exibições por sessão */
   sessionCounts: Record<string, number>;
+  /** Número de visitas à Home (para InfoCard temporário) */
+  homeVisitCount?: number;
+  /** Se o InfoCard da home foi dismissado pelo usuário */
+  homeInfoCardDismissed?: boolean;
   /** Versão do schema (para migrações futuras) */
   version: number;
 }

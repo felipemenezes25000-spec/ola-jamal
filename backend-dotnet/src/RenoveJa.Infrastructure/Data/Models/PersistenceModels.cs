@@ -166,6 +166,12 @@ public class RequestModel
     public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>Projeção mínima para soma de preços (requests).</summary>
+public class RequestPriceModel
+{
+    public decimal? Price { get; set; }
+}
+
 /// <summary>Modelo de persistência de cartão salvo (tabela saved_cards).</summary>
 public class SavedCardModel
 {

@@ -1,0 +1,75 @@
+/**
+ * triageEnrichmentApi.ts — Chamada à API de enriquecimento da Dra. Renova
+ *
+ * IA usa apenas para personalizar o tom (nunca define nada). Médico sempre decide.
+ * Timeout curto (4s) para não bloquear UX. Fallback silencioso em erro.
+ */
+
+import { apiClient } from '../api-client';
+import type { TriageInput, TriageMessage } from './triage.types';
+
+const ENRICH_TIMEOUT_MS = 4000;
+
+export interface TriageEnrichResponse {
+  text: string | null;
+  isPersonalized: boolean;
+}
+
+/** Chaves que o backend NUNCA enriquece (alertas críticos). Não vale a pena chamar a API. */
+const NO_ENRICH_KEYS = [
+  'rx:controlled',
+  'rx:high_risk',
+  'rx:unreadable',
+  'rx:ai_message',
+  'exam:complex',
+  'exam:many',
+  'detail:conduct_available',
+];
+
+function shouldSkipEnrich(ruleKey: string): boolean {
+  return NO_ENRICH_KEYS.some((k) => ruleKey.startsWith(k));
+}
+
+/**
+ * Tenta enriquecer a mensagem com IA. Retorna null em timeout, erro ou se a chave não for enriquecível.
+ * Nunca lança — sempre retorna null em caso de falha.
+ */
+export async function enrichTriageMessage(
+  message: TriageMessage,
+  input: TriageInput
+): Promise<{ text: string; isPersonalized: true } | null> {
+  if (shouldSkipEnrich(message.key)) return null;
+
+  const body = {
+    context: input.context,
+    step: input.step,
+    ruleKey: message.key,
+    ruleText: message.text,
+    prescriptionType: input.prescriptionType ?? undefined,
+    examType: input.examType ?? undefined,
+    exams: input.exams ?? undefined,
+    symptoms: input.symptoms ?? undefined,
+    totalRequests: input.totalRequests ?? undefined,
+    recentPrescriptionCount: input.recentPrescriptionCount ?? undefined,
+    recentExamCount: input.recentExamCount ?? undefined,
+  };
+
+  const timeoutPromise = new Promise<null>((resolve) =>
+    setTimeout(() => resolve(null), ENRICH_TIMEOUT_MS)
+  );
+
+  const enrichPromise = (async (): Promise<{ text: string; isPersonalized: true } | null> => {
+    try {
+      const res = await apiClient.post<TriageEnrichResponse>('/api/triage/enrich', body);
+      if (res?.text && res.isPersonalized) {
+        return { text: res.text, isPersonalized: true };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const result = await Promise.race([enrichPromise, timeoutPromise]);
+  return result;
+}

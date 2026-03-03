@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../lib/api-client';
 import { UserDto, UserRole, AuthResponseDto, DoctorProfileDto } from '../types/database';
@@ -163,60 +163,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-  const signIn = async (email: string, password: string): Promise<UserDto> => {
+  const clearAuth = useCallback(async () => {
     try {
-      const response = await apiClient.post<AuthResponseDto>('/api/auth/login', {
-        email,
-        password,
-      });
+      await AsyncStorage.removeItem(TOKEN_KEY);
+      await AsyncStorage.removeItem(USER_KEY);
+      await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
+    } catch (e) {
+      if (__DEV__) console.warn('AsyncStorage removeItem error:', e);
+    }
+    setUser(null);
+    setDoctorProfile(null);
+  }, []);
 
-      if (!response?.user) {
-        throw new Error('Resposta inválida do servidor. Tente novamente.');
-      }
-      if (response.token == null || response.token === '') {
-        throw new Error('Servidor não retornou token de acesso. Tente novamente.');
-      }
+  useEffect(() => {
+    apiClient.setOnUnauthorized(() => {
+      clearAuth();
+    });
+    return () => apiClient.setOnUnauthorized(null);
+  }, [clearAuth]);
 
+  const signIn = useCallback(async (email: string, password: string): Promise<UserDto> => {
+    try {
+      const response = await apiClient.post<AuthResponseDto>('/api/auth/login', { email, password });
+      if (!response?.user) throw new Error('Resposta inválida do servidor. Tente novamente.');
+      if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
       await setItemSafe(TOKEN_KEY, response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
-
       if (response.doctorProfile) {
-        await setItemSafe(
-          DOCTOR_PROFILE_KEY,
-          JSON.stringify(response.doctorProfile)
-        );
+        await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
         setDoctorProfile(response.doctorProfile);
       } else {
         await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
       }
-
       setUser(response.user);
       return response.user;
     } catch (error: any) {
       console.error('Sign in error:', error);
       throw new Error(error?.message || 'Erro ao fazer login');
     }
-  };
+  }, []);
 
-  const signUp = async (data: SignUpData): Promise<UserDto> => {
+  const signUp = useCallback(async (data: SignUpData): Promise<UserDto> => {
     try {
       const response = await apiClient.post<AuthResponseDto>('/api/auth/register', {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-        confirmPassword: data.confirmPassword,
-        phone: data.phone,
-        cpf: data.cpf,
-        birthDate: data.birthDate,
-        street: data.street,
-        number: data.number,
-        neighborhood: data.neighborhood,
-        complement: data.complement,
-        city: data.city,
-        state: data.state,
-        postalCode: data.postalCode,
+        name: data.name, email: data.email, password: data.password, confirmPassword: data.confirmPassword,
+        phone: data.phone, cpf: data.cpf, birthDate: data.birthDate, street: data.street, number: data.number,
+        neighborhood: data.neighborhood, complement: data.complement, city: data.city, state: data.state, postalCode: data.postalCode,
       });
-
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       await setItemSafe(TOKEN_KEY, response.token ?? undefined);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
@@ -226,42 +219,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Sign up error:', error);
       throw new Error(error?.message || 'Erro ao criar conta');
     }
-  };
+  }, []);
 
-  const signUpDoctor = async (data: DoctorSignUpData): Promise<UserDto> => {
+  const signUpDoctor = useCallback(async (data: DoctorSignUpData): Promise<UserDto> => {
     try {
-      const response = await apiClient.post<AuthResponseDto>(
-        '/api/auth/register-doctor',
-        {
-          name: data.name,
-          email: data.email,
-          password: data.password,
-          confirmPassword: data.confirmPassword,
-          phone: data.phone,
-          cpf: data.cpf,
-          crm: data.crm,
-          crmState: data.crmState,
-          specialty: data.specialty,
-          birthDate: data.birthDate,
-          bio: data.bio,
-          street: data.street,
-          number: data.number,
-          neighborhood: data.neighborhood,
-          complement: data.complement,
-          city: data.city,
-          state: data.state,
-          postalCode: data.postalCode,
-        }
-      );
-
+      const response = await apiClient.post<AuthResponseDto>('/api/auth/register-doctor', {
+        name: data.name, email: data.email, password: data.password, confirmPassword: data.confirmPassword,
+        phone: data.phone, cpf: data.cpf, crm: data.crm, crmState: data.crmState, specialty: data.specialty,
+        birthDate: data.birthDate, bio: data.bio, street: data.street, number: data.number, neighborhood: data.neighborhood,
+        complement: data.complement, city: data.city, state: data.state, postalCode: data.postalCode,
+      });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       await setItemSafe(TOKEN_KEY, response.token ?? undefined);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
-        await setItemSafe(
-          DOCTOR_PROFILE_KEY,
-          JSON.stringify(response.doctorProfile)
-        );
+        await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
         setDoctorProfile(response.doctorProfile);
       } else {
         await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
@@ -270,46 +242,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return response.user;
     } catch (error: any) {
       console.error('Doctor sign up error:', error);
-      const msg =
-        error?.message ||
-        (Array.isArray(error?.errors) ? error.errors[0] : null) ||
-        (error?.messages?.[0]) ||
-        'Erro ao criar conta de médico';
+      const msg = error?.message || (Array.isArray(error?.errors) ? error.errors[0] : null) || (error?.messages?.[0]) || 'Erro ao criar conta de médico';
       throw new Error(typeof msg === 'string' ? msg : 'Erro ao criar conta de médico');
     }
-  };
+  }, []);
 
-  const signInWithGoogle = async (googleToken: string, role?: UserRole): Promise<UserDto> => {
+  const signInWithGoogle = useCallback(async (googleToken: string, role?: UserRole): Promise<UserDto> => {
     try {
-      const response = await apiClient.post<AuthResponseDto>('/api/auth/google', {
-        googleToken,
-        role,
-      });
-
+      const response = await apiClient.post<AuthResponseDto>('/api/auth/google', { googleToken, role });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       await setItemSafe(TOKEN_KEY, response.token ?? undefined);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
-
       if (response.doctorProfile) {
-        await setItemSafe(
-          DOCTOR_PROFILE_KEY,
-          JSON.stringify(response.doctorProfile)
-        );
+        await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
         setDoctorProfile(response.doctorProfile);
       } else {
         await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
       }
-
       setUser(response.user);
-
       return response.user;
     } catch (error: any) {
       console.error('Google sign in error:', error);
       throw new Error(error.message || 'Erro ao fazer login com Google');
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       await apiClient.post('/api/auth/logout', {});
     } catch (error) {
@@ -322,32 +280,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setDoctorProfile(null);
     }
-  };
+  }, [clearAuth]);
 
-  const cancelRegistration = async () => {
+  const cancelRegistration = useCallback(async () => {
     try {
       await apiClient.post('/api/auth/cancel-registration', {});
-    } catch {
-      // Ignore API errors; we clear local state anyway
-    }
+    } catch { /* ignore */ }
     await clearAuth();
-  };
+  }, [clearAuth]);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (!user) return;
-
     try {
       const currentUser = await apiClient.get<UserDto>('/api/auth/me');
       await setItemSafe(USER_KEY, currentUser ? JSON.stringify(currentUser) : undefined);
       setUser(currentUser);
     } catch (error) {
       console.error('Error refreshing user:', error);
-      // If refresh fails, user might be logged out
       await clearAuth();
     }
-  };
+  }, [user, clearAuth]);
 
-  const refreshDoctorProfile = async () => {
+  const refreshDoctorProfile = useCallback(async () => {
     if (user?.role !== 'doctor') return;
     try {
       const profile = await apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
@@ -358,15 +312,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error refreshing doctor profile:', error);
     }
-  };
+  }, [user?.role]);
 
-  const completeProfile = async (data: CompleteProfileData): Promise<UserDto> => {
+  const completeProfile = useCallback(async (data: CompleteProfileData): Promise<UserDto> => {
     try {
-      const updatedUser = await apiClient.patch<UserDto>(
-        '/api/auth/complete-profile',
-        data
-      );
-
+      const updatedUser = await apiClient.patch<UserDto>('/api/auth/complete-profile', data);
       await setItemSafe(USER_KEY, updatedUser ? JSON.stringify(updatedUser) : undefined);
       setUser(updatedUser);
       return updatedUser;
@@ -374,43 +324,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Complete profile error:', error);
       throw new Error(error.message || 'Erro ao completar perfil');
     }
-  };
+  }, []);
 
-  const forgotPassword = async (email: string) => {
+  const forgotPassword = useCallback(async (email: string) => {
     try {
       await apiClient.post('/api/auth/forgot-password', { email });
     } catch (error: any) {
       console.error('Forgot password error:', error);
       throw new Error(error.message || 'Erro ao solicitar recuperação de senha');
     }
-  };
+  }, []);
 
-  const resetPassword = async (token: string, newPassword: string) => {
+  const resetPassword = useCallback(async (token: string, newPassword: string) => {
     try {
       await apiClient.post('/api/auth/reset-password', { token, newPassword });
     } catch (error: any) {
       console.error('Reset password error:', error);
       throw new Error(error.message || 'Erro ao redefinir senha');
     }
-  };
-
-  const clearAuth = async () => {
-    try {
-      await AsyncStorage.removeItem(TOKEN_KEY);
-      await AsyncStorage.removeItem(USER_KEY);
-      await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
-    } catch (e) {
-      if (__DEV__) console.warn('AsyncStorage removeItem error:', e);
-    }
-    setUser(null);
-    setDoctorProfile(null);
-  };
-
-  useEffect(() => {
-    apiClient.setOnUnauthorized(() => {
-      clearAuth();
-    });
-    return () => apiClient.setOnUnauthorized(null);
   }, []);
 
   const value = useMemo(() => ({
@@ -428,7 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     completeProfile,
     forgotPassword,
     resetPassword,
-  }), [user, doctorProfile, loading]);
+  }), [user, doctorProfile, loading, signIn, signUp, signUpDoctor, signInWithGoogle, signOut, cancelRegistration, refreshUser, refreshDoctorProfile, completeProfile, forgotPassword, resetPassword]);
 
   return (
     <AuthContext.Provider value={value}>
