@@ -1,4 +1,4 @@
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using iText.Kernel.Pdf;
@@ -9,6 +9,7 @@ using Org.BouncyCastle.Cms;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.X509;
 using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
+using IX509Certificate = iText.Signatures.IX509Certificate;
 
 namespace RenoveJa.Infrastructure.Certificates;
 
@@ -158,14 +159,13 @@ internal sealed class TsaUnsignedAttributeGenerator : CmsAttributeTableGenerator
 
     public TsaUnsignedAttributeGenerator(ITSAClient tsaClient) => _tsaClient = tsaClient;
 
-    public Asn1.Cms.AttributeTable GetAttributes(IDictionary parameters)
+    public Asn1.Cms.AttributeTable GetAttributes(IDictionary<CmsAttributeTableParameter, object> parameters)
     {
-        if (parameters == null || !parameters.Contains(CmsAttributeTableParameter.Signature))
+        if (parameters == null || !parameters.TryGetValue(CmsAttributeTableParameter.Signature, out var sigObj) || sigObj is not byte[] sigBytes)
             return new Asn1.Cms.AttributeTable(new Asn1EncodableVector());
 
         try
         {
-            var sigBytes = (byte[])parameters[CmsAttributeTableParameter.Signature]!;
             var sigHash = SHA256.HashData(sigBytes);
             var token = _tsaClient.GetTimeStampToken(sigHash);
             if (token == null || token.Length == 0)
