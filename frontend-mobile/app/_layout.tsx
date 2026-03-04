@@ -18,6 +18,7 @@ import { TriageAssistantProvider } from '../contexts/TriageAssistantProvider';
 import { GlobalRequestUpdatedToast } from '../components/GlobalRequestUpdatedToast';
 import { RequestUpdateBanner } from '../components/RequestUpdateBanner';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { GlobalAssistantBanner } from '../components/triage/GlobalAssistantBanner';
 import { ToastProvider } from '../components/ui/Toast';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -81,7 +82,6 @@ export default function RootLayout() {
             <ToastProvider>
               <OfflineBanner />
               <View style={styles.layoutContent}>
-                <RequestUpdateBanner />
                 <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="(auth)" />
@@ -106,6 +106,8 @@ export default function RootLayout() {
                 <Stack.Screen name="about" />
                 <Stack.Screen name="help-faq" />
                 </Stack>
+                <RequestUpdateBanner />
+                <GlobalAssistantBanner />
               </View>
             </ToastProvider>
             </TriageAssistantProvider>

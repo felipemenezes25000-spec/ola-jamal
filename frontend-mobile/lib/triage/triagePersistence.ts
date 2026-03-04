@@ -80,8 +80,9 @@ export async function canShow(key: string, cooldownMs: number): Promise<boolean>
   const lastShown = state.cooldowns[key];
   if (lastShown && Date.now() - lastShown < cooldownMs) return false;
 
-  // Check session count (max 1 per screen session)
-  if ((state.sessionCounts[key] || 0) >= 1) return false;
+  // Session count: permite 1 por "visita" à tela; resetSessionCounts limpa ao abrir o app
+  const sessionMax = 1;
+  if ((state.sessionCounts[key] || 0) >= sessionMax) return false;
 
   return true;
 }
@@ -110,11 +111,13 @@ export async function unmuteKey(key: string): Promise<void> {
   scheduleSave();
 }
 
-/** Limpa contagem de sessão (chamar ao abrir o app ou trocar de tela). */
-export function resetSessionCounts(): void {
+/** Limpa contagem de sessão (chamar ao abrir o app). Permite que mensagens apareçam novamente na nova sessão. */
+export async function resetSessionCounts(): Promise<void> {
+  await load(); // Garante que _cache está carregado
   if (_cache) {
     _cache.sessionCounts = {};
-    // Não persiste — é por sessão
+    _dirty = true;
+    scheduleSave();
   }
 }
 

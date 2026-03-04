@@ -18,9 +18,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, shadows } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTriageEval } from '../../hooks/useTriageEval';
 
 export default function PatientProfile() {
   const router = useRouter();
+  useTriageEval({ context: 'profile', step: 'entry', role: 'patient' });
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
   const [logoutLoading, setLogoutLoading] = useState(false);

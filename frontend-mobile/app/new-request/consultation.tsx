@@ -22,7 +22,6 @@ import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
 import { AppButton } from '../../components/ui/AppButton';
-import { AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
 const c = theme.colors;
@@ -122,11 +121,6 @@ export default function ConsultationScreen() {
       <AppHeader title="Consulta Breve" />
 
       <View style={styles.content}>
-        {/* Dra. Renova */}
-        <View style={{ marginBottom: 12 }}>
-          <AssistantBanner />
-        </View>
-
         {/* Banner */}
         <AppCard style={styles.banner}>
           <View style={styles.iconCircle}>

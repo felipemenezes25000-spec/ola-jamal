@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +53,7 @@ export default function DoctorQueue() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [searchText, setSearchText] = useState('');
 
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -59,11 +61,18 @@ export default function DoctorQueue() {
   const typeParam = useMemo(() => TYPE_FILTER_ITEMS.find((c) => c.key === activeFilter)?.type, [activeFilter]);
   const label = useMemo(() => getHeaderLabel(activeFilter), [activeFilter]);
 
-  // Filtra localmente — evita chamada à API a cada troca de aba
+  // Filtra localmente — tipo + busca por nome do paciente
   const filteredRequests = useMemo(() => {
-    if (!typeParam) return requests;
-    return requests.filter((r) => r.requestType === typeParam);
-  }, [requests, typeParam]);
+    let list = requests;
+    if (typeParam) list = list.filter((r) => r.requestType === typeParam);
+    const q = searchText.trim().toLowerCase();
+    if (q) {
+      list = list.filter((r) =>
+        (r.patientName ?? '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [requests, typeParam, searchText]);
 
   const loadData = useCallback(
     async (isRefresh = false) => {
@@ -182,6 +191,26 @@ export default function DoctorQueue() {
         onValueChange={handleFilterChange}
       />
 
+      {/* Busca por nome do paciente */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search" size={18} color={colors.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por nome do paciente"
+          placeholderTextColor={colors.textMuted}
+          value={searchText}
+          onChangeText={setSearchText}
+          autoCapitalize="words"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+        {searchText.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchText('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Content */}
       {loading && requests.length === 0 ? (
         <View style={styles.loadingWrap}>
@@ -215,8 +244,8 @@ export default function DoctorQueue() {
             empty ? (
               <EmptyState
                 icon="checkmark-done-circle"
-                title="NENHUM PEDIDO AQUI"
-                subtitle="Ajuste os filtros ou volte ao painel para ver todos os pedidos"
+                title={searchText.trim() ? 'NENHUM RESULTADO' : 'NENHUM PEDIDO AQUI'}
+                subtitle={searchText.trim() ? `Nenhum paciente encontrado para "${searchText.trim()}"` : 'Ajuste os filtros ou volte ao painel para ver todos os pedidos'}
                 actionLabel="VOLTAR AO PAINEL"
                 onAction={() => router.push('/(doctor)/dashboard')}
               />
@@ -270,6 +299,26 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: '#fff',
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    marginHorizontal: pad,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.text,
+    paddingVertical: 12,
   },
   periodRow: {
     flexDirection: 'row',

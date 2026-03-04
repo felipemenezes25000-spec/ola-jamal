@@ -33,12 +33,31 @@ public record ClinicalSummaryExam(
     string? Notes);
 
 /// <summary>
+/// Resumo estruturado estilo Epic/Cerner — lista de problemas, meds ativos, plano de cuidado.
+/// </summary>
+public record ClinicalSummaryStructured(
+    IReadOnlyList<string> ProblemList,
+    IReadOnlyList<string> ActiveMedications,
+    string? NarrativeSummary,
+    string? CarePlan,
+    IReadOnlyList<string> Alerts);
+
+/// <summary>
 /// Gera resumo narrativo completo do prontuário do paciente com IA.
 /// Consolida consultas, receitas e exames em um texto único para o médico.
+/// Retorna também dados estruturados (lista de problemas, meds ativos) quando disponível.
 /// </summary>
 public interface IClinicalSummaryService
 {
     Task<string?> GenerateAsync(
+        ClinicalSummaryInput input,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gera resumo estruturado estilo prontuários de referência (Epic, Cerner).
+    /// Retorna null se API indisponível ou parsing falhar.
+    /// </summary>
+    Task<ClinicalSummaryStructured?> GenerateStructuredAsync(
         ClinicalSummaryInput input,
         CancellationToken cancellationToken = default);
 }

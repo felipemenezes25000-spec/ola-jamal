@@ -17,7 +17,6 @@ import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
-import { DraggableAssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -343,9 +342,6 @@ export default function DoctorPatientProntuario() {
           )}
         </ScrollView>
       </View>
-      <View style={styles.aiBannerSticky}>
-        <DraggableAssistantBanner />
-      </View>
     </View>
   );
 }
@@ -538,11 +534,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
-  },
-  aiBannerSticky: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: spacing.lg * 2,
   },
 });

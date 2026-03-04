@@ -1180,6 +1180,10 @@ public class RequestService(
                     }
                     else if (request.RequestType == Domain.Enums.RequestType.Exam)
                     {
+                        if (string.IsNullOrWhiteSpace(patientUser?.Cpf))
+                            throw new InvalidOperationException(
+                                "CPF do paciente é obrigatório em todas as solicitações de exame. O paciente deve completar o cadastro com CPF antes da assinatura.");
+
                         var exams = request.Exams?.Where(e => !string.IsNullOrWhiteSpace(e)).ToList() ?? new List<string>();
                         if (exams.Count == 0)
                             exams = new List<string> { "Exames conforme solicitação médica" };

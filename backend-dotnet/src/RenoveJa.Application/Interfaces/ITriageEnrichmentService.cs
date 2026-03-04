@@ -28,7 +28,11 @@ public record TriageEnrichmentInput(
     string? Symptoms,
     int? TotalRequests,
     int? RecentPrescriptionCount,
-    int? RecentExamCount);
+    int? RecentExamCount,
+    int? LastPrescriptionDaysAgo,
+    int? LastExamDaysAgo,
+    int? PatientAge,
+    string[]? RecentMedications);
 
 public record TriageEnrichmentResult(
     string Text,

@@ -65,16 +65,18 @@ function snapToAnchor(
 
 interface DraggableAssistantBannerProps {
   onAction?: (action: CTAAction) => void;
+  /** Quando o usuário toca no estado companion — ex.: abrir ajuda/FAQ */
+  onCompanionPress?: () => void;
   containerStyle?: object;
 }
 
-export function DraggableAssistantBanner({ onAction, containerStyle }: DraggableAssistantBannerProps) {
+export function DraggableAssistantBanner({ onAction, onCompanionPress, containerStyle }: DraggableAssistantBannerProps) {
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
 
+  // Mostra imediatamente em modo fixo — posição persistida carrega em background
   const [mode, setMode] = useState<BannerPositionMode>('fixed');
   const [floatingPos, setFloatingPos] = useState<BannerFloatingPosition | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -99,7 +101,6 @@ export function DraggableAssistantBanner({ onAction, containerStyle }: Draggable
           translateY.value = pos.y;
         }
       }
-      setLoaded(true);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -175,8 +176,6 @@ export function DraggableAssistantBanner({ onAction, containerStyle }: Draggable
     }
   }, [mode, switchToFloating, switchToFixed]);
 
-  if (!loaded) return null;
-
   const isFixed = mode === 'fixed';
 
   return (
@@ -205,7 +204,7 @@ export function DraggableAssistantBanner({ onAction, containerStyle }: Draggable
     >
       {isFixed ? (
         <View style={styles.fixedInner}>
-          <AssistantBanner onAction={onAction} />
+          <AssistantBanner onAction={onAction} onCompanionPress={onCompanionPress} />
           <Pressable
             onLongPress={handleLongPressAvatar}
             delayLongPress={600}
@@ -236,6 +235,7 @@ export function DraggableAssistantBanner({ onAction, containerStyle }: Draggable
             </View>
             <AssistantBanner
               onAction={onAction}
+              onCompanionPress={onCompanionPress}
               containerStyle={styles.bannerNoMargin}
             />
           </Animated.View>

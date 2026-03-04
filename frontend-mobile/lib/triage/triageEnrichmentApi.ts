@@ -52,6 +52,10 @@ export async function enrichTriageMessage(
     totalRequests: input.totalRequests ?? undefined,
     recentPrescriptionCount: input.recentPrescriptionCount ?? undefined,
     recentExamCount: input.recentExamCount ?? undefined,
+    lastPrescriptionDaysAgo: input.lastPrescriptionDaysAgo ?? undefined,
+    lastExamDaysAgo: input.lastExamDaysAgo ?? undefined,
+    patientAge: input.patientAge ?? undefined,
+    recentMedications: input.recentMedications ?? undefined,
   };
 
   const timeoutPromise = new Promise<null>((resolve) =>

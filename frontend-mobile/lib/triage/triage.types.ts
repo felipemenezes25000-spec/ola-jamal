@@ -13,6 +13,10 @@ export type TriageContext =
   | 'exam'
   | 'consultation'
   | 'detail'
+  | 'requests'
+  | 'record'
+  | 'profile'
+  | 'help'
   | 'doctor_editor'
   | 'doctor_dashboard'
   | 'doctor_detail'
@@ -42,6 +46,9 @@ export type CTAAction =
   | 'consulta_breve'
   | 'ver_servicos'
   | 'agendar_retorno'
+  | 'renovar_receita'
+  | 'pedir_exames'
+  | 'tire_duvidas'
   | 'dismiss'
   | null;
 
@@ -97,9 +104,18 @@ export interface TriageInput {
 
   // Patient history stats
   totalRequests?: number;
+  toPayCount?: number;
   recentPrescriptionCount?: number;
   recentExamCount?: number;
   lastConsultationDays?: number;
+  /** Dias desde a última receita assinada (para sugestão de renovação) */
+  lastPrescriptionDaysAgo?: number;
+  /** Dias desde o último pedido de exame assinado */
+  lastExamDaysAgo?: number;
+  /** Idade do paciente (para recomendações por faixa etária) */
+  patientAge?: number;
+  /** Medicamentos recentes do histórico */
+  recentMedications?: string[];
 
   // Doctor workflow stats (uso do sistema, não clínico)
   doctorPendingCount?: number;

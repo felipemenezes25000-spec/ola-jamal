@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,15 +48,38 @@ export default function PaymentScreen() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [paymentId]);
 
+  // Verifica status imediatamente quando o usuário volta ao app (ex.: após pagar PIX no app do banco)
+  const checkPaymentStatusOnResume = useCallback(async () => {
+    const current = paymentRef.current;
+    if (!paymentId || !current?.requestId || current.status === 'approved') return;
+    try {
+      const synced = await syncPaymentStatus(current.requestId);
+      setPayment(synced);
+      setLastCheckedAt(new Date());
+      if (synced.status === 'approved') {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setPolling(false);
+      }
+    } catch { /* ignora erro silenciosamente */ }
+  }, [paymentId]);
+
+  useEffect(() => {
+    if (screen !== 'pix') return;
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        checkPaymentStatusOnResume();
+      }
+    });
+    return () => subscription.remove();
+  }, [screen, checkPaymentStatusOnResume]);
+
   const loadPayment = async () => {
     if (!paymentId) return;
     try {
       const data = await fetchPayment(paymentId);
       setPayment(data);
       if (data.status === 'approved') {
-        Alert.alert('✅ Pagamento confirmado!', 'Seu pagamento já foi aprovado.', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        setScreen('pix'); // Mostra tela PIX com botão "Pagamento Aprovado"
         return;
       }
       // Se o pagamento já tem dados PIX (criado via /payment/request/[requestId]),
@@ -127,9 +152,7 @@ export default function PaymentScreen() {
         if (updated.status === 'approved') {
           if (pollRef.current) clearInterval(pollRef.current);
           setPolling(false);
-          Alert.alert('Pagamento confirmado!', 'Seu pagamento foi aprovado com sucesso.', [
-            { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${updated.requestId}`) },
-          ]);
+          setPayment(updated); // Mostra card com botão "Ver Pedido"
         }
       } catch {}
     }, 5000);
@@ -154,9 +177,7 @@ export default function PaymentScreen() {
       setLastCheckedAt(new Date());
       if (synced.status === 'approved') {
         if (pollRef.current) clearInterval(pollRef.current);
-        Alert.alert('Pagamento confirmado!', 'Seu pagamento foi aprovado.', [
-          { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${synced.requestId}`) },
-        ]);
+        setPayment(synced); // Mostra card com botão "Ver Pedido"
       } else {
         Alert.alert('Aguardando', 'Pagamento ainda não confirmado pelo Mercado Pago. Tente novamente em alguns segundos.');
       }
@@ -167,9 +188,7 @@ export default function PaymentScreen() {
         setPayment(updated);
         if (updated.status === 'approved') {
           if (pollRef.current) clearInterval(pollRef.current);
-          Alert.alert('Pagamento confirmado!', '', [
-            { text: 'Ver pedido', onPress: () => router.replace(`/request-detail/${updated.requestId}`) },
-          ]);
+          setPayment(updated); // Mostra card com botão "Ver Pedido"
           return;
         }
       } catch { /* ignore fallback error */ }
@@ -238,6 +257,7 @@ export default function PaymentScreen() {
 
   // PIX screen
   const pixCopyPaste = payment?.pixCopyPaste || pixCode;
+  const isApproved = payment?.status === 'approved';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -250,6 +270,25 @@ export default function PaymentScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Estado de pagamento aprovado — botão funcional para ir ao pedido */}
+        {isApproved && payment?.requestId ? (
+          <View style={styles.approvedCard}>
+            <View style={styles.approvedIcon}>
+              <Ionicons name="checkmark-circle" size={64} color={colors.success} />
+            </View>
+            <Text style={styles.approvedTitle}>Pagamento confirmado!</Text>
+            <Text style={styles.approvedSubtitle}>Seu pagamento foi aprovado com sucesso.</Text>
+            <TouchableOpacity
+              style={styles.approvedButton}
+              onPress={() => router.replace(`/request-detail/${payment.requestId}`)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.approvedButtonText}>Ver Pedido</Text>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
         <View style={styles.pixCard}>
           <Text style={styles.pixLabel}>PAGUE VIA PIX</Text>
           <Text style={styles.pixAmount}>{formatBRL(payment?.amount ?? 0)}</Text>
@@ -311,6 +350,8 @@ export default function PaymentScreen() {
           <Text style={styles.lastCheckedText}>
             Última verificação: {lastCheckedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </Text>
+        )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -397,6 +438,22 @@ const styles = StyleSheet.create({
     gap: spacing.xs, paddingVertical: spacing.md,
   },
   securityText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+
+  // Approved state
+  approvedCard: {
+    backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.xl,
+    alignItems: 'center', ...shadows.card, marginBottom: spacing.md,
+  },
+  approvedIcon: { marginBottom: spacing.md },
+  approvedTitle: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
+  approvedSubtitle: { fontSize: 15, color: colors.textSecondary, marginBottom: spacing.lg },
+  approvedButton: {
+    backgroundColor: colors.success, borderRadius: 26, paddingVertical: 16, paddingHorizontal: spacing.xl,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    width: '100%', shadowColor: colors.success, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
+  },
+  approvedButtonText: { fontSize: 17, fontWeight: '700', color: '#fff' },
 
   // Check button
   checkButton: {

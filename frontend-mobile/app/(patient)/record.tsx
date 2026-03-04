@@ -29,6 +29,7 @@ import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { EmptyState } from '../../components/EmptyState';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTriageEval } from '../../hooks/useTriageEval';
 
 type TabKey = 'resumo' | 'timeline' | 'documentos';
 type FilterChip = 'todos' | 'receitas' | 'exames' | 'consultas';
@@ -97,6 +98,41 @@ export default function PatientRecordScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+
+  // Dados para sugestões proativas da Dra. Renoveja
+  const lastPrescriptionDaysAgo = useMemo(() => {
+    const rxDocs = documents.filter((d) => d.documentType.toLowerCase() === 'prescription' && d.signedAt);
+    if (rxDocs.length === 0) return undefined;
+    const last = rxDocs.sort((a, b) => new Date(b.signedAt!).getTime() - new Date(a.signedAt!).getTime())[0];
+    return Math.floor((Date.now() - new Date(last.signedAt!).getTime()) / (24 * 60 * 60 * 1000));
+  }, [documents]);
+  const lastExamDaysAgo = useMemo(() => {
+    const examDocs = documents.filter((d) => (d.documentType.toLowerCase() === 'exam' || d.documentType.toLowerCase() === 'exam_order') && d.signedAt);
+    if (examDocs.length === 0) return undefined;
+    const last = examDocs.sort((a, b) => new Date(b.signedAt!).getTime() - new Date(a.signedAt!).getTime())[0];
+    return Math.floor((Date.now() - new Date(last.signedAt!).getTime()) / (24 * 60 * 60 * 1000));
+  }, [documents]);
+  const patientAge = useMemo(() => {
+    const bd = summary?.birthDate ?? user?.birthDate;
+    if (!bd) return undefined;
+    const birth = new Date(bd);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age >= 0 ? age : undefined;
+  }, [summary?.birthDate, user?.birthDate]);
+  const recentPrescriptionCount = summary?.stats?.totalPrescriptions ?? 0;
+
+  useTriageEval({
+    context: 'record',
+    step: 'entry',
+    role: 'patient',
+    lastPrescriptionDaysAgo,
+    lastExamDaysAgo,
+    patientAge,
+    recentPrescriptionCount,
+  });
 
   const load = useCallback(async () => {
     try {

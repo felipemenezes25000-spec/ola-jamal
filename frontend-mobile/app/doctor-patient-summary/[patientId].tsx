@@ -23,9 +23,9 @@ import * as Clipboard from 'expo-clipboard';
 
 import { colors, spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import { getPatientRequests, getPatientProfileForDoctor, getPatientClinicalSummary, sortRequestsByNewestFirst } from '../../lib/api';
+import type { PatientClinicalSummaryStructured } from '../../lib/api';
 import type { RequestResponseDto, PatientProfileForDoctorDto } from '../../types/database';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
-import { AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { showToast } from '../../components/ui/Toast';
 
@@ -115,6 +115,7 @@ export default function DoctorPatientClinicalSummary() {
   const [expandedPrescription, setExpandedPrescription] = useState<string | null>(null);
   const [expandedExam, setExpandedExam] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  const [structured, setStructured] = useState<PatientClinicalSummaryStructured | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
@@ -145,14 +146,17 @@ export default function DoctorPatientClinicalSummary() {
     let cancelled = false;
     setSummaryLoading(true);
     setSummary(null);
+    setStructured(null);
     getPatientClinicalSummary(id)
       .then((res) => {
         if (!cancelled) {
           setSummary(res.summary || res.fallback || null);
+          setStructured(res.structured ?? null);
         }
       })
       .catch(() => {
         if (!cancelled) setSummary(null);
+        if (!cancelled) setStructured(null);
       })
       .finally(() => {
         if (!cancelled) setSummaryLoading(false);
@@ -329,6 +333,110 @@ export default function DoctorPatientClinicalSummary() {
           )}
         </View>
 
+        {/* ── Alertas (IA + alergias) — destaque no topo ── */}
+        {requests.length > 0 && (structured?.alerts?.length ?? 0) + allAllergies.length > 0 && (
+          <View style={styles.alertsCard}>
+            <View style={styles.alertsHeader}>
+              <Ionicons name="warning" size={20} color="#EF4444" />
+              <Text style={styles.alertsTitle}>Pontos de atenção</Text>
+            </View>
+            <View style={styles.alertsList}>
+              {allAllergies.map((a, i) => (
+                <View key={`allergy-${i}`} style={styles.alertItem}>
+                  <Ionicons name="medical" size={14} color="#EF4444" />
+                  <Text style={styles.alertsItemText}>Alergia: {a}</Text>
+                </View>
+              ))}
+              {structured?.alerts?.map((a, i) => (
+                <View key={`alert-${i}`} style={styles.alertItem}>
+                  <Ionicons name="alert-circle" size={14} color="#F59E0B" />
+                  <Text style={styles.alertsItemText}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ── Lista de Problemas (estilo Epic/Cerner) ── */}
+        {structured?.problemList && structured.problemList.length > 0 && (
+          <View style={styles.structuredCard}>
+            <View style={styles.structuredHeader}>
+              <View style={[styles.structuredIcon, { backgroundColor: '#DBEAFE' }]}>
+                <Ionicons name="list" size={18} color="#3B82F6" />
+              </View>
+              <Text style={styles.structuredTitle}>Lista de problemas</Text>
+            </View>
+            <View style={styles.chipList}>
+              {structured.problemList.map((p, i) => (
+                <View key={i} style={styles.chip}>
+                  <Text style={styles.chipText}>{p}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ── Medicamentos em uso (reconciliação) ── */}
+        {structured?.activeMedications && structured.activeMedications.length > 0 && (
+          <View style={styles.structuredCard}>
+            <View style={styles.structuredHeader}>
+              <View style={[styles.structuredIcon, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="medical" size={18} color={colors.primary} />
+              </View>
+              <Text style={styles.structuredTitle}>Medicamentos em uso</Text>
+            </View>
+            {structured.activeMedications.map((m, i) => (
+              <View key={i} style={styles.medItem}>
+                <View style={styles.medBullet}><Text style={styles.medBulletText}>{i + 1}</Text></View>
+                <Text style={styles.medText}>{m}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── Plano de cuidado ── */}
+        {structured?.carePlan && structured.carePlan.trim().length > 0 && (
+          <View style={styles.structuredCard}>
+            <View style={styles.structuredHeader}>
+              <View style={[styles.structuredIcon, { backgroundColor: '#D1FAE5' }]}>
+                <Ionicons name="clipboard" size={18} color="#059669" />
+              </View>
+              <Text style={styles.structuredTitle}>Plano de cuidado</Text>
+            </View>
+            <Text style={styles.structuredBody}>{structured.carePlan}</Text>
+          </View>
+        )}
+
+        {/* ── Resumo narrativo (IA) ── */}
+        {requests.length > 0 && (
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryHeader}>
+              <View style={styles.summaryIconWrap}>
+                <Ionicons name="document-text" size={22} color="#8B5CF6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.summaryTitle}>Resumo narrativo</Text>
+                <Text style={styles.summarySub}>Visão consolidada · consultas, receitas e exames</Text>
+              </View>
+            </View>
+            {summaryLoading ? (
+              <View style={styles.summaryLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.summaryLoadingText}>Gerando resumo...</Text>
+              </View>
+            ) : (structured?.narrativeSummary ?? summary) ? (
+              <Text style={styles.summaryText}>{structured?.narrativeSummary ?? summary}</Text>
+            ) : (
+              <Text style={styles.summaryEmpty}>
+                Resumo indisponível. Use os detalhes abaixo para revisar o histórico.
+              </Text>
+            )}
+            <Text style={styles.summaryDisclaimer}>
+              Resumo de apoio. O médico decide com base na avaliação clínica.
+            </Text>
+          </View>
+        )}
+
         {/* ── Dra. Renova — Insights ── */}
         <View style={styles.draRenovaCard}>
           <View style={styles.draRenovaHeader}>
@@ -365,36 +473,6 @@ export default function DoctorPatientClinicalSummary() {
             Orientação geral · Decisão clínica sempre do médico
           </Text>
         </View>
-
-        {/* ── Resumo completo (IA) — destaque principal ── */}
-        {requests.length > 0 && (
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              <View style={styles.summaryIconWrap}>
-                <Ionicons name="sparkles" size={22} color="#8B5CF6" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.summaryTitle}>Resumo completo do prontuário</Text>
-                <Text style={styles.summarySub}>Gerado por IA · consolida consultas, receitas e exames</Text>
-              </View>
-            </View>
-            {summaryLoading ? (
-              <View style={styles.summaryLoading}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={styles.summaryLoadingText}>Gerando resumo...</Text>
-              </View>
-            ) : summary ? (
-              <Text style={styles.summaryText}>{summary}</Text>
-            ) : (
-              <Text style={styles.summaryEmpty}>
-                Resumo indisponível. Use os detalhes abaixo para revisar o histórico.
-              </Text>
-            )}
-            <Text style={styles.summaryDisclaimer}>
-              Resumo de apoio. O médico decide com base na avaliação clínica.
-            </Text>
-          </View>
-        )}
 
         {/* ── Detalhes por tipo (colapsável) ── */}
         <Pressable
@@ -719,11 +797,6 @@ export default function DoctorPatientClinicalSummary() {
         )}
 
       </ScrollView>
-
-      {/* Dra. Renova banner fixo */}
-      <View style={[styles.bannerSticky, { bottom: insets.bottom + 12 }]}>
-        <AssistantBanner />
-      </View>
     </View>
   );
 }
@@ -796,6 +869,80 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   allergyValue: { fontSize: 13, color: colors.text, lineHeight: 20 },
+
+  alertsCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
+  },
+  alertsHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  alertsTitle: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: '#B91C1C',
+    letterSpacing: 0.5,
+  },
+  alertsList: { gap: spacing.xs },
+  alertItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  alertsItemText: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.text, flex: 1 },
+
+  structuredCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.border,
+  },
+  structuredHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  structuredIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  structuredTitle: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  structuredBody: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  chipList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.pill,
+  },
+  chipText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.primary,
+  },
+  medItem: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 6, gap: 10 },
+  medBullet: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medBulletText: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
+  },
+  medText: { fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, flex: 1, lineHeight: 21 },
 
   draRenovaCard: {
     backgroundColor: colors.surface,
@@ -1094,11 +1241,5 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
-  },
-
-  bannerSticky: {
-    position: 'absolute',
-    left: doctorDS.screenPaddingHorizontal,
-    right: doctorDS.screenPaddingHorizontal,
   },
 });

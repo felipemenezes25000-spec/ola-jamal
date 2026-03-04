@@ -28,7 +28,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
 import { FormattedAiSummary } from '../../components/FormattedAiSummary';
-import { ObservationCard, DraggableAssistantBanner } from '../../components/triage';
+import { ObservationCard } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
 function getTypeLabel(type: string): string {
@@ -552,22 +552,6 @@ export default function RequestDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Dra. Renova — fixa ou arrastável */}
-      {!request.doctorConductNotes && (
-        <View style={styles.aiBannerSticky}>
-          <DraggableAssistantBanner
-            onAction={(action) => {
-              if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
-                router.push('/new-request/consultation');
-              }
-              if (action === 'ver_servicos') {
-                router.push('/(patient)/requests');
-              }
-            }}
-          />
-        </View>
-      )}
-
       {/* Modal com zoom nas imagens */}
       <Modal
         visible={selectedImageUri !== null}
@@ -676,5 +660,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  aiBannerSticky: { position: 'absolute', left: 0, right: 0, bottom: spacing.lg * 2 },
 });

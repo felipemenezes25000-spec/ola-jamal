@@ -24,6 +24,8 @@ import { RequestTypeFilter } from '../../components/RequestTypeFilter';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useTriageEval } from '../../hooks/useTriageEval';
+import { needsPayment } from '../../lib/domain/getRequestUiState';
 
 const LOG_QUEUE = __DEV__ && false;
 const ListSeparator = () => <View style={styles.separator} />;
@@ -91,6 +93,15 @@ export default function PatientRequests() {
   }, [loadData]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+
+  const toPayCount = useMemo(() => requests.filter(r => needsPayment(r)).length, [requests]);
+  useTriageEval({
+    context: 'requests',
+    step: 'entry',
+    role: 'patient',
+    totalRequests: requests.length,
+    toPayCount,
+  });
 
   useEffect(() => {
     let result = requests;

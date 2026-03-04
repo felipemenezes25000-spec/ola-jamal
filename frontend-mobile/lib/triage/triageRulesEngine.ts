@@ -16,12 +16,12 @@ import type { TriageInput, TriageMessage, TriageStep } from './triage.types';
 // ── Cooldown constants ──────────────────────────────────────
 
 const MS = {
-  STEP:      5 * 60_000,       // 5min – dicas de etapa (novato)
-  STEP_NOVICE: 60 * 60_000,    // 1h – 3–9 pedidos
-  STEP_VET:  24 * 3600_000,    // 24h – veteranos
-  INSIGHT:   24 * 3600_000,    // 24h  – insights de histórico
-  PROACTIVE: 12 * 3600_000,    // 12h  – proativas na home
-  WELCOME:   7 * 24 * 3600_000, // 7d  – boas-vindas
+  STEP:      3 * 60_000,       // 3min – dicas de etapa (novato)
+  STEP_NOVICE: 30 * 60_000,    // 30min – 3–9 pedidos
+  STEP_VET:  12 * 3600_000,    // 12h – veteranos
+  INSIGHT:   12 * 3600_000,    // 12h – insights de histórico
+  PROACTIVE: 4 * 3600_000,     // 4h – proativas na home (Dra. Renoveja mais presente)
+  WELCOME:   3 * 24 * 3600_000, // 3d – boas-vindas
 } as const;
 
 /** Cooldown dinâmico: novatos 5min, intermediários 1h, veteranos 24h. */
@@ -48,9 +48,10 @@ function hasComplexExams(exams: string[]): boolean {
 // ── Main entry point ────────────────────────────────────────
 
 export function evaluateTriageRules(input: TriageInput): TriageMessage | null {
-  // 1. Doctor só recebe mensagens em contextos próprios (fluxo do médico)
+  // 1. Doctor só recebe mensagens em contextos próprios ou compartilhados (help)
   const isDoctorContext = input.context === 'doctor_dashboard' || input.context === 'doctor_detail' || input.context === 'doctor_prontuario';
-  if (input.role === 'doctor' && !isDoctorContext) return null;
+  const isSharedContext = input.context === 'help';
+  if (input.role === 'doctor' && !isDoctorContext && !isSharedContext) return null;
 
   // 2. Bloqueia em momentos críticos
   if (BLOCKED_STEPS.has(input.step)) return null;
@@ -62,6 +63,10 @@ export function evaluateTriageRules(input: TriageInput): TriageMessage | null {
     case 'exam':         return rulesExam(input);
     case 'consultation': return rulesConsultation(input);
     case 'detail':       return rulesDetail(input);
+    case 'requests':    return rulesRequests(input);
+    case 'record':      return rulesRecord(input);
+    case 'profile':     return rulesProfile(input);
+    case 'help':        return rulesHelp(input);
     case 'doctor_dashboard':  return rulesDoctorDashboard(input);
     case 'doctor_detail':     return rulesDoctorDetail(input);
     case 'doctor_prontuario': return rulesDoctorProntuario(input);
@@ -79,6 +84,42 @@ function rulesHome(i: TriageInput): TriageMessage | null {
       severity: 'positive', avatarState: 'positive',
       cta: 'ver_servicos', ctaLabel: 'Conhecer serviços',
       cooldownMs: MS.WELCOME, canMute: true,
+    };
+  }
+
+  // Sugestão proativa: tempo desde última receita — "pode ser hora de renovar"
+  if (i.lastPrescriptionDaysAgo != null && i.lastPrescriptionDaysAgo >= 25 && i.recentPrescriptionCount && i.recentPrescriptionCount > 0) {
+    return {
+      key: 'home:renew_prescription',
+      text: 'Pela sua última receita, pode ser hora de renovar. O médico avalia e aprova — você fica tranquilo.',
+      severity: 'info', avatarState: 'neutral',
+      cta: 'renovar_receita', ctaLabel: 'Renovar receita',
+      cooldownMs: MS.PROACTIVE, canMute: true,
+      analyticsEvent: 'triage.home.renew_prescription',
+    };
+  }
+
+  // Sugestão proativa: tempo desde último exame — direcionar para pedir exames
+  if (i.lastExamDaysAgo != null && i.lastExamDaysAgo >= 180 && i.recentExamCount && i.recentExamCount > 0) {
+    return {
+      key: 'home:renew_exam',
+      text: 'Seus exames podem precisar de renovação. Solicite novos exames — o médico analisa e aprova.',
+      severity: 'info', avatarState: 'neutral',
+      cta: 'pedir_exames', ctaLabel: 'Pedir exames',
+      cooldownMs: MS.PROACTIVE, canMute: true,
+      analyticsEvent: 'triage.home.renew_exam',
+    };
+  }
+
+  // Sugestão por idade: exames de rotina (40+)
+  if (i.patientAge != null && i.patientAge >= 40 && (!i.lastExamDaysAgo || i.lastExamDaysAgo > 365)) {
+    return {
+      key: 'home:routine_exams_age',
+      text: 'Exames de rotina são importantes para sua idade. O médico orienta o que fazer.',
+      severity: 'info', avatarState: 'neutral',
+      cta: 'pedir_exames', ctaLabel: 'Pedir exames',
+      cooldownMs: MS.PROACTIVE, canMute: true,
+      analyticsEvent: 'triage.home.routine_exams_age',
     };
   }
 
@@ -292,6 +333,99 @@ function rulesConsultation(i: TriageInput): TriageMessage | null {
     };
   }
   return null;
+}
+
+// ── REQUESTS (lista de pedidos) ───────────────────────────────
+
+function rulesRequests(i: TriageInput): TriageMessage | null {
+  if (i.step !== 'entry') return null;
+  const count = i.totalRequests ?? 0;
+  if (count === 0) {
+    return {
+      key: 'requests:empty',
+      text: 'Seus pedidos aparecerão aqui. Use o botão Início para renovar receitas, pedir exames ou agendar consultas.',
+      severity: 'info', avatarState: 'neutral',
+      cta: 'ver_servicos', ctaLabel: 'Ver serviços',
+      cooldownMs: MS.STEP,
+      canMute: true,
+    };
+  }
+  if (i.toPayCount && i.toPayCount > 0) {
+    return {
+      key: 'requests:to_pay',
+      text: `Você tem ${i.toPayCount} pedido(s) aguardando pagamento. Após pagar, o documento fica disponível para download.`,
+      severity: 'info', avatarState: 'neutral',
+      cta: null,
+      cooldownMs: MS.INSIGHT,
+      canMute: true,
+    };
+  }
+  return null;
+}
+
+// ── RECORD (prontuário do paciente) ─────────────────────────
+
+function rulesRecord(i: TriageInput): TriageMessage | null {
+  if (i.step !== 'entry') return null;
+
+  // Sugestão proativa no prontuário: renovar receita
+  if (i.lastPrescriptionDaysAgo != null && i.lastPrescriptionDaysAgo >= 25 && i.recentPrescriptionCount && i.recentPrescriptionCount > 0) {
+    return {
+      key: 'record:renew_prescription',
+      text: 'Pelo seu histórico, pode ser hora de renovar sua receita. O médico avalia e decide.',
+      severity: 'info', avatarState: 'neutral',
+      cta: 'renovar_receita', ctaLabel: 'Renovar receita',
+      cooldownMs: MS.INSIGHT, canMute: true,
+    };
+  }
+
+  // Sugestão: exames de rotina por idade
+  if (i.patientAge != null && i.patientAge >= 40 && (!i.lastExamDaysAgo || i.lastExamDaysAgo > 365)) {
+    return {
+      key: 'record:routine_exams',
+      text: 'Exames de rotina fazem parte do cuidado. O médico orienta o que solicitar.',
+      severity: 'info', avatarState: 'neutral',
+      cta: 'pedir_exames', ctaLabel: 'Pedir exames',
+      cooldownMs: MS.INSIGHT, canMute: true,
+    };
+  }
+
+  return {
+    key: 'record:entry',
+    text: 'Aqui está seu histórico de atendimentos, receitas e exames. Tudo organizado para você acompanhar sua saúde.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'teleconsulta', ctaLabel: 'Falar com médico',
+    cooldownMs: MS.INSIGHT,
+    canMute: true,
+  };
+}
+
+// ── PROFILE (perfil) ─────────────────────────────────────────
+
+function rulesProfile(i: TriageInput): TriageMessage | null {
+  if (i.step !== 'entry') return null;
+  return {
+    key: 'profile:entry',
+    text: 'Aqui você gerencia sua conta, dados pessoais e configurações. Se tiver dúvidas, toque em mim para ajuda.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'tire_duvidas', ctaLabel: 'Tirar dúvidas',
+    cooldownMs: MS.INSIGHT,
+    canMute: true,
+  };
+}
+
+// ── HELP (ajuda/FAQ) ─────────────────────────────────────────
+
+function rulesHelp(i: TriageInput): TriageMessage | null {
+  if (i.step !== 'entry') return null;
+  return {
+    key: 'help:entry',
+    text: 'Aqui estão as respostas para as dúvidas mais comuns. Se não encontrar o que precisa, entre em contato conosco.',
+    severity: 'info', avatarState: 'positive',
+    cta: null,
+    cooldownMs: MS.INSIGHT,
+    canMute: true,
+  };
 }
 
 // ── REQUEST DETAIL ──────────────────────────────────────────

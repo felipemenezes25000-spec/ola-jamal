@@ -25,7 +25,6 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppInput } from '../../components/ui/AppInput';
-import { AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
 const c = theme.colors;
@@ -140,20 +139,6 @@ export default function NewExam() {
       <AppHeader title="Novo Exame" />
 
       <View style={styles.body}>
-        {/* Dra. Renova */}
-        <View style={{ marginBottom: 12 }}>
-          <AssistantBanner
-            onAction={(action) => {
-              if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
-                router.push('/new-request/consultation');
-              }
-              if (action === 'ver_servicos') {
-                router.push('/(patient)/requests');
-              }
-            }}
-          />
-        </View>
-
         {/* Exam Type */}
         <Text style={styles.overline}>TIPO DE EXAME</Text>
         <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>

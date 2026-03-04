@@ -27,7 +27,6 @@ import { HeaderInfo } from '../../components/ui/HeaderInfo';
 import { EmptyState } from '../../components/EmptyState';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
-import { DraggableAssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import {
   shouldShowHomeInfoCard,
@@ -112,6 +111,49 @@ export default function PatientHome() {
       )
     : undefined;
 
+  // Última receita assinada (para sugestão de renovação)
+  const lastPrescriptionDaysAgo = useMemo(() => {
+    const signed = requests
+      .filter((r) => r.requestType === 'prescription' && isSignedOrDelivered(r))
+      .sort((a, b) => new Date(b.signedAt ?? b.updatedAt).getTime() - new Date(a.signedAt ?? a.updatedAt).getTime());
+    if (signed.length === 0) return undefined;
+    const last = signed[0];
+    const refDate = last.signedAt ?? last.updatedAt ?? last.createdAt;
+    return Math.floor((Date.now() - new Date(refDate).getTime()) / (24 * 60 * 60 * 1000));
+  }, [requests]);
+
+  // Último exame assinado
+  const lastExamDaysAgo = useMemo(() => {
+    const signed = requests
+      .filter((r) => r.requestType === 'exam' && isSignedOrDelivered(r))
+      .sort((a, b) => new Date(b.signedAt ?? b.updatedAt).getTime() - new Date(a.signedAt ?? a.updatedAt).getTime());
+    if (signed.length === 0) return undefined;
+    const last = signed[0];
+    const refDate = last.signedAt ?? last.updatedAt ?? last.createdAt;
+    return Math.floor((Date.now() - new Date(refDate).getTime()) / (24 * 60 * 60 * 1000));
+  }, [requests]);
+
+  // Idade do paciente (para recomendações por faixa etária)
+  const patientAge = useMemo(() => {
+    const bd = user?.birthDate;
+    if (!bd) return undefined;
+    const birth = new Date(bd);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age >= 0 ? age : undefined;
+  }, [user?.birthDate]);
+
+  const recentMedications = useMemo(() => {
+    const meds = requests
+      .filter((r) => r.requestType === 'prescription' && r.medications?.length)
+      .flatMap((r) => r.medications!)
+      .filter(Boolean)
+      .slice(0, 10);
+    return [...new Set(meds)];
+  }, [requests]);
+
   useTriageEval({
     context: 'home',
     step: 'idle',
@@ -120,6 +162,10 @@ export default function PatientHome() {
     recentPrescriptionCount,
     recentExamCount,
     lastConsultationDays,
+    lastPrescriptionDaysAgo,
+    lastExamDaysAgo,
+    patientAge,
+    recentMedications: recentMedications.length ? recentMedications : undefined,
   });
 
   return (
@@ -314,20 +360,6 @@ export default function PatientHome() {
         </ScrollView>
         </FadeIn>
       )}
-
-      {/* Dra. Renova — fixa ou arrastável */}
-      <View style={styles.aiBannerSticky}>
-        <DraggableAssistantBanner
-          onAction={(action) => {
-            if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
-              router.push('/new-request/consultation');
-            }
-            if (action === 'ver_servicos') {
-              router.push('/(patient)/requests');
-            }
-          }}
-        />
-      </View>
     </View>
   );
 }
@@ -344,13 +376,6 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     backgroundColor: colors.background,
   },
-  aiBannerSticky: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: uiTokens.cardGap * 2,
-  },
-
   // ─── Header ───
   header: {
     paddingHorizontal: uiTokens.screenPaddingHorizontal,

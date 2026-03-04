@@ -23,7 +23,6 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppCard } from '../../components/ui/AppCard';
-import { AssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
 const t = theme;
@@ -152,20 +151,6 @@ export default function NewPrescription() {
       <AppHeader title="Renovação de Receita" />
 
       <View style={styles.body}>
-        {/* Dra. Renova */}
-        <View style={{ marginBottom: 12 }}>
-          <AssistantBanner
-            onAction={(action) => {
-              if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
-                router.push('/new-request/consultation');
-              }
-              if (action === 'ver_servicos') {
-                router.push('/(patient)/requests');
-              }
-            }}
-          />
-        </View>
-
         {/* Type Selection */}
         <Text style={styles.sectionLabel}>TIPO DE RECEITA</Text>
         <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de receita tocando em um dos cards abaixo.</Text>

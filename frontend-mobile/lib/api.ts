@@ -705,10 +705,20 @@ export async function getPatientProfileForDoctor(
   }
 }
 
+/** Resumo estruturado estilo Epic/Cerner. */
+export interface PatientClinicalSummaryStructured {
+  problemList: string[];
+  activeMedications: string[];
+  narrativeSummary: string;
+  carePlan: string | null;
+  alerts: string[];
+}
+
 /** Resposta do resumo clínico (IA ou fallback). */
 export interface PatientClinicalSummaryResponse {
   summary: string | null;
   fallback: string | null;
+  structured?: PatientClinicalSummaryStructured | null;
 }
 
 /** Médico obtém resumo narrativo completo do prontuário (IA). Consolida tudo em um texto único. */

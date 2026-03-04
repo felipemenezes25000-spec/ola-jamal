@@ -12,10 +12,11 @@ public class PrescriptionComplianceValidator
 
     /// <summary>
     /// Valida dados para receita simples (modelo CFM).
-    /// Exige: paciente.nome, prescrição(itens), médico.nome, crm/uf, endereço/telefone, data.
+    /// Exige: paciente.nome, paciente.cpf, prescrição(itens), médico.nome, crm/uf, endereço/telefone, data.
     /// </summary>
     public static ValidationResult ValidateSimple(
         string? patientName,
+        string? patientCpf,
         IReadOnlyList<string> medications,
         string? doctorName,
         string? doctorCrm,
@@ -30,6 +31,12 @@ public class PrescriptionComplianceValidator
         {
             missing.Add("paciente.nome");
             messages.Add("Nome do paciente é obrigatório.");
+        }
+
+        if (string.IsNullOrWhiteSpace(patientCpf))
+        {
+            missing.Add("paciente.cpf");
+            messages.Add("CPF do paciente é obrigatório em todas as receitas.");
         }
 
         if (medications == null || medications.Count == 0 || medications.All(string.IsNullOrWhiteSpace))
@@ -78,6 +85,7 @@ public class PrescriptionComplianceValidator
     /// </summary>
     public static ValidationResult ValidateAntimicrobial(
         string? patientName,
+        string? patientCpf,
         IReadOnlyList<string> medications,
         string? doctorName,
         string? doctorCrm,
@@ -87,7 +95,7 @@ public class PrescriptionComplianceValidator
         string? patientGender,
         DateTime? patientBirthDate)
     {
-        var simple = ValidateSimple(patientName, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone);
+        var simple = ValidateSimple(patientName, patientCpf, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone);
         var missing = new List<string>(simple.MissingFields);
         var messages = new List<string>(simple.Messages);
 
@@ -121,15 +129,9 @@ public class PrescriptionComplianceValidator
         string? doctorAddress,
         string? doctorPhone)
     {
-        var simple = ValidateSimple(patientName, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone);
+        var simple = ValidateSimple(patientName, patientCpf, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone);
         var missing = new List<string>(simple.MissingFields);
         var messages = new List<string>(simple.Messages);
-
-        if (string.IsNullOrWhiteSpace(patientCpf))
-        {
-            missing.Add("paciente.cpf");
-            messages.Add("CPF do paciente é obrigatório para receita de controle especial.");
-        }
 
         if (string.IsNullOrWhiteSpace(patientAddress))
         {
@@ -159,10 +161,10 @@ public class PrescriptionComplianceValidator
     {
         return kind switch
         {
-            PrescriptionKind.Simple => ValidateSimple(patientName, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone),
-            PrescriptionKind.Antimicrobial => ValidateAntimicrobial(patientName, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone, patientGender, patientBirthDate),
+            PrescriptionKind.Simple => ValidateSimple(patientName, patientCpf, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone),
+            PrescriptionKind.Antimicrobial => ValidateAntimicrobial(patientName, patientCpf, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone, patientGender, patientBirthDate),
             PrescriptionKind.ControlledSpecial => ValidateControlledSpecial(patientName, patientCpf, patientAddress, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone),
-            _ => ValidateSimple(patientName, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone)
+            _ => ValidateSimple(patientName, patientCpf, medications, doctorName, doctorCrm, doctorCrmState, doctorAddress, doctorPhone)
         };
     }
 }

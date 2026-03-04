@@ -29,6 +29,9 @@ export function useTriageEval(input: TriageInput): void {
     (input.exams?.length ?? 0),
     input.doctorConductNotes ? '1' : '0',
     (input.symptoms?.length ?? 0),
+    input.lastPrescriptionDaysAgo ?? '',
+    input.lastExamDaysAgo ?? '',
+    input.patientAge ?? '',
   ].join(':');
 
   useEffect(() => {

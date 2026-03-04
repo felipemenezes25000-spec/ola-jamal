@@ -18,8 +18,6 @@ import { formatBRL } from '../../../lib/utils/format';
 import { getApiErrorMessage } from '../../../lib/api-client';
 import type { RequestResponseDto } from '../../../types/database';
 import { SkeletonList } from '../../../components/ui/SkeletonLoader';
-import { DraggableAssistantBanner } from '../../../components/triage';
-import { useTriageEval } from '../../../hooks/useTriageEval';
 import { useRequestUpdated } from '../../../hooks/useRequestUpdated';
 
 export default function PaymentRequestScreen() {
@@ -66,15 +64,6 @@ export default function PaymentRequestScreen() {
   }, [rid]);
 
   useRequestUpdated(rid ?? undefined, loadRequest);
-
-  // Dra. Renova: mensagem antes do pagamento, explicando o que esperar.
-  useTriageEval({
-    context: 'detail',
-    step: 'entry',
-    role: 'patient',
-    status: request?.status ?? undefined,
-    requestType: request?.requestType as any,
-  });
 
   const handleSelectPix = async () => {
     if (!rid || pixInFlightRef.current) return;
@@ -210,18 +199,6 @@ export default function PaymentRequestScreen() {
           </View>
         </ScrollView>
       </View>
-      <View style={styles.aiBannerSticky}>
-        <DraggableAssistantBanner
-          onAction={(action) => {
-            if (action === 'teleconsulta' || action === 'consulta_breve' || action === 'agendar_retorno') {
-              router.push('/new-request/consultation');
-            }
-            if (action === 'ver_servicos') {
-              router.push('/(patient)/requests');
-            }
-          }}
-        />
-      </View>
     </SafeAreaView>
   );
 }
@@ -327,10 +304,4 @@ const styles = StyleSheet.create({
   },
   securityText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   errorText: { fontSize: 16, color: colors.textSecondary },
-  aiBannerSticky: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: spacing.lg * 2,
-  },
 });

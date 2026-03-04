@@ -67,8 +67,10 @@ export function TriageAssistantProvider({ children }: { children: React.ReactNod
   const [history, setHistory] = useState<TriageMessage[]>([]);
   const screenKeyRef = useRef<string | null>(null);
 
-  // Reset session counts on mount (app start)
-  useEffect(() => { resetSessionCounts(); }, []);
+  // Reset session counts on mount (app start) — permite mensagens em cada abertura do app
+  useEffect(() => {
+    resetSessionCounts();
+  }, []);
 
   const evaluate = useCallback(async (input: TriageInput) => {
     if (!IS_ENABLED) return;

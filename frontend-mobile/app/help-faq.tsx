@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTriageEval } from '../hooks/useTriageEval';
+import { useAuth } from '../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../constants/theme';
@@ -8,6 +10,8 @@ import { COMPANY } from '../lib/company';
 
 export default function HelpFaqScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  useTriageEval({ context: 'help', step: 'entry', role: user?.role === 'doctor' ? 'doctor' : 'patient' });
 
   return (
     <SafeAreaView style={styles.container}>

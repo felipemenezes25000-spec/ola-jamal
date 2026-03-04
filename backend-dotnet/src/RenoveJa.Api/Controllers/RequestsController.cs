@@ -407,17 +407,32 @@ public class RequestsController(
             prescriptions,
             exams);
 
-        var summary = await clinicalSummaryService.GenerateAsync(input, cancellationToken);
-
+        var structured = await clinicalSummaryService.GenerateStructuredAsync(input, cancellationToken);
+        string? narrative = structured?.NarrativeSummary;
         string? fallback = null;
-        if (string.IsNullOrWhiteSpace(summary))
+
+        if (string.IsNullOrWhiteSpace(narrative))
         {
-            fallback = BuildFallbackSummary(patientName, profile?.BirthDate, allergies, consultations, prescriptions, exams);
+            narrative = await clinicalSummaryService.GenerateAsync(input, cancellationToken);
+            if (string.IsNullOrWhiteSpace(narrative))
+            {
+                fallback = BuildFallbackSummary(patientName, profile?.BirthDate, allergies, consultations, prescriptions, exams);
+                narrative = fallback;
+            }
         }
+
+        var structuredDto = structured != null ? new
+        {
+            problemList = structured.ProblemList,
+            activeMedications = structured.ActiveMedications,
+            narrativeSummary = narrative,
+            carePlan = structured.CarePlan,
+            alerts = structured.Alerts
+        } : (object?)null;
 
         _ = auditEventService.LogReadAsync(doctorId, "PatientClinicalSummary", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
 
-        return Ok(new { summary = summary ?? fallback, fallback });
+        return Ok(new { summary = narrative, fallback, structured = structuredDto });
     }
 
     private static string BuildFallbackSummary(

@@ -34,7 +34,6 @@ import {
   getRequestUiState,
   UI_STATUS_COLORS,
 } from '../../lib/domain/getRequestUiState';
-import { DraggableAssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -263,11 +262,6 @@ export default function DoctorDashboard() {
       </View>
       </ScrollView>
       </FadeIn>
-
-      {/* Dra. Renova — fixa ou arrastável (médico) */}
-      <View style={styles.aiBannerSticky}>
-        <DraggableAssistantBanner />
-      </View>
     </View>
   );
 }
@@ -382,12 +376,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginBottom: 2,
-  },
-  aiBannerSticky: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: spacing.lg * 2,
   },
   pendingCardSummary: {
     fontSize: 13,

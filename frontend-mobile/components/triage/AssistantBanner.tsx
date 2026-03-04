@@ -38,11 +38,15 @@ const ACCENT: Record<Severity, string> = {
 interface AssistantBannerProps {
   /** Callback quando o CTA é pressionado */
   onAction?: (action: CTAAction) => void;
+  /** Callback quando o usuário toca no estado companion (Tire dúvidas) */
+  onCompanionPress?: () => void;
   /** Estilo extra para posicionamento */
   containerStyle?: object;
+  /** Se true, esconde completamente (ex.: telas de pagamento com dados privados) */
+  hidden?: boolean;
 }
 
-export function AssistantBanner({ onAction, containerStyle }: AssistantBannerProps) {
+export function AssistantBanner({ onAction, onCompanionPress, containerStyle, hidden }: AssistantBannerProps) {
   const { current, dismiss, muteCurrent } = useTriageAssistant();
   const [expanded, setExpanded] = useState(false);
 
@@ -60,28 +64,30 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
     }
   }, [current, muteCurrent]);
 
-  if (!current) return null;
+  if (hidden) return null;
 
-  const av = AVATAR[current.avatarState];
-  const accent = ACCENT[current.severity];
+  // Estado companion: Dra. Renoveja sempre visível para o paciente se sentir acompanhado
+  const isCompanion = !current;
+  const av = current ? AVATAR[current.avatarState] : AVATAR.neutral;
+  const accent = current ? ACCENT[current.severity] : theme.colors.primary.main;
 
   return (
       <Reanimated.View
-        entering={FadeInDown.duration(350).springify().damping(18).stiffness(140)}
-        exiting={FadeOutUp.duration(200)}
+        entering={FadeInDown.duration(280).springify().damping(20).stiffness(180)}
         style={[styles.container, containerStyle]}
         accessibilityRole="alert"
-        accessibilityLabel={`Assistente de triagem: ${current.text}`}
+        accessibilityLabel={isCompanion ? 'Dra. Renoveja, sua assistente' : `Assistente de triagem: ${current?.text}`}
       >
       {/* Accent stripe */}
       <View style={[styles.accentBar, { backgroundColor: accent }]} />
 
       <Pressable
         style={styles.inner}
-        onPress={() => setExpanded(true)}
-        onLongPress={handleLongPress}
+        onPress={() => isCompanion ? onCompanionPress?.() : setExpanded(true)}
+        onLongPress={isCompanion ? undefined : handleLongPress}
         delayLongPress={800}
-        accessibilityHint={current.canMute ? 'Segure para silenciar esta mensagem' : undefined}
+        accessibilityHint={current?.canMute ? 'Segure para silenciar esta mensagem' : undefined}
+        accessibilityLabel={isCompanion ? 'Dra. Renoveja, sua assistente' : `Assistente de triagem: ${current?.text}`}
       >
         {/* Avatar */}
         <View style={[styles.avatar, { backgroundColor: av.bg, borderColor: av.border }]}>
@@ -91,56 +97,63 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
         {/* Content */}
         <View style={styles.content}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Dra. Renova</Text>
-            {current.isPersonalized && (
+            <Text style={styles.label}>Dra. Renoveja</Text>
+            {current?.isPersonalized && (
               <View style={styles.personalizedBadge}>
                 <Ionicons name="sparkles" size={9} color={theme.colors.accent.main} />
                 <Text style={styles.personalizedText}>personalizado</Text>
               </View>
             )}
           </View>
-          <Text style={styles.message} numberOfLines={2}>{current.text}</Text>
+          <Text style={styles.message} numberOfLines={2}>
+            {isCompanion ? 'Estou aqui com você. Toque para tirar dúvidas ou ver orientações.' : current!.text}
+          </Text>
         </View>
 
-        {/* Action */}
-        {current.cta && current.ctaLabel ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.ctaBtn,
-              { backgroundColor: accent },
-              pressed && styles.btnPressed,
-            ]}
-            onPress={handleCTA}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-            accessibilityRole="button"
-            accessibilityLabel={current.ctaLabel}
-          >
-            <Text style={styles.ctaText}>{current.ctaLabel}</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={dismiss}
-            hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-            style={({ pressed }) => [styles.dismissBtn, pressed && styles.btnPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Fechar mensagem"
-          >
-            <Text style={styles.dismissText}>Entendi</Text>
-          </Pressable>
+        {/* Action — só quando há mensagem ativa */}
+        {!isCompanion && (
+          current?.cta && current.ctaLabel ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.ctaBtn,
+                { backgroundColor: accent },
+                pressed && styles.btnPressed,
+              ]}
+              onPress={handleCTA}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel={current.ctaLabel}
+            >
+              <Text style={styles.ctaText}>{current.ctaLabel}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={dismiss}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+              style={({ pressed }) => [styles.dismissBtn, pressed && styles.btnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar mensagem"
+            >
+              <Text style={styles.dismissText}>Entendi</Text>
+            </Pressable>
+          )
         )}
       </Pressable>
 
-      {/* Disclaimer + hint de mute */}
-      <View style={styles.footer}>
-        {current.canMute && (
-          <Text style={styles.muteHint}>Segure para silenciar</Text>
-        )}
-        <Text style={styles.disclaimer}>
-          Orientação geral · Não substitui avaliação médica · Decisão final é sempre do médico
-        </Text>
-      </View>
+      {/* Disclaimer + hint de mute — só quando há mensagem ativa */}
+      {!isCompanion && (
+        <View style={styles.footer}>
+          {current?.canMute && (
+            <Text style={styles.muteHint}>Segure para silenciar</Text>
+          )}
+          <Text style={styles.disclaimer}>
+            Orientação geral · Não substitui avaliação médica · Decisão final é sempre do médico
+          </Text>
+        </View>
+      )}
 
-      {/* Modal expandido para leitura completa */}
+      {/* Modal expandido para leitura completa — só quando há mensagem ativa */}
+      {!isCompanion && current && (
       <Modal
         visible={expanded}
         transparent
@@ -155,7 +168,7 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
                 <Ionicons name={av.icon} size={18} color={av.iconColor} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalLabel}>Dra. Renova</Text>
+                <Text style={styles.modalLabel}>Dra. Renoveja</Text>
                 {current.isPersonalized && (
                   <Text style={styles.modalBadge}>Texto personalizado por IA · Médico sempre decide</Text>
                 )}
@@ -176,6 +189,7 @@ export function AssistantBanner({ onAction, containerStyle }: AssistantBannerPro
           </View>
         </View>
       </Modal>
+      )}
       </Reanimated.View>
   );
 }

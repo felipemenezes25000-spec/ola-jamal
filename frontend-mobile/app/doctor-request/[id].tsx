@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,11 +29,12 @@ import { DoctorCard } from '../../components/ui/DoctorCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
-import { DraggableAssistantBanner } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { useDoctorRequest } from '../../hooks/useDoctorRequest';
 import { useFocusEffect } from 'expo-router';
 
+import { getPatientProfileForDoctor } from '../../lib/api';
+import type { PatientProfileForDoctorDto } from '../../types/database';
 import { PatientInfoCard } from '../../components/doctor-request/PatientInfoCard';
 import { AiCopilotSection } from '../../components/doctor-request/AiCopilotSection';
 import { PrescriptionImageGallery } from '../../components/doctor-request/PrescriptionImageGallery';
@@ -58,6 +59,20 @@ export default function DoctorRequestDetail() {
   } = useDoctorRequest();
 
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
+  const [patientProfile, setPatientProfile] = useState<PatientProfileForDoctorDto | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!request?.patientId) {
+      setPatientProfile(null);
+      return;
+    }
+    setPatientProfile(undefined);
+    let cancelled = false;
+    getPatientProfileForDoctor(request.patientId)
+      .then((p) => { if (!cancelled) setPatientProfile(p ?? null); })
+      .catch(() => { if (!cancelled) setPatientProfile(null); });
+    return () => { cancelled = true; };
+  }, [request?.patientId]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
   useTriageEval({
@@ -121,6 +136,7 @@ export default function DoctorRequestDetail() {
 
         <PatientInfoCard
           request={request}
+          profile={patientProfile ?? undefined}
           onViewRecord={() => router.push(`/doctor-patient/${request.patientId}` as never)}
           style={s.cardMargin}
         />
@@ -191,9 +207,6 @@ export default function DoctorRequestDetail() {
           isInQueue={isInQueue}
         />
       </ScrollView>
-      <View style={s.aiBannerSticky}>
-        <DraggableAssistantBanner />
-      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -592,7 +605,6 @@ const s = StyleSheet.create({
   medChipText: { fontSize: 12, fontFamily: typography.fontFamily.medium, fontWeight: '500', color: '#6EE7B7' },
   pdfBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.primarySoft, borderRadius: borderRadius.md, padding: spacing.md },
   pdfBtnText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
-  aiBannerSticky: { position: 'absolute', left: 0, right: 0, bottom: spacing.lg * 2 },
   formCard: { borderWidth: 1, borderColor: colors.border },
   formHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
   formTitle: { fontSize: 12, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },

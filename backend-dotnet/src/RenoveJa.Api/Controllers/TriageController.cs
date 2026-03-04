@@ -35,7 +35,11 @@ public class TriageController(ITriageEnrichmentService enrichmentService) : Cont
             request.Symptoms,
             request.TotalRequests,
             request.RecentPrescriptionCount,
-            request.RecentExamCount);
+            request.RecentExamCount,
+            request.LastPrescriptionDaysAgo,
+            request.LastExamDaysAgo,
+            request.PatientAge,
+            request.RecentMedications);
 
         var result = await enrichmentService.EnrichAsync(input, cancellationToken);
         if (result == null)
@@ -56,4 +60,8 @@ public record TriageEnrichRequest(
     string? Symptoms,
     int? TotalRequests,
     int? RecentPrescriptionCount,
-    int? RecentExamCount);
+    int? RecentExamCount,
+    int? LastPrescriptionDaysAgo,
+    int? LastExamDaysAgo,
+    int? PatientAge,
+    string[]? RecentMedications);

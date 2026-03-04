@@ -12,6 +12,7 @@ public class PrescriptionComplianceValidatorTests
     {
         var result = PrescriptionComplianceValidator.ValidateSimple(
             "João Silva",
+            "12345678901",
             new List<string> { "Dipirona 500mg" },
             "Dr. Maria",
             "123456",
@@ -29,6 +30,7 @@ public class PrescriptionComplianceValidatorTests
     {
         var result = PrescriptionComplianceValidator.ValidateSimple(
             null,
+            "12345678901",
             new List<string> { "Med" },
             "Dr. Maria",
             "123456",
@@ -42,10 +44,29 @@ public class PrescriptionComplianceValidatorTests
     }
 
     [Fact]
+    public void ValidateSimple_MissingPatientCpf_ReturnsInvalid()
+    {
+        var result = PrescriptionComplianceValidator.ValidateSimple(
+            "João Silva",
+            null,
+            new List<string> { "Dipirona 500mg" },
+            "Dr. Maria",
+            "123456",
+            "SP",
+            "Rua X, 100",
+            "11999999999");
+
+        result.IsValid.Should().BeFalse();
+        result.MissingFields.Should().Contain("paciente.cpf");
+        result.Messages.Should().Contain(m => m.Contains("CPF do paciente"));
+    }
+
+    [Fact]
     public void ValidateSimple_MissingDoctorAddress_ReturnsInvalid()
     {
         var result = PrescriptionComplianceValidator.ValidateSimple(
             "João",
+            "12345678901",
             new List<string> { "Med" },
             "Dr. Maria",
             "123456",
@@ -62,6 +83,7 @@ public class PrescriptionComplianceValidatorTests
     {
         var result = PrescriptionComplianceValidator.ValidateAntimicrobial(
             "João",
+            "12345678901",
             new List<string> { "Amoxicilina" },
             "Dr. Maria",
             "123456",
@@ -80,6 +102,7 @@ public class PrescriptionComplianceValidatorTests
     {
         var result = PrescriptionComplianceValidator.ValidateAntimicrobial(
             "João",
+            "12345678901",
             new List<string> { "Amoxicilina" },
             "Dr. Maria",
             "123456",
@@ -98,6 +121,7 @@ public class PrescriptionComplianceValidatorTests
     {
         var result = PrescriptionComplianceValidator.ValidateAntimicrobial(
             "João",
+            "12345678901",
             new List<string> { "Amoxicilina 500mg" },
             "Dr. Maria",
             "123456",
@@ -168,14 +192,14 @@ public class PrescriptionComplianceValidatorTests
     {
         var resultSimple = PrescriptionComplianceValidator.Validate(
             PrescriptionKind.Simple,
-            "João", null, null, null, null,
+            "João", "12345678901", null, null, null,
             new List<string> { "Med" },
             "Dr. Maria", "123", "SP", "End", "Tel");
         resultSimple.IsValid.Should().BeTrue();
 
         var resultAntimicrobial = PrescriptionComplianceValidator.Validate(
             PrescriptionKind.Antimicrobial,
-            "João", null, null, null, null,
+            "João", "12345678901", null, null, null,
             new List<string> { "Med" },
             "Dr. Maria", "123", "SP", "End", "Tel");
         resultAntimicrobial.IsValid.Should().BeFalse();
