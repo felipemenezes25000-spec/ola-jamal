@@ -476,7 +476,6 @@ public class RequestServiceFullTests
     {
         _apiConfigMock.Setup(x => x.Value).Returns(new ApiConfig { BaseUrl = "" });
         var storageServiceMock = new Mock<IStorageService>();
-        var whatsAppServiceMock = new Mock<IWhatsAppService>();
         _sut = new RequestService(
             _requestRepoMock.Object, _productPriceRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
@@ -490,7 +489,6 @@ public class RequestServiceFullTests
             _aiConductSuggestionServiceMock.Object,
             _requestEventsPublisherMock.Object,
             _signedRequestClinicalSyncMock.Object,
-            whatsAppServiceMock.Object,
             _loggerMock.Object);
     }
 

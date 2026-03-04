@@ -59,7 +59,6 @@ public class RequestServiceTests
         var storageServiceMock = new Mock<IStorageService>();
         var requestEventsPublisherMock = new Mock<IRequestEventsPublisher>();
         var signedRequestClinicalSyncMock = new Mock<ISignedRequestClinicalSyncService>();
-        var whatsAppServiceMock = new Mock<IWhatsAppService>();
 
         _sut = new RequestService(
             _requestRepoMock.Object,
@@ -84,7 +83,6 @@ public class RequestServiceTests
             _aiConductSuggestionServiceMock.Object,
             requestEventsPublisherMock.Object,
             signedRequestClinicalSyncMock.Object,
-            whatsAppServiceMock.Object,
             _loggerMock.Object);
     }
 
