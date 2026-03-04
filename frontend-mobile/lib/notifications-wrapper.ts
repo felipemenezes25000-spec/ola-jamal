@@ -2,9 +2,7 @@
  * Wrapper para evitar carregar expo-notifications no Expo Go (SDK 53+ removeu push do Go).
  * Em Expo Go exporta stubs; em development build usa o módulo real.
  */
-import Constants from 'expo-constants';
-
-const isExpoGo = Constants.appOwnership === 'expo';
+import { isExpoGo } from './expo-go';
 
 async function registerStub(): Promise<string | null> {
   return null;

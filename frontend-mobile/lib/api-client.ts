@@ -122,18 +122,24 @@ class ApiClient {
       let errors: Record<string, string[]> | undefined;
       let unauthorizedHandled = false;
 
+      let rawBody = '';
       try {
-        const text = await response.text();
-        if (text) {
-          const errorData = JSON.parse(text);
-          const firstError = Array.isArray(errorData.errors) && errorData.errors.length > 0 ? errorData.errors[0] : null;
+        rawBody = await response.text();
+        if (rawBody) {
+          const errorData = JSON.parse(rawBody);
+          errors = typeof errorData.errors === 'object' && !Array.isArray(errorData.errors) ? errorData.errors : undefined;
+          const firstError =
+            Array.isArray(errorData.errors) && errorData.errors.length > 0
+              ? errorData.errors[0]
+              : errors && typeof errors === 'object'
+                ? (Object.values(errors).flat()[0] as string | undefined)
+                : null;
           errorMessage =
             errorData.message ||
             errorData.title ||
             errorData.detail ||
             firstError ||
             `${response.status} ${response.statusText}`;
-          errors = typeof errorData.errors === 'object' && !Array.isArray(errorData.errors) ? errorData.errors : undefined;
           const err: ApiError = {
             message: errorMessage,
             status: response.status,
@@ -146,7 +152,7 @@ class ApiClient {
             this.onUnauthorized();
           }
           if (__DEV__) {
-            console.warn('[API] Erro:', response.status, errorMessage);
+            console.warn('[API] Erro:', response.status, errorMessage, '| URL:', this.baseUrl);
           }
           throw err;
         } else {
@@ -157,11 +163,19 @@ class ApiClient {
         if (e?.status !== undefined) {
           throw e;
         }
-        errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}`;
+        if (__DEV__ && response.status === 400) {
+          console.warn('[API] 400 - corpo da resposta:', rawBody?.slice(0, 300) || '(vazio)');
+        }
+        // 400 com corpo vazio/não-JSON: comum com AllowedHosts, Supabase inválido ou backend acordando (Render)
+        const hint =
+          response.status === 400
+            ? ' Se usar Render, aguarde 1–2 min (serviço pode estar acordando). Verifique EXPO_PUBLIC_API_URL.'
+            : '';
+        errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}${hint}`;
       }
 
       if (__DEV__) {
-        console.warn('[API] Erro:', response.status, errorMessage);
+        console.warn('[API] Erro:', response.status, errorMessage, '| URL:', this.baseUrl);
       }
 
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
@@ -260,7 +274,11 @@ class ApiClient {
       bodyData = body;
     } else {
       headers['Content-Type'] = 'application/json';
-      bodyData = JSON.stringify(body);
+      bodyData = JSON.stringify(body ?? {});
+    }
+
+    if (__DEV__ && path.includes('/auth/login')) {
+      console.log('[API] POST', `${this.baseUrl}${path}`);
     }
 
     const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {

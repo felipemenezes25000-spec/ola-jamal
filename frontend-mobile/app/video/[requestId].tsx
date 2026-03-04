@@ -8,11 +8,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../lib/theme';
-
-const IN_EXPO_GO = Constants.appOwnership === 'expo';
+import { isExpoGo } from '../../lib/expo-go';
 
 export default function VideoRequestIdRoute() {
   const router = useRouter();
@@ -20,14 +18,14 @@ export default function VideoRequestIdRoute() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (IN_EXPO_GO) return;
+    if (isExpoGo) return;
     import('../../components/video/VideoCallScreenInner')
       .then((m) => setInner(() => m.default))
       .catch((e) => setLoadError(e?.message ?? 'Falha ao carregar a tela de vídeo'));
   }, []);
 
   // Expo Go: mostrar aviso em vez de carregar Daily (evita Invariant Violation)
-  if (IN_EXPO_GO) {
+  if (isExpoGo) {
     return (
       <View style={styles.container}>
         <View style={styles.card}>

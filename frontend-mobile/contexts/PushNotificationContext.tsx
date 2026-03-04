@@ -3,9 +3,9 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { useAuth } from './AuthContext';
 import { registerPushToken, unregisterPushToken } from '../lib/api';
+import { isExpoGo } from '../lib/expo-go';
 
 // Push foi removido do Expo Go no SDK 53 — não carregar o módulo no Expo Go para evitar erro
-const isExpoGo = Constants.appOwnership === 'expo';
 const Notifications = isExpoGo ? null : require('expo-notifications');
 
 if (Notifications) {

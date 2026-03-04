@@ -2,8 +2,8 @@ import React, { useEffect, useCallback, useState } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import Constants from 'expo-constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { isExpoGo } from '../lib/expo-go';
 import { useFonts } from '@expo-google-fonts/plus-jakarta-sans';
 import {
   PlusJakartaSans_400Regular,
@@ -22,7 +22,6 @@ import { ToastProvider } from '../components/ui/Toast';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Push notifications foram removidas do Expo Go no SDK 53 - carregar provider só em development build
-const isExpoGo = Constants.appOwnership === 'expo';
 const PushNotificationProvider = isExpoGo
   ? ({ children }: { children: React.ReactNode }) => <>{children}</>
   : require('../contexts/PushNotificationContext').PushNotificationProvider;
