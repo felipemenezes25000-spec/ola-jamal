@@ -61,15 +61,17 @@ export default function Login() {
     (extra?.googleIosClientId || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
 
   const hasGoogleConfig = !!(googleWebClientId || googleAndroidClientId || googleIosClientId);
-  // Sempre passa string não-vazia para o hook não crashar com clientId undefined/null.
-  // A validação real é feita em handleGooglePress e no disabled do botão.
+  // Placeholder com formato válido de clientId Google para passar a validação
+  // invariantClientId do expo-auth-session (rejeita strings sem formato correto).
+  // O botão fica disabled quando hasGoogleConfig=false, então nunca será usado de fato.
+  const PLACEHOLDER_CLIENT_ID = '000000000000-placeholder.apps.googleusercontent.com';
   const [request, , promptGoogle] = useIdTokenAuthRequest({
-    webClientId: googleWebClientId || 'unconfigured',
+    webClientId: googleWebClientId || PLACEHOLDER_CLIENT_ID,
     androidClientId: Platform.OS === 'android'
-      ? (googleAndroidClientId || googleWebClientId || 'unconfigured')
+      ? (googleAndroidClientId || googleWebClientId || PLACEHOLDER_CLIENT_ID)
       : undefined,
     iosClientId: Platform.OS === 'ios'
-      ? (googleIosClientId || googleWebClientId || 'unconfigured')
+      ? (googleIosClientId || googleWebClientId || PLACEHOLDER_CLIENT_ID)
       : undefined,
   });
 
@@ -117,10 +119,10 @@ export default function Login() {
       const err = error as { status?: number; message?: string };
       const msg = err?.message || String(error) || 'Email ou senha incorretos.';
       const isNetworkError =
-        !err?.status && (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network'));
+        !err?.status && (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network') || msg?.includes('servidor'));
       const title = isNetworkError ? 'Erro de conexão' : 'Erro no login';
       const detail = isNetworkError
-        ? `${msg}\n\nVerifique se a API está rodando e se o dispositivo alcança o servidor.`
+        ? `${msg}\n\nSe o problema persistir, aguarde 1 minuto e tente novamente.`
         : msg;
       if (__DEV__) console.warn('[Login] Erro:', { status: err?.status, message: msg });
       Alert.alert(title, detail);

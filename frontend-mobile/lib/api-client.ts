@@ -28,8 +28,9 @@ const BASE_URL =
     ? '' // web: relative URL → Metro proxy forwards /api/* to backend
     : process.env.EXPO_PUBLIC_API_URL || getDefaultBaseUrl();
 
-/** Timeout para evitar loading infinito quando a API está inacessível (ex.: celular com tunnel não alcança localhost). */
-const REQUEST_TIMEOUT_MS = 20000;
+/** Timeout para evitar loading infinito quando a API está inacessível.
+ *  Render free tier pode levar até 60s para cold start, então usamos 60s. */
+const REQUEST_TIMEOUT_MS = 60_000;
 
 export interface ApiError {
   message: string;
@@ -100,7 +101,7 @@ class ApiClient {
       if (e?.name === 'AbortError') {
         throw {
           message:
-            'Não foi possível conectar ao servidor. Verifique se a API está rodando e se o app está configurado com a URL correta (EXPO_PUBLIC_API_URL). No celular físico use o IP do PC ou uma URL acessível (ex.: ngrok).',
+            'O servidor demorou para responder. Isso pode acontecer quando o servidor está iniciando — aguarde alguns segundos e tente novamente.',
           status: 0,
         } as ApiError;
       }
@@ -108,7 +109,7 @@ class ApiClient {
       if (typeof msg === 'string' && (msg.includes('Network request failed') || msg.includes('network'))) {
         throw {
           message:
-            'Não foi possível conectar à API. No celular físico, configure EXPO_PUBLIC_API_URL no .env com o IP do seu PC (ex.: http://192.168.x.x:5000). Celular e PC devem estar na mesma rede Wi‑Fi.',
+            'Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente.',
           status: 0,
         } as ApiError;
       }

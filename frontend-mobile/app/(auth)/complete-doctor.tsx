@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,7 +75,8 @@ export default function CompleteDoctorScreen() {
     }
     setUploading(true);
     try {
-      const result = await uploadCertificate(selectedFile.uri, password);
+      const webFile = Platform.OS === 'web' ? selectedFile.file : undefined;
+      const result = await uploadCertificate(selectedFile.uri, password, webFile);
       if (result.success) {
         await refreshUser();
         router.replace('/(doctor)/dashboard' as any);
