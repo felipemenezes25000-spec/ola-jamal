@@ -530,15 +530,21 @@ app.MapControllers();
 app.MapHub<VideoSignalingHub>("/hubs/video");
 app.MapHub<RequestsHub>("/hubs/requests");
 
-// Log para debug: IP da máquina (dispositivo físico precisa disso em vez de localhost)
-try
+// Log para debug: URL que o app deve usar
+var apiBaseUrl = app.Configuration["Api__BaseUrl"]?.Trim();
+if (!string.IsNullOrEmpty(apiBaseUrl))
+    Log.Information("[Startup] App deve usar: EXPO_PUBLIC_API_URL={ApiBaseUrl}", apiBaseUrl);
+else if (app.Environment.IsDevelopment())
 {
-    var hostName = System.Net.Dns.GetHostName();
-    var addresses = System.Net.Dns.GetHostAddresses(hostName);
-    var lanIp = addresses.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString();
-    if (!string.IsNullOrEmpty(lanIp))
-        Log.Information("[Startup] Para dispositivo físico/emulador: EXPO_PUBLIC_API_URL=http://{LanIp}:5000", lanIp);
+    try
+    {
+        var hostName = System.Net.Dns.GetHostName();
+        var addresses = System.Net.Dns.GetHostAddresses(hostName);
+        var lanIp = addresses.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString();
+        if (!string.IsNullOrEmpty(lanIp))
+            Log.Information("[Startup] Para dispositivo físico local: EXPO_PUBLIC_API_URL=http://{LanIp}:5000", lanIp);
+    }
+    catch { /* best effort */ }
 }
-catch { /* best effort */ }
 
 app.Run();
