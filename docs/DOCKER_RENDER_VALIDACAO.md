@@ -30,14 +30,14 @@ ENTRYPOINT ["sh", "-c", "export ASPNETCORE_URLS=http://+:${PORT:-10000} && exec 
 
 ## 3. Configuração no Render Dashboard
 
-| Campo | Valor recomendado |
-|-------|-------------------|
-| **Root Directory** | *(vazio)* ou `backend-dotnet` — depende de onde o Dockerfile está |
-| **Dockerfile Path** | `backend-dotnet/Dockerfile` (se root = raiz do repo) |
-| **Branch** | `fix/frontend-performance-responsive` ou `main` |
-| **Instance Type** | Free / Starter / Standard |
+| Campo | Valor | Motivo |
+|-------|-------|-------|
+| **Root Directory** | *(deixar vazio)* | O Dockerfile faz `COPY backend-dotnet/ .` — contexto = raiz do repo |
+| **Dockerfile Path** | `backend-dotnet/Dockerfile` | Caminho relativo à raiz |
+| **Branch** | `fix/frontend-performance-responsive` | Onde estão os commits recentes |
+| **Instance Type** | Free | Plano gratuito |
 
-Se o Root Directory for a raiz do repositório, o Render espera encontrar o Dockerfile. O Dockerfile atual usa `COPY backend-dotnet/ .`, então o **contexto de build deve ser a raiz** do repositório.
+**Erro comum:** Se Root Directory = `backend-dotnet`, o build falha no `COPY backend-dotnet/ .` (pasta não existe no contexto).
 
 ---
 
@@ -98,14 +98,18 @@ Além do `PORT` (automático), configure em **Environment**:
 
 ---
 
-## 6. Problemas comuns
+## 6. Problemas comuns (por que o projeto não roda)
 
 | Sintoma | Causa | Solução |
 |---------|-------|---------|
 | Deploy falha "port not bound" | App escutando em porta errada | Dockerfile usa `PORT` — verificar se deploy aplicou a alteração |
 | 400 Invalid Hostname | Host não em AllowedHosts | Adicionar `ola-jamal.onrender.com` em `appsettings.Production.json` |
 | Serviço suspenso | Plano gratuito, 15 min inatividade | Acessar a URL e aguardar 1–2 min para acordar |
-| Build falha no COPY | Contexto de build errado | Root Directory = raiz do repo; Dockerfile path = `backend-dotnet/Dockerfile` |
+| Build falha no COPY | Contexto de build errado | **Root Directory = vazio** (raiz do repo); Dockerfile path = `backend-dotnet/Dockerfile` |
+| App crasha ao iniciar (logs) | Serilog não consegue escrever em `logs/` | Dockerfile corrigido: `chown appuser` em `/app` |
+| 404 em /swagger | Swagger só em Development | Corrigido: Swagger habilitado em Production |
+| Branch errada | Render faz deploy da `main` | Settings → Branch = `fix/frontend-performance-responsive` |
+| Variáveis faltando | Supabase, Api__BaseUrl, etc. | Dashboard → Environment → adicionar todas do `.env.example` |
 
 ---
 

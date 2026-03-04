@@ -33,6 +33,9 @@ USER appuser
 
 COPY --from=publish /app/publish .
 
+# Permissão para appuser escrever logs (Serilog WriteTo.File)
+RUN mkdir -p /app/logs && chown -R appuser:appuser /app
+
 # Render usa PORT=10000 por padrão; ASP.NET Core precisa de ASPNETCORE_URLS
 ENV PORT=10000
 ENV ASPNETCORE_ENVIRONMENT=Production

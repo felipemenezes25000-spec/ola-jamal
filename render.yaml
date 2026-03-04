@@ -1,0 +1,25 @@
+# Render Blueprint — RenoveJá API (.NET)
+# Ref: https://docs.render.com/blueprint-spec
+# IMPORTANTE: NÃO defina rootDir. O Dockerfile usa COPY backend-dotnet/ .,
+# então o contexto de build DEVE ser a raiz do repositório.
+
+services:
+  - type: web
+    runtime: docker
+    name: ola-jamal
+    dockerfilePath: ./backend-dotnet/Dockerfile
+    branch: fix/frontend-performance-responsive
+    region: oregon
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Supabase__Url
+        sync: false
+      - key: Supabase__ServiceKey
+        sync: false
+      - key: Api__BaseUrl
+        sync: false
+      - key: Api__DocumentTokenSecret
+        sync: false
