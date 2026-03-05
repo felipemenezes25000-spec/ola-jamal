@@ -175,7 +175,9 @@ public class VerificationController(
             if (bytes == null || bytes.Length == 0)
                 return NotFound(new { error = "Documento não encontrado." });
 
-            return File(bytes, "application/pdf", $"receita-{id}.pdf");
+            // inline para compatibilidade com validar.iti.gov.br (evita problemas ao processar via URL)
+            Response.Headers.ContentDisposition = $"inline; filename=\"receita-{id}.pdf\"";
+            return File(bytes, "application/pdf");
         }
         catch (Exception ex)
         {
