@@ -381,11 +381,12 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
             try {
               const items = JSON.parse(request.consultationAiSuggestions || '[]') as string[];
               return items.map((item, i) => {
-                const isRedFlag = item.startsWith('🚨');
+                const s = typeof item === 'string' ? item : '';
+                const isRedFlag = s.startsWith('🚨');
                 return (
                   <View key={i} style={[s.suggestionItem, isRedFlag && s.suggestionItemDanger]}>
                     <Ionicons name={isRedFlag ? 'alert-circle' : 'bulb-outline'} size={16} color={isRedFlag ? '#EF4444' : '#8B5CF6'} />
-                    <Text style={[s.suggestionText, isRedFlag && { color: '#EF4444' }]}>{item.replace('🚨 ', '')}</Text>
+                    <Text style={[s.suggestionText, isRedFlag && { color: '#EF4444' }]}>{s.replace('🚨 ', '')}</Text>
                   </View>
                 );
               });
@@ -401,8 +402,8 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
                   <Text style={[s.anaLabel, { marginBottom: 6 }]}>MEDICAMENTOS SUGERIDOS</Text>
                   <View style={s.medChipsRow}>
                     {meds.map((m, i) => (
-                      <TouchableOpacity key={i} style={s.medChip} onPress={async () => { await Clipboard.setStringAsync(m); showToast({ message: 'Copiado!', type: 'success' }); }}>
-                        <Text style={s.medChipText}>{m}</Text>
+                      <TouchableOpacity key={i} style={s.medChip} onPress={async () => { await Clipboard.setStringAsync(String(m ?? '')); showToast({ message: 'Copiado!', type: 'success' }); }}>
+                        <Text style={s.medChipText}>{m ?? ''}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>

@@ -18,12 +18,16 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, Pressable as GHPressable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../lib/theme';
+import { useTriageAssistant } from '../../contexts/TriageAssistantProvider';
 import {
   getBannerFloatingPosition,
   setBannerFloatingPosition,
@@ -48,6 +52,7 @@ interface DraggableAssistantBannerProps {
 export function DraggableAssistantBanner({ onAction, onCompanionPress, containerStyle }: DraggableAssistantBannerProps) {
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const { current } = useTriageAssistant();
 
   const padding = 16;
   const [expanded, setExpanded] = useState(false);
@@ -57,6 +62,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
   const translateY = useSharedValue(screenH - (insets.bottom ?? 0) - padding - FAB_SIZE);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
 
   const bannerWidth = Math.min(screenW - padding * 2, BANNER_WIDTH);
 
@@ -83,6 +89,22 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Bolinha pisca quando há recomendação relevante (pulse suave)
+  useEffect(() => {
+    if (current && !expanded) {
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 800 }),
+          withTiming(1, { duration: 800 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      pulseScale.value = withTiming(1, { duration: 250 });
+    }
+  }, [!!current, expanded]);
 
   const savePosition = useCallback(async (x: number, y: number) => {
     await setBannerPositionMode('floating');
@@ -166,6 +188,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
+      { scale: pulseScale.value },
     ],
   }));
 

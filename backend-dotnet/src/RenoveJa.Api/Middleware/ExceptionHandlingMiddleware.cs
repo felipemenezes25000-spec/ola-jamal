@@ -93,7 +93,8 @@ public class ExceptionHandlingMiddleware(
             InvalidOperationException => (HttpStatusCode.BadRequest,
                 IsDevelopment() ? exception.Message : "Invalid operation"),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),
-            _ => (HttpStatusCode.InternalServerError, "An error occurred while processing your request")
+            _ => (HttpStatusCode.InternalServerError,
+                IsDevelopment() ? exception.Message : "Ocorreu um erro ao processar sua solicitação. Tente novamente.")
         };
 
         context.Response.ContentType = "application/json";

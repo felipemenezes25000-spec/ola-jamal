@@ -145,7 +145,7 @@ Expo (celular)                    Backend
 
 | Causa | Verificação | Solução |
 |-------|-------------|---------|
-| `Deepgram:ApiKey` ausente | Log: `[Deepgram] DEEPGRAM_API_KEY não configurada` | Definir `Deepgram__ApiKey` em appsettings ou variáveis |
+| `Deepgram:ApiKey` ausente | Log: `[Deepgram] DEEPGRAM_API_KEY não configurada` | Definir `DEEPGRAM_API_KEY`, `Deepgram__ApiKey` ou `Deepgram:ApiKey` em appsettings |
 | Mic do médico mutado | Banner "Gravando · 0 transcrições" após 10s+ | Desmutar o microfone durante a consulta |
 | Chunk muito pequeno (silêncio) | Log: `Chunk ignorado: arquivo muito pequeno` | Falar durante a gravação; os primeiros 10s são enviados após o ciclo |
 | Request não em `InConsultation` | API retorna 400 | Iniciar a consulta com o botão "Iniciar Consulta" antes de falar |

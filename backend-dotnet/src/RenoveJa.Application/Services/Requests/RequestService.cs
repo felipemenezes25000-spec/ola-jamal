@@ -987,6 +987,9 @@ public class RequestService(
                     cancellationToken,
                     new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
             }
+
+            // Enviar RequestUpdated para que paciente e médico atualizem o timer imediatamente (consultationStartedAt)
+            await PublishRequestUpdatedAsync(request, "Chamada conectada", cancellationToken);
         }
 
         return MapRequestToDto(request);

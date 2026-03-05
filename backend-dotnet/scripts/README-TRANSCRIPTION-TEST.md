@@ -1,6 +1,39 @@
 # Teste de Transcrição (Deepgram)
 
-## Pré-requisitos
+## Scripts disponíveis
+
+| Script | Uso |
+|--------|-----|
+| `test-deepgram-direct.ps1` | **Testa Deepgram direto** (sem backend). Valida chave e modelo. |
+| `run-transcription-test.ps1` | Teste completo: gera áudio, inicia backend, chama `/transcribe-test`. |
+| `test-transcription.ps1` | Envia arquivo para backend (requer backend rodando). |
+
+## Teste rápido (Deepgram direto)
+
+```powershell
+cd backend-dotnet\scripts
+.\test-deepgram-direct.ps1
+```
+
+- Lê `DEEPGRAM_API_KEY` do `.env` em `RenoveJa.Api` ou do ambiente
+- Gera áudio em português se não houver arquivo
+- Chama a API do Deepgram e exibe a transcrição
+
+Com arquivo próprio:
+```powershell
+.\test-deepgram-direct.ps1 -AudioFile "C:\meu-audio.wav"
+```
+
+Com chave explícita:
+```powershell
+.\test-deepgram-direct.ps1 -ApiKey "sua-chave-deepgram"
+```
+
+---
+
+## Teste via Backend
+
+### Pré-requisitos
 
 - **Deepgram:ApiKey** configurada em `appsettings.Development.json` ou `.env`
 - **ASPNETCORE_ENVIRONMENT=Development** no `.env` (o endpoint de teste só existe em Development)

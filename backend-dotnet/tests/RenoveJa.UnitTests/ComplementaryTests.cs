@@ -395,6 +395,8 @@ public class AuthServiceExtendedTests
 
         _userRepoMock.Setup(r => r.ExistsByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
+        _userRepoMock.Setup(r => r.ExistsByCpfAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         _userRepoMock.Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((User u, CancellationToken _) => u);
         _doctorRepoMock.Setup(r => r.CreateAsync(It.IsAny<DoctorProfile>(), It.IsAny<CancellationToken>()))

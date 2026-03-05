@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
 
 interface CompatibleImageProps {
-  uri: string;
+  uri: string | null | undefined;
   style?: ImageStyle | ImageStyle[];
   resizeMode?: 'cover' | 'contain' | 'stretch' | 'repeat' | 'center';
   onError?: () => void;
@@ -18,10 +18,20 @@ export function CompatibleImage({ uri, style, resizeMode = 'cover', onError }: C
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const uriStr = typeof uri === 'string' ? uri : '';
+  if (!uriStr) {
+    return (
+      <View style={[styles.fallbackContainer, style as ViewStyle]}>
+        <Ionicons name="image-outline" size={36} color={colors.textMuted} />
+        <Text style={styles.fallbackText}>Imagem indisponível</Text>
+      </View>
+    );
+  }
+
   // Detecta se é HEIC/HEIF pela URL ou extensão
-  const isHeic = /\.(heic|heif)$/i.test(uri) || 
-                 uri.toLowerCase().includes('heic') || 
-                 uri.toLowerCase().includes('heif');
+  const isHeic = /\.(heic|heif)$/i.test(uriStr) ||
+                 uriStr.toLowerCase().includes('heic') ||
+                 uriStr.toLowerCase().includes('heif');
 
   const handleError = () => {
     setHasError(true);
@@ -63,7 +73,7 @@ export function CompatibleImage({ uri, style, resizeMode = 'cover', onError }: C
         </View>
       )}
       <Image
-        source={{ uri }}
+        source={{ uri: uriStr }}
         style={style}
         resizeMode={resizeMode}
         onError={handleError}

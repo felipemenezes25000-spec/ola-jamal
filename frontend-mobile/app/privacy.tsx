@@ -19,6 +19,7 @@ export default function PrivacyScreen() {
           <Ionicons name="lock-closed-outline" size={24} color={c.primary.main} />
           <Text style={styles.pageTitle}>POLÍTICA DE PRIVACIDADE – {COMPANY.name}</Text>
         </View>
+        <Text style={styles.lastUpdate}>Última atualização: março de 2026</Text>
 
         <AppCard style={styles.card}>
           <Section title="1. Compromisso e base legal">
@@ -26,7 +27,7 @@ export default function PrivacyScreen() {
           </Section>
 
           <Section title="2. Controlador e finalidade">
-            O controlador dos dados é {COMPANY.name}, CNPJ {COMPANY.cnpj}, com sede em {COMPANY.address}. Contato e canal para exercício de direitos em proteção de dados: {COMPANY.fullContact}. Os dados são tratados para: prestação dos serviços de telemedicina (consultas, receitas, exames), processamento de pagamentos, comunicação sobre atendimento, cumprimento de obrigações legais e regulatórias (incluindo prontuário e normas do CFM), e melhoria dos serviços. Não utilizamos seus dados para finalidades incompatíveis com essas finalidades. A infraestrutura de armazenamento e processamento pode envolver provedores de computação em nuvem localizados no Brasil e no exterior, sempre com salvaguardas adequadas e contratos que asseguram proteção compatível com a LGPD.
+            O controlador dos dados é {COMPANY.name}, CNPJ {COMPANY.cnpj}, com sede em {COMPANY.address}, responsável pelo aplicativo RenoveJá+. Contato e canal para exercício de direitos em proteção de dados: {COMPANY.fullContact}. Os dados são tratados para: prestação dos serviços de telemedicina (consultas, receitas, exames), processamento de pagamentos, comunicação sobre atendimento, cumprimento de obrigações legais e regulatórias (incluindo prontuário e normas do CFM), e melhoria dos serviços. Não utilizamos seus dados para finalidades incompatíveis com essas finalidades. A infraestrutura de armazenamento e processamento pode envolver provedores de computação em nuvem localizados no Brasil e no exterior, sempre com salvaguardas adequadas e contratos que asseguram proteção compatível com a LGPD.
           </Section>
 
           <Section title="3. Dados que coletamos">
@@ -34,7 +35,7 @@ export default function PrivacyScreen() {
           </Section>
 
           <Section title="3.1. Dados do assistente virtual e conduta médica">
-            Além dos dados descritos na seção anterior, coletamos e tratamos: dados de interação com o assistente virtual de triagem, incluindo mensagens visualizadas e ações tomadas, para melhoria do serviço; condutas médicas registradas pelo profissional de saúde, que integram o prontuário eletrônico; e observações automáticas geradas pela plataforma, de caráter orientativo. Estes dados são tratados com as mesmas salvaguardas aplicadas aos demais dados de saúde, em conformidade com a LGPD.
+            Além dos dados descritos na seção anterior, coletamos e tratamos: dados de interação com o assistente virtual de triagem (Dra. Renoveja), incluindo mensagens visualizadas e ações tomadas, para melhoria do serviço; condutas médicas registradas pelo profissional de saúde, que integram o prontuário eletrônico; e observações automáticas geradas pela plataforma, de caráter orientativo. Estes dados são tratados com as mesmas salvaguardas aplicadas aos demais dados de saúde, em conformidade com a LGPD.
           </Section>
 
           <Section title="4. Compartilhamento e não comercialização">
@@ -84,6 +85,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: s.sm,
+    marginBottom: s.xs,
+    paddingHorizontal: s.xs,
+  },
+  lastUpdate: {
+    fontSize: 12,
+    color: c.text.tertiary,
     marginBottom: s.lg,
     paddingHorizontal: s.xs,
   },

@@ -19,7 +19,7 @@ export default function AboutScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.primaryDark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{'SOBRE O ' + COMPANY.name.toUpperCase()}</Text>
+        <Text style={styles.headerTitle}>{'SOBRE O ' + (COMPANY.name ?? '').toUpperCase()}</Text>
         <View style={{ width: 40 }} />
       </View>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

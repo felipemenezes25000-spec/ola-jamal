@@ -21,7 +21,7 @@ import React, {
   useEffect,
 } from 'react';
 import { evaluateTriageRules } from '../lib/triage/triageRulesEngine';
-import { canShow, markShown, muteKey, resetSessionCounts } from '../lib/triage/triagePersistence';
+import { canShow, markShown, muteKey, resetSessionCounts, resetSessionCountForKey } from '../lib/triage/triagePersistence';
 import { trackTriageEvent } from '../lib/triage/triageAnalytics';
 import { enrichTriageMessage } from '../lib/triage/triageEnrichmentApi';
 import { getMessagePriority, getMessageTopic } from '../lib/triage/triagePriority';
@@ -31,8 +31,8 @@ import type { TriageMessage, TriageInput } from '../lib/triage/triage.types';
 
 const IS_ENABLED = process.env.EXPO_PUBLIC_TRIAGE_ENABLED !== 'false';
 const IS_AI_ENABLED = process.env.EXPO_PUBLIC_TRIAGE_AI_ENABLED !== 'false';
-const SAME_TOPIC_COOLDOWN_MS = 8 * 60_000;
-const MIN_REPLACE_INTERVAL_MS = 20_000;
+const SAME_TOPIC_COOLDOWN_MS = 45_000;   // 45s – permite mesmo tópico ao voltar, evita repetição em curto intervalo
+const MIN_REPLACE_INTERVAL_MS = 25_000; // 25s – evita pisca-pisca do banner ao trocar mensagens
 
 // ── Context types ───────────────────────────────────────────
 
@@ -152,9 +152,11 @@ export function TriageAssistantProvider({ children }: { children: React.ReactNod
   }, []);
 
   const clearScreen = useCallback(() => {
+    const keyToReset = screenKeyRef.current;
     setCurrent(null);
     screenKeyRef.current = null;
     currentShownAtRef.current = 0;
+    if (keyToReset) resetSessionCountForKey(keyToReset);
   }, []);
 
   const muteCurrent = useCallback(async () => {

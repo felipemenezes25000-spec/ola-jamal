@@ -24,6 +24,10 @@ function shouldHideBanner(pathname: string | null | undefined, isLoggedIn: boole
       pathname.includes('complete-') || pathname.includes('forgot-password') || pathname.includes('reset-password')) return true;
   // Splash / index (rota raiz)
   if (pathname === '/' || pathname === '/index' || pathname === '') return true;
+  // Já na tela de ajuda — evita empilhar infinitas instâncias ao tocar no banner
+  if (pathname.includes('help-faq')) return true;
+  // Prontuário do paciente no fluxo médico usa leitura densa; evita sobreposição na lista
+  if (pathname.includes('/doctor-patient/')) return true;
   return false;
 }
 
@@ -56,6 +60,8 @@ export function GlobalAssistantBanner() {
   };
 
   const handleCompanionPress = () => {
+    // Evita empilhar help-faq quando já está na tela (proteção extra)
+    if (pathname?.includes('help-faq')) return;
     router.push('/help-faq');
   };
 

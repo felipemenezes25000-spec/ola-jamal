@@ -62,7 +62,7 @@ export function SegmentedControl({
                                 adjustsFontSizeToFit
                                 minimumFontScale={0.8}
                             >
-                                {item.label.toUpperCase()}
+                                {(item.label ?? '').toUpperCase()}
                             </Text>
                         </Pressable>
                     );

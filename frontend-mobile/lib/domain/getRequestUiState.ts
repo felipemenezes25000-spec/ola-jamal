@@ -80,9 +80,9 @@ const STATUS_DISPLAY_LABELS = STATUS_DISPLAY_LABELS_PT;
  * Todas as telas devem usar esta função para exibir status.
  */
 export function getRequestUiState(
-  request: RequestResponseDto | { status: string }
+  request: RequestResponseDto | { status?: string | null }
 ): RequestUiStateResult {
-  const status = request.status;
+  const status = request?.status ?? '';
   const uiState = STATUS_TO_UI[status] ?? 'historical';
   const label = STATUS_DISPLAY_LABELS[status] ?? STATE_LABELS[uiState];
   const colorKey = STATE_COLORS[uiState];

@@ -202,14 +202,20 @@ builder.Services.Configure<OpenAIConfig>(
 // Configure Deepgram (Speech-to-Text da consulta)
 builder.Services.Configure<DeepgramConfig>(options =>
 {
+    var deepgramSection = builder.Configuration.GetSection("Deepgram");
     options.ApiKey = (_envVars.GetValueOrDefault("DEEPGRAM_API_KEY")
         ?? Environment.GetEnvironmentVariable("DEEPGRAM_API_KEY")
+        ?? _envVars.GetValueOrDefault("Deepgram__ApiKey")
+        ?? Environment.GetEnvironmentVariable("Deepgram__ApiKey")
+        ?? deepgramSection["ApiKey"]
         ?? string.Empty).Trim();
     options.Model = (_envVars.GetValueOrDefault("DEEPGRAM_MODEL")
         ?? Environment.GetEnvironmentVariable("DEEPGRAM_MODEL")
-        ?? "nova-3").Trim();
+        ?? deepgramSection["Model"]
+        ?? "nova-2").Trim();
     options.Language = (_envVars.GetValueOrDefault("DEEPGRAM_LANGUAGE")
         ?? Environment.GetEnvironmentVariable("DEEPGRAM_LANGUAGE")
+        ?? deepgramSection["Language"]
         ?? "pt-BR").Trim();
 });
 

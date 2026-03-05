@@ -58,6 +58,8 @@ public class AuthServiceTests
 
         _userRepositoryMock.Setup(x => x.ExistsByEmailAsync(It.IsAny<string>(), default))
             .ReturnsAsync(false);
+        _userRepositoryMock.Setup(x => x.ExistsByCpfAsync(It.IsAny<string>(), default))
+            .ReturnsAsync(false);
 
         _userRepositoryMock.Setup(x => x.CreateAsync(It.IsAny<User>(), default))
             .ReturnsAsync((User user, CancellationToken _) => user);
@@ -95,6 +97,29 @@ public class AuthServiceTests
 
         await act.Should().ThrowAsync<AuthConflictException>()
             .WithMessage("*Este e-mail já está cadastrado*");
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldThrow_WhenCpfAlreadyExists()
+    {
+        var request = new RegisterRequestDto(
+            "John Doe",
+            "john@example.com",
+            "password123",
+            "password123",
+            "11987654321",
+            "12345678901",
+            new DateTime(1990, 5, 15));
+
+        _userRepositoryMock.Setup(x => x.ExistsByEmailAsync(It.IsAny<string>(), default))
+            .ReturnsAsync(false);
+        _userRepositoryMock.Setup(x => x.ExistsByCpfAsync(It.IsAny<string>(), default))
+            .ReturnsAsync(true);
+
+        Func<Task> act = async () => await _authService.RegisterAsync(request);
+
+        await act.Should().ThrowAsync<AuthConflictException>()
+            .WithMessage("*Este CPF já está cadastrado*");
     }
 
     [Fact]

@@ -111,6 +111,16 @@ export async function unmuteKey(key: string): Promise<void> {
   scheduleSave();
 }
 
+/** Reseta contagem de sessão para uma key (chamar ao sair da tela). Permite dicas ao voltar. */
+export async function resetSessionCountForKey(key: string): Promise<void> {
+  await load();
+  if (_cache && _cache.sessionCounts[key]) {
+    delete _cache.sessionCounts[key];
+    _dirty = true;
+    scheduleSave();
+  }
+}
+
 /** Limpa contagem de sessão (chamar ao abrir o app). Permite que mensagens apareçam novamente na nova sessão. */
 export async function resetSessionCounts(): Promise<void> {
   await load(); // Garante que _cache está carregado

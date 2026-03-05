@@ -392,7 +392,7 @@ export default function DoctorPatientClinicalSummary() {
         )}
 
         {/* ── Plano de cuidado ── */}
-        {structured?.carePlan && structured.carePlan.trim().length > 0 && (
+        {typeof structured?.carePlan === 'string' && structured.carePlan.trim().length > 0 && (
           <View style={styles.structuredCard}>
             <View style={styles.structuredHeader}>
               <View style={[styles.structuredIcon, { backgroundColor: '#D1FAE5' }]}>
@@ -741,7 +741,8 @@ export default function DoctorPatientClinicalSummary() {
                     <View style={styles.suggestionsBlock}>
                       <Text style={styles.suggestionsTitle}>Sugestões clínicas da IA</Text>
                       {suggestions.map((s: string, i: number) => {
-                        const isRed = s.startsWith('🚨');
+                        const str = typeof s === 'string' ? s : '';
+                        const isRed = str.startsWith('🚨');
                         return (
                           <View key={i} style={[styles.suggestionItem, isRed && styles.suggestionDanger]}>
                             <Ionicons
@@ -750,7 +751,7 @@ export default function DoctorPatientClinicalSummary() {
                               color={isRed ? '#EF4444' : '#8B5CF6'}
                             />
                             <Text style={[styles.suggestionText, isRed && { color: '#EF4444' }]}>
-                              {s.replace('🚨 ', '')}
+                              {str.replace('🚨 ', '')}
                             </Text>
                           </View>
                         );

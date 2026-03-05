@@ -158,9 +158,9 @@ export function searchCid(query: string): CidMedicationItem[] {
   if (!q || q.length < 2) return [];
   return CID_MEDICATIONS.filter(
     (c) =>
-      c.cid.toLowerCase().includes(q) ||
-      c.description.toLowerCase().includes(q) ||
-      c.medications.some((m) => m.toLowerCase().includes(q))
+      (c.cid ?? '').toLowerCase().includes(q) ||
+      (c.description ?? '').toLowerCase().includes(q) ||
+      c.medications.some((m) => (m ?? '').toLowerCase().includes(q))
   ).slice(0, 20);
 }
 

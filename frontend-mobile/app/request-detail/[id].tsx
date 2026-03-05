@@ -224,11 +224,6 @@ export default function RequestDetailScreen() {
     }
   };
 
-  const handleEnterConsultation = () => {
-    if (!request) return;
-    router.push(`/video/${request.id}`);
-  };
-
   const handleCancel = () => {
     if (!requestId || !request) return;
     Alert.alert(
@@ -541,12 +536,13 @@ export default function RequestDetailScreen() {
           )}
 
           {canJoinVideo && (
-            <AppButton
-              title="Entrar na Consulta"
-              icon="videocam"
-              onPress={handleEnterConsultation}
-              style={{ backgroundColor: colors.success, borderColor: colors.success }}
-            />
+            <View style={styles.autoJoinCard}>
+              <Ionicons name="videocam" size={24} color={colors.primary} />
+              <Text style={styles.autoJoinTitle}>Consulta agendada</Text>
+              <Text style={styles.autoJoinSub}>
+                Quando o médico iniciar a consulta, você será automaticamente levado à sala de vídeo. Não é necessário clicar em nada.
+              </Text>
+            </View>
           )}
 
           {canCancel && (
@@ -642,6 +638,19 @@ const styles = StyleSheet.create({
   riskBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.sm },
   riskText: { fontSize: 11, fontWeight: '700' },
   actions: { gap: spacing.sm, marginTop: spacing.md },
+  autoJoinCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+    ...shadows.card,
+  },
+  autoJoinTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  autoJoinSub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.textSecondary },
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
   errorBtn: {

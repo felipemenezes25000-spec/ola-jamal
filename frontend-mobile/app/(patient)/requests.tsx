@@ -115,7 +115,7 @@ export default function PatientRequests() {
           r.doctorName?.toLowerCase().includes(q) ||
           r.medications?.some((m) => String(m).toLowerCase().includes(q)) ||
           r.exams?.some((m) => String(m).toLowerCase().includes(q)) ||
-          r.requestType.toLowerCase().includes(q)
+          (r.requestType ?? '').toLowerCase().includes(q)
       );
     }
     setFilteredRequests(sortRequestsByNewestFirst(result));

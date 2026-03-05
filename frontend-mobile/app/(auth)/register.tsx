@@ -361,7 +361,7 @@ export default function Register() {
         <Logo size="medium" variant="dark" compact />
         <Text style={styles.title}>Crie sua conta</Text>
         <Text style={styles.subtitle}>
-          Preencha seus dados para começar a usar o RenoveJá
+          Preencha seus dados para começar a usar o RenoveJá+
         </Text>
       </View>
 
@@ -393,19 +393,19 @@ export default function Register() {
       <View style={styles.card}>
 
         {/* ── Dados pessoais ── */}
-        <SectionHeader icon="person-outline" title="Dados pessoais" />
+        <SectionHeader icon="person-outline" title={role === 'patient' ? 'Dados para atendimento' : 'Dados pessoais'} />
         <AppInput
           label="Nome completo"
           required
           leftIcon="person-outline"
-          placeholder="Seu nome completo"
+          placeholder="Ex.: Maria Silva Santos"
           value={name}
           onChangeText={(t: string) => { setName(t); clearError('name'); }}
           error={fieldErrors.name}
           autoCapitalize="words"
         />
         <AppInput
-          label="Email"
+          label="E-mail"
           required
           leftIcon="mail-outline"
           placeholder="seu@email.com"
@@ -424,6 +424,7 @@ export default function Register() {
           onChangeText={(t: string) => { setPhone(t); clearError('phone'); }}
           error={fieldErrors.phone}
           keyboardType="phone-pad"
+          hint="Para contato e notificações"
         />
         <AppInput
           label="CPF"
@@ -434,6 +435,7 @@ export default function Register() {
           onChangeText={(t: string) => { setCpf(t); clearError('cpf'); }}
           error={fieldErrors.cpf}
           keyboardType="numeric"
+          hint="Obrigatório para receitas e pedidos de exame"
         />
         <AppInput
           label="Data de nascimento"
@@ -488,6 +490,7 @@ export default function Register() {
             onBlur={lookupCep}
             keyboardType="numeric"
             leftIcon="location-outline"
+            hint="Digite o CEP para preencher automaticamente"
           />
           <AppInput
             label="Rua"
@@ -558,14 +561,15 @@ export default function Register() {
                 label="CRM"
                 required
                 leftIcon="shield-checkmark-outline"
-                placeholder="Nº do CRM"
+                placeholder="Ex.: 123456"
                 value={crm}
                 onChangeText={(t: string) => { setCrm(t); clearError('crm'); }}
                 error={fieldErrors.crm}
                 containerStyle={styles.flex1}
+                hint="4 a 7 dígitos"
               />
               <AppInput
-                label="Estado do CRM"
+                label="UF do CRM"
                 required
                 leftIcon="location-outline"
                 placeholder="SP"
@@ -697,8 +701,8 @@ export default function Register() {
               />
             )}
 
-            {/* Endereço profissional (opcional, com CEP e preenchimento automático) */}
-            <SectionHeader icon="business-outline" title="Endereço profissional" />
+            {/* Endereço profissional (opcional) */}
+            <SectionHeader icon="business-outline" title="Endereço profissional (opcional)" />
             <AppInput
               label="CEP"
               placeholder="00000-000"
@@ -765,25 +769,25 @@ export default function Register() {
               keyboardType="phone-pad"
             />
 
-            {/* Faculdade, cursos e hospitais/serviços (opcional) */}
-            <SectionHeader icon="school-outline" title="Formação e experiência" />
+            {/* Formação e experiência (opcional) */}
+            <SectionHeader icon="school-outline" title="Formação e experiência (opcional)" />
             <AppInput
-              label="Faculdade"
-              placeholder="Instituição de formação"
+              label="Instituição de formação"
+              placeholder="Ex.: USP, Unifesp..."
               value={university}
               onChangeText={setUniversity}
               leftIcon="school-outline"
             />
             <AppInput
-              label="Cursos"
-              placeholder="Cursos e formações adicionais"
+              label="Cursos e especializações"
+              placeholder="Ex.: RQE, residências..."
               value={courses}
               onChangeText={setCourses}
               leftIcon="ribbon-outline"
             />
             <AppInput
-              label="Hospitais / serviços por onde trabalhou"
-              placeholder="Hospitais, clínicas, serviços..."
+              label="Locais de atuação"
+              placeholder="Ex.: hospitais, clínicas..."
               value={hospitalsServices}
               onChangeText={setHospitalsServices}
               leftIcon="medkit-outline"
@@ -847,7 +851,7 @@ export default function Register() {
             <Ionicons name="sparkles" size={16} color="#FFF" />
           </View>
           <Text style={styles.aiNoticeText}>
-            Utilizamos <Text style={styles.aiBold}>inteligência artificial</Text> para triagem e leitura de receitas e exames, agilizando seu atendimento.
+            O RenoveJá+ utiliza <Text style={styles.aiBold}>inteligência artificial</Text> para triagem, leitura de receitas e exames, e apoio às consultas — sempre sob supervisão médica. Conforme nossos Termos de Uso e Política de Privacidade.
           </Text>
         </View>
 
@@ -866,7 +870,7 @@ export default function Register() {
               onPress={() => router.push('/terms' as any)}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
-              <Text style={styles.termsLink}>Termos de Uso</Text>
+              <Text style={styles.termsLink}>Termos de Uso da RenoveJá Saúde</Text>
             </TouchableOpacity>
             <Text style={styles.termsLabel}>.</Text>
           </TouchableOpacity>
@@ -887,7 +891,7 @@ export default function Register() {
               onPress={() => router.push('/privacy' as any)}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
-              <Text style={styles.termsLink}>Política de Privacidade</Text>
+              <Text style={styles.termsLink}>Política de Privacidade da RenoveJá Saúde</Text>
             </TouchableOpacity>
             <Text style={styles.termsLabel}>.</Text>
           </TouchableOpacity>
@@ -907,24 +911,6 @@ export default function Register() {
         />
       </View>
 
-      {/* ═══ Social Login ═══ */}
-      <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>ou cadastre-se com</Text>
-        <View style={styles.dividerLine} />
-      </View>
-
-      <View style={styles.socialRow}>
-        <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-          <Ionicons name="logo-google" size={20} color="#4285F4" />
-          <Text style={styles.socialBtnText}>Google</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-          <Ionicons name="logo-apple" size={20} color="#000" />
-          <Text style={styles.socialBtnText}>Apple</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* ═══ Footer ═══ */}
       <View style={styles.footer}>
         <View style={styles.loginRow}>
@@ -935,7 +921,7 @@ export default function Register() {
         </View>
         <TouchableOpacity style={styles.whatsappRow} activeOpacity={0.7}>
           <Ionicons name="logo-whatsapp" size={15} color={c.secondary.main} />
-          <Text style={styles.whatsappText}>Suporte: (11) 98631-8000</Text>
+          <Text style={styles.whatsappText}>Suporte RenoveJá: (11) 98631-8000</Text>
         </TouchableOpacity>
       </View>
     </Screen>
@@ -1080,54 +1066,10 @@ const styles = StyleSheet.create({
     marginTop: s.md,
   },
 
-  /* ── Divider ── */
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: s.md,
-    paddingHorizontal: s.sm,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: c.border.main,
-  },
-  dividerText: {
-    fontSize: 13,
-    color: c.text.tertiary,
-    marginHorizontal: s.md,
-    fontWeight: '500',
-  },
-
-  /* ── Social ── */
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: s.lg,
-    paddingHorizontal: s.sm,
-  },
-  socialBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#FFF',
-    borderWidth: 1.5,
-    borderColor: c.border.main,
-  },
-  socialBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: c.text.secondary,
-  },
-
   /* ── Footer ── */
   footer: {
     alignItems: 'center',
+    paddingTop: s.md,
     paddingBottom: s.lg,
     gap: s.sm,
   },

@@ -6,18 +6,18 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../../lib/themeDoctor';
+import { colors, spacing, typography } from '../../lib/themeDoctor';
 import { getPatientRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
-import { StatusBadge } from '../../components/StatusBadge';
-import { DoctorHeader } from '../../components/ui/DoctorHeader';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { getStatusLabelPt } from '../../lib/domain/statusLabels';
 
 const TYPE_LABELS: Record<string, string> = {
   prescription: 'Receita',
@@ -44,6 +44,52 @@ function fmtDate(d: string): string {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function fmtHour(d: string): string {
+  const dt = new Date(d);
+  return dt.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function normalizeDateLabel(d: string): string {
+  return fmtDate(d).replace('.', '');
+}
+
+const TYPE_FILTERS = [
+  { key: 'all', label: 'Todos' },
+  { key: 'consultation', label: 'Consultas' },
+  { key: 'prescription', label: 'Receitas' },
+  { key: 'exam', label: 'Exames' },
+] as const;
+
+const PERIOD_FILTERS = [
+  { key: 'all', label: 'Todo período' },
+  { key: '7d', label: 'Últimos 7 dias' },
+  { key: '30d', label: 'Últimos 30 dias' },
+  { key: '90d', label: 'Últimos 90 dias' },
+] as const;
+
+type TypeFilterKey = (typeof TYPE_FILTERS)[number]['key'];
+type PeriodFilterKey = (typeof PERIOD_FILTERS)[number]['key'];
+
+const CLOSED_STATUSES = new Set([
+  'consultation_finished',
+  'delivered',
+  'signed',
+  'completed',
+  'cancelled',
+  'rejected',
+]);
+
+function getStatusTone(status: string | null | undefined): { label: string; color: string } {
+  const key = (status ?? '').toLowerCase();
+  if (key === 'consultation_finished') return { label: 'Finalizada', color: colors.textMuted };
+  if (key === 'paid') return { label: 'Pago', color: '#3B82F6' };
+  if (key === 'delivered') return { label: 'Entregue', color: colors.success };
+  return { label: getStatusLabelPt(key), color: colors.textMuted };
 }
 
 export default function DoctorPatientProntuario() {
@@ -84,17 +130,45 @@ export default function DoctorPatientProntuario() {
   const sortedRequests = useMemo(() => sortRequestsByNewestFirst(requests), [requests]);
 
   const patientName = sortedRequests[0]?.patientName ?? 'Paciente';
-  const headerPaddingTop = insets.top + 8;
 
-  const [typeFilter, setTypeFilter] = useState<'all' | 'prescription' | 'exam' | 'consultation'>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilterKey>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterKey>('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  const filteredRequests = useMemo(
-    () =>
-      sortedRequests.filter((r) =>
-        typeFilter === 'all' ? true : r.requestType === typeFilter
-      ),
-    [sortedRequests, typeFilter]
-  );
+  const statusOptions = useMemo(() => {
+    const statusMap = new Map<string, string>();
+    sortedRequests.forEach((req) => {
+      const key = (req.status ?? '').toLowerCase();
+      if (!statusMap.has(key)) {
+        statusMap.set(key, getStatusLabelPt(key));
+      }
+    });
+    return Array.from(statusMap.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [sortedRequests]);
+
+  const hasAdvancedFilters = statusFilter !== 'all' || periodFilter !== 'all';
+
+  const filteredRequests = useMemo(() => {
+    const now = Date.now();
+    const periodLimitMs: Record<Exclude<PeriodFilterKey, 'all'>, number> = {
+      '7d': 7 * 24 * 60 * 60 * 1000,
+      '30d': 30 * 24 * 60 * 60 * 1000,
+      '90d': 90 * 24 * 60 * 60 * 1000,
+    };
+
+    return sortedRequests.filter((r) => {
+      if (typeFilter !== 'all' && r.requestType !== typeFilter) return false;
+      if (statusFilter !== 'all' && (r.status ?? '').toLowerCase() !== statusFilter) return false;
+      if (periodFilter !== 'all') {
+        const ageMs = now - new Date(r.createdAt).getTime();
+        if (ageMs > periodLimitMs[periodFilter]) return false;
+      }
+      return true;
+    });
+  }, [sortedRequests, typeFilter, statusFilter, periodFilter]);
 
   function buildMiniSummary(req: RequestResponseDto): string | null {
     if (req.requestType === 'consultation') {
@@ -158,6 +232,29 @@ export default function DoctorPatientProntuario() {
     );
   }, [requests]);
 
+  const pendingRequests = useMemo(
+    () => requests.filter((r) => !CLOSED_STATUSES.has((r.status ?? '').toLowerCase())).length,
+    [requests]
+  );
+
+  const groupedRequests = useMemo(() => {
+    const groups: Array<{ dateLabel: string; items: RequestResponseDto[] }> = [];
+    const groupIndex = new Map<string, number>();
+
+    filteredRequests.forEach((req) => {
+      const dateLabel = normalizeDateLabel(req.createdAt);
+      const existingIndex = groupIndex.get(dateLabel);
+      if (existingIndex == null) {
+        groupIndex.set(dateLabel, groups.length);
+        groups.push({ dateLabel, items: [req] });
+      } else {
+        groups[existingIndex].items.push(req);
+      }
+    });
+
+    return groups;
+  }, [filteredRequests]);
+
   useTriageEval({
     context: 'doctor_prontuario',
     step: 'idle',
@@ -171,7 +268,13 @@ export default function DoctorPatientProntuario() {
   if (loading) {
     return (
       <View style={styles.loadingWrap}>
-        <DoctorHeader title="Prontuário" onBack={() => router.back()} />
+        <CompactHeader
+          title="Prontuário"
+          subtitle={patientName}
+          topInset={insets.top}
+          onBack={() => router.back()}
+          onHelpPress={() => router.push('/help-faq')}
+        />
         <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
           <SkeletonList count={5} />
         </View>
@@ -182,7 +285,13 @@ export default function DoctorPatientProntuario() {
   if (loadError && requests.length === 0) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <DoctorHeader title="Prontuário" onBack={() => router.back()} />
+        <CompactHeader
+          title="Prontuário"
+          subtitle={patientName}
+          topInset={insets.top}
+          onBack={() => router.back()}
+          onHelpPress={() => router.push('/help-faq')}
+        />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
           <Ionicons name="alert-circle-outline" size={56} color={colors.error} />
           <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text, marginTop: 16 }}>Erro ao carregar</Text>
@@ -200,10 +309,12 @@ export default function DoctorPatientProntuario() {
 
   return (
     <View style={styles.container}>
-      <DoctorHeader
+      <CompactHeader
         title="Prontuário"
         subtitle={patientName}
+        topInset={insets.top}
         onBack={() => router.back()}
+        onHelpPress={() => router.push('/help-faq')}
       />
       <View style={{ flex: 1 }}>
         <ScrollView
@@ -218,66 +329,73 @@ export default function DoctorPatientProntuario() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {/* Resumo */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryIconWrap}>
-                <Ionicons name="person" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.summaryBody}>
-                <Text style={styles.summaryLabel}>Total de pedidos</Text>
-                <Text style={styles.summaryValue}>{requests.length}</Text>
-              </View>
+          <View style={styles.summaryBar}>
+            <View style={styles.summaryMetric}>
+              <Text style={styles.summaryMetricLabel}>Pedidos</Text>
+              <Text style={styles.summaryMetricValue}>{requests.length}</Text>
             </View>
-            {requests.length > 0 && (
-              <Text style={styles.lastRequest}>
-              Último: {fmtDate(sortedRequests[0].createdAt)}
-            </Text>
-          )}
+            <View style={styles.summaryMetric}>
+              <Text style={styles.summaryMetricLabel}>Último</Text>
+              <Text style={styles.summaryMetricValueSmall}>
+                {requests.length > 0 ? normalizeDateLabel(sortedRequests[0].createdAt) : '--'}
+              </Text>
+            </View>
+            <View style={styles.summaryMetric}>
+              <Text style={styles.summaryMetricLabel}>Pendentes</Text>
+              <Text style={styles.summaryMetricValue}>{pendingRequests}</Text>
+            </View>
+          </View>
+
           {requests.length > 0 && (
             <TouchableOpacity
               style={styles.summaryLinkBtn}
               activeOpacity={0.7}
               onPress={() => router.push(`/doctor-patient-summary/${id}` as any)}
             >
-              <Ionicons name="list-circle" size={18} color={colors.primary} />
-              <Text style={styles.summaryLinkText}>Ver resumo clínico contínuo</Text>
+              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
+              <Text style={styles.summaryLinkText}>Ver resumo clínico</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.primary} />
             </TouchableOpacity>
           )}
-          </View>
 
-          {/* Timeline */}
           <Text style={styles.sectionTitle}>Pedidos</Text>
 
-          {/* Filtros rápidos por tipo */}
           {requests.length > 0 && (
-            <View style={styles.filterRow}>
-              {([
-                { key: 'all', label: 'Todos' },
-                { key: 'consultation', label: 'Consultas' },
-                { key: 'prescription', label: 'Receitas' },
-                { key: 'exam', label: 'Exames' },
-              ] as const).map((opt) => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[
-                    styles.filterChip,
-                    typeFilter === opt.key && styles.filterChipActive,
-                  ]}
-                  onPress={() => setTypeFilter(opt.key)}
-                  activeOpacity={0.7}
-                >
-                  <Text
+            <View style={styles.filterControlsRow}>
+              <View style={styles.segmentedControl}>
+                {TYPE_FILTERS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.key}
                     style={[
-                      styles.filterChipText,
-                      typeFilter === opt.key && styles.filterChipTextActive,
+                      styles.segmentedItem,
+                      typeFilter === opt.key && styles.segmentedItemActive,
                     ]}
+                    onPress={() => setTypeFilter(opt.key)}
+                    activeOpacity={0.7}
                   >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.segmentedItemText,
+                        typeFilter === opt.key && styles.segmentedItemTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={[styles.filterIconBtn, hasAdvancedFilters && styles.filterIconBtnActive]}
+                activeOpacity={0.7}
+                onPress={() => setShowAdvancedFilters(true)}
+                accessibilityLabel="Filtros avançados"
+              >
+                <Ionicons
+                  name="funnel-outline"
+                  size={18}
+                  color={hasAdvancedFilters ? colors.primary : colors.textSecondary}
+                />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -298,50 +416,222 @@ export default function DoctorPatientProntuario() {
               </View>
               <Text style={styles.emptyTitle}>Nada para o filtro atual</Text>
               <Text style={styles.emptySubtitle}>
-                Tente mudar o tipo selecionado acima para ver outros registros.
+                Tente ajustar tipo, status ou período para ver outros registros.
               </Text>
             </View>
           ) : (
-            filteredRequests.map((req) => {
-              const icon = TYPE_ICONS[req.requestType] || 'document';
-              const color = TYPE_COLORS[req.requestType] || colors.primary;
-              return (
-                <TouchableOpacity
-                  key={req.id}
-                  style={styles.timelineCard}
-                  onPress={() => router.push(`/doctor-request/${req.id}`)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.timelineIcon, { backgroundColor: color + '18' }]}>
-                    <Ionicons name={icon} size={22} color={color} />
-                  </View>
-                  <View style={styles.timelineBody}>
-                    <View style={styles.timelineHeader}>
-                      <Text style={styles.timelineType}>
-                        {TYPE_LABELS[req.requestType] || req.requestType}
-                      </Text>
-                      <StatusBadge status={req.status} size="sm" />
-                    </View>
-                    <Text style={styles.timelineDate}>{fmtDate(req.createdAt)}</Text>
-                    {req.requestType === 'consultation' && (req.consultationTranscript || req.consultationAnamnesis) && (
-                      <View style={styles.transcriptBadge}>
-                        <Ionicons name="document-text" size={12} color={colors.primary} />
-                        <Text style={styles.transcriptBadgeText}>Transcrição e anamnese disponíveis</Text>
-                      </View>
-                    )}
-                    {buildMiniSummary(req) && (
-                      <Text style={styles.timelineSummary} numberOfLines={2}>
-                        {buildMiniSummary(req)}
-                      </Text>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              );
-            })
+            groupedRequests.map((group) => (
+              <View key={group.dateLabel} style={styles.dateGroup}>
+                <Text style={styles.dateGroupTitle}>{group.dateLabel}</Text>
+                <View style={styles.dateGroupList}>
+                  {group.items.map((req, idx) => {
+                    const icon = TYPE_ICONS[req.requestType] || 'document';
+                    const color = TYPE_COLORS[req.requestType] || colors.primary;
+                    const statusTone = getStatusTone(req.status);
+                    const itemSummary = buildMiniSummary(req) ?? 'Sem observações registradas';
+                    const isLast = idx === group.items.length - 1;
+                    return (
+                      <TouchableOpacity
+                        key={req.id}
+                        style={[styles.timelineRowItem, !isLast && styles.timelineRowDivider]}
+                        onPress={() => router.push(`/doctor-request/${req.id}`)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.timelineIcon, { backgroundColor: color + '14' }]}>
+                          <Ionicons name={icon} size={18} color={color} />
+                        </View>
+                        <View style={styles.timelineBody}>
+                          <View style={styles.timelineHeader}>
+                            <Text style={styles.timelineType}>
+                              {TYPE_LABELS[req.requestType] || req.requestType}
+                            </Text>
+                            <View style={styles.statusInline}>
+                              <View
+                                style={[
+                                  styles.statusInlineDot,
+                                  { backgroundColor: statusTone.color },
+                                ]}
+                              />
+                              <Text style={[styles.statusInlineText, { color: statusTone.color }]}>
+                                {statusTone.label}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.timelineMeta} numberOfLines={1}>
+                            {fmtHour(req.createdAt)} · {itemSummary}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))
           )}
         </ScrollView>
       </View>
+      <Modal
+        visible={showAdvancedFilters}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAdvancedFilters(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setShowAdvancedFilters(false)}
+          />
+          <View style={styles.sheetCard}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Filtros</Text>
+              <TouchableOpacity
+                onPress={() => setShowAdvancedFilters(false)}
+                style={styles.sheetCloseBtn}
+                accessibilityLabel="Fechar filtros"
+              >
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.sheetSectionTitle}>Status</Text>
+            <View style={styles.sheetPillsWrap}>
+              <TouchableOpacity
+                style={[
+                  styles.sheetPill,
+                  statusFilter === 'all' && styles.sheetPillActive,
+                ]}
+                onPress={() => setStatusFilter('all')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.sheetPillText,
+                    statusFilter === 'all' && styles.sheetPillTextActive,
+                  ]}
+                >
+                  Todos
+                </Text>
+              </TouchableOpacity>
+              {statusOptions.map((opt) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.sheetPill,
+                    statusFilter === opt.key && styles.sheetPillActive,
+                  ]}
+                  onPress={() => setStatusFilter(opt.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.sheetPillText,
+                      statusFilter === opt.key && styles.sheetPillTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.sheetSectionTitle}>Período</Text>
+            <View style={styles.sheetPeriodList}>
+              {PERIOD_FILTERS.map((opt, idx) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.sheetPeriodItem,
+                    idx === PERIOD_FILTERS.length - 1 && styles.sheetPeriodItemLast,
+                  ]}
+                  onPress={() => setPeriodFilter(opt.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.sheetPeriodText}>{opt.label}</Text>
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      periodFilter === opt.key && styles.radioOuterActive,
+                    ]}
+                  >
+                    {periodFilter === opt.key ? <View style={styles.radioInner} /> : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.clearFiltersBtn}
+                onPress={() => {
+                  setStatusFilter('all');
+                  setPeriodFilter('all');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearFiltersText}>Limpar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.applyFiltersBtn}
+                onPress={() => setShowAdvancedFilters(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.applyFiltersText}>Aplicar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function CompactHeader({
+  title,
+  subtitle,
+  topInset,
+  onBack,
+  onHelpPress,
+}: {
+  title: string;
+  subtitle?: string;
+  topInset: number;
+  onBack: () => void;
+  onHelpPress?: () => void;
+}) {
+  return (
+    <View style={[styles.compactHeader, { paddingTop: topInset + 8 }]}>
+      <TouchableOpacity
+        onPress={onBack}
+        style={styles.compactBackBtn}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityLabel="Voltar"
+      >
+        <Ionicons name="chevron-back" size={22} color={colors.text} />
+      </TouchableOpacity>
+      <View style={styles.compactHeaderText}>
+        <Text style={styles.compactHeaderTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={styles.compactHeaderSubtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {onHelpPress ? (
+        <TouchableOpacity
+          onPress={onHelpPress}
+          style={styles.compactHelpBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Tire dúvidas com a Dra. Renoveja"
+        >
+          <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.compactHeaderPlaceholder} />
+      )}
     </View>
   );
 }
@@ -350,71 +640,96 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingWrap: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: colors.background,
   },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+  compactHeader: {
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
   },
-  backBtn: { marginRight: spacing.sm },
-  headerText: { flex: 1 },
-  patientName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 2,
-  },
-  scroll: { flex: 1 },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: 80,
-  },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  summaryRow: { flexDirection: 'row', alignItems: 'center' },
-  summaryIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primarySoft,
+  compactBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    backgroundColor: colors.surface,
   },
-  summaryBody: { flex: 1 },
-  summaryLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
+  compactHeaderText: {
+    flex: 1,
+    paddingHorizontal: 10,
   },
-  summaryValue: {
-    fontSize: 22,
+  compactHeaderTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
-  lastRequest: {
-    fontSize: 12,
+  compactHeaderSubtitle: {
+    fontSize: 13,
     color: colors.textMuted,
-    marginTop: spacing.sm,
+    marginTop: 1,
   },
-  summaryLinkBtn: {
-    marginTop: spacing.sm,
+  compactHeaderPlaceholder: {
+    width: 36,
+  },
+  compactHelpBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+  },
+  scroll: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: 80,
+  },
+  summaryBar: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+  },
+  summaryMetric: {
+    flex: 1,
+    minWidth: 0,
+  },
+  summaryMetricLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  summaryMetricValue: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 1,
+  },
+  summaryMetricValueSmall: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 2,
+  },
+  summaryLinkBtn: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: spacing.md,
+    paddingVertical: 2,
   },
   summaryLinkText: {
     fontSize: 13,
@@ -423,55 +738,91 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: spacing.md,
-    textTransform: 'uppercase',
+    color: colors.text,
+    marginBottom: 10,
   },
-  filterRow: {
+  filterControlsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: borderRadius.pill,
+  segmentedControl: {
+    flex: 1,
+    flexDirection: 'row',
     backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 3,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  filterChipActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+  segmentedItem: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  filterChipText: {
+  segmentedItemActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  segmentedItemText: {
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
   },
-  filterChipTextActive: {
+  segmentedItemTextActive: {
     color: colors.primary,
     fontWeight: '700',
   },
-  timelineCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  filterIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  timelineIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+  },
+  filterIconBtnActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  dateGroup: {
+    marginBottom: spacing.md,
+  },
+  dateGroupTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginBottom: 8,
+  },
+  dateGroupList: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  timelineRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  timelineRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  timelineIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   timelineBody: { flex: 1, minWidth: 0 },
   timelineHeader: {
@@ -485,32 +836,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  timelineDate: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  transcriptBadge: {
+  statusInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: colors.primarySoft,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
+    marginLeft: 8,
+    flexShrink: 1,
   },
-  transcriptBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
+  statusInlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  timelineSummary: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-    lineHeight: 18,
+  statusInlineText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  timelineMeta: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 3,
   },
   empty: {
     alignItems: 'center',
@@ -534,5 +879,152 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(2, 6, 23, 0.35)',
+  },
+  sheetCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md + 10,
+    paddingTop: 8,
+    gap: 10,
+  },
+  sheetHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  sheetCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceSecondary,
+  },
+  sheetSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  sheetPillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sheetPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surface,
+  },
+  sheetPillActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  sheetPillText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  sheetPillTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  sheetPeriodList: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    overflow: 'hidden',
+  },
+  sheetPeriodItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetPeriodItemLast: {
+    borderBottomWidth: 0,
+  },
+  sheetPeriodText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterActive: {
+    borderColor: colors.primary,
+  },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 6,
+    backgroundColor: colors.primary,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    gap: 10,
+  },
+  clearFiltersBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearFiltersText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  applyFiltersBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyFiltersText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

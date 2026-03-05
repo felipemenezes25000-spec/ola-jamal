@@ -43,12 +43,12 @@ const TYPE_LABELS: Record<string, string> = {
 
 function getShortSummary(request: RequestResponseDto): string {
   if (request.requestType === 'prescription' && request.medications?.length) {
-    const first = request.medications[0];
-    return request.medications.length > 1 ? `${first} +${request.medications.length - 1}` : first;
+    const first = request.medications[0] ?? '';
+    return request.medications.length > 1 ? `${first} +${request.medications.length - 1}` : String(first);
   }
   if (request.requestType === 'exam' && request.exams?.length) {
-    const first = request.exams[0];
-    return request.exams.length > 1 ? `${first} +${request.exams.length - 1}` : first;
+    const first = request.exams[0] ?? '';
+    return request.exams.length > 1 ? `${first} +${request.exams.length - 1}` : String(first);
   }
   if (request.requestType === 'consultation' && request.symptoms) {
     return request.symptoms.length > 40 ? request.symptoms.slice(0, 40) + '…' : request.symptoms;

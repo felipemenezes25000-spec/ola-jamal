@@ -49,6 +49,7 @@ import { apiClient } from '../../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyCall, type ConnectionQuality } from '../../hooks/useDailyCall';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
+import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PANEL_WIDTH = Math.min(340, SCREEN_W * 0.85);
@@ -135,6 +136,7 @@ export default function VideoCallScreenInner() {
   const [contractedMinutes, setContractedMinutes] = useState<number | null>(null);
   const [callSeconds, setCallSeconds] = useState(0);
   const [consultationStartedAt, setConsultationStartedAt] = useState<string | null>(null);
+  const [requestStatus, setRequestStatus] = useState<string | null>(null);
   const connReportedRef = useRef(false);
   const alertedRef = useRef<Set<number>>(new Set());
   const autoFinishedRef = useRef(false);
@@ -284,6 +286,7 @@ export default function VideoCallScreenInner() {
         if (cancelled) return;
         if (req.contractedMinutes) setContractedMinutes(req.contractedMinutes);
         if (req.consultationStartedAt) setConsultationStartedAt(req.consultationStartedAt);
+        if (req.status) setRequestStatus(req.status);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Erro ao iniciar videochamada');
       } finally {
@@ -356,6 +359,29 @@ export default function VideoCallScreenInner() {
     }
   }, [callState, remoteParticipant, rid]);
 
+  // Patient: ao entrar na chamada, busca status imediatamente (evita esperar poll para iniciar transcrição)
+  useEffect(() => {
+    if (isDoctor || !rid || callState !== 'joined') return;
+    fetchRequestById(rid)
+      .then(r => {
+        if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt);
+        if (r.status) setRequestStatus(r.status);
+      })
+      .catch(() => {});
+  }, [isDoctor, rid, callState]);
+
+  // Patient: ao receber RequestUpdated (ex.: médico iniciou), atualiza status imediatamente
+  const refetchRequestForPatient = useCallback(() => {
+    if (isDoctor || !rid) return;
+    fetchRequestById(rid)
+      .then(r => {
+        if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt);
+        if (r.status) setRequestStatus(r.status);
+      })
+      .catch(() => {});
+  }, [isDoctor, rid]);
+  useRequestUpdated(isDoctor ? undefined : rid, refetchRequestForPatient);
+
   // Server-synced timer
   useEffect(() => {
     if (!consultationStartedAt) return;
@@ -368,21 +394,26 @@ export default function VideoCallScreenInner() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [consultationStartedAt]);
 
-  // Patient: poll consultationStartedAt
+  // Patient: poll consultationStartedAt e requestStatus
   useEffect(() => {
     if (isDoctor || !rid || consultationStartedAt) return;
     const poll = setInterval(() => {
       fetchRequestById(rid)
-        .then(r => { if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt); })
+        .then(r => {
+          if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt);
+          if (r.status) setRequestStatus(r.status);
+        })
         .catch(() => {});
-    }, 4000);
+    }, 2000);
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
   // Patient: iniciar gravação para transcrição quando a consulta começar (paciente fala, médico vê ao vivo)
+  // Inicia quando: (1) consultationStartedAt definido OU (2) status in_consultation — evita depender de ambos reportarem "call connected"
   const patientRecordingStartedRef = useRef(false);
+  const canStartRecording = consultationStartedAt || requestStatus === 'in_consultation';
   useEffect(() => {
-    if (isDoctor || !rid || !consultationStartedAt || callState !== 'joined') return;
+    if (isDoctor || !rid || !canStartRecording || callState !== 'joined') return;
     if (patientRecordingStartedRef.current) return;
     patientRecordingStartedRef.current = true;
     (async () => {
@@ -395,7 +426,7 @@ export default function VideoCallScreenInner() {
         if (!retried) console.warn('[Patient] Transcrição: retry falhou');
       }
     })();
-  }, [isDoctor, rid, consultationStartedAt, callState, audioRecorder]);
+  }, [isDoctor, rid, canStartRecording, callState, audioRecorder]);
 
   // Countdown / Auto-finish
   useEffect(() => {
@@ -612,6 +643,34 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
+      {/* Patient: indicador de transcrição (gravação ativa / erro) — ajuda a diagnosticar "falo e nada acontece" */}
+      {!isDoctor && callState === 'joined' && (
+        <View style={[S.recIndicator, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
+          {audioRecorder.isRecording ? (
+            <>
+              <View style={S.recDot} />
+              <Text style={S.recText}>
+                Transcrição ativa{audioRecorder.chunksSent > 0 ? ` • ${audioRecorder.chunksSent} envios` : ''}
+              </Text>
+            </>
+          ) : audioRecorder.error ? (
+            <>
+              <Ionicons name="alert-circle" size={12} color="#f59e0b" />
+              <Text style={[S.recText, { color: '#f59e0b' }]}>{audioRecorder.error}</Text>
+            </>
+          ) : audioRecorder.lastChunkError ? (
+            <>
+              <Ionicons name="warning" size={12} color="#f59e0b" />
+              <Text style={[S.recText, { color: '#f59e0b', fontSize: 11 }]}>Erro ao enviar áudio</Text>
+            </>
+          ) : canStartRecording ? (
+            <Text style={[S.recText, { opacity: 0.7 }]}>Iniciando transcrição...</Text>
+          ) : (
+            <Text style={[S.recText, { opacity: 0.7 }]}>Aguardando médico iniciar a consulta</Text>
+          )}
+        </View>
+      )}
+
       {/* Patient: info about early leave */}
       {!isDoctor && callState === 'joined' && contractedMinutes && callSeconds > 0 && (
         <View style={[S.earlyLeaveHint, { bottom: 80 + insets.bottom + 12 }]}>
@@ -661,11 +720,12 @@ export default function VideoCallScreenInner() {
               <View style={S.sec}>
                 <View style={S.secH}><Ionicons name="bulb" size={16} color="#8B5CF6" /><Text style={[S.secT, { color: '#8B5CF6' }]}>SUGESTÕES</Text></View>
                 {suggestions.map((s, i) => {
-                  const red = s.startsWith('🚨');
+                  const str = typeof s === 'string' ? s : '';
+                  const red = str.startsWith('🚨');
                   return (
                     <View key={i} style={[S.sugItem, red && S.sugDng]}>
                       <Ionicons name={red ? 'alert-circle' : 'bulb-outline'} size={14} color={red ? '#EF4444' : '#8B5CF6'} />
-                      <Text style={[S.sugTxt, red && { color: '#EF4444' }]}>{s.replace('🚨 ', '')}</Text>
+                      <Text style={[S.sugTxt, red && { color: '#EF4444' }]}>{str.replace('🚨 ', '')}</Text>
                     </View>
                   );
                 })}

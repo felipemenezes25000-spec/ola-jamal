@@ -48,7 +48,7 @@ public class DeepgramTranscriptionService : ITranscriptionService
             return null;
         }
 
-        var model = string.IsNullOrWhiteSpace(cfg.Model) ? "nova-3" : cfg.Model.Trim();
+        var model = string.IsNullOrWhiteSpace(cfg.Model) ? "nova-2" : cfg.Model.Trim();
         var language = string.IsNullOrWhiteSpace(cfg.Language) ? "pt-BR" : cfg.Language.Trim();
         var mime = ResolveMimeType(fileName);
         var url =
@@ -81,13 +81,20 @@ public class DeepgramTranscriptionService : ITranscriptionService
         try
         {
             using var doc = JsonDocument.Parse(json);
-            var transcript = doc.RootElement
-                .GetProperty("results")
-                .GetProperty("channels")[0]
-                .GetProperty("alternatives")[0]
-                .GetProperty("transcript")
-                .GetString()
-                ?.Trim();
+            var results = doc.RootElement.GetProperty("results");
+            var channels = results.GetProperty("channels");
+            if (channels.GetArrayLength() == 0)
+            {
+                _logger.LogWarning("[Deepgram] Resposta sem channels.");
+                return null;
+            }
+            var alternatives = channels[0].GetProperty("alternatives");
+            if (alternatives.GetArrayLength() == 0)
+            {
+                _logger.LogInformation("[Deepgram] Nenhuma fala detectada no áudio.");
+                return null;
+            }
+            var transcript = alternatives[0].GetProperty("transcript").GetString()?.Trim();
 
             if (!string.IsNullOrWhiteSpace(transcript))
             {
@@ -100,7 +107,7 @@ public class DeepgramTranscriptionService : ITranscriptionService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[Deepgram] Falha ao parsear resposta JSON.");
+            _logger.LogWarning(ex, "[Deepgram] Falha ao parsear resposta JSON. Response={Response}", json.Length > 500 ? json[..500] + "..." : json);
             return null;
         }
     }

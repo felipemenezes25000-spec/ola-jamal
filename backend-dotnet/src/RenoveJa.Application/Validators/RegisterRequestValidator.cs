@@ -61,5 +61,18 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequestDto>
             .NotNull().WithMessage("Data de nascimento é obrigatória.")
             .Must(d => d.HasValue && d.Value.Date < DateTime.UtcNow.Date)
             .WithMessage("Data de nascimento deve ser uma data válida no passado.");
+
+        // Endereço obrigatório para paciente (alinhado com frontend e médico)
+        RuleFor(x => x.Street)
+            .NotEmpty().WithMessage("Rua é obrigatória.");
+        RuleFor(x => x.Number)
+            .NotEmpty().WithMessage("Número é obrigatório.");
+        RuleFor(x => x.Neighborhood)
+            .NotEmpty().WithMessage("Bairro é obrigatório.");
+        RuleFor(x => x.City)
+            .NotEmpty().WithMessage("Cidade é obrigatória.");
+        RuleFor(x => x.State)
+            .NotEmpty().WithMessage("UF é obrigatória.")
+            .Length(2).WithMessage("Informe a sigla com 2 letras (ex.: SP).");
     }
 }

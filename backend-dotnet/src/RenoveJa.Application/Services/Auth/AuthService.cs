@@ -36,6 +36,10 @@ public class AuthService(
         if (await userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
             throw new AuthConflictException("Este e-mail já está cadastrado. Use outro ou faça login.");
 
+        var cpfDigits = new string((request.Cpf ?? "").Where(char.IsDigit).ToArray());
+        if (cpfDigits.Length == 11 && await userRepository.ExistsByCpfAsync(request.Cpf!, cancellationToken))
+            throw new AuthConflictException("Este CPF já está cadastrado. Use outro ou faça login.");
+
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreatePatient(
             request.Name,
@@ -78,6 +82,10 @@ public class AuthService(
     {
         if (await userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
             throw new AuthConflictException("Este e-mail já está cadastrado. Use outro ou faça login.");
+
+        var cpfDigits = new string((request.Cpf ?? "").Where(char.IsDigit).ToArray());
+        if (cpfDigits.Length == 11 && await userRepository.ExistsByCpfAsync(request.Cpf!, cancellationToken))
+            throw new AuthConflictException("Este CPF já está cadastrado. Use outro ou faça login.");
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreateDoctor(

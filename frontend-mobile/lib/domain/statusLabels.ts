@@ -39,6 +39,7 @@ export const STATUS_DISPLAY_LABELS_PT: Record<string, string> = {
 /**
  * Retorna o rótulo em PT para um status do backend (apenas UI).
  */
-export function getStatusLabelPt(status: string): string {
-  return STATUS_LABELS_PT[status] ?? status;
+export function getStatusLabelPt(status: string | null | undefined): string {
+  const s = status ?? '';
+  return STATUS_LABELS_PT[s] ?? s || '—';
 }

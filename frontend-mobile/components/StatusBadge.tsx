@@ -20,7 +20,7 @@ const VARIANT_TO_COLOR_KEY: Record<StatusBadgeVariantType, RequestUiColorKey> = 
 
 interface StatusBadgeProps {
   /** Backend status ou request (usa getRequestUiState) */
-  status: string;
+  status: string | null | undefined;
   size?: 'sm' | 'md';
 }
 
@@ -82,8 +82,9 @@ export function getStatusLabel(status: string): string {
   return getRequestUiState({ status }).label;
 }
 
-export function getStatusColor(status: string): string {
-  return UI_STATUS_COLORS[getRequestUiState({ status }).colorKey].color;
+export function getStatusColor(status: string | null | undefined): string {
+  const { colorKey } = getRequestUiState({ status });
+  return UI_STATUS_COLORS[colorKey]?.color ?? UI_STATUS_COLORS.historical.color;
 }
 
 const styles = StyleSheet.create({

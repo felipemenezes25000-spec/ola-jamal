@@ -13,18 +13,18 @@
 
 import type { TriageInput, TriageMessage, TriageStep } from './triage.types';
 
-// ── Cooldown constants ──────────────────────────────────────
+// ── Cooldown constants (equilibrado: assistido sem spam) ───────
 
 const MS = {
-  STEP:      3 * 60_000,       // 3min – dicas de etapa (novato)
-  STEP_NOVICE: 30 * 60_000,    // 30min – 3–9 pedidos
-  STEP_VET:  12 * 3600_000,    // 12h – veteranos
-  INSIGHT:   12 * 3600_000,    // 12h – insights de histórico
-  PROACTIVE: 4 * 3600_000,     // 4h – proativas na home (Dra. Renoveja mais presente)
-  WELCOME:   3 * 24 * 3600_000, // 3d – boas-vindas
+  STEP:      30 * 1000,       // 30s – dicas de etapa ao voltar (ex.: tire foto nítida)
+  STEP_NOVICE: 30 * 1000,     // 30s – mesmo para intermediários
+  STEP_VET:  60 * 1000,       // 1min – veteranos, menos intrusivo
+  INSIGHT:   15 * 60_000,     // 15min – insights de histórico (não repetir demais)
+  PROACTIVE: 2 * 60_000,      // 2min – proativas na home (presente sem cansar)
+  WELCOME:   30 * 60_000,     // 30min – boas-vindas (não a cada 15s)
 } as const;
 
-/** Cooldown dinâmico: novatos 5min, intermediários 1h, veteranos 24h. */
+/** Cooldown dinâmico por experiência do usuário. */
 function getStepCooldown(totalRequests?: number): number {
   if (!totalRequests || totalRequests < 3) return MS.STEP;
   if (totalRequests < 10) return MS.STEP_NOVICE;
@@ -56,7 +56,7 @@ function hasHighMedicationBurden(medications?: string[]): boolean {
   if (!medications || medications.length < 5) return false;
   const unique = new Set(
     medications
-      .map((m) => m.trim().toLowerCase())
+      .map((m) => (m ?? '').trim().toLowerCase())
       .filter(Boolean)
   );
   return unique.size >= 5;

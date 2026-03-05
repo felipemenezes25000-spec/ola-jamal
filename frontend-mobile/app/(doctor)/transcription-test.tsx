@@ -83,7 +83,7 @@ export default function TranscriptionTestScreen() {
       }
 
       const fileInfo = await FileSystem.getInfoAsync(uri);
-      const fileSize = fileInfo.exists ? (fileInfo as { exists: true; size: number }).size : 0;
+      const fileSize = fileInfo.exists ? ((fileInfo as unknown as { size?: number }).size ?? 0) : 0;
       if (!fileInfo.exists || (fileSize ?? 0) < 500) {
         setStatus('error');
         setResult({ transcribed: false, error: `Arquivo muito pequeno (${fileSize ?? 0} bytes). Fale durante a gravação.` });

@@ -17,6 +17,7 @@ public class AuthController(
     IAuthService authService,
     IValidator<RegisterRequestDto> registerValidator,
     IValidator<RegisterDoctorRequestDto> registerDoctorValidator,
+    IValidator<CompleteProfileRequestDto> completeProfileValidator,
     ILogger<AuthController> logger) : ControllerBase
 {
     /// <summary>
@@ -135,6 +136,10 @@ public class AuthController(
         [FromBody] CompleteProfileRequestDto request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await completeProfileValidator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+            throw new ValidationException(validationResult.Errors);
+
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();

@@ -1,5 +1,6 @@
 using FluentValidation;
 using RenoveJa.Application.DTOs.Auth;
+using RenoveJa.Application.Helpers;
 using RenoveJa.Domain.Enums;
 
 namespace RenoveJa.Application.Validators;
@@ -17,9 +18,22 @@ public class CompleteProfileRequestValidator : AbstractValidator<CompleteProfile
             .WithMessage("Phone must contain only numbers (10 or 11 digits)");
 
         RuleFor(x => x.Cpf)
-            .NotEmpty().WithMessage("CPF is required")
-            .Matches(@"^\d{11}$")
-            .WithMessage("CPF must contain only numbers (11 digits)");
+            .NotEmpty().WithMessage("CPF é obrigatório.")
+            .Must(c => c != null && c.Length >= 11 && CpfHelper.IsValid(c))
+            .WithMessage("CPF inválido. Verifique os dígitos informados.");
+
+        // Endereço obrigatório para paciente e médico ao completar perfil
+        RuleFor(x => x.Street)
+            .NotEmpty().WithMessage("Rua é obrigatória.");
+        RuleFor(x => x.Number)
+            .NotEmpty().WithMessage("Número é obrigatório.");
+        RuleFor(x => x.Neighborhood)
+            .NotEmpty().WithMessage("Bairro é obrigatório.");
+        RuleFor(x => x.City)
+            .NotEmpty().WithMessage("Cidade é obrigatória.");
+        RuleFor(x => x.State)
+            .NotEmpty().WithMessage("UF é obrigatória.")
+            .Length(2).WithMessage("Informe a sigla com 2 letras (ex.: SP).");
 
         RuleFor(x => x.Crm)
             .MaximumLength(20)
@@ -45,37 +59,14 @@ public class CompleteProfileRequestValidator : AbstractValidator<CompleteProfile
             .When(x => !string.IsNullOrEmpty(x.Bio))
             .WithMessage("Bio cannot exceed 5000 characters");
 
-        RuleFor(x => x.State)
-            .Length(2)
-            .When(x => !string.IsNullOrEmpty(x.State))
-            .WithMessage("State (UF) must be exactly 2 characters");
-
         RuleFor(x => x.Number)
             .MaximumLength(20)
             .When(x => !string.IsNullOrEmpty(x.Number))
-            .WithMessage("Number cannot exceed 20 characters");
+            .WithMessage("Número não pode exceder 20 caracteres.");
 
         RuleFor(x => x.PostalCode)
             .MaximumLength(10)
             .When(x => !string.IsNullOrEmpty(x.PostalCode))
-            .WithMessage("PostalCode cannot exceed 10 characters");
-
-        // Endereço obrigatório para médico ao completar perfil (quando Crm/Specialty preenchidos)
-        RuleFor(x => x.Street)
-            .NotEmpty().WithMessage("Rua é obrigatória.")
-            .When(x => !string.IsNullOrEmpty(x.Crm));
-        RuleFor(x => x.Number)
-            .NotEmpty().WithMessage("Número é obrigatório.")
-            .When(x => !string.IsNullOrEmpty(x.Crm));
-        RuleFor(x => x.Neighborhood)
-            .NotEmpty().WithMessage("Bairro é obrigatório.")
-            .When(x => !string.IsNullOrEmpty(x.Crm));
-        RuleFor(x => x.City)
-            .NotEmpty().WithMessage("Cidade é obrigatória.")
-            .When(x => !string.IsNullOrEmpty(x.Crm));
-        RuleFor(x => x.State)
-            .NotEmpty().WithMessage("UF é obrigatória.")
-            .Length(2).WithMessage("UF deve ter 2 caracteres.")
-            .When(x => !string.IsNullOrEmpty(x.Crm));
+            .WithMessage("CEP não pode exceder 10 caracteres.");
     }
 }

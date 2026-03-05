@@ -99,6 +99,23 @@ public class UserRepository(SupabaseClient supabase) : IUserRepository
         return user != null;
     }
 
+    /// <summary>
+    /// Verifica se já existe usuário com o CPF informado (normalizado para 11 dígitos).
+    /// </summary>
+    public async Task<bool> ExistsByCpfAsync(string cpf, CancellationToken cancellationToken = default)
+    {
+        var digits = new string((cpf ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length != 11)
+            return false;
+
+        var model = await supabase.GetSingleAsync<UserModel>(
+            TableName,
+            filter: $"cpf=eq.{digits}",
+            cancellationToken: cancellationToken);
+
+        return model != null;
+    }
+
     private static User MapToDomain(UserModel model)
     {
         return User.Reconstitute(

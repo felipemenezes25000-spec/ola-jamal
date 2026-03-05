@@ -28,6 +28,7 @@ import type {
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { EmptyState } from '../../components/EmptyState';
+import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTriageEval } from '../../hooks/useTriageEval';
 
@@ -52,10 +53,12 @@ const MONTHS_PT = [
   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ];
 
-function formatDatePt(iso: string): string {
+function formatDatePt(iso: string | null | undefined): string {
+  if (!iso) return '—';
   const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
   const day = String(d.getDate()).padStart(2, '0');
-  const month = MONTHS_PT[d.getMonth()];
+  const month = MONTHS_PT[d.getMonth()] ?? '?';
   const year = d.getFullYear();
   return `${day} ${month} ${year}`;
 }
@@ -101,13 +104,17 @@ export default function PatientRecordScreen() {
 
   // Dados para sugestões proativas da Dra. Renoveja
   const lastPrescriptionDaysAgo = useMemo(() => {
-    const rxDocs = documents.filter((d) => d.documentType.toLowerCase() === 'prescription' && d.signedAt);
+    const rxDocs = documents.filter((d) => (d.documentType?.toLowerCase() ?? '') === 'prescription' && d.signedAt);
     if (rxDocs.length === 0) return undefined;
     const last = rxDocs.sort((a, b) => new Date(b.signedAt!).getTime() - new Date(a.signedAt!).getTime())[0];
     return Math.floor((Date.now() - new Date(last.signedAt!).getTime()) / (24 * 60 * 60 * 1000));
   }, [documents]);
   const lastExamDaysAgo = useMemo(() => {
-    const examDocs = documents.filter((d) => (d.documentType.toLowerCase() === 'exam' || d.documentType.toLowerCase() === 'exam_order') && d.signedAt);
+    const docType = (t: string | null | undefined) => (t?.toLowerCase() ?? '');
+    const examDocs = documents.filter((d) => {
+      const t = docType(d.documentType);
+      return (t === 'exam' || t === 'exam_order') && d.signedAt;
+    });
     if (examDocs.length === 0) return undefined;
     const last = examDocs.sort((a, b) => new Date(b.signedAt!).getTime() - new Date(a.signedAt!).getTime())[0];
     return Math.floor((Date.now() - new Date(last.signedAt!).getTime()) / (24 * 60 * 60 * 1000));
@@ -182,7 +189,7 @@ export default function PatientRecordScreen() {
       consultas: ['teleconsulta', 'consultation'],
     };
     const allowed = mapping[activeFilter];
-    return encounters.filter((e) => allowed.includes(e.type.toLowerCase()));
+    return encounters.filter((e) => allowed.includes((e.type ?? '').toLowerCase()));
   }, [encounters, activeFilter]);
 
   const filteredDocuments = useMemo(() => {
@@ -194,7 +201,7 @@ export default function PatientRecordScreen() {
       consultas: ['report'],
     };
     const allowed = mapping[activeFilter];
-    return documents.filter((d) => allowed.includes(d.documentType.toLowerCase()));
+    return documents.filter((d) => allowed.includes((d.documentType ?? '').toLowerCase()));
   }, [documents, activeFilter]);
 
   return (
@@ -215,6 +222,7 @@ export default function PatientRecordScreen() {
           </Pressable>
         </View>
       ) : (
+        <ErrorBoundary>
         <FadeIn visible={!loading} duration={300}>
         <ScrollView
           style={s.container}
@@ -278,6 +286,7 @@ export default function PatientRecordScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={s.filterRow}
+              nestedScrollEnabled
             >
               {FILTER_CHIPS.map((chip) => {
                 const active = activeFilter === chip.key;
@@ -315,6 +324,7 @@ export default function PatientRecordScreen() {
           </View>
         </ScrollView>
         </FadeIn>
+        </ErrorBoundary>
       )}
     </View>
   );
@@ -333,14 +343,14 @@ function SummaryTab({
         <StatCard
           icon="analytics"
           label="Pedidos"
-          value={summary?.stats.totalRequests ?? 0}
+          value={summary?.stats?.totalRequests ?? 0}
           color={colors.primary}
           bgColor="#E3F4FF"
         />
         <StatCard
           icon="document-text"
           label="Receitas"
-          value={summary?.stats.totalPrescriptions ?? 0}
+          value={summary?.stats?.totalPrescriptions ?? 0}
           color={colors.success}
           bgColor="#D1FAE5"
         />
@@ -349,20 +359,20 @@ function SummaryTab({
         <StatCard
           icon="flask"
           label="Exames"
-          value={summary?.stats.totalExams ?? 0}
+          value={summary?.stats?.totalExams ?? 0}
           color={colors.info}
           bgColor="#DBEAFE"
         />
         <StatCard
           icon="videocam"
           label="Consultas"
-          value={summary?.stats.totalConsultations ?? 0}
+          value={summary?.stats?.totalConsultations ?? 0}
           color={colors.accent}
           bgColor="#EDE9FE"
         />
       </View>
 
-      {summary?.stats.lastConsultationDate && (
+      {summary?.stats?.lastConsultationDate && (
         <View style={s.lastConsultWrap}>
           <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
           <Text style={s.lastConsultText}>
@@ -464,13 +474,14 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
   }
 
   const sorted = [...encounters].sort(
-    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    (a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime()
   );
 
   return (
     <View style={s.timelineContainer}>
       {sorted.map((enc, idx) => {
-        const meta = ENCOUNTER_META[enc.type.toLowerCase()] ?? {
+        const typeKey = (enc.type ?? '').toLowerCase();
+        const meta = ENCOUNTER_META[typeKey] ?? {
           icon: 'ellipse' as const,
           color: colors.textMuted,
           bg: '#F1F5F9',
@@ -479,7 +490,7 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
         const isLast = idx === sorted.length - 1;
 
         return (
-          <View key={enc.id} style={s.timelineRow}>
+          <View key={enc.id ?? `enc-${idx}`} style={s.timelineRow}>
             <View style={s.timelineLineCol}>
               <View style={[s.timelineDot, { backgroundColor: meta.color }]}>
                 <Ionicons name={meta.icon} size={14} color="#fff" />
@@ -533,26 +544,28 @@ function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummary
   }
 
   const sorted = [...documents].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
   );
 
   return (
     <View style={s.docsContainer}>
       {sorted.map((doc) => {
-        const typeMeta = DOC_TYPE_META[doc.documentType.toLowerCase()] ?? {
+        const typeKey = (doc.documentType ?? '').toLowerCase();
+        const typeMeta = DOC_TYPE_META[typeKey] ?? {
           icon: 'document-outline' as const,
           color: '#6B7280',
           bg: '#F3F4F6',
-          label: doc.documentType,
+          label: doc.documentType ?? 'Documento',
         };
-        const statusMeta = DOC_STATUS_META[doc.status.toLowerCase()] ?? {
+        const statusKey = (doc.status ?? '').toLowerCase();
+        const statusMeta = DOC_STATUS_META[statusKey] ?? {
           color: '#6B7280',
           bg: '#F3F4F6',
           label: doc.status,
         };
 
         return (
-          <View key={doc.id} style={s.docCard}>
+          <View key={doc.id ?? doc.createdAt ?? `doc-${doc.documentType}`} style={s.docCard}>
             <View style={[s.docIconWrap, { backgroundColor: typeMeta.bg }]}>
               <Ionicons name={typeMeta.icon} size={20} color={typeMeta.color} />
             </View>
