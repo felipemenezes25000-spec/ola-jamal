@@ -429,21 +429,13 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 
-    // Policy permissiva para endpoints de verificação (ITI validar.iti.gov.br e h-validar.iti.gov.br)
+    // Policy permissiva para endpoints de verificação — AllowAnyOrigin para garantir que o ITI funcione
+    // (validar.iti.gov.br pode usar subdomínios ou iframes; sem credentials, seguro para GET público)
     options.AddPolicy("VerifyCors", policy =>
     {
-        policy.SetIsOriginAllowed(origin =>
-        {
-            if (string.IsNullOrEmpty(origin)) return true;
-            try
-            {
-                var host = new Uri(origin).Host;
-                return host.EndsWith(".iti.gov.br", StringComparison.OrdinalIgnoreCase);
-            }
-            catch { return false; }
-        })
-        .AllowAnyMethod()
-        .AllowAnyHeader();
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
