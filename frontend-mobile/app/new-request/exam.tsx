@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Image,
   useWindowDimensions,
   ScrollView,
   ActivityIndicator,
@@ -25,6 +24,7 @@ import { createExamSchema } from '../../lib/validation/schemas';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, AppInput, StepIndicator, StickyCTA } from '../../components/ui';
+import { CompatibleImage } from '../../components/CompatibleImage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { detectRedFlags, evaluateExamCompleteness } from '../../lib/domain/assistantIntelligence';
 
@@ -34,8 +34,8 @@ const r = theme.borderRadius;
 const ty = theme.typography;
 
 const EXAM_TYPES = [
-  { key: 'laboratorial' as const, label: 'EXAMES LABORATORIAIS', desc: 'Peça exames e receba em poucos instantes.', icon: 'flask' as const },
-  { key: 'imagem' as const, label: 'EXAMES DE IMAGEM', desc: 'Raio-X, ultrassom, tomografia e outros.', icon: 'scan' as const, priceSuffix: 'POR PEDIDO' },
+  { key: 'laboratorial' as const, label: 'Laboratorial', desc: 'Peça exames e receba em poucos instantes.', icon: 'flask' as const },
+  { key: 'imagem' as const, label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia e outros.', icon: 'scan' as const, priceSuffix: 'POR PEDIDO' },
 ];
 
 const NARROW_BREAKPOINT = 360;
@@ -117,7 +117,7 @@ export default function NewExam() {
 
   const selectedPrice = formatBRL(EXAM_TYPE_PRICES[examType as 'laboratorial' | 'imagem']);
 
-  /** Dra. Renova: dicas por etapa (tipo imagem, exames). */
+  /** Dra. Renoveja: dicas por etapa (tipo imagem, exames). */
   useTriageEval({
     context: 'exam',
     step: exams.length > 0 ? 'type_selected' : 'entry',
@@ -240,17 +240,17 @@ export default function NewExam() {
         <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
           <View style={styles.assistantHeader}>
             <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
-            <Text style={styles.assistantTitle}>Dra. RenoveJa: checklist de qualidade</Text>
+            <Text style={styles.assistantTitle}>Dra. Renoveja: checklist de qualidade</Text>
             {apiLoading && (
               <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
             )}
           </View>
-          <Text style={styles.assistantProgress}>Seu pedido esta {completeness.score}% pronto</Text>
+          <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
           {completeness.missingRequired.map((item) => (
             <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
           ))}
           {completeness.missingRequired.length === 0 ? (
-            <Text style={styles.assistantGood}>Perfeito. Pedido consistente para revisao medica.</Text>
+            <Text style={styles.assistantGood}>Perfeito. Pedido consistente para revisão médica.</Text>
           ) : null}
         </AppCard>
         {redFlags.isUrgent ? (
@@ -261,7 +261,9 @@ export default function NewExam() {
         ) : null}
         {/* Exam Type */}
         <Text style={styles.overline}>TIPO DE EXAME</Text>
-        <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
+        {currentStep === 1 && (
+          <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
+        )}
         <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
           {EXAM_TYPES.map(type => {
             const price = EXAM_TYPE_PRICES[type.key];
@@ -292,7 +294,9 @@ export default function NewExam() {
 
         {/* Exams List */}
         <Text style={styles.overline}>EXAMES DESEJADOS</Text>
-        <Text style={styles.stepHint}>Passo 2 — Digite o nome do exame e toque no botão + para adicionar. Faça isso para cada exame que você precisa.</Text>
+        {currentStep === 2 && (
+          <Text style={styles.stepHint} numberOfLines={3}>Passo 2 — Digite o nome do exame e toque no botão + para adicionar. Faça isso para cada exame que você precisa.</Text>
+        )}
         <View style={styles.inputRow}>
           <AppInput
             placeholder="Ex: Hemograma completo"
@@ -334,7 +338,9 @@ export default function NewExam() {
 
         {/* Photo */}
         <Text style={styles.overline}>FOTO DO PEDIDO (SE TIVER)</Text>
-        <Text style={styles.stepHint}>Passo 3 — Se você tiver um pedido de exame ou laudo, envie a foto aqui. Toque em Câmera ou Galeria. Se não tiver, pode pular esta parte.</Text>
+        {currentStep === 3 && (
+          <Text style={styles.stepHint}>Passo 3 — Se você tiver um pedido de exame ou laudo, envie a foto aqui. Toque em Câmera ou Galeria. Se não tiver, pode pular esta parte.</Text>
+        )}
         <Text style={styles.photoHint}>
           Envie apenas fotos do documento (pedido de exame ou laudo). Fotos de pessoas, animais ou outros objetos serão rejeitadas.
         </Text>
@@ -352,7 +358,7 @@ export default function NewExam() {
           <View style={styles.imagesRow}>
             {images.map((uri, i) => (
               <View key={i} style={styles.imgWrap}>
-                <Image source={{ uri }} style={styles.imgPreview} />
+                <CompatibleImage uri={uri && typeof uri === 'string' ? uri : undefined} style={styles.imgPreview} />
                 <TouchableOpacity
                   style={styles.imgRemove}
                   onPress={() => setImages(images.filter((_, j) => j !== i))}
@@ -379,7 +385,7 @@ export default function NewExam() {
       <StickyCTA
         summaryTitle="Total"
         summaryValue={selectedPrice}
-        summaryHint={`${completeness.score}% pronto • ${examType === 'imagem' ? 'cobranca por pedido de imagem' : 'pedido laboratorial'}`}
+        summaryHint={`${completeness.score}% pronto • ${examType === 'imagem' ? 'cobrança por pedido de imagem' : 'pedido laboratorial'}`}
         primary={{
           label: 'Enviar pedido',
           onPress: handleSubmit,

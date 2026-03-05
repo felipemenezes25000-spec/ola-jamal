@@ -134,7 +134,7 @@ export default function DoctorDashboard() {
   const firstName = user?.name?.split(' ')[0] || 'Médico';
   const greeting = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
 
-  // Dra. Renova — fluxo do médico (uso da plataforma)
+  // Dra. Renoveja — fluxo do médico (uso da plataforma)
   useTriageEval({
     context: 'doctor_dashboard',
     step: 'idle',
@@ -314,8 +314,8 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: -40,
-    marginBottom: 0,
+    marginTop: -36,
+    marginBottom: 4,
     paddingHorizontal: pad,
     zIndex: 10,
     position: 'relative',

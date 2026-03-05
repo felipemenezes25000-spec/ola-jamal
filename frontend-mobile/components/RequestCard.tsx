@@ -159,6 +159,8 @@ const styles = StyleSheet.create({
   accentStrip: {
     width: 3,
     alignSelf: 'stretch',
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
   },
   iconContainer: {
     width: 38,
@@ -174,8 +176,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingVertical: 14,
-    paddingRight: 14,
+    paddingRight: 18,
     minHeight: 56,
+    minWidth: 0,
   },
   topRow: {
     flexDirection: 'row',
@@ -225,6 +228,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   chevron: {
-    marginLeft: 6,
+    marginLeft: 10,
+    flexShrink: 0,
   },
 });

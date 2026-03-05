@@ -137,7 +137,7 @@ export default function ConsultationScreen() {
     return () => { cancelled = true; };
   }, [consultationType]);
 
-  /** Dra. Renova: dicas (descreva sintomas, mais detalhes). */
+  /** Dra. Renoveja: dicas (descreva sintomas, mais detalhes). */
   useTriageEval({
     context: 'consultation',
     step: symptoms.trim().length > 0 ? 'symptoms_entered' : 'entry',
@@ -220,17 +220,17 @@ export default function ConsultationScreen() {
         <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
           <View style={styles.assistantHeader}>
             <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
-            <Text style={styles.assistantTitle}>Dra. RenoveJa: checklist de envio</Text>
+            <Text style={styles.assistantTitle}>Dra. Renoveja: checklist de envio</Text>
             {apiLoading && (
               <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
             )}
           </View>
-          <Text style={styles.assistantProgress}>Seu pedido esta {completeness.score}% pronto</Text>
+          <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
           {completeness.missingRequired.map((item) => (
             <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
           ))}
           {completeness.missingRequired.length === 0 ? (
-            <Text style={styles.assistantGood}>Perfeito. Vamos enviar para triagem medica.</Text>
+            <Text style={styles.assistantGood}>Perfeito. Vamos enviar para triagem médica.</Text>
           ) : null}
         </AppCard>
         {redFlags.isUrgent ? (
@@ -244,7 +244,7 @@ export default function ConsultationScreen() {
           <View style={styles.iconCircle}>
             <Ionicons name="videocam" size={28} color={c.primary.main} />
           </View>
-          <Text style={styles.bannerTitle}>Consulta Breve - RenoveJá+</Text>
+          <Text style={styles.bannerTitle}>Consulta Breve - Renoveja+</Text>
           <Text style={styles.bannerDesc}>
             Plantão de dúvidas em telemedicina para sanar dúvidas pontuais!
           </Text>
@@ -252,7 +252,9 @@ export default function ConsultationScreen() {
 
         {/* Tipo: Psicólogo ou Médico Clínico */}
         <Text style={styles.overline}>TIPO DE PROFISSIONAL</Text>
-        <Text style={styles.stepHint}>Passo 1 — Escolha com quem você quer falar. Toque em Psicólogo ou Médico Clínico.</Text>
+        {currentStep === 1 && (
+          <Text style={styles.stepHint}>Passo 1 — Escolha com quem você quer falar. Toque em Psicólogo ou Médico Clínico.</Text>
+        )}
         <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
           {CONSULTATION_TYPES.map(type => (
             <AppCard
@@ -272,7 +274,9 @@ export default function ConsultationScreen() {
 
         {/* Minutos */}
         <Text style={styles.overline}>MINUTOS CONTRATADOS</Text>
-        <Text style={styles.stepHint}>Passo 2 — Toque no − para diminuir ou no + para aumentar os minutos. O preço atualiza na hora.</Text>
+        {currentStep === 2 && (
+          <Text style={styles.stepHint}>Passo 2 — Toque no − para diminuir ou no + para aumentar os minutos. O preço atualiza na hora.</Text>
+        )}
         <Text style={styles.minutesHint}>
           A chamada encerra automaticamente ao atingir o tempo. Minutos não usados viram saldo em banco de horas.
         </Text>
@@ -296,7 +300,9 @@ export default function ConsultationScreen() {
 
         {/* Sintomas */}
         <Text style={styles.overline}>DESCREVA SEUS SINTOMAS / DÚVIDA</Text>
-        <Text style={styles.stepHint}>Passo 3 — Escreva o que você está sentindo ou a dúvida que tem. Isso ajuda o profissional a te atender melhor.</Text>
+        {currentStep === 3 && (
+          <Text style={styles.stepHint}>Passo 3 — Escreva o que você está sentindo ou a dúvida que tem. Isso ajuda o profissional a te atender melhor.</Text>
+        )}
         <TextInput
           style={styles.textArea}
           placeholder="O que você está sentindo? Desde quando? O que gostaria de esclarecer?"

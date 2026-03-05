@@ -177,22 +177,22 @@ export async function shouldShowHomeInfoCard(): Promise<boolean> {
 export async function unmuteAll(): Promise<void> {
   const state = await load();
   // Ao reativar, limpamos mutes e também cooldowns / contagem de sessão
-  // para a Dra. Renova realmente "voltar a falar" em todas as telas.
+  // para a Dra. Renoveja realmente "voltar a falar" em todas as telas.
   state.mutedKeys = [];
   state.cooldowns = {};
   state.sessionCounts = {};
   scheduleSave();
 }
 
-// ── Posição da Dra. Renova (arrastar / acompanhar) ──────────
+// ── Posição da Dra. Renoveja (arrastar / acompanhar) ──────────
 
-/** Retorna posição da Dra. Renova: 'fixed' (acompanha no fundo) ou 'floating' (arrastável). */
+/** Retorna posição da Dra. Renoveja: 'fixed' (acompanha no fundo) ou 'floating' (arrastável). */
 export async function getBannerPositionMode(): Promise<BannerPositionMode> {
   const state = await load();
   return state.bannerPositionMode ?? 'fixed';
 }
 
-/** Define modo da Dra. Renova. */
+/** Define modo da Dra. Renoveja. */
 export async function setBannerPositionMode(mode: BannerPositionMode): Promise<void> {
   const state = await load();
   state.bannerPositionMode = mode;
@@ -205,7 +205,7 @@ export async function getBannerFloatingPosition(): Promise<BannerFloatingPositio
   return state.bannerFloatingPosition ?? null;
 }
 
-/** Salva posição flutuante da Dra. Renova. */
+/** Salva posição flutuante da Dra. Renoveja. */
 export async function setBannerFloatingPosition(pos: BannerFloatingPosition): Promise<void> {
   const state = await load();
   state.bannerFloatingPosition = pos;

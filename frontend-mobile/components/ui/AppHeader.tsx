@@ -58,7 +58,7 @@ export function AppHeader({
         </TouchableOpacity>
       )}
       <View style={styles.titleWrap}>
-        <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
+        <Text style={[styles.title, { color: textColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} ellipsizeMode="tail">
           {title}
         </Text>
         {subtitle && (

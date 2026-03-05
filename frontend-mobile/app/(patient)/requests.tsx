@@ -171,7 +171,7 @@ export default function PatientRequests() {
         <Ionicons name="search" size={20} color={colors.textMuted} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar por medicamento, médico..."
+          placeholder="Buscar pedidos"
           placeholderTextColor={colors.textMuted}
           value={search}
           onChangeText={setSearch}

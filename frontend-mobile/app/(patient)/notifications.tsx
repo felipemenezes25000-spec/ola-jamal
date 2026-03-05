@@ -163,7 +163,7 @@ export default function PatientNotifications() {
         </View>
         <View style={styles.cardContent}>
           <Text style={[styles.cardTitle, !item.read && styles.cardTitleUnread]}>{item.title}</Text>
-          <Text style={styles.cardMessage} numberOfLines={2}>{item.message}</Text>
+          <Text style={styles.cardMessage} numberOfLines={3}>{item.message}</Text>
           <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
         </View>
         {!item.read && <View style={styles.unreadDot} />}

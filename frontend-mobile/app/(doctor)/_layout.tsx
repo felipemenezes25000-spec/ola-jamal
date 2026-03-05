@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,10 +58,19 @@ export default function DoctorLayout() {
               android: { elevation: 8 },
             }),
           },
+          tabBarItemStyle: {
+            paddingTop: 6,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          tabBarIconStyle: {
+            marginBottom: 2,
+          },
           tabBarLabelStyle: {
             fontSize: 12,
             fontWeight: '700',
             letterSpacing: 0.2,
+            textAlign: 'center',
           },
           tabBarBadgeStyle: {
             backgroundColor: colors.error,
@@ -98,7 +107,9 @@ export default function DoctorLayout() {
             title: 'Alertas',
             tabBarBadge: hasUnread ? unreadCount : undefined,
             tabBarIcon: ({ color, size }) => (
-              <PulsingNotificationIcon color={color} size={size ?? 22} hasUnread={hasUnread} />
+              <View style={{ alignItems: 'center', justifyContent: 'center', minWidth: 28, minHeight: 28 }}>
+                <PulsingNotificationIcon color={color} size={size ?? 22} hasUnread={hasUnread} />
+              </View>
             ),
           }}
         />

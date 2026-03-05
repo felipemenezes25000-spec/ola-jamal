@@ -410,7 +410,7 @@ export default function RequestDetailScreen() {
         </FormSection>
 
         <FormSection
-          title="Dra. RenoveJa"
+          title="Dra. Renoveja"
           subtitle={nextAction.title}
           style={styles.formSection}
           contentStyle={styles.formSectionContent}
@@ -434,7 +434,7 @@ export default function RequestDetailScreen() {
           ) : null}
         </FormSection>
 
-        {/* Observação automática e conduta médica (Dra. Renova) */}
+        {/* Observação automática e conduta médica (Dra. Renoveja) */}
         {request.autoObservation && (
           <View style={styles.card}>
             <ObservationCard mode="auto" text={request.autoObservation} />

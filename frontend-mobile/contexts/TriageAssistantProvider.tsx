@@ -1,7 +1,7 @@
 /**
  * TriageAssistantProvider.tsx
  *
- * Context + Provider para o assistente de triagem Dra. Renova.
+ * Context + Provider para o assistente de triagem Dra. Renoveja.
  * Gerencia: current message, dedupe, cooldown check, dismiss, mute.
  * Uso híbrido: regras primeiro (sempre), IA opcional para personalizar tom.
  * IA NUNCA define nada — médico sempre decide.
@@ -31,8 +31,8 @@ import type { TriageMessage, TriageInput } from '../lib/triage/triage.types';
 
 const IS_ENABLED = process.env.EXPO_PUBLIC_TRIAGE_ENABLED !== 'false';
 const IS_AI_ENABLED = process.env.EXPO_PUBLIC_TRIAGE_AI_ENABLED !== 'false';
-const SAME_TOPIC_COOLDOWN_MS = 45_000;   // 45s – permite mesmo tópico ao voltar, evita repetição em curto intervalo
-const MIN_REPLACE_INTERVAL_MS = 25_000; // 25s – evita pisca-pisca do banner ao trocar mensagens
+const SAME_TOPIC_COOLDOWN_MS = 90_000;   // 90s – evita repetir o mesmo tópico em curto intervalo
+const MIN_REPLACE_INTERVAL_MS = 40_000; // 40s – evita pisca-pisca do banner ao trocar mensagens
 
 // ── Context types ───────────────────────────────────────────
 

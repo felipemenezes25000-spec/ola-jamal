@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  Image,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
@@ -23,6 +22,7 @@ import { getApiErrorMessage } from '../../lib/api-client';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
+import { CompatibleImage } from '../../components/CompatibleImage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { evaluatePrescriptionCompleteness } from '../../lib/domain/assistantIntelligence';
 import { evaluateAssistantCompleteness } from '../../lib/api';
@@ -145,7 +145,7 @@ export default function NewPrescription() {
     }
   };
 
-  /** Dra. Renova: dicas por etapa (tipo, fotos). */
+  /** Dra. Renoveja: dicas por etapa (tipo, fotos). */
   useTriageEval({
     context: 'prescription',
     step: images.length > 0 ? 'photos_added' : 'type_selected',
@@ -208,12 +208,12 @@ export default function NewPrescription() {
           <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
             <View style={styles.assistantHeader}>
               <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
-              <Text style={styles.assistantTitle}>Dra. RenoveJa: qualidade do envio</Text>
+              <Text style={styles.assistantTitle}>Dra. Renoveja: qualidade do envio</Text>
               {apiLoading && (
                 <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
               )}
             </View>
-            <Text style={styles.assistantProgress}>Seu pedido esta {completeness.score}% pronto</Text>
+            <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
             {completeness.missingRequired.map((item) => (
               <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
             ))}
@@ -224,7 +224,9 @@ export default function NewPrescription() {
 
           {/* Type Selection */}
           <Text style={styles.sectionLabel}>TIPO DE RECEITA</Text>
-          <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de receita tocando em um dos cards abaixo.</Text>
+          {currentStep === 1 && (
+            <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de receita tocando em um dos cards abaixo.</Text>
+          )}
           {TYPES.map(type => {
             const isComingSoon = 'comingSoon' in type && type.comingSoon;
             const isSelectable = !isComingSoon && (type.key === 'simples' || type.key === 'controlado');
@@ -287,7 +289,9 @@ export default function NewPrescription() {
 
           {/* Photo */}
           <Text style={styles.sectionLabel}>FOTO DA RECEITA</Text>
-          <Text style={styles.stepHint}>Passo 2 — Envie a foto da sua receita. Toque em Câmera (tirar foto) ou Galeria (escolher da galeria).</Text>
+          {currentStep === 2 && (
+            <Text style={styles.stepHint}>Passo 2 — Envie a foto da sua receita. Toque em Câmera (tirar foto) ou Galeria (escolher da galeria).</Text>
+          )}
           <Text style={styles.photoHint}>
             Envie APENAS fotos do documento da receita (papel ou tela com medicamentos). Fotos de
             pessoas, animais ou outros objetos serão rejeitadas automaticamente.
@@ -310,7 +314,7 @@ export default function NewPrescription() {
             <View style={styles.imagesRow}>
               {images.map((uri, index) => (
                 <View key={index} style={styles.imageContainer}>
-                  <Image source={{ uri }} style={styles.imagePreview} />
+                  <CompatibleImage uri={uri && typeof uri === 'string' ? uri : undefined} style={styles.imagePreview} />
                   <TouchableOpacity
                     style={styles.removeImage}
                     onPress={() => setImages(images.filter((_, i) => i !== index))}

@@ -223,7 +223,7 @@ export default function DoctorPatientProntuario() {
     return null;
   }
 
-  // Estatísticas de uso do app pelo paciente (para Dra. Renova médico)
+  // Estatísticas de uso do app pelo paciente (para Dra. Renoveja médico)
   const totalRequests = requests.length;
   const last6Months = useMemo(() => {
     const cutoff = new Date();
@@ -369,9 +369,9 @@ export default function DoctorPatientProntuario() {
               activeOpacity={0.7}
               onPress={() => router.push(`/doctor-patient-summary/${id}` as any)}
             >
-              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
+              <Ionicons name="document-text-outline" size={16} color={colors.primary} style={styles.summaryLinkIcon} />
               <Text style={styles.summaryLinkText}>Ver resumo clínico</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} style={styles.summaryLinkChevron} />
             </TouchableOpacity>
           )}
 
@@ -392,6 +392,7 @@ export default function DoctorPatientProntuario() {
                     setTypeFilter(value as TypeFilterKey);
                   }}
                   size="sm"
+                  scrollable
                 />
               </View>
               <TouchableOpacity
@@ -473,7 +474,9 @@ export default function DoctorPatientProntuario() {
                             {fmtHour(req.createdAt)} · {itemSummary}
                           </Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                        <View style={styles.timelineChevronWrap}>
+                          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -720,15 +723,20 @@ const styles = StyleSheet.create({
   summaryBar: {
     backgroundColor: colors.surface,
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 14,
-    marginBottom: 10,
+    marginBottom: 12,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
+    overflow: 'visible',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   summaryMetric: {
     flex: 1,
     minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   },
   summaryMetricLabel: {
     fontSize: 12,
@@ -736,10 +744,11 @@ const styles = StyleSheet.create({
   },
   summaryMetricValue: {
     fontSize: 20,
-    lineHeight: 24,
+    lineHeight: 26,
     fontWeight: '700',
     color: colors.text,
-    marginTop: 1,
+    marginTop: 2,
+    minHeight: 26,
   },
   summaryMetricValueSmall: {
     fontSize: 14,
@@ -747,20 +756,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     marginTop: 2,
+    minHeight: 20,
   },
   summaryLinkBtn: {
     alignSelf: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     marginBottom: spacing.md,
-    paddingVertical: 2,
+    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  summaryLinkIcon: {
+    marginRight: 2,
   },
   summaryLinkText: {
     fontSize: 13,
     fontFamily: typography.fontFamily.semibold,
     fontWeight: '600',
     color: colors.primary,
+  },
+  summaryLinkChevron: {
+    marginLeft: 4,
+    alignSelf: 'center',
   },
   sectionTitle: {
     fontSize: 17,
@@ -771,11 +790,13 @@ const styles = StyleSheet.create({
   filterControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     marginBottom: spacing.md,
+    minHeight: 44,
   },
   segmentedControl: {
     flex: 1,
+    minWidth: 0,
   },
   segmentedItem: {
     flex: 1,
@@ -828,8 +849,9 @@ const styles = StyleSheet.create({
   timelineRowItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
+    gap: 10,
   },
   timelineRowDivider: {
     borderBottomWidth: 1,
@@ -861,6 +883,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginLeft: 8,
     flexShrink: 1,
+    marginRight: 8,
   },
   statusInlineDot: {
     width: 6,
@@ -875,6 +898,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 3,
+  },
+  timelineChevronWrap: {
+    flexShrink: 0,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   empty: {
     alignItems: 'center',

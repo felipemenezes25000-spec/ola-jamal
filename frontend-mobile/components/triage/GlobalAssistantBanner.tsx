@@ -12,9 +12,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import { DraggableAssistantBanner } from './DraggableAssistantBanner';
 import type { CTAAction } from '../../lib/triage/triage.types';
 
-function shouldHideBanner(pathname: string | null | undefined, isLoggedIn: boolean): boolean {
+function shouldHideBanner(
+  pathname: string | null | undefined,
+  isLoggedIn: boolean,
+  userRole?: string | null
+): boolean {
   // Usuário não logado — esconde (auth ainda não carregou ou não está logado)
   if (!isLoggedIn) return true;
+  // Médico: nunca mostrar Dra. Renoveja nas telas do médico (fallback por role)
+  if (userRole === 'doctor') return true;
   // Pathname vazio/undefined — pode ser hidratação inicial; mostra por segurança
   if (!pathname || typeof pathname !== 'string') return false;
   // Telas de pagamento (dados privados)
@@ -26,8 +32,8 @@ function shouldHideBanner(pathname: string | null | undefined, isLoggedIn: boole
   if (pathname === '/' || pathname === '/index' || pathname === '') return true;
   // Já na tela de ajuda — evita empilhar infinitas instâncias ao tocar no banner
   if (pathname.includes('help-faq')) return true;
-  // Prontuário do paciente no fluxo médico usa leitura densa; evita sobreposição na lista
-  if (pathname.includes('/doctor-patient/')) return true;
+  // Painel do médico e rotas médico: doctor-request, doctor-patient, doctor-patient-summary, certificate
+  if (pathname.includes('(doctor)') || pathname.includes('doctor-') || pathname.includes('certificate/')) return true;
   return false;
 }
 
@@ -37,7 +43,7 @@ export function GlobalAssistantBanner() {
   const { user } = useAuth();
   const isLoggedIn = !!user;
 
-  if (shouldHideBanner(pathname, isLoggedIn)) return null;
+  if (shouldHideBanner(pathname, isLoggedIn, user?.role)) return null;
 
   const handleAction: (action: CTAAction) => void = (action) => {
     if (!action) return;

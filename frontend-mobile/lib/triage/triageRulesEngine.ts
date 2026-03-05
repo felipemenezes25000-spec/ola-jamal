@@ -1,5 +1,5 @@
 /**
- * triageRulesEngine.ts — Motor de regras da Dra. Renova
+ * triageRulesEngine.ts — Motor de regras da Dra. Renoveja
  *
  * Pure function: TriageInput → TriageMessage | null
  * Nenhuma chamada de API. Nenhum side-effect. 100% testável.
@@ -22,6 +22,7 @@ const MS = {
   INSIGHT:   15 * 60_000,     // 15min – insights de histórico (não repetir demais)
   PROACTIVE: 2 * 60_000,      // 2min – proativas na home (presente sem cansar)
   WELCOME:   30 * 60_000,     // 30min – boas-vindas (não a cada 15s)
+  COMPANION: 45 * 1000,       // 45s – dicas de fallback (evita tela passiva)
 } as const;
 
 /** Cooldown dinâmico por experiência do usuário. */
@@ -34,6 +35,92 @@ function getStepCooldown(totalRequests?: number): number {
 // ── Blocked steps (momento crítico) ─────────────────────────
 
 const BLOCKED_STEPS: Set<TriageStep> = new Set(['payment', 'signing']);
+
+// ── Companion fallbacks (evita tela passiva — Dra. Renoveja sempre interagindo) ─
+
+const COMPANION_TIPS: Record<string, Omit<TriageMessage, 'key' | 'cooldownMs'>> = {
+  home: {
+    text: 'Renove receitas, peça exames ou agende consultas. Toque em mim para tirar dúvidas ou ver orientações.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'tire_duvidas', ctaLabel: 'Tirar dúvidas',
+    canMute: true,
+  },
+  prescription: {
+    text: 'Estou aqui para orientar. Tire uma foto nítida da receita e siga o passo a passo.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'tire_duvidas', ctaLabel: 'Tirar dúvidas',
+    canMute: true,
+  },
+  exam: {
+    text: 'Informe os exames que precisa ou tire foto do pedido médico. Posso ajudar com dúvidas.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'tire_duvidas', ctaLabel: 'Tirar dúvidas',
+    canMute: true,
+  },
+  consultation: {
+    text: 'Conte ao médico o que sente, há quanto tempo e quais medicamentos usa. Isso ajuda no atendimento.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'tire_duvidas', ctaLabel: 'Tirar dúvidas',
+    canMute: true,
+  },
+  detail: {
+    text: 'Acompanhe seu pedido aqui. Se tiver dúvidas sobre o processo, toque em mim.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'tire_duvidas', ctaLabel: 'Tirar dúvidas',
+    canMute: true,
+  },
+  requests: {
+    text: 'Seus pedidos aparecem aqui. Use o botão Início para renovar receitas ou agendar consultas.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'ver_servicos', ctaLabel: 'Ver serviços',
+    canMute: true,
+  },
+  record: {
+    text: 'Seu histórico de atendimentos está aqui. Mantenha o acompanhamento com seu médico.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'teleconsulta', ctaLabel: 'Falar com médico',
+    canMute: true,
+  },
+  profile: {
+    text: 'Gerencie sua conta e configurações. Toque em mim se precisar de ajuda.',
+    severity: 'info', avatarState: 'neutral',
+    cta: 'tire_duvidas', ctaLabel: 'Tirar dúvidas',
+    canMute: true,
+  },
+  help: {
+    text: 'Aqui estão as respostas mais comuns. Não encontrou? Entre em contato conosco.',
+    severity: 'info', avatarState: 'positive',
+    cta: null,
+    canMute: true,
+  },
+  doctor_dashboard: {
+    text: 'Painel do médico. Revise atendimentos pendentes e documentos para assinar.',
+    severity: 'info', avatarState: 'neutral',
+    cta: null,
+    canMute: true,
+  },
+  doctor_detail: {
+    text: 'Revise o pedido, as imagens e o resumo. A decisão clínica é sempre sua.',
+    severity: 'info', avatarState: 'neutral',
+    cta: null,
+    canMute: true,
+  },
+  doctor_prontuario: {
+    text: 'Histórico do paciente. Use para orientar a conversa e a conduta.',
+    severity: 'info', avatarState: 'neutral',
+    cta: null,
+    canMute: true,
+  },
+};
+
+function companionFallback(context: string): TriageMessage {
+  const tip = COMPANION_TIPS[context] ?? COMPANION_TIPS.home;
+  return {
+    key: `${context}:companion`,
+    ...tip,
+    cooldownMs: MS.COMPANION,
+  };
+}
 
 // ── Complex exam detection ──────────────────────────────────
 
@@ -87,7 +174,7 @@ export function evaluateTriageRules(input: TriageInput): TriageMessage | null {
     case 'doctor_dashboard':  return rulesDoctorDashboard(input);
     case 'doctor_detail':     return rulesDoctorDetail(input);
     case 'doctor_prontuario': return rulesDoctorProntuario(input);
-    default:             return null;
+    default:             return companionFallback('home');
   }
 }
 
@@ -182,7 +269,7 @@ function rulesHome(i: TriageInput): TriageMessage | null {
     };
   }
 
-  return null;
+  return companionFallback('home');
 }
 
 // ── PRESCRIPTION ────────────────────────────────────────────
@@ -285,7 +372,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
         canMute: true,
       };
 
-    default: return null;
+    default: return companionFallback('prescription');
   }
 }
 
@@ -312,7 +399,7 @@ function rulesExam(i: TriageInput): TriageMessage | null {
           canMute: true,
         };
       }
-      return null;
+      return companionFallback('exam');
 
     case 'result':
       if (i.aiRiskLevel === 'high') {
@@ -355,7 +442,7 @@ function rulesExam(i: TriageInput): TriageMessage | null {
         };
       }
       if (i.imagesCount && i.imagesCount > 0 && i.exams && i.exams.length > 0) {
-        return null;
+        return companionFallback('exam');
       }
       return {
         key: 'exam:ok',
@@ -365,7 +452,7 @@ function rulesExam(i: TriageInput): TriageMessage | null {
         canMute: true,
       };
 
-    default: return null;
+    default: return companionFallback('exam');
   }
 }
 
@@ -399,13 +486,13 @@ function rulesConsultation(i: TriageInput): TriageMessage | null {
       canMute: true,
     };
   }
-  return null;
+  return companionFallback('consultation');
 }
 
 // ── REQUESTS (lista de pedidos) ───────────────────────────────
 
 function rulesRequests(i: TriageInput): TriageMessage | null {
-  if (i.step !== 'entry') return null;
+  if (i.step !== 'entry') return companionFallback('requests');
   const count = i.totalRequests ?? 0;
   if (count === 0) {
     return {
@@ -427,7 +514,7 @@ function rulesRequests(i: TriageInput): TriageMessage | null {
       canMute: true,
     };
   }
-  return null;
+  return companionFallback('requests');
 }
 
 // ── RECORD (prontuário do paciente) ─────────────────────────
@@ -480,7 +567,7 @@ function rulesRecord(i: TriageInput): TriageMessage | null {
 // ── PROFILE (perfil) ─────────────────────────────────────────
 
 function rulesProfile(i: TriageInput): TriageMessage | null {
-  if (i.step !== 'entry') return null;
+  if (i.step !== 'entry') return companionFallback('profile');
   return {
     key: 'profile:entry',
     text: 'Aqui você gerencia sua conta, dados pessoais e configurações. Se tiver dúvidas, toque em mim para ajuda.',
@@ -494,7 +581,7 @@ function rulesProfile(i: TriageInput): TriageMessage | null {
 // ── HELP (ajuda/FAQ) ─────────────────────────────────────────
 
 function rulesHelp(i: TriageInput): TriageMessage | null {
-  if (i.step !== 'entry') return null;
+  if (i.step !== 'entry') return companionFallback('help');
   return {
     key: 'help:entry',
     text: 'Aqui estão as respostas para as dúvidas mais comuns. Se não encontrar o que precisa, entre em contato conosco.',
@@ -551,7 +638,7 @@ function rulesDetail(i: TriageInput): TriageMessage | null {
     };
   }
 
-  return null;
+  return companionFallback('detail');
 }
 
 // ── DOCTOR DASHBOARD (uso da plataforma) ────────────────────
@@ -596,7 +683,7 @@ function rulesDoctorDashboard(i: TriageInput): TriageMessage | null {
     };
   }
 
-  return null;
+  return companionFallback('doctor_dashboard');
 }
 
 // ── DOCTOR DETAIL (pedido específico) ───────────────────────
@@ -684,5 +771,5 @@ function rulesDoctorProntuario(i: TriageInput): TriageMessage | null {
     };
   }
 
-  return null;
+  return companionFallback('doctor_prontuario');
 }

@@ -2,7 +2,7 @@
  * Resumo Clínico — Visão completa e organizada do prontuário do paciente.
  *
  * Dados do paciente, histórico narrativo, consultas com anamnese estruturada,
- * receitas, exames e insights da Dra. Renova.
+ * receitas, exames e insights da Dra. Renoveja.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -202,7 +202,7 @@ export default function DoctorPatientClinicalSummary() {
     return Array.from(set);
   }, [consultations]);
 
-  // Dra. Renova — estatísticas para insights
+  // Dra. Renoveja — estatísticas para insights
   const totalRequests = requests.length;
   const last6Months = useMemo(() => {
     const cutoff = new Date();
@@ -438,14 +438,14 @@ export default function DoctorPatientClinicalSummary() {
           </View>
         )}
 
-        {/* ── Dra. Renova — Insights ── */}
+        {/* ── Dra. Renoveja — Insights ── */}
         <View style={styles.draRenovaCard}>
           <View style={styles.draRenovaHeader}>
             <View style={[styles.draRenovaAvatar, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
               <Ionicons name="sparkles" size={18} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.draRenovaLabel}>Dra. Renova</Text>
+              <Text style={styles.draRenovaLabel}>Dra. Renoveja</Text>
               <Text style={styles.draRenovaSub}>Insights e sugestões de apoio</Text>
             </View>
           </View>

@@ -79,7 +79,7 @@ export default function SettingsScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Assistente Dra. Renova</Text>
+          <Text style={styles.sectionTitle}>Assistente Dra. Renoveja</Text>
           <SettingItem
             icon="chatbubble-ellipses-outline"
             label={`Reativar mensagens silenciadas (${mutedCount})`}

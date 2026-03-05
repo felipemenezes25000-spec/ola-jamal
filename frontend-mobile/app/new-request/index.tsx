@@ -57,7 +57,7 @@ export default function NewRequestIndex() {
         <View style={styles.assistantHeader}>
           <Ionicons name="sparkles" size={22} color={c.primary.main} />
           <View style={styles.assistantTextWrap}>
-            <Text style={styles.assistantTitle}>Dra. RenoveJa: o que voce precisa?</Text>
+            <Text style={styles.assistantTitle}>Dra. Renoveja: o que você precisa?</Text>
             <Text style={styles.assistantSubtitle}>
               Escolha o tipo de atendimento. Eu te guio em cada etapa ate o pedido ser enviado.
             </Text>

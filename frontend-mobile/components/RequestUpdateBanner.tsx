@@ -1,6 +1,6 @@
 /**
- * Banner de atualização de pedido em tempo real — alinhado à Dra. Renova.
- * Mesmo design system (theme, rótulo "Dra. Renova", accent bar, avatar, disclaimer).
+ * Banner de atualização de pedido em tempo real — alinhado à Dra. Renoveja.
+ * Mesmo design system (theme, rótulo "Dra. Renoveja", accent bar, avatar, disclaimer).
  */
 
 import React from 'react';
@@ -37,7 +37,7 @@ export function RequestUpdateBanner() {
     setPendingUpdate(null);
   };
 
-  const accent = theme.colors.secondary.main; // verde positivo, igual Dra. Renova "positive"
+  const accent = theme.colors.secondary.main; // verde positivo, igual Dra. Renoveja "positive"
 
   return (
     <View style={[styles.outer, { paddingTop: Math.max(insets.top, 8) + 4, paddingBottom: 8 }]}>
@@ -48,7 +48,7 @@ export function RequestUpdateBanner() {
             <Ionicons name="checkmark-circle" size={15} color={theme.colors.secondary.dark} />
           </View>
           <View style={styles.content}>
-            <Text style={styles.label}>Dra. Renova</Text>
+            <Text style={styles.label}>Dra. Renoveja</Text>
             <Text style={styles.message} numberOfLines={2}>
               {pendingUpdate.message}
             </Text>

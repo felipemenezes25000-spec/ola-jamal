@@ -225,6 +225,7 @@ export default function DoctorQueue() {
         value={activeFilter}
         onValueChange={handleFilterChange}
         disabled={loading}
+        scrollable
       />
 
       {/* Busca por nome do paciente */}

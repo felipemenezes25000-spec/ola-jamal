@@ -44,7 +44,11 @@ export function useTriageEval(input: TriageInput): void {
   useEffect(() => {
     if (depKey === prevKeyRef.current) return;
     prevKeyRef.current = depKey;
-    evaluate(input);
+    // Debounce: evita avaliações em cascata quando deps mudam rapidamente
+    const t = setTimeout(() => {
+      evaluate(input);
+    }, 150);
+    return () => clearTimeout(t);
   }, [depKey, evaluate, input]);
 
   // Clear when screen loses focus

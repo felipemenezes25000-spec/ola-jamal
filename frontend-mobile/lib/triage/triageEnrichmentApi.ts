@@ -1,5 +1,5 @@
 /**
- * triageEnrichmentApi.ts — Chamada à API de enriquecimento da Dra. Renova
+ * triageEnrichmentApi.ts — Chamada à API de enriquecimento da Dra. Renoveja
  *
  * IA usa apenas para personalizar o tom (nunca define nada). Médico sempre decide.
  * Timeout curto (4s) para não bloquear UX. Fallback silencioso em erro.

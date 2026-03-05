@@ -101,7 +101,7 @@ export function evaluateExamCompleteness(input: {
   const items: CompletenessItem[] = [
     { id: 'exam_type', label: 'Selecionar o tipo de exame', required: true, done: !!input.examType },
     { id: 'exam_or_image', label: 'Informar exame desejado ou anexar pedido', required: true, done: hasExamDescription },
-    { id: 'symptoms', label: 'Descrever sintomas/indicacao clinica', required: true, done: hasClinicalContext },
+    { id: 'symptoms', label: 'Descrever sintomas/indicação clínica', required: true, done: hasClinicalContext },
     { id: 'detailed_symptoms', label: 'Adicionar contexto detalhado (40+ caracteres)', required: false, done: symptomLength >= 40 },
   ];
 
@@ -116,9 +116,9 @@ export function evaluateConsultationCompleteness(input: {
   const symptomLength = input.symptoms.trim().length;
   const items: CompletenessItem[] = [
     { id: 'professional_type', label: 'Escolher o profissional', required: true, done: !!input.consultationType },
-    { id: 'duration', label: 'Definir duracao da consulta', required: true, done: input.durationMinutes >= 5 },
-    { id: 'main_reason', label: 'Descrever sintomas ou duvida principal', required: true, done: symptomLength >= 10 },
-    { id: 'details', label: 'Adicionar detalhes (quando comecou, frequencia, intensidade)', required: false, done: symptomLength >= 40 },
+    { id: 'duration', label: 'Definir duração da consulta', required: true, done: input.durationMinutes >= 5 },
+    { id: 'main_reason', label: 'Descrever sintomas ou dúvida principal', required: true, done: symptomLength >= 10 },
+    { id: 'details', label: 'Adicionar detalhes (quando começou, frequência, intensidade)', required: false, done: symptomLength >= 40 },
   ];
 
   return calculateCompleteness(items);
@@ -190,10 +190,10 @@ export function getNextBestActionForRequest(
 
   if (status === 'in_review') {
     return {
-      title: 'Em analise medica',
-      statusSummary: 'Um profissional esta revisando as informacoes enviadas.',
-      whatToDo: 'Mantenha notificacoes ativas. Se houver pendencia, voce sera avisado.',
-      eta: 'Geralmente conclui em ate 10 minutos.',
+      title: 'Em análise médica',
+      statusSummary: 'Um profissional está revisando as informações enviadas.',
+      whatToDo: 'Mantenha notificações ativas. Se houver pendência, você será avisado.',
+      eta: 'Geralmente conclui em até 10 minutos.',
       intent: 'wait',
     };
   }
@@ -214,7 +214,7 @@ export function getNextBestActionForRequest(
       return {
         title: 'Consulta liberada',
         statusSummary: 'Pagamento confirmado. Agora falta o medico iniciar o atendimento.',
-        whatToDo: 'Fique no app. Voce sera levado automaticamente para a consulta quando iniciar.',
+        whatToDo: 'Fique no app. Você será levado automaticamente para a consulta quando iniciar.',
         eta: 'Normalmente em poucos minutos.',
         intent: 'wait',
       };
@@ -243,16 +243,16 @@ export function getNextBestActionForRequest(
   if (status === 'consultation_finished') {
     return {
       title: 'Consulta finalizada',
-      statusSummary: 'Seu atendimento foi concluido com sucesso.',
-      whatToDo: 'Revise as orientacoes no detalhe e acesse o documento quando disponivel.',
-      eta: 'Disponivel agora.',
+      statusSummary: 'Seu atendimento foi concluído com sucesso.',
+      whatToDo: 'Revise as orientações no detalhe e acesse o documento quando disponível.',
+      eta: 'Disponível agora.',
       intent: 'track',
     };
   }
 
   if (status === 'rejected') {
     return {
-      title: 'Pedido nao aprovado',
+      title: 'Pedido não aprovado',
       statusSummary: 'Seu pedido foi rejeitado nesta etapa.',
       whatToDo: 'Revise o motivo no detalhe e reenvie com os ajustes.',
       eta: 'Reenvio imediato.',
@@ -264,7 +264,7 @@ export function getNextBestActionForRequest(
     return {
       title: 'Pedido cancelado',
       statusSummary: 'Este pedido foi encerrado.',
-      whatToDo: 'Se ainda precisar, crie um novo pedido guiado pela Dra. RenoveJa.',
+      whatToDo: 'Se ainda precisar, crie um novo pedido guiado pela Dra. Renoveja.',
       eta: 'Voce pode iniciar agora.',
       intent: 'none',
     };

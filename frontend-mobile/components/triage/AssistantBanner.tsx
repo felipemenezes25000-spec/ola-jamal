@@ -1,12 +1,12 @@
 /**
- * AssistantBanner — Banner compacto da Dra. Renova (Camada A)
+ * AssistantBanner — Banner compacto da Dra. Renoveja (Camada A)
  *
  * Design pixel-perfect com theme.ts. Não-invasivo, colapsável.
  * Touch targets ≥ 44dp. Leitor de tela: accessibilityRole="alert".
  * Nunca cobre CTA, tab bar, ou botões. Max 2 linhas.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Modal } from 'react-native';
 import Reanimated, {
   FadeInDown,
@@ -34,6 +34,13 @@ const ACCENT: Record<Severity, string> = {
   positive: theme.colors.secondary.main,
   neutral: theme.colors.text.tertiary,
 };
+
+const COMPANION_TIPS = [
+  'Renove receitas, peça exames ou agende consultas. Toque para tirar dúvidas.',
+  'Mantenha o acompanhamento com seu médico — faz toda a diferença no tratamento.',
+  'Dúvidas sobre o app? Toque em mim para ver orientações e FAQ.',
+  'Receitas e exames digitais com assinatura segura. Estou aqui para ajudar.',
+];
 
 interface AssistantBannerProps {
   /** Callback quando o CTA é pressionado */
@@ -66,8 +73,16 @@ export function AssistantBanner({ onAction, onCompanionPress, containerStyle, hi
 
   if (hidden) return null;
 
-  // Estado companion: Dra. Renoveja sempre visível para o paciente se sentir acompanhado
+  // Estado companion: Dra. Renoveja sempre visível — dicas rotativas para manter interação
   const isCompanion = !current;
+  const [companionTipIndex, setCompanionTipIndex] = useState(0);
+  useEffect(() => {
+    if (!isCompanion) return;
+    const t = setInterval(() => {
+      setCompanionTipIndex((i) => (i + 1) % COMPANION_TIPS.length);
+    }, 6000); // Rotaciona a cada 6s
+    return () => clearInterval(t);
+  }, [isCompanion]);
   const av = current ? AVATAR[current.avatarState] : AVATAR.neutral;
   const accent = current ? ACCENT[current.severity] : theme.colors.primary.main;
 
@@ -106,7 +121,7 @@ export function AssistantBanner({ onAction, onCompanionPress, containerStyle, hi
             )}
           </View>
           <Text style={styles.message} numberOfLines={2}>
-            {isCompanion ? 'Estou aqui com você. Toque para tirar dúvidas ou ver orientações.' : current!.text}
+            {isCompanion ? COMPANION_TIPS[companionTipIndex] : current!.text}
           </Text>
         </View>
 

@@ -107,20 +107,32 @@ export default function PatientRecordScreen() {
 
   // Dados para sugestões proativas da Dra. Renoveja
   const lastPrescriptionDaysAgo = useMemo(() => {
-    const rxDocs = documents.filter((d) => (d.documentType?.toLowerCase() ?? '') === 'prescription' && d.signedAt);
-    if (rxDocs.length === 0) return undefined;
-    const last = rxDocs.sort((a, b) => new Date(b.signedAt!).getTime() - new Date(a.signedAt!).getTime())[0];
-    return Math.floor((Date.now() - new Date(last.signedAt!).getTime()) / (24 * 60 * 60 * 1000));
+    try {
+      const rxDocs = (documents ?? []).filter((d) => (d?.documentType?.toLowerCase() ?? '') === 'prescription' && d?.signedAt);
+      if (rxDocs.length === 0) return undefined;
+      const last = rxDocs.sort((a, b) => (new Date(b.signedAt ?? 0).getTime()) - (new Date(a.signedAt ?? 0).getTime()))[0];
+      const ts = new Date(last?.signedAt ?? 0).getTime();
+      if (Number.isNaN(ts)) return undefined;
+      return Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
+    } catch {
+      return undefined;
+    }
   }, [documents]);
   const lastExamDaysAgo = useMemo(() => {
-    const docType = (t: string | null | undefined) => (t?.toLowerCase() ?? '');
-    const examDocs = documents.filter((d) => {
-      const t = docType(d.documentType);
-      return (t === 'exam' || t === 'exam_order') && d.signedAt;
-    });
-    if (examDocs.length === 0) return undefined;
-    const last = examDocs.sort((a, b) => new Date(b.signedAt!).getTime() - new Date(a.signedAt!).getTime())[0];
-    return Math.floor((Date.now() - new Date(last.signedAt!).getTime()) / (24 * 60 * 60 * 1000));
+    try {
+      const docType = (t: string | null | undefined) => (t?.toLowerCase() ?? '');
+      const examDocs = (documents ?? []).filter((d) => {
+        const t = docType(d?.documentType);
+        return (t === 'exam' || t === 'exam_order') && d?.signedAt;
+      });
+      if (examDocs.length === 0) return undefined;
+      const last = examDocs.sort((a, b) => (new Date(b.signedAt ?? 0).getTime()) - (new Date(a.signedAt ?? 0).getTime()))[0];
+      const ts = new Date(last?.signedAt ?? 0).getTime();
+      if (Number.isNaN(ts)) return undefined;
+      return Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
+    } catch {
+      return undefined;
+    }
   }, [documents]);
   const patientAge = useMemo(() => {
     const bd = summary?.birthDate ?? user?.birthDate;
@@ -145,22 +157,58 @@ export default function PatientRecordScreen() {
   });
 
   const load = useCallback(async (withFeedback = false) => {
+    setError(false);
     try {
-      setError(false);
       const [summaryData, encountersData, documentsData] = await Promise.all([
         fetchMyPatientSummary(),
         fetchMyEncounters().catch(() => [] as EncounterSummaryDto[]),
         fetchMyDocuments().catch(() => [] as MedicalDocumentSummaryDto[]),
       ]);
-      setSummary(summaryData);
-      setEncounters(encountersData);
-      setDocuments(documentsData);
+      // Normalização defensiva: garante estrutura válida para evitar crashes
+      let safeSummary: PatientSummaryDto | null = null;
+      try {
+        safeSummary = summaryData && typeof summaryData === 'object'
+          ? {
+              ...summaryData,
+              id: String(summaryData.id ?? ''),
+              name: summaryData.name && typeof summaryData.name === 'object'
+                ? { ...summaryData.name, full: String(summaryData.name?.full ?? '') }
+                : { full: '' },
+              identifier: summaryData.identifier && typeof summaryData.identifier === 'object'
+                ? { ...summaryData.identifier, cpf: String(summaryData.identifier?.cpf ?? '') }
+                : { cpf: '' },
+              stats: summaryData.stats && typeof summaryData.stats === 'object'
+                ? {
+                    totalRequests: Number(summaryData.stats.totalRequests) || 0,
+                    totalPrescriptions: Number(summaryData.stats.totalPrescriptions) || 0,
+                    totalExams: Number(summaryData.stats.totalExams) || 0,
+                    totalConsultations: Number(summaryData.stats.totalConsultations) || 0,
+                    lastConsultationDate: summaryData.stats.lastConsultationDate ?? null,
+                    lastConsultationDaysAgo: summaryData.stats.lastConsultationDaysAgo ?? null,
+                  }
+                : { totalRequests: 0, totalPrescriptions: 0, totalExams: 0, totalConsultations: 0, lastConsultationDate: null, lastConsultationDaysAgo: null },
+              medications: Array.isArray(summaryData.medications)
+                ? summaryData.medications.map((m) => String(m ?? '').trim()).filter(Boolean)
+                : [],
+              exams: Array.isArray(summaryData.exams)
+                ? summaryData.exams.map((e) => String(e ?? '').trim()).filter(Boolean)
+                : [],
+            }
+          : null;
+      } catch {
+        safeSummary = null;
+      }
+      setSummary(safeSummary);
+      setEncounters(Array.isArray(encountersData) ? encountersData : []);
+      setDocuments(Array.isArray(documentsData) ? documentsData : []);
       if (withFeedback) {
         showToast({ message: 'Prontuário atualizado', type: 'success' });
       }
     } catch {
       setError(true);
       setSummary(null);
+      setEncounters([]);
+      setDocuments([]);
       if (withFeedback) {
         showToast({ message: 'Não foi possível atualizar o prontuário', type: 'error' });
       }
@@ -260,7 +308,7 @@ export default function PatientRecordScreen() {
                   {firstName}
                 </Text>
                 <Text style={s.headerSubtitle} numberOfLines={2}>
-                  Resumo dos seus atendimentos, receitas e exames no RenoveJá+
+                  Atendimentos, receitas e exames
                 </Text>
               </View>
               <View style={s.avatarCircle}>
@@ -357,17 +405,24 @@ function SummaryTab({
         />
       </View>
 
-      {summary?.stats?.lastConsultationDate && (
-        <View style={s.lastConsultWrap}>
-          <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
-          <Text style={s.lastConsultText}>
-            Última consulta:{' '}
-            {new Date(summary.stats.lastConsultationDate).toLocaleDateString('pt-BR')}
-            {summary.stats.lastConsultationDaysAgo != null &&
-              ` · há ${summary.stats.lastConsultationDaysAgo} dia(s)`}
-          </Text>
-        </View>
-      )}
+      {summary?.stats?.lastConsultationDate && (() => {
+        try {
+          const d = new Date(summary!.stats!.lastConsultationDate!);
+          if (Number.isNaN(d.getTime())) return null;
+          return (
+            <View style={s.lastConsultWrap}>
+              <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
+              <Text style={s.lastConsultText}>
+                Última consulta: {d.toLocaleDateString('pt-BR')}
+                {summary!.stats!.lastConsultationDaysAgo != null &&
+                  ` · há ${summary!.stats!.lastConsultationDaysAgo} dia(s)`}
+              </Text>
+            </View>
+          );
+        } catch {
+          return null;
+        }
+      })()}
 
       <View style={s.sectionCard}>
         <View style={s.sectionHeader}>
@@ -379,12 +434,12 @@ function SummaryTab({
             <Text style={s.sectionHint}>Extraídos das suas receitas emitidas</Text>
           </View>
         </View>
-        {summary?.medications?.length ? (
+        {(summary?.medications?.length ?? 0) > 0 ? (
           <View style={s.listWrap}>
-            {summary.medications.map((m, idx) => (
-              <View key={idx} style={s.listItem}>
+            {(summary?.medications ?? []).map((m, idx) => (
+              <View key={`med-${idx}`} style={s.listItem}>
                 <View style={[s.listDot, { backgroundColor: '#EC4899' }]} />
-                <Text style={s.listItemText}>{m}</Text>
+                <Text style={s.listItemText}>{String(m ?? '')}</Text>
               </View>
             ))}
           </View>
@@ -408,12 +463,12 @@ function SummaryTab({
             <Text style={s.sectionHint}>Solicitados pelo app</Text>
           </View>
         </View>
-        {summary?.exams?.length ? (
+        {(summary?.exams?.length ?? 0) > 0 ? (
           <View style={s.listWrap}>
-            {summary.exams.map((e, idx) => (
-              <View key={idx} style={s.listItem}>
+            {(summary?.exams ?? []).map((e, idx) => (
+              <View key={`exam-${idx}`} style={s.listItem}>
                 <View style={[s.listDot, { backgroundColor: colors.info }]} />
-                <Text style={s.listItemText}>{e}</Text>
+                <Text style={s.listItemText}>{String(e ?? '')}</Text>
               </View>
             ))}
           </View>
@@ -534,7 +589,7 @@ function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummary
 
   return (
     <View style={s.docsContainer}>
-      {sorted.map((doc) => {
+      {sorted.map((doc, idx) => {
         const typeKey = (doc.documentType ?? '').toLowerCase();
         const typeMeta = DOC_TYPE_META[typeKey] ?? {
           icon: 'document-outline' as const,
@@ -550,7 +605,7 @@ function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummary
         };
 
         return (
-          <View key={doc.id ?? doc.createdAt ?? `doc-${doc.documentType}`} style={s.docCard}>
+          <View key={doc.id ?? `doc-${idx}`} style={s.docCard}>
             <View style={[s.docIconWrap, { backgroundColor: typeMeta.bg }]}>
               <Ionicons name={typeMeta.icon} size={20} color={typeMeta.color} />
             </View>

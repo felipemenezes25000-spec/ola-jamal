@@ -34,7 +34,7 @@ export function StatsCard({
         <Ionicons name={icon} size={22} color={resolvedIconColor} />
       </View>
       <Text style={styles.value}>{displayValue}</Text>
-      <Text style={styles.label} numberOfLines={2}>{label}</Text>
+      <Text style={styles.label} numberOfLines={2} ellipsizeMode="tail">{label}</Text>
     </>
   );
 
@@ -66,13 +66,14 @@ const createStyles = (
 ) => StyleSheet.create({
   card: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 85,
     backgroundColor: colors.surface,
     borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
     ...shadows.card,
     elevation: 2,
   },
@@ -94,6 +95,8 @@ const createStyles = (
     fontWeight: '800',
     color: colors.text,
     marginBottom: 4,
+    lineHeight: 28,
+    minHeight: 28,
   },
   label: {
     fontSize: 12,

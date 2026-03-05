@@ -1,5 +1,5 @@
 /**
- * triage.types.ts — Type system para o assistente de triagem Dra. Renova
+ * triage.types.ts — Type system para o assistente de triagem Dra. Renoveja
  *
  * Todas as interfaces e tipos usados pelo motor de regras, provider e UI.
  * Centralizado aqui para type-safety total.
@@ -126,7 +126,7 @@ export interface TriageInput {
 
 // ── Persisted state ─────────────────────────────────────────
 
-/** Posição da Dra. Renova: fixa no fundo ou flutuante em um canto */
+/** Posição da Dra. Renoveja: fixa no fundo ou flutuante em um canto */
 export type BannerPositionMode = 'fixed' | 'floating';
 
 /** Posição flutuante (x, y em px a partir do canto) */
@@ -148,7 +148,7 @@ export interface TriagePersistedState {
   homeVisitCount?: number;
   /** Se o InfoCard da home foi dismissado pelo usuário */
   homeInfoCardDismissed?: boolean;
-  /** Modo da Dra. Renova: fixa no fundo ou flutuante arrastável */
+  /** Modo da Dra. Renoveja: fixa no fundo ou flutuante arrastável */
   bannerPositionMode?: BannerPositionMode;
   /** Posição quando flutuante (persistida entre sessões) */
   bannerFloatingPosition?: BannerFloatingPosition;

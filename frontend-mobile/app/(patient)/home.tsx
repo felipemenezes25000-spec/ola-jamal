@@ -319,7 +319,7 @@ export default function PatientHome() {
                 <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.followUpTitle}>Dra. RenoveJa: seu proximo passo</Text>
+                <Text style={styles.followUpTitle}>Dra. Renoveja: seu próximo passo</Text>
                 <Text style={styles.followUpSubtitle}>{followUpAction.title}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -358,18 +358,6 @@ export default function PatientHome() {
           accessibilityLabel="Falar com um profissional de saúde. Acesse um profissional médico para: renovar receitas, solicitar exames ou consulta por teleatendimento."
         />
         <View style={styles.actionsColumn}>
-          <LargeActionCard
-            icon={
-              <View style={[styles.actionIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name="add-circle" size={24} color={colors.primary} />
-              </View>
-            }
-            title="Novo pedido"
-            description="Renovar receita, pedir exame ou consulta por vídeo. A Dra. RenoveJa te guia."
-            variant="primary"
-            onPress={() => router.push('/new-request' as any)}
-            accessibilityLabel="Iniciar novo pedido: renovar receita, exame ou consulta"
-          />
           <LargeActionCard
             icon={
               <View style={[styles.actionIconBox, { backgroundColor: colors.primarySoft }]}>

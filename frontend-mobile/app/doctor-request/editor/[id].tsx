@@ -792,7 +792,7 @@ export default function PrescriptionEditorScreen() {
               </View>
               <View style={st.aiDisclaimer}>
                 <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-                <Text style={st.aiDisclaimerText}>Dra. Renova leu a foto e sugeriu. Decisão final é sua.</Text>
+                <Text style={st.aiDisclaimerText}>Dra. Renoveja leu a foto e sugeriu. Decisão final é sua.</Text>
               </View>
               {suggestedFromAi.map((med, i) => (
                 <View key={`sug-${i}`} style={st.suggestionRow}>
@@ -910,7 +910,7 @@ export default function PrescriptionEditorScreen() {
             />
           </DoctorCard>
 
-          {/* Conduta médica (Dra. Renova) */}
+          {/* Conduta médica (Dra. Renoveja) */}
           <DoctorCard style={st.cardMargin}>
             <ConductSection
               value={conductNotes}

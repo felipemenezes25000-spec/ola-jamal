@@ -1,5 +1,5 @@
 /**
- * triageAnalytics.ts — Analytics dos eventos da Dra. Renova
+ * triageAnalytics.ts — Analytics dos eventos da Dra. Renoveja
  *
  * Fase 1: log estruturado em __DEV__
  * Fase 2: enviar para backend (POST /api/analytics/event)
