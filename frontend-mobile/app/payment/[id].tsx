@@ -22,6 +22,7 @@ import { formatBRL, formatTimeBR } from '../../lib/utils/format';
 import { PaymentResponseDto } from '../../types/database';
 import { PaymentHeader } from '../../components/payment/PaymentHeader';
 import { PaymentMethodSelection } from '../../components/payment/PaymentMethodSelection';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 type PayScreen = 'selection' | 'pix';
 
@@ -37,6 +38,9 @@ export default function PaymentScreen() {
   const [checkingNow, setCheckingNow] = useState(false);
   const [copied, setCopied] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [selectingPix, setSelectingPix] = useState(false);
+  const [navigatingToRequest, setNavigatingToRequest] = useState(false);
+  const { isConnected } = useNetworkStatus();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
   const paymentRef = useRef<PaymentResponseDto | null>(null);
@@ -116,6 +120,12 @@ export default function PaymentScreen() {
   };
 
   const handleSelectPix = async () => {
+    if (selectingPix) return;
+    if (isConnected === false) {
+      Alert.alert('Sem conexão', 'Conecte-se à internet para gerar o PIX.');
+      return;
+    }
+    setSelectingPix(true);
     setScreen('pix');
     try {
       if (payment) {
@@ -124,12 +134,19 @@ export default function PaymentScreen() {
       }
     } catch (e) {
       console.error('Error fetching PIX code:', e);
+      Alert.alert('Erro', 'Não foi possível gerar o código PIX agora. Tente novamente.');
+    } finally {
+      setSelectingPix(false);
     }
     startPolling();
   };
 
   const handleSelectCard = () => {
     if (!payment) return;
+    if (isConnected === false) {
+      Alert.alert('Sem conexão', 'Conecte-se à internet para continuar com cartão.');
+      return;
+    }
     router.push({ pathname: '/payment/card', params: { requestId: payment.requestId } });
   };
 
@@ -164,10 +181,13 @@ export default function PaymentScreen() {
 
   const handleCopyPix = async () => {
     const code = payment?.pixCopyPaste || pixCode;
-    if (code) {
+    if (!code) return;
+    try {
       await Clipboard.setStringAsync(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível copiar o código PIX.');
     }
   };
 
@@ -181,6 +201,10 @@ export default function PaymentScreen() {
 
   const handleCheckStatus = async () => {
     if (!payment?.requestId || checkingNow) return;
+    if (isConnected === false) {
+      Alert.alert('Sem conexão', 'Conecte-se à internet para verificar o pagamento.');
+      return;
+    }
     setCheckingNow(true);
     try {
       // Sincroniza com Mercado Pago (resolve caso webhook tenha falhado)
@@ -228,10 +252,17 @@ export default function PaymentScreen() {
       <SafeAreaView style={styles.container}>
         <PaymentHeader onBack={() => router.back()} />
         <ScrollView contentContainerStyle={styles.scroll}>
+          {isConnected === false && (
+            <View style={styles.offlineBanner}>
+              <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
+              <Text style={styles.offlineText}>Sem internet no momento. Algumas ações ficam indisponíveis.</Text>
+            </View>
+          )}
           <PaymentMethodSelection
             amount={payment?.amount ?? 0}
             onSelectPix={handleSelectPix}
             onSelectCard={handleSelectCard}
+            pixLoading={selectingPix}
           />
         </ScrollView>
       </SafeAreaView>
@@ -249,6 +280,12 @@ export default function PaymentScreen() {
       <PaymentHeader onBack={() => setScreen('selection')} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {isConnected === false && (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
+            <Text style={styles.offlineText}>Sem internet no momento. Algumas ações ficam indisponíveis.</Text>
+          </View>
+        )}
         {/* Estado de pagamento aprovado — botão funcional para ir ao pedido */}
         {isApproved && payment?.requestId ? (
           <View style={styles.approvedCard}>
@@ -258,12 +295,23 @@ export default function PaymentScreen() {
             <Text style={styles.approvedTitle}>Pagamento confirmado!</Text>
             <Text style={styles.approvedSubtitle}>Seu pagamento foi aprovado com sucesso.</Text>
             <TouchableOpacity
-              style={styles.approvedButton}
-              onPress={() => router.replace(`/request-detail/${payment.requestId}`)}
+              style={[styles.approvedButton, navigatingToRequest && styles.buttonDisabled]}
+              onPress={() => {
+                if (navigatingToRequest) return;
+                setNavigatingToRequest(true);
+                router.replace(`/request-detail/${payment.requestId}`);
+              }}
+              disabled={navigatingToRequest}
               activeOpacity={0.8}
             >
-              <Text style={styles.approvedButtonText}>Ver Pedido</Text>
-              <Ionicons name="arrow-forward" size={20} color={colors.white} />
+              {navigatingToRequest ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <>
+                  <Text style={styles.approvedButtonText}>Ver Pedido</Text>
+                  <Ionicons name="arrow-forward" size={20} color={colors.white} />
+                </>
+              )}
             </TouchableOpacity>
           </View>
         ) : (
@@ -328,7 +376,12 @@ export default function PaymentScreen() {
         </View>
 
         {/* Check button */}
-        <TouchableOpacity style={styles.checkButton} onPress={handleCheckStatus} disabled={checkingNow} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[styles.checkButton, (checkingNow || isConnected === false) && styles.buttonDisabled]}
+          onPress={handleCheckStatus}
+          disabled={checkingNow || isConnected === false}
+          activeOpacity={0.8}
+        >
           {checkingNow ? (
             <ActivityIndicator color={colors.white} />
           ) : (
@@ -362,6 +415,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+  offlineBanner: {
+    marginBottom: spacing.md,
+    backgroundColor: colors.warningLight,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  offlineText: { flex: 1, fontSize: 12, color: colors.textSecondary },
 
   // PIX
   pixCard: {
@@ -452,6 +518,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 4,
   },
   checkButtonText: { fontSize: 16, fontWeight: '700', color: colors.white },
+  buttonDisabled: { opacity: 0.6 },
   checkingText: {
     marginTop: spacing.sm,
     fontSize: 13,

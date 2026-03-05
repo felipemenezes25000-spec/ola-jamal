@@ -26,6 +26,7 @@ import { CompatibleImage } from '../../components/CompatibleImage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { evaluatePrescriptionCompleteness } from '../../lib/domain/assistantIntelligence';
 import { evaluateAssistantCompleteness } from '../../lib/api';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 const t = theme;
 const c = t.colors;
@@ -81,6 +82,7 @@ export default function NewPrescription() {
     imagesCount: images.length,
   });
   const [apiLoading, setApiLoading] = useState(false);
+  const { isConnected } = useNetworkStatus();
   const [apiResult, setApiResult] = useState<{
     score: number;
     doneCount: number;
@@ -170,6 +172,11 @@ export default function NewPrescription() {
   });
 
   const handleSubmit = async () => {
+    if (loading) return;
+    if (isConnected === false) {
+      Alert.alert('Sem conexão', 'Conecte-se à internet para enviar sua solicitação.');
+      return;
+    }
     if (completeness.missingRequired.length > 0) {
       Alert.alert(
         'Faltam itens para enviar',
@@ -219,6 +226,12 @@ export default function NewPrescription() {
         <ScrollView contentContainerStyle={[styles.body, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
           <AppHeader title="Renovação de Receita" />
           <StepIndicator current={currentStep} total={3} labels={['Tipo', 'Foto', 'Revisão']} />
+          {isConnected === false && (
+            <View style={styles.offlineBanner}>
+              <Ionicons name="cloud-offline-outline" size={16} color={c.status.warning} />
+              <Text style={styles.offlineText}>Você está offline. Não será possível enviar até reconectar.</Text>
+            </View>
+          )}
           <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
             <View style={styles.assistantHeader}>
               <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
@@ -354,7 +367,7 @@ export default function NewPrescription() {
             label: 'Enviar solicitação',
             onPress: handleSubmit,
             loading,
-            disabled: loading || images.length === 0,
+            disabled: loading || images.length === 0 || isConnected === false,
           }}
         />
       </View>
@@ -367,6 +380,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
+  offlineBanner: {
+    marginTop: s.md,
+    backgroundColor: c.status.warningLight,
+    borderWidth: 1,
+    borderColor: c.status.warning,
+    borderRadius: r.sm,
+    paddingVertical: s.sm,
+    paddingHorizontal: s.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.xs,
+  },
+  offlineText: { flex: 1, color: c.text.secondary, fontSize: 12 },
   sectionLabel: {
     ...typo.variants.overline,
     color: c.text.secondary,

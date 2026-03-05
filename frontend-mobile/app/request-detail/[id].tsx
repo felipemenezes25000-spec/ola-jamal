@@ -36,6 +36,7 @@ import { ObservationCard } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { getNextBestActionForRequest, type NextActionIntent } from '../../lib/domain/assistantIntelligence';
 import type { AssistantNextActionResponseData } from '../../lib/api';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 /** Texto expansível: mostra N linhas com "Ver mais" / "Ver menos". */
 function ExpandableText({ text, maxLines = 4, style }: { text: string; maxLines?: number; style?: any }) {
@@ -123,6 +124,8 @@ export default function RequestDetailScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [nextActionFromApi, setNextActionFromApi] = useState<AssistantNextActionResponseData | null>(null);
+  const [documentActionLoading, setDocumentActionLoading] = useState(false);
+  const { isConnected } = useNetworkStatus();
 
   const fetchIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -256,6 +259,10 @@ export default function RequestDetailScreen() {
 
   const handlePay = () => {
     if (payInFlightRef.current) return;
+    if (isConnected === false) {
+      Alert.alert('Sem conexão', 'Conecte-se à internet para continuar para o pagamento.');
+      return;
+    }
     payInFlightRef.current = true;
     try {
       if (!request) return;
@@ -285,7 +292,12 @@ export default function RequestDetailScreen() {
   };
 
   const handleDownload = async () => {
-    if (!request?.signedDocumentUrl) return;
+    if (!request?.signedDocumentUrl || documentActionLoading) return;
+    if (isConnected === false) {
+      Alert.alert('Sem conexão', 'Conecte-se à internet para baixar o documento.');
+      return;
+    }
+    setDocumentActionLoading(true);
     try {
       await markAsDeliveredIfSigned();
       // Tenta compartilhar/salvar o PDF usando Sharing API; fallback para browser
@@ -307,16 +319,25 @@ export default function RequestDetailScreen() {
       } catch {
         Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
       }
+    } finally {
+      setDocumentActionLoading(false);
     }
   };
 
   const handleViewDocument = async () => {
-    if (!request?.signedDocumentUrl) return;
+    if (!request?.signedDocumentUrl || documentActionLoading) return;
+    if (isConnected === false) {
+      Alert.alert('Sem conexão', 'Conecte-se à internet para visualizar o documento.');
+      return;
+    }
+    setDocumentActionLoading(true);
     try {
       await markAsDeliveredIfSigned();
       await WebBrowser.openBrowserAsync(request.signedDocumentUrl);
     } catch (e: unknown) {
       Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível abrir o documento.');
+    } finally {
+      setDocumentActionLoading(false);
     }
   };
 
@@ -463,6 +484,13 @@ export default function RequestDetailScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {isConnected === false && (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
+            <Text style={styles.offlineText}>Você está offline. Algumas ações estão temporariamente indisponíveis.</Text>
+          </View>
+        )}
+
         {/* Status Tracker */}
         <FormSection
           title="Status do pedido"
@@ -493,6 +521,8 @@ export default function RequestDetailScreen() {
               title={nextActionQuickCta.label}
               icon={nextAction.intent === 'pay' ? 'card' : 'download'}
               onPress={nextActionQuickCta.onPress}
+              loading={documentActionLoading || actionLoading}
+              disabled={documentActionLoading || actionLoading}
               style={{ marginTop: spacing.sm }}
             />
           ) : null}
@@ -683,12 +713,15 @@ export default function RequestDetailScreen() {
                 title={request.requestType === 'exam' ? 'Baixar Pedido de Exame' : request.requestType === 'consultation' ? 'Baixar Documento' : 'Baixar Receita'}
                 icon="download"
                 onPress={handleDownload}
+                loading={documentActionLoading}
+                disabled={documentActionLoading}
               />
               <AppButton
                 title="Visualizar"
                 icon="eye"
                 variant="outline"
                 onPress={handleViewDocument}
+                disabled={documentActionLoading}
               />
             </>
           )}
@@ -773,6 +806,19 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   scroll: { padding: spacing.md, paddingTop: spacing.lg },
+  offlineBanner: {
+    marginBottom: spacing.md,
+    backgroundColor: colors.warningLight,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  offlineText: { flex: 1, fontSize: 12, color: colors.textSecondary },
   formSection: { marginHorizontal: -spacing.md },
   formSectionFirst: { marginTop: 0 },
   formSectionContent: {
