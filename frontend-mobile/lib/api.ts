@@ -32,6 +32,39 @@ export async function changePassword(currentPassword: string, newPassword: strin
   });
 }
 
+export interface UserDto {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  cpf: string | null;
+  birthDate: string | null;
+  avatarUrl: string | null;
+  role: string;
+  profileComplete: boolean;
+  createdAt: string;
+  updatedAt: string;
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  complement?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+}
+
+export async function updateAvatar(uri: string, filename?: string): Promise<UserDto> {
+  const formData = new FormData();
+  const name = filename ?? uri.split('/').pop() ?? 'avatar.jpg';
+  const type = name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+  formData.append('avatar', {
+    uri,
+    name,
+    type,
+  } as unknown as Blob);
+  return apiClient.patchMultipart<UserDto>('/api/auth/avatar', formData);
+}
+
 // ============================================
 // REQUEST MANAGEMENT
 // ============================================

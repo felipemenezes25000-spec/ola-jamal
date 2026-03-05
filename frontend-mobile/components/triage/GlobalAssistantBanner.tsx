@@ -40,6 +40,8 @@ function shouldHideBanner(
   if (pathname === '/' || pathname === '/index' || pathname === '') return true;
   // Já na tela de ajuda — evita empilhar infinitas instâncias ao tocar no banner
   if (pathname.includes('help-faq')) return true;
+  // Notificações/Alertas — ícone flutuante sobrepõe os cards de notificação
+  if (pathname.includes('notifications')) return true;
   // Painel do médico e rotas médico: doctor-request, doctor-patient, doctor-patient-summary, certificate
   if (pathname.includes('(doctor)') || pathname.includes('doctor-') || pathname.includes('certificate/')) return true;
   return false;

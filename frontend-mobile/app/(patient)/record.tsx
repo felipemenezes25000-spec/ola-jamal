@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -56,9 +56,9 @@ const MONTHS_PT = [
   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ];
 
-function formatDatePt(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
+function formatDatePt(iso: string | Date | null | undefined): string {
+  if (iso == null) return '—';
+  const d = iso instanceof Date ? iso : new Date(String(iso));
   if (Number.isNaN(d.getTime())) return '—';
   const day = String(d.getDate()).padStart(2, '0');
   const month = MONTHS_PT[d.getMonth()] ?? '?';
@@ -73,6 +73,10 @@ const ENCOUNTER_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; col
   prescription: { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
   exame: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
   exam: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+  // EncounterType enum (backend): 1=Teleconsultation, 2=PrescriptionRenewal, 3=ExamOrder
+  '1': { icon: 'videocam', color: colors.info, bg: colors.infoLight, label: 'Teleconsulta' },
+  '2': { icon: 'refresh', color: colors.success, bg: colors.successLight, label: 'Renovação' },
+  '3': { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
 };
 
 const DOC_TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> = {
@@ -80,6 +84,11 @@ const DOC_TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; colo
   exam: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
   report: { icon: 'document-text', color: colors.info, bg: colors.infoLight, label: 'Laudo' },
   atestado: { icon: 'ribbon', color: colors.warning, bg: colors.warningLight, label: 'Atestado' },
+  exam_order: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+  // DocumentType enum (backend): 1=Prescription, 2=ExamOrder, 3=MedicalReport
+  '1': { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
+  '2': { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+  '3': { icon: 'document-text', color: colors.info, bg: colors.infoLight, label: 'Laudo' },
 };
 
 const DOC_STATUS_META: Record<string, { color: string; bg: string; label: string }> = {
@@ -105,10 +114,12 @@ export default function PatientRecordScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
 
+  const cancelledRef = useRef(false);
+
   // Dados para sugestões proativas da Dra. Renoveja
   const lastPrescriptionDaysAgo = useMemo(() => {
     try {
-      const rxDocs = (documents ?? []).filter((d) => (d?.documentType?.toLowerCase() ?? '') === 'prescription' && d?.signedAt);
+      const rxDocs = (documents ?? []).filter((d) => String(d?.documentType ?? '').toLowerCase() === 'prescription' && d?.signedAt);
       if (rxDocs.length === 0) return undefined;
       const last = rxDocs.sort((a, b) => (new Date(b.signedAt ?? 0).getTime()) - (new Date(a.signedAt ?? 0).getTime()))[0];
       const ts = new Date(last?.signedAt ?? 0).getTime();
@@ -120,10 +131,10 @@ export default function PatientRecordScreen() {
   }, [documents]);
   const lastExamDaysAgo = useMemo(() => {
     try {
-      const docType = (t: string | null | undefined) => (t?.toLowerCase() ?? '');
+      const docType = (t: string | number | null | undefined) => String(t ?? '').toLowerCase();
       const examDocs = (documents ?? []).filter((d) => {
         const t = docType(d?.documentType);
-        return (t === 'exam' || t === 'exam_order') && d?.signedAt;
+        return (t === 'exam' || t === 'exam_order' || t === '2') && d?.signedAt;
       });
       if (examDocs.length === 0) return undefined;
       const last = examDocs.sort((a, b) => (new Date(b.signedAt ?? 0).getTime()) - (new Date(a.signedAt ?? 0).getTime()))[0];
@@ -157,6 +168,7 @@ export default function PatientRecordScreen() {
   });
 
   const load = useCallback(async (withFeedback = false) => {
+    cancelledRef.current = false;
     setError(false);
     try {
       const [summaryData, encountersData, documentsData] = await Promise.all([
@@ -164,6 +176,7 @@ export default function PatientRecordScreen() {
         fetchMyEncounters().catch(() => [] as EncounterSummaryDto[]),
         fetchMyDocuments().catch(() => [] as MedicalDocumentSummaryDto[]),
       ]);
+      if (cancelledRef.current) return;
       // Normalização defensiva: garante estrutura válida para evitar crashes
       let safeSummary: PatientSummaryDto | null = null;
       try {
@@ -198,13 +211,38 @@ export default function PatientRecordScreen() {
       } catch {
         safeSummary = null;
       }
+      if (cancelledRef.current) return;
       setSummary(safeSummary);
-      setEncounters(Array.isArray(encountersData) ? encountersData : []);
-      setDocuments(Array.isArray(documentsData) ? documentsData : []);
+      const safeEncounters = Array.isArray(encountersData)
+        ? encountersData
+            .filter((e): e is EncounterSummaryDto => e != null && typeof e === 'object')
+            .map((e) => ({
+              id: String(e?.id ?? ''),
+              type: e?.type ?? '',
+              startedAt: e?.startedAt != null ? (typeof e.startedAt === 'string' ? e.startedAt : new Date(e.startedAt).toISOString()) : '',
+              finishedAt: e?.finishedAt ?? null,
+              mainIcd10Code: e?.mainIcd10Code ?? null,
+            }))
+        : [];
+      setEncounters(safeEncounters);
+      const safeDocuments = Array.isArray(documentsData)
+        ? documentsData
+            .filter((d): d is MedicalDocumentSummaryDto => d != null && typeof d === 'object')
+            .map((d) => ({
+              id: String(d?.id ?? ''),
+              documentType: String(d?.documentType ?? ''),
+              status: String(d?.status ?? 'draft'),
+              createdAt: d?.createdAt != null ? (typeof d.createdAt === 'string' ? d.createdAt : new Date(d.createdAt).toISOString()) : '',
+              signedAt: d?.signedAt != null ? (typeof d.signedAt === 'string' ? d.signedAt : new Date(d.signedAt).toISOString()) : null,
+              encounterId: d?.encounterId != null ? String(d.encounterId) : null,
+            }))
+        : [];
+      setDocuments(safeDocuments);
       if (withFeedback) {
         showToast({ message: 'Prontuário atualizado', type: 'success' });
       }
     } catch {
+      if (cancelledRef.current) return;
       setError(true);
       setSummary(null);
       setEncounters([]);
@@ -213,14 +251,19 @@ export default function PatientRecordScreen() {
         showToast({ message: 'Não foi possível atualizar o prontuário', type: 'error' });
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!cancelledRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       load();
+      return () => {
+        cancelledRef.current = true;
+      };
     }, [load])
   );
 
@@ -239,53 +282,56 @@ export default function PatientRecordScreen() {
     .join('');
 
   const filteredEncounters = useMemo(() => {
-    if (activeFilter === 'todos') return encounters;
+    const valid = (encounters ?? []).filter((e): e is EncounterSummaryDto => e != null && typeof e === 'object');
+    if (activeFilter === 'todos') return valid;
     const mapping: Record<FilterChip, string[]> = {
       todos: [],
-      receitas: ['prescription', 'renovacao'],
-      exames: ['exam', 'exame'],
-      consultas: ['teleconsulta', 'consultation'],
+      receitas: ['prescription', 'renovacao', '2'],
+      exames: ['exam', 'exame', '3'],
+      consultas: ['teleconsulta', 'consultation', '1'],
     };
     const allowed = mapping[activeFilter];
-    return encounters.filter((e) => allowed.includes((e.type ?? '').toLowerCase()));
+    return valid.filter((e) => allowed.includes(String(e?.type ?? '').toLowerCase()));
   }, [encounters, activeFilter]);
 
   const filteredDocuments = useMemo(() => {
-    if (activeFilter === 'todos') return documents;
+    const valid = (documents ?? []).filter((d): d is MedicalDocumentSummaryDto => d != null && typeof d === 'object');
+    if (activeFilter === 'todos') return valid;
     const mapping: Record<FilterChip, string[]> = {
       todos: [],
-      receitas: ['prescription'],
-      exames: ['exam'],
-      consultas: ['report'],
+      receitas: ['prescription', '1'],
+      exames: ['exam', 'exam_order', '2'],
+      consultas: ['report', '3'],
     };
     const allowed = mapping[activeFilter];
-    return documents.filter((d) => allowed.includes((d.documentType ?? '').toLowerCase()));
+    return valid.filter((d) => allowed.includes(String(d?.documentType ?? '').toLowerCase()));
   }, [documents, activeFilter]);
 
   return (
-    <View style={s.container}>
-      {loading ? (
-        <View style={s.loadingWrap}>
-          <SkeletonList count={5} />
-        </View>
-      ) : error ? (
-        <View style={s.errorWrap}>
-          <AppEmptyState
-            icon="alert-circle-outline"
-            title="Não foi possível carregar"
-            subtitle="Verifique sua conexão e tente novamente"
-          />
-          <Pressable style={s.retryBtn} onPress={() => load()}>
-            <Text style={s.retryText}>Tentar novamente</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ErrorBoundary>
-        <FadeIn visible={!loading} {...motionTokens.fade.patientRecord}>
+    <ErrorBoundary>
+      <View style={s.container}>
+        {loading ? (
+          <View style={s.loadingWrap}>
+            <SkeletonList count={5} />
+          </View>
+        ) : error ? (
+          <View style={s.errorWrap}>
+            <AppEmptyState
+              icon="alert-circle-outline"
+              title="Não foi possível carregar"
+              subtitle="Verifique sua conexão e tente novamente"
+            />
+            <Pressable style={s.retryBtn} onPress={() => load()}>
+              <Text style={s.retryText}>Tentar novamente</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FadeIn visible={!loading} {...motionTokens.fade.patientRecord}>
         <ScrollView
           style={s.container}
           contentContainerStyle={{ paddingBottom: listPadding }}
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -356,10 +402,10 @@ export default function PatientRecordScreen() {
             </Text>
           </View>
         </ScrollView>
-        </FadeIn>
-        </ErrorBoundary>
-      )}
-    </View>
+          </FadeIn>
+        )}
+      </View>
+    </ErrorBoundary>
   );
 }
 
@@ -501,7 +547,8 @@ function SummaryTab({
 }
 
 function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
-  if (!encounters.length) {
+  const validEncounters = (encounters ?? []).filter((e): e is EncounterSummaryDto => e != null && typeof e === 'object');
+  if (!validEncounters.length) {
     return (
       <View style={s.tabEmptyWrap}>
         <AppEmptyState
@@ -513,24 +560,28 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
     );
   }
 
-  const sorted = [...encounters].sort(
-    (a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime()
-  );
+  const sorted = [...validEncounters].sort((a, b) => {
+    const ta = new Date(a?.startedAt ?? 0).getTime();
+    const tb = new Date(b?.startedAt ?? 0).getTime();
+    if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
+    return tb - ta;
+  });
 
   return (
     <View style={s.timelineContainer}>
       {sorted.map((enc, idx) => {
-        const typeKey = (enc.type ?? '').toLowerCase();
+        const typeKey = String(enc?.type ?? '').toLowerCase();
         const meta = ENCOUNTER_META[typeKey] ?? {
           icon: 'ellipse' as const,
           color: colors.textMuted,
           bg: colors.surfaceSecondary,
-          label: enc.type,
+          label: String(enc?.type ?? ''),
         };
         const isLast = idx === sorted.length - 1;
+        const encId = enc?.id != null ? String(enc.id) : `enc-${idx}`;
 
         return (
-          <View key={enc.id ?? `enc-${idx}`} style={s.timelineRow}>
+          <View key={encId} style={s.timelineRow}>
             <View style={s.timelineLineCol}>
               <View style={[s.timelineDot, { backgroundColor: meta.color }]}>
                 <Ionicons name={meta.icon} size={14} color={colors.white} />
@@ -544,9 +595,9 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
                     {meta.label}
                   </Text>
                 </View>
-                <Text style={s.timelineDate}>{formatDatePt(enc.startedAt)}</Text>
+                <Text style={s.timelineDate}>{formatDatePt(enc?.startedAt)}</Text>
               </View>
-              {enc.mainIcd10Code && (
+              {enc?.mainIcd10Code && (
                 <Text style={s.timelineDescription} numberOfLines={2}>
                   {enc.mainIcd10Code}
                 </Text>
@@ -555,11 +606,11 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
                 <View
                   style={[
                     s.timelineStatusDot,
-                    { backgroundColor: enc.finishedAt ? colors.success : colors.warning },
+                    { backgroundColor: enc?.finishedAt ? colors.success : colors.warning },
                   ]}
                 />
                 <Text style={s.timelineStatusText}>
-                  {enc.finishedAt ? 'Concluído' : 'Em andamento'}
+                  {enc?.finishedAt ? 'Concluído' : 'Em andamento'}
                 </Text>
               </View>
             </View>
@@ -590,18 +641,18 @@ function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummary
   return (
     <View style={s.docsContainer}>
       {sorted.map((doc, idx) => {
-        const typeKey = (doc.documentType ?? '').toLowerCase();
+        const typeKey = String(doc.documentType ?? '').toLowerCase();
         const typeMeta = DOC_TYPE_META[typeKey] ?? {
           icon: 'document-outline' as const,
           color: colors.textMuted,
           bg: colors.surfaceSecondary,
-          label: doc.documentType ?? 'Documento',
+          label: String(doc.documentType ?? 'Documento'),
         };
-        const statusKey = (doc.status ?? '').toLowerCase();
+        const statusKey = String(doc.status ?? '').toLowerCase();
         const statusMeta = DOC_STATUS_META[statusKey] ?? {
           color: colors.textMuted,
           bg: colors.surfaceSecondary,
-          label: doc.status,
+          label: String(doc.status ?? 'Documento'),
         };
 
         return (

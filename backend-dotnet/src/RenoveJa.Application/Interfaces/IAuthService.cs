@@ -31,4 +31,6 @@ public interface IAuthService
     Task ResetPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default);
     /// <summary>Altera a senha do usuário logado (requer senha atual).</summary>
     Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default);
+    /// <summary>Atualiza o avatar do usuário (upload de foto).</summary>
+    Task<UserDto> UpdateAvatarAsync(Guid userId, Stream fileStream, string contentType, string fileName, CancellationToken cancellationToken = default);
 }

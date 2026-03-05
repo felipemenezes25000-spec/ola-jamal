@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,55 +9,22 @@ import {
   Platform,
   TouchableOpacity,
   InteractionManager,
-  TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
+import { colors, typography, gradients, doctorDS } from '../../lib/themeDoctor';
 const pad = doctorDS.screenPaddingHorizontal;
 import { useAuth } from '../../contexts/AuthContext';
-import { updateDoctorProfile } from '../../lib/api';
-import { showToast } from '../../components/ui/Toast';
-import { fetchAddressByCep } from '../../lib/viacep';
 import { haptics } from '../../lib/haptics';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { motionTokens } from '../../lib/ui/motion';
 
-function formatCep(value: string) {
-  const d = (value || '').replace(/\D/g, '').slice(0, 8);
-  if (d.length <= 5) return d;
-  return `${d.slice(0, 5)}-${d.slice(5)}`;
-}
-
 export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, doctorProfile: doctor, signOut, refreshDoctorProfile } = useAuth();
-  const [professionalCep, setProfessionalCep] = useState('');
-  const [professionalStreet, setProfessionalStreet] = useState('');
-  const [professionalNumber, setProfessionalNumber] = useState('');
-  const [professionalNeighborhood, setProfessionalNeighborhood] = useState('');
-  const [professionalComplement, setProfessionalComplement] = useState('');
-  const [professionalCity, setProfessionalCity] = useState('');
-  const [professionalState, setProfessionalState] = useState('');
-  const [professionalPhone, setProfessionalPhone] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (doctor) {
-      setProfessionalCep(doctor.professionalPostalCode ? formatCep(doctor.professionalPostalCode) : '');
-      setProfessionalStreet(doctor.professionalStreet ?? '');
-      setProfessionalNumber(doctor.professionalNumber ?? '');
-      setProfessionalNeighborhood(doctor.professionalNeighborhood ?? '');
-      setProfessionalComplement(doctor.professionalComplement ?? '');
-      setProfessionalCity(doctor.professionalCity ?? '');
-      setProfessionalState(doctor.professionalState ?? '');
-      setProfessionalPhone(doctor.professionalPhone ?? '');
-    }
-  }, [doctor]);
+  const { user, doctorProfile: doctor, signOut } = useAuth();
 
   const doLogout = () => {
     signOut()
@@ -90,55 +57,6 @@ export default function DoctorProfile() {
   const initials = user?.name
     ? user.name.split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('')
     : '?';
-
-  const lookupProfessionalCep = async () => {
-    const digits = professionalCep.replace(/\D/g, '');
-    if (digits.length !== 8) return;
-    try {
-      const result = await fetchAddressByCep(digits);
-      setProfessionalStreet((prev) => result.street || prev);
-      setProfessionalNeighborhood((prev) => result.neighborhood || prev);
-      setProfessionalCity((prev) => result.city || prev);
-      setProfessionalState((prev) => result.state || prev);
-    } catch (e: unknown) {
-      Alert.alert('CEP', (e as Error)?.message ?? 'Não foi possível buscar o CEP.');
-    }
-  };
-
-  const handleProfessionalCepChange = (text: string) => {
-    setProfessionalCep(formatCep(text));
-    const d = text.replace(/\D/g, '');
-    if (d.length === 8) {
-      fetchAddressByCep(d).then((result) => {
-        setProfessionalStreet((prev) => result.street || prev);
-        setProfessionalNeighborhood((prev) => result.neighborhood || prev);
-        setProfessionalCity((prev) => result.city || prev);
-        setProfessionalState((prev) => result.state || prev);
-      }).catch(() => {});
-    }
-  };
-
-  const saveRecipeData = async () => {
-    setSaving(true);
-    try {
-      await updateDoctorProfile({
-        professionalPostalCode: professionalCep.replace(/\D/g, '').length === 8 ? professionalCep.replace(/\D/g, '') : null,
-        professionalStreet: professionalStreet.trim() || null,
-        professionalNumber: professionalNumber.trim() || null,
-        professionalNeighborhood: professionalNeighborhood.trim() || null,
-        professionalComplement: professionalComplement.trim() || null,
-        professionalCity: professionalCity.trim() || null,
-        professionalState: professionalState.trim().toUpperCase().slice(0, 2) || null,
-        professionalPhone: professionalPhone.trim() || null,
-      });
-      await refreshDoctorProfile();
-      showToast({ message: 'Dados para receita salvos.', type: 'success' });
-    } catch (e: unknown) {
-      showToast({ message: (e as Error)?.message ?? 'Erro ao salvar.', type: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const menuSections = [
     {
@@ -188,102 +106,6 @@ export default function DoctorProfile() {
       </LinearGradient>
 
       <FadeIn visible {...motionTokens.fade.doctorSection} delay={40} fill={false}>
-      {/* Dados para assinar receitas */}
-      <View style={styles.recipeDataCard}>
-        <Text style={styles.recipeDataTitle}>DADOS PARA ASSINAR RECEITAS</Text>
-        <Text style={styles.recipeDataHint}>
-          Endereço e telefone profissional são obrigatórios para receita simples (CFM). Informe o CEP para preencher automaticamente.
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="CEP"
-          placeholderTextColor={colors.textMuted}
-          value={professionalCep}
-          onChangeText={handleProfessionalCepChange}
-          onBlur={lookupProfessionalCep}
-          keyboardType="numeric"
-          editable={!saving}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Rua"
-          placeholderTextColor={colors.textMuted}
-          value={professionalStreet}
-          onChangeText={setProfessionalStreet}
-          editable={!saving}
-        />
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[styles.input, styles.inputSmall]}
-            placeholder="Número"
-            placeholderTextColor={colors.textMuted}
-            value={professionalNumber}
-            onChangeText={setProfessionalNumber}
-            keyboardType="numeric"
-            editable={!saving}
-          />
-          <TextInput
-            style={[styles.input, styles.inputFlex]}
-            placeholder="Complemento"
-            placeholderTextColor={colors.textMuted}
-            value={professionalComplement}
-            onChangeText={setProfessionalComplement}
-            editable={!saving}
-          />
-        </View>
-        <TextInput
-          style={styles.input}
-          placeholder="Bairro"
-          placeholderTextColor={colors.textMuted}
-          value={professionalNeighborhood}
-          onChangeText={setProfessionalNeighborhood}
-          editable={!saving}
-        />
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[styles.input, styles.inputFlex]}
-            placeholder="Cidade"
-            placeholderTextColor={colors.textMuted}
-            value={professionalCity}
-            onChangeText={setProfessionalCity}
-            editable={!saving}
-          />
-          <TextInput
-            style={[styles.input, styles.inputUf]}
-            placeholder="UF"
-            placeholderTextColor={colors.textMuted}
-            value={professionalState}
-            onChangeText={(t) => setProfessionalState(t.trim().toUpperCase().slice(0, 2))}
-            maxLength={2}
-            editable={!saving}
-          />
-        </View>
-        <TextInput
-          style={styles.input}
-          placeholder="Telefone profissional"
-          placeholderTextColor={colors.textMuted}
-          value={professionalPhone}
-          onChangeText={setProfessionalPhone}
-          keyboardType="phone-pad"
-          editable={!saving}
-        />
-        <TouchableOpacity
-          style={[styles.saveRecipeDataBtn, saving && styles.saveRecipeDataBtnDisabled]}
-          onPress={() => {
-            haptics.selection();
-            void saveRecipeData();
-          }}
-          disabled={saving}
-          activeOpacity={0.8}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Text style={styles.saveRecipeDataBtnText}>SALVAR</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
       {/* Menu Sections */}
       {menuSections.map((section) => (
         <View key={section.title} style={styles.menuSection}>
@@ -401,69 +223,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
     letterSpacing: 0.3,
-  },
-
-  recipeDataCard: {
-    marginTop: 14,
-    marginHorizontal: pad,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: spacing.md,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  recipeDataTitle: {
-    fontSize: 12,
-    fontFamily: typography.fontFamily.bold,
-    fontWeight: '700',
-    color: colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 6,
-  },
-  recipeDataHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 12,
-    lineHeight: 18,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: colors.text,
-    marginBottom: 10,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  inputSmall: { width: 90 },
-  inputFlex: { flex: 1 },
-  inputUf: { width: 56 },
-  saveRecipeDataBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-  },
-  saveRecipeDataBtnDisabled: {
-    opacity: 0.7,
-  },
-  saveRecipeDataBtnText: {
-    fontSize: 13,
-    fontFamily: typography.fontFamily.bold,
-    fontWeight: '700',
-    color: colors.white,
-    letterSpacing: 0.6,
   },
 
   menuSection: {

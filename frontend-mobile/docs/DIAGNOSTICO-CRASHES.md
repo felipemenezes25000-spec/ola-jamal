@@ -14,14 +14,16 @@
 | Problema | Correção |
 |----------|----------|
 | `summary?.stats.totalRequests` — crash se `stats` for undefined | `summary?.stats?.totalRequests` |
-| `enc.type.toLowerCase()` — crash se `type` for null | `(enc.type ?? '').toLowerCase()` |
-| `doc.documentType.toLowerCase()` — crash se null | `(doc.documentType ?? '').toLowerCase()` |
-| `doc.status.toLowerCase()` — crash se null | `(doc.status ?? '').toLowerCase()` |
+| `enc.type.toLowerCase()` — crash se `type` for null ou number | `String(enc.type ?? '').toLowerCase()` |
+| `doc.documentType.toLowerCase()` — crash se null ou number | `String(doc.documentType ?? '').toLowerCase()` |
+| `doc.status.toLowerCase()` — crash se null ou number | `String(doc.status ?? '').toLowerCase()` |
 | `formatDatePt(iso)` — crash com data inválida | Guard para `!iso` e `Number.isNaN(d.getTime())` |
 | `enc.startedAt` / `doc.createdAt` no sort — crash se null | `new Date(x ?? 0).getTime()` |
 | `enc.id` / `doc.id` como key — possível conflito | Fallback `enc.id ?? \`enc-${idx}\`` |
 | ScrollView horizontal aninhado no Android | `nestedScrollEnabled` |
-| Erro não capturado em render | `ErrorBoundary` envolvendo o conteúdo |
+| Erro não capturado em render | `ErrorBoundary` envolvendo toda a tela |
+| **State update após unmount** — crash ao fechar/sair da tela | `cancelledRef` + cleanup em `useFocusEffect`; checar `cancelledRef.current` antes de cada `setState` |
+| **filteredEncounters/filteredDocuments** — crash se `type`/`documentType` for number | `String(e.type ?? '').toLowerCase()` e mapeamento com valores enum ('1','2','3') |
 
 ### 2. Prontuário do Médico (`app/doctor-patient/[patientId].tsx`)
 

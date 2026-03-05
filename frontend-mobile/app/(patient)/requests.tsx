@@ -192,6 +192,7 @@ export default function PatientRequests() {
           setActiveFilter(value);
         }}
         disabled={loading}
+        scrollable
       />
 
       {loading && requests.length === 0 ? (

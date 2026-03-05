@@ -75,6 +75,39 @@ public class SupabaseStorageService : IStorageService
     }
 
     /// <inheritdoc />
+    public async Task<string> UploadAvatarAsync(
+        Stream content,
+        string fileName,
+        string contentType,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var extension = Path.GetExtension(fileName);
+        if (string.IsNullOrEmpty(extension))
+            extension = ".jpg";
+        var safeFileName = $"{Guid.NewGuid():N}{extension}";
+        var objectPath = $"avatars/{userId}/{safeFileName}";
+
+        var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{PrescriptionBucket}/{objectPath}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Add("apikey", _config.ServiceKey);
+        request.Headers.Add("Authorization", $"Bearer {_config.ServiceKey}");
+        request.Content = new StreamContent(content);
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"Avatar upload failed: {response.StatusCode}. {body}");
+        }
+
+        return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{PrescriptionBucket}/{objectPath}";
+    }
+
+    /// <inheritdoc />
     public async Task<StorageUploadResult> UploadAsync(
         string path,
         byte[] data,

@@ -236,9 +236,18 @@ public class ClinicalRecordService(
                 ? await medicalDocumentRepository.GetByPatientIdAsync(patient.Id, cancellationToken)
                 : new List<MedicalDocument>();
 
+            var requests = await requestService.GetUserRequestsAsync(userId, status: null, type: null, cancellationToken);
+            var requestsTotal = requests.Count;
+            var clinicalTotal = documents.Count + encounters.Count;
+
             if (documents.Count == 0 && encounters.Count == 0)
             {
-                return await BuildSummaryFromRequestsAsync(userId, user, cancellationToken);
+                return BuildSummaryFromRequests(userId, user, requests);
+            }
+
+            if (requestsTotal > clinicalTotal)
+            {
+                return BuildSummaryFromRequests(userId, user, requests);
             }
 
             var now = DateTime.UtcNow.Date;
@@ -312,12 +321,11 @@ public class ClinicalRecordService(
         }
     }
 
-    private async Task<PatientSummaryDto> BuildSummaryFromRequestsAsync(
+    private PatientSummaryDto BuildSummaryFromRequests(
         Guid userId,
         User user,
-        CancellationToken cancellationToken)
+        IReadOnlyList<Application.DTOs.Requests.RequestResponseDto> requests)
     {
-        var requests = await requestService.GetUserRequestsAsync(userId, status: null, type: null, cancellationToken);
         var now = DateTime.UtcNow;
 
         var totalRequests = requests.Count;
@@ -388,6 +396,15 @@ public class ClinicalRecordService(
         };
     }
 
+    private async Task<PatientSummaryDto> BuildSummaryFromRequestsAsync(
+        Guid userId,
+        User user,
+        CancellationToken cancellationToken)
+    {
+        var requests = await requestService.GetUserRequestsAsync(userId, status: null, type: null, cancellationToken);
+        return BuildSummaryFromRequests(userId, user, requests);
+    }
+
     public async Task<IReadOnlyList<EncounterSummaryDto>> GetEncountersByPatientAsync(
         Guid userId,
         int limit = 50,
@@ -395,24 +412,30 @@ public class ClinicalRecordService(
         CancellationToken cancellationToken = default)
     {
         var patient = await patientRepository.GetByUserIdAsync(userId, cancellationToken);
-        if (patient == null)
-            return Array.Empty<EncounterSummaryDto>();
+        List<EncounterSummaryDto> fromClinical = new();
 
-        var encounters = await encounterRepository.GetByPatientIdAsync(patient.Id, cancellationToken);
-        var ordered = encounters
-            .OrderByDescending(e => e.StartedAt)
-            .Skip(offset)
-            .Take(Math.Min(limit, 100))
-            .ToList();
-
-        return ordered.Select(e => new EncounterSummaryDto
+        if (patient != null)
         {
-            Id = e.Id,
-            Type = e.Type,
-            StartedAt = e.StartedAt,
-            FinishedAt = e.FinishedAt,
-            MainIcd10Code = e.MainIcd10Code
-        }).ToList();
+            var encounters = await encounterRepository.GetByPatientIdAsync(patient.Id, cancellationToken);
+            fromClinical = encounters
+                .OrderByDescending(e => e.StartedAt)
+                .Skip(offset)
+                .Take(Math.Min(limit, 100))
+                .Select(e => new EncounterSummaryDto
+                {
+                    Id = e.Id,
+                    Type = e.Type,
+                    StartedAt = e.StartedAt,
+                    FinishedAt = e.FinishedAt,
+                    MainIcd10Code = e.MainIcd10Code
+                })
+                .ToList();
+        }
+
+        if (fromClinical.Count > 0)
+            return fromClinical;
+
+        return await BuildEncountersFromRequestsAsync(userId, limit, offset, cancellationToken);
     }
 
     public async Task<IReadOnlyList<MedicalDocumentSummaryDto>> GetMedicalDocumentsByPatientAsync(
@@ -422,25 +445,117 @@ public class ClinicalRecordService(
         CancellationToken cancellationToken = default)
     {
         var patient = await patientRepository.GetByUserIdAsync(userId, cancellationToken);
-        if (patient == null)
-            return Array.Empty<MedicalDocumentSummaryDto>();
+        List<MedicalDocumentSummaryDto> fromClinical = new();
 
-        var documents = await medicalDocumentRepository.GetByPatientIdAsync(patient.Id, cancellationToken);
-        var ordered = documents
-            .OrderByDescending(d => d.CreatedAt)
+        if (patient != null)
+        {
+            var documents = await medicalDocumentRepository.GetByPatientIdAsync(patient.Id, cancellationToken);
+            fromClinical = documents
+                .OrderByDescending(d => d.CreatedAt)
+                .Skip(offset)
+                .Take(Math.Min(limit, 100))
+                .Select(d => new MedicalDocumentSummaryDto
+                {
+                    Id = d.Id,
+                    DocumentType = d.DocumentType,
+                    Status = d.Status.ToString().ToLowerInvariant(),
+                    CreatedAt = d.CreatedAt,
+                    SignedAt = d.SignedAt,
+                    EncounterId = d.EncounterId
+                })
+                .ToList();
+        }
+
+        if (fromClinical.Count > 0)
+            return fromClinical;
+
+        return await BuildDocumentsFromRequestsAsync(userId, limit, offset, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<EncounterSummaryDto>> BuildEncountersFromRequestsAsync(
+        Guid userId,
+        int limit,
+        int offset,
+        CancellationToken cancellationToken)
+    {
+        var requests = await requestService.GetUserRequestsAsync(userId, status: null, type: null, cancellationToken);
+        var ordered = requests
+            .OrderByDescending(r => r.CreatedAt)
             .Skip(offset)
             .Take(Math.Min(limit, 100))
             .ToList();
 
-        return ordered.Select(d => new MedicalDocumentSummaryDto
+        var result = new List<EncounterSummaryDto>();
+        foreach (var r in ordered)
         {
-            Id = d.Id,
-            DocumentType = d.DocumentType,
-            Status = d.Status.ToString().ToLowerInvariant(),
-            CreatedAt = d.CreatedAt,
-            SignedAt = d.SignedAt,
-            EncounterId = d.EncounterId
-        }).ToList();
+            var type = r.RequestType?.ToLowerInvariant() switch
+            {
+                "prescription" => EncounterType.PrescriptionRenewal,
+                "exam" => EncounterType.ExamOrder,
+                "consultation" => EncounterType.Teleconsultation,
+                _ => EncounterType.PrescriptionRenewal
+            };
+
+            var isFinished = string.Equals(r.Status, "signed", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Status, "delivered", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Status, "consultation_finished", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Status, "rejected", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Status, "cancelled", StringComparison.OrdinalIgnoreCase);
+
+            result.Add(new EncounterSummaryDto
+            {
+                Id = r.Id,
+                Type = type,
+                StartedAt = r.CreatedAt,
+                FinishedAt = isFinished ? (r.SignedAt ?? r.UpdatedAt) : null,
+                MainIcd10Code = null
+            });
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<MedicalDocumentSummaryDto>> BuildDocumentsFromRequestsAsync(
+        Guid userId,
+        int limit,
+        int offset,
+        CancellationToken cancellationToken)
+    {
+        var requests = await requestService.GetUserRequestsAsync(userId, status: null, type: null, cancellationToken);
+        var docRequests = requests
+            .Where(r => r.RequestType is "prescription" or "exam")
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip(offset)
+            .Take(Math.Min(limit, 100))
+            .ToList();
+
+        var result = new List<MedicalDocumentSummaryDto>();
+        foreach (var r in docRequests)
+        {
+            var docType = r.RequestType?.ToLowerInvariant() switch
+            {
+                "prescription" => DocumentType.Prescription,
+                "exam" => DocumentType.ExamOrder,
+                _ => DocumentType.Prescription
+            };
+
+            var status = string.Equals(r.Status, "signed", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Status, "delivered", StringComparison.OrdinalIgnoreCase)
+                ? "signed"
+                : "draft";
+
+            result.Add(new MedicalDocumentSummaryDto
+            {
+                Id = r.Id,
+                DocumentType = docType,
+                Status = status,
+                CreatedAt = r.CreatedAt,
+                SignedAt = r.SignedAt,
+                EncounterId = null
+            });
+        }
+
+        return result;
     }
 }
 

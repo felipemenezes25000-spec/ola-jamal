@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, shadows } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
@@ -22,13 +23,17 @@ import { useTriageEval } from '../../hooks/useTriageEval';
 import { haptics } from '../../lib/haptics';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { motionTokens } from '../../lib/ui/motion';
+import { updateAvatar } from '../../lib/api';
+import { showToast } from '../../components/ui/Toast';
+import { CompatibleImage } from '../../components/CompatibleImage';
 
 export default function PatientProfile() {
   const router = useRouter();
   useTriageEval({ context: 'profile', step: 'entry', role: 'patient' });
   const insets = useSafeAreaInsets();
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
 
   const doLogout = () => {
     setLogoutLoading(true);
@@ -64,6 +69,32 @@ export default function PatientProfile() {
     ? user.name.split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('')
     : '?';
 
+  const pickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para escolher sua foto.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const { uri } = result.assets[0];
+    setAvatarLoading(true);
+    try {
+      await updateAvatar(uri);
+      await refreshUser();
+      showToast({ message: 'Foto atualizada!', type: 'success' });
+    } catch (e: unknown) {
+      showToast({ message: (e as Error)?.message ?? 'Erro ao atualizar foto.', type: 'error' });
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
   const menuSections = [
     {
       title: 'Conta',
@@ -98,9 +129,33 @@ export default function PatientProfile() {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
+        <Pressable
+          style={({ pressed }) => [styles.avatarWrap, pressed && styles.avatarWrapPressed]}
+          onPress={() => {
+            haptics.selection();
+            void pickAvatar();
+          }}
+          disabled={avatarLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Alterar foto de perfil"
+        >
+          <View style={styles.avatarCircle}>
+            {user?.avatarUrl ? (
+              <CompatibleImage uri={user.avatarUrl} style={styles.avatarImage} resizeMode="cover" />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+          </View>
+          {avatarLoading ? (
+            <View style={styles.avatarOverlay}>
+              <ActivityIndicator size="small" color={colors.white} />
+            </View>
+          ) : (
+            <View style={styles.avatarBadge}>
+              <Ionicons name="camera" size={16} color={colors.white} />
+            </View>
+          )}
+        </Pressable>
         <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">{user?.name || 'Carregando...'}</Text>
         <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">{user?.email || ''}</Text>
       </LinearGradient>
@@ -207,6 +262,13 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
+  avatarWrap: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  avatarWrapPressed: {
+    opacity: 0.9,
+  },
   avatarCircle: {
     width: 72,
     height: 72,
@@ -216,12 +278,36 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 28,
     fontWeight: '800',
     color: colors.white,
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.9)',
   },
   userName: {
     fontSize: 20,

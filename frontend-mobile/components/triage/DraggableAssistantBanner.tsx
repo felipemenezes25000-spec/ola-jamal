@@ -13,6 +13,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   Text,
+  ScrollView,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -39,9 +40,8 @@ import type { CTAAction } from '../../lib/triage/triage.types';
 
 const FAB_SIZE = 48;
 const BANNER_WIDTH = 340;
-const BANNER_HEIGHT_EST = 120;
 const SPRING_CONFIG = { damping: 22, stiffness: 200 };
-const DRAG_THRESHOLD = 8;
+const DRAG_THRESHOLD = 16; // Maior para evitar conflito com tap — tap expande, arraste move
 
 interface DraggableAssistantBannerProps {
   onAction?: (action: CTAAction) => void;
@@ -66,14 +66,21 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
 
   const bannerWidth = Math.min(screenW - padding * 2, BANNER_WIDTH);
 
+  const topLimitFab = (insets.top ?? 0) + padding;
+  const maxXFabInit = screenW - FAB_SIZE - padding;
+  const maxYFabInit = screenH - FAB_SIZE - (insets.bottom ?? 0) - padding;
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const pos = await getBannerFloatingPosition();
         if (!cancelled && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
-          translateX.value = pos.x;
-          translateY.value = pos.y;
+          // Garantir que posição salva esteja dentro da tela visível
+          const x = Math.max(padding, Math.min(maxXFabInit, pos.x));
+          const y = Math.max(topLimitFab, Math.min(maxYFabInit, pos.y));
+          translateX.value = x;
+          translateY.value = y;
         } else if (!cancelled) {
           translateX.value = screenW - padding - FAB_SIZE;
           translateY.value = screenH - (insets.bottom ?? 0) - padding - FAB_SIZE;
@@ -111,9 +118,10 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     await setBannerFloatingPosition({ x, y, anchor: 'bottom-right' });
   }, []);
 
+  const expandedHeight = Math.min(320, screenH - (insets.top ?? 0) - (insets.bottom ?? 0) - padding * 2);
   const handleExpand = useCallback(() => {
     const topLimit = (insets.top ?? 0) + padding;
-    const bottomLimit = screenH - BANNER_HEIGHT_EST - (insets.bottom ?? 0) - padding;
+    const bottomLimit = screenH - expandedHeight - (insets.bottom ?? 0) - padding;
     const maxX = screenW - bannerWidth - padding;
     let x = translateX.value;
     let y = translateY.value;
@@ -125,7 +133,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     translateY.value = withSpring(y, SPRING_CONFIG);
     setExpanded(true);
     savePosition(x, y);
-  }, [screenW, screenH, bannerWidth, padding, insets]);
+  }, [screenW, screenH, bannerWidth, padding, insets, expandedHeight]);
 
   const handleCollapse = useCallback(() => {
     setExpanded(false);
@@ -133,7 +141,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
 
   const topLimit = (insets.top ?? 0) + padding;
   const bottomLimitFab = screenH - FAB_SIZE - (insets.bottom ?? 0) - padding;
-  const bottomLimitExpanded = screenH - BANNER_HEIGHT_EST - (insets.bottom ?? 0) - padding;
+  const bottomLimitExpanded = screenH - expandedHeight - (insets.bottom ?? 0) - padding;
   const maxXFab = screenW - FAB_SIZE - padding;
   const maxXExpanded = screenW - bannerWidth - padding;
 
@@ -178,11 +186,13 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     });
 
   const tapGesture = Gesture.Tap()
+    .maxDistance(20) // Tolerante a pequeno movimento — evita falha ao tocar
     .onEnd(() => {
       runOnJS(handleExpand)();
     });
 
-  const composedGestureFab = Gesture.Exclusive(panGestureFab, tapGesture);
+  // Tap primeiro: prioridade para expandir ao tocar; Pan só ativa após arrastar 16px
+  const composedGestureFab = Gesture.Exclusive(tapGesture, panGestureFab);
 
   const fabAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -236,7 +246,10 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
           <Animated.View
             style={[
               styles.expandedContainer,
-              { width: bannerWidth },
+              {
+                width: bannerWidth,
+                height: expandedHeight,
+              },
               expandedAnimatedStyle,
             ]}
           >
@@ -256,11 +269,19 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
                 <Ionicons name="chevron-down" size={20} color={theme.colors.text.secondary} />
               </GHPressable>
             </View>
-            <AssistantBanner
-              onAction={onAction}
-              onCompanionPress={onCompanionPress}
-              containerStyle={styles.bannerContent}
-            />
+            <ScrollView
+              style={styles.bannerScroll}
+              contentContainerStyle={styles.bannerScrollContent}
+              showsVerticalScrollIndicator={true}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <AssistantBanner
+                onAction={onAction}
+                onCompanionPress={onCompanionPress}
+                containerStyle={styles.bannerContent}
+              />
+            </ScrollView>
           </Animated.View>
         </GestureDetector>
       )}
@@ -295,6 +316,12 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     ...theme.shadows.card,
+  },
+  bannerScroll: {
+    flex: 1,
+  },
+  bannerScrollContent: {
+    flexGrow: 1,
   },
   expandedHeader: {
     flexDirection: 'row',

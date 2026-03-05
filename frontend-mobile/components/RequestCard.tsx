@@ -97,7 +97,7 @@ function RequestCardInner({
 
       <View style={styles.content}>
         <View style={styles.topRow}>
-          <Text style={styles.title} numberOfLines={1}>{typeConf.label}</Text>
+          <Text style={[styles.title, { flex: 1, minWidth: 0 }]} numberOfLines={1} ellipsizeMode="tail">{typeConf.label}</Text>
           <StatusBadge status={request.status} size="sm" />
         </View>
 
@@ -191,6 +191,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     letterSpacing: 0.1,
+    marginRight: 8,
   },
   subtitle: {
     fontSize: 13,

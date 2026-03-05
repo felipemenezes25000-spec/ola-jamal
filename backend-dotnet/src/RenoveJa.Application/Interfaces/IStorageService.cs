@@ -60,6 +60,17 @@ public interface IStorageService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Faz upload de avatar do usuário via stream.
+    /// Retorna a URL pública do arquivo.
+    /// </summary>
+    Task<string> UploadAvatarAsync(
+        Stream content,
+        string fileName,
+        string contentType,
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Baixa imagem a partir de URL pública do storage (ex.: Supabase).
     /// Extrai o path da URL e usa o endpoint autenticado para download.
     /// Retorna null se a URL não for do nosso storage ou o download falhar.

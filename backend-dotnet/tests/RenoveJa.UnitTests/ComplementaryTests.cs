@@ -238,6 +238,7 @@ public class AuthServiceExtendedTests
             _emailServiceMock.Object,
             new Mock<IClinicalRecordService>().Object,
             new Mock<IConsentRepository>().Object,
+            new Mock<IStorageService>().Object,
             smtpConfig, googleConfig);
     }
 

@@ -349,6 +349,19 @@ class ApiClient {
     return this.handleResponse<T>(response);
   }
 
+  async patchMultipart<T>(path: string, formData: FormData): Promise<T> {
+    const authHeaders = await this.getAuthHeader();
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
+      method: 'PATCH',
+      headers: {
+        ...this.getCommonHeaders(),
+        ...authHeaders,
+      },
+      body: formData,
+    });
+    return this.handleResponse<T>(response);
+  }
+
   async delete<T>(path: string): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 

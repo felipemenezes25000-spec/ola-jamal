@@ -22,6 +22,7 @@ public class AuthService(
     IEmailService emailService,
     IClinicalRecordService clinicalRecordService,
     IConsentRepository consentRepository,
+    IStorageService storageService,
     IOptions<SmtpConfig> smtpConfig,
     IOptions<GoogleAuthConfig> googleAuthConfig) : IAuthService
 {
@@ -488,6 +489,20 @@ public class AuthService(
         var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.UpdatePassword(newHash);
         await userRepository.UpdateAsync(user, cancellationToken);
+    }
+
+    /// <summary>
+    /// Atualiza o avatar do usuário (upload de foto de perfil).
+    /// </summary>
+    public async Task<UserDto> UpdateAvatarAsync(Guid userId, Stream fileStream, string contentType, string fileName, CancellationToken cancellationToken = default)
+    {
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("Usuário não encontrado.");
+
+        var avatarUrl = await storageService.UploadAvatarAsync(fileStream, fileName, contentType, userId, cancellationToken);
+        user.UpdateProfile(avatarUrl: avatarUrl);
+        user = await userRepository.UpdateAsync(user, cancellationToken);
+        return MapUserToDto(user);
     }
 
     private async Task RecordInitialConsentsAsync(Guid userId, CancellationToken cancellationToken)

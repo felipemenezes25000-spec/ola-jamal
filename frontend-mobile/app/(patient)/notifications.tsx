@@ -50,7 +50,7 @@ const FILTER_ITEMS: { key: NotificationFilterKey; label: string }[] = [
   { key: 'other', label: 'Outros' },
 ];
 
-const ListSeparator = () => null;
+const ListSeparator = () => <View style={{ height: 10 }} />;
 const SectionGap = () => <View style={{ height: 6 }} />;
 
 export default function PatientNotifications() {
@@ -319,9 +319,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
+    flexShrink: 0,
   },
   cardContent: {
     flex: 1,
+    minWidth: 0,
   },
   cardTitle: {
     fontSize: 14,
@@ -347,6 +349,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.primary,
     marginLeft: spacing.sm,
+    flexShrink: 0,
   },
   empty: {
     alignItems: 'center',

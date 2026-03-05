@@ -188,6 +188,38 @@ public class AuthController(
     }
 
     /// <summary>
+    /// Atualiza o avatar do usuário (foto de perfil). Aceita multipart/form-data com campo "avatar".
+    /// </summary>
+    [Authorize]
+    [HttpPatch("avatar")]
+    [RequestSizeLimit(5 * 1024 * 1024)] // 5 MB
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<UserDto>> UpdateAvatar(CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        if (!Request.HasFormContentType || Request.Form.Files.Count == 0)
+            return BadRequest(new { error = "Envie uma imagem no campo 'avatar' (multipart/form-data)." });
+
+        var file = Request.Form.Files.GetFile("avatar") ?? Request.Form.Files[0];
+        if (file.Length == 0)
+            return BadRequest(new { error = "O arquivo está vazio." });
+        if (file.Length > 4 * 1024 * 1024)
+            return BadRequest(new { error = "A imagem deve ter no máximo 4 MB." });
+
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif" };
+        var contentType = file.ContentType ?? "image/jpeg";
+        if (!allowed.Contains(contentType, StringComparer.OrdinalIgnoreCase))
+            return BadRequest(new { error = $"Tipo não permitido: {contentType}. Use: JPEG, PNG, WebP ou HEIC." });
+
+        await using var stream = file.OpenReadStream();
+        var user = await authService.UpdateAvatarAsync(userId, stream, contentType, file.FileName, cancellationToken);
+        return Ok(user);
+    }
+
+    /// <summary>
     /// Altera a senha do usuário logado (requer senha atual).
     /// </summary>
     [Authorize]
