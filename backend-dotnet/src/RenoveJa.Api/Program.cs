@@ -280,6 +280,7 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IVideoRoomRepository, VideoRoomRepository>();
 builder.Services.AddScoped<IConsultationAnamnesisRepository, ConsultationAnamnesisRepository>();
 builder.Services.AddScoped<IPushTokenRepository, PushTokenRepository>();
+builder.Services.AddScoped<IUserPushPreferencesRepository, UserPushPreferencesRepository>();
 builder.Services.AddScoped<IProductPriceRepository, ProductPriceRepository>();
 builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
@@ -322,6 +323,11 @@ builder.Services.AddScoped<IPrescriptionPdfService, PrescriptionPdfService>();
 builder.Services.AddScoped<ICrmValidationService, InfoSimplesCrmService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IPushNotificationSender, RenoveJa.Infrastructure.Notifications.ExpoPushService>();
+builder.Services.AddScoped<IPushNotificationDispatcher, RenoveJa.Application.Services.Notifications.PushNotificationDispatcher>();
+builder.Services.AddSingleton<RenoveJa.Application.Services.Notifications.NewRequestBatchService>();
+builder.Services.AddSingleton<RenoveJa.Application.Interfaces.INewRequestBatchService>(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());
+builder.Services.AddHostedService<RenoveJa.Application.Services.Notifications.StaleRequestReminderService>();
 
 builder.Services.AddHttpClient();
 

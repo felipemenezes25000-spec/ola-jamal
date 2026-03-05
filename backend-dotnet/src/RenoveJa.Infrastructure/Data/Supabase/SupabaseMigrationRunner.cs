@@ -198,6 +198,23 @@ public static class SupabaseMigrationRunner
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_push_tokens_unique ON public.push_tokens(user_id, token)"
     };
 
+    private static readonly string[] UserPushPreferencesMigrations =
+    {
+        """
+        CREATE TABLE IF NOT EXISTS public.user_push_preferences (
+            user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+            requests_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            payments_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            consultations_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            reminders_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_user_push_preferences_user_id ON public.user_push_preferences(user_id)"
+    };
+
     private static readonly string[] ProductPricesMigrations =
     {
         """
@@ -820,6 +837,7 @@ public static class SupabaseMigrationRunner
             ("video_rooms", VideoRoomsMigrations),
             ("consultation_anamnesis", ConsultationAnamnesisMigrations),
             ("push_tokens", PushTokensMigrations),
+            ("user_push_preferences", UserPushPreferencesMigrations),
             ("product_prices", ProductPricesMigrations),
             ("payment_attempts", PaymentAttemptsMigrations),
             ("webhook_events", WebhookEventsMigrations),

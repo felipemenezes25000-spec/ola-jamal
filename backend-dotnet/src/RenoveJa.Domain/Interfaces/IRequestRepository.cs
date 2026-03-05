@@ -16,6 +16,12 @@ public interface IRequestRepository
     /// <summary>Retorna contagens e ganhos para o médico (stats do dashboard).</summary>
     Task<(int PendingCount, int InReviewCount, int CompletedCount, decimal TotalEarnings)> GetDoctorStatsAsync(Guid doctorId, CancellationToken cancellationToken = default);
 
+    /// <summary>Pedidos em ApprovedPendingPayment com updated_at anterior ao cutoff (para lembretes de pagamento).</summary>
+    Task<List<MedicalRequest>> GetStaleApprovedPendingPaymentAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>Pedidos em InReview com updated_at anterior ao cutoff (para lembretes de pedido parado).</summary>
+    Task<List<MedicalRequest>> GetStaleInReviewAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default);
+
     Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default);
     Task<MedicalRequest> UpdateAsync(MedicalRequest request, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);

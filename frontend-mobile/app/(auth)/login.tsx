@@ -174,8 +174,8 @@ export default function Login() {
     }
     if (!request) {
       Alert.alert(
-        'Login com Google indisponível',
-        'Não foi possível iniciar o fluxo de login com Google. Feche o app e tente novamente.'
+        'Aguarde um momento',
+        'O login com Google ainda está carregando. Aguarde alguns segundos e tente novamente.'
       );
       return;
     }
@@ -298,7 +298,7 @@ export default function Login() {
         title="Continuar com Google"
         onPress={handleGooglePress}
         loading={googleLoading}
-        disabled={!request || !hasGoogleConfig}
+        disabled={!hasGoogleConfig || googleLoading}
         variant="outline"
         fullWidth
         icon="logo-google"

@@ -4,9 +4,10 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/Card';
-import { fetchPushTokens, setPushPreference } from '../lib/api';
+import { fetchPushTokens, setPushPreference, sendTestPush } from '../lib/api';
 import { colors, spacing } from '../lib/theme';
 import { getMutedKeys, unmuteAll } from '../lib/triage/triagePersistence';
+import { showToast } from '../components/ui/Toast';
 
 /**
  * Tela de configurações acessada por "Editar Perfil" na aba Perfil.
@@ -44,6 +45,16 @@ export default function SettingsScreen() {
       await setPushPreference(value);
     } catch {
       setPushEnabled(!value);
+    }
+  };
+
+  const handleTestPush = async () => {
+    try {
+      await sendTestPush();
+      showToast({ message: 'Push de teste enviado. Verifique seu dispositivo.', type: 'success' });
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message ?? 'Falha ao enviar. Verifique se há token registrado.';
+      showToast({ message: msg, type: 'error' });
     }
   };
 
@@ -96,6 +107,16 @@ export default function SettingsScreen() {
                 trackColor={{ true: colors.success, false: colors.border }}
                 thumbColor={colors.white}
               />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="send-outline"
+            label="Testar push"
+            right={
+              <TouchableOpacity onPress={handleTestPush}>
+                <Text style={styles.linkText}>Enviar</Text>
+              </TouchableOpacity>
             }
           />
           <View style={styles.divider} />

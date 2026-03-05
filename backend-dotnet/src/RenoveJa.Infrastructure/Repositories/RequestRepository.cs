@@ -138,6 +138,28 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         return (pendingCount, inReviewCount, completedCount, totalEarnings);
     }
 
+    public async Task<List<MedicalRequest>> GetStaleApprovedPendingPaymentAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    {
+        var cutoffStr = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        var filter = $"status=eq.approved_pending_payment&updated_at=lt.{cutoffStr}";
+        var models = await supabase.GetAllAsync<RequestModel>(
+            TableName,
+            filter: filter,
+            cancellationToken: cancellationToken);
+        return models.Select(MapToDomain).ToList();
+    }
+
+    public async Task<List<MedicalRequest>> GetStaleInReviewAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    {
+        var cutoffStr = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        var filter = $"status=eq.in_review&updated_at=lt.{cutoffStr}&doctor_id=not.is.null";
+        var models = await supabase.GetAllAsync<RequestModel>(
+            TableName,
+            filter: filter,
+            cancellationToken: cancellationToken);
+        return models.Select(MapToDomain).ToList();
+    }
+
     public async Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(request);

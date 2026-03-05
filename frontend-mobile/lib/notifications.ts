@@ -53,13 +53,20 @@ export async function registerForPushNotifications(
       console.error('Error saving push token:', error);
     }
 
-    // Configure notification channel for Android
+    // Configure notification channels for Android (spec: default=heads-up, quiet=sem heads-up)
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
+        name: 'Importantes',
+        description: 'Pagamentos, documento pronto, consulta',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#0EA5E9',
+      });
+      await Notifications.setNotificationChannelAsync('quiet', {
+        name: 'Informativos',
+        description: 'Em análise, lembretes',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0],
       });
     }
 

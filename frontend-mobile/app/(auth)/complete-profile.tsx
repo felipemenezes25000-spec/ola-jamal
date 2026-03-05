@@ -147,6 +147,9 @@ export default function CompleteProfileScreen() {
   return (
     <Screen variant="gradient" scroll contentStyle={styles.content}>
       <Text style={styles.brand}>RenoveJá+</Text>
+      <Text style={styles.subtitle}>
+        Você entrou com o Google. Para continuar, preencha os dados obrigatórios abaixo.
+      </Text>
 
       <View style={styles.form}>
         <AppInput
@@ -261,7 +264,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
     marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   form: {
     gap: spacing.sm,

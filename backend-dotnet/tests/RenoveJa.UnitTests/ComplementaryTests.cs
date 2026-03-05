@@ -479,11 +479,14 @@ public class RequestServiceFullTests
     {
         _apiConfigMock.Setup(x => x.Value).Returns(new ApiConfig { BaseUrl = "" });
         var storageServiceMock = new Mock<IStorageService>();
+        var pushDispatcherMock = new Mock<IPushNotificationDispatcher>();
+        pushDispatcherMock.Setup(x => x.SendAsync(It.IsAny<RenoveJa.Application.DTOs.Notifications.PushNotificationRequest>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _sut = new RequestService(
             _requestRepoMock.Object, _productPriceRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
             _videoRoomRepoMock.Object, _consultationAnamnesisRepoMock.Object, _consultationSessionStoreMock.Object,
-            _notificationRepoMock.Object, _pushSenderMock.Object, _aiReadingMock.Object,
+            _notificationRepoMock.Object, _pushSenderMock.Object, pushDispatcherMock.Object, _aiReadingMock.Object,
             _aiPrescriptionGeneratorMock.Object,
             _pdfServiceMock.Object, _certServiceMock.Object,
             _prescriptionVerifyRepoMock.Object,
@@ -491,6 +494,7 @@ public class RequestServiceFullTests
             _documentTokenServiceMock.Object, storageServiceMock.Object, _consultationTimeBankRepoMock.Object,
             _aiConductSuggestionServiceMock.Object,
             _requestEventsPublisherMock.Object,
+            new Mock<INewRequestBatchService>().Object,
             _signedRequestClinicalSyncMock.Object,
             _consultationEncounterServiceMock.Object,
             _loggerMock.Object);

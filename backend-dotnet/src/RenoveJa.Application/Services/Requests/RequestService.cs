@@ -13,6 +13,7 @@ using RenoveJa.Application.DTOs.Video;
 using RenoveJa.Application.Exceptions;
 using RenoveJa.Application.Helpers;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Application.Services.Notifications;
 using RenoveJa.Application.Validators;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
@@ -33,6 +34,7 @@ public class RequestService(
     IConsultationSessionStore consultationSessionStore,
     INotificationRepository notificationRepository,
     IPushNotificationSender pushNotificationSender,
+    IPushNotificationDispatcher pushDispatcher,
     IAiReadingService aiReadingService,
     IAiPrescriptionGeneratorService aiPrescriptionGenerator,
     IPrescriptionPdfService prescriptionPdfService,
@@ -45,6 +47,7 @@ public class RequestService(
     IConsultationTimeBankRepository consultationTimeBankRepository,
     IAiConductSuggestionService aiConductSuggestionService,
     IRequestEventsPublisher requestEventsPublisher,
+    INewRequestBatchService newRequestBatchService,
     ISignedRequestClinicalSyncService signedRequestClinicalSync,
     IConsultationEncounterService consultationEncounterService,
     ILogger<RequestService> logger) : IRequestService
@@ -266,12 +269,7 @@ public class RequestService(
 
         if (req != null && req.Status != RequestStatus.Rejected)
         {
-            await CreateNotificationAsync(
-                userId,
-                "Solicitação Criada",
-                "Sua solicitação de receita foi enviada. Aguardando análise do médico.",
-                cancellationToken,
-                new Dictionary<string, object?> { ["requestId"] = req.Id.ToString() });
+            await pushDispatcher.SendAsync(PushNotificationRules.Submitted(userId, req.Id, RequestType.Prescription), cancellationToken);
             await NotifyAvailableDoctorsOfNewRequestAsync("receita", req, cancellationToken);
         }
 
@@ -319,12 +317,7 @@ public class RequestService(
 
         if (req != null && req.Status != RequestStatus.Rejected)
         {
-            await CreateNotificationAsync(
-                userId,
-                "Solicitação Criada",
-                "Sua solicitação de exame foi enviada. Aguardando análise do médico.",
-                cancellationToken,
-                new Dictionary<string, object?> { ["requestId"] = req.Id.ToString() });
+            await pushDispatcher.SendAsync(PushNotificationRules.Submitted(userId, req.Id, RequestType.Exam), cancellationToken);
             await NotifyAvailableDoctorsOfNewRequestAsync("exame", req, cancellationToken);
         }
 
@@ -407,12 +400,7 @@ public class RequestService(
             medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
         }
 
-        await CreateNotificationAsync(
-            userId,
-            "Solicitação Criada",
-            "Sua solicitação de consulta foi enviada. Aguardando médico.",
-            cancellationToken,
-            new Dictionary<string, object?> { ["requestId"] = medicalRequest.Id.ToString() });
+        await pushDispatcher.SendAsync(PushNotificationRules.Submitted(userId, medicalRequest.Id, RequestType.Consultation), cancellationToken);
 
         await NotifyAvailableDoctorsOfNewRequestAsync("consulta", medicalRequest, cancellationToken);
 
@@ -731,12 +719,7 @@ public class RequestService(
             }, cancellationToken);
 
             await PublishRequestUpdatedAsync(request, "Solicitação aprovada", cancellationToken);
-            await CreateNotificationAsync(
-                request.PatientId,
-                "Solicitação Aprovada",
-                $"Sua solicitação foi aprovada. Valor: R$ {price:F2}. Acesse o app para realizar o pagamento.",
-                cancellationToken,
-                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+            await pushDispatcher.SendAsync(PushNotificationRules.ApprovedPendingPayment(request.PatientId, request.Id, request.RequestType), cancellationToken);
 
             return MapRequestToDto(request);
         }
@@ -774,12 +757,7 @@ public class RequestService(
         request.Reject(dto.RejectionReason);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
-        await CreateNotificationAsync(
-            request.PatientId,
-            "Solicitação Rejeitada",
-            $"Sua solicitação foi rejeitada. Motivo: {dto.RejectionReason}",
-            cancellationToken,
-            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+        await pushDispatcher.SendAsync(PushNotificationRules.Rejected(request.PatientId, request.Id, request.RequestType, dto.RejectionReason), cancellationToken);
 
         return MapRequestToDto(request);
     }
@@ -920,12 +898,7 @@ public class RequestService(
         }
 
         await PublishRequestUpdatedAsync(request, "Médico na sala", cancellationToken);
-        await CreateNotificationAsync(
-            request.PatientId,
-            "Médico na sala",
-            "O médico entrou na sala de vídeo. Entre na chamada.",
-            cancellationToken,
-            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+        await pushDispatcher.SendAsync(PushNotificationRules.DoctorReady(request.PatientId, request.Id), cancellationToken);
 
         return MapRequestToDto(request);
     }
@@ -1333,13 +1306,7 @@ public class RequestService(
                                     }
                                 }
 
-                                var docTipo = request.RequestType == Domain.Enums.RequestType.Prescription ? "receita" : "pedido de exame";
-                                await CreateNotificationAsync(
-                                    request.PatientId,
-                                    "Documento Assinado",
-                                    $"Sua {docTipo} foi assinada digitalmente e está disponível para download.",
-                                    cancellationToken,
-                                    new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+                                await pushDispatcher.SendAsync(PushNotificationRules.Signed(request.PatientId, request.Id, request.RequestType), cancellationToken);
                                 await PublishRequestUpdatedAsync(request, "Documento assinado", cancellationToken);
 
                                 await signedRequestClinicalSync.SyncSignedRequestAsync(
@@ -1382,12 +1349,7 @@ public class RequestService(
         request.Sign(signedDocumentUrl, signatureId);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
-        await CreateNotificationAsync(
-            request.PatientId,
-            "Documento Assinado",
-            "Sua solicitação foi assinada digitalmente e está disponível para download.",
-            cancellationToken,
-            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+        await pushDispatcher.SendAsync(PushNotificationRules.Signed(request.PatientId, request.Id, request.RequestType), cancellationToken);
         await PublishRequestUpdatedAsync(request, "Documento assinado", cancellationToken);
         return MapRequestToDto(request);
     }
@@ -1938,7 +1900,7 @@ public class RequestService(
     }
 
     /// <summary>
-    /// Notifica médicos disponíveis sobre nova solicitação na fila (limita a 5 para evitar spam).
+    /// Notifica médicos disponíveis sobre nova solicitação na fila. Usa batching: pedidos em 2 min viram "X novas solicitações".
     /// </summary>
     private async Task NotifyAvailableDoctorsOfNewRequestAsync(
         string tipoSolicitacao,
@@ -1949,14 +1911,7 @@ public class RequestService(
         {
             var doctors = await doctorRepository.GetAvailableAsync(null, cancellationToken);
             foreach (var doc in doctors.Take(5))
-            {
-                await CreateNotificationAsync(
-                    doc.UserId,
-                    "Nova solicitação na fila",
-                    $"Nova solicitação de {tipoSolicitacao} disponível: {request.PatientName ?? "paciente"}.",
-                    cancellationToken,
-                    new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
-            }
+                newRequestBatchService.AddToBatch(doc.UserId, tipoSolicitacao);
         }
         catch (Exception ex)
         {

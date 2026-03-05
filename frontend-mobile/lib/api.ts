@@ -614,6 +614,11 @@ export async function setPushPreference(pushEnabled: boolean): Promise<void> {
   return apiClient.put('/api/push-tokens/preference', { pushEnabled });
 }
 
+/** Envia um push de teste para validar se as notificações estão funcionando. */
+export async function sendTestPush(): Promise<{ message: string }> {
+  return apiClient.post('/api/push-tokens/test');
+}
+
 // ============================================
 // VIDEO
 // ============================================

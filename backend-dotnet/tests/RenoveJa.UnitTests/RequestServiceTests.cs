@@ -25,6 +25,7 @@ public class RequestServiceTests
     private readonly Mock<IConsultationSessionStore> _consultationSessionStoreMock;
     private readonly Mock<INotificationRepository> _notificationRepoMock;
     private readonly Mock<IPushNotificationSender> _pushSenderMock;
+    private readonly Mock<IPushNotificationDispatcher> _pushDispatcherMock;
     private readonly Mock<IAiReadingService> _aiReadingMock;
     private readonly Mock<IPrescriptionPdfService> _pdfServiceMock;
     private readonly Mock<IDigitalCertificateService> _certServiceMock;
@@ -44,6 +45,9 @@ public class RequestServiceTests
         _consultationSessionStoreMock = new Mock<IConsultationSessionStore>();
         _notificationRepoMock = new Mock<INotificationRepository>();
         _pushSenderMock = new Mock<IPushNotificationSender>();
+        _pushDispatcherMock = new Mock<IPushNotificationDispatcher>();
+        _pushDispatcherMock.Setup(x => x.SendAsync(It.IsAny<RenoveJa.Application.DTOs.Notifications.PushNotificationRequest>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _aiReadingMock = new Mock<IAiReadingService>();
         _pdfServiceMock = new Mock<IPrescriptionPdfService>();
         _certServiceMock = new Mock<IDigitalCertificateService>();
@@ -58,6 +62,7 @@ public class RequestServiceTests
         var documentTokenServiceMock = new Mock<IDocumentTokenService>();
         var storageServiceMock = new Mock<IStorageService>();
         var requestEventsPublisherMock = new Mock<IRequestEventsPublisher>();
+        var newRequestBatchServiceMock = new Mock<INewRequestBatchService>();
         var signedRequestClinicalSyncMock = new Mock<ISignedRequestClinicalSyncService>();
         var consultationEncounterServiceMock = new Mock<IConsultationEncounterService>();
 
@@ -71,6 +76,7 @@ public class RequestServiceTests
             _consultationSessionStoreMock.Object,
             _notificationRepoMock.Object,
             _pushSenderMock.Object,
+            _pushDispatcherMock.Object,
             _aiReadingMock.Object,
             aiPrescriptionGeneratorMock.Object,
             _pdfServiceMock.Object,
@@ -83,6 +89,7 @@ public class RequestServiceTests
             _consultationTimeBankRepoMock.Object,
             _aiConductSuggestionServiceMock.Object,
             requestEventsPublisherMock.Object,
+            newRequestBatchServiceMock.Object,
             signedRequestClinicalSyncMock.Object,
             consultationEncounterServiceMock.Object,
             _loggerMock.Object);
@@ -154,7 +161,7 @@ public class RequestServiceTests
         payment.Should().BeNull();
 
         _requestRepoMock.Verify(r => r.CreateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()), Times.Once);
-        _notificationRepoMock.Verify(r => r.CreateAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()), Times.Once);
+        _pushDispatcherMock.Verify(x => x.SendAsync(It.IsAny<RenoveJa.Application.DTOs.Notifications.PushNotificationRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -307,7 +314,7 @@ public class RequestServiceTests
         result.RejectionReason.Should().Be("Receita ilegível");
 
         _requestRepoMock.Verify(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()), Times.Once);
-        _notificationRepoMock.Verify(r => r.CreateAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()), Times.Once);
+        _pushDispatcherMock.Verify(x => x.SendAsync(It.IsAny<RenoveJa.Application.DTOs.Notifications.PushNotificationRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

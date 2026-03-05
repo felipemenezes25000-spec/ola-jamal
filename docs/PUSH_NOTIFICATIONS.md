@@ -4,6 +4,13 @@
 
 Push está implementado com **Expo Push Notifications**. O backend envia via API da Expo (`exp.host`).
 
+## Regras da spec
+
+- **Quiet hours (22:00–08:00)**: notificações fora de `BypassQuietHours` usam canal `quiet` (sem heads-up) no horário local do usuário.
+- **Preferências por categoria**: Pedidos, Pagamentos, Consultas, Lembretes — cada categoria pode ser desativada. API: `GET/PUT /api/push-tokens/preferences`.
+- **Lembretes**: pedido parado em ApprovedPendingPayment > 6h → lembrete ao paciente; InReview > 30 min → lembrete ao médico. Cooldown de 12h entre lembretes.
+- **Batching**: múltiplos pedidos em 2 min viram um único push "X novas solicitações" para médicos.
+
 ## Requisitos mínimos (Firebase Android)
 
 1. **Conta Expo** — `npx expo login` + `projectId` em `app.config.js` ✅ (já configurado)
@@ -49,8 +56,21 @@ O `projectId` do EAS está em `app.config.js` → `extra.eas.projectId`. Necess�
 
 ## Testar
 
-1. Faça build: `npx expo run:android` ou `eas build`
+1. Faça build: `npx expo run:android` ou `eas build` (push **não funciona no Expo Go**)
 2. Instale no dispositivo físico
 3. Faça login
 4. Aceite permissão de notificações
-5. Dispare um evento (ex.: pagamento aprovado via webhook MP)
+5. **Teste rápido**: `POST /api/push-tokens/test` (com Bearer token) ou use o botão "Testar push" nas configurações do app
+6. Dispare um evento real (ex.: pagamento aprovado via webhook MP)
+
+### Validação via API
+
+```bash
+# Obter token de login (email/senha)
+TOKEN="seu_jwt_aqui"
+
+# Enviar push de teste
+curl -X POST "https://sua-api.com/api/push-tokens/test" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```

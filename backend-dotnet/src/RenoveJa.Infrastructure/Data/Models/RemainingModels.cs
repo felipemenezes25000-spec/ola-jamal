@@ -38,6 +38,19 @@ public class ConsultationAnamnesisModel
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de preferências de push (tabela user_push_preferences).</summary>
+public class UserPushPreferencesModel
+{
+    public Guid UserId { get; set; }
+    public bool RequestsEnabled { get; set; }
+    public bool PaymentsEnabled { get; set; }
+    public bool ConsultationsEnabled { get; set; }
+    public bool RemindersEnabled { get; set; }
+    public string Timezone { get; set; } = "America/Sao_Paulo";
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
 /// <summary>Modelo de persistência de token de push (tabela push_tokens).</summary>
 public class PushTokenModel
 {
