@@ -1,3 +1,8 @@
+import { existsSync } from "fs";
+import { join } from "path";
+
+const googleServicesPath = join(__dirname, "google-services.json");
+
 export default {
   expo: {
     name: "RenoveJá",
@@ -24,6 +29,7 @@ export default {
       }
     },
     android: {
+      ...(existsSync(googleServicesPath) && { googleServicesFile: "./google-services.json" }),
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0EA5E9"

@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, ImageSourcePropType } from 'react-native';
 
 const TAGLINE = 'Renove sua receita e pedido de exames.\nRápido e sem burocracia.';
 
 const LOGO_IMAGE = require('../assets/logo.png');
+
+// Proporção real do logo.png (455x423) — evita distorção ou recorte
+const LOGO_ASPECT_RATIO = 455 / 423;
 
 interface LogoProps {
   size?: 'small' | 'medium' | 'large';
@@ -14,21 +17,22 @@ interface LogoProps {
 }
 
 const SIZE_MAP = {
-  small:  { width: 110, height: 88,  taglineSize: 12 },
-  medium: { width: 150, height: 120, taglineSize: 13 },
-  large:  { width: 190, height: 152, taglineSize: 14 },
+  small:  { width: 110, taglineSize: 12 },
+  medium: { width: 150, taglineSize: 13 },
+  large:  { width: 190, taglineSize: 14 },
 };
 
 export function Logo({ size = 'medium', compact = false, variant = 'light' }: LogoProps) {
   const dims = SIZE_MAP[size];
   const isLight = variant === 'light';
   const taglineColor = isLight ? 'rgba(255,255,255,0.9)' : '#64748B';
+  const height = dims.width / LOGO_ASPECT_RATIO;
 
   return (
     <View style={styles.container}>
       <Image
-        source={LOGO_IMAGE}
-        style={[styles.logoImage, { width: dims.width, height: dims.height }]}
+        source={LOGO_IMAGE as ImageSourcePropType}
+        style={[styles.logoImage, { width: dims.width, height }]}
         resizeMode="contain"
         accessibilityLabel="Logo RenoveJá"
       />

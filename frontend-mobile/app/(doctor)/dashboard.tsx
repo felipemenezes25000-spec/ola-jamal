@@ -20,7 +20,7 @@ import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { cacheRequest } from '../doctor-request/[id]';
 import { StatsCard } from '../../components/StatsCard';
-import { EmptyState } from '../../components/EmptyState';
+import { AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { DoctorCard } from '../../components/ui/DoctorCard';
@@ -34,6 +34,9 @@ import {
   UI_STATUS_COLORS,
 } from '../../lib/domain/getRequestUiState';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { haptics } from '../../lib/haptics';
+import { showToast } from '../../components/ui/Toast';
+import { motionTokens } from '../../lib/ui/motion';
 
 const TYPE_LABELS: Record<string, string> = {
   prescription: 'Receita',
@@ -67,7 +70,7 @@ export default function DoctorDashboard() {
   const [hasCertificate, setHasCertificate] = useState<boolean | null>(null);
   const lastQueueHash = useRef('');
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (withFeedback = false) => {
     try {
       const [cert, res] = await Promise.allSettled([
         getActiveCertificate(),
@@ -81,20 +84,31 @@ export default function DoctorDashboard() {
         lastQueueHash.current = hash;
         setQueue(items);
       }
+      if (withFeedback) {
+        showToast({ message: 'Painel atualizado', type: 'success' });
+      }
     } catch (e) {
       console.error(e);
+      if (withFeedback) {
+        showToast({ message: 'Não foi possível atualizar o painel', type: 'error' });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  const { subscribe } = useRequestsEvents();
+  const { subscribe, isConnected } = useRequestsEvents();
 
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData])
+      // Polling fallback quando SignalR desconectado — evita médico precisar dar refresh
+      if (!isConnected) {
+        const interval = setInterval(loadData, 15000);
+        return () => clearInterval(interval);
+      }
+    }, [loadData, isConnected])
   );
 
   useEffect(() => {
@@ -104,8 +118,9 @@ export default function DoctorDashboard() {
   }, [subscribe, loadData]);
 
   const onRefresh = () => {
+    haptics.light();
     setRefreshing(true);
-    loadData();
+    loadData(true);
   };
 
   const { pendentesCount, naFila, consultaPronta, emConsulta, pendingList } = useMemo(() => ({
@@ -130,7 +145,7 @@ export default function DoctorDashboard() {
 
   return (
     <View style={styles.container}>
-      <FadeIn visible={!loading} duration={300}>
+      <FadeIn visible={!loading} {...motionTokens.fade.doctor}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
@@ -153,6 +168,7 @@ export default function DoctorDashboard() {
         </View>
       </LinearGradient>
 
+      <FadeIn visible={!loading} {...motionTokens.fade.doctorSection} delay={40} fill={false}>
       <View style={styles.statsRow}>
         <StatsCard
           icon="time-outline"
@@ -176,9 +192,11 @@ export default function DoctorDashboard() {
           onPress={() => router.push('/(doctor)/requests')}
         />
       </View>
+      </FadeIn>
 
       <View style={styles.body}>
         {hasCertificate === false && (
+          <FadeIn visible={!loading} {...motionTokens.fade.doctorSection} delay={85} fill={false}>
           <Pressable
             style={({ pressed }) => [styles.alertBanner, pressed && { opacity: 0.85 }]}
             onPress={() => router.push('/certificate/upload')}
@@ -194,8 +212,10 @@ export default function DoctorDashboard() {
             </View>
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>
+          </FadeIn>
         )}
 
+        <FadeIn visible={!loading} {...motionTokens.fade.doctorSection} delay={120} fill={false}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Atendimentos pendentes</Text>
           <Pressable
@@ -208,17 +228,19 @@ export default function DoctorDashboard() {
             <Ionicons name="chevron-forward" size={14} color={colors.primary} />
           </Pressable>
         </View>
+        </FadeIn>
 
         {loading ? (
           <SkeletonList count={3} />
         ) : pendingList.length > 0 ? (
-          pendingList.map((req) => {
+          pendingList.map((req, idx) => {
             const { label: statusLabel, colorKey } = getRequestUiState(req);
             const { color: statusColor, bg: statusBg } = UI_STATUS_COLORS[colorKey];
             const typeLabel = TYPE_LABELS[req.requestType] ?? 'Solicitação';
             const summary = getShortSummary(req);
             return (
-              <DoctorCard key={req.id} style={styles.pendingCardWrap} onPress={() => { cacheRequest(req); router.push(`/doctor-request/${req.id}`); }} accessibilityLabel={`Atendimento de ${req.patientName || 'Paciente'}`}>
+              <FadeIn key={req.id} visible={!loading} {...motionTokens.fade.doctorItem} delay={145 + idx * 28} fill={false}>
+              <DoctorCard style={styles.pendingCardWrap} onPress={() => { haptics.selection(); cacheRequest(req); router.push(`/doctor-request/${req.id}`); }} accessibilityLabel={`Atendimento de ${req.patientName || 'Paciente'}`}>
                 <View style={styles.pendingCardRow}>
                   <View style={styles.pendingCardMain}>
                     <Text style={styles.pendingCardType}>{typeLabel}</Text>
@@ -241,16 +263,19 @@ export default function DoctorDashboard() {
                   </View>
                 </View>
               </DoctorCard>
+              </FadeIn>
             );
           })
         ) : (
-          <EmptyState
-            icon="medical-outline"
-            title="Nenhum atendimento pendente"
-            subtitle="Quando houver pedidos que exijam sua ação, eles aparecerão aqui."
-            actionLabel="Ver todos os pedidos"
-            onAction={() => router.push('/(doctor)/requests')}
-          />
+          <FadeIn visible={!loading} {...motionTokens.fade.doctorItem} delay={145} fill={false}>
+            <AppEmptyState
+              icon="medical-outline"
+              title="Nenhum atendimento pendente"
+              subtitle="Quando houver pedidos que exijam sua ação, eles aparecerão aqui."
+              actionLabel="Ver todos os pedidos"
+              onAction={() => router.push('/(doctor)/requests')}
+            />
+          </FadeIn>
         )}
       </View>
       </ScrollView>

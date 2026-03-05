@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { AppState } from 'react-native';
 import {
   startRequestsEventsConnection,
   stopRequestsEventsConnection,
@@ -40,14 +41,38 @@ export function RequestsEventsProvider({ children }: { children: React.ReactNode
       return;
     }
     let cancelled = false;
-    startRequestsEventsConnection().then((ok) => {
-      if (!cancelled) setConnected(ok && isRequestsEventsConnected());
-    });
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const tryConnect = () => {
+      if (cancelled) return;
+      startRequestsEventsConnection().then((ok) => {
+        if (!cancelled) setConnected(ok && isRequestsEventsConnected());
+        // Se falhou e ainda não esgotou retries, tenta de novo em 5s (token pode não estar pronto)
+        if (!ok && !cancelled && retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(tryConnect, 5000);
+        }
+      });
+    };
+    tryConnect();
+
     const interval = setInterval(() => {
       if (!cancelled) setConnected(isRequestsEventsConnected());
     }, 3000);
+
+    // Reconectar ao voltar do background — evita ficar sem updates após app minimizado
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && !cancelled && user && !isRequestsEventsConnected()) {
+        startRequestsEventsConnection().then((ok) => {
+          if (!cancelled) setConnected(ok && isRequestsEventsConnected());
+        });
+      }
+    });
+
     return () => {
       cancelled = true;
+      sub.remove();
       clearInterval(interval);
       stopRequestsEventsConnection();
     };

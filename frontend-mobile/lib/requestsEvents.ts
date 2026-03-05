@@ -43,7 +43,7 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
     const url = getHubUrl();
     const conn = new signalR.HubConnectionBuilder()
       .withUrl(url, {
-        accessTokenFactory: () => token,
+        accessTokenFactory: async () => (await getToken()) ?? '',
       })
       .withAutomaticReconnect()
       .build();
@@ -67,7 +67,9 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
     connection = conn;
     return true;
   } catch (e) {
-    console.warn('[RequestsEvents] Connection failed:', e);
+    if (__DEV__) {
+      console.warn('[RequestsEvents] Connection failed. Updates em tempo real desativados. Polling será usado como fallback.', e);
+    }
     return false;
   }
 }

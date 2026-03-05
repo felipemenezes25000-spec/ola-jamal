@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import Constants from 'expo-constants';
-import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
 import { useAuth } from './AuthContext';
 import { registerPushToken, unregisterPushToken } from '../lib/api';
 import { isExpoGo } from '../lib/expo-go';
@@ -29,8 +29,11 @@ const PushNotificationContext = createContext<PushNotificationContextValue | und
 
 export function PushNotificationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const router = useRouter();
   const lastRegisteredToken = useRef<string | null>(null);
   const [lastNotificationAt, setLastNotificationAt] = useState(0);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
     if (!Notifications) return;
@@ -38,16 +41,30 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       setLastNotificationAt(Date.now());
     });
     const responseSub = Notifications.addNotificationResponseReceivedListener((response: any) => {
-      const deepLink = response?.notification?.request?.content?.data?.deepLink;
+      const data = response?.notification?.request?.content?.data ?? {};
+      const deepLink = data?.deepLink;
+      const requestId = data?.requestId;
+
       if (typeof deepLink === 'string' && deepLink.startsWith('renoveja://')) {
         Linking.openURL(deepLink).catch(() => {});
+        return;
+      }
+      // Backend envia requestId; navegar com base no role do usuário (pode demorar se app foi aberto pelo tap)
+      if (requestId && typeof requestId === 'string') {
+        const nav = () => {
+          const u = userRef.current;
+          const path = u?.role === 'doctor' ? `/doctor-request/${requestId}` : `/request-detail/${requestId}`;
+          router.push(path as any);
+        };
+        if (userRef.current?.role) nav();
+        else setTimeout(nav, 800); // esperar auth carregar se app foi lançado pelo tap
       }
     });
     return () => {
       sub.remove();
       responseSub.remove();
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!Notifications) return; // Expo Go: push não disponível

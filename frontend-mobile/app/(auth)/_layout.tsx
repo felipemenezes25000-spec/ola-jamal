@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
+import { motionTokens } from '../../lib/ui/motion';
 
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={motionTokens.nav.authStack}>
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="forgot-password" />

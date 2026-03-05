@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,9 @@ import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
+import { showToast } from '../../components/ui/Toast';
+import { haptics } from '../../lib/haptics';
 
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
   switch (type) {
@@ -86,15 +89,24 @@ export default function DoctorNotifications() {
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | AlertCategory>('all');
 
   const headerPaddingTop = insets.top + 16;
   const horizontalPad = doctorDS.screenPaddingHorizontal;
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (withFeedback = false) => {
     try {
       const data = await getNotifications({ page: 1, pageSize: 50 });
       setNotifications(data.items || []);
-    } catch (e: unknown) { if ((e as { status?: number })?.status !== 401) console.error(e); }
+      if (withFeedback) {
+        showToast({ message: 'Alertas atualizados', type: 'success' });
+      }
+    } catch (e: unknown) {
+      if ((e as { status?: number })?.status !== 401) console.error(e);
+      if (withFeedback) {
+        showToast({ message: 'Não foi possível atualizar os alertas', type: 'error' });
+      }
+    }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
@@ -107,13 +119,18 @@ export default function DoctorNotifications() {
     }, [loadData, refreshUnreadCount])
   );
 
-  const onRefresh = () => { setRefreshing(true); loadData(); };
+  const onRefresh = () => {
+    haptics.light();
+    setRefreshing(true);
+    loadData(true);
+  };
 
   const handleMarkRead = async (id: string, item?: NotificationResponseDto) => {
     try {
       await markNotificationRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       refreshUnreadCount();
+      haptics.selection();
       const requestId = item?.data?.requestId as string | undefined;
       if (requestId) {
         router.push(`/doctor-request/${requestId}`);
@@ -126,6 +143,8 @@ export default function DoctorNotifications() {
       await markAllNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       refreshUnreadCount();
+      haptics.success();
+      showToast({ message: 'Alertas marcados como lidos', type: 'success' });
     } catch (e) { console.warn('Failed to mark all notifications as read:', e); }
   };
 
@@ -146,7 +165,12 @@ export default function DoctorNotifications() {
     other: byCategory.other.length,
   };
 
-  const groupedByDate = notifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'all') return notifications;
+    return byCategory[activeFilter];
+  }, [activeFilter, byCategory, notifications]);
+
+  const groupedByDate = filteredNotifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
     const g = getDateGroup(n.createdAt);
     if (!acc[g]) acc[g] = [];
     acc[g].push(n);
@@ -207,25 +231,20 @@ export default function DoctorNotifications() {
         </View>
       </LinearGradient>
 
-      {(categoryCounts.payment > 0 || categoryCounts.new_request > 0 || categoryCounts.other > 0) && (
-        <View style={styles.categoryRow}>
-          {categoryCounts.payment > 0 && (
-            <View style={styles.categoryChip}>
-              <Text style={styles.categoryChipText}>Pagamentos ({categoryCounts.payment})</Text>
-            </View>
-          )}
-          {categoryCounts.new_request > 0 && (
-            <View style={styles.categoryChip}>
-              <Text style={styles.categoryChipText}>Novas solicitações ({categoryCounts.new_request})</Text>
-            </View>
-          )}
-          {categoryCounts.other > 0 && (
-            <View style={styles.categoryChip}>
-              <Text style={styles.categoryChipText}>Outros ({categoryCounts.other})</Text>
-            </View>
-          )}
-        </View>
-      )}
+      <AppSegmentedControl
+        items={[
+          { key: 'all', label: 'Todos', count: notifications.length },
+          { key: 'payment', label: 'Pagamentos', count: categoryCounts.payment },
+          { key: 'new_request', label: 'Solicitações', count: categoryCounts.new_request },
+          { key: 'other', label: 'Outros', count: categoryCounts.other },
+        ]}
+        value={activeFilter}
+        onValueChange={(value) => {
+          haptics.selection();
+          setActiveFilter(value as 'all' | AlertCategory);
+        }}
+        size="sm"
+      />
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -245,13 +264,11 @@ export default function DoctorNotifications() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={styles.emptyIconWrap}>
-                <Ionicons name="notifications-off-outline" size={36} color={colors.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>Você está em dia</Text>
-              <Text style={styles.emptySubtitle}>Nenhuma novidade no momento</Text>
-            </View>
+            <AppEmptyState
+              icon="notifications-off-outline"
+              title={activeFilter === 'all' ? 'Você está em dia' : 'Nenhum alerta nesse filtro'}
+              subtitle={activeFilter === 'all' ? 'Nenhuma novidade no momento' : 'Tente outro filtro para ver mais alertas.'}
+            />
           }
         />
       )}
@@ -262,7 +279,7 @@ export default function DoctorNotifications() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
-    paddingBottom: 28,
+    paddingBottom: 18,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
@@ -273,14 +290,14 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1 },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: typography.fontFamily.bold,
     fontWeight: '700',
     color: '#fff',
     letterSpacing: 0.2,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: typography.fontFamily.regular,
     color: 'rgba(255,255,255,0.7)',
     marginTop: 4,

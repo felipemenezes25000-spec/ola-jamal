@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste CORS - ITI</title>
+</head>
+<body>
+  <h1>Teste CORS para validar.iti.gov.br</h1>
+  <p>Abra este arquivo em <strong>https://validar.iti.gov.br</strong> (cole o conteúdo no console) ou use como referência.</p>
+  <button onclick="testar()">Testar fetch para API</button>
+  <pre id="resultado"></pre>
+  <script>
+    async function testar() {
+      const url = 'https://ola-jamal.onrender.com/api/verify/b691c2f1-1e35-40a6-8553-e1809d9fc3b7?type=prescricao&_format=application/validador-iti+json&_secretCode=712634';
+      const el = document.getElementById('resultado');
+      try {
+        const r = await fetch(url);
+        const json = await r.json();
+        el.textContent = 'OK! CORS funcionando.\n' + JSON.stringify(json, null, 2);
+      } catch (e) {
+        el.textContent = 'ERRO CORS: ' + e.message;
+      }
+    }
+  </script>
+</body>
+</html>

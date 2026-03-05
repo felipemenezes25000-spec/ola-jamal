@@ -26,7 +26,7 @@ import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
 import { DoctorCard } from '../../components/ui/DoctorCard';
-import { AppButton } from '../../components/ui/AppButton';
+import { AppButton, AIActionSheet } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { useTriageEval } from '../../hooks/useTriageEval';
@@ -464,6 +464,9 @@ function ConductSection({ request, conductNotes, setConductNotes, includeConduct
   handleSaveConduct: () => Promise<void>;
 }) {
   if (request.requestType !== 'consultation') return null;
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const suggestion = request.aiConductSuggestion || '';
+
   return (
     <DoctorCard style={[s.cardMargin, s.formCard]}>
       <View style={s.formHeader}>
@@ -480,18 +483,49 @@ function ConductSection({ request, conductNotes, setConductNotes, includeConduct
             <Ionicons name="bulb" size={16} color={colors.primary} />
             <Text style={s.aiTitle}>Sugestão de conduta da IA</Text>
           </View>
-          <Text style={[s.aiSummary, { fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.xs }]}>{request.aiConductSuggestion}</Text>
+          <Text style={[s.aiSummary, { fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.xs }]}>{suggestion}</Text>
           <TouchableOpacity
             style={s.aiSummaryActionBtn}
-            onPress={() => {
-              const suggestion = request.aiConductSuggestion || '';
-              const next = conductNotes && conductNotes.trim().length > 0 ? `${conductNotes.trim()}\n\n${suggestion}` : suggestion;
-              setConductNotes(next);
-            }}
+            onPress={() => setSheetOpen(true)}
           >
-            <Ionicons name="document-text" size={14} color={colors.primary} />
-            <Text style={s.aiSummaryActionText}>Usar sugestão no prontuário</Text>
+            <Ionicons name="ellipsis-horizontal-circle-outline" size={16} color={colors.primary} />
+            <Text style={s.aiSummaryActionText}>Ações da IA</Text>
           </TouchableOpacity>
+          <AIActionSheet
+            visible={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+            title="Ações da sugestão de conduta"
+            subtitle="Copie ou aplique no prontuário com um toque."
+            actions={[
+              {
+                key: 'copy',
+                label: 'Copiar sugestão',
+                icon: 'copy-outline',
+                onPress: async () => {
+                  await Clipboard.setStringAsync(suggestion);
+                  showToast({ message: 'Sugestão copiada', type: 'success' });
+                },
+              },
+              {
+                key: 'apply',
+                label: 'Aplicar no prontuário',
+                icon: 'checkmark-done-outline',
+                onPress: () => {
+                  const next = conductNotes && conductNotes.trim().length > 0
+                    ? `${conductNotes.trim()}\n\n${suggestion}`
+                    : suggestion;
+                  setConductNotes(next);
+                },
+              },
+              {
+                key: 'discard',
+                label: 'Descartar',
+                icon: 'trash-outline',
+                destructive: true,
+                onPress: () => {},
+              },
+            ]}
+          />
         </View>
       )}
       <TextInput

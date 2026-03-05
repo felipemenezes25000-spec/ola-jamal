@@ -36,8 +36,9 @@ public class AuthService(
         if (await userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
             throw new AuthConflictException("Este e-mail já está cadastrado. Use outro ou faça login.");
 
-        var cpfDigits = new string((request.Cpf ?? "").Where(char.IsDigit).ToArray());
-        if (cpfDigits.Length == 11 && await userRepository.ExistsByCpfAsync(request.Cpf!, cancellationToken))
+        var cpf = request.Cpf ?? throw new ArgumentException("CPF é obrigatório.");
+        var cpfDigits = new string(cpf.Where(char.IsDigit).ToArray());
+        if (cpfDigits.Length == 11 && await userRepository.ExistsByCpfAsync(cpf, cancellationToken))
             throw new AuthConflictException("Este CPF já está cadastrado. Use outro ou faça login.");
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
@@ -45,7 +46,7 @@ public class AuthService(
             request.Name,
             request.Email,
             passwordHash,
-            request.Cpf,
+            cpf!,
             request.Phone,
             request.BirthDate,
             request.Street,
@@ -83,8 +84,9 @@ public class AuthService(
         if (await userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
             throw new AuthConflictException("Este e-mail já está cadastrado. Use outro ou faça login.");
 
-        var cpfDigits = new string((request.Cpf ?? "").Where(char.IsDigit).ToArray());
-        if (cpfDigits.Length == 11 && await userRepository.ExistsByCpfAsync(request.Cpf!, cancellationToken))
+        var cpf = request.Cpf ?? throw new ArgumentException("CPF é obrigatório.");
+        var cpfDigits = new string(cpf.Where(char.IsDigit).ToArray());
+        if (cpfDigits.Length == 11 && await userRepository.ExistsByCpfAsync(cpf, cancellationToken))
             throw new AuthConflictException("Este CPF já está cadastrado. Use outro ou faça login.");
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
@@ -93,7 +95,7 @@ public class AuthService(
             request.Email,
             passwordHash,
             request.Phone,
-            request.Cpf,
+            cpf!,
             request.BirthDate,
             request.Street,
             request.Number,

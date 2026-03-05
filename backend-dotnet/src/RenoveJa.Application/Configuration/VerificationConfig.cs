@@ -25,4 +25,12 @@ public class VerificationConfig
     /// Se vazio, o redirect usa caminho relativo <c>/verify/{id}</c>.
     /// </summary>
     public string FrontendUrl { get; set; } = "";
+
+    /// <summary>
+    /// URL base para links curtos no QR Code (estilo Docway).
+    /// Ex: <c>https://re.renoveja.com.br</c> ou <c>https://ola-jamal.onrender.com</c>.
+    /// Quando configurado, o QR usa <c>{ShortUrlBase}/r/{encoded}</c> em vez da URL completa.
+    /// O endpoint /r/{shortCode} redireciona para /api/verify/{id}.
+    /// </summary>
+    public string ShortUrlBase { get; set; } = "";
 }

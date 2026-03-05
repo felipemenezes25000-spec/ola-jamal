@@ -7,6 +7,6 @@ public record NotificationResponseDto(
     string Message,
     string NotificationType,
     bool Read,
-    Dictionary<string, object>? Data,
+    Dictionary<string, object?>? Data,
     DateTime CreatedAt
 );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,12 +20,12 @@ import { createPrescriptionSchema } from '../../lib/validation/schemas';
 import { PRESCRIPTION_TYPE_PRICES } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
-import { AppHeader } from '../../components/ui/AppHeader';
-import { AppInput } from '../../components/ui/AppInput';
-import { AppButton } from '../../components/ui/AppButton';
-import { AppCard } from '../../components/ui/AppCard';
+import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { evaluatePrescriptionCompleteness } from '../../lib/domain/assistantIntelligence';
+import { evaluateAssistantCompleteness } from '../../lib/api';
 
 const t = theme;
 const c = t.colors;
@@ -71,6 +73,49 @@ export default function NewPrescription() {
   const [selectedType, setSelectedType] = useState<'simples' | 'controlado'>('simples');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const currentStep = images.length > 0 ? 3 : 2;
+  const listPadding = useListBottomPadding();
+  const selectedPrice = formatBRL(TYPES.find((type) => type.key === selectedType)?.price ?? 0);
+  const completenessLocal = evaluatePrescriptionCompleteness({
+    prescriptionType: selectedType,
+    imagesCount: images.length,
+  });
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiResult, setApiResult] = useState<{
+    score: number;
+    doneCount: number;
+    totalCount: number;
+    items: { id: string; label: string; required: boolean; done: boolean }[];
+    missingRequired: { id: string; label: string; required: boolean; done: boolean }[];
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setApiLoading(true);
+    evaluateAssistantCompleteness({
+      flow: 'prescription',
+      prescriptionType: selectedType,
+      imagesCount: images.length,
+    })
+      .then((res) => {
+        if (!cancelled) {
+          const missingRequired = res.checks.filter((c) => c.required && !c.done);
+          setApiResult({
+            score: res.score,
+            doneCount: res.doneCount,
+            totalCount: res.totalCount,
+            items: res.checks,
+            missingRequired,
+          });
+        }
+      })
+      .catch(() => { if (!cancelled) setApiResult(null); });
+    return () => { cancelled = true; };
+  }, [selectedType, images.length]);
+
+  const completeness = apiResult
+    ? { score: apiResult.score, doneCount: apiResult.doneCount, totalCount: apiResult.totalCount, items: apiResult.items, missingRequired: apiResult.missingRequired }
+    : completenessLocal;
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -92,11 +137,11 @@ export default function NewPrescription() {
   const pickFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       quality: 0.8,
-      allowsMultipleSelection: false,
+      allowsMultipleSelection: true,
     });
 
-    if (!result.canceled && result.assets[0]) {
-      setImages([...images, result.assets[0].uri]);
+    if (!result.canceled && result.assets?.length) {
+      setImages([...images, ...result.assets.map((a) => a.uri)]);
     }
   };
 
@@ -111,6 +156,14 @@ export default function NewPrescription() {
   });
 
   const handleSubmit = async () => {
+    if (completeness.missingRequired.length > 0) {
+      Alert.alert(
+        'Faltam itens para enviar',
+        completeness.missingRequired.map((item) => `• ${item.label}`).join('\n')
+      );
+      return;
+    }
+
     if (images.length === 0) {
       Alert.alert('Foto necessária', 'Tire uma foto da receita antiga para continuar.');
       return;
@@ -147,129 +200,147 @@ export default function NewPrescription() {
   };
 
   return (
-    <Screen scroll edges={['bottom']} padding={false}>
-      <AppHeader title="Renovação de Receita" />
+    <Screen scroll={false} edges={['bottom']} padding={false}>
+      <View style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={[styles.body, { paddingBottom: listPadding + 150 }]} showsVerticalScrollIndicator={false}>
+          <AppHeader title="Renovação de Receita" />
+          <StepIndicator current={currentStep} total={3} labels={['Tipo', 'Foto', 'Revisão']} />
+          <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
+            <View style={styles.assistantHeader}>
+              <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
+              <Text style={styles.assistantTitle}>Dra. RenoveJa: qualidade do envio</Text>
+              {apiLoading && (
+                <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
+              )}
+            </View>
+            <Text style={styles.assistantProgress}>Seu pedido esta {completeness.score}% pronto</Text>
+            {completeness.missingRequired.map((item) => (
+              <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
+            ))}
+            {completeness.missingRequired.length === 0 ? (
+              <Text style={styles.assistantGood}>Tudo certo para enviar. Vamos finalizar.</Text>
+            ) : null}
+          </AppCard>
 
-      <View style={styles.body}>
-        {/* Type Selection */}
-        <Text style={styles.sectionLabel}>TIPO DE RECEITA</Text>
-        <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de receita tocando em um dos cards abaixo.</Text>
-        {TYPES.map(type => {
-          const isComingSoon = 'comingSoon' in type && type.comingSoon;
-          const isSelectable = !isComingSoon && (type.key === 'simples' || type.key === 'controlado');
-          return (
-            <AppCard
-              key={type.key}
-              selected={isSelectable && selectedType === type.key}
-              onPress={isSelectable ? () => setSelectedType(type.key) : undefined}
-              style={StyleSheet.flatten(isComingSoon ? [styles.typeCard, styles.typeCardDisabled] : styles.typeCard)}
-            >
-              <View style={styles.typeContent}>
-                <View style={styles.typeTextContainer}>
-                  <View style={styles.typeTitleRow}>
-                    <Text
-                      style={[
-                        styles.typeName,
-                        selectedType === type.key && styles.typeNameSelected,
-                        isComingSoon && styles.typeNameDisabled,
-                      ]}
-                    >
-                      {type.label}
-                    </Text>
-                    {type.popular && (
-                      <View style={styles.popularBadge}>
-                        <Text style={styles.popularText}>POPULAR</Text>
-                      </View>
-                    )}
-                    {isComingSoon && (
-                      <View style={styles.comingSoonBadge}>
-                        <Text style={styles.comingSoonText}>Em breve</Text>
-                      </View>
+          {/* Type Selection */}
+          <Text style={styles.sectionLabel}>TIPO DE RECEITA</Text>
+          <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de receita tocando em um dos cards abaixo.</Text>
+          {TYPES.map(type => {
+            const isComingSoon = 'comingSoon' in type && type.comingSoon;
+            const isSelectable = !isComingSoon && (type.key === 'simples' || type.key === 'controlado');
+            return (
+              <AppCard
+                key={type.key}
+                selected={isSelectable && selectedType === type.key}
+                onPress={isSelectable ? () => setSelectedType(type.key) : undefined}
+                style={StyleSheet.flatten(isComingSoon ? [styles.typeCard, styles.typeCardDisabled] : styles.typeCard)}
+              >
+                <View style={styles.typeContent}>
+                  <View style={styles.typeTextContainer}>
+                    <View style={styles.typeTitleRow}>
+                      <Text
+                        style={[
+                          styles.typeName,
+                          selectedType === type.key && styles.typeNameSelected,
+                          isComingSoon && styles.typeNameDisabled,
+                        ]}
+                      >
+                        {type.label}
+                      </Text>
+                      {type.popular && (
+                        <View style={styles.popularBadge}>
+                          <Text style={styles.popularText}>POPULAR</Text>
+                        </View>
+                      )}
+                      {isComingSoon && (
+                        <View style={styles.comingSoonBadge}>
+                          <Text style={styles.comingSoonText}>Em breve</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.typeDesc, isComingSoon && styles.typeDescDisabled]}>{type.desc}</Text>
+                    {isComingSoon && 'anvisaPrevisao' in type && type.anvisaPrevisao && (
+                      <Text style={styles.anvisaPrevisao}>{type.anvisaPrevisao}</Text>
                     )}
                   </View>
-                  <Text style={[styles.typeDesc, isComingSoon && styles.typeDescDisabled]}>{type.desc}</Text>
-                  {isComingSoon && 'anvisaPrevisao' in type && type.anvisaPrevisao && (
-                    <Text style={styles.anvisaPrevisao}>{type.anvisaPrevisao}</Text>
+                  {!isComingSoon && (
+                    <View style={styles.typePriceContainer}>
+                      <Text
+                        style={[
+                          styles.typePrice,
+                          selectedType === type.key && styles.typePriceSelected,
+                        ]}
+                      >
+                        {formatBRL(type.price)}
+                      </Text>
+                    </View>
                   )}
                 </View>
-                {!isComingSoon && (
-                  <View style={styles.typePriceContainer}>
-                    <Text
-                      style={[
-                        styles.typePrice,
-                        selectedType === type.key && styles.typePriceSelected,
-                      ]}
-                    >
-                      {formatBRL(type.price)}
-                    </Text>
+                {isSelectable && selectedType === type.key && (
+                  <View style={styles.checkIcon}>
+                    <Ionicons name="checkmark-circle" size={24} color={c.primary.main} />
                   </View>
                 )}
-              </View>
-              {isSelectable && selectedType === type.key && (
-                <View style={styles.checkIcon}>
-                  <Ionicons name="checkmark-circle" size={24} color={c.primary.main} />
-                </View>
-              )}
-            </AppCard>
-          );
-        })}
+              </AppCard>
+            );
+          })}
 
-        {/* Photo */}
-        <Text style={styles.sectionLabel}>FOTO DA RECEITA</Text>
-        <Text style={styles.stepHint}>Passo 2 — Envie a foto da sua receita. Toque em Câmera (tirar foto) ou Galeria (escolher da galeria).</Text>
-        <Text style={styles.photoHint}>
-          Envie APENAS fotos do documento da receita (papel ou tela com medicamentos). Fotos de
-          pessoas, animais ou outros objetos serão rejeitadas automaticamente.
-        </Text>
-        <View style={styles.photoRow}>
-          <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
-            <View style={styles.photoIconCircle}>
-              <Ionicons name="camera" size={26} color={c.primary.main} />
-            </View>
-            <Text style={styles.photoButtonText}>Câmera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
-            <View style={styles.photoIconCircle}>
-              <Ionicons name="image" size={26} color={c.primary.main} />
-            </View>
-            <Text style={styles.photoButtonText}>Galeria</Text>
-          </TouchableOpacity>
-        </View>
-        {images.length > 0 && (
-          <View style={styles.imagesRow}>
-            {images.map((uri, index) => (
-              <View key={index} style={styles.imageContainer}>
-                <Image source={{ uri }} style={styles.imagePreview} />
-                <TouchableOpacity
-                  style={styles.removeImage}
-                  onPress={() => setImages(images.filter((_, i) => i !== index))}
-                >
-                  <Ionicons name="close-circle" size={22} color={c.status.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Info */}
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle" size={20} color={c.status.info} />
-          <Text style={styles.infoText}>
-            Sua solicitação será analisada por um médico em até 15 minutos. Caso não seja aprovada,
-            o valor será estornado integralmente.
+          {/* Photo */}
+          <Text style={styles.sectionLabel}>FOTO DA RECEITA</Text>
+          <Text style={styles.stepHint}>Passo 2 — Envie a foto da sua receita. Toque em Câmera (tirar foto) ou Galeria (escolher da galeria).</Text>
+          <Text style={styles.photoHint}>
+            Envie APENAS fotos do documento da receita (papel ou tela com medicamentos). Fotos de
+            pessoas, animais ou outros objetos serão rejeitadas automaticamente.
           </Text>
-        </View>
+          <View style={styles.photoRow}>
+            <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+              <View style={styles.photoIconCircle}>
+                <Ionicons name="camera" size={26} color={c.primary.main} />
+              </View>
+              <Text style={styles.photoButtonText}>Câmera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
+              <View style={styles.photoIconCircle}>
+                <Ionicons name="image" size={26} color={c.primary.main} />
+              </View>
+              <Text style={styles.photoButtonText}>Galeria</Text>
+            </TouchableOpacity>
+          </View>
+          {images.length > 0 && (
+            <View style={styles.imagesRow}>
+              {images.map((uri, index) => (
+                <View key={index} style={styles.imageContainer}>
+                  <Image source={{ uri }} style={styles.imagePreview} />
+                  <TouchableOpacity
+                    style={styles.removeImage}
+                    onPress={() => setImages(images.filter((_, i) => i !== index))}
+                  >
+                    <Ionicons name="close-circle" size={22} color={c.status.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
 
-        {/* Submit */}
-        <Text style={styles.stepHint}>Pronto? Toque no botão abaixo para enviar sua solicitação.</Text>
-        <AppButton
-          title="Enviar Solicitação"
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={loading || images.length === 0}
-          fullWidth
-          icon="send"
-          style={styles.submitButton}
+          {/* Info */}
+          <View style={styles.infoBox}>
+            <Ionicons name="information-circle" size={20} color={c.status.info} />
+            <Text style={styles.infoText}>
+              Sua solicitação será analisada por um médico em até 15 minutos. Caso não seja aprovada,
+              o valor será estornado integralmente.
+            </Text>
+          </View>
+        </ScrollView>
+        <StickyCTA
+          summaryTitle="Total"
+          summaryValue={selectedPrice}
+          summaryHint={`${completeness.score}% pronto • ${images.length} foto(s) anexada(s)`}
+          primary={{
+            label: 'Enviar solicitação',
+            onPress: handleSubmit,
+            loading,
+            disabled: loading || images.length === 0,
+          }}
         />
       </View>
     </Screen>
@@ -278,6 +349,7 @@ export default function NewPrescription() {
 
 const styles = StyleSheet.create({
   body: {
+    flexGrow: 1,
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   sectionLabel: {
@@ -291,6 +363,46 @@ const styles = StyleSheet.create({
     color: c.text.secondary,
     marginBottom: s.sm,
     lineHeight: 20,
+  },
+  assistantCard: {
+    marginTop: s.md,
+    borderWidth: 1,
+    borderColor: c.primary.soft,
+    backgroundColor: c.primary.soft + '66',
+  },
+  assistantCardLoading: {
+    opacity: 0.95,
+  },
+  assistantLoading: {
+    marginLeft: 'auto',
+  },
+  assistantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.xs,
+  },
+  assistantTitle: {
+    fontSize: 13,
+    fontWeight: typo.fontWeight.bold,
+    color: c.primary.main,
+  },
+  assistantProgress: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: typo.fontWeight.semibold,
+    color: c.text.primary,
+  },
+  assistantMissing: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 18,
+    color: c.text.secondary,
+  },
+  assistantGood: {
+    marginTop: 8,
+    fontSize: 12,
+    color: c.status.success,
+    fontWeight: typo.fontWeight.semibold,
   },
   typeCard: {
     marginBottom: s.sm,
@@ -448,7 +560,4 @@ const styles = StyleSheet.create({
     color: c.text.secondary,
     lineHeight: 18,
   } as any,
-  submitButton: {
-    marginTop: s.lg,
-  },
 });

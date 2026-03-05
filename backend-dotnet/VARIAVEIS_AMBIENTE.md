@@ -15,6 +15,7 @@ Este documento descreve as variáveis de ambiente necessárias para o backend e 
 | `OpenAI__ApiKey` | `OpenAI:ApiKey` | Chave da API OpenAI (formato `sk-proj-...`) | Análise de receitas e exames por IA |
 | `Verification__BaseUrl` | `Verification:BaseUrl` | URL base do endpoint da API (codificada no QR Code). Ex: `https://sua-api.onrender.com/api/verify` | Integração validar.iti.gov.br |
 | `Verification__FrontendUrl` | `Verification:FrontendUrl` | URL base do frontend de verificação (redirect + texto do PDF). Ex: `https://renovejasaude.com.br/verify` | Redirect de browsers |
+| `Verification__ShortUrlBase` | `Verification:ShortUrlBase` | URL base para links curtos no QR (estilo Docway). Ex: `https://re.renoveja.com.br` ou `https://sua-api.onrender.com`. Quando configurado, o QR usa `/r/{shortCode}` em vez da URL completa. | QR Code mais compacto |
 | `Api__BaseUrl` | `Api:BaseUrl` | URL pública da API (ex: `https://ola-jamal.onrender.com`). Usada para links de documento e **imagens de receita/exame** (proxy). | Documento assinado, imagens para médico |
 | `Api__DocumentTokenSecret` | `Api:DocumentTokenSecret` | Chave secreta para tokens temporários de acesso (documento e imagens). String aleatória de 32+ caracteres. | Documento assinado, imagens para médico |
 | `ASPNETCORE_ENVIRONMENT` | - | `Development` para mais logs e CORS aberto | Ambiente |

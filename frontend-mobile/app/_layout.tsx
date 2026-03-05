@@ -21,6 +21,7 @@ import { OfflineBanner } from '../components/OfflineBanner';
 import { GlobalAssistantBanner } from '../components/triage/GlobalAssistantBanner';
 import { ToastProvider } from '../components/ui/Toast';
 import * as SplashScreen from 'expo-splash-screen';
+import { motionTokens } from '../lib/ui/motion';
 
 // Push notifications foram removidas do Expo Go no SDK 53 - carregar provider só em development build
 const PushNotificationProvider = isExpoGo
@@ -31,7 +32,6 @@ SplashScreen.preventAutoHideAsync();
 
 // Mostra o app em no máximo 1s (fontes opcionais; evita tela branca no dispositivo)
 const MAX_WAIT_MS = 1000;
-
 export default function RootLayout() {
   const pathname = usePathname();
   const [fontsLoaded, fontError] = useFonts({
@@ -82,30 +82,36 @@ export default function RootLayout() {
             <ToastProvider>
               <OfflineBanner />
               <View style={styles.layoutContent}>
-                <Stack screenOptions={{ headerShown: false }}>
+                <Stack screenOptions={motionTokens.nav.rootStack}>
                 <Stack.Screen name="index" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(patient)" />
-                <Stack.Screen name="(doctor)" />
-                <Stack.Screen name="new-request" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="request-detail/[id]" />
-                <Stack.Screen name="doctor-request/[id]" />
-                <Stack.Screen name="doctor-request/editor/[id]" />
-                <Stack.Screen name="doctor-patient/[patientId]" />
-                <Stack.Screen name="doctor-patient-summary/[patientId]" />
-                <Stack.Screen name="consultation-summary/[requestId]" />
-                <Stack.Screen name="care-plans/[carePlanId]" />
-                <Stack.Screen name="payment/[id]" />
-                <Stack.Screen name="payment/request/[requestId]" />
-                <Stack.Screen name="payment/card" />
-                <Stack.Screen name="certificate/upload" />
-                <Stack.Screen name="video/[requestId]" />
-                <Stack.Screen name="settings" />
-                <Stack.Screen name="change-password" />
-                <Stack.Screen name="privacy" />
-                <Stack.Screen name="terms" />
-                <Stack.Screen name="about" />
-                <Stack.Screen name="help-faq" />
+                <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+                <Stack.Screen name="(patient)" options={{ animation: 'fade' }} />
+                <Stack.Screen name="(doctor)" options={{ animation: 'fade' }} />
+                <Stack.Screen name="new-request" options={motionTokens.nav.modal} />
+
+                {/* Fluxos paciente: transição mais suave */}
+                <Stack.Screen name="request-detail/[id]" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="consultation-summary/[requestId]" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="care-plans/[carePlanId]" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="payment/[id]" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="payment/request/[requestId]" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="payment/card" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="video/[requestId]" options={motionTokens.nav.softPush} />
+
+                {/* Fluxos médico: transição mais direta */}
+                <Stack.Screen name="doctor-request/[id]" options={motionTokens.nav.snappyPush} />
+                <Stack.Screen name="doctor-request/editor/[id]" options={motionTokens.nav.snappyPush} />
+                <Stack.Screen name="doctor-patient/[patientId]" options={motionTokens.nav.snappyPush} />
+                <Stack.Screen name="doctor-patient-summary/[patientId]" options={motionTokens.nav.snappyPush} />
+                <Stack.Screen name="certificate/upload" options={motionTokens.nav.snappyPush} />
+
+                {/* Utilitários globais */}
+                <Stack.Screen name="settings" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="change-password" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="privacy" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="terms" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="about" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="help-faq" options={motionTokens.nav.softPush} />
                 </Stack>
                 <RequestUpdateBanner />
                 <GlobalAssistantBanner />

@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using QRCoder;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Application.Services;
 using RenoveJa.Domain.Enums;
 
 namespace RenoveJa.Infrastructure.Pdf;
@@ -231,21 +232,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         doc.SetMargins(36, 36, 36, 36);
         var (f, fb, fi) = CreateFonts();
 
-        AddCompactHeader(doc, "RECEITA SIMPLES", $"Emissão: {data.EmissionDate:dd/MM/yyyy}", fb, f);
-        AddSectionLabel(doc, "PACIENTE", fb);
-        AddPatientBlock(doc, data, fb, f, includeGenderAge: false);
-
-        AddSectionLabel(doc, "MEDICAMENTOS", fb);
-        for (int i = 0; i < meds.Count; i++)
-        {
-            AddMedicationBlock(doc, meds[i], fb, f, fi);
-            AddObservationBlock(doc, meds[i], data.AdditionalNotes, f, fb, fi);
-        }
-
-        AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
-        AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
-        AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
-        AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
+        AddMedicationPages(doc, data, meds, "RECEITA SIMPLES", $"Emissão: {data.EmissionDate:dd/MM/yyyy}", null, qrUrl, displayUrl, accessCode, f, fb, fi, includeGenderAge: false);
         doc.Close();
     }
 
@@ -265,23 +252,9 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         var (f, fb, fi) = CreateFonts();
 
         var validUntil = data.EmissionDate.AddDays(10).ToString("dd/MM/yyyy");
+        var warning = $"Validade: 10 dias — válida até {validUntil}";
 
-        AddCompactHeader(doc, "RECEITA DE ANTIMICROBIANO", $"RDC 471/2021 · Emissão: {data.EmissionDate:dd/MM/yyyy}", fb, f);
-        AddWarningBanner(doc, $"Validade: 10 dias — válida até {validUntil}", fb, f);
-        AddSectionLabel(doc, "PACIENTE", fb);
-        AddPatientBlock(doc, data, fb, f, includeGenderAge: true);
-
-        AddSectionLabel(doc, "MEDICAMENTOS", fb);
-        for (int i = 0; i < meds.Count; i++)
-        {
-            AddMedicationBlock(doc, meds[i], fb, f, fi);
-            AddObservationBlock(doc, meds[i], data.AdditionalNotes, f, fb, fi);
-        }
-
-        AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
-        AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
-        AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
-        AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
+        AddMedicationPages(doc, data, meds, "RECEITA DE ANTIMICROBIANO", $"RDC 471/2021 · Emissão: {data.EmissionDate:dd/MM/yyyy}", warning, qrUrl, displayUrl, accessCode, f, fb, fi, includeGenderAge: true);
         doc.Close();
     }
 
@@ -301,61 +274,100 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         var (f, fb, fi) = CreateFonts();
 
         var validUntil = data.EmissionDate.AddDays(30).ToString("dd/MM/yyyy");
+        var warning = $"Validade: 30 dias — válida até {validUntil} (art. 35 §3º)";
 
-        AddCompactHeader(doc, "RECEITA DE CONTROLE ESPECIAL", $"Portaria SVS 344/98 · 1ª via Farmácia / 2ª via Paciente", fb, f);
-        AddWarningBanner(doc, $"Validade: 30 dias — válida até {validUntil} (art. 35 §3º)", fb, f);
-
-        // Emitente
-        AddSectionLabel(doc, "IDENTIFICAÇÃO DO EMITENTE", fb);
-        var doctorLine = $"Dr(a). {data.DoctorName} · CRM {data.DoctorCrm}/{data.DoctorCrmState}";
-        if (!string.IsNullOrWhiteSpace(data.DoctorSpecialty)) doctorLine += $" · {data.DoctorSpecialty}";
-        doc.Add(new Paragraph(doctorLine).SetFont(f).SetFontSize(9).SetFontColor(TextDark).SetMarginBottom(2));
-        if (!string.IsNullOrWhiteSpace(data.DoctorAddress))
-            doc.Add(new Paragraph(data.DoctorAddress).SetFont(f).SetFontSize(8).SetFontColor(TextMedium).SetMarginBottom(2));
-        if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
-            doc.Add(new Paragraph($"Tel.: {data.DoctorPhone}").SetFont(f).SetFontSize(8).SetFontColor(TextMedium));
-        doc.Add(new Paragraph().SetMarginBottom(8));
-
-        AddSectionLabel(doc, "PACIENTE", fb);
-        AddPatientBlock(doc, data, fb, f, includeGenderAge: false);
-
-        // Medicamentos com quantidade por extenso
-        AddSectionLabel(doc, "PRESCRIÇÃO — MEDICAMENTOS", fb);
         for (int i = 0; i < meds.Count; i++)
         {
+            if (i > 0)
+                doc.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+
+            AddCompactHeader(doc, "RECEITA DE CONTROLE ESPECIAL", $"Portaria SVS 344/98 · 1ª via Farmácia / 2ª via Paciente", fb, f);
+            AddWarningBanner(doc, warning, fb, f);
+
+            AddSectionLabel(doc, "IDENTIFICAÇÃO DO EMITENTE", fb);
+            var doctorLine = $"Dr(a). {data.DoctorName} · CRM {data.DoctorCrm}/{data.DoctorCrmState}";
+            if (!string.IsNullOrWhiteSpace(data.DoctorSpecialty)) doctorLine += $" · {data.DoctorSpecialty}";
+            doc.Add(new Paragraph(doctorLine).SetFont(f).SetFontSize(9).SetFontColor(TextDark).SetMarginBottom(2));
+            if (!string.IsNullOrWhiteSpace(data.DoctorAddress))
+                doc.Add(new Paragraph(data.DoctorAddress).SetFont(f).SetFontSize(8).SetFontColor(TextMedium).SetMarginBottom(2));
+            if (!string.IsNullOrWhiteSpace(data.DoctorPhone))
+                doc.Add(new Paragraph($"Tel.: {data.DoctorPhone}").SetFont(f).SetFontSize(8).SetFontColor(TextMedium));
+            doc.Add(new Paragraph().SetMarginBottom(8));
+
+            AddSectionLabel(doc, "PACIENTE", fb);
+            AddPatientBlock(doc, data, fb, f, includeGenderAge: false);
+
             var med = meds[i];
             if (!string.IsNullOrWhiteSpace(med.Quantity))
                 med = med with { Quantity = $"{med.Quantity} ({QuantityToWords.Convert(med.Quantity)})" };
+            AddSectionLabel(doc, "PRESCRIÇÃO — MEDICAMENTO", fb);
             AddMedicationBlock(doc, med, fb, f, fi);
             AddObservationBlock(doc, med, data.AdditionalNotes, f, fb, fi);
+
+            AddBlankFormSection(doc, "IDENTIFICAÇÃO DO COMPRADOR", new[]
+            {
+                "Nome: _________________________________________________",
+                "RG: ____________________  Órgão: ________  Tel.: ______________",
+                "Endereço: ______________________________________________",
+                "Cidade: ____________________________  UF: _____",
+            }, f, fb);
+
+            AddBlankFormSection(doc, "IDENTIFICAÇÃO DO FORNECEDOR", new[]
+            {
+                "Farmacêutico(a): ___________________________  CRF: ________",
+                "Farmácia: _____________________________  CNPJ: ____________",
+                "Endereço: ______________________________________________",
+                "Data dispensação: ___/___/_____ Assinatura: _________________",
+            }, f, fb);
+
+            var isLast = i == meds.Count - 1;
+            if (isLast)
+                AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
+
+            AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
+            AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
+            AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
         }
-
-        // Comprador / Fornecedor
-        AddBlankFormSection(doc, "IDENTIFICAÇÃO DO COMPRADOR", new[]
-        {
-            "Nome: _________________________________________________",
-            "RG: ____________________  Órgão: ________  Tel.: ______________",
-            "Endereço: ______________________________________________",
-            "Cidade: ____________________________  UF: _____",
-        }, f, fb);
-
-        AddBlankFormSection(doc, "IDENTIFICAÇÃO DO FORNECEDOR", new[]
-        {
-            "Farmacêutico(a): ___________________________  CRF: ________",
-            "Farmácia: _____________________________  CNPJ: ____________",
-            "Endereço: ______________________________________________",
-            "Data dispensação: ___/___/_____ Assinatura: _________________",
-        }, f, fb);
-
-        AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
-        AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
-        AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
         doc.Close();
     }
 
     // ════════════════════════════════════════════════════
     //  BUILDING BLOCKS — shared across all types
     // ════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Layout estilo Docway: um medicamento por página, com header e dados do paciente repetidos em cada página.
+    /// Facilita dispensação em farmácias diferentes e retenção de vias.
+    /// </summary>
+    private static void AddMedicationPages(Document doc, PrescriptionPdfData data, List<PrescriptionMedicationItem> meds,
+        string title, string subtitle, string? warningBanner,
+        string qrUrl, string displayUrl, string accessCode,
+        PdfFont f, PdfFont fb, PdfFont fi, bool includeGenderAge)
+    {
+        for (int i = 0; i < meds.Count; i++)
+        {
+            if (i > 0)
+                doc.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+
+            AddCompactHeader(doc, title, subtitle, fb, f);
+            if (!string.IsNullOrWhiteSpace(warningBanner))
+                AddWarningBanner(doc, warningBanner, fb, f);
+            AddSectionLabel(doc, "PACIENTE", fb);
+            AddPatientBlock(doc, data, fb, f, includeGenderAge);
+
+            AddSectionLabel(doc, "PRESCRIÇÃO", fb);
+            AddMedicationBlock(doc, meds[i], fb, f, fi);
+            AddObservationBlock(doc, meds[i], data.AdditionalNotes, f, fb, fi);
+
+            var isLast = i == meds.Count - 1;
+            if (isLast)
+                AddObservationAndConductBlock(doc, data.AutoObservation, data.DoctorConductNotes, data.IncludeConductInPdf, data.DoctorName, f, fb, fi);
+
+            AddVerificationBlock(doc, qrUrl, displayUrl, accessCode, f, fb);
+            AddDoctorBlock(doc, data.DoctorName, data.DoctorCrm, data.DoctorCrmState, data.DoctorSpecialty, data.DoctorAddress, data.DoctorPhone, data.EmissionDate, fb, f);
+            AddLegalFooter(doc, data.DoctorName, data.EmissionDate, f, fi);
+        }
+    }
 
     /// <summary>Compact header: logo left · document type + subtitle right</summary>
     private static void AddCompactHeader(Document doc, string title, string subtitle, PdfFont fb, PdfFont f)
@@ -732,10 +744,27 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             ? _verificationConfig.FrontendUrl.TrimEnd('/')
             : apiBase;
 
+        // URL curta (estilo Docway): re.renoveja.com.br/XXX em vez de api.com/api/verify/{guid}
+        var shortBase = !string.IsNullOrWhiteSpace(_verificationConfig.ShortUrlBase)
+            ? _verificationConfig.ShortUrlBase.TrimEnd('/')
+            : null;
+
+        string basePath;
+        if (shortBase != null && string.IsNullOrWhiteSpace(data.VerificationUrl))
+        {
+            var encoded = ShortUrlEncoder.Encode(data.RequestId);
+            basePath = $"{shortBase}/r/{encoded}";
+        }
+        else
+        {
+            basePath = data.VerificationUrl ?? $"{apiBase}/{data.RequestId}";
+        }
+
         // type=prescricao conforme Guia ITI Cap. IV — necessário para validar.iti.gov.br identificar o documento
-        var basePath = data.VerificationUrl ?? $"{apiBase}/{data.RequestId}";
         var qrUrl = basePath.Contains('?') ? $"{basePath}&type=prescricao" : $"{basePath}?type=prescricao";
-        var displayUrl = $"{frontendBase}/{data.RequestId}";
+        var displayUrl = shortBase != null
+            ? $"{shortBase}/r/{ShortUrlEncoder.Encode(data.RequestId)}"
+            : $"{frontendBase}/{data.RequestId}";
         var accessCode = data.AccessCode ?? GenerateAccessCode(data.RequestId);
         return (qrUrl, displayUrl, accessCode);
     }

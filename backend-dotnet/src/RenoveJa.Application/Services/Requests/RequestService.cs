@@ -271,7 +271,7 @@ public class RequestService(
                 "Solicitação Criada",
                 "Sua solicitação de receita foi enviada. Aguardando análise do médico.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = req.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = req.Id.ToString() });
             await NotifyAvailableDoctorsOfNewRequestAsync("receita", req, cancellationToken);
         }
 
@@ -324,7 +324,7 @@ public class RequestService(
                 "Solicitação Criada",
                 "Sua solicitação de exame foi enviada. Aguardando análise do médico.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = req.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = req.Id.ToString() });
             await NotifyAvailableDoctorsOfNewRequestAsync("exame", req, cancellationToken);
         }
 
@@ -412,7 +412,7 @@ public class RequestService(
             "Solicitação Criada",
             "Sua solicitação de consulta foi enviada. Aguardando médico.",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = medicalRequest.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = medicalRequest.Id.ToString() });
 
         await NotifyAvailableDoctorsOfNewRequestAsync("consulta", medicalRequest, cancellationToken);
 
@@ -685,7 +685,7 @@ public class RequestService(
             "Status Atualizado",
             $"Sua solicitação foi atualizada para: {dto.Status}",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
 
         await PublishRequestUpdatedAsync(request, "Status atualizado", cancellationToken);
         return MapRequestToDto(request);
@@ -736,7 +736,7 @@ public class RequestService(
                 "Solicitação Aprovada",
                 $"Sua solicitação foi aprovada. Valor: R$ {price:F2}. Acesse o app para realizar o pagamento.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
 
             return MapRequestToDto(request);
         }
@@ -779,7 +779,7 @@ public class RequestService(
             "Solicitação Rejeitada",
             $"Sua solicitação foi rejeitada. Motivo: {dto.RejectionReason}",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -813,14 +813,14 @@ public class RequestService(
                 "Médico Atribuído",
                 $"Sua solicitação foi atribuída ao Dr(a). {doctorUser.Name}",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
 
             await CreateNotificationAsync(
                 doctorUser.Id,
                 "Nova Solicitação",
                 $"Você recebeu uma nova solicitação de {request.PatientName}",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         }
 
         return MapRequestToDto(request);
@@ -877,7 +877,7 @@ public class RequestService(
             "Médico aceitou sua consulta",
             "Efetue o pagamento para continuar e entrar na sala de vídeo.",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
 
         return (MapRequestToDto(request), MapVideoRoomToDto(videoRoom));
     }
@@ -925,7 +925,7 @@ public class RequestService(
             "Médico na sala",
             "O médico entrou na sala de vídeo. Entre na chamada.",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -977,7 +977,7 @@ public class RequestService(
                 "Chamada conectada",
                 "O tempo da consulta está contando agora.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
             if (request.DoctorId.HasValue)
             {
                 await CreateNotificationAsync(
@@ -985,7 +985,7 @@ public class RequestService(
                     "Chamada conectada",
                     "O tempo da consulta está contando agora.",
                     cancellationToken,
-                    new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                    new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
             }
 
             // Enviar RequestUpdated para que paciente e médico atualizem o timer imediatamente (consultationStartedAt)
@@ -1109,7 +1109,7 @@ public class RequestService(
             "Consulta Finalizada",
             "Sua consulta foi encerrada. Obrigado!",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
 
         return MapRequestToDto(request);
     }
@@ -1339,7 +1339,7 @@ public class RequestService(
                                     "Documento Assinado",
                                     $"Sua {docTipo} foi assinada digitalmente e está disponível para download.",
                                     cancellationToken,
-                                    new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                                    new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
                                 await PublishRequestUpdatedAsync(request, "Documento assinado", cancellationToken);
 
                                 await signedRequestClinicalSync.SyncSignedRequestAsync(
@@ -1387,7 +1387,7 @@ public class RequestService(
             "Documento Assinado",
             "Sua solicitação foi assinada digitalmente e está disponível para download.",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         await PublishRequestUpdatedAsync(request, "Documento assinado", cancellationToken);
         return MapRequestToDto(request);
     }
@@ -1424,7 +1424,7 @@ public class RequestService(
                         "Reanálise Solicitada",
                         "O paciente solicitou reanálise da receita. Nova análise da IA disponível.",
                         cancellationToken,
-                        new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
                 }
             }
         }
@@ -1438,7 +1438,7 @@ public class RequestService(
                 "Reanálise não concluída",
                 "Não foi possível concluir a reanálise da IA. Tente novamente ou entre em contato com o suporte.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         }
         return MapRequestToDto(request);
     }
@@ -1494,7 +1494,7 @@ public class RequestService(
             "Reanálise concluída",
             "A reanálise da IA foi concluída. A nova análise está disponível.",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         return MapRequestToDto(request);
     }
 
@@ -1531,7 +1531,7 @@ public class RequestService(
                         "Reanálise Solicitada",
                         "O paciente solicitou reanálise do pedido de exame. Nova análise da IA disponível.",
                         cancellationToken,
-                        new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
                 }
             }
         }
@@ -1545,7 +1545,7 @@ public class RequestService(
                 "Reanálise não concluída",
                 "Não foi possível concluir a reanálise da IA. Tente novamente ou entre em contato com o suporte.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         }
         return MapRequestToDto(request);
     }
@@ -1566,7 +1566,7 @@ public class RequestService(
             "Receita atualizada",
             "O médico atualizou sua receita. O documento está disponível para assinatura.",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         return MapRequestToDto(request);
     }
 
@@ -1585,7 +1585,7 @@ public class RequestService(
             "Pedido de exame atualizado",
             "O médico atualizou seu pedido de exame. O documento está disponível para assinatura.",
             cancellationToken,
-            new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         return MapRequestToDto(request);
     }
 
@@ -1761,7 +1761,7 @@ public class RequestService(
                 "Documento Recebido",
                 $"O paciente {request.PatientName ?? "paciente"} recebeu o {tipoDoc}.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         }
 
         return MapRequestToDto(request);
@@ -1805,7 +1805,7 @@ public class RequestService(
                 "Pedido Cancelado",
                 "O paciente cancelou o pedido.",
                 cancellationToken,
-                new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
         }
 
         return MapRequestToDto(request);
@@ -1930,7 +1930,7 @@ public class RequestService(
         string title,
         string message,
         CancellationToken cancellationToken,
-        Dictionary<string, object>? data = null)
+        Dictionary<string, object?>? data = null)
     {
         var notification = Notification.Create(userId, title, message, NotificationType.Info, data);
         await notificationRepository.CreateAsync(notification, cancellationToken);
@@ -1955,7 +1955,7 @@ public class RequestService(
                     "Nova solicitação na fila",
                     $"Nova solicitação de {tipoSolicitacao} disponível: {request.PatientName ?? "paciente"}.",
                     cancellationToken,
-                    new Dictionary<string, object> { ["requestId"] = request.Id.ToString() });
+                    new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
             }
         }
         catch (Exception ex)

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, gradients } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { AppHeader, AppSegmentedControl, AppEmptyState } from '../../components/ui';
+import { showToast } from '../../components/ui/Toast';
+import { haptics } from '../../lib/haptics';
 
 function getDateGroup(dateStr: string): string {
   const d = new Date(dateStr);
@@ -30,8 +31,27 @@ function getDateGroup(dateStr: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
 }
 
-const ListSeparator = () => <View style={{ height: 8 }} />;
-const SectionGap = () => <View style={{ height: 4 }} />;
+type NotificationFilterKey = 'all' | 'payment' | 'request' | 'other';
+
+function getNotificationFilterType(item: NotificationResponseDto): Exclude<NotificationFilterKey, 'all'> {
+  const t = (item.title || '').toLowerCase();
+  const m = (item.message || '').toLowerCase();
+  const hasPayment = item.data?.paymentId != null || t.includes('pagamento') || m.includes('pagamento') || t.includes('pago') || m.includes('pago');
+  const hasRequest = t.includes('solicita') || m.includes('solicita') || t.includes('pedido') || m.includes('pedido') || t.includes('novo') || m.includes('novo');
+  if (hasPayment) return 'payment';
+  if (hasRequest) return 'request';
+  return 'other';
+}
+
+const FILTER_ITEMS: { key: NotificationFilterKey; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'payment', label: 'Pagamentos' },
+  { key: 'request', label: 'Solicitações' },
+  { key: 'other', label: 'Outros' },
+];
+
+const ListSeparator = () => null;
+const SectionGap = () => <View style={{ height: 6 }} />;
 
 export default function PatientNotifications() {
   const router = useRouter();
@@ -40,15 +60,22 @@ export default function PatientNotifications() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<NotificationFilterKey>('all');
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (withFeedback = false) => {
     try {
       setError(false);
       const response = await getNotifications({ page: 1, pageSize: 50 });
       setNotifications(response.items || []);
+      if (withFeedback) {
+        showToast({ message: 'Notificações atualizadas', type: 'success' });
+      }
     } catch (e) {
       console.error('Error loading notifications:', e);
       setError(true);
+      if (withFeedback) {
+        showToast({ message: 'Não foi possível atualizar as notificações', type: 'error' });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -67,8 +94,9 @@ export default function PatientNotifications() {
   );
 
   const onRefresh = () => {
+    haptics.light();
     setRefreshing(true);
-    loadData();
+    loadData(true);
   };
 
   const handleMarkAllRead = async () => {
@@ -76,8 +104,11 @@ export default function PatientNotifications() {
       await markAllNotificationsAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       refreshUnreadCount();
+      haptics.success();
+      showToast({ message: 'Todas as notificações foram marcadas como lidas', type: 'success' });
     } catch (error) {
       console.error('Error marking all as read:', error);
+      haptics.error();
     }
   };
 
@@ -86,6 +117,7 @@ export default function PatientNotifications() {
       await markNotificationAsRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       refreshUnreadCount();
+      haptics.selection();
       const requestId = item?.data?.requestId;
       if (requestId) {
         router.push(`/request-detail/${requestId}`);
@@ -139,8 +171,21 @@ export default function PatientNotifications() {
     );
   };
 
+  const counts = useMemo(() => {
+    const all = notifications.length;
+    const payment = notifications.filter((n) => getNotificationFilterType(n) === 'payment').length;
+    const request = notifications.filter((n) => getNotificationFilterType(n) === 'request').length;
+    const other = notifications.filter((n) => getNotificationFilterType(n) === 'other').length;
+    return { all, payment, request, other };
+  }, [notifications]);
+
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'all') return notifications;
+    return notifications.filter((n) => getNotificationFilterType(n) === activeFilter);
+  }, [activeFilter, notifications]);
+
   const sections = Object.entries(
-    notifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
+    filteredNotifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
       const g = getDateGroup(n.createdAt);
       if (!acc[g]) acc[g] = [];
       acc[g].push(n);
@@ -148,30 +193,44 @@ export default function PatientNotifications() {
     }, {})
   ).map(([title, data]) => ({ title, data }));
 
-  const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
-  const headerPaddingTop = insets.top + 16;
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={gradients.patientHeader as [string, string, ...string[]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: headerPaddingTop }]}
-      >
-        <Text style={styles.title}>Notificações</Text>
-        {notifications.some(n => !n.read) && (
-          <TouchableOpacity
-            onPress={handleMarkAllRead}
-            style={styles.markAllBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Marcar todas notificações como lidas"
-          >
-            <Text style={styles.markAll}>Marcar lidas</Text>
-          </TouchableOpacity>
-        )}
-      </LinearGradient>
+      <View style={styles.headerWrap}>
+        <View style={styles.headerClip}>
+          <AppHeader
+            title="Notificações"
+            left={<View style={{ width: 40 }} />}
+            gradient={gradients.patientHeader}
+            right={notifications.some(n => !n.read) ? (
+              <TouchableOpacity
+                onPress={handleMarkAllRead}
+                style={styles.markAllBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Marcar todas notificações como lidas"
+              >
+                <Text style={styles.markAll}>Marcar lidas</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 40 }} />
+            )}
+          />
+        </View>
+      </View>
+      <AppSegmentedControl
+        items={FILTER_ITEMS.map((item) => ({
+          key: item.key,
+          label: item.label,
+          count: (counts as any)[item.key] ?? undefined,
+        }))}
+        value={activeFilter}
+        onValueChange={(value) => {
+          haptics.selection();
+          setActiveFilter(value as NotificationFilterKey);
+        }}
+        size="sm"
+      />
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -179,19 +238,13 @@ export default function PatientNotifications() {
         </View>
       ) : error ? (
         <View style={styles.loadingWrap}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-          <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textSecondary, marginTop: 16 }}>
-            Não foi possível carregar
-          </Text>
-          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
-            Verifique sua conexão e tente novamente
-          </Text>
-          <TouchableOpacity
-            onPress={loadData}
-            style={{ marginTop: 20, paddingVertical: 12, paddingHorizontal: 28, backgroundColor: colors.primary, borderRadius: 26 }}
-          >
-            <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Tentar novamente</Text>
-          </TouchableOpacity>
+          <AppEmptyState
+            icon="alert-circle-outline"
+            title="Não foi possível carregar"
+            subtitle="Verifique sua conexão e tente novamente"
+            actionLabel="Tentar novamente"
+            onAction={loadData}
+          />
         </View>
       ) : (
         <SectionList
@@ -207,13 +260,11 @@ export default function PatientNotifications() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={styles.emptyIconWrap}>
-                <Ionicons name="notifications-off-outline" size={40} color={colors.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>Você está em dia!</Text>
-              <Text style={styles.emptySubtitle}>Nenhuma novidade no momento</Text>
-            </View>
+            <AppEmptyState
+              icon="notifications-off-outline"
+              title={activeFilter === 'all' ? 'Você está em dia!' : 'Nada nesse filtro'}
+              subtitle={activeFilter === 'all' ? 'Nenhuma novidade no momento' : 'Tente outro filtro para ver mais alertas.'}
+            />
           }
         />
       )}
@@ -226,18 +277,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
+  headerWrap: {
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
-    paddingBottom: 28,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 8,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  headerClip: {
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
   markAllBtn: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
   markAll: { fontSize: 13, color: '#fff', fontWeight: '600' },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: uiTokens.screenPaddingHorizontal },
+  listContent: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingTop: 6 },
   groupLabel: {
     fontSize: 11,
     fontWeight: '700',

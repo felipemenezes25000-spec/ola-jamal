@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { colors, spacing, typography } from '../../lib/themeDoctor';
 import { DoctorCard } from '../ui/DoctorCard';
+import { AIActionSheet, type AIActionSheetAction } from '../ui';
 import { showToast } from '../ui/Toast';
 import { parseAiSummary } from '../FormattedAiSummary';
 import { RequestResponseDto } from '../../types/database';
@@ -59,6 +60,34 @@ export function AiCopilotSection({ request, expanded, onToggleExpand, style }: A
     return null;
   }
 
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const summaryText = request.aiSummaryForDoctor?.trim() ?? '';
+  const blocks = useMemo(() => parseAiSummary(summaryText), [summaryText]);
+  const shouldTruncate = !expanded && blocks.length > 6;
+  const displayBlocks = shouldTruncate ? blocks.slice(0, 6) : blocks;
+  const sheetActions = useMemo<AIActionSheetAction[]>(() => {
+    const actions: AIActionSheetAction[] = [
+      {
+        key: 'copy',
+        label: 'Copiar resumo',
+        icon: 'copy-outline',
+        onPress: async () => {
+          await Clipboard.setStringAsync(summaryText);
+          showToast({ message: 'Copiado para a área de transferência', type: 'success' });
+        },
+      },
+    ];
+    if (blocks.length > 6) {
+      actions.unshift({
+        key: 'toggle-expand',
+        label: expanded ? 'Ver menos' : 'Ver mais',
+        icon: expanded ? 'chevron-up-outline' : 'chevron-down-outline',
+        onPress: onToggleExpand,
+      });
+    }
+    return actions;
+  }, [blocks.length, expanded, onToggleExpand, summaryText]);
+
   return (
     <DoctorCard style={[style, s.aiCard]}>
       <View style={s.aiHeader}>
@@ -83,52 +112,36 @@ export function AiCopilotSection({ request, expanded, onToggleExpand, style }: A
         <Text style={s.aiDisclaimerText}>Sugestões geradas por IA — decisão final do médico.</Text>
       </View>
 
-      {request.aiSummaryForDoctor && request.aiSummaryForDoctor.trim().length > 0 && (() => {
-        const blocks = parseAiSummary(request.aiSummaryForDoctor);
-        const shouldTruncate = !expanded && blocks.length > 6;
-        const displayBlocks = shouldTruncate ? blocks.slice(0, 6) : blocks;
-        return (
-          <View style={s.aiSummarySection}>
-            {displayBlocks.map((block, i) => {
-              if (block.type === 'header') {
-                return (
-                  <View key={i} style={[s.aiBlock, i > 0 && s.aiBlockSpaced]}>
-                    <Text style={s.aiBlockHeader}>{block.header}</Text>
-                    {block.content ? <Text style={s.aiBlockContent}>{block.content}</Text> : null}
-                  </View>
-                );
-              }
-              if (block.type === 'bullet') {
-                return (
-                  <View key={i} style={s.aiBulletRow}>
-                    <View style={s.aiBulletDot} />
-                    <Text style={s.aiBulletText}>{block.content}</Text>
-                  </View>
-                );
-              }
-              return <Text key={i} style={s.aiBlockContent}>{block.content}</Text>;
-            })}
-            {shouldTruncate && <Text style={s.aiTruncatedHint}>...</Text>}
-            <View style={s.aiSummaryActions}>
-              {blocks.length > 6 && (
-                <TouchableOpacity style={s.aiSummaryActionBtn} onPress={onToggleExpand}>
-                  <Text style={s.aiSummaryActionText}>{expanded ? 'Ver menos' : 'Ver mais'}</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={s.aiSummaryActionBtn}
-                onPress={async () => {
-                  await Clipboard.setStringAsync(request.aiSummaryForDoctor || '');
-                  showToast({ message: 'Copiado para a área de transferência', type: 'success' });
-                }}
-              >
-                <Ionicons name="copy-outline" size={14} color={colors.primary} />
-                <Text style={s.aiSummaryActionText}>Copiar</Text>
-              </TouchableOpacity>
-            </View>
+      {summaryText.length > 0 && (
+        <View style={s.aiSummarySection}>
+          {displayBlocks.map((block, i) => {
+            if (block.type === 'header') {
+              return (
+                <View key={i} style={[s.aiBlock, i > 0 && s.aiBlockSpaced]}>
+                  <Text style={s.aiBlockHeader}>{block.header}</Text>
+                  {block.content ? <Text style={s.aiBlockContent}>{block.content}</Text> : null}
+                </View>
+              );
+            }
+            if (block.type === 'bullet') {
+              return (
+                <View key={i} style={s.aiBulletRow}>
+                  <View style={s.aiBulletDot} />
+                  <Text style={s.aiBulletText}>{block.content}</Text>
+                </View>
+              );
+            }
+            return <Text key={i} style={s.aiBlockContent}>{block.content}</Text>;
+          })}
+          {shouldTruncate && <Text style={s.aiTruncatedHint}>...</Text>}
+          <View style={s.aiSummaryActions}>
+            <TouchableOpacity style={s.aiSummaryActionBtn} onPress={() => setSheetOpen(true)}>
+              <Ionicons name="ellipsis-horizontal-circle-outline" size={16} color={colors.primary} />
+              <Text style={s.aiSummaryActionText}>Ações</Text>
+            </TouchableOpacity>
           </View>
-        );
-      })()}
+        </View>
+      )}
 
       {request.aiUrgency && (
         <View style={s.urgencyRow}>
@@ -136,6 +149,13 @@ export function AiCopilotSection({ request, expanded, onToggleExpand, style }: A
           <Text style={s.urgencyText}>Urgência: {getUrgencyLabelPt(request.aiUrgency)}</Text>
         </View>
       )}
+      <AIActionSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Ações do Copiloto IA"
+        subtitle="Escolha como deseja usar este resumo."
+        actions={sheetActions}
+      />
     </DoctorCard>
   );
 }

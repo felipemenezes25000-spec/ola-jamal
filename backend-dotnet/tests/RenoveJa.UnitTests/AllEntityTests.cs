@@ -419,7 +419,7 @@ public class NotificationTests
     [Fact]
     public void Create_ShouldAcceptData()
     {
-        var data = new Dictionary<string, object> { ["key"] = "value" };
+        var data = new Dictionary<string, object?> { ["key"] = "value" };
         var n = Notification.Create(Guid.NewGuid(), "T", "M", data: data);
         n.Data.Should().ContainKey("key");
     }

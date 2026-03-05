@@ -62,12 +62,26 @@ class ApiClient {
     this.onForbidden = cb;
   }
 
+  /** Cache em memória do token para evitar AsyncStorage em toda requisição (P1 performance). */
+  private tokenCache: string | null | undefined = undefined;
+
+  /** Sincroniza o cache com o token atual. Chamar em signIn/signUp após persistir no AsyncStorage. */
+  setTokenCache(token: string | null) {
+    this.tokenCache = token ?? null;
+  }
+
+  /** Limpa o cache. Chamar em signOut/clearAuth. */
+  clearTokenCache() {
+    this.tokenCache = null;
+  }
+
   private async getAuthHeader(): Promise<Record<string, string>> {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
+    if (this.tokenCache !== undefined) {
+      return this.tokenCache ? { Authorization: `Bearer ${this.tokenCache}` } : {};
     }
-    return {};
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    this.tokenCache = token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   /** Headers comuns a todas as requisições (ex.: ngrok exige header para não devolver página HTML no browser). */
@@ -360,7 +374,10 @@ class ApiClient {
 
   /** Token para construir URL da chamada de vídeo (ex.: call-page?access_token=...) */
   async getAuthToken(): Promise<string | null> {
-    return AsyncStorage.getItem(TOKEN_KEY);
+    if (this.tokenCache !== undefined) return this.tokenCache;
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    this.tokenCache = token;
+    return token;
   }
 }
 

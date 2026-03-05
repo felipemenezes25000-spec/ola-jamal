@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,25 @@ import {
   Alert,
   Image,
   useWindowDimensions,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
-import { createExamRequest } from '../../lib/api';
+import { createExamRequest, evaluateAssistantCompleteness } from '../../lib/api';
 import { EXAM_TYPE_PRICES } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
 import { createExamSchema } from '../../lib/validation/schemas';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
-import { AppHeader } from '../../components/ui/AppHeader';
-import { AppCard } from '../../components/ui/AppCard';
-import { AppButton } from '../../components/ui/AppButton';
-import { AppInput } from '../../components/ui/AppInput';
+import { AppHeader, AppCard, AppInput, StepIndicator, StickyCTA } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { detectRedFlags, evaluateExamCompleteness } from '../../lib/domain/assistantIntelligence';
 
 const c = theme.colors;
 const s = theme.spacing;
@@ -49,6 +50,72 @@ export default function NewExam() {
   const [symptoms, setSymptoms] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const listPadding = useListBottomPadding();
+  const completenessLocal = evaluateExamCompleteness({
+    examType,
+    examsCount: exams.length,
+    symptoms,
+    imagesCount: images.length,
+  });
+  const redFlagsLocal = detectRedFlags(symptoms);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiResult, setApiResult] = useState<{
+    score: number;
+    doneCount: number;
+    totalCount: number;
+    items: { id: string; label: string; required: boolean; done: boolean }[];
+    missingRequired: { id: string; label: string; required: boolean; done: boolean }[];
+    hasUrgencyRisk: boolean;
+    urgencySignals: string[];
+    urgencyMessage: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setApiLoading(true);
+    evaluateAssistantCompleteness({
+      flow: 'exam',
+      examType,
+      examsCount: exams.length,
+      symptoms,
+      imagesCount: images.length,
+    })
+      .then((res) => {
+        if (!cancelled) {
+          const missingRequired = res.checks.filter((c) => c.required && !c.done);
+          setApiResult({
+            score: res.score,
+            doneCount: res.doneCount,
+            totalCount: res.totalCount,
+            items: res.checks,
+            missingRequired,
+            hasUrgencyRisk: res.hasUrgencyRisk,
+            urgencySignals: res.urgencySignals,
+            urgencyMessage: res.urgencyMessage,
+          });
+        }
+      })
+      .catch(() => { if (!cancelled) setApiResult(null); })
+      .finally(() => { if (!cancelled) setApiLoading(false); });
+    return () => { cancelled = true; };
+  }, [examType, exams.length, symptoms, images.length]);
+
+  const completeness = apiResult
+    ? { score: apiResult.score, doneCount: apiResult.doneCount, totalCount: apiResult.totalCount, items: apiResult.items, missingRequired: apiResult.missingRequired }
+    : completenessLocal;
+  const redFlags = apiResult
+    ? {
+        isUrgent: apiResult.hasUrgencyRisk,
+        matchedSignals: apiResult.urgencySignals,
+        guidance: apiResult.urgencyMessage ?? 'Sinais de urgência detectados. Considere buscar atendimento presencial.',
+      }
+    : redFlagsLocal;
+  let currentStep = 1;
+  if (examType) currentStep = 2;
+  if (exams.length > 0) currentStep = 3;
+  if (symptoms.trim().length > 0) currentStep = 4;
+
+  const selectedPrice = formatBRL(EXAM_TYPE_PRICES[examType as 'laboratorial' | 'imagem']);
 
   /** Dra. Renova: dicas por etapa (tipo imagem, exames). */
   useTriageEval({
@@ -91,26 +158,15 @@ export default function NewExam() {
     }
   };
 
-  const handleSubmit = async () => {
-    const validation = validate(createExamSchema, {
-      examType,
-      exams,
-      symptoms,
-      images,
-    });
-    if (!validation.success) {
-      Alert.alert('Preencha os campos', validation.firstError ?? 'Informe os exames desejados e os sintomas.');
-      return;
-    }
-
+  const submitExamRequest = async (payload: {
+    examType: string;
+    exams: string[];
+    symptoms: string;
+    images?: string[];
+  }) => {
     setLoading(true);
     try {
-      const result = await createExamRequest({
-        examType: validation.data!.examType ?? 'laboratorial',
-        exams: validation.data!.exams ?? [],
-        symptoms: validation.data!.symptoms ?? '',
-        images: (validation.data!.images?.length ?? 0) > 0 ? validation.data!.images : undefined,
-      });
+      const result = await createExamRequest(payload);
       // A IA analisa na hora – se rejeitou (imagem incoerente), avisar imediatamente
       if (result.request?.status === 'rejected') {
         const msg =
@@ -134,11 +190,75 @@ export default function NewExam() {
     }
   };
 
-  return (
-    <Screen scroll padding={false} edges={['bottom']}>
-      <AppHeader title="Novo Exame" />
+  const handleSubmit = async () => {
+    if (completeness.missingRequired.length > 0) {
+      Alert.alert(
+        'Faltam itens para enviar',
+        completeness.missingRequired.map((item) => `• ${item.label}`).join('\n')
+      );
+      return;
+    }
 
-      <View style={styles.body}>
+    const validation = validate(createExamSchema, {
+      examType,
+      exams,
+      symptoms,
+      images,
+    });
+    if (!validation.success) {
+      Alert.alert('Preencha os campos', validation.firstError ?? 'Informe os exames desejados e os sintomas.');
+      return;
+    }
+    const payload = {
+      examType: validation.data!.examType ?? 'laboratorial',
+      exams: validation.data!.exams ?? [],
+      symptoms: validation.data!.symptoms ?? '',
+      images: (validation.data!.images?.length ?? 0) > 0 ? validation.data!.images : undefined,
+    };
+
+    if (redFlags.isUrgent) {
+      Alert.alert(
+        'Sinais de urgência detectados',
+        `${redFlags.guidance}\n\nSinais identificados: ${redFlags.matchedSignals.join(', ')}`,
+        [
+          { text: 'Voltar', style: 'cancel' },
+          { text: 'Continuar mesmo assim', style: 'destructive', onPress: () => { void submitExamRequest(payload); } },
+        ]
+      );
+      return;
+    }
+
+    await submitExamRequest(payload);
+  };
+
+  return (
+    <Screen scroll={false} padding={false} edges={['bottom']}>
+      <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: listPadding + 150 }]} showsVerticalScrollIndicator={false}>
+        <AppHeader title="Novo Exame" />
+        <StepIndicator current={currentStep} total={4} labels={['Tipo', 'Exames', 'Sintomas', 'Revisão']} />
+        <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
+          <View style={styles.assistantHeader}>
+            <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
+            <Text style={styles.assistantTitle}>Dra. RenoveJa: checklist de qualidade</Text>
+            {apiLoading && (
+              <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
+            )}
+          </View>
+          <Text style={styles.assistantProgress}>Seu pedido esta {completeness.score}% pronto</Text>
+          {completeness.missingRequired.map((item) => (
+            <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
+          ))}
+          {completeness.missingRequired.length === 0 ? (
+            <Text style={styles.assistantGood}>Perfeito. Pedido consistente para revisao medica.</Text>
+          ) : null}
+        </AppCard>
+        {redFlags.isUrgent ? (
+          <View style={styles.redFlagCard}>
+            <Ionicons name="warning-outline" size={18} color="#DC2626" />
+            <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
+          </View>
+        ) : null}
         {/* Exam Type */}
         <Text style={styles.overline}>TIPO DE EXAME</Text>
         <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
@@ -249,24 +369,24 @@ export default function NewExam() {
           <Ionicons name="pricetag" size={18} color={c.secondary.main} />
           <Text style={styles.priceText}>
             Valor do pedido de exame:{' '}
-            <Text style={styles.priceValue}>{formatBRL(EXAM_TYPE_PRICES[examType as 'laboratorial' | 'imagem'])}</Text>
+            <Text style={styles.priceValue}>{selectedPrice}</Text>
             {examType === 'imagem' && (
               <Text style={styles.priceSuffix}> (por pedido)</Text>
             )}
           </Text>
         </View>
-
-        {/* Submit */}
-        <Text style={styles.stepHint}>Pronto? Toque no botão abaixo para enviar seu pedido de exame.</Text>
-        <AppButton
-          title="Enviar Pedido"
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={loading}
-          fullWidth
-          icon="send"
-          style={styles.submitButton}
-        />
+      </ScrollView>
+      <StickyCTA
+        summaryTitle="Total"
+        summaryValue={selectedPrice}
+        summaryHint={`${completeness.score}% pronto • ${examType === 'imagem' ? 'cobranca por pedido de imagem' : 'pedido laboratorial'}`}
+        primary={{
+          label: 'Enviar pedido',
+          onPress: handleSubmit,
+          loading,
+          disabled: loading,
+        }}
+      />
       </View>
     </Screen>
   );
@@ -274,6 +394,7 @@ export default function NewExam() {
 
 const styles = StyleSheet.create({
   body: {
+    flexGrow: 1,
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   overline: {
@@ -286,6 +407,32 @@ const styles = StyleSheet.create({
     marginTop: s.lg,
     marginBottom: s.sm,
   },
+  assistantCard: {
+    marginTop: s.md,
+    borderWidth: 1,
+    borderColor: c.primary.soft,
+    backgroundColor: c.primary.soft + '66',
+  },
+  assistantCardLoading: { opacity: 0.95 },
+  assistantLoading: { marginLeft: 'auto' },
+  assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
+  assistantTitle: { fontSize: 13, fontWeight: '700', color: c.primary.main },
+  assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: c.text.primary },
+  assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: c.text.secondary },
+  assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: c.status.success },
+  redFlagCard: {
+    marginTop: s.sm,
+    marginBottom: s.sm,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    padding: s.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s.sm,
+  },
+  redFlagText: { flex: 1, color: '#991B1B', fontSize: 12, lineHeight: 18 },
   stepHint: {
     fontSize: 13,
     color: c.text.secondary,
@@ -447,8 +594,5 @@ const styles = StyleSheet.create({
   priceSuffix: {
     fontSize: ty.fontSize.xs,
     color: c.text.tertiary,
-  },
-  submitButton: {
-    marginTop: s.lg,
   },
 });

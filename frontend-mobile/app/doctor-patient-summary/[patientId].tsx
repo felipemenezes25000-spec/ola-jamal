@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
@@ -26,6 +27,7 @@ import { getPatientRequests, getPatientProfileForDoctor, getPatientClinicalSumma
 import type { PatientClinicalSummaryStructured } from '../../lib/api';
 import type { RequestResponseDto, PatientProfileForDoctorDto } from '../../types/database';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
+import { AppEmptyState, FormSection } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { showToast } from '../../components/ui/Toast';
 import { formatDateTimeBR } from '../../lib/utils/format';
@@ -103,6 +105,7 @@ export default function DoctorPatientClinicalSummary() {
   const id = Array.isArray(patientId) ? patientId[0] : patientId ?? '';
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
 
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [profile, setProfile] = useState<PatientProfileForDoctorDto | null>(null);
@@ -249,7 +252,7 @@ export default function DoctorPatientClinicalSummary() {
       />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: listPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -260,11 +263,12 @@ export default function DoctorPatientClinicalSummary() {
         }
       >
         {/* ── Identificação do paciente (dados cadastrais completos) ── */}
-        <View style={styles.patientCard}>
-          <View style={styles.patientSectionHeader}>
-            <Ionicons name="person-circle" size={22} color={colors.primary} />
-            <Text style={styles.patientSectionTitle}>Identificação do paciente</Text>
-          </View>
+        <FormSection
+          title="Identificação do paciente"
+          subtitle="Dados cadastrais e histórico resumido"
+          style={styles.formSection}
+          contentStyle={styles.formSectionContent}
+        >
           <View style={styles.patientGrid}>
             <View style={styles.patientRow}>
               <Text style={styles.patientLabel}>Nome completo</Text>
@@ -328,7 +332,7 @@ export default function DoctorPatientClinicalSummary() {
               <Text style={styles.allergyValue}>{allAllergies.join(' · ')}</Text>
             </View>
           )}
-        </View>
+        </FormSection>
 
         {/* ── Alertas (IA + alergias) — destaque no topo ── */}
         {requests.length > 0 && (structured?.alerts?.length ?? 0) + allAllergies.length > 0 && (
@@ -618,13 +622,11 @@ export default function DoctorPatientClinicalSummary() {
 
         {/* ── Consultas com anamnese completa ── */}
         {consultations.length === 0 && prescriptions.length === 0 && exams.length === 0 && (
-          <View style={styles.empty}>
-            <Ionicons name="document-text-outline" size={40} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>Nenhum registro encontrado</Text>
-            <Text style={styles.emptySubtitle}>
-              Quando este paciente fizer solicitações (receitas, exames ou consultas), o histórico aparecerá aqui.
-            </Text>
-          </View>
+          <AppEmptyState
+            icon="document-text-outline"
+            title="Nenhum registro encontrado"
+            subtitle="Quando este paciente fizer solicitações (receitas, exames ou consultas), o histórico aparecerá aqui."
+          />
         )}
 
         {consultations.length > 0 && <Text style={styles.sectionTitle}>Consultas</Text>}
@@ -811,6 +813,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: doctorDS.screenPaddingHorizontal,
     gap: spacing.md,
+  },
+  formSection: { marginHorizontal: -doctorDS.screenPaddingHorizontal, marginTop: 0 },
+  formSectionContent: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
 
   patientCard: {

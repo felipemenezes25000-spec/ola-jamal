@@ -7,6 +7,8 @@ import {
   Alert,
   TouchableOpacity,
   useWindowDimensions,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,11 +20,12 @@ import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
 import { createConsultationSchema, CONSULTATION_MIN_MINUTES, CONSULTATION_MAX_MINUTES } from '../../lib/validation/schemas';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
-import { AppHeader } from '../../components/ui/AppHeader';
-import { AppCard } from '../../components/ui/AppCard';
-import { AppButton } from '../../components/ui/AppButton';
+import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { detectRedFlags, evaluateConsultationCompleteness } from '../../lib/domain/assistantIntelligence';
+import { evaluateAssistantCompleteness } from '../../lib/api';
 
 const c = theme.colors;
 const s = theme.spacing;
@@ -61,6 +64,68 @@ export default function ConsultationScreen() {
   const [loading, setLoading] = useState(false);
   const [bankMinutes, setBankMinutes] = useState<number>(0);
   const [loadingBank, setLoadingBank] = useState(false);
+  const listPadding = useListBottomPadding();
+  const completenessLocal = evaluateConsultationCompleteness({
+    consultationType,
+    durationMinutes,
+    symptoms,
+  });
+  const redFlagsLocal = detectRedFlags(symptoms);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiResult, setApiResult] = useState<{
+    score: number;
+    doneCount: number;
+    totalCount: number;
+    items: { id: string; label: string; required: boolean; done: boolean }[];
+    missingRequired: { id: string; label: string; required: boolean; done: boolean }[];
+    hasUrgencyRisk: boolean;
+    urgencySignals: string[];
+    urgencyMessage: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setApiLoading(true);
+    evaluateAssistantCompleteness({
+      flow: 'consultation',
+      consultationType,
+      durationMinutes,
+      symptoms,
+    })
+      .then((res) => {
+        if (!cancelled) {
+          const missingRequired = res.checks.filter((c) => c.required && !c.done);
+          setApiResult({
+            score: res.score,
+            doneCount: res.doneCount,
+            totalCount: res.totalCount,
+            items: res.checks,
+            missingRequired,
+            hasUrgencyRisk: res.hasUrgencyRisk,
+            urgencySignals: res.urgencySignals,
+            urgencyMessage: res.urgencyMessage,
+          });
+        }
+      })
+      .catch(() => { if (!cancelled) setApiResult(null); })
+      .finally(() => { if (!cancelled) setApiLoading(false); });
+    return () => { cancelled = true; };
+  }, [consultationType, durationMinutes, symptoms]);
+
+  const completeness = apiResult
+    ? { score: apiResult.score, doneCount: apiResult.doneCount, totalCount: apiResult.totalCount, items: apiResult.items, missingRequired: apiResult.missingRequired }
+    : completenessLocal;
+  const redFlags = apiResult
+    ? {
+        isUrgent: apiResult.hasUrgencyRisk,
+        matchedSignals: apiResult.urgencySignals,
+        guidance: apiResult.urgencyMessage ?? 'Sinais de urgência detectados. Considere buscar atendimento presencial.',
+      }
+    : redFlagsLocal;
+  let currentStep = 1;
+  if (consultationType) currentStep = 2;
+  if (durationMinutes >= CONSULTATION_MIN_MINUTES) currentStep = 3;
+  if (symptoms.trim().length > 0) currentStep = 4;
 
   useEffect(() => {
     let cancelled = false;
@@ -89,19 +154,14 @@ export default function ConsultationScreen() {
     return { freeMinutes: free, paidMinutes: paid, totalPrice: total };
   }, [pricePerMin, durationMinutes, bankMinutes]);
 
-  const handleSubmit = async () => {
-    const validation = validate(createConsultationSchema, {
-      consultationType,
-      durationMinutes,
-      symptoms,
-    });
-    if (!validation.success) {
-      Alert.alert('Atenção', validation.firstError ?? 'Preencha todos os campos.');
-      return;
-    }
+  const submitConsultation = async (payload: {
+    consultationType: 'psicologo' | 'medico_clinico';
+    durationMinutes: number;
+    symptoms: string;
+  }) => {
     setLoading(true);
     try {
-      const result = await createConsultationRequest(validation.data!);
+      const result = await createConsultationRequest(payload);
       if (result.payment) {
         router.replace(`/payment/${result.payment.id}`);
       } else {
@@ -116,11 +176,69 @@ export default function ConsultationScreen() {
     }
   };
 
-  return (
-    <Screen scroll edges={['bottom']}>
-      <AppHeader title="Consulta Breve" />
+  const handleSubmit = async () => {
+    if (completeness.missingRequired.length > 0) {
+      Alert.alert(
+        'Faltam itens para enviar',
+        completeness.missingRequired.map((item) => `• ${item.label}`).join('\n')
+      );
+      return;
+    }
 
-      <View style={styles.content}>
+    const validation = validate(createConsultationSchema, {
+      consultationType,
+      durationMinutes,
+      symptoms,
+    });
+    if (!validation.success) {
+      Alert.alert('Atenção', validation.firstError ?? 'Preencha todos os campos.');
+      return;
+    }
+    const payload = validation.data!;
+
+    if (redFlags.isUrgent) {
+      Alert.alert(
+        'Sinais de urgência detectados',
+        `${redFlags.guidance}\n\nSinais identificados: ${redFlags.matchedSignals.join(', ')}`,
+        [
+          { text: 'Voltar', style: 'cancel' },
+          { text: 'Continuar mesmo assim', style: 'destructive', onPress: () => { void submitConsultation(payload); } },
+        ]
+      );
+      return;
+    }
+
+    await submitConsultation(payload);
+  };
+
+  return (
+    <Screen scroll={false} edges={['bottom']} padding={false}>
+      <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: listPadding + 150 }]} showsVerticalScrollIndicator={false}>
+        <AppHeader title="Consulta Breve" />
+        <StepIndicator current={currentStep} total={4} labels={['Profissional', 'Minutos', 'Sintomas', 'Revisão']} />
+        <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
+          <View style={styles.assistantHeader}>
+            <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
+            <Text style={styles.assistantTitle}>Dra. RenoveJa: checklist de envio</Text>
+            {apiLoading && (
+              <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
+            )}
+          </View>
+          <Text style={styles.assistantProgress}>Seu pedido esta {completeness.score}% pronto</Text>
+          {completeness.missingRequired.map((item) => (
+            <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
+          ))}
+          {completeness.missingRequired.length === 0 ? (
+            <Text style={styles.assistantGood}>Perfeito. Vamos enviar para triagem medica.</Text>
+          ) : null}
+        </AppCard>
+        {redFlags.isUrgent ? (
+          <View style={styles.redFlagCard}>
+            <Ionicons name="warning-outline" size={18} color="#DC2626" />
+            <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
+          </View>
+        ) : null}
         {/* Banner */}
         <AppCard style={styles.banner}>
           <View style={styles.iconCircle}>
@@ -223,15 +341,18 @@ export default function ConsultationScreen() {
           )}
         </AppCard>
 
-        <Text style={styles.stepHint}>Pronto? Toque no botão abaixo para solicitar sua consulta.</Text>
-        <AppButton
-          title="Solicitar Consulta"
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={loading}
-          fullWidth
-          icon="videocam"
-        />
+      </ScrollView>
+      <StickyCTA
+        summaryTitle="Total agora"
+        summaryValue={formatBRL(totalPrice)}
+        summaryHint={`${completeness.score}% pronto • ${freeMinutes > 0 ? `${freeMinutes} min gratuitos aplicados` : `${paidMinutes} min cobrados`}`}
+        primary={{
+          label: 'Solicitar consulta',
+          onPress: handleSubmit,
+          loading,
+          disabled: loading,
+        }}
+      />
       </View>
     </Screen>
   );
@@ -239,9 +360,36 @@ export default function ConsultationScreen() {
 
 const styles = StyleSheet.create({
   content: {
+    flexGrow: 1,
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: s.xl,
   },
+  assistantCard: {
+    marginTop: s.md,
+    borderWidth: 1,
+    borderColor: c.primary.soft,
+    backgroundColor: c.primary.soft + '66',
+  },
+  assistantCardLoading: { opacity: 0.95 },
+  assistantLoading: { marginLeft: 'auto' },
+  assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
+  assistantTitle: { fontSize: 13, fontWeight: '700', color: c.primary.main },
+  assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: c.text.primary },
+  assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: c.text.secondary },
+  assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: c.status.success },
+  redFlagCard: {
+    marginTop: s.sm,
+    marginBottom: s.sm,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    padding: s.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s.sm,
+  },
+  redFlagText: { flex: 1, color: '#991B1B', fontSize: 12, lineHeight: 18 },
   banner: {
     alignItems: 'center',
     marginBottom: s.lg,

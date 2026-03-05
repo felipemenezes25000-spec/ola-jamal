@@ -129,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedDoctorProfile = await AsyncStorage.getItem(DOCTOR_PROFILE_KEY);
 
       if (storedToken && storedUser) {
+        apiClient.setTokenCache(storedToken);
         let parsedUser: UserDto;
         let parsedDoctorProfile: DoctorProfileDto | null = null;
         try {
@@ -178,6 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearAuth = useCallback(async () => {
     try {
+      apiClient.clearTokenCache();
       await AsyncStorage.removeItem(TOKEN_KEY);
       await AsyncStorage.removeItem(USER_KEY);
       await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
@@ -212,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response?.user) throw new Error('Resposta inválida do servidor. Tente novamente.');
       if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
       await setItemSafe(TOKEN_KEY, response.token);
+      apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
         await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
@@ -236,6 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       await setItemSafe(TOKEN_KEY, response.token ?? undefined);
+      apiClient.setTokenCache(response.token ?? null);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       setUser(response.user);
       return response.user;
@@ -268,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const requiresApproval = !response.token || response.token.trim() === '';
       if (!requiresApproval) {
         await setItemSafe(TOKEN_KEY, response.token ?? undefined);
+        apiClient.setTokenCache(response.token ?? null);
         await setItemSafe(USER_KEY, JSON.stringify(response.user));
         if (response.doctorProfile) {
           await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
@@ -290,6 +295,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.post<AuthResponseDto>('/api/auth/google', { googleToken, role });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       await setItemSafe(TOKEN_KEY, response.token ?? undefined);
+      apiClient.setTokenCache(response.token ?? null);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
         await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));

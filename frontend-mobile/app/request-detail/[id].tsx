@@ -14,22 +14,26 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
-import { fetchRequestById, markRequestDelivered, cancelRequest } from '../../lib/api';
+import { uiTokens } from '../../lib/ui/tokens';
+import { fetchRequestById, markRequestDelivered, cancelRequest, getAssistantNextAction } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
 import { formatBRL, formatDateTimeBR } from '../../lib/utils/format';
 import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
-import { AppButton } from '../../components/ui/AppButton';
+import { AppButton, StickyCTA, FormSection, AppEmptyState } from '../../components/ui';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
 import { FormattedAiSummary } from '../../components/FormattedAiSummary';
 import { ObservationCard } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { getNextBestActionForRequest, type NextActionIntent } from '../../lib/domain/assistantIntelligence';
+import type { AssistantNextActionResponseData } from '../../lib/api';
 
 function getTypeLabel(type: string): string {
   switch (type) {
@@ -59,6 +63,23 @@ function getRiskLabelPt(level: string | null | undefined): string {
   }
 }
 
+function getNextActionIcon(intent: NextActionIntent): keyof typeof Ionicons.glyphMap {
+  switch (intent) {
+    case 'pay':
+      return 'card-outline';
+    case 'download':
+      return 'download-outline';
+    case 'wait':
+      return 'time-outline';
+    case 'support':
+      return 'help-circle-outline';
+    case 'track':
+      return 'navigate-outline';
+    default:
+      return 'sparkles-outline';
+  }
+}
+
 const LOG_DETAIL = __DEV__ && false;
 
 export default function RequestDetailScreen() {
@@ -66,11 +87,13 @@ export default function RequestDetailScreen() {
   const requestId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const { height: windowHeight } = useWindowDimensions();
+  const listPadding = useListBottomPadding();
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [nextActionFromApi, setNextActionFromApi] = useState<AssistantNextActionResponseData | null>(null);
 
   const fetchIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -172,6 +195,33 @@ export default function RequestDetailScreen() {
     doctorConductNotes: request?.doctorConductNotes ?? undefined,
   });
 
+  /** Next action da Dra.: API como fonte, fallback local em erro. */
+  useEffect(() => {
+    if (!request?.id) {
+      setNextActionFromApi(null);
+      return;
+    }
+    let cancelled = false;
+    getAssistantNextAction({ requestId: request.id })
+      .then((res) => {
+        if (!cancelled) setNextActionFromApi(res);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          const local = getNextBestActionForRequest(request);
+          setNextActionFromApi({
+            title: local.title,
+            statusSummary: local.statusSummary,
+            whatToDo: local.whatToDo,
+            eta: local.eta,
+            ctaLabel: local.ctaLabel ?? null,
+            intent: local.intent,
+          });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [request?.id]);
+
   const handlePay = () => {
     if (payInFlightRef.current) return;
     payInFlightRef.current = true;
@@ -272,11 +322,13 @@ export default function RequestDetailScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.center}>
-          <Ionicons name="document-text-outline" size={64} color={colors.border} />
-          <Text style={styles.errorTitle}>Solicitação não encontrada</Text>
-          <TouchableOpacity style={styles.errorBtn} onPress={() => router.back()}>
-            <Text style={styles.errorBtnText}>Voltar</Text>
-          </TouchableOpacity>
+          <AppEmptyState
+            icon="document-text-outline"
+            title="Solicitação não encontrada"
+            subtitle="Este pedido pode ter sido removido ou não está mais disponível."
+            actionLabel="Voltar"
+            onAction={() => router.back()}
+          />
         </View>
       </SafeAreaView>
     );
@@ -293,12 +345,13 @@ export default function RequestDetailScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
-          <Text style={styles.errorTitle}>Erro ao carregar</Text>
-          <Text style={styles.errorMsg}>{detailError}</Text>
-          <TouchableOpacity style={styles.errorBtn} onPress={() => load()}>
-            <Text style={styles.errorBtnText}>Tentar novamente</Text>
-          </TouchableOpacity>
+          <AppEmptyState
+            icon="alert-circle-outline"
+            title="Erro ao carregar"
+            subtitle={detailError}
+            actionLabel="Tentar novamente"
+            onAction={() => load()}
+          />
         </View>
       </SafeAreaView>
     );
@@ -313,6 +366,22 @@ export default function RequestDetailScreen() {
   const canDownload = !!request.signedDocumentUrl;
   const canJoinVideo = ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
   const canCancel = ['submitted', 'in_review', 'approved_pending_payment', 'pending_payment', 'searching_doctor', 'consultation_ready'].includes(request.status);
+  const stickyBottomOffset = canPay ? 132 : 0;
+  const nextActionLocal = getNextBestActionForRequest(request);
+  const nextAction = nextActionFromApi ?? {
+    title: nextActionLocal.title,
+    statusSummary: nextActionLocal.statusSummary,
+    whatToDo: nextActionLocal.whatToDo,
+    eta: nextActionLocal.eta,
+    ctaLabel: nextActionLocal.ctaLabel ?? null,
+    intent: nextActionLocal.intent,
+  };
+  const nextActionQuickCta =
+    nextAction.intent === 'pay' && canPay
+      ? { label: nextAction.ctaLabel ?? 'Pagar agora', onPress: handlePay }
+      : nextAction.intent === 'download' && canDownload
+        ? { label: nextAction.ctaLabel ?? 'Baixar documento', onPress: handleDownload }
+        : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -325,12 +394,45 @@ export default function RequestDetailScreen() {
         <StatusBadge status={request.status} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: listPadding + stickyBottomOffset }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Status Tracker */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Status do pedido</Text>
+        <FormSection
+          title="Status do pedido"
+          subtitle="Acompanhe cada etapa da solicitação"
+          style={[styles.formSection, styles.formSectionFirst]}
+          contentStyle={styles.formSectionContent}
+        >
           <StatusTracker currentStatus={request.status} requestType={request.requestType} />
-        </View>
+        </FormSection>
+
+        <FormSection
+          title="Dra. RenoveJa"
+          subtitle={nextAction.title}
+          style={styles.formSection}
+          contentStyle={styles.formSectionContent}
+        >
+          <View style={styles.nextActionHeader}>
+            <View style={styles.nextActionIcon}>
+              <Ionicons name={getNextActionIcon(nextAction.intent as NextActionIntent)} size={16} color={colors.primary} />
+            </View>
+            <Text style={styles.nextActionText}>{nextAction.statusSummary}</Text>
+          </View>
+          <Text style={styles.nextActionLabel}>Proximo passo</Text>
+          <Text style={styles.nextActionBody}>{nextAction.whatToDo}</Text>
+          <Text style={styles.nextActionEta}>{nextAction.eta}</Text>
+          {nextActionQuickCta ? (
+            <AppButton
+              title={nextActionQuickCta.label}
+              icon={nextAction.intent === 'pay' ? 'card' : 'download'}
+              onPress={nextActionQuickCta.onPress}
+              style={{ marginTop: spacing.sm }}
+            />
+          ) : null}
+        </FormSection>
 
         {/* Observação automática e conduta médica (Dra. Renova) */}
         {request.autoObservation && (
@@ -349,11 +451,12 @@ export default function RequestDetailScreen() {
         )}
 
         {/* Details Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="document-text" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Detalhes da Solicitação</Text>
-          </View>
+        <FormSection
+          title="Detalhes da solicitação"
+          subtitle="Informações principais do pedido"
+          style={styles.formSection}
+          contentStyle={styles.formSectionContent}
+        >
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Tipo</Text>
             <Text style={styles.detailValue}>{getTypeLabel(request.requestType)}</Text>
@@ -387,7 +490,7 @@ export default function RequestDetailScreen() {
               {formatDateTimeBR(request.createdAt)}
             </Text>
           </View>
-        </View>
+        </FormSection>
 
         {/* Medications */}
         {request.medications && request.medications.length > 0 && (
@@ -469,13 +572,14 @@ export default function RequestDetailScreen() {
 
         {/* Symptoms */}
         {request.symptoms && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="chatbubble-ellipses" size={20} color={colors.warning} />
-              <Text style={styles.cardTitle}>Sintomas</Text>
-            </View>
+          <FormSection
+            title="Sintomas"
+            subtitle="Relato informado no momento do pedido"
+            style={styles.formSection}
+            contentStyle={styles.formSectionContent}
+          >
             <Text style={styles.symptomsText} numberOfLines={4} ellipsizeMode="tail">{request.symptoms}</Text>
-          </View>
+          </FormSection>
         )}
 
         {/* AI Analysis */}
@@ -509,16 +613,6 @@ export default function RequestDetailScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          {canPay && (
-            <AppButton
-              title="Pagar"
-              icon="qr-code"
-              onPress={handlePay}
-              loading={actionLoading}
-              disabled={actionLoading}
-            />
-          )}
-
           {canDownload && (
             <>
               <AppButton
@@ -557,6 +651,16 @@ export default function RequestDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {canPay && (
+        <StickyCTA
+          summaryTitle="Total"
+          summaryValue={formatBRL(getDisplayPrice(request.price, request.requestType))}
+          summaryHint="Pagamento seguro. Você pode revisar antes."
+          secondary={{ label: 'Voltar', onPress: () => router.back() }}
+          primary={{ label: 'Pagar agora', onPress: handlePay, loading: actionLoading, disabled: actionLoading }}
+        />
+      )}
 
       {/* Modal com zoom nas imagens */}
       <Modal
@@ -604,7 +708,13 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  scroll: { padding: spacing.md, paddingTop: spacing.lg, paddingBottom: 100 },
+  scroll: { padding: spacing.md, paddingTop: spacing.lg },
+  formSection: { marginHorizontal: -spacing.md },
+  formSectionFirst: { marginTop: 0 },
+  formSectionContent: {
+    borderRadius: 16,
+    padding: spacing.md,
+  },
   card: {
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -634,10 +744,36 @@ const styles = StyleSheet.create({
   medIcon: { width: 24, alignItems: 'center' },
   medName: { fontSize: 15, color: colors.text, fontWeight: '500' },
   symptomsText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
+  nextActionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  nextActionIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary + '15',
+    marginTop: 1,
+  },
+  nextActionText: { flex: 1, fontSize: 14, lineHeight: 20, color: colors.textSecondary },
+  nextActionLabel: {
+    marginTop: spacing.sm,
+    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  nextActionBody: { fontSize: 14, lineHeight: 20, color: colors.text },
+  nextActionEta: { marginTop: 6, fontSize: 12, color: colors.textSecondary },
   aiSummary: { fontSize: 14, color: '#92400E', lineHeight: 20 },
   riskBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.sm },
   riskText: { fontSize: 11, fontWeight: '700' },
-  actions: { gap: spacing.sm, marginTop: spacing.md },
+  actions: {
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    marginHorizontal: uiTokens.screenPaddingHorizontal - spacing.md,
+  },
   autoJoinCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,

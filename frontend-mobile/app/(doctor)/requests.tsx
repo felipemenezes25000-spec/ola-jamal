@@ -19,14 +19,18 @@ const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { cacheRequest } from '../doctor-request/[id]';
+import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
-import { EmptyState } from '../../components/EmptyState';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { FadeIn } from '../../components/ui/FadeIn';
+import { showToast } from '../../components/ui/Toast';
+import { haptics } from '../../lib/haptics';
+import { motionTokens } from '../../lib/ui/motion';
 
 const LOG_QUEUE = __DEV__ && false;
-const ListSeparator = () => <View style={styles.separator} />;
+const ListSeparator = () => null;
 
 const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
   { key: 'all', label: 'Todos' },
@@ -60,6 +64,13 @@ export default function DoctorQueue() {
 
   const typeParam = useMemo(() => TYPE_FILTER_ITEMS.find((c) => c.key === activeFilter)?.type, [activeFilter]);
   const label = useMemo(() => getHeaderLabel(activeFilter), [activeFilter]);
+  const counts = useMemo(() => {
+    const all = requests.length;
+    const prescription = requests.filter((r) => r.requestType === 'prescription').length;
+    const exam = requests.filter((r) => r.requestType === 'exam').length;
+    const consultation = requests.filter((r) => r.requestType === 'consultation').length;
+    return { all, prescription, exam, consultation };
+  }, [requests]);
 
   // Filtra localmente — tipo + busca por nome do paciente
   const filteredRequests = useMemo(() => {
@@ -74,8 +85,10 @@ export default function DoctorQueue() {
     return list;
   }, [requests, typeParam, searchText]);
 
+  const { subscribe, isConnected } = useRequestsEvents();
+
   const loadData = useCallback(
-    async (isRefresh = false) => {
+    async (isRefresh = false, withFeedback = false) => {
       const rid = ++requestIdRef.current;
       const abort = new AbortController();
       abortRef.current = abort;
@@ -93,6 +106,9 @@ export default function DoctorQueue() {
         if (rid !== requestIdRef.current) return;
         const items = data?.items ?? [];
         setRequests(sortRequestsByNewestFirst(items));
+        if (withFeedback) {
+          showToast({ message: 'Fila atualizada', type: 'success' });
+        }
         if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue success', { rid, ms: Date.now() - start });
       } catch (e: unknown) {
         if (rid !== requestIdRef.current) return;
@@ -101,6 +117,9 @@ export default function DoctorQueue() {
         const msg = (e as Error)?.message ?? String(e);
         setError(msg);
         setRequests([]);
+        if (withFeedback) {
+          showToast({ message: 'Não foi possível atualizar a fila', type: 'error' });
+        }
         if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue error', { rid, msg });
       } finally {
         if (rid === requestIdRef.current) {
@@ -113,22 +132,27 @@ export default function DoctorQueue() {
     []
   );
 
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  // Atualização em tempo real via SignalR — evita médico precisar dar refresh para ver pagamento, etc.
   useEffect(() => {
-    loadData();
-    return () => { abortRef.current?.abort(); };
-  }, [loadData]);
+    return subscribe(() => loadData(true, false));
+  }, [subscribe, loadData]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
-      const interval = setInterval(() => loadData(true), 45000);
+      // Polling: 15s quando SignalR desconectado (fallback), 45s quando conectado
+      const intervalMs = isConnected ? 45000 : 15000;
+      const interval = setInterval(() => loadData(true, false), intervalMs);
       return () => clearInterval(interval);
-    }, [loadData])
+    }, [loadData, isConnected])
   );
 
   const onRefresh = useCallback(() => {
+    haptics.light();
     setIsRefreshing(true);
-    loadData(true);
+    loadData(true, true);
   }, [loadData]);
 
   const handleRetry = useCallback(() => {
@@ -136,13 +160,20 @@ export default function DoctorQueue() {
     loadData();
   }, [loadData]);
 
-  const handleFilterChange = useCallback((key: string) => setActiveFilter(key), []);
+  const handleFilterChange = useCallback((key: string) => {
+    haptics.selection();
+    setActiveFilter(key);
+  }, []);
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
   const renderDoctorItem = useCallback(({ item }: { item: RequestResponseDto }) => (
     <RequestCard
       request={item}
-      onPress={() => { cacheRequest(item); router.push(`/doctor-request/${item.id}`); }}
+      onPress={() => {
+        haptics.selection();
+        cacheRequest(item);
+        router.push(`/doctor-request/${item.id}`);
+      }}
       showPatientName
       showPrice={false}
       showRisk={false}
@@ -184,11 +215,16 @@ export default function DoctorQueue() {
         ))}
       </View>
 
-      {/* Segmented control */}
-      <SegmentedControl
-        items={TYPE_FILTER_ITEMS.map((c) => ({ key: c.key, label: c.label }))}
+      {/* Segmented control premium */}
+      <AppSegmentedControl
+        items={TYPE_FILTER_ITEMS.map((c) => ({
+          key: c.key,
+          label: c.label,
+          count: (counts as any)[c.key] ?? undefined,
+        }))}
         value={activeFilter}
         onValueChange={handleFilterChange}
+        disabled={loading}
       />
 
       {/* Busca por nome do paciente */}
@@ -226,32 +262,34 @@ export default function DoctorQueue() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={filteredRequests}
-          keyExtractor={keyExtractor}
-          renderItem={renderDoctorItem}
-          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
-          ItemSeparatorComponent={ListSeparator}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-          }
-          showsVerticalScrollIndicator={false}
-          removeClippedSubviews={Platform.OS !== 'web'}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          initialNumToRender={8}
-          ListEmptyComponent={
-            empty ? (
-              <EmptyState
-                icon="checkmark-done-circle"
-                title={searchText.trim() ? 'Nenhum resultado' : 'Nenhum pedido aqui'}
-                subtitle={searchText.trim() ? `Nenhum paciente encontrado para "${searchText.trim()}"` : 'Ajuste os filtros ou volte ao painel para ver todos os pedidos'}
-                actionLabel="Voltar ao painel"
-                onAction={() => router.push('/(doctor)/dashboard')}
-              />
-            ) : null
-          }
-        />
+        <FadeIn visible={!loading} {...motionTokens.fade.listDoctor} delay={30}>
+          <FlatList
+            data={filteredRequests}
+            keyExtractor={keyExtractor}
+            renderItem={renderDoctorItem}
+            contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
+            ItemSeparatorComponent={ListSeparator}
+            refreshControl={
+              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+            }
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews={Platform.OS !== 'web'}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            initialNumToRender={8}
+            ListEmptyComponent={
+              empty ? (
+                <AppEmptyState
+                  icon="checkmark-done-circle"
+                  title={searchText.trim() ? 'Nenhum resultado' : 'Nenhum pedido aqui'}
+                  subtitle={searchText.trim() ? `Nenhum paciente encontrado para "${searchText.trim()}"` : 'Ajuste os filtros ou volte ao painel para ver todos os pedidos'}
+                  actionLabel="Voltar ao painel"
+                  onAction={() => router.push('/(doctor)/dashboard')}
+                />
+              ) : null
+            }
+          />
+        </FadeIn>
       )}
     </View>
   );
@@ -401,5 +439,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: pad,
   },
   listContentEmpty: { flexGrow: 1 },
-  separator: { height: spacing.xs },
 });

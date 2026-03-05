@@ -1,5 +1,6 @@
 using DotNetEnv;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Application.Services.Assistant;
 using RenoveJa.Application.Services.Auth;
 using RenoveJa.Application.Services.Clinical;
 using RenoveJa.Infrastructure.AiReading;
@@ -297,6 +298,7 @@ builder.Services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
 
 // Register Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAssistantNavigatorService, AssistantNavigatorService>();
 builder.Services.AddScoped<IDocumentTokenService, RenoveJa.Application.Services.DocumentTokenService>();
 builder.Services.AddScoped<IRequestEventsPublisher, RequestEventsPublisher>();
 builder.Services.AddScoped<IRequestService, RequestService>();

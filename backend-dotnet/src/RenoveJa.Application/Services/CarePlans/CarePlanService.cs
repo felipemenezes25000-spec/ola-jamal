@@ -200,7 +200,7 @@ public class CarePlanService(
                     "Plano da consulta disponível",
                     "Seu médico criou um plano com próximos passos. Toque para abrir.",
                     NotificationType.Info,
-                    new Dictionary<string, object>
+                    new Dictionary<string, object?>
                     {
                         ["carePlanId"] = carePlan.Id.ToString(),
                         ["deepLink"] = deepLink
@@ -299,7 +299,7 @@ public class CarePlanService(
                         "Resultados enviados pelo paciente",
                         "Um plano de cuidados está pronto para revisão médica.",
                         NotificationType.Info,
-                        new Dictionary<string, object> { ["carePlanId"] = carePlan.Id.ToString() }),
+                        new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString() }),
                     cancellationToken);
 
                 await pushNotificationSender.SendAsync(
@@ -436,7 +436,7 @@ public class CarePlanService(
                         "Plano de cuidados encerrado",
                         "Seu médico revisou os resultados e encerrou o plano.",
                         NotificationType.Success,
-                        new Dictionary<string, object> { ["carePlanId"] = carePlan.Id.ToString() }),
+                        new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString() }),
                     cancellationToken);
 
                 await pushNotificationSender.SendAsync(

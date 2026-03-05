@@ -129,10 +129,67 @@ export interface CreateConsultationRequestData {
   symptoms: string;
 }
 
+export interface AssistantNextActionRequestData {
+  requestId?: string;
+  status?: string;
+  requestType?: string;
+  hasSignedDocument?: boolean;
+}
+
+export interface AssistantNextActionResponseData {
+  title: string;
+  statusSummary: string;
+  whatToDo: string;
+  eta: string;
+  ctaLabel: string | null;
+  intent: 'pay' | 'download' | 'track' | 'wait' | 'support' | 'none' | string;
+}
+
+export interface AssistantCompleteRequestData {
+  flow: 'prescription' | 'exam' | 'consultation';
+  prescriptionType?: string;
+  imagesCount?: number;
+  examType?: string;
+  examsCount?: number;
+  symptoms?: string;
+  consultationType?: string;
+  durationMinutes?: number;
+}
+
+export interface AssistantCompletenessCheckData {
+  id: string;
+  label: string;
+  required: boolean;
+  done: boolean;
+}
+
+export interface AssistantCompleteResponseData {
+  score: number;
+  doneCount: number;
+  totalCount: number;
+  missingFields: string[];
+  checks: AssistantCompletenessCheckData[];
+  hasUrgencyRisk: boolean;
+  urgencySignals: string[];
+  urgencyMessage: string | null;
+}
+
 export async function createConsultationRequest(
   data: CreateConsultationRequestData
 ): Promise<{ request: RequestResponseDto; payment?: PaymentResponseDto }> {
   return apiClient.post('/api/requests/consultation', data);
+}
+
+export async function getAssistantNextAction(
+  data: AssistantNextActionRequestData
+): Promise<AssistantNextActionResponseData> {
+  return apiClient.post('/api/assistant/next-action', data);
+}
+
+export async function evaluateAssistantCompleteness(
+  data: AssistantCompleteRequestData
+): Promise<AssistantCompleteResponseData> {
+  return apiClient.post('/api/assistant/complete', data);
 }
 
 export async function fetchRequests(

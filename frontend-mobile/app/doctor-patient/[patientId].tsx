@@ -16,8 +16,11 @@ import { colors, spacing, typography } from '../../lib/themeDoctor';
 import { getPatientRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { getStatusLabelPt } from '../../lib/domain/statusLabels';
+import { haptics } from '../../lib/haptics';
+import { showToast } from '../../components/ui/Toast';
 
 const TYPE_LABELS: Record<string, string> = {
   prescription: 'Receita',
@@ -103,15 +106,21 @@ export default function DoctorPatientProntuario() {
 
   const id = Array.isArray(patientId) ? patientId[0] : patientId ?? '';
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (withFeedback = false) => {
     if (!id) return;
     try {
       setLoadError(false);
       const data = await getPatientRequests(id);
       setRequests(data);
+      if (withFeedback) {
+        showToast({ message: 'Prontuário atualizado', type: 'success' });
+      }
     } catch (e) {
       console.error(e);
       setLoadError(true);
+      if (withFeedback) {
+        showToast({ message: 'Não foi possível atualizar o prontuário', type: 'error' });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -123,8 +132,9 @@ export default function DoctorPatientProntuario() {
   }, [loadData]);
 
   const onRefresh = () => {
+    haptics.light();
     setRefreshing(true);
-    loadData();
+    loadData(true);
   };
 
   const sortedRequests = useMemo(() => sortRequestsByNewestFirst(requests), [requests]);
@@ -135,6 +145,13 @@ export default function DoctorPatientProntuario() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterKey>('all');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const typeCounts = useMemo(() => {
+    const all = sortedRequests.length;
+    const consultation = sortedRequests.filter((r) => r.requestType === 'consultation').length;
+    const prescription = sortedRequests.filter((r) => r.requestType === 'prescription').length;
+    const exam = sortedRequests.filter((r) => r.requestType === 'exam').length;
+    return { all, consultation, prescription, exam };
+  }, [sortedRequests]);
 
   const statusOptions = useMemo(() => {
     const statusMap = new Map<string, string>();
@@ -297,7 +314,7 @@ export default function DoctorPatientProntuario() {
           <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text, marginTop: 16 }}>Erro ao carregar</Text>
           <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 6, textAlign: 'center' }}>Verifique sua conexão e tente novamente</Text>
           <TouchableOpacity
-            onPress={loadData}
+            onPress={() => loadData()}
             style={{ marginTop: 20, paddingVertical: 12, paddingHorizontal: 28, backgroundColor: colors.primary, borderRadius: 26 }}
           >
             <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Tentar novamente</Text>
@@ -363,31 +380,27 @@ export default function DoctorPatientProntuario() {
           {requests.length > 0 && (
             <View style={styles.filterControlsRow}>
               <View style={styles.segmentedControl}>
-                {TYPE_FILTERS.map((opt) => (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[
-                      styles.segmentedItem,
-                      typeFilter === opt.key && styles.segmentedItemActive,
-                    ]}
-                    onPress={() => setTypeFilter(opt.key)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentedItemText,
-                        typeFilter === opt.key && styles.segmentedItemTextActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <AppSegmentedControl
+                  items={TYPE_FILTERS.map((opt) => ({
+                    key: opt.key,
+                    label: opt.label,
+                    count: (typeCounts as any)[opt.key] ?? undefined,
+                  }))}
+                  value={typeFilter}
+                  onValueChange={(value) => {
+                    haptics.selection();
+                    setTypeFilter(value as TypeFilterKey);
+                  }}
+                  size="sm"
+                />
               </View>
               <TouchableOpacity
                 style={[styles.filterIconBtn, hasAdvancedFilters && styles.filterIconBtnActive]}
                 activeOpacity={0.7}
-                onPress={() => setShowAdvancedFilters(true)}
+                onPress={() => {
+                  haptics.selection();
+                  setShowAdvancedFilters(true);
+                }}
                 accessibilityLabel="Filtros avançados"
               >
                 <Ionicons
@@ -401,23 +414,19 @@ export default function DoctorPatientProntuario() {
 
           {requests.length === 0 ? (
             <View style={styles.empty}>
-              <View style={styles.emptyIconWrap}>
-                <Ionicons name="document-text-outline" size={44} color={colors.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>Nenhum pedido encontrado</Text>
-              <Text style={styles.emptySubtitle}>
-                Este paciente ainda não possui histórico de pedidos
-              </Text>
+              <AppEmptyState
+                icon="document-text-outline"
+                title="Nenhum pedido encontrado"
+                subtitle="Este paciente ainda não possui histórico de pedidos"
+              />
             </View>
           ) : filteredRequests.length === 0 ? (
             <View style={styles.empty}>
-              <View style={styles.emptyIconWrap}>
-                <Ionicons name="filter" size={40} color={colors.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>Nada para o filtro atual</Text>
-              <Text style={styles.emptySubtitle}>
-                Tente ajustar tipo, status ou período para ver outros registros.
-              </Text>
+              <AppEmptyState
+                icon="filter"
+                title="Nada para o filtro atual"
+                subtitle="Tente ajustar tipo, status ou período para ver outros registros."
+              />
             </View>
           ) : (
             groupedRequests.map((group) => (
@@ -434,7 +443,10 @@ export default function DoctorPatientProntuario() {
                       <TouchableOpacity
                         key={req.id}
                         style={[styles.timelineRowItem, !isLast && styles.timelineRowDivider]}
-                        onPress={() => router.push(`/doctor-request/${req.id}`)}
+                        onPress={() => {
+                          haptics.selection();
+                          router.push(`/doctor-request/${req.id}`);
+                        }}
                         activeOpacity={0.7}
                       >
                         <View style={[styles.timelineIcon, { backgroundColor: color + '14' }]}>
@@ -502,7 +514,10 @@ export default function DoctorPatientProntuario() {
                   styles.sheetPill,
                   statusFilter === 'all' && styles.sheetPillActive,
                 ]}
-                onPress={() => setStatusFilter('all')}
+                onPress={() => {
+                  haptics.selection();
+                  setStatusFilter('all');
+                }}
                 activeOpacity={0.7}
               >
                 <Text
@@ -521,7 +536,10 @@ export default function DoctorPatientProntuario() {
                     styles.sheetPill,
                     statusFilter === opt.key && styles.sheetPillActive,
                   ]}
-                  onPress={() => setStatusFilter(opt.key)}
+                  onPress={() => {
+                    haptics.selection();
+                    setStatusFilter(opt.key);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text
@@ -545,7 +563,10 @@ export default function DoctorPatientProntuario() {
                     styles.sheetPeriodItem,
                     idx === PERIOD_FILTERS.length - 1 && styles.sheetPeriodItemLast,
                   ]}
-                  onPress={() => setPeriodFilter(opt.key)}
+                  onPress={() => {
+                    haptics.selection();
+                    setPeriodFilter(opt.key);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.sheetPeriodText}>{opt.label}</Text>
@@ -565,6 +586,7 @@ export default function DoctorPatientProntuario() {
               <TouchableOpacity
                 style={styles.clearFiltersBtn}
                 onPress={() => {
+                  haptics.selection();
                   setStatusFilter('all');
                   setPeriodFilter('all');
                 }}
@@ -574,7 +596,10 @@ export default function DoctorPatientProntuario() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.applyFiltersBtn}
-                onPress={() => setShowAdvancedFilters(false)}
+                onPress={() => {
+                  haptics.selection();
+                  setShowAdvancedFilters(false);
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.applyFiltersText}>Aplicar</Text>
@@ -751,12 +776,6 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flex: 1,
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   segmentedItem: {
     flex: 1,

@@ -10,7 +10,7 @@ public class Notification : Entity
     public string Message { get; private set; }
     public NotificationType NotificationType { get; private set; }
     public bool Read { get; private set; }
-    public Dictionary<string, object>? Data { get; private set; }
+    public Dictionary<string, object?>? Data { get; private set; }
 
     private Notification() : base()
     {
@@ -25,7 +25,7 @@ public class Notification : Entity
         string message,
         NotificationType notificationType,
         bool read,
-        Dictionary<string, object>? data,
+        Dictionary<string, object?>? data,
         DateTime? createdAt = null)
         : base(id, createdAt ?? DateTime.UtcNow)
     {
@@ -42,7 +42,7 @@ public class Notification : Entity
         string title,
         string message,
         NotificationType type = NotificationType.Info,
-        Dictionary<string, object>? data = null)
+        Dictionary<string, object?>? data = null)
     {
         if (userId == Guid.Empty)
             throw new DomainException("User ID is required");
@@ -70,7 +70,7 @@ public class Notification : Entity
         string message,
         string notificationType,
         bool read,
-        Dictionary<string, object>? data,
+        Dictionary<string, object?>? data,
         DateTime createdAt)
     {
         return new Notification(

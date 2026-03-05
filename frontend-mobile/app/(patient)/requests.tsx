@@ -10,25 +10,25 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, gradients } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto, RequestType } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
-import { EmptyState } from '../../components/EmptyState';
-import { RequestTypeFilter } from '../../components/RequestTypeFilter';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
+import { AppHeader, AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { needsPayment } from '../../lib/domain/getRequestUiState';
+import { haptics } from '../../lib/haptics';
+import { showToast } from '../../components/ui/Toast';
+import { motionTokens } from '../../lib/ui/motion';
 
 const LOG_QUEUE = __DEV__ && false;
-const ListSeparator = () => <View style={styles.separator} />;
+const ListSeparator = () => null;
 
 const FILTER_ITEMS: { key: string; label: string; type?: RequestType }[] = [
   { key: 'all', label: 'Todos' },
@@ -39,7 +39,6 @@ const FILTER_ITEMS: { key: string; label: string; type?: RequestType }[] = [
 
 export default function PatientRequests() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<RequestResponseDto[]>([]);
@@ -54,6 +53,14 @@ export default function PatientRequests() {
   const abortRef = useRef<AbortController | null>(null);
 
   const filterConfig = useMemo(() => FILTER_ITEMS.find((f) => f.key === activeFilter), [activeFilter]);
+
+  const counts = useMemo(() => {
+    const all = requests.length;
+    const prescription = requests.filter((r) => r.requestType === 'prescription').length;
+    const exam = requests.filter((r) => r.requestType === 'exam').length;
+    const consultation = requests.filter((r) => r.requestType === 'consultation').length;
+    return { all, prescription, exam, consultation };
+  }, [requests]);
 
   const loadData = useCallback(async (isRefresh = false) => {
     const rid = ++requestIdRef.current;
@@ -70,6 +77,9 @@ export default function PatientRequests() {
       if (rid !== requestIdRef.current) return;
       const items = response.items ?? [];
       setRequests(sortRequestsByNewestFirst(items));
+      if (isRefresh) {
+        showToast({ message: 'Pedidos atualizados', type: 'success' });
+      }
       if (LOG_QUEUE) console.info('[QUEUE_FETCH] PatientRequests success', { rid, ms: Date.now() - start });
     } catch (e: unknown) {
       if (rid !== requestIdRef.current) return;
@@ -77,6 +87,9 @@ export default function PatientRequests() {
       const msg = (e as Error)?.message ?? String(e);
       setError(msg);
       setRequests([]);
+      if (isRefresh) {
+        showToast({ message: 'Não foi possível atualizar os pedidos', type: 'error' });
+      }
       if (LOG_QUEUE) console.info('[QUEUE_FETCH] PatientRequests error', { rid, msg });
     } finally {
       if (rid === requestIdRef.current) {
@@ -87,11 +100,7 @@ export default function PatientRequests() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-    return () => { abortRef.current?.abort(); };
-  }, [loadData]);
-
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const toPayCount = useMemo(() => requests.filter(r => needsPayment(r)).length, [requests]);
@@ -122,6 +131,7 @@ export default function PatientRequests() {
   }, [requests, filterConfig?.type, debouncedSearch]);
 
   const onRefresh = useCallback(() => {
+    haptics.light();
     setIsRefreshing(true);
     loadData(true);
   }, [loadData]);
@@ -133,24 +143,30 @@ export default function PatientRequests() {
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
   const renderPatientItem = useCallback(({ item }: { item: RequestResponseDto }) => (
-    <RequestCard request={item} onPress={() => router.push(`/request-detail/${item.id}`)} />
+    <RequestCard
+      request={item}
+      onPress={() => {
+        haptics.selection();
+        router.push(`/request-detail/${item.id}`);
+      }}
+      suppressHorizontalMargin
+    />
   ), [router]);
 
-  const headerPaddingTop = insets.top + 16;
   const empty = !loading && !error && filteredRequests.length === 0;
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={gradients.patientHeader as [string, string, ...string[]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, styles.headerGradient, { paddingTop: headerPaddingTop }]}
-      >
-        <Text style={styles.title}>Meus Pedidos</Text>
-      </LinearGradient>
+      <View style={styles.headerWrap}>
+        <View style={styles.headerClip}>
+          <AppHeader
+            title="Meus pedidos"
+            left={<View style={{ width: 40 }} />}
+            gradient={gradients.patientHeader}
+          />
+        </View>
+      </View>
 
-      <Text style={styles.headerHint}>Toque em um pedido para ver detalhes e acompanhar o status. Use os filtros para encontrar o que precisa.</Text>
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={20} color={colors.textMuted} style={styles.searchIcon} />
         <TextInput
@@ -164,12 +180,18 @@ export default function PatientRequests() {
         />
       </View>
 
-      <RequestTypeFilter
-        items={FILTER_ITEMS.map(({ key, label }) => ({ key, label }))}
+      <AppSegmentedControl
+        items={FILTER_ITEMS.map(({ key, label }) => ({
+          key,
+          label,
+          count: (counts as any)[key] ?? undefined,
+        }))}
         value={activeFilter}
-        onValueChange={setActiveFilter}
+        onValueChange={(value) => {
+          haptics.selection();
+          setActiveFilter(value);
+        }}
         disabled={loading}
-        variant="patient"
       />
 
       {loading && requests.length === 0 ? (
@@ -186,31 +208,31 @@ export default function PatientRequests() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FadeIn visible={!loading} duration={300}>
-        <FlatList
-          data={filteredRequests}
-          keyExtractor={keyExtractor}
-          renderItem={renderPatientItem}
-          contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
-          ItemSeparatorComponent={ListSeparator}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-          }
-          showsVerticalScrollIndicator={false}
-          removeClippedSubviews={Platform.OS !== 'web'}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          initialNumToRender={8}
-          ListEmptyComponent={
-            empty ? (
-              <EmptyState
-                icon="document-text-outline"
-                title="Nenhum pedido encontrado"
-                subtitle="Tente ajustar os filtros ou a busca"
-              />
-            ) : null
-          }
-        />
+        <FadeIn visible={!loading} {...motionTokens.fade.listPatient} delay={30}>
+          <FlatList
+            data={filteredRequests}
+            keyExtractor={keyExtractor}
+            renderItem={renderPatientItem}
+            contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
+            ItemSeparatorComponent={ListSeparator}
+            refreshControl={
+              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+            }
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews={Platform.OS !== 'web'}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            initialNumToRender={8}
+            ListEmptyComponent={
+              empty ? (
+                <AppEmptyState
+                  icon="document-text-outline"
+                  title="Nenhum pedido encontrado"
+                  subtitle="Tente ajustar os filtros ou a busca"
+                />
+              ) : null
+            }
+          />
         </FadeIn>
       )}
     </View>
@@ -219,23 +241,21 @@ export default function PatientRequests() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingBottom: 28 },
-  headerGradient: { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-  title: { fontSize: 22, fontWeight: '700', color: '#fff' },
-  headerHint: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 6,
-    marginBottom: 4,
-    marginHorizontal: uiTokens.screenPaddingHorizontal,
-    lineHeight: 18,
+  headerWrap: {
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  headerClip: {
+    borderRadius: 22,
+    overflow: 'hidden',
   },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     marginHorizontal: uiTokens.screenPaddingHorizontal,
-    marginTop: spacing.md,
+    marginTop: 6,
     borderRadius: borderRadius.pill,
     paddingHorizontal: spacing.md,
     height: 48,
@@ -248,7 +268,6 @@ const styles = StyleSheet.create({
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md },
   retryText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  listContent: { paddingTop: 24, paddingHorizontal: uiTokens.screenPaddingHorizontal },
+  listContent: { paddingTop: 14, paddingHorizontal: uiTokens.screenPaddingHorizontal },
   listContentEmpty: { flexGrow: 1 },
-  separator: { height: 8 },
 });

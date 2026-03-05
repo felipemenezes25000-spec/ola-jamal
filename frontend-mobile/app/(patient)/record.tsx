@@ -27,10 +27,13 @@ import type {
 } from '../../types/database';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
-import { EmptyState } from '../../components/EmptyState';
+import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { haptics } from '../../lib/haptics';
+import { showToast } from '../../components/ui/Toast';
+import { motionTokens } from '../../lib/ui/motion';
 
 type TabKey = 'resumo' | 'timeline' | 'documentos';
 type FilterChip = 'todos' | 'receitas' | 'exames' | 'consultas';
@@ -141,7 +144,7 @@ export default function PatientRecordScreen() {
     recentPrescriptionCount,
   });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (withFeedback = false) => {
     try {
       setError(false);
       const [summaryData, encountersData, documentsData] = await Promise.all([
@@ -152,9 +155,15 @@ export default function PatientRecordScreen() {
       setSummary(summaryData);
       setEncounters(encountersData);
       setDocuments(documentsData);
+      if (withFeedback) {
+        showToast({ message: 'Prontuário atualizado', type: 'success' });
+      }
     } catch {
       setError(true);
       setSummary(null);
+      if (withFeedback) {
+        showToast({ message: 'Não foi possível atualizar o prontuário', type: 'error' });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -168,8 +177,9 @@ export default function PatientRecordScreen() {
   );
 
   const onRefresh = () => {
+    haptics.light();
     setRefreshing(true);
-    load();
+    load(true);
   };
 
   const firstName =
@@ -212,18 +222,18 @@ export default function PatientRecordScreen() {
         </View>
       ) : error ? (
         <View style={s.errorWrap}>
-          <EmptyState
+          <AppEmptyState
             icon="alert-circle-outline"
             title="Não foi possível carregar"
             subtitle="Verifique sua conexão e tente novamente"
           />
-          <Pressable style={s.retryBtn} onPress={load}>
+          <Pressable style={s.retryBtn} onPress={() => load()}>
             <Text style={s.retryText}>Tentar novamente</Text>
           </Pressable>
         </View>
       ) : (
         <ErrorBoundary>
-        <FadeIn visible={!loading} duration={300}>
+        <FadeIn visible={!loading} {...motionTokens.fade.patientRecord}>
         <ScrollView
           style={s.container}
           contentContainerStyle={{ paddingBottom: listPadding }}
@@ -259,50 +269,25 @@ export default function PatientRecordScreen() {
             </View>
           </LinearGradient>
 
-          <View style={s.segmentBar}>
-            {TABS.map((tab) => {
-              const active = activeTab === tab.key;
-              return (
-                <Pressable
-                  key={tab.key}
-                  style={[s.segmentItem, active && s.segmentItemActive]}
-                  onPress={() => setActiveTab(tab.key)}
-                >
-                  <Ionicons
-                    name={tab.icon}
-                    size={16}
-                    color={active ? colors.primary : colors.textMuted}
-                  />
-                  <Text style={[s.segmentLabel, active && s.segmentLabelActive]}>
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <AppSegmentedControl
+            items={TABS.map((tab) => ({ key: tab.key, label: tab.label }))}
+            value={activeTab}
+            onValueChange={(value) => {
+              haptics.selection();
+              setActiveTab(value as TabKey);
+            }}
+          />
 
           {(activeTab === 'timeline' || activeTab === 'documentos') && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.filterRow}
-              nestedScrollEnabled
-            >
-              {FILTER_CHIPS.map((chip) => {
-                const active = activeFilter === chip.key;
-                return (
-                  <Pressable
-                    key={chip.key}
-                    style={[s.filterChip, active && s.filterChipActive]}
-                    onPress={() => setActiveFilter(chip.key)}
-                  >
-                    <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
-                      {chip.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <AppSegmentedControl
+              items={FILTER_CHIPS.map((chip) => ({ key: chip.key, label: chip.label }))}
+              value={activeFilter}
+              onValueChange={(value) => {
+                haptics.selection();
+                setActiveFilter(value as FilterChip);
+              }}
+              scrollable
+            />
           )}
 
           {activeTab === 'resumo' && (
@@ -464,7 +449,7 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
   if (!encounters.length) {
     return (
       <View style={s.tabEmptyWrap}>
-        <EmptyState
+        <AppEmptyState
           icon="time-outline"
           title="Nenhum atendimento"
           subtitle="Seus atendimentos aparecerão aqui"
@@ -534,7 +519,7 @@ function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummary
   if (!documents.length) {
     return (
       <View style={s.tabEmptyWrap}>
-        <EmptyState
+        <AppEmptyState
           icon="document-text-outline"
           title="Nenhum documento"
           subtitle="Seus documentos médicos aparecerão aqui"

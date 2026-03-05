@@ -888,10 +888,10 @@ public class PaymentService(
         CancellationToken cancellationToken,
         Guid? requestId = null)
     {
-        var data = requestId.HasValue ? new Dictionary<string, object> { ["requestId"] = requestId.Value.ToString() } : null;
+        var data = requestId.HasValue ? new Dictionary<string, object?> { ["requestId"] = requestId.Value.ToString() } : null;
         var notification = Notification.Create(userId, title, message, NotificationType.Success, data);
         await notificationRepository.CreateAsync(notification, cancellationToken);
-        await pushNotificationSender.SendAsync(userId, title, message, ct: cancellationToken);
+        await pushNotificationSender.SendAsync(userId, title, message, data, cancellationToken);
     }
 
     private static PaymentResponseDto MapToDto(Payment payment)
