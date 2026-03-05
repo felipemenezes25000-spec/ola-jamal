@@ -351,7 +351,7 @@ builder.Services.AddCors(options =>
         "https://www.lovable.app"
     };
 
-    // Permite qualquer subdomínio de lovable.app (previews: https://xxx.lovable.app)
+    // Permite lovable.dev, lovable.app e qualquer subdomínio (previews: xxx.lovable.app)
     static bool IsAllowedOrigin(string? origin, IReadOnlyCollection<string> explicitOrigins)
     {
         if (string.IsNullOrEmpty(origin)) return false;
@@ -361,6 +361,8 @@ builder.Services.AddCors(options =>
             var host = uri.Host;
             if (explicitOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
             if (host.Equals("lovable.app", StringComparison.OrdinalIgnoreCase) || host.EndsWith(".lovable.app", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (host.Equals("lovable.dev", StringComparison.OrdinalIgnoreCase) || host.Equals("www.lovable.dev", StringComparison.OrdinalIgnoreCase))
                 return true;
             return false;
         }
@@ -394,6 +396,8 @@ builder.Services.AddCors(options =>
                 if (scheme == "exp") return true; // Expo Go: exp://192.168.x.x:8081
                 if (host.StartsWith("192.168.") || host.StartsWith("10.")) return true; // LAN
                 if (host.Contains("ngrok", StringComparison.OrdinalIgnoreCase)) return true;
+                if (host.Equals("lovable.dev", StringComparison.OrdinalIgnoreCase) || host.Equals("www.lovable.dev", StringComparison.OrdinalIgnoreCase)) return true;
+                if (host.EndsWith(".lovable.app", StringComparison.OrdinalIgnoreCase)) return true;
                 return false;
             }
             catch { return false; }
