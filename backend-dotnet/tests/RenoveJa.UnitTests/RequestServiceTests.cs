@@ -59,6 +59,7 @@ public class RequestServiceTests
         var storageServiceMock = new Mock<IStorageService>();
         var requestEventsPublisherMock = new Mock<IRequestEventsPublisher>();
         var signedRequestClinicalSyncMock = new Mock<ISignedRequestClinicalSyncService>();
+        var consultationEncounterServiceMock = new Mock<IConsultationEncounterService>();
 
         _sut = new RequestService(
             _requestRepoMock.Object,
@@ -83,6 +84,7 @@ public class RequestServiceTests
             _aiConductSuggestionServiceMock.Object,
             requestEventsPublisherMock.Object,
             signedRequestClinicalSyncMock.Object,
+            consultationEncounterServiceMock.Object,
             _loggerMock.Object);
     }
 

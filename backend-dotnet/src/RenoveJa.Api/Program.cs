@@ -295,6 +295,7 @@ builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAuditEventService, AuditEventService>();
 builder.Services.AddScoped<IClinicalRecordService, ClinicalRecordService>();
+builder.Services.AddScoped<IConsultationEncounterService, ConsultationEncounterService>();
 builder.Services.AddScoped<ICarePlanService, CarePlanService>();
 builder.Services.AddScoped<ISignedRequestClinicalSyncService, SignedRequestClinicalSyncService>();
 builder.Services.AddScoped<IVerificationService, RenoveJa.Application.Services.Verification.VerificationService>();

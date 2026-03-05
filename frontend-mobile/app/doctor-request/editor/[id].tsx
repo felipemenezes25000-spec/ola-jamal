@@ -230,6 +230,8 @@ export default function PrescriptionEditorScreen() {
   const [medications, setMedications] = useState<string[]>([]);
   const [prescriptionKind, setPrescriptionKind] = useState<PrescriptionKind>('simple');
   const [rejectedSuggestions, setRejectedSuggestions] = useState<Set<string>>(new Set());
+  const [editingSuggestionIndex, setEditingSuggestionIndex] = useState<number | null>(null);
+  const [editingSuggestionValue, setEditingSuggestionValue] = useState('');
   const [cidQuery, setCidQuery] = useState('');
   const [notes, setNotes] = useState('');
   const [conductNotes, setConductNotes] = useState('');
@@ -255,6 +257,23 @@ export default function PrescriptionEditorScreen() {
       return () => clearTimeout(timer);
     }
   }, [showSignForm]);
+
+  /** Validação de compliance em tempo real (ao carregar e após salvar). */
+  const refreshCompliance = useCallback(async () => {
+    if (!requestId) return;
+    try {
+      const v = await validatePrescription(requestId);
+      setComplianceValidation(v);
+    } catch {
+      setComplianceValidation(null);
+    }
+  }, [requestId]);
+
+  useEffect(() => {
+    if (request?.requestType === 'prescription' && requestId) {
+      refreshCompliance();
+    }
+  }, [request?.id, request?.requestType, requestId, refreshCompliance]);
 
   /** Ao abrir o formulário de assinatura, verifica se o perfil do médico está completo para evitar tentativa inútil. */
   useEffect(() => {
@@ -363,6 +382,7 @@ export default function PrescriptionEditorScreen() {
       await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
       await loadRequest();
       await loadPdfPreview();
+      await refreshCompliance();
       showToast({ message: 'Alterações salvas. Preview atualizado.', type: 'success' });
     } catch (e: any) {
       showToast({ message: e?.message || 'Falha ao salvar.', type: 'error' });
@@ -451,10 +471,36 @@ export default function PrescriptionEditorScreen() {
   const cidResults = useMemo(() => searchCid(cidQuery), [cidQuery]);
 
   const acceptSuggestion = (med: string) => {
-    setMedications((prev) => (prev.includes(med) ? prev : [...prev, med]));
+    const trimmed = med.trim();
+    if (!trimmed) return;
+    setMedications((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+  };
+  const acceptAllSuggestions = () => {
+    const toAdd = suggestedFromAi.filter((m) => m.trim());
+    setMedications((prev) => {
+      const set = new Set(prev);
+      toAdd.forEach((m) => set.add(m.trim()));
+      return Array.from(set);
+    });
+    setRejectedSuggestions(new Set());
   };
   const rejectSuggestion = (med: string) => {
     setRejectedSuggestions((prev) => new Set(prev).add(med));
+  };
+  const startEditSuggestion = (med: string, index: number) => {
+    setEditingSuggestionIndex(index);
+    setEditingSuggestionValue(med);
+  };
+  const confirmEditSuggestion = () => {
+    if (editingSuggestionIndex !== null && editingSuggestionValue.trim()) {
+      acceptSuggestion(editingSuggestionValue.trim());
+      setEditingSuggestionIndex(null);
+      setEditingSuggestionValue('');
+    }
+  };
+  const cancelEditSuggestion = () => {
+    setEditingSuggestionIndex(null);
+    setEditingSuggestionValue('');
   };
   const addFromCid = (med: string) => {
     setMedications((prev) => (prev.includes(med) ? prev : [...prev, med]));
@@ -552,12 +598,36 @@ export default function PrescriptionEditorScreen() {
             </View>
           </DoctorCard>
 
+          {/* Checklist de compliance — pendências visíveis durante edição */}
+          {complianceValidation && !complianceValidation.valid && (complianceValidation.messages?.length ?? 0) > 0 && (
+            <DoctorCard style={[st.cardMargin, st.complianceCard]}>
+              <View style={st.complianceHeader}>
+                <Ionicons name="alert-circle" size={20} color={colors.warning} />
+                <Text style={st.complianceTitle}>Campos obrigatórios pendentes</Text>
+              </View>
+              <Text style={st.complianceHint}>Complete antes de assinar:</Text>
+              {(complianceValidation.messages ?? []).map((msg, i) => (
+                <View key={i} style={st.complianceItem}>
+                  <Ionicons name="ellipse" size={6} color={colors.textMuted} style={{ marginTop: 6 }} />
+                  <Text style={st.complianceItemText}>{msg}</Text>
+                </View>
+              ))}
+            </DoctorCard>
+          )}
+
           {/* PDF Preview — logo abaixo dos dados para sempre aparecer na tela */}
           <DoctorCard style={[st.cardMargin, st.pdfCard]}>
             <View style={st.pdfHeader}>
               <Ionicons name="document-text" size={22} color={colors.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={st.pdfTitle}>Preview da Receita</Text>
+                <View style={st.pdfTitleRow}>
+                  <Text style={st.pdfTitle}>Preview da Receita</Text>
+                  {complianceValidation && !complianceValidation.valid && (
+                    <View style={st.draftBadge}>
+                      <Text style={st.draftBadgeText}>Rascunho</Text>
+                    </View>
+                  )}
+                </View>
                 {prescriptionKind === 'antimicrobial' && (
                   <Text style={st.validityText}>Validade: 10 dias (RDC 471/2021)</Text>
                 )}
@@ -699,28 +769,58 @@ export default function PrescriptionEditorScreen() {
             </DoctorCard>
           )}
 
-          {/* AI Suggestions */}
+          {/* Rascunho IA (OCR) — sugestões extraídas da foto */}
           {suggestedFromAi.length > 0 && (
             <DoctorCard style={st.cardMargin}>
-              <Text style={st.sectionTitle}>SUGESTÕES DA IA</Text>
+              <View style={st.sectionHeader}>
+                <Text style={st.sectionTitle}>RASCUNHO IA (OCR)</Text>
+                <TouchableOpacity onPress={acceptAllSuggestions} style={st.acceptAllBtn} activeOpacity={0.7}>
+                  <Ionicons name="checkmark-done" size={18} color={colors.success} />
+                  <Text style={st.acceptAllBtnText}>Aceitar tudo</Text>
+                </TouchableOpacity>
+              </View>
               <View style={st.aiDisclaimer}>
                 <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-                <Text style={st.aiDisclaimerText}>Sugestões — decisão final do médico.</Text>
+                <Text style={st.aiDisclaimerText}>Dra. Renova leu a foto e sugeriu. Decisão final é sua.</Text>
               </View>
               {suggestedFromAi.map((med, i) => (
                 <View key={`sug-${i}`} style={st.suggestionRow}>
-                  <Text style={st.suggestionText} numberOfLines={2}>{med}</Text>
-                  <View style={st.plusMinusRow}>
-                    <TouchableOpacity onPress={() => acceptSuggestion(med)} style={st.plusMinusBtn} hitSlop={8}>
-                      <Ionicons name="add-circle" size={28} color={colors.success} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => rejectSuggestion(med)} style={st.plusMinusBtn} hitSlop={8}>
-                      <Ionicons name="remove-circle" size={28} color={colors.error} />
-                    </TouchableOpacity>
-                  </View>
+                  {editingSuggestionIndex === i ? (
+                    <>
+                      <TextInput
+                        style={[st.medInput, { flex: 1, marginRight: spacing.sm }]}
+                        value={editingSuggestionValue}
+                        onChangeText={setEditingSuggestionValue}
+                        placeholder="Editar medicamento"
+                        placeholderTextColor={colors.textMuted}
+                        autoFocus
+                      />
+                      <TouchableOpacity onPress={confirmEditSuggestion} style={st.plusMinusBtn} hitSlop={8}>
+                        <Ionicons name="checkmark-circle" size={28} color={colors.success} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={cancelEditSuggestion} style={st.plusMinusBtn} hitSlop={8}>
+                        <Ionicons name="close-circle" size={28} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={st.suggestionText} numberOfLines={2}>{med}</Text>
+                      <View style={st.plusMinusRow}>
+                        <TouchableOpacity onPress={() => acceptSuggestion(med)} style={st.plusMinusBtn} hitSlop={8} accessibilityLabel="Aceitar item">
+                          <Ionicons name="add-circle" size={28} color={colors.success} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => startEditSuggestion(med, i)} style={st.plusMinusBtn} hitSlop={8} accessibilityLabel="Editar item">
+                          <Ionicons name="create-outline" size={26} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => rejectSuggestion(med)} style={st.plusMinusBtn} hitSlop={8} accessibilityLabel="Ignorar item">
+                          <Ionicons name="remove-circle" size={28} color={colors.error} />
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
                 </View>
               ))}
-          </DoctorCard>
+            </DoctorCard>
           )}
 
           {/* CID Search */}
@@ -879,11 +979,30 @@ export default function PrescriptionEditorScreen() {
               style={st.bottomBarButton}
             />
             {canSign && (
-              <PrimaryButton
-                label="Assinar digitalmente"
-                onPress={() => setShowSignForm(true)}
-                style={st.bottomBarButton}
-              />
+              complianceValidation && !complianceValidation.valid ? (
+                <TouchableOpacity
+                  style={[st.signDisabledBtn]}
+                  onPress={() => {
+                    const count = complianceValidation.messages?.length ?? 0;
+                    showToast({
+                      message: count > 0 ? `Faltam ${count} campo(s) obrigatório(s). Veja a lista acima.` : 'Complete os campos obrigatórios.',
+                      type: 'warning',
+                    });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="lock-closed" size={18} color={colors.textMuted} />
+                  <Text style={st.signDisabledBtnText}>
+                    Assinar digitalmente (Faltam {complianceValidation.messages?.length ?? 0} campos)
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <PrimaryButton
+                  label="Assinar digitalmente"
+                  onPress={() => setShowSignForm(true)}
+                  style={st.bottomBarButton}
+                />
+              )
             )}
           </View>
         )}
@@ -927,10 +1046,21 @@ const st = StyleSheet.create({
     ...shadows.card,
   },
 
+  // Compliance checklist
+  complianceCard: { borderLeftWidth: 4, borderLeftColor: colors.warning, backgroundColor: colors.warningLight },
+  complianceHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+  complianceTitle: { fontSize: 14, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
+  complianceHint: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginBottom: spacing.sm },
+  complianceItem: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: 4 },
+  complianceItemText: { flex: 1, fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.text },
+
   // PDF Preview
   pdfCard: { borderWidth: 1.5, borderColor: colors.primary + '30' },
   pdfHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  pdfTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   pdfTitle: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.text },
+  draftBadge: { backgroundColor: colors.textMuted, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  draftBadgeText: { fontSize: 11, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: '#fff' },
   refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, backgroundColor: colors.primarySoft, borderRadius: borderRadius.sm },
   refreshBtnText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
   pdfContainer: { marginTop: spacing.sm, overflow: 'hidden', borderRadius: 8 },
@@ -961,7 +1091,9 @@ const st = StyleSheet.create({
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addBtnText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.primary },
 
-  // Suggestions
+  // Suggestions / OCR draft
+  acceptAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, backgroundColor: colors.successLight, borderRadius: borderRadius.sm },
+  acceptAllBtnText: { fontSize: 13, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.success },
   suggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   suggestionText: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typography.fontFamily.regular, color: colors.text, marginRight: spacing.sm },
   plusMinusRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -1087,6 +1219,23 @@ const st = StyleSheet.create({
   bottomBarButton: {
     width: '100%',
     minHeight: 52,
+  },
+  signDisabledBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: 14,
+    borderRadius: borderRadius.card,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  signDisabledBtnText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    fontWeight: '500',
+    color: colors.textMuted,
   },
   actionBtn: {
     flexDirection: 'row',

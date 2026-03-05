@@ -198,15 +198,28 @@ public class SupabaseStorageService : IStorageService
     }
 
     /// <summary>
-    /// Extrai o path do objeto a partir da URL pública (ex.: .../object/public/prescription-images/userId/file.jpg → userId/file.jpg).
+    /// Extrai o PATH do objeto a partir de uma URL pública do Supabase Storage.
+    /// Ex.: {base}/storage/v1/object/public/{bucket}/{path} -> {path}
+    /// Retorna null se não for do nosso storage ou não estiver no formato esperado.
     /// </summary>
     private string? ExtractPathFromPublicUrl(string publicUrl)
     {
+        if (string.IsNullOrWhiteSpace(publicUrl)) return null;
+
         var baseUrl = _config.Url.TrimEnd('/');
-        var suffix = $"/storage/v1/object/public/{PrescriptionBucket}/";
         if (!publicUrl.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase)) return null;
-        var idx = publicUrl.IndexOf(suffix, StringComparison.OrdinalIgnoreCase);
+
+        // suporta qualquer bucket
+        var marker = "/storage/v1/object/public/";
+        var idx = publicUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
         if (idx < 0) return null;
-        return publicUrl[(idx + suffix.Length)..].Trim();
+
+        var after = publicUrl[(idx + marker.Length)..]; // "{bucket}/{path}"
+        var firstSlash = after.IndexOf('/');
+        if (firstSlash <= 0) return null;
+
+        var path = after[(firstSlash + 1)..];
+
+        return string.IsNullOrWhiteSpace(path) ? null : path.Trim();
     }
 }

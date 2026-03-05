@@ -55,9 +55,19 @@ public class EncounterRepository(SupabaseClient supabase) : IEncounterRepository
         return models.Select(MapToDomain).ToList();
     }
 
-    public async Task<Encounter> CreateAsync(Encounter encounter, CancellationToken cancellationToken = default)
+    public async Task<Encounter?> GetBySourceRequestIdAsync(Guid sourceRequestId, CancellationToken cancellationToken = default)
     {
-        var model = MapToModel(encounter);
+        var model = await supabase.GetSingleAsync<EncounterModel>(
+            TableName,
+            filter: $"source_request_id=eq.{sourceRequestId}",
+            cancellationToken: cancellationToken);
+
+        return model != null ? MapToDomain(model) : null;
+    }
+
+    public async Task<Encounter> CreateAsync(Encounter encounter, CancellationToken cancellationToken = default, Guid? sourceRequestId = null)
+    {
+        var model = MapToModel(encounter, sourceRequestId);
         var created = await supabase.InsertAsync<EncounterModel>(
             TableName,
             model,
@@ -101,9 +111,9 @@ public class EncounterRepository(SupabaseClient supabase) : IEncounterRepository
             model.CreatedAt);
     }
 
-    private static EncounterModel MapToModel(Encounter encounter)
+    private static EncounterModel MapToModel(Encounter encounter, Guid? sourceRequestId = null)
     {
-        return new EncounterModel
+        var model = new EncounterModel
         {
             Id = encounter.Id,
             PatientId = encounter.PatientId,
@@ -120,5 +130,8 @@ public class EncounterRepository(SupabaseClient supabase) : IEncounterRepository
             MainIcd10Code = encounter.MainIcd10Code,
             CreatedAt = encounter.CreatedAt
         };
+        if (sourceRequestId.HasValue)
+            model.SourceRequestId = sourceRequestId;
+        return model;
     }
 }

@@ -513,6 +513,8 @@ public class EncounterModel
     public Guid Id { get; set; }
     public Guid PatientId { get; set; }
     public Guid PractitionerId { get; set; }
+    [JsonPropertyName("source_request_id")]
+    public Guid? SourceRequestId { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Status { get; set; } = "draft";
     public DateTime StartedAt { get; set; }
@@ -533,6 +535,12 @@ public class MedicalDocumentModel
     public Guid PatientId { get; set; }
     public Guid PractitionerId { get; set; }
     public Guid? EncounterId { get; set; }
+    [JsonPropertyName("source_request_id")]
+    public Guid? SourceRequestId { get; set; }
+    [JsonPropertyName("signed_document_url")]
+    public string? SignedDocumentUrl { get; set; }
+    [JsonPropertyName("signature_id")]
+    public string? SignatureId { get; set; }
     public string DocumentType { get; set; } = string.Empty;
     public string Status { get; set; } = "draft";
     public Guid? PreviousDocumentId { get; set; }

@@ -19,6 +19,7 @@ public class RequestsController(
     IPrescriptionPdfService pdfService,
     IAuditEventService auditEventService,
     IClinicalSummaryService clinicalSummaryService,
+    IConsultationEncounterService consultationEncounterService,
     ILogger<RequestsController> logger) : ControllerBase
 {
     private static readonly string[] AllowedImageContentTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
@@ -632,6 +633,33 @@ public class RequestsController(
         var doctorId = GetUserId();
         var request = await requestService.FinishConsultationAsync(id, doctorId, dto, cancellationToken);
         return Ok(request);
+    }
+
+    /// <summary>
+    /// Médico salva nota clínica editada no prontuário (writeback do resumo da consulta).
+    /// </summary>
+    [HttpPost("{id}/save-consultation-summary")]
+    [Authorize(Roles = "doctor")]
+    public async Task<IActionResult> SaveConsultationSummary(
+        Guid id,
+        [FromBody] SaveConsultationSummaryDto dto,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var doctorId = GetUserId();
+            await consultationEncounterService.UpdateEncounterClinicalNotesAsync(
+                id, doctorId, dto.Anamnesis, dto.Plan, cancellationToken);
+            return Ok(new { saved = true });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("não encontrado"))
+        {
+            return NotFound(new { error = "Prontuário desta consulta não encontrado. A consulta pode não ter sido iniciada com vídeo conectado." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
     }
 
     /// <summary>

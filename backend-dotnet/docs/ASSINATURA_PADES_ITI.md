@@ -1,5 +1,64 @@
 # Assinatura PAdES e Validação no ITI
 
+Este documento referencia o **Guia de Orientações aos Desenvolvedores** do ITI (validar.iti.gov.br) e descreve como o RenoveJá atende aos requisitos.
+
+---
+
+## Resumo do Guia ITI (por capítulo)
+
+| Capítulo | Conteúdo | Status RenoveJá |
+|----------|----------|-----------------|
+| **I** | Características dos documentos (PDF, OIDs de saúde) | ✅ PDF assinado ICP-Brasil, OIDs configurados |
+| **II** | Padrões de assinatura (PAdES ICP-Brasil, DocMDP) | ✅ PAdES, DocMDP P=2 |
+| **III** | QR Code (ISO/IEC 18004:2015) | ✅ QR no PDF |
+| **IV** | Parâmetros para geração de QR Codes | ✅ `_format`, `_secretCode`, JSON, códigos HTTP |
+| **V** | Referências de OID | ✅ 2.16.76.1.12.1.1, 2.16.76.1.12.1.3, CRM/UF |
+| **VI** | DocMDP (controle de alterações incrementais) | ✅ P=2 (formulários, templates, novas assinaturas) |
+
+---
+
+## Capítulo IV — Parâmetros para QR Code (detalhado)
+
+### Parâmetros obrigatórios (adicionados pelo VALIDAR)
+
+| Nome | Conteúdo | Descrição |
+|------|----------|-----------|
+| `_format` | `application/validador-iti+json` | Reservado para o Portal Validar. **Comparação exata (literal)**. |
+| `_secretCode` | 0–64 caracteres alfanuméricos | Código informado pelo paciente para acesso à prescrição. |
+
+### Fluxo operacional
+
+1. **URL no QR Code** (sem `_format` nem `_secretCode`):
+   - Prescrição: `https://[API]/api/verify/{id}?type=prescricao`
+   - Exame: `https://[API]/api/verify/{id}?type=exame`
+
+2. **Requisição montada pelo VALIDAR**:
+   ```
+   GET https://[API]/api/verify/{id}?type=prescricao&_format=application/validador-iti+json&_secretCode=123456
+   ```
+
+3. **Resposta JSON esperada**:
+   ```json
+   {
+     "version": "1.0.0",
+     "prescription": {
+       "signatureFiles": [
+         { "url": "https://[API]/api/verify/{id}/document?code=123456" }
+       ]
+     }
+   }
+   ```
+
+4. **Códigos HTTP de erro**:
+   - `401` — código secreto incorreto
+   - `404` — prescrição não existe
+
+### Nota sobre `type`
+
+Quando a URL possui outros parâmetros, o Guia exige o parâmetro `type` para que o VALIDAR identifique e acrescente `_format` e `_secretCode` corretamente. O backend retorna sempre a chave `prescription` (mesmo para solicitação de exame), conforme exemplificado no Guia.
+
+---
+
 ## PAdES
 
 O RenoveJá assina os PDFs de receita digital usando **PAdES** (PDF Advanced Electronic Signatures), conforme ISO 32000-2 e ETSI:
@@ -44,6 +103,41 @@ O relatório pode mostrar "Tipo de assinatura: Destacada" — isso refere-se à 
 
 4. **Código de acesso**  
    O `_secretCode` corresponde ao código de 6 dígitos exibido na receita.
+
+## Capítulo V — OIDs utilizados
+
+### Documentos digitais em saúde
+
+| OID | Descrição |
+|-----|-----------|
+| 2.16.76.1.12.1.1 | Prescrição de medicamento |
+| 2.16.76.1.12.1.3 | Solicitação de exame |
+
+### Profissionais (médicos)
+
+| OID | Descrição |
+|-----|-----------|
+| 2.16.76.1.4.2.2.1 | Número de registro (CRM) |
+| 2.16.76.1.4.2.2.2 | UF de registro |
+
+O `ItiHealthOidsSignatureContainer` aplica o OID correto conforme o tipo de documento (prescrição vs exame).
+
+---
+
+## Checklist de homologação
+
+Antes de submeter ao VALIDAR:
+
+- [ ] `Api__BaseUrl` configurado em produção (URL estável para `signatureFiles[0].url`)
+- [ ] `Verification__BaseUrl` = `{Api__BaseUrl}/api/verify`
+- [ ] QR Code **sem** `_format` e `_secretCode` embutidos
+- [ ] QR Code com `type=prescricao` ou `type=exame` conforme o documento
+- [ ] Teste: `curl -i "https://HOST/api/verify/{id}?type=prescricao&_format=application/validador-iti+json&_secretCode=CODE"` → 200 + JSON
+- [ ] Teste: `curl -I "https://HOST/api/verify/{id}/document?code=CODE"` → 200 + `Content-Type: application/pdf`
+- [ ] Teste código errado → 401
+- [ ] Teste id inexistente → 404
+
+---
 
 ## Resumo da validação
 

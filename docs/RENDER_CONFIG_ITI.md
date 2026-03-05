@@ -58,7 +58,7 @@ Se o frontend de verificação estiver em `https://renovejasaude.com.br` ou `htt
 
 1. **QR Code / URL**: Escanear o QR Code de uma receita no validar.iti.gov.br ou digitar a URL manualmente. O ITI deve obter o JSON e baixar o PDF.
 2. **PDF anexado**: Fazer upload do PDF assinado no validar.iti.gov.br. A assinatura deve ser validada (DocMDP já implementado).
-3. **Endpoint direto**: `GET https://SEU-SERVICO.onrender.com/api/verify/{id}?_format=application/validador-iti+json&_secretCode=123456` deve retornar JSON com `signatureFiles[].url`.
+3. **Endpoint direto** (incluir `type` conforme Guia ITI Cap. IV): `GET https://SEU-SERVICO.onrender.com/api/verify/{id}?type=prescricao&_format=application/validador-iti+json&_secretCode=123456` deve retornar JSON com `signatureFiles[].url`.
 
 ---
 

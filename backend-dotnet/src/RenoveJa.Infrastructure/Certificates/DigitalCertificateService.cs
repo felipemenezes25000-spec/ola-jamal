@@ -268,7 +268,10 @@ public class DigitalCertificateService : IDigitalCertificateService
             _logger.LogInformation("PDF assinado com certificado {CertificateId}: {SignatureId}", 
                 certificateId, signatureId);
 
-            return new DigitalSignatureResult(true, null, uploadResult.Url, signatureId, signedAt);
+            // IMPORTANTE:
+            // O bucket prescriptions pode ser privado. Não persista URL pública /object/public.
+            // Persista o PATH estável, e sirva o arquivo via endpoint do backend (stream) usando service_role.
+            return new DigitalSignatureResult(true, null, signedPath, signatureId, signedAt);
         }
         catch (Exception ex)
         {

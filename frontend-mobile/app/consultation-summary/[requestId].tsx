@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 
 import { colors } from '../../lib/themeDoctor';
-import { fetchRequestById } from '../../lib/api';
+import { fetchRequestById, saveConsultationSummary } from '../../lib/api';
 import type { RequestResponseDto } from '../../types/database';
 
 // ── Anamnesis fields mapping ──
@@ -47,6 +47,9 @@ export default function ConsultationSummaryScreen() {
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [expandedTranscript, setExpandedTranscript] = useState(false);
+  const [clinicalNote, setClinicalNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   // Parse data
   const anamnesis = useMemo(() => {
@@ -76,13 +79,30 @@ export default function ConsultationSummaryScreen() {
   useEffect(() => {
     if (!rid) return;
     fetchRequestById(rid)
-      .then(setRequest)
+      .then((r) => {
+        setRequest(r);
+        setClinicalNote(r.notes ?? '');
+      })
       .catch((e) => {
         Alert.alert('Erro', 'Não foi possível carregar o resumo da consulta.');
         router.back();
       })
       .finally(() => setLoading(false));
   }, [rid]);
+
+  const handleSaveToRecord = async () => {
+    if (!rid) return;
+    setSaving(true);
+    try {
+      await saveConsultationSummary(rid, { plan: clinicalNote.trim() || undefined });
+      setSaved(true);
+      Alert.alert('Sucesso', 'Nota clínica salva no prontuário.');
+    } catch (e) {
+      Alert.alert('Erro', 'Não foi possível salvar no prontuário. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const copyText = async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
@@ -247,6 +267,23 @@ export default function ConsultationSummaryScreen() {
           </View>
         )}
 
+        {/* Nota Clínica (editável) */}
+        <View style={S.section}>
+          <View style={S.sectionHeader}>
+            <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+            <Text style={S.sectionTitle}>Nota Clínica</Text>
+          </View>
+          <TextInput
+            style={S.clinicalNoteInput}
+            placeholder="Digite ou edite a nota clínica para salvar no prontuário..."
+            placeholderTextColor="#64748b"
+            value={clinicalNote}
+            onChangeText={setClinicalNote}
+            multiline
+            numberOfLines={4}
+          />
+        </View>
+
         {/* Transcript */}
         {hasTranscript && (
           <View style={S.section}>
@@ -299,8 +336,22 @@ export default function ConsultationSummaryScreen() {
         </View>
       </ScrollView>
 
-      {/* Bottom action */}
+      {/* Bottom actions */}
       <View style={[S.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+        <TouchableOpacity
+          style={[S.actionBtn, S.actionBtnSecondary]}
+          onPress={handleSaveToRecord}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Ionicons name="save-outline" size={20} color={colors.primary} />
+          )}
+          <Text style={[S.actionBtnText, { color: colors.primary }]}>
+            {saved ? 'Salvo' : 'Salvar no prontuário'}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={S.actionBtn}
           onPress={() => router.back()}
@@ -398,9 +449,19 @@ const S = StyleSheet.create({
   bottomBar: {
     paddingHorizontal: 16,
     paddingTop: 12,
+    gap: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(51,65,85,0.3)',
     backgroundColor: 'rgba(15,23,42,0.95)',
+  },
+  clinicalNoteInput: {
+    backgroundColor: 'rgba(15,23,42,0.5)',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#e2e8f0',
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
   actionBtn: {
     flexDirection: 'row',
@@ -412,4 +473,9 @@ const S = StyleSheet.create({
     borderRadius: 14,
   },
   actionBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  actionBtnSecondary: {
+    backgroundColor: 'rgba(44,177,255,0.15)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
 });

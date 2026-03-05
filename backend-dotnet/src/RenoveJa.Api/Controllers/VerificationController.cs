@@ -29,6 +29,7 @@ public class VerificationController(
     IPrescriptionVerifyRepository prescriptionVerifyRepository,
     IRequestRepository requestRepository,
     IHttpClientFactory httpClientFactory,
+    IStorageService storageService,
     IOptions<VerificationConfig> verificationConfig,
     IOptions<ApiConfig> apiConfig,
     ILogger<VerificationController> logger) : ControllerBase
@@ -47,7 +48,8 @@ public class VerificationController(
         [FromQuery] string? _secretCode,
         CancellationToken cancellationToken)
     {
-        if (string.Equals(_format, "application/validador-iti+json", StringComparison.OrdinalIgnoreCase) &&
+        // Guia ITI Cap. IV: _format deve ser exatamente "application/validador-iti+json" (literal)
+        if (string.Equals(_format, "application/validador-iti+json", StringComparison.Ordinal) &&
             !string.IsNullOrWhiteSpace(_secretCode))
         {
             logger.LogInformation("Verify ITI: requestId={RequestId}", id);
@@ -144,10 +146,31 @@ public class VerificationController(
 
         try
         {
-            using var client = httpClientFactory.CreateClient();
-            var bytes = await client.GetByteArrayAsync(request.SignedDocumentUrl, cancellationToken);
+            var refOrUrl = request.SignedDocumentUrl.Trim();
+
+            byte[]? bytes = null;
+
+            // Caso novo (recomendado): salvamos PATH, ex.: "signed/abc.pdf"
+            if (!refOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                bytes = await storageService.DownloadAsync(refOrUrl, cancellationToken);
+            }
+            else
+            {
+                // Caso legado: pode ser URL pública do Supabase (que pode falhar se bucket for privado)
+                bytes = await storageService.DownloadFromStorageUrlAsync(refOrUrl, cancellationToken);
+
+                // Fallback final: se não for URL do nosso storage, tenta HTTP normal
+                if (bytes == null)
+                {
+                    using var client = httpClientFactory.CreateClient();
+                    bytes = await client.GetByteArrayAsync(refOrUrl, cancellationToken);
+                }
+            }
+
             if (bytes == null || bytes.Length == 0)
                 return NotFound(new { error = "Documento não encontrado." });
+
             return File(bytes, "application/pdf", $"receita-{id}.pdf");
         }
         catch (Exception ex)

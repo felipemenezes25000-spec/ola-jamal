@@ -469,6 +469,7 @@ public class RequestServiceFullTests
     private readonly Mock<IAiConductSuggestionService> _aiConductSuggestionServiceMock = new();
     private readonly Mock<IRequestEventsPublisher> _requestEventsPublisherMock = new();
     private readonly Mock<ISignedRequestClinicalSyncService> _signedRequestClinicalSyncMock = new();
+    private readonly Mock<IConsultationEncounterService> _consultationEncounterServiceMock = new();
     private readonly Mock<ILogger<RequestService>> _loggerMock = new();
     private readonly RequestService _sut;
 
@@ -489,6 +490,7 @@ public class RequestServiceFullTests
             _aiConductSuggestionServiceMock.Object,
             _requestEventsPublisherMock.Object,
             _signedRequestClinicalSyncMock.Object,
+            _consultationEncounterServiceMock.Object,
             _loggerMock.Object);
     }
 

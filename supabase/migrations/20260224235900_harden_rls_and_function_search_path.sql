@@ -11,7 +11,7 @@ ALTER TABLE IF EXISTS public.status_transitions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.rate_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.background_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.saved_cards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.receitas ENABLE ROW LEVEL SECURITY;
+-- receitas removida em 20260305100000_drop_legacy_receitas.sql (substituída por prescriptions)
 ALTER TABLE IF EXISTS public.consultation_time_bank ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.consultation_time_bank_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.system_config ENABLE ROW LEVEL SECURITY;

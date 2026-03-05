@@ -9,7 +9,8 @@ public interface IEncounterRepository
     Task<List<Encounter>> GetByPatientIdAsync(Guid patientId, CancellationToken cancellationToken = default);
     Task<List<Encounter>> GetByPractitionerIdAsync(Guid practitionerId, CancellationToken cancellationToken = default);
     Task<List<Encounter>> GetByPatientAndTypeAsync(Guid patientId, EncounterType type, CancellationToken cancellationToken = default);
-    Task<Encounter> CreateAsync(Encounter encounter, CancellationToken cancellationToken = default);
+    Task<Encounter?> GetBySourceRequestIdAsync(Guid sourceRequestId, CancellationToken cancellationToken = default);
+    Task<Encounter> CreateAsync(Encounter encounter, CancellationToken cancellationToken = default, Guid? sourceRequestId = null);
     Task<Encounter> UpdateAsync(Encounter encounter, CancellationToken cancellationToken = default);
 }
 

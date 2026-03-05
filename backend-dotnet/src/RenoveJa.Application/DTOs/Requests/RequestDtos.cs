@@ -115,6 +115,9 @@ public record ReanalyzeExamDto(IReadOnlyList<string>? ExamImageUrls = null, stri
 /// <summary>Encerrar consulta: notas clínicas opcionais.</summary>
 public record FinishConsultationDto(string? ClinicalNotes = null);
 
+/// <summary>Salvar nota clínica editada no prontuário (writeback do resumo da consulta).</summary>
+public record SaveConsultationSummaryDto(string? Anamnesis = null, string? Plan = null);
+
 /// <summary>Médico atualiza conduta e observações do pedido.</summary>
 public record UpdateConductDto(
     string? ConductNotes = null,

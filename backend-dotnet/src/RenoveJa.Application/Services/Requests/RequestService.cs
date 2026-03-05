@@ -46,6 +46,7 @@ public class RequestService(
     IAiConductSuggestionService aiConductSuggestionService,
     IRequestEventsPublisher requestEventsPublisher,
     ISignedRequestClinicalSyncService signedRequestClinicalSync,
+    IConsultationEncounterService consultationEncounterService,
     ILogger<RequestService> logger) : IRequestService
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
@@ -73,6 +74,30 @@ public class RequestService(
             "blue" => PrescriptionType.Blue,
             _ => throw new ArgumentException($"Tipo de receita inválido: '{value}'. Use: simples, controlado ou azul.", nameof(value))
         };
+    }
+
+    /// <summary>Extrai código CID-10 da anamnese JSON (cid_sugerido, cid, cidPrincipal). Retorna até 10 caracteres.</summary>
+    private static string? ExtractIcd10FromAnamnesis(string? anamnesisJson)
+    {
+        if (string.IsNullOrWhiteSpace(anamnesisJson)) return null;
+        try
+        {
+            var doc = JsonDocument.Parse(anamnesisJson);
+            var root = doc.RootElement;
+            foreach (var key in new[] { "cid_sugerido", "cid", "cidPrincipal" })
+            {
+                if (root.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String)
+                {
+                    var v = p.GetString()?.Trim();
+                    if (string.IsNullOrEmpty(v)) continue;
+                    // Extrair código (ex: "J06.9" de "J06.9 - Infecção aguda...")
+                    var code = v.Split(new[] { ' ', '-', '—' }, 2, StringSplitOptions.RemoveEmptyEntries)[0];
+                    return code.Length > 10 ? code[..10] : code;
+                }
+            }
+        }
+        catch { /* ignore */ }
+        return null;
     }
 
     /// <summary>Retorna a data/hora atual em horário de Brasília (America/Sao_Paulo), com fallback para UTC.</summary>
@@ -929,6 +954,24 @@ public class RequestService(
 
         if (!hadStarted && request.ConsultationStartedAt.HasValue)
         {
+            // B1: Criar Encounter no prontuário quando médico e paciente conectam
+            if (request.DoctorId.HasValue)
+            {
+                try
+                {
+                    await consultationEncounterService.StartEncounterForConsultationAsync(
+                        request.Id,
+                        request.PatientId,
+                        request.DoctorId.Value,
+                        request.Symptoms,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "[ReportCallConnected] Falha ao criar Encounter para request {RequestId}", request.Id);
+                }
+            }
+
             await CreateNotificationAsync(
                 request.PatientId,
                 "Chamada conectada",
@@ -1037,6 +1080,24 @@ public class RequestService(
             {
                 logger.LogWarning(ex, "Failed to persist consultation anamnesis for request {RequestId}", id);
             }
+        }
+
+        // B1: Finalizar Encounter no prontuário com anamnese e plano
+        try
+        {
+            var anamnesisJson = sessionData?.AnamnesisJson;
+            var plan = dto?.ClinicalNotes ?? request.Notes;
+            var icd10 = ExtractIcd10FromAnamnesis(anamnesisJson);
+            await consultationEncounterService.FinalizeEncounterForConsultationAsync(
+                id,
+                anamnesisJson,
+                plan,
+                icd10,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[FinishConsultation] Falha ao finalizar Encounter para request {RequestId}", id);
         }
 
         await PublishRequestUpdatedAsync(request, "Consulta finalizada", cancellationToken);
@@ -1763,8 +1824,7 @@ public class RequestService(
 
         try
         {
-            using var client = httpClientFactory.CreateClient();
-            return await client.GetByteArrayAsync(request.SignedDocumentUrl, cancellationToken);
+            return await DownloadSignedDocumentAsync(request.SignedDocumentUrl, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -1787,14 +1847,33 @@ public class RequestService(
 
         try
         {
-            using var client = httpClientFactory.CreateClient();
-            return await client.GetByteArrayAsync(request.SignedDocumentUrl, cancellationToken);
+            return await DownloadSignedDocumentAsync(request.SignedDocumentUrl, cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Falha ao buscar PDF assinado (token) para request {RequestId}", id);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Baixa o PDF assinado: path (Storage) ou URL (legado/externo).
+    /// Path: storageService.DownloadAsync. URL: DownloadFromStorageUrlAsync ou HTTP fallback.
+    /// </summary>
+    private async Task<byte[]?> DownloadSignedDocumentAsync(string refOrUrl, CancellationToken cancellationToken)
+    {
+        var trimmed = refOrUrl.Trim();
+
+        // Caso novo: PATH (ex.: signed/abc.pdf) — bucket pode ser privado
+        if (!trimmed.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return await storageService.DownloadAsync(trimmed, cancellationToken);
+
+        // Caso legado: URL — tenta nosso storage primeiro (service_role), senão HTTP
+        var bytes = await storageService.DownloadFromStorageUrlAsync(trimmed, cancellationToken);
+        if (bytes != null) return bytes;
+
+        using var client = httpClientFactory.CreateClient();
+        return await client.GetByteArrayAsync(trimmed, cancellationToken);
     }
 
     /// <summary>

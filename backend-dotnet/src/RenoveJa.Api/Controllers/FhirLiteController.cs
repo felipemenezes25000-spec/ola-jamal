@@ -16,6 +16,7 @@ namespace RenoveJa.Api.Controllers;
 public class FhirLiteController(
     IClinicalRecordService clinicalRecordService,
     IAuditEventService auditEventService,
+    IRequestService requestService,
     ILogger<FhirLiteController> logger) : ControllerBase
 {
     /// <summary>
@@ -98,6 +99,102 @@ public class FhirLiteController(
             cancellationToken: cancellationToken);
 
         return Ok(documents);
+    }
+
+    // ── Doctor Read API (autorização por vínculo médico-paciente) ──
+
+    /// <summary>
+    /// Médico obtém resumo clínico do paciente. Requer vínculo (request atribuído ou na fila).
+    /// </summary>
+    [HttpGet("doctor/patient/{patientId}/summary")]
+    [Authorize(Roles = "doctor")]
+    public async Task<ActionResult<PatientSummaryDto>> GetDoctorPatientSummary(
+        Guid patientId,
+        CancellationToken cancellationToken)
+    {
+        var doctorId = GetUserId();
+        var hasAccess = await EnsureDoctorPatientLinkAsync(doctorId, patientId, cancellationToken);
+        if (!hasAccess)
+            return Forbid();
+
+        var dto = await clinicalRecordService.GetPatientSummaryAsync(patientId, cancellationToken);
+
+        await auditEventService.LogReadAsync(
+            doctorId,
+            "DoctorPatientSummary",
+            patientId,
+            channel: "api",
+            ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            userAgent: HttpContext.Request.Headers.UserAgent.ToString(),
+            cancellationToken: cancellationToken);
+
+        return Ok(dto);
+    }
+
+    /// <summary>
+    /// Médico obtém encounters do paciente. Requer vínculo.
+    /// </summary>
+    [HttpGet("doctor/patient/{patientId}/encounters")]
+    [Authorize(Roles = "doctor")]
+    public async Task<ActionResult<IReadOnlyList<EncounterSummaryDto>>> GetDoctorPatientEncounters(
+        Guid patientId,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        var doctorId = GetUserId();
+        var hasAccess = await EnsureDoctorPatientLinkAsync(doctorId, patientId, cancellationToken);
+        if (!hasAccess)
+            return Forbid();
+
+        var encounters = await clinicalRecordService.GetEncountersByPatientAsync(patientId, limit, offset, cancellationToken);
+
+        await auditEventService.LogReadAsync(
+            doctorId,
+            "DoctorPatientEncounters",
+            patientId,
+            channel: "api",
+            ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            userAgent: HttpContext.Request.Headers.UserAgent.ToString(),
+            cancellationToken: cancellationToken);
+
+        return Ok(encounters);
+    }
+
+    /// <summary>
+    /// Médico obtém documentos clínicos do paciente. Requer vínculo.
+    /// </summary>
+    [HttpGet("doctor/patient/{patientId}/documents")]
+    [Authorize(Roles = "doctor")]
+    public async Task<ActionResult<IReadOnlyList<MedicalDocumentSummaryDto>>> GetDoctorPatientDocuments(
+        Guid patientId,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        var doctorId = GetUserId();
+        var hasAccess = await EnsureDoctorPatientLinkAsync(doctorId, patientId, cancellationToken);
+        if (!hasAccess)
+            return Forbid();
+
+        var documents = await clinicalRecordService.GetMedicalDocumentsByPatientAsync(patientId, limit, offset, cancellationToken);
+
+        await auditEventService.LogReadAsync(
+            doctorId,
+            "DoctorPatientDocuments",
+            patientId,
+            channel: "api",
+            ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            userAgent: HttpContext.Request.Headers.UserAgent.ToString(),
+            cancellationToken: cancellationToken);
+
+        return Ok(documents);
+    }
+
+    private async Task<bool> EnsureDoctorPatientLinkAsync(Guid doctorId, Guid patientId, CancellationToken cancellationToken)
+    {
+        var profile = await requestService.GetPatientProfileForDoctorAsync(doctorId, patientId, cancellationToken);
+        return profile != null;
     }
 
     private Guid GetUserId()

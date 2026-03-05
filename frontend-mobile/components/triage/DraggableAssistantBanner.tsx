@@ -1,8 +1,10 @@
 /**
- * DraggableAssistantBanner — Dra. Renoveja com opção de mover
+ * DraggableAssistantBanner — Dra. Renoveja discreta e arrastável
  *
- * Pensado para idosos e leigos: toque em "Mover" e escolha onde quer que ela fique.
- * Sem arrastar — apenas tocar na opção desejada.
+ * - Botãozinho discreto com ícone de IA (sparkles)
+ * - Toque para expandir / recolher
+ * - Arraste para mover para qualquer lugar da tela
+ * - Posição persistida entre sessões
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -10,76 +12,32 @@ import {
   View,
   StyleSheet,
   useWindowDimensions,
-  Pressable,
   Text,
-  Modal,
-  Platform,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  runOnJS,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector, Pressable as GHPressable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../lib/theme';
-import { uiTokens } from '../../lib/ui/tokens';
 import {
-  getBannerPositionMode,
   getBannerFloatingPosition,
-  setBannerPositionMode,
   setBannerFloatingPosition,
+  setBannerPositionMode,
 } from '../../lib/triage/triagePersistence';
-import type { BannerPositionMode, BannerFloatingPosition } from '../../lib/triage/triage.types';
+import type { BannerFloatingPosition } from '../../lib/triage/triage.types';
 import { AssistantBanner } from './AssistantBanner';
 import type { CTAAction } from '../../lib/triage/triage.types';
 
+const FAB_SIZE = 48;
 const BANNER_WIDTH = 340;
 const BANNER_HEIGHT_EST = 120;
-const SPRING_CONFIG = { damping: 20, stiffness: 200 };
-const MIN_TOUCH_TARGET = 52; // Acessibilidade: alvos grandes para idosos
-
-type Anchor = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
-
-const POSITION_OPTIONS: { anchor: Anchor | 'fixed'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { anchor: 'fixed', label: 'Ficar em baixo (padrão)', icon: 'pin' },
-  { anchor: 'top-left', label: 'Em cima à esquerda', icon: 'arrow-up' },
-  { anchor: 'top-right', label: 'Em cima à direita', icon: 'arrow-up' },
-  { anchor: 'bottom-left', label: 'Em baixo à esquerda', icon: 'arrow-down' },
-  { anchor: 'bottom-right', label: 'Em baixo à direita', icon: 'arrow-down' },
-];
-
-function getPositionForAnchor(
-  anchor: Anchor,
-  screenW: number,
-  screenH: number,
-  bannerW: number,
-  padding: number,
-  topInset: number,
-  bottomInset: number
-): { x: number; y: number } {
-  const safeW = Math.max(screenW, 200);
-  const safeH = Math.max(screenH, 300);
-  const safePadding = Math.max(0, padding);
-  const safeTop = topInset ?? 0;
-  const safeBottom = bottomInset ?? 0;
-
-  const topY = Math.max(0, safeTop + safePadding);
-  const bottomY = Math.max(topY, safeH - BANNER_HEIGHT_EST - safeBottom - safePadding);
-  const leftX = safePadding;
-  const rightX = Math.max(leftX, safeW - bannerW - safePadding);
-
-  switch (anchor) {
-    case 'top-left':
-      return { x: leftX, y: topY };
-    case 'top-right':
-      return { x: rightX, y: topY };
-    case 'bottom-left':
-      return { x: leftX, y: bottomY };
-    case 'bottom-right':
-      return { x: rightX, y: bottomY };
-  }
-}
+const SPRING_CONFIG = { damping: 22, stiffness: 200 };
+const DRAG_THRESHOLD = 8;
 
 interface DraggableAssistantBannerProps {
   onAction?: (action: CTAAction) => void;
@@ -91,18 +49,14 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
 
-  const padding = Math.max(uiTokens.screenPaddingHorizontal, insets?.left ?? 0, insets?.right ?? 0);
-  const bottomFixed = (insets?.bottom ?? 0) + uiTokens.cardGap * 2;
-  const fixedY = Math.max(0, screenH - BANNER_HEIGHT_EST - bottomFixed);
-
-  const [mode, setMode] = useState<BannerPositionMode>('fixed');
-  const [showPositionModal, setShowPositionModal] = useState(false);
+  const padding = 16;
+  const [expanded, setExpanded] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  const safePadding = Number.isFinite(padding) ? padding : 16;
-  const safeFixedY = Number.isFinite(fixedY) ? fixedY : 200;
-  const translateX = useSharedValue(safePadding);
-  const translateY = useSharedValue(safeFixedY);
+  const translateX = useSharedValue(screenW - padding - FAB_SIZE);
+  const translateY = useSharedValue(screenH - (insets.bottom ?? 0) - padding - FAB_SIZE);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
 
   const bannerWidth = Math.min(screenW - padding * 2, BANNER_WIDTH);
 
@@ -110,25 +64,19 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     let cancelled = false;
     (async () => {
       try {
-        const [m, pos] = await Promise.all([
-          getBannerPositionMode(),
-          getBannerFloatingPosition(),
-        ]);
-        if (!cancelled) {
-          setMode(m);
-          if (pos && m === 'floating' && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
-            translateX.value = pos.x;
-            translateY.value = pos.y;
-          } else {
-            translateX.value = safePadding;
-            translateY.value = safeFixedY;
-          }
-          setInitialized(true);
+        const pos = await getBannerFloatingPosition();
+        if (!cancelled && pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
+          translateX.value = pos.x;
+          translateY.value = pos.y;
+        } else if (!cancelled) {
+          translateX.value = screenW - padding - FAB_SIZE;
+          translateY.value = screenH - (insets.bottom ?? 0) - padding - FAB_SIZE;
         }
+        if (!cancelled) setInitialized(true);
       } catch {
         if (!cancelled) {
-          translateX.value = safePadding;
-          translateY.value = safeFixedY;
+          translateX.value = screenW - padding - FAB_SIZE;
+          translateY.value = screenH - (insets.bottom ?? 0) - padding - FAB_SIZE;
           setInitialized(true);
         }
       }
@@ -136,46 +84,92 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     return () => { cancelled = true; };
   }, []);
 
-  const saveFloating = useCallback(async (x: number, y: number, anchor: Anchor) => {
-    await setBannerFloatingPosition({ x, y, anchor });
+  const savePosition = useCallback(async (x: number, y: number) => {
+    await setBannerPositionMode('floating');
+    await setBannerFloatingPosition({ x, y, anchor: 'bottom-right' });
   }, []);
 
-  const selectPosition = useCallback(
-    async (option: (typeof POSITION_OPTIONS)[0]) => {
-      setShowPositionModal(false);
+  const handleExpand = useCallback(() => {
+    const topLimit = (insets.top ?? 0) + padding;
+    const bottomLimit = screenH - BANNER_HEIGHT_EST - (insets.bottom ?? 0) - padding;
+    const maxX = screenW - bannerWidth - padding;
+    let x = translateX.value;
+    let y = translateY.value;
+    if (x > maxX) x = maxX;
+    if (x < padding) x = padding;
+    if (y > bottomLimit) y = bottomLimit;
+    if (y < topLimit) y = topLimit;
+    translateX.value = withSpring(x, SPRING_CONFIG);
+    translateY.value = withSpring(y, SPRING_CONFIG);
+    setExpanded(true);
+    savePosition(x, y);
+  }, [screenW, screenH, bannerWidth, padding, insets]);
 
-      try {
-        if (option.anchor === 'fixed') {
-          setMode('fixed');
-          await setBannerPositionMode('fixed');
-          translateX.value = withSpring(safePadding, SPRING_CONFIG);
-          translateY.value = withSpring(safeFixedY, SPRING_CONFIG);
-          await saveFloating(safePadding, safeFixedY, 'bottom-left');
-        } else {
-          const { x, y } = getPositionForAnchor(
-            option.anchor,
-            screenW,
-            screenH,
-            bannerWidth,
-            padding,
-            insets.top ?? 0,
-            insets.bottom ?? 0
-          );
-          setMode('floating');
-          await setBannerPositionMode('floating');
-          translateX.value = withSpring(x, SPRING_CONFIG);
-          translateY.value = withSpring(y, SPRING_CONFIG);
-          await saveFloating(x, y, option.anchor);
-        }
-      } catch {
-        // Evita crash: em caso de erro, mantém estado e fecha o modal
-        setShowPositionModal(false);
-      }
-    },
-    [safePadding, safeFixedY, padding, screenW, screenH, bannerWidth, insets, saveFloating]
-  );
+  const handleCollapse = useCallback(() => {
+    setExpanded(false);
+  }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
+  const topLimit = (insets.top ?? 0) + padding;
+  const bottomLimitFab = screenH - FAB_SIZE - (insets.bottom ?? 0) - padding;
+  const bottomLimitExpanded = screenH - BANNER_HEIGHT_EST - (insets.bottom ?? 0) - padding;
+  const maxXFab = screenW - FAB_SIZE - padding;
+  const maxXExpanded = screenW - bannerWidth - padding;
+
+  const panGestureFab = Gesture.Pan()
+    .minDistance(DRAG_THRESHOLD)
+    .onStart(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+    })
+    .onUpdate((e) => {
+      const x = Math.max(padding, Math.min(maxXFab, startX.value + e.translationX));
+      const y = Math.max(topLimit, Math.min(bottomLimitFab, startY.value + e.translationY));
+      translateX.value = x;
+      translateY.value = y;
+    })
+    .onEnd(() => {
+      const finalX = translateX.value;
+      const finalY = translateY.value;
+      translateX.value = withSpring(finalX, SPRING_CONFIG);
+      translateY.value = withSpring(finalY, SPRING_CONFIG);
+      runOnJS(savePosition)(finalX, finalY);
+    });
+
+  const panGestureExpanded = Gesture.Pan()
+    .minDistance(DRAG_THRESHOLD)
+    .onStart(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+    })
+    .onUpdate((e) => {
+      const x = Math.max(padding, Math.min(maxXExpanded, startX.value + e.translationX));
+      const y = Math.max(topLimit, Math.min(bottomLimitExpanded, startY.value + e.translationY));
+      translateX.value = x;
+      translateY.value = y;
+    })
+    .onEnd(() => {
+      const finalX = translateX.value;
+      const finalY = translateY.value;
+      translateX.value = withSpring(finalX, SPRING_CONFIG);
+      translateY.value = withSpring(finalY, SPRING_CONFIG);
+      runOnJS(savePosition)(finalX, finalY);
+    });
+
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      runOnJS(handleExpand)();
+    });
+
+  const composedGestureFab = Gesture.Exclusive(panGestureFab, tapGesture);
+
+  const fabAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
+
+  const expandedAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
@@ -185,182 +179,136 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
   if (!initialized) return null;
 
   return (
-    <>
-      <View
-        style={[
-          styles.wrapper,
-          {
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            marginHorizontal: 0,
-          },
-          containerStyle,
-        ]}
-        pointerEvents="box-none"
-      >
-        <Animated.View
-          style={[
-            styles.floatingInner,
-            { top: 0, left: 0, width: bannerWidth },
-            animatedStyle,
-          ]}
-        >
-          <Pressable
-            onPress={() => setShowPositionModal(true)}
-            style={styles.moveButton}
-            accessibilityLabel="Mover a Dra. Renoveja de posição"
-            accessibilityHint="Toque para escolher onde a assistente aparece na tela"
+    <View
+      style={[
+        styles.wrapper,
+        {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+        },
+        containerStyle,
+      ]}
+      pointerEvents="box-none"
+    >
+      {!expanded ? (
+        <GestureDetector gesture={composedGestureFab}>
+          <Animated.View
+            style={[
+              styles.fab,
+              { width: FAB_SIZE, height: FAB_SIZE, borderRadius: FAB_SIZE / 2 },
+              fabAnimatedStyle,
+            ]}
           >
-            <Ionicons name="move-outline" size={22} color={theme.colors.primary.main} />
-            <Text style={styles.moveButtonText}>Mover</Text>
-          </Pressable>
-          <AssistantBanner
-            onAction={onAction}
-            onCompanionPress={onCompanionPress}
-            containerStyle={styles.bannerNoMargin}
-          />
-        </Animated.View>
-      </View>
-
-      <Modal
-        visible={showPositionModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPositionModal(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowPositionModal(false)}>
-          <Pressable style={styles.modalContent} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Onde a Dra. Renoveja deve aparecer?</Text>
-            <Text style={styles.modalSubtitle}>Toque na opção desejada</Text>
-
-            {POSITION_OPTIONS.map((option) => (
-              <Pressable
-                key={option.anchor}
-                onPress={() => selectPosition(option)}
-                style={({ pressed }) => [
-                  styles.optionButton,
-                  pressed && styles.optionButtonPressed,
-                ]}
-                accessibilityLabel={option.label}
-                accessibilityRole="button"
-              >
-                <View style={styles.optionIconWrap}>
-                  <Ionicons
-                    name={option.icon}
-                    size={24}
-                    color={theme.colors.primary.main}
-                  />
+            <View style={styles.fabInner}>
+              <Ionicons name="sparkles" size={22} color={theme.colors.primary.main} />
+            </View>
+          </Animated.View>
+        </GestureDetector>
+      ) : (
+        <GestureDetector gesture={panGestureExpanded}>
+          <Animated.View
+            style={[
+              styles.expandedContainer,
+              { width: bannerWidth },
+              expandedAnimatedStyle,
+            ]}
+          >
+            <View style={styles.expandedHeader}>
+              <View style={styles.expandedHeaderLeft}>
+                <View style={styles.expandedFabIcon}>
+                  <Ionicons name="sparkles" size={14} color={theme.colors.primary.main} />
                 </View>
-                <Text style={styles.optionLabel}>{option.label}</Text>
-              </Pressable>
-            ))}
-
-            <Pressable
-              onPress={() => setShowPositionModal(false)}
-              style={styles.cancelButton}
-            >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </>
+                <Text style={styles.expandedHeaderLabel}>Dra. Renoveja</Text>
+              </View>
+              <GHPressable
+                onPress={handleCollapse}
+                hitSlop={12}
+                style={({ pressed }) => [styles.collapseBtn, pressed && styles.collapseBtnPressed]}
+                accessibilityLabel="Recolher assistente"
+              >
+                <Ionicons name="chevron-down" size={20} color={theme.colors.text.secondary} />
+              </GHPressable>
+            </View>
+            <AssistantBanner
+              onAction={onAction}
+              onCompanionPress={onCompanionPress}
+              containerStyle={styles.bannerContent}
+            />
+          </Animated.View>
+        </GestureDetector>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginHorizontal: uiTokens.screenPaddingHorizontal,
-  },
-  floatingInner: {
-    position: 'absolute',
-    width: BANNER_WIDTH,
     marginHorizontal: 0,
   },
-  moveButton: {
-    flexDirection: 'row',
+  fab: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    backgroundColor: theme.colors.background.paper,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    minHeight: MIN_TOUCH_TARGET,
+    ...theme.shadows.card,
+  },
+  fabInner: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expandedContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
     backgroundColor: theme.colors.background.paper,
-    borderTopLeftRadius: theme.borderRadius.md,
-    borderTopRightRadius: theme.borderRadius.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.card,
   },
-  moveButtonText: {
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: theme.colors.primary.main,
-  },
-  bannerNoMargin: {
-    marginHorizontal: 0,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.colors.background.paper,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: theme.colors.text.primary,
-    marginBottom: 4,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: theme.colors.text.secondary,
-    marginBottom: 20,
-  },
-  optionButton: {
+  expandedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    minHeight: MIN_TOUCH_TARGET,
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
     backgroundColor: theme.colors.background.default,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: 10,
   },
-  optionButtonPressed: {
-    opacity: 0.8,
+  expandedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  expandedFabIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: theme.colors.primary.soft,
-  },
-  optionIconWrap: {
-    width: 32,
-    marginRight: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  optionLabel: {
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans_500Medium',
+  expandedHeaderLabel: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     color: theme.colors.text.primary,
-    flex: 1,
   },
-  cancelButton: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  collapseBtn: {
+    padding: 4,
   },
-  cancelButtonText: {
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans_500Medium',
-    color: theme.colors.text.tertiary,
+  collapseBtnPressed: {
+    opacity: 0.7,
+  },
+  bannerContent: {
+    marginHorizontal: 0,
+    marginBottom: 0,
   },
 });

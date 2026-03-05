@@ -12,6 +12,7 @@ using RenoveJa.Api.Middleware;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Analytics;
 using RenoveJa.Application.DTOs.Clinical;
+using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Payments;
 using RenoveJa.Domain.Entities;
@@ -91,6 +92,7 @@ public class FhirLiteControllerSmokeTests
 {
     private readonly Mock<IClinicalRecordService> _clinicalRecordServiceMock = new();
     private readonly Mock<IAuditEventService> _auditEventServiceMock = new();
+    private readonly Mock<IRequestService> _requestServiceMock = new();
     private readonly Mock<ILogger<FhirLiteController>> _loggerMock = new();
     private readonly FhirLiteController _sut;
 
@@ -99,6 +101,7 @@ public class FhirLiteControllerSmokeTests
         _sut = new FhirLiteController(
             _clinicalRecordServiceMock.Object,
             _auditEventServiceMock.Object,
+            _requestServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -114,6 +117,65 @@ public class FhirLiteControllerSmokeTests
                 Connection = { RemoteIpAddress = System.Net.IPAddress.Loopback }
             }
         };
+    }
+
+    [Fact]
+    public async Task FhirLiteController_GetDoctorPatientSummary_ShouldReturn403_WhenNoLink()
+    {
+        var doctorId = Guid.NewGuid();
+        var patientId = Guid.NewGuid();
+        SetupAuthenticatedUser(doctorId);
+
+        _requestServiceMock
+            .Setup(s => s.GetPatientProfileForDoctorAsync(doctorId, patientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PatientProfileForDoctorDto?)null);
+
+        var result = await _sut.GetDoctorPatientSummary(patientId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<Microsoft.AspNetCore.Mvc.ForbidResult>();
+    }
+
+    [Fact]
+    public async Task FhirLiteController_GetDoctorPatientSummary_ShouldReturnSummary_WhenHasLink()
+    {
+        var doctorId = Guid.NewGuid();
+        var patientId = Guid.NewGuid();
+        SetupAuthenticatedUser(doctorId);
+
+        var profile = new PatientProfileForDoctorDto(
+            "Paciente",
+            "paciente@test.com",
+            "11999990000",
+            DateTime.Now.AddYears(-30),
+            "***456***",
+            "M",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+        _requestServiceMock
+            .Setup(s => s.GetPatientProfileForDoctorAsync(doctorId, patientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profile);
+
+        var summary = new PatientSummaryDto
+        {
+            Id = patientId,
+            Name = new PatientNameDto { Full = "Paciente", Social = null },
+            Stats = new PatientSummaryStatsDto { TotalRequests = 2, TotalPrescriptions = 1 }
+        };
+        _clinicalRecordServiceMock
+            .Setup(s => s.GetPatientSummaryAsync(patientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(summary);
+
+        var result = await _sut.GetDoctorPatientSummary(patientId, CancellationToken.None);
+
+        var ok = result.Result as Microsoft.AspNetCore.Mvc.OkObjectResult;
+        ok.Should().NotBeNull();
+        (ok!.Value as PatientSummaryDto)!.Name.Full.Should().Be("Paciente");
     }
 
     [Fact]

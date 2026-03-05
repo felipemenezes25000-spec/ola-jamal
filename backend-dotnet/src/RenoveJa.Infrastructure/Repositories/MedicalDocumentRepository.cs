@@ -56,9 +56,26 @@ public class MedicalDocumentRepository(SupabaseClient supabase) : IMedicalDocume
         return models.Select(MapToDomain).Where(d => d != null).Cast<MedicalDocument>().ToList();
     }
 
-    public async Task<MedicalDocument> CreateAsync(MedicalDocument document, CancellationToken cancellationToken = default)
+    public async Task<MedicalDocument?> GetBySourceRequestIdAsync(Guid sourceRequestId, DocumentType documentType, CancellationToken cancellationToken = default)
+    {
+        var typeStr = SnakeCaseHelper.ToSnakeCase(documentType.ToString());
+        var model = await supabase.GetSingleAsync<MedicalDocumentModel>(
+            TableName,
+            filter: $"source_request_id=eq.{sourceRequestId}&document_type=eq.{typeStr}",
+            cancellationToken: cancellationToken);
+
+        return model != null ? MapToDomain(model) : null;
+    }
+
+    public async Task<MedicalDocument> CreateAsync(MedicalDocument document, CancellationToken cancellationToken = default, Guid? sourceRequestId = null, string? signedDocumentUrl = null, string? signatureId = null)
     {
         var model = MapToModel(document);
+        if (sourceRequestId.HasValue)
+            model.SourceRequestId = sourceRequestId.Value;
+        if (!string.IsNullOrEmpty(signedDocumentUrl))
+            model.SignedDocumentUrl = signedDocumentUrl;
+        if (!string.IsNullOrEmpty(signatureId))
+            model.SignatureId = signatureId;
         var created = await supabase.InsertAsync<MedicalDocumentModel>(
             TableName,
             model,
@@ -70,6 +87,13 @@ public class MedicalDocumentRepository(SupabaseClient supabase) : IMedicalDocume
     public async Task<MedicalDocument> UpdateAsync(MedicalDocument document, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(document);
+        var existing = await supabase.GetSingleAsync<MedicalDocumentModel>(TableName, filter: $"id=eq.{document.Id}", cancellationToken: cancellationToken);
+        if (existing != null)
+        {
+            model.SourceRequestId = existing.SourceRequestId;
+            model.SignedDocumentUrl = existing.SignedDocumentUrl ?? model.SignedDocumentUrl;
+            model.SignatureId = existing.SignatureId ?? model.SignatureId;
+        }
         var updated = await supabase.UpdateAsync<MedicalDocumentModel>(
             TableName,
             $"id=eq.{document.Id}",
@@ -104,13 +128,7 @@ public class MedicalDocumentRepository(SupabaseClient supabase) : IMedicalDocume
                 model.PractitionerId,
                 model.EncounterId,
                 model.GeneralInstructions,
-                (model.Medications ?? []).Select(m => PrescriptionItem.FromStorage(
-                    Guid.NewGuid(),
-                    model.Id,
-                    m,
-                    null, null, null, null, null,
-                    null,
-                    model.CreatedAt)).ToList(),
+                (model.Medications ?? []).Select(m => ParsePrescriptionItem(m, model.Id, model.CreatedAt)).ToList(),
                 model.PreviousDocumentId,
                 sig,
                 status,
@@ -177,7 +195,7 @@ public class MedicalDocumentRepository(SupabaseClient supabase) : IMedicalDocume
         switch (document)
         {
             case Prescription rx:
-                model.Medications = rx.Items.Select(i => i.Drug).ToList();
+                model.Medications = rx.Items.Select(SerializePrescriptionItem).ToList();
                 model.GeneralInstructions = rx.GeneralInstructions;
                 break;
             case ExamOrder ex:
@@ -205,6 +223,25 @@ public class MedicalDocumentRepository(SupabaseClient supabase) : IMedicalDocume
             "medical_report" => DocumentType.MedicalReport,
             _ => DocumentType.Prescription
         };
+    }
+
+    private static string SerializePrescriptionItem(PrescriptionItem i)
+    {
+        var parts = new List<string> { i.Drug };
+        if (!string.IsNullOrEmpty(i.Posology)) parts.Add(i.Posology);
+        if (!string.IsNullOrEmpty(i.Duration)) parts.Add(i.Duration);
+        if (!string.IsNullOrEmpty(i.Notes)) parts.Add(i.Notes);
+        return parts.Count == 1 ? i.Drug : string.Join("||", parts);
+    }
+
+    private static PrescriptionItem ParsePrescriptionItem(string s, Guid docId, DateTime createdAt)
+    {
+        var parts = s.Split("||", 4, StringSplitOptions.None);
+        var drug = parts[0].Trim();
+        var posology = parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]) ? parts[1].Trim() : null;
+        var duration = parts.Length > 2 && !string.IsNullOrWhiteSpace(parts[2]) ? parts[2].Trim() : null;
+        var notes = parts.Length > 3 && !string.IsNullOrWhiteSpace(parts[3]) ? parts[3].Trim() : null;
+        return PrescriptionItem.FromStorage(Guid.NewGuid(), docId, drug, null, null, posology, duration, null, notes, createdAt);
     }
 
     private static DocumentStatus ParseDocumentStatus(string? value)

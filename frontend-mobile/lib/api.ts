@@ -216,6 +216,14 @@ export async function finishConsultation(
   return apiClient.post(`/api/requests/${requestId}/finish-consultation`, data ?? {});
 }
 
+/** Médico salva nota clínica editada no prontuário (writeback do resumo da consulta). */
+export async function saveConsultationSummary(
+  requestId: string,
+  data: { anamnesis?: string; plan?: string }
+): Promise<{ saved: boolean }> {
+  return apiClient.post(`/api/requests/${requestId}/save-consultation-summary`, data);
+}
+
 export async function signRequest(
   requestId: string,
   options?: { pfxPassword?: string; signatureData?: string; signedDocumentUrl?: string }
@@ -684,6 +692,29 @@ export async function fetchMyDocuments(
   offset = 0
 ): Promise<MedicalDocumentSummaryDto[]> {
   return apiClient.get('/api/fhir-lite/documents', { limit, offset });
+}
+
+/** Doctor Read: médico obtém resumo do paciente (requer vínculo). */
+export async function getDoctorPatientSummary(patientId: string): Promise<PatientSummaryDto> {
+  return apiClient.get(`/api/fhir-lite/doctor/patient/${patientId}/summary`);
+}
+
+/** Doctor Read: médico obtém encounters do paciente. */
+export async function getDoctorPatientEncounters(
+  patientId: string,
+  limit = 50,
+  offset = 0
+): Promise<EncounterSummaryDto[]> {
+  return apiClient.get(`/api/fhir-lite/doctor/patient/${patientId}/encounters`, { limit, offset });
+}
+
+/** Doctor Read: médico obtém documentos do paciente. */
+export async function getDoctorPatientDocuments(
+  patientId: string,
+  limit = 50,
+  offset = 0
+): Promise<MedicalDocumentSummaryDto[]> {
+  return apiClient.get(`/api/fhir-lite/doctor/patient/${patientId}/documents`, { limit, offset });
 }
 
 // ============================================
