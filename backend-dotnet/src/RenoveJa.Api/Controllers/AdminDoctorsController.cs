@@ -76,7 +76,28 @@ public class AdminDoctorsController(
                 profile.Rating,
                 profile.TotalConsultations,
                 profile.Available,
-                profile.ApprovalStatus.ToString().ToLowerInvariant()));
+                profile.ApprovalStatus.ToString().ToLowerInvariant(),
+                user.BirthDate,
+                user.Cpf,
+                user.Street,
+                user.Number,
+                user.Neighborhood,
+                user.Complement,
+                user.City,
+                user.State,
+                user.PostalCode,
+                profile.ProfessionalAddress,
+                profile.ProfessionalPhone,
+                profile.ProfessionalPostalCode,
+                profile.ProfessionalStreet,
+                profile.ProfessionalNumber,
+                profile.ProfessionalNeighborhood,
+                profile.ProfessionalComplement,
+                profile.ProfessionalCity,
+                profile.ProfessionalState,
+                profile.University,
+                profile.Courses,
+                profile.HospitalsServices));
         }
 
         return Ok(dtos);

@@ -103,5 +103,27 @@ public class RegisterDoctorRequestValidator : AbstractValidator<RegisterDoctorRe
             .MaximumLength(10)
             .When(x => !string.IsNullOrEmpty(x.PostalCode))
             .WithMessage("CEP não pode exceder 10 caracteres.");
+
+        // Campos opcionais do perfil estendido (máx. 500 caracteres cada)
+        RuleFor(x => x.ProfessionalAddress)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.ProfessionalAddress))
+            .WithMessage("Endereço profissional não pode exceder 500 caracteres.");
+        RuleFor(x => x.ProfessionalPhone)
+            .MaximumLength(30)
+            .When(x => !string.IsNullOrEmpty(x.ProfessionalPhone))
+            .WithMessage("Telefone profissional não pode exceder 30 caracteres.");
+        RuleFor(x => x.University)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.University))
+            .WithMessage("Faculdade não pode exceder 500 caracteres.");
+        RuleFor(x => x.Courses)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.Courses))
+            .WithMessage("Cursos não podem exceder 500 caracteres.");
+        RuleFor(x => x.HospitalsServices)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.HospitalsServices))
+            .WithMessage("Hospitais/serviços não podem exceder 500 caracteres.");
     }
 }

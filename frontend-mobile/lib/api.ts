@@ -517,8 +517,15 @@ export async function getMyDoctorProfile(): Promise<DoctorProfileDto | null> {
 
 /** Atualiza endereço e telefone profissional (obrigatórios para assinar receitas). */
 export async function updateDoctorProfile(data: {
-  professionalAddress: string | null;
-  professionalPhone: string | null;
+  professionalAddress?: string | null;
+  professionalPhone?: string | null;
+  professionalPostalCode?: string | null;
+  professionalStreet?: string | null;
+  professionalNumber?: string | null;
+  professionalNeighborhood?: string | null;
+  professionalComplement?: string | null;
+  professionalCity?: string | null;
+  professionalState?: string | null;
 }): Promise<DoctorProfileDto> {
   return apiClient.patch('/api/doctors/me/profile', data);
 }
@@ -567,7 +574,15 @@ export async function fetchVideoRoom(roomId: string): Promise<VideoRoomResponseD
 // ============================================
 
 export async function fetchSpecialties(): Promise<string[]> {
-  return apiClient.get('/api/specialties');
+  try {
+    return await apiClient.get<string[]>('/api/specialties');
+  } catch (e) {
+    if (__DEV__) {
+      const base = typeof apiClient.getBaseUrl === 'function' ? apiClient.getBaseUrl() : '(api-client)';
+      console.warn('[API] fetchSpecialties falhou. Base URL:', base, '| Erro:', (e as { message?: string })?.message ?? e);
+    }
+    throw e;
+  }
 }
 
 // ============================================

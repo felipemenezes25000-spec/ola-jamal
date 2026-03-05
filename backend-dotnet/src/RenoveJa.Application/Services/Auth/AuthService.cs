@@ -106,6 +106,18 @@ public class AuthService(
                 request.CrmState,
                 request.Specialty,
                 request.Bio);
+            doctorProfile.UpdateProfile(
+                professionalPhone: request.ProfessionalPhone,
+                university: request.University,
+                courses: request.Courses,
+                hospitalsServices: request.HospitalsServices,
+                professionalPostalCode: request.ProfessionalPostalCode,
+                professionalStreet: request.ProfessionalStreet,
+                professionalNumber: request.ProfessionalNumber,
+                professionalNeighborhood: request.ProfessionalNeighborhood,
+                professionalComplement: request.ProfessionalComplement,
+                professionalCity: request.ProfessionalCity,
+                professionalState: request.ProfessionalState);
             doctorProfile = await doctorRepository.CreateAsync(doctorProfile, cancellationToken);
         }
         catch
@@ -114,20 +126,11 @@ public class AuthService(
             throw;
         }
 
-        try
-        {
-            var token = AuthToken.Create(user.Id);
-            await tokenRepository.CreateAsync(token, cancellationToken);
-            return new AuthResponseDto(
-                MapUserToDto(user),
-                token.Token,
-                MapDoctorProfileToDto(doctorProfile));
-        }
-        catch
-        {
-            await RollbackDoctorRegistrationAsync(user.Id, doctorProfile.Id, cancellationToken);
-            throw;
-        }
+        // Médico só acessa o app após aprovação: não emitir token no cadastro.
+        return new AuthResponseDto(
+            MapUserToDto(user),
+            string.Empty,
+            null);
     }
 
     /// <summary>
@@ -279,16 +282,22 @@ public class AuthService(
             user = await userRepository.CreateAsync(user, cancellationToken);
         }
 
-        var token = AuthToken.Create(user.Id);
-        await tokenRepository.CreateAsync(token, cancellationToken);
-
         DoctorProfileDto? doctorProfile = null;
         if (user.IsDoctor())
         {
             var profile = await doctorRepository.GetByUserIdAsync(user.Id, cancellationToken);
             if (profile != null)
+            {
+                if (profile.ApprovalStatus == Domain.Enums.DoctorApprovalStatus.Pending)
+                    throw new UnauthorizedAccessException("Seu cadastro de médico está em análise. Aguarde a aprovação do administrador.");
+                if (profile.ApprovalStatus == Domain.Enums.DoctorApprovalStatus.Rejected)
+                    throw new UnauthorizedAccessException("Seu cadastro de médico foi reprovado. Entre em contato com o suporte.");
                 doctorProfile = MapDoctorProfileToDto(profile);
+            }
         }
+
+        var token = AuthToken.Create(user.Id);
+        await tokenRepository.CreateAsync(token, cancellationToken);
 
         return new AuthResponseDto(
             MapUserToDto(user),
@@ -556,6 +565,16 @@ public class AuthService(
             profile.Available,
             profile.CreatedAt,
             profile.ProfessionalAddress,
-            profile.ProfessionalPhone);
+            profile.ProfessionalPhone,
+            profile.ProfessionalPostalCode,
+            profile.ProfessionalStreet,
+            profile.ProfessionalNumber,
+            profile.ProfessionalNeighborhood,
+            profile.ProfessionalComplement,
+            profile.ProfessionalCity,
+            profile.ProfessionalState,
+            profile.University,
+            profile.Courses,
+            profile.HospitalsServices);
     }
 }

@@ -89,7 +89,7 @@ public class ExceptionHandlingMiddleware(
         {
             AuthConflictException => (HttpStatusCode.Conflict, exception.Message),
             DomainException => (HttpStatusCode.BadRequest, exception.Message),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized"),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, exception.Message),
             InvalidOperationException => (HttpStatusCode.BadRequest,
                 IsDevelopment() ? exception.Message : "Invalid operation"),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),

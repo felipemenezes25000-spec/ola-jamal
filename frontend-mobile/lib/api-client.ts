@@ -43,10 +43,12 @@ export interface ApiError {
 }
 
 type OnUnauthorizedCallback = () => void | Promise<void>;
+type OnForbiddenCallback = (message?: string) => void | Promise<void>;
 
 class ApiClient {
   private baseUrl: string;
   private onUnauthorized: OnUnauthorizedCallback | null = null;
+  private onForbidden: OnForbiddenCallback | null = null;
 
   constructor(baseUrl: string = BASE_URL) {
     this.baseUrl = baseUrl;
@@ -54,6 +56,10 @@ class ApiClient {
 
   setOnUnauthorized(cb: OnUnauthorizedCallback | null) {
     this.onUnauthorized = cb;
+  }
+
+  setOnForbidden(cb: OnForbiddenCallback | null) {
+    this.onForbidden = cb;
   }
 
   private async getAuthHeader(): Promise<Record<string, string>> {
@@ -152,6 +158,9 @@ class ApiClient {
             unauthorizedHandled = true;
             this.onUnauthorized();
           }
+          if (response.status === 403 && this.onForbidden) {
+            this.onForbidden(errorMessage);
+          }
           if (__DEV__) {
             console.warn('[API] Erro:', response.status, errorMessage, '| URL:', this.baseUrl);
           }
@@ -181,6 +190,9 @@ class ApiClient {
 
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
         this.onUnauthorized();
+      }
+      if (response.status === 403 && this.onForbidden) {
+        this.onForbidden(errorMessage);
       }
 
       const error: ApiError = {

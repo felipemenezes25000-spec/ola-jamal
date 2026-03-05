@@ -110,8 +110,10 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
-// AllowedHosts = "*" em não-Production (ngrok, IP da LAN) — em Production usa appsettings.Production.json
+// AllowedHosts: em dev aceita localhost, ngrok e IP da LAN ("*"). Em Production, só aceita "*" se .env tiver AllowedHosts=* (ex.: ngrok local).
 if (!builder.Environment.IsProduction())
+    builder.Configuration["AllowedHosts"] = "*";
+else if (string.Equals(Environment.GetEnvironmentVariable("AllowedHosts"), "*", StringComparison.OrdinalIgnoreCase))
     builder.Configuration["AllowedHosts"] = "*";
 
 // Escutar em todas as interfaces (0.0.0.0) para acesso via IP na rede (ex: 192.168.15.69:5000)
@@ -127,7 +129,10 @@ if (string.IsNullOrWhiteSpace(urlsEnv))
 builder.Host.UseSerilog();
 
 // Add services to the container
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<RenoveJa.Api.Authorization.DoctorApprovalFilter>();
+})
     .AddJsonOptions(o =>
     {
         o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;

@@ -399,15 +399,15 @@ public class AuthServiceExtendedTests
             .ReturnsAsync((User u, CancellationToken _) => u);
         _doctorRepoMock.Setup(r => r.CreateAsync(It.IsAny<DoctorProfile>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((DoctorProfile p, CancellationToken _) => p);
-        _tokenRepoMock.Setup(r => r.CreateAsync(It.IsAny<AuthToken>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuthToken t, CancellationToken _) => t);
-
         var result = await _sut.RegisterDoctorAsync(request);
 
         result.Should().NotBeNull();
         result.User.Email.Should().Be("doc@e.com");
         result.User.Role.Should().Be("doctor");
+        result.Token.Should().BeEmpty();
+        result.DoctorProfile.Should().BeNull();
         _doctorRepoMock.Verify(r => r.CreateAsync(It.IsAny<DoctorProfile>(), It.IsAny<CancellationToken>()), Times.Once);
+        _tokenRepoMock.Verify(r => r.CreateAsync(It.IsAny<AuthToken>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

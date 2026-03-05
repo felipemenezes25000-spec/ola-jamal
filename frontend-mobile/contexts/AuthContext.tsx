@@ -9,7 +9,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<UserDto>;
   signUp: (data: SignUpData) => Promise<UserDto>;
-  signUpDoctor: (data: DoctorSignUpData) => Promise<UserDto>;
+  signUpDoctor: (data: DoctorSignUpData) => Promise<{ user: UserDto; requiresApproval: boolean }>;
   signInWithGoogle: (googleToken: string, role?: UserRole) => Promise<UserDto>;
   signOut: () => Promise<void>;
   cancelRegistration: () => Promise<void>;
@@ -56,6 +56,18 @@ interface DoctorSignUpData {
   city?: string;
   state?: string;
   postalCode?: string;
+  professionalAddress?: string;
+  professionalPhone?: string;
+  professionalPostalCode?: string;
+  professionalStreet?: string;
+  professionalNumber?: string;
+  professionalNeighborhood?: string;
+  professionalComplement?: string;
+  professionalCity?: string;
+  professionalState?: string;
+  university?: string;
+  courses?: string;
+  hospitalsServices?: string;
 }
 
 interface CompleteProfileData {
@@ -80,6 +92,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY = '@renoveja:auth_token';
 const USER_KEY = '@renoveja:user';
 const DOCTOR_PROFILE_KEY = '@renoveja:doctor_profile';
+export const FORBIDDEN_MESSAGE_KEY = '@renoveja:forbidden_message';
 
 /** AsyncStorage não aceita undefined/null; usa setItem só se tiver valor, senão removeItem. */
 async function setItemSafe(key: string, value: string | undefined | null): Promise<void> {
@@ -179,7 +192,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     apiClient.setOnUnauthorized(() => {
       clearAuth();
     });
-    return () => apiClient.setOnUnauthorized(null);
+    apiClient.setOnForbidden(async (message) => {
+      if (message) {
+        try {
+          await AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, message);
+        } catch {}
+      }
+      clearAuth();
+    });
+    return () => {
+      apiClient.setOnUnauthorized(null);
+      apiClient.setOnForbidden(null);
+    };
   }, [clearAuth]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<UserDto> => {
@@ -221,25 +245,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const signUpDoctor = useCallback(async (data: DoctorSignUpData): Promise<UserDto> => {
+  const signUpDoctor = useCallback(async (data: DoctorSignUpData): Promise<{ user: UserDto; requiresApproval: boolean }> => {
     try {
       const response = await apiClient.post<AuthResponseDto>('/api/auth/register-doctor', {
         name: data.name, email: data.email, password: data.password, confirmPassword: data.confirmPassword,
         phone: data.phone, cpf: data.cpf, crm: data.crm, crmState: data.crmState, specialty: data.specialty,
         birthDate: data.birthDate, bio: data.bio, street: data.street, number: data.number, neighborhood: data.neighborhood,
         complement: data.complement, city: data.city, state: data.state, postalCode: data.postalCode,
+        professionalPhone: data.professionalPhone ?? undefined,
+        professionalPostalCode: data.professionalPostalCode ?? undefined,
+        professionalStreet: data.professionalStreet ?? undefined,
+        professionalNumber: data.professionalNumber ?? undefined,
+        professionalNeighborhood: data.professionalNeighborhood ?? undefined,
+        professionalComplement: data.professionalComplement ?? undefined,
+        professionalCity: data.professionalCity ?? undefined,
+        professionalState: data.professionalState ?? undefined,
+        university: data.university ?? undefined,
+        courses: data.courses ?? undefined,
+        hospitalsServices: data.hospitalsServices ?? undefined,
       });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
-      await setItemSafe(TOKEN_KEY, response.token ?? undefined);
-      await setItemSafe(USER_KEY, JSON.stringify(response.user));
-      if (response.doctorProfile) {
-        await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
-        setDoctorProfile(response.doctorProfile);
-      } else {
-        await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
+      const requiresApproval = !response.token || response.token.trim() === '';
+      if (!requiresApproval) {
+        await setItemSafe(TOKEN_KEY, response.token ?? undefined);
+        await setItemSafe(USER_KEY, JSON.stringify(response.user));
+        if (response.doctorProfile) {
+          await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
+          setDoctorProfile(response.doctorProfile);
+        } else {
+          await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
+        }
+        setUser(response.user);
       }
-      setUser(response.user);
-      return response.user;
+      return { user: response.user, requiresApproval };
     } catch (error: any) {
       console.error('Doctor sign up error:', error);
       const msg = error?.message || (Array.isArray(error?.errors) ? error.errors[0] : null) || (error?.messages?.[0]) || 'Erro ao criar conta de médico';

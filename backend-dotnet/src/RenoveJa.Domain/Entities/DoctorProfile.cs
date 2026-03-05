@@ -10,7 +10,17 @@ public class DoctorProfile : Entity
     public string CrmState { get; private set; }
     public string Specialty { get; private set; }
     public string? ProfessionalAddress { get; private set; }
+    public string? ProfessionalPostalCode { get; private set; }
+    public string? ProfessionalStreet { get; private set; }
+    public string? ProfessionalNumber { get; private set; }
+    public string? ProfessionalNeighborhood { get; private set; }
+    public string? ProfessionalComplement { get; private set; }
+    public string? ProfessionalCity { get; private set; }
+    public string? ProfessionalState { get; private set; }
     public string? ProfessionalPhone { get; private set; }
+    public string? University { get; private set; }
+    public string? Courses { get; private set; }
+    public string? HospitalsServices { get; private set; }
     public string? Bio { get; private set; }
     public decimal Rating { get; private set; }
     public int TotalConsultations { get; private set; }
@@ -60,6 +70,7 @@ public class DoctorProfile : Entity
     private const int CrmStateLength = 2;
     private const int SpecialtyMaxLength = 100;
     private const int BioMaxLength = 5000;
+    private const int ExtendedFieldMaxLength = 500;
 
     public static DoctorProfile Create(
         Guid userId,
@@ -104,7 +115,7 @@ public class DoctorProfile : Entity
             DoctorApprovalStatus.Pending);
     }
 
-    public void UpdateProfile(string? bio = null, string? specialty = null, string? professionalAddress = null, string? professionalPhone = null)
+    public void UpdateProfile(string? bio = null, string? specialty = null, string? professionalAddress = null, string? professionalPhone = null, string? university = null, string? courses = null, string? hospitalsServices = null, string? professionalPostalCode = null, string? professionalStreet = null, string? professionalNumber = null, string? professionalNeighborhood = null, string? professionalComplement = null, string? professionalCity = null, string? professionalState = null)
     {
         if (!string.IsNullOrWhiteSpace(bio))
         {
@@ -124,6 +135,39 @@ public class DoctorProfile : Entity
             ProfessionalAddress = professionalAddress;
         if (professionalPhone != null)
             ProfessionalPhone = professionalPhone;
+        if (professionalPostalCode != null)
+            ProfessionalPostalCode = professionalPostalCode;
+        if (professionalStreet != null)
+            ProfessionalStreet = professionalStreet;
+        if (professionalNumber != null)
+            ProfessionalNumber = professionalNumber;
+        if (professionalNeighborhood != null)
+            ProfessionalNeighborhood = professionalNeighborhood;
+        if (professionalComplement != null)
+            ProfessionalComplement = professionalComplement;
+        if (professionalCity != null)
+            ProfessionalCity = professionalCity;
+        if (professionalState != null)
+            ProfessionalState = professionalState;
+
+        if (university != null)
+        {
+            if (university.Length > ExtendedFieldMaxLength)
+                throw new DomainException($"University cannot exceed {ExtendedFieldMaxLength} characters");
+            University = university;
+        }
+        if (courses != null)
+        {
+            if (courses.Length > ExtendedFieldMaxLength)
+                throw new DomainException($"Courses cannot exceed {ExtendedFieldMaxLength} characters");
+            Courses = courses;
+        }
+        if (hospitalsServices != null)
+        {
+            if (hospitalsServices.Length > ExtendedFieldMaxLength)
+                throw new DomainException($"HospitalsServices cannot exceed {ExtendedFieldMaxLength} characters");
+            HospitalsServices = hospitalsServices;
+        }
     }
 
     public void SetAvailability(bool available)
@@ -188,7 +232,17 @@ public class DoctorProfile : Entity
         DateTime? crmValidatedAt,
         DateTime createdAt,
         string? professionalAddress = null,
-        string? professionalPhone = null)
+        string? professionalPhone = null,
+        string? university = null,
+        string? courses = null,
+        string? hospitalsServices = null,
+        string? professionalPostalCode = null,
+        string? professionalStreet = null,
+        string? professionalNumber = null,
+        string? professionalNeighborhood = null,
+        string? professionalComplement = null,
+        string? professionalCity = null,
+        string? professionalState = null)
     {
         return new DoctorProfile(
             id,
@@ -207,7 +261,17 @@ public class DoctorProfile : Entity
             CrmValidated = crmValidated,
             CrmValidatedAt = crmValidatedAt,
             ProfessionalAddress = professionalAddress,
-            ProfessionalPhone = professionalPhone
+            ProfessionalPhone = professionalPhone,
+            University = university,
+            Courses = courses,
+            HospitalsServices = hospitalsServices,
+            ProfessionalPostalCode = professionalPostalCode,
+            ProfessionalStreet = professionalStreet,
+            ProfessionalNumber = professionalNumber,
+            ProfessionalNeighborhood = professionalNeighborhood,
+            ProfessionalComplement = professionalComplement,
+            ProfessionalCity = professionalCity,
+            ProfessionalState = professionalState
         };
     }
 }

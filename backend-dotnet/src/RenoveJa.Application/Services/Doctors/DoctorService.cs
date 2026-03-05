@@ -198,7 +198,17 @@ public class DoctorService(
             profile.Available,
             profile.CreatedAt,
             profile.ProfessionalAddress,
-            profile.ProfessionalPhone);
+            profile.ProfessionalPhone,
+            profile.ProfessionalPostalCode,
+            profile.ProfessionalStreet,
+            profile.ProfessionalNumber,
+            profile.ProfessionalNeighborhood,
+            profile.ProfessionalComplement,
+            profile.ProfessionalCity,
+            profile.ProfessionalState,
+            profile.University,
+            profile.Courses,
+            profile.HospitalsServices);
     }
 
     /// <summary>
@@ -224,7 +234,17 @@ public class DoctorService(
             profile.Available,
             profile.CreatedAt,
             profile.ProfessionalAddress,
-            profile.ProfessionalPhone);
+            profile.ProfessionalPhone,
+            profile.ProfessionalPostalCode,
+            profile.ProfessionalStreet,
+            profile.ProfessionalNumber,
+            profile.ProfessionalNeighborhood,
+            profile.ProfessionalComplement,
+            profile.ProfessionalCity,
+            profile.ProfessionalState,
+            profile.University,
+            profile.Courses,
+            profile.HospitalsServices);
     }
 
     /// <summary>
@@ -239,7 +259,16 @@ public class DoctorService(
         if (profile == null)
             throw new KeyNotFoundException("Perfil de médico não encontrado para este usuário.");
 
-        profile.UpdateProfile(professionalAddress: dto.ProfessionalAddress, professionalPhone: dto.ProfessionalPhone);
+        profile.UpdateProfile(
+            professionalAddress: dto.ProfessionalAddress,
+            professionalPhone: dto.ProfessionalPhone,
+            professionalPostalCode: dto.ProfessionalPostalCode,
+            professionalStreet: dto.ProfessionalStreet,
+            professionalNumber: dto.ProfessionalNumber,
+            professionalNeighborhood: dto.ProfessionalNeighborhood,
+            professionalComplement: dto.ProfessionalComplement,
+            professionalCity: dto.ProfessionalCity,
+            professionalState: dto.ProfessionalState);
         profile = await doctorRepository.UpdateAsync(profile, cancellationToken);
 
         return new DoctorProfileDto(
@@ -254,6 +283,16 @@ public class DoctorService(
             profile.Available,
             profile.CreatedAt,
             profile.ProfessionalAddress,
-            profile.ProfessionalPhone);
+            profile.ProfessionalPhone,
+            profile.ProfessionalPostalCode,
+            profile.ProfessionalStreet,
+            profile.ProfessionalNumber,
+            profile.ProfessionalNeighborhood,
+            profile.ProfessionalComplement,
+            profile.ProfessionalCity,
+            profile.ProfessionalState,
+            profile.University,
+            profile.Courses,
+            profile.HospitalsServices);
     }
 }

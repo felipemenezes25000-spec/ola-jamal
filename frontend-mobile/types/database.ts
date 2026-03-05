@@ -47,6 +47,16 @@ export interface DoctorProfileDto {
   professionalAddress?: string | null;
   /** Obrigatório para assinar receitas. */
   professionalPhone?: string | null;
+  professionalPostalCode?: string | null;
+  professionalStreet?: string | null;
+  professionalNumber?: string | null;
+  professionalNeighborhood?: string | null;
+  professionalComplement?: string | null;
+  professionalCity?: string | null;
+  professionalState?: string | null;
+  university?: string | null;
+  courses?: string | null;
+  hospitalsServices?: string | null;
 }
 
 // ============================================
@@ -192,6 +202,21 @@ export interface DoctorListResponseDto {
   rating: number;
   totalConsultations: number;
   available: boolean;
+  approvalStatus?: string;
+  birthDate?: string | null;
+  cpf?: string | null;
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  complement?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  professionalAddress?: string | null;
+  professionalPhone?: string | null;
+  university?: string | null;
+  courses?: string | null;
+  hospitalsServices?: string | null;
 }
 
 // ============================================

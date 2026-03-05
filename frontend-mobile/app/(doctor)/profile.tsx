@@ -21,18 +21,37 @@ const pad = doctorDS.screenPaddingHorizontal;
 import { useAuth } from '../../contexts/AuthContext';
 import { updateDoctorProfile } from '../../lib/api';
 import { showToast } from '../../components/ui/Toast';
+import { fetchAddressByCep } from '../../lib/viacep';
+
+function formatCep(value: string) {
+  const d = (value || '').replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
 
 export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, doctorProfile: doctor, signOut, refreshDoctorProfile } = useAuth();
-  const [professionalAddress, setProfessionalAddress] = useState('');
+  const [professionalCep, setProfessionalCep] = useState('');
+  const [professionalStreet, setProfessionalStreet] = useState('');
+  const [professionalNumber, setProfessionalNumber] = useState('');
+  const [professionalNeighborhood, setProfessionalNeighborhood] = useState('');
+  const [professionalComplement, setProfessionalComplement] = useState('');
+  const [professionalCity, setProfessionalCity] = useState('');
+  const [professionalState, setProfessionalState] = useState('');
   const [professionalPhone, setProfessionalPhone] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (doctor) {
-      setProfessionalAddress(doctor.professionalAddress ?? '');
+      setProfessionalCep(doctor.professionalPostalCode ? formatCep(doctor.professionalPostalCode) : '');
+      setProfessionalStreet(doctor.professionalStreet ?? '');
+      setProfessionalNumber(doctor.professionalNumber ?? '');
+      setProfessionalNeighborhood(doctor.professionalNeighborhood ?? '');
+      setProfessionalComplement(doctor.professionalComplement ?? '');
+      setProfessionalCity(doctor.professionalCity ?? '');
+      setProfessionalState(doctor.professionalState ?? '');
       setProfessionalPhone(doctor.professionalPhone ?? '');
     }
   }, [doctor]);
@@ -69,11 +88,44 @@ export default function DoctorProfile() {
     ? user.name.split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('')
     : '?';
 
+  const lookupProfessionalCep = async () => {
+    const digits = professionalCep.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    try {
+      const result = await fetchAddressByCep(digits);
+      setProfessionalStreet((prev) => result.street || prev);
+      setProfessionalNeighborhood((prev) => result.neighborhood || prev);
+      setProfessionalCity((prev) => result.city || prev);
+      setProfessionalState((prev) => result.state || prev);
+    } catch (e: unknown) {
+      Alert.alert('CEP', (e as Error)?.message ?? 'Não foi possível buscar o CEP.');
+    }
+  };
+
+  const handleProfessionalCepChange = (text: string) => {
+    setProfessionalCep(formatCep(text));
+    const d = text.replace(/\D/g, '');
+    if (d.length === 8) {
+      fetchAddressByCep(d).then((result) => {
+        setProfessionalStreet((prev) => result.street || prev);
+        setProfessionalNeighborhood((prev) => result.neighborhood || prev);
+        setProfessionalCity((prev) => result.city || prev);
+        setProfessionalState((prev) => result.state || prev);
+      }).catch(() => {});
+    }
+  };
+
   const saveRecipeData = async () => {
     setSaving(true);
     try {
       await updateDoctorProfile({
-        professionalAddress: professionalAddress.trim() || null,
+        professionalPostalCode: professionalCep.replace(/\D/g, '').length === 8 ? professionalCep.replace(/\D/g, '') : null,
+        professionalStreet: professionalStreet.trim() || null,
+        professionalNumber: professionalNumber.trim() || null,
+        professionalNeighborhood: professionalNeighborhood.trim() || null,
+        professionalComplement: professionalComplement.trim() || null,
+        professionalCity: professionalCity.trim() || null,
+        professionalState: professionalState.trim().toUpperCase().slice(0, 2) || null,
         professionalPhone: professionalPhone.trim() || null,
       });
       await refreshDoctorProfile();
@@ -136,16 +188,72 @@ export default function DoctorProfile() {
       <View style={styles.recipeDataCard}>
         <Text style={styles.recipeDataTitle}>DADOS PARA ASSINAR RECEITAS</Text>
         <Text style={styles.recipeDataHint}>
-          Endereço e telefone profissional são obrigatórios para receita simples (CFM).
+          Endereço e telefone profissional são obrigatórios para receita simples (CFM). Informe o CEP para preencher automaticamente.
         </Text>
         <TextInput
           style={styles.input}
-          placeholder="Endereço profissional completo"
+          placeholder="CEP"
           placeholderTextColor={colors.textMuted}
-          value={professionalAddress}
-          onChangeText={setProfessionalAddress}
+          value={professionalCep}
+          onChangeText={handleProfessionalCepChange}
+          onBlur={lookupProfessionalCep}
+          keyboardType="numeric"
           editable={!saving}
         />
+        <TextInput
+          style={styles.input}
+          placeholder="Rua"
+          placeholderTextColor={colors.textMuted}
+          value={professionalStreet}
+          onChangeText={setProfessionalStreet}
+          editable={!saving}
+        />
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, styles.inputSmall]}
+            placeholder="Número"
+            placeholderTextColor={colors.textMuted}
+            value={professionalNumber}
+            onChangeText={setProfessionalNumber}
+            keyboardType="numeric"
+            editable={!saving}
+          />
+          <TextInput
+            style={[styles.input, styles.inputFlex]}
+            placeholder="Complemento"
+            placeholderTextColor={colors.textMuted}
+            value={professionalComplement}
+            onChangeText={setProfessionalComplement}
+            editable={!saving}
+          />
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Bairro"
+          placeholderTextColor={colors.textMuted}
+          value={professionalNeighborhood}
+          onChangeText={setProfessionalNeighborhood}
+          editable={!saving}
+        />
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, styles.inputFlex]}
+            placeholder="Cidade"
+            placeholderTextColor={colors.textMuted}
+            value={professionalCity}
+            onChangeText={setProfessionalCity}
+            editable={!saving}
+          />
+          <TextInput
+            style={[styles.input, styles.inputUf]}
+            placeholder="UF"
+            placeholderTextColor={colors.textMuted}
+            value={professionalState}
+            onChangeText={(t) => setProfessionalState(t.trim().toUpperCase().slice(0, 2))}
+            maxLength={2}
+            editable={!saving}
+          />
+        </View>
         <TextInput
           style={styles.input}
           placeholder="Telefone profissional"
@@ -317,6 +425,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 10,
   },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  inputSmall: { width: 90 },
+  inputFlex: { flex: 1 },
+  inputUf: { width: 56 },
   saveRecipeDataBtn: {
     backgroundColor: colors.primary,
     borderRadius: 10,

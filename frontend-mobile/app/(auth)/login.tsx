@@ -24,7 +24,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../lib/theme';
 import { AppInput, AppButton } from '../../components/ui';
 import { Logo } from '../../components/Logo';
-import { useAuth } from '../../contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth, FORBIDDEN_MESSAGE_KEY } from '../../contexts/AuthContext';
 import { validate } from '../../lib/validation';
 import { loginSchema } from '../../lib/validation/schemas';
 
@@ -78,6 +79,15 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(FORBIDDEN_MESSAGE_KEY).then((message) => {
+      if (message) {
+        AsyncStorage.removeItem(FORBIDDEN_MESSAGE_KEY).catch(() => {});
+        Alert.alert('Acesso negado', message);
+      }
+    });
+  }, []);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 

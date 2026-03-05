@@ -37,7 +37,19 @@ public record RegisterDoctorRequestDto(
     string? Complement = null,
     string? City = null,
     string? State = null,
-    string? PostalCode = null
+    string? PostalCode = null,
+    string? ProfessionalAddress = null,
+    string? ProfessionalPhone = null,
+    string? ProfessionalPostalCode = null,
+    string? ProfessionalStreet = null,
+    string? ProfessionalNumber = null,
+    string? ProfessionalNeighborhood = null,
+    string? ProfessionalComplement = null,
+    string? ProfessionalCity = null,
+    string? ProfessionalState = null,
+    string? University = null,
+    string? Courses = null,
+    string? HospitalsServices = null
 );
 
 public record LoginRequestDto(
@@ -120,5 +132,15 @@ public record DoctorProfileDto(
     bool Available,
     DateTime CreatedAt,
     string? ProfessionalAddress = null,
-    string? ProfessionalPhone = null
+    string? ProfessionalPhone = null,
+    string? ProfessionalPostalCode = null,
+    string? ProfessionalStreet = null,
+    string? ProfessionalNumber = null,
+    string? ProfessionalNeighborhood = null,
+    string? ProfessionalComplement = null,
+    string? ProfessionalCity = null,
+    string? ProfessionalState = null,
+    string? University = null,
+    string? Courses = null,
+    string? HospitalsServices = null
 );

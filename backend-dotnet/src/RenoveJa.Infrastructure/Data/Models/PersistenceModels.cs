@@ -40,8 +40,26 @@ public class DoctorProfileModel
     public string Specialty { get; set; } = string.Empty;
     [JsonPropertyName("professional_address")]
     public string? ProfessionalAddress { get; set; }
+    [JsonPropertyName("professional_postal_code")]
+    public string? ProfessionalPostalCode { get; set; }
+    [JsonPropertyName("professional_street")]
+    public string? ProfessionalStreet { get; set; }
+    [JsonPropertyName("professional_number")]
+    public string? ProfessionalNumber { get; set; }
+    [JsonPropertyName("professional_neighborhood")]
+    public string? ProfessionalNeighborhood { get; set; }
+    [JsonPropertyName("professional_complement")]
+    public string? ProfessionalComplement { get; set; }
+    [JsonPropertyName("professional_city")]
+    public string? ProfessionalCity { get; set; }
+    [JsonPropertyName("professional_state")]
+    public string? ProfessionalState { get; set; }
     [JsonPropertyName("professional_phone")]
     public string? ProfessionalPhone { get; set; }
+    public string? University { get; set; }
+    public string? Courses { get; set; }
+    [JsonPropertyName("hospitals_services")]
+    public string? HospitalsServices { get; set; }
     public string? Bio { get; set; }
     public decimal Rating { get; set; }
     public int TotalConsultations { get; set; }
@@ -64,6 +82,16 @@ public class DoctorProfileModel
             Specialty = profile.Specialty,
             ProfessionalAddress = profile.ProfessionalAddress,
             ProfessionalPhone = profile.ProfessionalPhone,
+            ProfessionalPostalCode = profile.ProfessionalPostalCode,
+            ProfessionalStreet = profile.ProfessionalStreet,
+            ProfessionalNumber = profile.ProfessionalNumber,
+            ProfessionalNeighborhood = profile.ProfessionalNeighborhood,
+            ProfessionalComplement = profile.ProfessionalComplement,
+            ProfessionalCity = profile.ProfessionalCity,
+            ProfessionalState = profile.ProfessionalState,
+            University = profile.University,
+            Courses = profile.Courses,
+            HospitalsServices = profile.HospitalsServices,
             Bio = profile.Bio,
             Rating = profile.Rating,
             TotalConsultations = profile.TotalConsultations,
@@ -90,7 +118,10 @@ public class DoctorProfileModel
             Rating, TotalConsultations, Available,
             status,
             ActiveCertificateId, CrmValidated, CrmValidatedAt, CreatedAt,
-            ProfessionalAddress, ProfessionalPhone);
+            ProfessionalAddress, ProfessionalPhone,
+            University, Courses, HospitalsServices,
+            ProfessionalPostalCode, ProfessionalStreet, ProfessionalNumber,
+            ProfessionalNeighborhood, ProfessionalComplement, ProfessionalCity, ProfessionalState);
     }
 }
 

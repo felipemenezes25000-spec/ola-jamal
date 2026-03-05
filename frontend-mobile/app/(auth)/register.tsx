@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchAddressByCep } from '../../lib/viacep';
 import { isValidCpf } from '../../lib/validation/cpf';
 import { fetchSpecialties, uploadCertificate } from '../../lib/api';
+import { SPECIALTIES_FALLBACK } from '../../lib/constants/specialties';
 
 const c = theme.colors;
 const s = theme.spacing;
@@ -80,12 +81,34 @@ export default function Register() {
   const [certPassword, setCertPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [professionalCep, setProfessionalCep] = useState('');
+  const [professionalStreet, setProfessionalStreet] = useState('');
+  const [professionalNumber, setProfessionalNumber] = useState('');
+  const [professionalNeighborhood, setProfessionalNeighborhood] = useState('');
+  const [professionalComplement, setProfessionalComplement] = useState('');
+  const [professionalCity, setProfessionalCity] = useState('');
+  const [professionalState, setProfessionalState] = useState('');
+  const [professionalPhone, setProfessionalPhone] = useState('');
+  const [university, setUniversity] = useState('');
+  const [courses, setCourses] = useState('');
+  const [hospitalsServices, setHospitalsServices] = useState('');
+
+  // Lista exibida: API se disponível, senão fallback (evita "Carregando..." eterno se API falhar ou atrasar).
+  const specialtiesDisplayList =
+    role === 'doctor'
+      ? (specialtiesList.length > 0 ? specialtiesList : SPECIALTIES_FALLBACK)
+      : [];
 
   useEffect(() => {
     if (role === 'doctor') {
+      setSpecialtiesList(SPECIALTIES_FALLBACK);
       fetchSpecialties()
-        .then(setSpecialtiesList)
-        .catch(() => setSpecialtiesList([]));
+        .then((list) => list?.length > 0 && setSpecialtiesList(list))
+        .catch((err) => {
+          if (__DEV__) {
+            console.warn('[Register] fetchSpecialties falhou, usando lista local:', (err as Error)?.message ?? err);
+          }
+        });
     }
   }, [role]);
 
@@ -120,6 +143,33 @@ export default function Register() {
         setNeighborhood((prev) => result.neighborhood || prev);
         setCity((prev) => result.city || prev);
         setState((prev) => result.state || prev);
+      }).catch(() => {});
+    }
+  };
+
+  const lookupProfessionalCep = useCallback(async () => {
+    const digits = onlyDigits(professionalCep);
+    if (digits.length !== 8) return;
+    try {
+      const result = await fetchAddressByCep(digits);
+      setProfessionalStreet((prev) => result.street || prev);
+      setProfessionalNeighborhood((prev) => result.neighborhood || prev);
+      setProfessionalCity((prev) => result.city || prev);
+      setProfessionalState((prev) => result.state || prev);
+    } catch (e: any) {
+      Alert.alert('CEP profissional', e?.message || 'Não foi possível buscar o CEP.');
+    }
+  }, [professionalCep]);
+
+  const handleProfessionalCepChange = (text: string) => {
+    setProfessionalCep(formatCep(text));
+    const d = onlyDigits(text);
+    if (d.length === 8) {
+      fetchAddressByCep(d).then((result) => {
+        setProfessionalStreet((prev) => result.street || prev);
+        setProfessionalNeighborhood((prev) => result.neighborhood || prev);
+        setProfessionalCity((prev) => result.city || prev);
+        setProfessionalState((prev) => result.state || prev);
       }).catch(() => {});
     }
   };
@@ -180,7 +230,7 @@ export default function Register() {
       if (!cs) err.crmState = 'Estado do CRM é obrigatório.';
       else if (cs.length !== 2) err.crmState = 'Informe 2 letras (ex.: SP).';
       if (!sp) err.specialty = 'Especialidade é obrigatória.';
-      else if (specialtiesList.length > 0 && !specialtiesList.includes(sp)) {
+      else if (specialtiesDisplayList.length > 0 && !specialtiesDisplayList.includes(sp)) {
         err.specialty = 'Selecione uma especialidade da lista.';
       }
     }
@@ -240,9 +290,36 @@ export default function Register() {
         state: st,
         ...(postalCode.length === 8 ? { postalCode } : {}),
       };
-      const user = role === 'doctor'
-        ? await signUpDoctor({ ...data, crm: crm.trim().replace(/\D/g, ''), crmState: crmState.trim().toUpperCase().slice(0, 2), specialty: specialty.trim() } as any)
-        : await signUp(data as any);
+      const result = role === 'doctor'
+        ? await signUpDoctor({
+            ...data,
+            crm: crm.trim().replace(/\D/g, ''),
+            crmState: crmState.trim().toUpperCase().slice(0, 2),
+            specialty: specialty.trim(),
+            professionalPostalCode: onlyDigits(professionalCep).length === 8 ? onlyDigits(professionalCep) : undefined,
+            professionalStreet: professionalStreet.trim() || undefined,
+            professionalNumber: professionalNumber.trim() || undefined,
+            professionalNeighborhood: professionalNeighborhood.trim() || undefined,
+            professionalComplement: professionalComplement.trim() || undefined,
+            professionalCity: professionalCity.trim() || undefined,
+            professionalState: professionalState.trim().toUpperCase().slice(0, 2) || undefined,
+            professionalPhone: professionalPhone.trim() || undefined,
+            university: university.trim() || undefined,
+            courses: courses.trim() || undefined,
+            hospitalsServices: hospitalsServices.trim() || undefined,
+          } as any)
+        : { user: await signUp(data as any), requiresApproval: false };
+
+      const user = result.user;
+
+      if (role === 'doctor' && result.requiresApproval) {
+        Alert.alert(
+          'Cadastro realizado',
+          'Aguarde a aprovação do administrador para acessar o app. Você receberá retorno em breve.',
+          [{ text: 'OK', onPress: () => router.replace('/(auth)/login' as any) }]
+        );
+        return;
+      }
 
       if (user.role === 'doctor' && certFile && certPassword.trim()) {
         try {
@@ -400,9 +477,9 @@ export default function Register() {
           secureTextEntry
         />
 
-        {/* ── Endereço (obrigatório para paciente e médico) ── */}
+        {/* ── Endereço pessoal (obrigatório para paciente e médico) ── */}
         <>
-          <SectionHeader icon="location-outline" title="Endereço" />
+          <SectionHeader icon="location-outline" title={role === 'doctor' ? 'Endereço pessoal' : 'Endereço'} />
           <AppInput
             label="CEP"
             placeholder="00000-000"
@@ -498,7 +575,7 @@ export default function Register() {
                 containerStyle={{ width: 120 }}
               />
             </View>
-            {specialtiesList.length > 0 ? (
+            {specialtiesDisplayList.length > 0 ? (
               <View style={styles.specialtyBlock}>
                 <Text style={styles.specialtyLabel}>
                   Especialidade <Text style={{ color: c.status.error }}>*</Text>
@@ -555,7 +632,7 @@ export default function Register() {
                       nestedScrollEnabled
                     >
                       {(() => {
-                        const filtered = specialtiesList.filter((s) =>
+                        const filtered = specialtiesDisplayList.filter((s) =>
                           s.toLowerCase().includes(specialtySearch.trim().toLowerCase())
                         );
                         if (filtered.length === 0) {
@@ -619,6 +696,98 @@ export default function Register() {
                 editable={false}
               />
             )}
+
+            {/* Endereço profissional (opcional, com CEP e preenchimento automático) */}
+            <SectionHeader icon="business-outline" title="Endereço profissional" />
+            <AppInput
+              label="CEP"
+              placeholder="00000-000"
+              value={professionalCep}
+              onChangeText={handleProfessionalCepChange}
+              onBlur={lookupProfessionalCep}
+              keyboardType="numeric"
+              leftIcon="location-outline"
+            />
+            <AppInput
+              label="Rua"
+              placeholder="Nome da rua"
+              value={professionalStreet}
+              onChangeText={setProfessionalStreet}
+              leftIcon="home-outline"
+            />
+            <View style={styles.row}>
+              <AppInput
+                label="Número"
+                placeholder="Nº"
+                value={professionalNumber}
+                onChangeText={setProfessionalNumber}
+                keyboardType="numeric"
+                containerStyle={{ width: 100 }}
+              />
+              <AppInput
+                label="Complemento"
+                placeholder="Apto, bloco..."
+                value={professionalComplement}
+                onChangeText={setProfessionalComplement}
+                containerStyle={styles.flex1}
+              />
+            </View>
+            <AppInput
+              label="Bairro"
+              placeholder="Bairro"
+              value={professionalNeighborhood}
+              onChangeText={setProfessionalNeighborhood}
+              leftIcon="business-outline"
+            />
+            <View style={styles.row}>
+              <AppInput
+                label="Cidade"
+                placeholder="Cidade"
+                value={professionalCity}
+                onChangeText={setProfessionalCity}
+                containerStyle={styles.flex1}
+              />
+              <AppInput
+                label="UF"
+                placeholder="UF"
+                value={professionalState}
+                onChangeText={(t: string) => setProfessionalState(t.trim().toUpperCase().slice(0, 2))}
+                maxLength={2}
+                containerStyle={{ width: 96 }}
+              />
+            </View>
+            <AppInput
+              label="Telefone profissional"
+              placeholder="(11) 3333-4444"
+              value={professionalPhone}
+              onChangeText={setProfessionalPhone}
+              leftIcon="call-outline"
+              keyboardType="phone-pad"
+            />
+
+            {/* Faculdade, cursos e hospitais/serviços (opcional) */}
+            <SectionHeader icon="school-outline" title="Formação e experiência" />
+            <AppInput
+              label="Faculdade"
+              placeholder="Instituição de formação"
+              value={university}
+              onChangeText={setUniversity}
+              leftIcon="school-outline"
+            />
+            <AppInput
+              label="Cursos"
+              placeholder="Cursos e formações adicionais"
+              value={courses}
+              onChangeText={setCourses}
+              leftIcon="ribbon-outline"
+            />
+            <AppInput
+              label="Hospitais / serviços por onde trabalhou"
+              placeholder="Hospitais, clínicas, serviços..."
+              value={hospitalsServices}
+              onChangeText={setHospitalsServices}
+              leftIcon="medkit-outline"
+            />
 
             {/* Certificado digital */}
             <View style={styles.certSection}>

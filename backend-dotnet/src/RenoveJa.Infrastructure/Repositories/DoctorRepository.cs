@@ -151,7 +151,17 @@ public class DoctorRepository(SupabaseClient supabase) : IDoctorRepository
             model.CrmValidatedAt,
             model.CreatedAt,
             model.ProfessionalAddress,
-            model.ProfessionalPhone);
+            model.ProfessionalPhone,
+            model.University,
+            model.Courses,
+            model.HospitalsServices,
+            model.ProfessionalPostalCode,
+            model.ProfessionalStreet,
+            model.ProfessionalNumber,
+            model.ProfessionalNeighborhood,
+            model.ProfessionalComplement,
+            model.ProfessionalCity,
+            model.ProfessionalState);
     }
 
     private static DoctorProfileModel MapToModel(DoctorProfile profile)
