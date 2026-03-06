@@ -72,7 +72,7 @@ export default function PatientProfile() {
     ? user.name.split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('')
     : '?';
 
-  const pickAvatar = async () => {
+  const pickAvatarFromGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para escolher sua foto.');
@@ -88,6 +88,32 @@ export default function PatientProfile() {
     if (result.canceled || !result.assets[0]) return;
     const { uri } = result.assets[0];
     setAvatarPreviewUri(uri);
+  };
+
+  const takeAvatarPhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera para tirar sua foto.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.9,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+    const { uri } = result.assets[0];
+    setAvatarPreviewUri(uri);
+  };
+
+  const pickAvatar = async () => {
+    Alert.alert('Foto de perfil', 'Como você quer atualizar sua foto?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Câmera', onPress: () => { void takeAvatarPhoto(); } },
+      { text: 'Galeria', onPress: () => { void pickAvatarFromGallery(); } },
+    ]);
   };
 
   const saveAvatar = async () => {
@@ -277,7 +303,7 @@ export default function PatientProfile() {
                 }}
                 disabled={avatarLoading}
               >
-                <Text style={styles.previewBtnGhostText}>Escolher outra</Text>
+                <Text style={styles.previewBtnGhostText}>Recortar / escolher outra</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -292,6 +318,18 @@ export default function PatientProfile() {
                 )}
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              style={styles.previewInlineCamera}
+              onPress={() => {
+                setAvatarPreviewUri(null);
+                void takeAvatarPhoto();
+              }}
+              disabled={avatarLoading}
+            >
+              <Ionicons name="camera-outline" size={16} color={colors.primary} />
+              <Text style={styles.previewInlineCameraText}>Tirar nova foto agora</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -566,5 +604,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.white,
+  },
+  previewInlineCamera: {
+    marginTop: 10,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  previewInlineCameraText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });
