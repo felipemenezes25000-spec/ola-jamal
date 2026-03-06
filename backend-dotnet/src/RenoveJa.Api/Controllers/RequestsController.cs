@@ -30,7 +30,7 @@ public class RequestsController(
 
     /// <summary>
     /// Cria uma solicitação de receita (tipo + imagens; medicamentos opcional).
-    /// prescriptionType obrigatório: simples (R$ 50), controlado (R$ 80) ou azul (R$ 100).
+    /// prescriptionType obrigatório: simples ou controlado (receita azul ainda não liberada).
     /// JSON: body com prescriptionType, opcional medications e prescriptionImages.
     /// Multipart: prescriptionType, images (arquivos). Fotos são salvas no Supabase Storage.
     /// </summary>
@@ -72,7 +72,7 @@ public class RequestsController(
                 var prescriptionType = form["prescriptionType"].ToString();
                 if (string.IsNullOrWhiteSpace(prescriptionType))
                     return BadRequest(new
-                        { error = "Campo 'prescriptionType' é obrigatório (simples, controlado ou azul)." });
+                        { error = "Campo 'prescriptionType' é obrigatório (simples ou controlado)." });
 
                 var imageUrls = new List<string>();
                 foreach (var file in Request.Form.Files)
@@ -113,7 +113,7 @@ public class RequestsController(
                     return BadRequest(new
                     {
                         error =
-                            "Body inválido. Use JSON com prescriptionType (simples, controlado ou azul) e opcional medications, prescriptionImages."
+                            "Body inválido. Use JSON com prescriptionType (simples ou controlado) e opcional medications, prescriptionImages."
                     });
                 }
 
@@ -133,6 +133,10 @@ public class RequestsController(
 
                 request = bodyRequest;
             }
+
+            var typeLower = request.PrescriptionType?.Trim().ToLowerInvariant();
+            if (typeLower == "azul" || typeLower == "blue")
+                return BadRequest(new { error = "Receita azul ainda não está liberada. Use simples ou controlado." });
 
             var result = await requestService.CreatePrescriptionAsync(request, userId, cancellationToken);
             logger.LogInformation("Requests CreatePrescription: userId={UserId}, requestId={RequestId}, type={Type}",

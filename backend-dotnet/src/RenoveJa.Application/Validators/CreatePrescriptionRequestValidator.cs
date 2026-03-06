@@ -11,9 +11,9 @@ public class CreatePrescriptionRequestValidator : AbstractValidator<CreatePrescr
     public CreatePrescriptionRequestValidator()
     {
         RuleFor(x => x.PrescriptionType)
-            .NotEmpty().WithMessage("Tipo da receita é obrigatório (simples, controlado ou azul).")
-            .Must(x => new[] { "simples", "controlado", "azul", "simple", "controlled", "blue" }.Contains(x?.Trim().ToLowerInvariant()))
-            .WithMessage("Tipo inválido. Use: simples, controlado ou azul.");
+            .NotEmpty().WithMessage("Tipo da receita é obrigatório (simples ou controlado).")
+            .Must(x => new[] { "simples", "controlado", "simple", "controlled" }.Contains(x?.Trim().ToLowerInvariant()))
+            .WithMessage("Tipo inválido. Use: simples ou controlado. Receita azul ainda não está liberada.");
 
         // Medications é opcional (pode ser null ou lista vazia).
     }
