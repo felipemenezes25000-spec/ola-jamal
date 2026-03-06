@@ -115,6 +115,11 @@ public class ConsultationController(
                             .SendAsync("AnamnesisUpdate", new AnamnesisUpdateDto(result.AnamnesisJson));
                         await hubContext.Clients.Group(group)
                             .SendAsync("SuggestionUpdate", new SuggestionUpdateDto(result.Suggestions));
+                        if (result.Evidence.Count > 0)
+                        {
+                            await hubContext.Clients.Group(group)
+                                .SendAsync("EvidenceUpdate", new EvidenceUpdateDto(result.Evidence));
+                        }
                     }
                 }
                 catch (Exception ex)

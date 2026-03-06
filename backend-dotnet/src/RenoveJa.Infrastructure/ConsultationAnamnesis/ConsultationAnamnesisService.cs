@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
@@ -11,7 +12,7 @@ namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 
 /// <summary>
 /// Serviço de anamnese estruturada e sugestões clínicas por IA (GPT-4o) durante a consulta.
-/// Gera: anamnese SOAP, CID sugerido, alertas de gravidade, medicamentos sugeridos e hipóteses.
+/// Gera: anamnese SOAP, CID sugerido, alertas de gravidade, medicamentos sugeridos, hipóteses e evidências (PubMed).
 /// Atua como copiloto: a decisão final é sempre do médico.
 /// </summary>
 public class ConsultationAnamnesisService : IConsultationAnamnesisService
@@ -22,19 +23,23 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         WriteIndented = false
     };
+    private static readonly Regex CidCodeRegex = new(@"\b([A-Z]\d{2}(?:\.\d+)?)\b", RegexOptions.Compiled);
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<OpenAIConfig> _config;
     private readonly ILogger<ConsultationAnamnesisService> _logger;
+    private readonly IPubMedService _pubmedService;
 
     public ConsultationAnamnesisService(
         IHttpClientFactory httpClientFactory,
         IOptions<OpenAIConfig> config,
-        ILogger<ConsultationAnamnesisService> logger)
+        ILogger<ConsultationAnamnesisService> logger,
+        IPubMedService pubmedService)
     {
         _httpClientFactory = httpClientFactory;
         _config = config;
         _logger = logger;
+        _pubmedService = pubmedService;
     }
 
     public async Task<ConsultationAnamnesisResult?> UpdateAnamnesisAndSuggestionsAsync(
@@ -194,7 +199,10 @@ REGRAS:
                 }
             }
 
-            return new ConsultationAnamnesisResult(enrichedJson, suggestions);
+            // Evidências PubMed: busca por CID, sintomas e queixa; traduz abstracts para português
+            var evidence = await FetchAndTranslateEvidenceAsync(root, apiKey, cancellationToken);
+
+            return new ConsultationAnamnesisResult(enrichedJson, suggestions, evidence);
         }
         catch (Exception ex)
         {
@@ -213,5 +221,122 @@ REGRAS:
         if (s.EndsWith("```"))
             s = s[..^3];
         return s.Trim();
+    }
+
+    private static List<string> ExtractSearchTerms(JsonElement root)
+    {
+        var terms = new List<string>();
+
+        if (root.TryGetProperty("cid_sugerido", out var cidEl))
+        {
+            var cidStr = cidEl.GetString() ?? "";
+            var match = CidCodeRegex.Match(cidStr);
+            if (match.Success)
+                terms.Add(match.Groups[1].Value);
+        }
+
+        if (root.TryGetProperty("anamnesis", out var anaEl) && anaEl.ValueKind == JsonValueKind.Object)
+        {
+            if (anaEl.TryGetProperty("queixa_principal", out var qpEl))
+            {
+                var qp = (qpEl.ValueKind == JsonValueKind.String ? qpEl.GetString() : qpEl.GetRawText())?.Trim('"').Trim() ?? "";
+                if (qp.Length > 20)
+                    terms.Add(qp[..Math.Min(80, qp.Length)]);
+            }
+            if (anaEl.TryGetProperty("sintomas", out var sintEl))
+            {
+                var sint = sintEl.ValueKind == JsonValueKind.String
+                    ? sintEl.GetString()?.Trim('"').Trim()
+                    : sintEl.ValueKind == JsonValueKind.Array
+                        ? string.Join(" ", sintEl.EnumerateArray().Select(e => e.GetString() ?? ""))
+                        : "";
+                if (!string.IsNullOrWhiteSpace(sint) && sint.Length > 3)
+                    terms.Add(sint[..Math.Min(60, sint.Length)]);
+            }
+        }
+
+        return terms.Distinct().Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+    }
+
+    private async Task<IReadOnlyList<EvidenceItemDto>> FetchAndTranslateEvidenceAsync(
+        JsonElement root,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var searchTerms = ExtractSearchTerms(root);
+            if (searchTerms.Count == 0)
+                return Array.Empty<EvidenceItemDto>();
+
+            var rawEvidence = await _pubmedService.SearchAsync(searchTerms, 5, cancellationToken);
+            if (rawEvidence.Count == 0)
+                return rawEvidence;
+
+            return await TranslateEvidenceAsync(rawEvidence, apiKey, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Evidências PubMed: falha na busca ou tradução.");
+            return Array.Empty<EvidenceItemDto>();
+        }
+    }
+
+    private async Task<IReadOnlyList<EvidenceItemDto>> TranslateEvidenceAsync(
+        IReadOnlyList<EvidenceItemDto> items,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        if (items.Count == 0)
+            return items;
+
+        var toTranslate = items.Select((e, i) => $"[{i}]\nTítulo: {e.Title}\nAbstract: {e.Abstract}").ToList();
+        var combined = string.Join("\n\n---\n\n", toTranslate);
+
+        var prompt = "Traduza os abstracts abaixo para português brasileiro. Mantenha o tom técnico/científico.\n" +
+            "Responda em JSON com um array de strings na mesma ordem: [\"tradução1\", \"tradução2\", ...].\n" +
+            "Apenas o JSON, sem markdown.\n\n" + combined;
+
+        var requestBody = new
+        {
+            model = _config.Value?.Model ?? "gpt-4o",
+            messages = new object[] { new { role = "user", content = (object)prompt } },
+            max_tokens = 3000,
+            temperature = 0.2
+        };
+
+        var json = JsonSerializer.Serialize(requestBody, JsonOptions);
+        var client = _httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        client.Timeout = TimeSpan.FromSeconds(30);
+
+        using var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"{ApiBaseUrl}/chat/completions", requestContent, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return items;
+
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        List<string>? translations = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(responseJson);
+            var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                var cleaned = CleanJsonResponse(content);
+                using var arr = JsonDocument.Parse(cleaned);
+                translations = new List<string>();
+                foreach (var el in arr.RootElement.EnumerateArray())
+                    translations.Add(el.GetString() ?? "");
+            }
+        }
+        catch { /* ignore */ }
+
+        if (translations == null || translations.Count != items.Count)
+            return items;
+
+        return items.Select((e, i) =>
+            new EvidenceItemDto(e.Title, e.Abstract, e.Source,
+                i < translations.Count ? translations[i] : null)).ToList();
     }
 }

@@ -159,6 +159,7 @@ export default function VideoCallScreenInner() {
   const [transcript, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<Record<string, any> | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [evidence, setEvidence] = useState<Array<{ title: string; abstract: string; source: string; translatedAbstract?: string }>>([]);
   const [transcriptFilter, setTranscriptFilter] = useState<TranscriptFilter>('todos');
   const [isAiActive, setIsAiActive] = useState(false);
   const tScrollRef = useRef<ScrollView>(null);
@@ -247,6 +248,18 @@ export default function VideoCallScreenInner() {
       conn.on('SuggestionUpdate', (data: any) => {
         const items = data?.suggestions ?? data?.Suggestions ?? [];
         if (Array.isArray(items)) setSuggestions(items);
+      });
+
+      conn.on('EvidenceUpdate', (data: any) => {
+        const items = data?.items ?? data?.Items ?? [];
+        if (Array.isArray(items)) {
+          setEvidence(items.map((e: any) => ({
+            title: e?.title ?? e?.Title ?? '',
+            abstract: e?.abstract ?? e?.Abstract ?? '',
+            source: e?.source ?? e?.Source ?? '',
+            translatedAbstract: e?.translatedAbstract ?? e?.TranslatedAbstract,
+          })));
+        }
       });
 
       await conn.start();
@@ -546,8 +559,9 @@ export default function VideoCallScreenInner() {
   const timerStr = contractedMinutes ? `${fmt(callSeconds)} / ${fmt(contractedMinutes * 60)}` : fmt(callSeconds);
   const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
   const hasSug = suggestions.length > 0;
+  const hasEv = evidence.length > 0;
   const hasT = transcript.length > 0;
-  const panelHas = hasAna || hasSug || hasT;
+  const panelHas = hasAna || hasSug || hasEv || hasT;
 
   const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH + 20, 0] });
 
@@ -712,6 +726,24 @@ export default function VideoCallScreenInner() {
                     {(anamnesis!.alertas_vermelhos as string[]).map((f, i) => <Text key={i} style={S.rfTxt}>⚠️ {f}</Text>)}
                   </View>
                 )}
+              </View>
+            )}
+
+            {/* Evidências PubMed */}
+            {hasEv && (
+              <View style={S.sec}>
+                <View style={S.secH}>
+                  <Ionicons name="library" size={16} color={colors.primaryLight} />
+                  <Text style={[S.secT, { color: colors.primaryLight }]}>EVIDÊNCIAS</Text>
+                  <View style={S.badge}><Ionicons name="book" size={10} color={colors.primaryLight} /><Text style={S.badgeTxt}>PubMed</Text></View>
+                </View>
+                {evidence.map((e, i) => (
+                  <View key={i} style={S.evItem}>
+                    <Text style={S.evTitle}>{e.title}</Text>
+                    <Text style={S.evAbstract}>{e.translatedAbstract || e.abstract}</Text>
+                    <Text style={S.evSource}>{e.source}</Text>
+                  </View>
+                ))}
               </View>
             )}
 
@@ -941,6 +973,11 @@ const S = StyleSheet.create({
   sugItem: { flexDirection: 'row', gap: 6, alignItems: 'flex-start', paddingLeft: 4 },
   sugDng: { backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 6, padding: 6 },
   sugTxt: { fontSize: 12, color: colors.primaryLight, lineHeight: 18, flex: 1 },
+
+  evItem: { backgroundColor: 'rgba(51,65,85,0.5)', borderRadius: 8, padding: 10, gap: 4 },
+  evTitle: { fontSize: 12, fontWeight: '700', color: colors.primaryLight, lineHeight: 16 },
+  evAbstract: { fontSize: 11, color: colors.border, lineHeight: 16 },
+  evSource: { fontSize: 10, color: colors.textMuted },
 
   tBox: { maxHeight: 190, backgroundColor: 'rgba(30,41,59,0.6)', borderRadius: 8, padding: 8 },
   tItem: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7, backgroundColor: 'rgba(51,65,85,0.5)', marginBottom: 6 },
