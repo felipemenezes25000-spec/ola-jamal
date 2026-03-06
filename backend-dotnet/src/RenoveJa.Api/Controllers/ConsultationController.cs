@@ -53,8 +53,16 @@ public class ConsultationController(
         var isPatient = request.PatientId == userId;
         if (!isDoctor && !isPatient)
             return Forbid();
-        if (request.Status != RequestStatus.InConsultation)
-            return BadRequest("Consultation must be in progress to transcribe");
+
+        if (request.RequestType != RequestType.Consultation)
+            return BadRequest("Only consultation requests support transcription");
+
+        // Tolerância de fluxo: aceitar também quando está Paid.
+        // Em alguns cenários o médico/paciente já estão conectados na chamada,
+        // mas o status ainda não virou InConsultation por sincronização de eventos.
+        var canTranscribe = request.Status == RequestStatus.InConsultation || request.Status == RequestStatus.Paid;
+        if (!canTranscribe)
+            return BadRequest("Consultation must be paid or in progress to transcribe");
 
         if (file == null || file.Length == 0)
         {

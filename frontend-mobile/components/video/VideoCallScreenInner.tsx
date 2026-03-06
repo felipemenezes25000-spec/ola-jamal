@@ -349,13 +349,14 @@ export default function VideoCallScreenInner() {
     }
   }, [rid, connectSignalR, isDoctor, audioRecorder, consultationStartedAt]);
 
-  // Effect: when doctor joins, DON'T auto-start. Wait for button press.
+  // Auto-start robusto: quando médico e paciente já estão conectados na sala,
+  // inicia consulta automaticamente para evitar perder transcrição por falta de clique.
   useEffect(() => {
-    if (callState === 'joined' && isDoctor && rid) {
-      // Just connect SignalR for readiness, but don't start consultation or timer
-      // The doctor will press "Iniciar Consulta" button
-    }
-  }, [callState, isDoctor, rid]);
+    if (callState !== 'joined' || !isDoctor || !rid) return;
+    if (!remoteParticipant) return;
+    if (timerStartedRef.current) return;
+    handleStartTimer().catch(() => {});
+  }, [callState, isDoctor, rid, remoteParticipant, handleStartTimer]);
 
   // Patient: load time bank balance
   useEffect(() => {
