@@ -53,15 +53,21 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         string? previousAnamnesisJson,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("[Anamnese IA] INICIO transcriptLen={Len} previousAnamnesisLen={PrevLen}",
+            transcriptSoFar?.Length ?? 0, previousAnamnesisJson?.Length ?? 0);
+
         var apiKey = _config.Value?.ApiKey?.Trim();
         if (string.IsNullOrEmpty(apiKey))
         {
-            _logger.LogDebug("Anamnese IA: OpenAI:ApiKey não configurada.");
+            _logger.LogWarning("[Anamnese IA] ANAMNESE_NAO_OCORRE: OpenAI:ApiKey não configurada. Defina OpenAI:ApiKey em appsettings ou variável OpenAI__ApiKey.");
             return null;
         }
 
         if (string.IsNullOrWhiteSpace(transcriptSoFar))
+        {
+            _logger.LogWarning("[Anamnese IA] ANAMNESE_NAO_OCORRE: Transcript vazio ou nulo.");
             return null;
+        }
 
         var systemPrompt = """
 Você é um assistente de apoio à consulta médica, atuando como COPILOTO DO MÉDICO.
@@ -130,23 +136,32 @@ REGRAS:
         client.Timeout = TimeSpan.FromSeconds(45);
 
         using var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
+        _logger.LogInformation("[Anamnese IA] Chamando OpenAI: model={Model} transcriptPreview={Preview}",
+            _config.Value?.Model ?? "gpt-4o", transcriptSoFar.Length > 100 ? transcriptSoFar[..100] + "..." : transcriptSoFar);
+
         var response = await client.PostAsync($"{ApiBaseUrl}/chat/completions", requestContent, cancellationToken);
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            var err = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Anamnese IA API error: {StatusCode}, {Body}", response.StatusCode, err);
-            await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
-                serviceName: nameof(ConsultationAnamnesisService),
-                modelName: _config.Value?.Model ?? "gpt-4o",
-                promptHash: promptHash,
-                success: false,
-                durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds,
-                errorMessage: err.Length > 500 ? err[..500] : err), cancellationToken);
+            _logger.LogWarning("[Anamnese IA] ANAMNESE_NAO_OCORRE: OpenAI API error StatusCode={StatusCode} | Response={Response}",
+                response.StatusCode, responseJson.Length > 500 ? responseJson[..500] + "..." : responseJson);
+            try
+            {
+                await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
+                    serviceName: nameof(ConsultationAnamnesisService),
+                    modelName: _config.Value?.Model ?? "gpt-4o",
+                    promptHash: promptHash,
+                    success: false,
+                    durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds,
+                    errorMessage: responseJson.Length > 500 ? responseJson[..500] : responseJson), cancellationToken);
+            }
+            catch (Exception logEx)
+            {
+                _logger.LogWarning(logEx, "[Anamnese IA] Falha ao gravar log de erro em ai_interaction_logs.");
+            }
             return null;
         }
-
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         string? content = null;
         try
         {
@@ -157,12 +172,17 @@ REGRAS:
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Anamnese IA: falha ao extrair content da resposta.");
+            _logger.LogWarning(ex, "[Anamnese IA] ANAMNESE_NAO_OCORRE: Falha ao extrair content da resposta OpenAI. ResponsePreview={Preview}",
+                responseJson.Length > 500 ? responseJson[..500] + "..." : responseJson);
             return null;
         }
 
         if (string.IsNullOrWhiteSpace(content))
+        {
+            _logger.LogWarning("[Anamnese IA] ANAMNESE_NAO_OCORRE: OpenAI retornou content vazio. ResponsePreview={Preview}",
+                responseJson.Length > 300 ? responseJson[..300] + "..." : responseJson);
             return null;
+        }
 
         var cleaned = CleanJsonResponse(content);
         try
@@ -217,19 +237,30 @@ REGRAS:
             // Evidências PubMed: busca por CID, sintomas e queixa; traduz abstracts para português
             var evidence = await FetchAndTranslateEvidenceAsync(root, apiKey, cancellationToken);
 
-            await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
-                serviceName: nameof(ConsultationAnamnesisService),
-                modelName: _config.Value?.Model ?? "gpt-4o",
-                promptHash: promptHash,
-                success: true,
-                responseSummary: cleaned.Length > 500 ? cleaned[..500] : cleaned,
-                durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds), cancellationToken);
+            try
+            {
+                await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
+                    serviceName: nameof(ConsultationAnamnesisService),
+                    modelName: _config.Value?.Model ?? "gpt-4o",
+                    promptHash: promptHash,
+                    success: true,
+                    responseSummary: cleaned.Length > 500 ? cleaned[..500] : cleaned,
+                    durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds), cancellationToken);
+            }
+            catch (Exception logEx)
+            {
+                _logger.LogWarning(logEx, "[Anamnese IA] Falha ao gravar em ai_interaction_logs (resultado será retornado mesmo assim). Verifique se a tabela existe.");
+            }
+
+            _logger.LogInformation("[Anamnese IA] SUCESSO: anamnesisJsonLen={Len} suggestions={Count} evidence={EvidenceCount} durationMs={Ms}",
+                enrichedJson.Length, suggestions.Count, evidence.Count, (long)(DateTime.UtcNow - startedAt).TotalMilliseconds);
 
             return new ConsultationAnamnesisResult(enrichedJson, suggestions, evidence);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Anamnese IA: falha ao parsear JSON de resposta. Conteúdo: {Content}", cleaned[..Math.Min(200, cleaned.Length)]);
+            _logger.LogWarning(ex, "[Anamnese IA] ANAMNESE_NAO_OCORRE: Falha ao parsear JSON de resposta. Conteúdo: {Content}",
+                cleaned[..Math.Min(300, cleaned.Length)]);
             return null;
         }
     }

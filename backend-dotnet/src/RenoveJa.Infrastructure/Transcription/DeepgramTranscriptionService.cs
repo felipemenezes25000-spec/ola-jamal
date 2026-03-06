@@ -34,17 +34,20 @@ public class DeepgramTranscriptionService : ITranscriptionService
         string? fileName = null,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("[Deepgram] TranscribeAsync INICIO | fileName={FileName} | audioBytesLen={Len}",
+            fileName ?? "(null)", audioBytes?.Length ?? 0);
+
         var cfg = _config.Value ?? new DeepgramConfig();
         var apiKey = cfg.ApiKey?.Trim();
         if (string.IsNullOrEmpty(apiKey))
         {
-            _logger.LogWarning("[Deepgram] DEEPGRAM_API_KEY não configurada. Transcrição ignorada.");
+            _logger.LogWarning("[Deepgram] TRANSCRICAO_NAO_OCORRE: DEEPGRAM_API_KEY não configurada. Verifique Deepgram:ApiKey ou variável Deepgram__ApiKey.");
             return null;
         }
 
         if (audioBytes == null || audioBytes.Length == 0)
         {
-            _logger.LogWarning("[Deepgram] Áudio vazio ou nulo recebido.");
+            _logger.LogWarning("[Deepgram] TRANSCRICAO_NAO_OCORRE: Áudio vazio ou nulo recebido.");
             return null;
         }
 
@@ -55,11 +58,8 @@ public class DeepgramTranscriptionService : ITranscriptionService
             $"{ApiUrl}?model={Uri.EscapeDataString(model)}&language={Uri.EscapeDataString(language)}&smart_format=true&punctuate=true";
 
         _logger.LogInformation(
-            "[Deepgram] Transcrevendo áudio: {Bytes} bytes, arquivo: {FileName}, model: {Model}, language: {Language}",
-            audioBytes.Length,
-            fileName ?? "(sem nome)",
-            model,
-            language);
+            "[Deepgram] Enviando para API: {Bytes} bytes, mime={Mime}, model={Model}, language={Language}",
+            audioBytes.Length, mime, model, language);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Token", apiKey);
@@ -69,12 +69,22 @@ public class DeepgramTranscriptionService : ITranscriptionService
         var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(30);
 
-        var response = await client.SendAsync(request, cancellationToken);
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        string json;
+        try
         {
-            _logger.LogWarning("[Deepgram] API erro: StatusCode={StatusCode}, Response={Response}", response.StatusCode, json);
+            var response = await client.SendAsync(request, cancellationToken);
+            json = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("[Deepgram] TRANSCRICAO_NAO_OCORRE: API erro StatusCode={StatusCode} | Response={Response}",
+                    response.StatusCode, json.Length > 500 ? json[..500] + "..." : json);
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Deepgram] TRANSCRICAO_NAO_OCORRE: Exceção ao chamar API Deepgram.");
             return null;
         }
 
@@ -85,29 +95,33 @@ public class DeepgramTranscriptionService : ITranscriptionService
             var channels = results.GetProperty("channels");
             if (channels.GetArrayLength() == 0)
             {
-                _logger.LogWarning("[Deepgram] Resposta sem channels.");
+                _logger.LogWarning("[Deepgram] TRANSCRICAO_NAO_OCORRE: Resposta JSON sem channels. ResponsePreview={Preview}",
+                    json.Length > 300 ? json[..300] + "..." : json);
                 return null;
             }
             var alternatives = channels[0].GetProperty("alternatives");
             if (alternatives.GetArrayLength() == 0)
             {
-                _logger.LogInformation("[Deepgram] Nenhuma fala detectada no áudio.");
+                _logger.LogInformation("[Deepgram] TRANSCRICAO_VAZIA: Nenhuma fala detectada no áudio (Deepgram retornou alternatives vazio).");
                 return null;
             }
             var transcript = alternatives[0].GetProperty("transcript").GetString()?.Trim();
 
             if (!string.IsNullOrWhiteSpace(transcript))
             {
-                _logger.LogInformation("[Deepgram] Transcrição OK: {Length} caracteres", transcript.Length);
+                _logger.LogInformation("[Deepgram] Transcrição OK: {Length} caracteres | preview={Preview}",
+                    transcript.Length, transcript.Length > 80 ? transcript[..80] + "..." : transcript);
                 return transcript;
             }
 
-            _logger.LogWarning("[Deepgram] Resposta sem texto útil.");
+            _logger.LogWarning("[Deepgram] TRANSCRICAO_NAO_OCORRE: Resposta sem texto útil (transcript vazio). ResponsePreview={Preview}",
+                json.Length > 300 ? json[..300] + "..." : json);
             return null;
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "[Deepgram] Falha ao parsear resposta JSON. Response={Response}", json.Length > 500 ? json[..500] + "..." : json);
+            _logger.LogWarning(ex, "[Deepgram] TRANSCRICAO_NAO_OCORRE: Falha ao parsear JSON. ResponsePreview={Preview}",
+                json.Length > 500 ? json[..500] + "..." : json);
             return null;
         }
     }

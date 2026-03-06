@@ -26,21 +26,34 @@ public class ConsultationSessionStore : IConsultationSessionStore
     public void EnsureSession(Guid requestId, Guid patientId)
     {
         var key = KeyPrefix + requestId;
+        var created = false;
         _cache.GetOrCreate(key, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = SessionExpiration;
+            created = true;
             return new SessionState(patientId);
         });
+        if (created)
+            _logger.LogInformation("[ConsultationSession] Sessão criada RequestId={RequestId} PatientId={PatientId}", requestId, patientId);
     }
 
     public void AppendTranscript(Guid requestId, string text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _logger.LogDebug("[ConsultationSession] AppendTranscript ignorado: texto vazio RequestId={RequestId}", requestId);
+            return;
+        }
         var key = KeyPrefix + requestId;
-        if (!_cache.TryGetValue(key, out SessionState? state) || state == null) return;
+        if (!_cache.TryGetValue(key, out SessionState? state) || state == null)
+        {
+            _logger.LogWarning("[ConsultationSession] TRANSCRICAO_PERDIDA: Sessão não encontrada ao append. RequestId={RequestId} textLen={Len}", requestId, text.Length);
+            return;
+        }
         lock (state.Lock)
         {
             state.TranscriptBuilder.Append(' ').Append(text.Trim());
+            _logger.LogDebug("[ConsultationSession] Transcript append RequestId={RequestId} totalLen={Len}", requestId, state.TranscriptBuilder.Length);
         }
     }
 
