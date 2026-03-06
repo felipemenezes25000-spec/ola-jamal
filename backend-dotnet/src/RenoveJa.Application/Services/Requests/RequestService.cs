@@ -1398,7 +1398,8 @@ public class RequestService(
                                             PrescriberCrmUf: doctorProfile.CrmState,
                                             PrescriberCrmLast4: GetLast4(doctorProfile.Crm),
                                             IssuedAt: emissionDate,
-                                            IssuedDateStr: emissionDate.ToString("dd/MM/yyyy"));
+                                            IssuedDateStr: emissionDate.ToString("dd/MM/yyyy"),
+                                            PdfHash: signResult.SignedPdfHash);
                                         await prescriptionVerifyRepository.UpsertAsync(verifyRecord, cancellationToken);
                                     }
                                     catch (Exception ex)
@@ -1859,36 +1860,51 @@ public class RequestService(
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
-        if (request.RequestType != RequestType.Prescription)
-            throw new InvalidOperationException("Apenas solicitações de receita podem ser validadas.");
+        if (request.RequestType != RequestType.Prescription && request.RequestType != RequestType.Exam)
+            throw new InvalidOperationException("Apenas solicitações de receita ou exame podem ser validadas.");
         var isDoctor = request.DoctorId == userId;
         var isPatient = request.PatientId == userId;
         if (!isDoctor && !isPatient)
-            throw new UnauthorizedAccessException("Somente o médico ou paciente podem validar a receita.");
-
-        var medications = request.Medications?.Where(m => !string.IsNullOrWhiteSpace(m)).ToList() ?? new List<string>();
-        if (medications.Count == 0 && !string.IsNullOrWhiteSpace(request.AiExtractedJson))
-            medications = ParseMedicationsFromAiJson(request.AiExtractedJson);
+            throw new UnauthorizedAccessException("Somente o médico ou paciente podem validar a receita ou exame.");
 
         var doctorProfile = request.DoctorId.HasValue ? await doctorRepository.GetByUserIdAsync(request.DoctorId.Value, cancellationToken) : null;
         var doctorUser = request.DoctorId.HasValue ? await userRepository.GetByIdAsync(request.DoctorId.Value, cancellationToken) : null;
         var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
 
-        var kind = request.PrescriptionKind ?? PrescriptionKind.Simple;
-        var result = PrescriptionComplianceValidator.Validate(
-            kind,
+        if (request.RequestType == RequestType.Prescription)
+        {
+            var medications = request.Medications?.Where(m => !string.IsNullOrWhiteSpace(m)).ToList() ?? new List<string>();
+            if (medications.Count == 0 && !string.IsNullOrWhiteSpace(request.AiExtractedJson))
+                medications = ParseMedicationsFromAiJson(request.AiExtractedJson);
+
+            var kind = request.PrescriptionKind ?? PrescriptionKind.Simple;
+            var result = PrescriptionComplianceValidator.Validate(
+                kind,
+                request.PatientName,
+                patientUser?.Cpf,
+                patientUser?.Address,
+                patientUser?.Gender,
+                patientUser?.BirthDate,
+                medications,
+                doctorUser?.Name ?? request.DoctorName,
+                doctorProfile?.Crm,
+                doctorProfile?.CrmState,
+                doctorProfile?.ProfessionalAddress,
+                doctorProfile?.ProfessionalPhone);
+            return (result.IsValid, result.MissingFields, result.Messages);
+        }
+
+        var exams = request.Exams?.Where(e => !string.IsNullOrWhiteSpace(e)).ToList() ?? new List<string>();
+        var examResult = PrescriptionComplianceValidator.ValidateExam(
             request.PatientName,
             patientUser?.Cpf,
-            patientUser?.Address,
-            patientUser?.Gender,
-            patientUser?.BirthDate,
-            medications,
+            exams,
             doctorUser?.Name ?? request.DoctorName,
             doctorProfile?.Crm,
             doctorProfile?.CrmState,
             doctorProfile?.ProfessionalAddress,
             doctorProfile?.ProfessionalPhone);
-        return (result.IsValid, result.MissingFields, result.Messages);
+        return (examResult.IsValid, examResult.MissingFields, examResult.Messages);
     }
 
     public async Task<byte[]?> GetPrescriptionPdfPreviewAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)

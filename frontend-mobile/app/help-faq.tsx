@@ -50,6 +50,27 @@ export default function HelpFaqScreen() {
           Entre em contato com o suporte antes que o médico inicie a análise. Após o início do atendimento, o cancelamento pode estar sujeito a políticas específicas.
         </Text>
 
+        <Text style={styles.sectionTitle}>Política de cancelamento e reembolso</Text>
+        <Text style={styles.answer}>
+          Receita/exame: Antes da aprovação do médico, cancelamento gratuito. Se rejeitada pelo médico, estorno integral. Após aprovação e pagamento, antes do médico assinar: entre em contato para avaliar estorno. Após assinatura do documento, não há reembolso.
+        </Text>
+        <Text style={styles.answer}>
+          Consulta: Antes do médico aceitar, cancelamento e estorno integral. Após aceite, antes de iniciar: entre em contato. Banco de minutos não utilizados: crédito pode ser utilizado em nova consulta ou estorno proporcional mediante solicitação.
+        </Text>
+        <Text style={styles.answer}>
+          Prazo de processamento do estorno: até 7 dias úteis (conforme operadora PIX/cartão).
+        </Text>
+
+        <Text style={styles.sectionTitle}>Triagem e decisão médica</Text>
+        <Text style={styles.answer}>
+          Sua solicitação é analisada por um médico. O sistema usa inteligência artificial para organizar as informações e facilitar a análise — a decisão final (aprovar, rejeitar, solicitar mais dados) é sempre do médico.
+        </Text>
+
+        <Text style={styles.sectionTitle}>Suporte</Text>
+        <Text style={styles.answer}>
+          Horário de atendimento: seg a sex, 9h às 18h (horário de Brasília). Resposta em até 24 horas úteis. Em caso de urgência médica, procure um pronto-socorro ou ligue 192.
+        </Text>
+
         <Text style={styles.sectionTitle}>Contato</Text>
         <Text style={styles.paragraph}>
           Para dúvidas ou problemas: {COMPANY.phone} ou {COMPANY.website}. O canal de suporte também está disponível na área de Configurações do app.

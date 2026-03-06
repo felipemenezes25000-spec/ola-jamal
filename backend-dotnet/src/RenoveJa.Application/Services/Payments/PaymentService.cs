@@ -4,11 +4,13 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
+using RenoveJa.Application.DTOs.Notifications;
 using RenoveJa.Application.DTOs.Payments;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
+using RenoveJa.Application.Services.Notifications;
 
 namespace RenoveJa.Application.Services.Payments;
 
@@ -20,6 +22,7 @@ public class PaymentService(
     IRequestRepository requestRepository,
     INotificationRepository notificationRepository,
     IPushNotificationSender pushNotificationSender,
+    IPushNotificationDispatcher pushDispatcher,
     IMercadoPagoService mercadoPagoService,
     IUserRepository userRepository,
     IPaymentAttemptRepository paymentAttemptRepository,
@@ -34,6 +37,14 @@ public class PaymentService(
             ? "Consulta pronta. Entre na sala de vídeo."
             : "Pagamento confirmado.";
         return requestEventsPublisher.NotifyRequestUpdatedAsync(request.Id, request.PatientId, request.DoctorId, "paid", message, cancellationToken);
+    }
+
+    /// <summary>Notifica o médico com push + in-app e deep link correto (doctor-request).</summary>
+    private Task NotifyDoctorPaymentPaidAsync(Domain.Entities.MedicalRequest request, CancellationToken cancellationToken)
+    {
+        if (!request.DoctorId.HasValue) return Task.CompletedTask;
+        var pushReq = PushNotificationRules.PaidForDoctor(request.DoctorId.Value, request.Id, request.RequestType);
+        return pushDispatcher.SendAsync(pushReq, cancellationToken);
     }
     /// <summary>
     /// Paciente inicia o pagamento para uma solicitação aprovada. Suporta PIX ou cartão (crédito/débito).
@@ -318,6 +329,8 @@ public class PaymentService(
         if (statusLower == "approved")
         {
             var medicalRequest = await requestRepository.GetByIdAsync(request.RequestId, cancellationToken);
+            if (medicalRequest != null)
+                await NotifyDoctorPaymentPaidAsync(medicalRequest, cancellationToken);
             (notifTitle, notifMsg) = medicalRequest?.RequestType == RequestType.Consultation
                 ? ("Consulta Pronta", "Sua consulta está pronta. Entre na sala de vídeo.")
                 : ("Pagamento com cartão", $"R$ {amount:F2} - Pagamento aprovado.");
@@ -400,13 +413,7 @@ public class PaymentService(
                 : ("Pagamento Confirmado", "Seu pagamento foi confirmado! Sua solicitação está sendo processada.");
             await CreateNotificationAsync(payment.UserId, patientTitle, patientMsg, cancellationToken, payment.RequestId);
 
-            if (request.DoctorId.HasValue)
-            {
-                var doctorMsg = request.RequestType == RequestType.Consultation
-                    ? $"O paciente pagou a consulta. Valor: R$ {payment.Amount.Amount:F2}. Ele pode entrar na sala agora."
-                    : $"O paciente pagou a solicitação de {request.PatientName ?? "paciente"}. Valor: R$ {payment.Amount.Amount:F2}.";
-                await CreateNotificationAsync(request.DoctorId.Value, "Pagamento Recebido", doctorMsg, cancellationToken, payment.RequestId);
-            }
+            await NotifyDoctorPaymentPaidAsync(request, cancellationToken);
         }
 
         return MapToDto(payment);
@@ -575,13 +582,7 @@ public class PaymentService(
                     : ("Pagamento Confirmado", "Seu pagamento foi confirmado automaticamente!");
                 await CreateNotificationAsync(payment.UserId, patientTitle, patientMsg, cancellationToken, payment.RequestId);
 
-                if (request.DoctorId.HasValue)
-                {
-                    var doctorMsg = request.RequestType == RequestType.Consultation
-                        ? $"O paciente pagou a consulta. Valor: R$ {payment.Amount.Amount:F2}. Ele pode entrar na sala agora."
-                        : $"O paciente pagou a solicitação. Valor: R$ {payment.Amount.Amount:F2}.";
-                    await CreateNotificationAsync(request.DoctorId.Value, "Pagamento Recebido", doctorMsg, cancellationToken, payment.RequestId);
-                }
+                await NotifyDoctorPaymentPaidAsync(request, cancellationToken);
             }
         }
         else if (realStatus.Equals("rejected", StringComparison.OrdinalIgnoreCase) ||
@@ -647,13 +648,7 @@ public class PaymentService(
                     : ("Pagamento Confirmado", "Seu pagamento foi confirmado!");
                 await CreateNotificationAsync(payment.UserId, patientTitle, patientMsg, cancellationToken, payment.RequestId);
 
-                if (request.DoctorId.HasValue)
-                {
-                    var doctorMsg = request.RequestType == RequestType.Consultation
-                        ? $"O paciente pagou a consulta. Valor: R$ {payment.Amount.Amount:F2}. Ele pode entrar na sala agora."
-                        : $"O paciente pagou a solicitação. Valor: R$ {payment.Amount.Amount:F2}.";
-                    await CreateNotificationAsync(request.DoctorId.Value, "Pagamento Recebido", doctorMsg, cancellationToken, payment.RequestId);
-                }
+                await NotifyDoctorPaymentPaidAsync(request, cancellationToken);
             }
         }
         else if (realStatus.Equals("rejected", StringComparison.OrdinalIgnoreCase) ||

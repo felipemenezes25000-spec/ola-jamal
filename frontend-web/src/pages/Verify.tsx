@@ -192,6 +192,10 @@ export default function Verify() {
         <div style={styles.guardrail} role="alert">
           {GUARDRAIL_ALERT}
         </div>
+
+        <footer style={styles.footer}>
+          <a href="/cookies" style={styles.footerLink}>Política de Cookies</a>
+        </footer>
       </div>
     </div>
   );
@@ -334,5 +338,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     fontSize: 12,
     color: '#92400e',
+  },
+  footer: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTop: '1px solid #e2e8f0',
+    fontSize: 12,
+    color: '#64748b',
+  },
+  footerLink: {
+    color: '#2563eb',
+    textDecoration: 'none',
   },
 };

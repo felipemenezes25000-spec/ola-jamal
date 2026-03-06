@@ -248,7 +248,9 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
             "pending" => "submitted",
             "analyzing" => "in_review",
             "pending_payment" => "approved_pending_payment",
+            "payment_pending" => "approved_pending_payment",
             "approved" => "paid",
+            "awaiting_signature" => "paid",
             "completed" => "delivered",
             _ => normalized,
         };

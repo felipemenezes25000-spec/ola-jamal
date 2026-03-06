@@ -143,6 +143,70 @@ public class PrescriptionComplianceValidator
     }
 
     /// <summary>
+    /// Valida dados para solicitação de exame.
+    /// Exige: paciente.nome, paciente.cpf, ao menos um exame, médico.nome, crm/uf, endereço/telefone.
+    /// </summary>
+    public static ValidationResult ValidateExam(
+        string? patientName,
+        string? patientCpf,
+        IReadOnlyList<string> exams,
+        string? doctorName,
+        string? doctorCrm,
+        string? doctorCrmState,
+        string? doctorAddress,
+        string? doctorPhone)
+    {
+        var missing = new List<string>();
+        var messages = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(patientName))
+        {
+            missing.Add("paciente.nome");
+            messages.Add("Nome do paciente é obrigatório.");
+        }
+
+        if (string.IsNullOrWhiteSpace(patientCpf))
+        {
+            missing.Add("paciente.cpf");
+            messages.Add("CPF do paciente é obrigatório em todas as solicitações de exame.");
+        }
+
+        // Exames podem ser vazios (o PDF usa "Exames conforme solicitação médica" como fallback)
+
+        if (string.IsNullOrWhiteSpace(doctorName))
+        {
+            missing.Add("médico.nome");
+            messages.Add("Nome do médico é obrigatório.");
+        }
+
+        if (string.IsNullOrWhiteSpace(doctorCrm))
+        {
+            missing.Add("médico.crm");
+            messages.Add("CRM do médico é obrigatório.");
+        }
+
+        if (string.IsNullOrWhiteSpace(doctorCrmState))
+        {
+            missing.Add("médico.uf");
+            messages.Add("UF do CRM é obrigatória.");
+        }
+
+        if (string.IsNullOrWhiteSpace(doctorAddress))
+        {
+            missing.Add("médico.endereço");
+            messages.Add("Endereço profissional do médico é obrigatório para solicitação de exame.");
+        }
+
+        if (string.IsNullOrWhiteSpace(doctorPhone))
+        {
+            missing.Add("médico.telefone");
+            messages.Add("Telefone profissional do médico é obrigatório para solicitação de exame.");
+        }
+
+        return new ValidationResult(missing.Count == 0, missing, messages);
+    }
+
+    /// <summary>
     /// Valida conforme o tipo de receita.
     /// </summary>
     public static ValidationResult Validate(

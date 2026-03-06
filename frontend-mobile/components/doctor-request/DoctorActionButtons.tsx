@@ -13,6 +13,7 @@ interface DoctorActionButtonsProps {
   canVideo: boolean;
   actionLoading: boolean;
   isPrescription: boolean;
+  isExam?: boolean;
   onApprove: () => void;
   onReject: () => void;
   onSign: () => void;
@@ -40,6 +41,7 @@ export function DoctorActionButtons({
   canVideo,
   actionLoading,
   isPrescription,
+  isExam = false,
   onApprove,
   onReject,
   onSign,
@@ -125,7 +127,7 @@ export function DoctorActionButtons({
           {canApprove && (
             <AppButton title="Aprovar" variant="doctorPrimary" onPress={onApprove} loading={actionLoading} style={s.actionBtnFull} />
           )}
-          {canSign && isPrescription && (
+          {canSign && (isPrescription || isExam) && (
             <AppButton
               title="Visualizar e Assinar"
               variant="doctorPrimary"
@@ -134,7 +136,7 @@ export function DoctorActionButtons({
               style={s.actionBtnFull}
             />
           )}
-          {canSign && !isPrescription && (
+          {canSign && !isPrescription && !isExam && (
             <AppButton title="Assinar Digitalmente" variant="doctorPrimary" onPress={onToggleSignForm} style={s.actionBtnFull} />
           )}
           {canVideo && (

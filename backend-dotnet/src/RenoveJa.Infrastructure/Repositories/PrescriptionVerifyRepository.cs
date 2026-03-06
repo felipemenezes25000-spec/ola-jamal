@@ -31,6 +31,7 @@ public class PrescriptionVerifyRepository(
             PrescriberCrmLast4 = record.PrescriberCrmLast4,
             VerifyCodeHash = record.VerifyCodeHash,
             PdfStoragePath = record.PdfStoragePath,
+            PdfHash = record.PdfHash,
         };
 
         try
@@ -104,5 +105,8 @@ public class PrescriptionVerifyRepository(
 
         [JsonPropertyName("pdf_storage_path")]
         public string PdfStoragePath { get; init; } = "";
+
+        [JsonPropertyName("pdf_hash")]
+        public string? PdfHash { get; init; }
     }
 }

@@ -220,19 +220,19 @@ public class DigitalCertificateService : IDigitalCertificateService
             var certificate = await _certificateRepository.GetByIdAsync(certificateId, cancellationToken);
             if (certificate == null)
             {
-                return new DigitalSignatureResult(false, "Certificado não encontrado.", null, null, null);
+                return new DigitalSignatureResult(false, "Certificado não encontrado.", null, null, null, null);
             }
 
             if (!certificate.IsReadyForSigning())
             {
-                return new DigitalSignatureResult(false, "Certificado não está pronto para assinatura.", null, null, null);
+                return new DigitalSignatureResult(false, "Certificado não está pronto para assinatura.", null, null, null, null);
             }
 
             // Baixa o PFX criptografado do storage
             var encryptedPfxData = await _storageService.DownloadAsync(certificate.PfxStoragePath, cancellationToken);
             if (encryptedPfxData == null)
             {
-                return new DigitalSignatureResult(false, "Arquivo do certificado não encontrado no storage.", null, null, null);
+                return new DigitalSignatureResult(false, "Arquivo do certificado não encontrado no storage.", null, null, null, null);
             }
 
             // Descriptografa o PFX (extrai bytes e senha armazenada)
@@ -240,7 +240,7 @@ public class DigitalCertificateService : IDigitalCertificateService
             var userPassword = (pfxPassword ?? "").Trim();
             if (string.IsNullOrWhiteSpace(storedPassword) && string.IsNullOrWhiteSpace(userPassword))
             {
-                return new DigitalSignatureResult(false, "Senha do certificado PFX é obrigatória para assinar. Envie PfxPassword no corpo da requisição.", null, null, null);
+                return new DigitalSignatureResult(false, "Senha do certificado PFX é obrigatória para assinar. Envie PfxPassword no corpo da requisição.", null, null, null, null);
             }
 
             // Tenta assinar: prioriza senha digitada pelo usuário (ele sabe a senha certa), depois senha armazenada no upload.
@@ -265,8 +265,11 @@ public class DigitalCertificateService : IDigitalCertificateService
 
             if (signedPdfBytes == null)
             {
-                return new DigitalSignatureResult(false, "Senha do certificado inválida. Use a mesma senha configurada no upload do certificado.", null, null, null);
+                return new DigitalSignatureResult(false, "Senha do certificado inválida. Use a mesma senha configurada no upload do certificado.", null, null, null, null);
             }
+
+            // Hash SHA256 do PDF assinado (prova de integridade para auditoria)
+            var pdfHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(signedPdfBytes)).ToLowerInvariant();
 
             // Upload do PDF assinado
             var signedPath = $"signed/{outputFileName}";
@@ -278,7 +281,7 @@ public class DigitalCertificateService : IDigitalCertificateService
 
             if (!uploadResult.Success)
             {
-                return new DigitalSignatureResult(false, "Erro ao armazenar PDF assinado.", null, null, null);
+                return new DigitalSignatureResult(false, "Erro ao armazenar PDF assinado.", null, null, null, null);
             }
 
             var signedAt = DateTime.UtcNow;
@@ -290,7 +293,7 @@ public class DigitalCertificateService : IDigitalCertificateService
             // IMPORTANTE:
             // O bucket prescriptions pode ser privado. Não persista URL pública /object/public.
             // Persista o PATH estável, e sirva o arquivo via endpoint do backend (stream) usando service_role.
-            return new DigitalSignatureResult(true, null, signedPath, signatureId, signedAt);
+            return new DigitalSignatureResult(true, null, signedPath, signatureId, signedAt, pdfHash);
         }
         catch (Exception ex)
         {
@@ -310,7 +313,7 @@ public class DigitalCertificateService : IDigitalCertificateService
             {
                 msg = $"Erro ao assinar: {ex.Message}";
             }
-            return new DigitalSignatureResult(false, msg, null, null, null);
+            return new DigitalSignatureResult(false, msg, null, null, null, null);
         }
     }
 

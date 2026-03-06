@@ -358,6 +358,11 @@ export async function getPreviewPdf(requestId: string): Promise<Blob> {
   return apiClient.getBlob(`/api/requests/${requestId}/preview-pdf`);
 }
 
+/** Retorna o PDF em blob para preview (pedido de exame). */
+export async function getPreviewExamPdf(requestId: string): Promise<Blob> {
+  return apiClient.getBlob(`/api/requests/${requestId}/preview-exam-pdf`);
+}
+
 /** Valida conformidade da receita (campos obrigatórios por tipo). Retorna { valid, missingFields?, messages? }. */
 /** Valida conformidade da receita (campos obrigatórios por tipo). */
 export async function validatePrescription(

@@ -21,7 +21,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
-import { fetchRequestById, markRequestDelivered, cancelRequest, getAssistantNextAction } from '../../lib/api';
+import { fetchRequestById, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
 import { formatBRL, formatDateTimeBR } from '../../lib/utils/format';
@@ -35,7 +35,6 @@ import { FormattedAiSummary } from '../../components/FormattedAiSummary';
 import { ObservationCard } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { getNextBestActionForRequest, type NextActionIntent } from '../../lib/domain/assistantIntelligence';
-import type { AssistantNextActionResponseData } from '../../lib/api';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 /** Texto expansível: mostra N linhas com "Ver mais" / "Ver menos". */
@@ -123,7 +122,6 @@ export default function RequestDetailScreen() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [nextActionFromApi, setNextActionFromApi] = useState<AssistantNextActionResponseData | null>(null);
   const [documentActionLoading, setDocumentActionLoading] = useState(false);
   const { isConnected } = useNetworkStatus();
 
@@ -230,33 +228,6 @@ export default function RequestDetailScreen() {
     requestId: request?.id ?? undefined,
     doctorConductNotes: request?.doctorConductNotes ?? undefined,
   });
-
-  /** Next action da Dra.: API como fonte, fallback local em erro. */
-  useEffect(() => {
-    if (!request?.id) {
-      setNextActionFromApi(null);
-      return;
-    }
-    let cancelled = false;
-    getAssistantNextAction({ requestId: request.id })
-      .then((res) => {
-        if (!cancelled) setNextActionFromApi(res);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          const local = getNextBestActionForRequest(request);
-          setNextActionFromApi({
-            title: local.title,
-            statusSummary: local.statusSummary,
-            whatToDo: local.whatToDo,
-            eta: local.eta,
-            ctaLabel: local.ctaLabel ?? null,
-            intent: local.intent,
-          });
-        }
-      });
-    return () => { cancelled = true; };
-  }, [request?.id]);
 
   const handlePay = () => {
     if (payInFlightRef.current) return;
@@ -445,15 +416,8 @@ export default function RequestDetailScreen() {
   const canJoinVideo = ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
   const canCancel = ['submitted', 'in_review', 'approved_pending_payment', 'pending_payment', 'searching_doctor'].includes(request.status);
   const stickyBottomOffset = canPay ? 132 : 0;
-  const nextActionLocal = getNextBestActionForRequest(request);
-  const nextAction = nextActionFromApi ?? {
-    title: nextActionLocal.title,
-    statusSummary: nextActionLocal.statusSummary,
-    whatToDo: nextActionLocal.whatToDo,
-    eta: nextActionLocal.eta,
-    ctaLabel: nextActionLocal.ctaLabel ?? null,
-    intent: nextActionLocal.intent,
-  };
+  // Sempre usar request atual — evita dessincronia (ex: polling atualiza para paid mas API retornava "falta pagamento")
+  const nextAction = getNextBestActionForRequest(request);
   const nextActionQuickCta =
     nextAction.intent === 'pay' && canPay
       ? { label: nextAction.ctaLabel ?? 'Pagar agora', onPress: handlePay }

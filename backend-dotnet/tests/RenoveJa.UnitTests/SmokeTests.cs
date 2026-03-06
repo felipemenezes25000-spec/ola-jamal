@@ -311,6 +311,7 @@ public class PaymentServiceWebhookValidationSmokeTests
         var requestRepoMock = new Mock<IRequestRepository>();
         var notificationRepoMock = new Mock<INotificationRepository>();
         var pushSenderMock = new Mock<IPushNotificationSender>();
+        var pushDispatcherMock = new Mock<IPushNotificationDispatcher>();
         var mercadoPagoMock = new Mock<IMercadoPagoService>();
         var userRepoMock = new Mock<IUserRepository>();
         var paymentAttemptRepoMock = new Mock<IPaymentAttemptRepository>();
@@ -323,6 +324,7 @@ public class PaymentServiceWebhookValidationSmokeTests
             requestRepoMock.Object,
             notificationRepoMock.Object,
             pushSenderMock.Object,
+            pushDispatcherMock.Object,
             mercadoPagoMock.Object,
             userRepoMock.Object,
             paymentAttemptRepoMock.Object,

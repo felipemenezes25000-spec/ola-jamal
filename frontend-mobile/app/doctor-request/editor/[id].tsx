@@ -22,7 +22,9 @@ import {
   getRequestById,
   signRequest,
   getPreviewPdf,
+  getPreviewExamPdf,
   updatePrescriptionContent,
+  updateExamContent,
   updateConduct,
   parseAiSuggestedExams,
   validatePrescription,
@@ -239,6 +241,7 @@ export default function PrescriptionEditorScreen() {
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [medications, setMedications] = useState<string[]>([]);
+  const [exams, setExams] = useState<string[]>([]);
   const [prescriptionKind, setPrescriptionKind] = useState<PrescriptionKind>('simple');
   const [rejectedSuggestions, setRejectedSuggestions] = useState<Set<string>>(new Set());
   const [editingSuggestionIndex, setEditingSuggestionIndex] = useState<number | null>(null);
@@ -282,7 +285,7 @@ export default function PrescriptionEditorScreen() {
   }, [requestId]);
 
   useEffect(() => {
-    if (request?.requestType === 'prescription' && requestId) {
+    if ((request?.requestType === 'prescription' || request?.requestType === 'exam') && requestId) {
       refreshCompliance();
     }
   }, [request?.id, request?.requestType, requestId, refreshCompliance]);
@@ -312,6 +315,8 @@ export default function PrescriptionEditorScreen() {
       setRequest(data);
       const meds = data.medications?.filter(Boolean) ?? [];
       setMedications(meds.length > 0 ? meds : []);
+      const examList = data.exams?.filter(Boolean) ?? [];
+      setExams(examList.length > 0 ? examList : ['']);
       setNotes(data.notes ?? '');
       setConductNotes(data.doctorConductNotes ?? '');
       setIncludeInPdf(data.includeConductInPdf !== false);
@@ -324,13 +329,14 @@ export default function PrescriptionEditorScreen() {
   }, [requestId]);
 
   const loadPdfPreview = useCallback(async () => {
-    if (!requestId) return;
+    if (!requestId || !request) return;
     setPdfLoading(true);
     try {
-      const blob = await getPreviewPdf(requestId);
+      const getPreview = request.requestType === 'exam' ? getPreviewExamPdf : getPreviewPdf;
+      const blob = await getPreview(requestId);
       if (!blob || blob.size === 0) {
         setPdfUri(null);
-        showToast({ message: 'Preview não disponível. Verifique se há medicamentos na receita.', type: 'warning' });
+        showToast({ message: request.requestType === 'exam' ? 'Preview não disponível para o pedido de exame.' : 'Preview não disponível. Verifique se há medicamentos na receita.', type: 'warning' });
         return;
       }
       if (__DEV__) console.info('[PDF_PREVIEW] Blob recebido:', { size: blob.size, type: blob.type });
@@ -360,14 +366,14 @@ export default function PrescriptionEditorScreen() {
     } finally {
       setPdfLoading(false);
     }
-  }, [requestId]);
+  }, [requestId, request?.requestType]);
 
   useEffect(() => {
     loadRequest();
   }, [loadRequest]);
 
   useEffect(() => {
-    if (request?.requestType === 'prescription') {
+    if (request?.requestType === 'prescription' || request?.requestType === 'exam') {
       loadPdfPreview();
     }
     return () => {
@@ -379,6 +385,23 @@ export default function PrescriptionEditorScreen() {
   }, [request?.id, request?.requestType, loadPdfPreview]);
 
   const handleSave = async () => {
+    if (isExam) {
+      const examList = exams.map((e) => e.trim()).filter(Boolean);
+      setSaving(true);
+      try {
+        await updateExamContent(requestId, { exams: examList.length > 0 ? examList : undefined, notes: notes.trim() || undefined });
+        await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
+        await loadRequest();
+        await loadPdfPreview();
+        await refreshCompliance();
+        showToast({ message: 'Alterações salvas. Preview atualizado.', type: 'success' });
+      } catch (e: any) {
+        showToast({ message: e?.message || 'Falha ao salvar.', type: 'error' });
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     const meds = medications.map((m) => m.trim()).filter(Boolean);
     if (meds.length === 0) {
       showToast({ message: 'Adicione ao menos um medicamento à receita.', type: 'warning' });
@@ -410,11 +433,16 @@ export default function PrescriptionEditorScreen() {
     }
     setSigning(true);
     try {
-      await updatePrescriptionContent(requestId, {
-        medications: medications.map((m) => m.trim()).filter(Boolean),
-        notes: notes.trim() || undefined,
-        prescriptionKind,
-      });
+      if (isExam) {
+        const examList = exams.map((e) => e.trim()).filter(Boolean);
+        await updateExamContent(requestId, { exams: examList.length > 0 ? examList : undefined, notes: notes.trim() || undefined });
+      } else {
+        await updatePrescriptionContent(requestId, {
+          medications: medications.map((m) => m.trim()).filter(Boolean),
+          notes: notes.trim() || undefined,
+          prescriptionKind,
+        });
+      }
       await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
       const validation = await validatePrescription(requestId);
       if (!validation.valid) {
@@ -539,19 +567,21 @@ export default function PrescriptionEditorScreen() {
     );
   }
 
-  if (request.requestType !== 'prescription') {
+  if (request.requestType !== 'prescription' && request.requestType !== 'exam') {
     return (
       <SafeAreaView style={st.container} edges={['top']}>
         <DoctorHeader title="Editor" onBack={() => router.back()} />
         <View style={st.center}>
           <Ionicons name="document-text-outline" size={56} color={colors.textMuted} />
           <Text style={{ color: colors.textSecondary, marginTop: spacing.sm, fontFamily: typography.fontFamily.regular }}>
-            Editor disponível apenas para receitas.
+            Editor disponível apenas para receitas e exames.
           </Text>
         </View>
       </SafeAreaView>
     );
   }
+
+  const isExam = request.requestType === 'exam';
 
   const pdfViewHeight = Math.max(320, Math.min(500, windowHeight - 220));
 
@@ -563,7 +593,7 @@ export default function PrescriptionEditorScreen() {
   return (
     <SafeAreaView style={st.container} edges={['top']}>
       <DoctorHeader
-        title="Editar Receita"
+        title={isExam ? 'Editar Pedido de Exame' : 'Editar Receita'}
         onBack={() => router.back()}
         right={
           <TouchableOpacity
@@ -633,7 +663,7 @@ export default function PrescriptionEditorScreen() {
               <Ionicons name="document-text" size={22} color={colors.primary} />
               <View style={{ flex: 1 }}>
                 <View style={st.pdfTitleRow}>
-                  <Text style={st.pdfTitle}>Preview da Receita</Text>
+                  <Text style={st.pdfTitle}>{isExam ? 'Preview do Pedido de Exame' : 'Preview da Receita'}</Text>
                   {complianceValidation && !complianceValidation.valid && (
                     <View style={st.draftBadge}>
                       <Text style={st.draftBadgeText}>Rascunho</Text>
@@ -724,7 +754,7 @@ export default function PrescriptionEditorScreen() {
               <View style={[st.pdfPlaceholder, { minHeight: 160 }]}>
                 <Ionicons name="document-outline" size={40} color={colors.textMuted} />
                 <Text style={st.pdfPlaceholderText}>
-                  Adicione medicamentos e salve para gerar o preview.
+                  {isExam ? 'Salve os exames para gerar o preview.' : 'Adicione medicamentos e salve para gerar o preview.'}
                 </Text>
                 <TouchableOpacity onPress={loadPdfPreview} style={st.retryBtn} activeOpacity={0.7}>
                   <Text style={st.retryBtnText}>Tentar novamente</Text>
@@ -733,7 +763,8 @@ export default function PrescriptionEditorScreen() {
             )}
           </DoctorCard>
 
-          {/* Prescription Kind */}
+          {/* Prescription Kind — apenas para receitas */}
+          {!isExam && (
           <DoctorCard style={st.cardMargin}>
             <Text style={st.sectionTitle}>TIPO DE RECEITA</Text>
             <Text style={st.hint}>Selecione o modelo (CFM, RDC 471/2021, ANVISA/SNCR)</Text>
@@ -752,6 +783,7 @@ export default function PrescriptionEditorScreen() {
               ))}
             </View>
           </DoctorCard>
+          )}
 
           {/* AI Analysis */}
           {request.aiSummaryForDoctor && (
@@ -781,8 +813,8 @@ export default function PrescriptionEditorScreen() {
             </DoctorCard>
           )}
 
-          {/* Rascunho IA (OCR) — sugestões extraídas da foto */}
-          {suggestedFromAi.length > 0 && (
+          {/* Rascunho IA (OCR) — sugestões extraídas da foto — apenas para receitas */}
+          {!isExam && suggestedFromAi.length > 0 && (
             <DoctorCard style={st.cardMargin}>
               <View style={st.sectionHeader}>
                 <Text style={st.sectionTitle}>RASCUNHO IA (OCR)</Text>
@@ -835,7 +867,8 @@ export default function PrescriptionEditorScreen() {
             </DoctorCard>
           )}
 
-          {/* CID Search */}
+          {/* CID Search — apenas para receitas */}
+          {!isExam && (
           <DoctorCard style={st.cardMargin}>
             <Text style={st.sectionTitle}>BUSCAR POR CID</Text>
             <Text style={st.hint}>Digite o CID ou nome da condição para ver medicamentos sugeridos</Text>
@@ -864,8 +897,38 @@ export default function PrescriptionEditorScreen() {
               </View>
             )}
           </DoctorCard>
+          )}
 
-          {/* Medications List */}
+          {/* Exams List — apenas para exames */}
+          {isExam && (
+          <DoctorCard style={st.cardMargin}>
+            <View style={st.sectionHeader}>
+              <Text style={st.sectionTitle}>EXAMES SOLICITADOS</Text>
+              <TouchableOpacity onPress={() => setExams((p) => [...p, ''])} style={st.addBtn} activeOpacity={0.7}>
+                <Ionicons name="add-circle" size={22} color={colors.primary} />
+                <Text style={st.addBtnText}>Adicionar</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={st.hint}>Liste os exames solicitados (um por linha)</Text>
+            {exams.map((ex, i) => (
+              <View key={i} style={st.medRow}>
+                <TextInput
+                  style={st.medInput}
+                  value={ex}
+                  onChangeText={(v) => setExams((p) => { const n = [...p]; n[i] = v; return n; })}
+                  placeholder={`Exame ${i + 1}`}
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TouchableOpacity onPress={() => setExams((p) => p.filter((_, idx) => idx !== i))} style={st.removeBtn} hitSlop={8}>
+                  <Ionicons name="remove-circle" size={24} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </DoctorCard>
+          )}
+
+          {/* Medications List — apenas para receitas */}
+          {!isExam && (
           <DoctorCard style={st.cardMargin}>
             <View style={st.sectionHeader}>
               <Text style={st.sectionTitle}>MEDICAMENTOS NA RECEITA</Text>
@@ -896,6 +959,7 @@ export default function PrescriptionEditorScreen() {
               ))
             )}
           </DoctorCard>
+          )}
 
           {/* Notes */}
           <DoctorCard style={st.cardMargin}>
@@ -947,7 +1011,7 @@ export default function PrescriptionEditorScreen() {
                 <Text style={st.signFormTitle}>ASSINATURA DIGITAL</Text>
               </View>
               <Text style={st.signFormDesc}>
-                Ao assinar, você confirma que revisou toda a receita. A assinatura digital é válida conforme ITI/ICP-Brasil.
+                Ao assinar, você confirma que revisou todo o documento. A assinatura digital é válida conforme ITI/ICP-Brasil.
               </Text>
               <Text style={st.signLabel}>Senha do certificado A1:</Text>
               <TextInput

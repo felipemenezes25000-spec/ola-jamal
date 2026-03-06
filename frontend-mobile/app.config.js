@@ -71,7 +71,8 @@ export default {
           "android": { "minSdkVersion": 24 },
           "ios": { "deploymentTarget": "15.1" }
         }
-      ]
+      ],
+      "./plugins/withJitsiMavenCentral.js"
     ],
     experiments: {
       typedRoutes: true

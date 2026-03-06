@@ -12,7 +12,8 @@ public record PrescriptionVerifyRecord(
     string PrescriberCrmLast4,
     DateTime IssuedAt,
     string IssuedDateStr,
-    string Status = "active");
+    string Status = "active",
+    string? PdfHash = null);
 
 /// <summary>
 /// Registra prescrições na tabela 'prescriptions' do Supabase para verificação pública via QR Code.

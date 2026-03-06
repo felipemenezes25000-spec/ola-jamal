@@ -959,6 +959,7 @@ public class PaymentServiceFullTests
     private readonly Mock<IRequestRepository> _requestRepoMock = new();
     private readonly Mock<INotificationRepository> _notifRepoMock = new();
     private readonly Mock<IPushNotificationSender> _pushSenderMock = new();
+    private readonly Mock<IPushNotificationDispatcher> _pushDispatcherMock = new();
     private readonly Mock<IMercadoPagoService> _mercadoPagoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IPaymentAttemptRepository> _paymentAttemptRepoMock = new();
@@ -972,7 +973,7 @@ public class PaymentServiceFullTests
         var mpConfig = Options.Create(new MercadoPagoConfig { WebhookSecret = "test-secret" });
         _sut = new PaymentService(
             _paymentRepoMock.Object, _requestRepoMock.Object,
-            _notifRepoMock.Object, _pushSenderMock.Object,
+            _notifRepoMock.Object, _pushSenderMock.Object, _pushDispatcherMock.Object,
             _mercadoPagoMock.Object, _userRepoMock.Object,
             _paymentAttemptRepoMock.Object, _savedCardRepoMock.Object,
             mpConfig, _requestEventsPublisherMock.Object, _loggerMock.Object);
@@ -1105,7 +1106,7 @@ public class PaymentServiceFullTests
         var eventsPublisherMock = new Mock<IRequestEventsPublisher>();
         var svc = new PaymentService(
             _paymentRepoMock.Object, _requestRepoMock.Object,
-            _notifRepoMock.Object, _pushSenderMock.Object,
+            _notifRepoMock.Object, _pushSenderMock.Object, _pushDispatcherMock.Object,
             _mercadoPagoMock.Object, _userRepoMock.Object,
             _paymentAttemptRepoMock.Object, _savedCardRepoMock.Object,
             noSecretConfig, eventsPublisherMock.Object, _loggerMock.Object);

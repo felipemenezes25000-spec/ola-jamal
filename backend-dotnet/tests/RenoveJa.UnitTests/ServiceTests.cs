@@ -27,6 +27,7 @@ public class PaymentServiceTests
     private readonly Mock<IRequestRepository> _requestRepoMock = new();
     private readonly Mock<INotificationRepository> _notificationRepoMock = new();
     private readonly Mock<IPushNotificationSender> _pushSenderMock = new();
+    private readonly Mock<IPushNotificationDispatcher> _pushDispatcherMock = new();
     private readonly Mock<IMercadoPagoService> _mercadoPagoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IPaymentAttemptRepository> _paymentAttemptRepoMock = new();
@@ -43,6 +44,7 @@ public class PaymentServiceTests
             _requestRepoMock.Object,
             _notificationRepoMock.Object,
             _pushSenderMock.Object,
+            _pushDispatcherMock.Object,
             _mercadoPagoMock.Object,
             _userRepoMock.Object,
             _paymentAttemptRepoMock.Object,

@@ -380,8 +380,8 @@ public class MedicalRequest : AggregateRoot
 
         if (RequestType == Enums.RequestType.Consultation)
         {
-            // Fluxo de consulta: SearchingDoctor -> ApprovedPendingPayment
-            if (Status != RequestStatus.SearchingDoctor && Status != RequestStatus.InReview)
+            // Fluxo de consulta: SearchingDoctor | InReview | ConsultationReady -> ApprovedPendingPayment
+            if (Status != RequestStatus.SearchingDoctor && Status != RequestStatus.InReview && Status != RequestStatus.ConsultationReady)
                 throw new DomainException("Consultation must be searching doctor before approval");
         }
         else

@@ -190,6 +190,7 @@ export default function DoctorRequestDetail() {
           canVideo={canVideo}
           actionLoading={actionLoading}
           isPrescription={request.requestType === 'prescription'}
+          isExam={request.requestType === 'exam'}
           onApprove={handleApprove}
           onReject={handleReject}
           onSign={handleSign}

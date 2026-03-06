@@ -217,7 +217,7 @@ export default function PatientHome() {
         }
       });
     return () => { cancelled = true; };
-  }, [followUpRequest?.id]);
+  }, [followUpRequest?.id, followUpRequest?.status]);
 
   const followUpAction = useMemo(() => {
     if (followUpActionFromApi) return followUpActionFromApi;

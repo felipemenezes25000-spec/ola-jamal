@@ -24,7 +24,8 @@ public record DigitalSignatureResult(
     string? ErrorMessage,
     string? SignedDocumentUrl,
     string? SignatureId,
-    DateTime? SignedAt);
+    DateTime? SignedAt,
+    string? SignedPdfHash = null);
 
 /// <summary>
 /// Serviço para validação e uso de certificados digitais ICP-Brasil.
