@@ -49,6 +49,7 @@ export default {
     plugins: [
       "expo-router",
       "expo-font",
+      "expo-pip",
       [
         "expo-notifications",
         {

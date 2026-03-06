@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "301909318097",
+    "project_id": "renove-ja",
+    "storage_bucket": "renove-ja.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:301909318097:android:6c11cf9d2f4acce46ce8f0",
+        "android_client_info": {
+          "package_name": "com.renoveja.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "301909318097-c25mdaj84d05ou0qj241nmbcbg6mj10v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgX2pcIcRk6HZUAhAesMA4mOlSjp_2Lrw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "301909318097-c25mdaj84d05ou0qj241nmbcbg6mj10v.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "301909318097-u70tf8hk3tejgk2jqrmvi5pbtr3v97e5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.renoveja.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

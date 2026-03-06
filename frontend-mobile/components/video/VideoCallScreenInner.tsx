@@ -4,6 +4,7 @@
  *
  * Features:
  * - Vídeo nativo via DailyMediaView (sem WebView)
+ * - Picture-in-Picture (Android): ao minimizar o app, pop-up flutuante com a pessoa da consulta
  * - Painel lateral de anamnese IA para o médico (deslizante)
  * - Sugestões clínicas da IA em tempo real
  * - Timer sincronizado com servidor + countdown
@@ -34,6 +35,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DailyMediaView } from '@daily-co/react-native-daily-js';
 import * as Clipboard from 'expo-clipboard';
+import ExpoPip from 'expo-pip';
 
 import { colors } from '../../lib/themeDoctor';
 import {
@@ -126,6 +128,9 @@ export default function VideoCallScreenInner() {
 
   const rid = (Array.isArray(requestId) ? requestId[0] : requestId) ?? '';
   const isDoctor = user?.role === 'doctor';
+
+  // PiP: layout simplificado quando em janela flutuante (Android; no iOS retorna false)
+  const isInPipMode = (ExpoPip?.useIsInPip?.() ?? { isInPipMode: false }).isInPipMode;
 
   // Core state
   const [loading, setLoading] = useState(true);
@@ -461,8 +466,27 @@ export default function VideoCallScreenInner() {
     }
   }, [callSeconds, contractedMinutes]);
 
+  // Picture-in-Picture (Android): ao minimizar, pop-up flutuante com a pessoa da consulta
+  useEffect(() => {
+    if (Platform.OS !== 'android' || callState !== 'joined') return;
+    if (!ExpoPip.isAvailable?.()) return;
+    ExpoPip.setPictureInPictureParams?.({
+      autoEnterEnabled: true,
+      title: isDoctor ? 'Consulta — Paciente' : 'Consulta — Médico',
+      subtitle: 'Toque para voltar',
+      width: 360,
+      height: 480,
+    });
+    return () => {
+      ExpoPip.setPictureInPictureParams?.({ autoEnterEnabled: false });
+    };
+  }, [callState, isDoctor]);
+
   // Cleanup
   const cleanup = useCallback(() => {
+    if (Platform.OS === 'android' && ExpoPip.setPictureInPictureParams) {
+      ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
+    }
     if (timerRef.current) clearInterval(timerRef.current);
     audioRecorder.stop();
     disconnectSignalR();
@@ -584,9 +608,9 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Local PiP */}
+      {/* Local PiP — em modo PiP usa posição menor para destacar o remoto */}
       {localParticipant?.videoTrack?.persistentTrack != null && !isCameraOff && (
-        <View style={[S.pip, { top: insets.top + 52 }]}>
+        <View style={[S.pip, { top: isInPipMode ? 8 : insets.top + 52 }]}>
           <DailyMediaView
             videoTrack={localParticipant.videoTrack.persistentTrack}
             audioTrack={null} mirror={isFrontCamera} zOrder={1} style={S.pipVid} objectFit="cover"
@@ -597,7 +621,8 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Top bar */}
+      {/* Top bar — oculto em PiP para janela limpa */}
+      {!isInPipMode && (
       <View style={[S.top, { paddingTop: insets.top + 8 }]}>
         <View style={S.topL}>
           <View style={[S.qPill, { backgroundColor: `${qColor(quality)}22` }]}>
@@ -616,9 +641,10 @@ export default function VideoCallScreenInner() {
           <Text style={[S.tTxt, urgent && S.tTxtUrg, critical && S.tTxtCrit]}>{timerStr}</Text>
         </View>
       </View>
+      )}
 
-      {/* Doctor: panel toggle */}
-      {isDoctor && callState === 'joined' && (
+      {/* Doctor: panel toggle — oculto em PiP */}
+      {!isInPipMode && isDoctor && callState === 'joined' && (
         <TouchableOpacity
           style={[S.panelBtn, { top: insets.top + 60 + 160 }, panelOpen && S.panelBtnOn]}
           onPress={togglePanel} activeOpacity={0.7}
@@ -628,8 +654,8 @@ export default function VideoCallScreenInner() {
         </TouchableOpacity>
       )}
 
-      {/* Doctor: Start Timer / Recording Button */}
-      {isDoctor && callState === 'joined' && !timerStarted && (
+      {/* Doctor: Start Timer / Recording Button — oculto em PiP */}
+      {!isInPipMode && isDoctor && callState === 'joined' && !timerStarted && (
         <View style={S.startTimerOverlay}>
           <TouchableOpacity style={S.startTimerBtn} onPress={handleStartTimer} activeOpacity={0.8}>
             <Ionicons name="play-circle" size={28} color={colors.white} />
@@ -641,24 +667,24 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Doctor: indicador de transcrição ao vivo (paciente grava, médico vê) */}
-      {isDoctor && timerStarted && (transcript.length > 0 || isAiActive) && (
+      {/* Doctor: indicador de transcrição ao vivo — oculto em PiP */}
+      {!isInPipMode && isDoctor && timerStarted && (transcript.length > 0 || isAiActive) && (
         <View style={[S.recIndicator, { top: insets.top + 60 + 100 }]}>
           <View style={S.recDot} />
           <Text style={S.recText}>Transcrição ao vivo</Text>
         </View>
       )}
 
-      {/* Patient: Time Bank Balance */}
-      {!isDoctor && bankBalance && bankBalance.minutes > 0 && (
+      {/* Patient: Time Bank Balance — oculto em PiP */}
+      {!isInPipMode && !isDoctor && bankBalance && bankBalance.minutes > 0 && (
         <View style={[S.bankBadge, { top: insets.top + 60 }]}>
           <Ionicons name="time-outline" size={14} color={colors.success} />
           <Text style={S.bankText}>Saldo: {bankBalance.minutes} min</Text>
         </View>
       )}
 
-      {/* Patient: indicador de transcrição (gravação ativa / erro) — ajuda a diagnosticar "falo e nada acontece" */}
-      {!isDoctor && callState === 'joined' && (
+      {/* Patient: indicador de transcrição — oculto em PiP */}
+      {!isInPipMode && !isDoctor && callState === 'joined' && (
         <View style={[S.recIndicator, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
           {audioRecorder.isRecording ? (
             <>
@@ -685,16 +711,16 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Patient: info about early leave */}
-      {!isDoctor && callState === 'joined' && contractedMinutes && callSeconds > 0 && (
+      {/* Patient: info about early leave — oculto em PiP */}
+      {!isInPipMode && !isDoctor && callState === 'joined' && contractedMinutes && callSeconds > 0 && (
         <View style={[S.earlyLeaveHint, { bottom: 80 + insets.bottom + 12 }]}>
           <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
           <Text style={S.earlyLeaveText}>Sair antes? O tempo restante vai pro seu banco de horas.</Text>
         </View>
       )}
 
-      {/* Doctor: Anamnesis panel */}
-      {isDoctor && (
+      {/* Doctor: Anamnesis panel — oculto em PiP */}
+      {!isInPipMode && isDoctor && (
         <Animated.View
           style={[S.panel, { width: PANEL_WIDTH, top: insets.top + 48, bottom: 80 + insets.bottom, transform: [{ translateX: panelX }] }]}
           pointerEvents={panelOpen ? 'auto' : 'none'}
@@ -860,8 +886,15 @@ export default function VideoCallScreenInner() {
         </Animated.View>
       )}
 
-      {/* Controls */}
+      {/* Controls — oculto em PiP; toque na janela expande o app */}
+      {!isInPipMode && (
       <View style={[S.ctrl, { paddingBottom: insets.bottom + 12 }]}>
+        {Platform.OS === 'android' && ExpoPip?.isAvailable?.() && (
+          <TouchableOpacity style={S.cb} onPress={() => ExpoPip.enterPipMode?.({ width: 360, height: 480 })}>
+            <Ionicons name="contract-outline" size={22} color={colors.white} />
+            <Text style={S.cLbl}>Minimizar</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={[S.cb, isMuted && S.cbOn]} onPress={toggleMute}>
           <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={22} color={colors.white} />
           <Text style={S.cLbl}>{isMuted ? 'Mudo' : 'Mic'}</Text>
@@ -881,6 +914,7 @@ export default function VideoCallScreenInner() {
           <Text style={S.cLbl}>Sair</Text>
         </TouchableOpacity>
       </View>
+      )}
 
       {/* Clinical notes modal */}
       <Modal visible={showNotes} transparent animationType="slide">

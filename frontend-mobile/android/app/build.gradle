@@ -181,4 +181,5 @@ dependencies {
     }
 }
 
+apply plugin: 'com.google.gms.google-services'
 android.packagingOptions.jniLibs.useLegacyPackaging = true
