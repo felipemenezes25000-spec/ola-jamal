@@ -26,6 +26,7 @@ import { trackTriageEvent } from '../lib/triage/triageAnalytics';
 import { enrichTriageMessage } from '../lib/triage/triageEnrichmentApi';
 import { getMessagePriority, getMessageTopic } from '../lib/triage/triagePriority';
 import { getNextBestActionForRequest } from '../lib/domain/assistantIntelligence';
+import { personalizeTriageCopy } from '../lib/triage/triageCopyPersonalization';
 import type { TriageMessage, TriageInput } from '../lib/triage/triage.types';
 
 // ── Feature flags ──────────────────────────────────────────
@@ -128,8 +129,9 @@ export function TriageAssistantProvider({ children }: { children: React.ReactNod
     if (!IS_ENABLED) return;
 
     const ruleMessage = evaluateTriageRules(input);
-    const message = ruleMessage ?? await buildFallbackJourneyMessage(input);
-    if (!message) return;
+    const messageBase = ruleMessage ?? await buildFallbackJourneyMessage(input);
+    if (!messageBase) return;
+    const message = personalizeTriageCopy(messageBase, input);
 
     // Dedupe removido: Dra. Renoveja sempre ajuda, mesmo ao voltar à mesma tela
 
