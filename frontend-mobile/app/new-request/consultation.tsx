@@ -14,7 +14,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { createConsultationRequest, getTimeBankBalance } from '../../lib/api';
+import { showToast } from '../../components/ui/Toast';
+import { useInvalidateRequests } from '../../lib/hooks/useRequestsQuery';
 import { CONSULTATION_PRICE_PER_MINUTE } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
@@ -27,7 +31,6 @@ import { useTriageEval } from '../../hooks/useTriageEval';
 import { detectRedFlags, evaluateConsultationCompleteness } from '../../lib/domain/assistantIntelligence';
 import { evaluateAssistantCompleteness } from '../../lib/api';
 
-const c = theme.colors;
 const s = theme.spacing;
 const r = theme.borderRadius;
 const t = theme.typography;
@@ -54,6 +57,7 @@ const NARROW_BREAKPOINT = 400;
 
 export default function ConsultationScreen() {
   const router = useRouter();
+  const invalidateRequests = useInvalidateRequests();
   const { width } = useWindowDimensions();
   const oneColumn = width < NARROW_BREAKPOINT;
   const [consultationType, setConsultationType] = useState<'psicologo' | 'medico_clinico'>('psicologo');
@@ -64,6 +68,8 @@ export default function ConsultationScreen() {
   const [loading, setLoading] = useState(false);
   const [bankMinutes, setBankMinutes] = useState<number>(0);
   const [loadingBank, setLoadingBank] = useState(false);
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateConsultationCompleteness({
     consultationType,
@@ -168,9 +174,9 @@ export default function ConsultationScreen() {
       if (result.payment) {
         router.replace(`/payment/${result.payment.id}`);
       } else {
-        Alert.alert('Sucesso', 'Consulta solicitada! Aguarde um profissional aceitar.', [
-          { text: 'OK', onPress: () => router.replace('/(patient)/requests') },
-        ]);
+        invalidateRequests();
+        showToast({ message: 'Consulta solicitada! Aguarde um profissional aceitar.', type: 'success' });
+        router.replace('/(patient)/requests');
       }
     } catch (error: unknown) {
       Alert.alert('Erro', getApiErrorMessage(error));
@@ -222,10 +228,10 @@ export default function ConsultationScreen() {
         <StepIndicator current={currentStep} total={4} labels={['Profissional', 'Minutos', 'Sintomas', 'Revisão']} />
         <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
           <View style={styles.assistantHeader}>
-            <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
+            <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
             <Text style={styles.assistantTitle}>Dra. Renoveja: qualidade do envio</Text>
             {apiLoading && (
-              <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
+              <ActivityIndicator size="small" color={colors.primary} style={styles.assistantLoading} />
             )}
           </View>
           <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
@@ -238,14 +244,14 @@ export default function ConsultationScreen() {
         </AppCard>
         {redFlags.isUrgent ? (
           <View style={styles.redFlagCard}>
-            <Ionicons name="warning-outline" size={18} color={c.status.error} />
+            <Ionicons name="warning-outline" size={18} color={colors.error} />
             <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
           </View>
         ) : null}
         {/* Banner */}
         <AppCard style={styles.banner}>
           <View style={styles.iconCircle}>
-            <Ionicons name="videocam" size={28} color={c.primary.main} />
+            <Ionicons name="videocam" size={28} color={colors.primary} />
           </View>
           <View style={styles.bannerTitleWrap}>
             <Text style={styles.bannerTitle} numberOfLines={2}>Consulta Breve - Renoveja+</Text>
@@ -291,7 +297,7 @@ export default function ConsultationScreen() {
             onPress={removeMinutes}
             disabled={durationMinutes <= CONSULTATION_MIN_MINUTES}
           >
-            <Ionicons name="remove" size={24} color={durationMinutes <= CONSULTATION_MIN_MINUTES ? c.text.tertiary : c.primary.main} />
+            <Ionicons name="remove" size={24} color={durationMinutes <= CONSULTATION_MIN_MINUTES ? colors.textMuted : colors.primary} />
           </TouchableOpacity>
           <Text style={styles.minutesStepperValue}>{durationMinutes} min</Text>
           <TouchableOpacity
@@ -299,7 +305,7 @@ export default function ConsultationScreen() {
             onPress={addMinutes}
             disabled={durationMinutes >= CONSULTATION_MAX_MINUTES}
           >
-            <Ionicons name="add" size={24} color={durationMinutes >= CONSULTATION_MAX_MINUTES ? c.text.tertiary : c.primary.main} />
+            <Ionicons name="add" size={24} color={durationMinutes >= CONSULTATION_MAX_MINUTES ? colors.textMuted : colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -311,7 +317,7 @@ export default function ConsultationScreen() {
         <TextInput
           style={styles.textArea}
           placeholder="O que você está sentindo? Desde quando? O que gostaria de esclarecer?"
-          placeholderTextColor={c.text.tertiary}
+          placeholderTextColor={colors.textMuted}
           value={symptoms}
           onChangeText={setSymptoms}
           multiline
@@ -323,7 +329,7 @@ export default function ConsultationScreen() {
         {!loadingBank && bankMinutes > 0 && (
           <AppCard style={styles.bankCard}>
             <View style={styles.bankRow}>
-              <Ionicons name="time" size={18} color={c.status.success} />
+              <Ionicons name="time" size={18} color={colors.success} />
               <Text style={styles.bankText}>
                 Você tem <Text style={styles.bankBold}>{bankMinutes} min</Text> gratuitos disponíveis no banco de horas
               </Text>
@@ -369,214 +375,216 @@ export default function ConsultationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
-    paddingBottom: s.xl,
-  },
-  assistantCard: {
-    marginTop: s.md,
-    marginBottom: s.lg,
-    borderWidth: 1,
-    borderColor: c.primary.soft,
-    backgroundColor: c.primary.soft + '66',
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
-  },
-  assistantCardLoading: { opacity: 0.95 },
-  assistantLoading: { marginLeft: 'auto' },
-  assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
-  assistantTitle: { fontSize: 13, fontWeight: '700', color: c.primary.main },
-  assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: c.text.primary },
-  assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: c.text.secondary },
-  assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: c.status.success },
-  redFlagCard: {
-    marginTop: s.sm,
-    marginBottom: s.sm,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: c.status.errorLight,
-    backgroundColor: c.status.errorLight,
-    padding: s.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: s.sm,
-  },
-  redFlagText: { flex: 1, color: c.status.error, fontSize: 12, lineHeight: 18 },
-  banner: {
-    alignItems: 'center',
-    marginTop: s.xs,
-    marginBottom: s.lg,
-    paddingHorizontal: s.lg,
-  },
-  bannerTitleWrap: {
-    alignSelf: 'stretch',
-    paddingHorizontal: s.sm,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: c.primary.soft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: s.sm,
-  },
-  bannerTitle: {
-    ...t.variants.h3,
-    color: c.text.primary,
-    marginTop: s.xs,
-    textAlign: 'center',
-  },
-  bannerDesc: {
-    ...t.variants.body2,
-    color: c.text.secondary,
-    textAlign: 'center',
-    marginTop: s.xs,
-  },
-  overline: {
-    ...t.variants.overline,
-    color: c.text.secondary,
-    marginBottom: s.sm,
-  },
-  stepHint: {
-    fontSize: 13,
-    color: c.text.secondary,
-    marginBottom: s.sm,
-    lineHeight: 20,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: s.lg,
-  },
-  typeRowOneCol: {
-    flexDirection: 'column',
-  },
-  typeCard: {
-    flex: 1,
-    minWidth: 140,
-  },
-  typeCardFull: {
-    width: '100%',
-    minWidth: undefined,
-  },
-  typeName: {
-    fontSize: t.fontSize.md,
-    fontWeight: '700',
-    color: c.text.primary,
-  },
-  typeNameSelected: {
-    color: c.primary.main,
-  },
-  typePricePerMin: {
-    fontSize: t.fontSize.lg,
-    fontWeight: '700',
-    color: c.text.primary,
-    marginTop: s.xs,
-  },
-  typeDesc: {
-    fontSize: t.fontSize.xs,
-    color: c.text.tertiary,
-    marginTop: s.xs,
-    lineHeight: 16,
-  },
-  minutesHint: {
-    fontSize: t.fontSize.sm,
-    color: c.text.secondary,
-    marginBottom: s.sm,
-    lineHeight: 18,
-  },
-  minutesStepperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: s.lg,
-    marginBottom: s.lg,
-  },
-  stepperBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: c.primary.soft,
-    borderWidth: 2,
-    borderColor: c.primary.main,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnDisabled: {
-    opacity: 0.5,
-    borderColor: c.border.main,
-  },
-  minutesStepperValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: c.text.primary,
-    minWidth: 72,
-    textAlign: 'center',
-  },
-  textArea: {
-    backgroundColor: c.background.secondary,
-    borderRadius: r.md,
-    borderWidth: 1,
-    borderColor: c.border.main,
-    padding: s.md,
-    fontSize: t.fontSize.md,
-    color: c.text.primary,
-    minHeight: 120,
-    marginBottom: s.lg,
-  },
-  totalCard: {
-    marginBottom: s.lg,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: s.xs,
-  },
-  totalLabel: {
-    ...t.variants.body2,
-    color: c.text.secondary,
-    flex: 1,
-  },
-  totalValue: {
-    ...t.variants.h2,
-    color: c.primary.main,
-  },
-  discountValue: {
-    ...t.variants.h3,
-    color: c.status.success,
-  },
-  freeLabel: {
-    fontSize: t.fontSize.sm,
-    color: c.status.success,
-    fontWeight: '600',
-    marginTop: s.xs,
-    textAlign: 'center',
-  },
-  bankCard: {
-    marginBottom: s.md,
-    backgroundColor: c.status.successLight,
-    borderColor: c.status.success,
-    borderWidth: 1,
-  },
-  bankRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s.sm,
-  },
-  bankText: {
-    fontSize: t.fontSize.sm,
-    color: c.status.success,
-    flex: 1,
-    lineHeight: 18,
-  },
-  bankBold: {
-    fontWeight: '700',
-  },
-});
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
+    content: {
+      flexGrow: 1,
+      paddingHorizontal: uiTokens.screenPaddingHorizontal,
+      paddingBottom: s.xl,
+    },
+    assistantCard: {
+      marginTop: s.md,
+      marginBottom: s.lg,
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+      backgroundColor: colors.primarySoft + '66',
+      shadowColor: 'transparent',
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 0,
+    },
+    assistantCardLoading: { opacity: 0.95 },
+    assistantLoading: { marginLeft: 'auto' },
+    assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
+    assistantTitle: { fontSize: 13, fontWeight: '700', color: colors.primary },
+    assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: colors.text },
+    assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
+    assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.success },
+    redFlagCard: {
+      marginTop: s.sm,
+      marginBottom: s.sm,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.errorLight,
+      backgroundColor: colors.errorLight,
+      padding: s.md,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: s.sm,
+    },
+    redFlagText: { flex: 1, color: colors.error, fontSize: 12, lineHeight: 18 },
+    banner: {
+      alignItems: 'center',
+      marginTop: s.xs,
+      marginBottom: s.lg,
+      paddingHorizontal: s.lg,
+    },
+    bannerTitleWrap: {
+      alignSelf: 'stretch',
+      paddingHorizontal: s.sm,
+    },
+    iconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: s.sm,
+    },
+    bannerTitle: {
+      ...t.variants.h3,
+      color: colors.text,
+      marginTop: s.xs,
+      textAlign: 'center',
+    },
+    bannerDesc: {
+      ...t.variants.body2,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: s.xs,
+    },
+    overline: {
+      ...t.variants.overline,
+      color: colors.textSecondary,
+      marginBottom: s.sm,
+    },
+    stepHint: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginBottom: s.sm,
+      lineHeight: 20,
+    },
+    typeRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: s.lg,
+    },
+    typeRowOneCol: {
+      flexDirection: 'column',
+    },
+    typeCard: {
+      flex: 1,
+      minWidth: 140,
+    },
+    typeCardFull: {
+      width: '100%',
+      minWidth: undefined,
+    },
+    typeName: {
+      fontSize: t.fontSize.md,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    typeNameSelected: {
+      color: colors.primary,
+    },
+    typePricePerMin: {
+      fontSize: t.fontSize.lg,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: s.xs,
+    },
+    typeDesc: {
+      fontSize: t.fontSize.xs,
+      color: colors.textMuted,
+      marginTop: s.xs,
+      lineHeight: 16,
+    },
+    minutesHint: {
+      fontSize: t.fontSize.sm,
+      color: colors.textSecondary,
+      marginBottom: s.sm,
+      lineHeight: 18,
+    },
+    minutesStepperRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s.lg,
+      marginBottom: s.lg,
+    },
+    stepperBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepperBtnDisabled: {
+      opacity: 0.5,
+      borderColor: colors.border,
+    },
+    minutesStepperValue: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text,
+      minWidth: 72,
+      textAlign: 'center',
+    },
+    textArea: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: r.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: s.md,
+      fontSize: t.fontSize.md,
+      color: colors.text,
+      minHeight: 120,
+      marginBottom: s.lg,
+    },
+    totalCard: {
+      marginBottom: s.lg,
+    },
+    totalRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: s.xs,
+    },
+    totalLabel: {
+      ...t.variants.body2,
+      color: colors.textSecondary,
+      flex: 1,
+    },
+    totalValue: {
+      ...t.variants.h2,
+      color: colors.primary,
+    },
+    discountValue: {
+      ...t.variants.h3,
+      color: colors.success,
+    },
+    freeLabel: {
+      fontSize: t.fontSize.sm,
+      color: colors.success,
+      fontWeight: '600',
+      marginTop: s.xs,
+      textAlign: 'center',
+    },
+    bankCard: {
+      marginBottom: s.md,
+      backgroundColor: colors.successLight,
+      borderColor: colors.success,
+      borderWidth: 1,
+    },
+    bankRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+    },
+    bankText: {
+      fontSize: t.fontSize.sm,
+      color: colors.success,
+      flex: 1,
+      lineHeight: 18,
+    },
+    bankBold: {
+      fontWeight: '700',
+    },
+  });
+}

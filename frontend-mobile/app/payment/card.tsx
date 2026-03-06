@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -9,12 +9,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMercadoPagoPublicKey, fetchRequestById, fetchSavedCards, createPayment, payWithSavedCard } from '../../lib/api';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { getDisplayPrice } from '../../lib/config/pricing';
-import { colors, spacing } from '../../lib/theme';
+import { spacing } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { PaymentHeader } from '../../components/payment/PaymentHeader';
 
 const TOKEN_KEY = '@renoveja:auth_token';
 
-function buildCardPaymentHtml(publicKey: string, amount: number, requestId: string, savedCards: { id: string; mpCardId: string; lastFour: string; brand: string }[]): string {
+function buildCardPaymentHtml(colors: DesignColors, publicKey: string, amount: number, requestId: string, savedCards: { id: string; mpCardId: string; lastFour: string; brand: string }[]): string {
   const escaped = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
   const savedCardsJson = JSON.stringify(savedCards);
   return `<!DOCTYPE html>
@@ -155,6 +157,8 @@ export default function CardPaymentScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
   const isFocused = useIsFocused();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,7 +193,7 @@ export default function CardPaymentScreen() {
         ]);
         const amount = getDisplayPrice(request?.price ?? undefined, request?.requestType);
         const cards = Array.isArray(savedCards) ? savedCards : [];
-        const htmlContent = buildCardPaymentHtml(publicKey, amount, rid, cards);
+        const htmlContent = buildCardPaymentHtml(colors, publicKey, amount, rid, cards);
         setHtml(htmlContent);
       } catch (e: unknown) {
         setError(getApiErrorMessage(e));
@@ -197,7 +201,7 @@ export default function CardPaymentScreen() {
         setLoading(false);
       }
     })();
-  }, [requestId]);
+  }, [requestId, colors]);
 
   const injectPaymentResult = useCallback((success: boolean, data: { message?: string } | null) => {
     const script = `window.onPaymentResult && window.onPaymentResult(${success}, ${JSON.stringify(data || {})}); true;`;
@@ -294,7 +298,8 @@ export default function CardPaymentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   webview: { flex: 1, backgroundColor: 'transparent' },
   loadingBox: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
@@ -308,4 +313,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 4,
   },
   backBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
-});
+  });
+}

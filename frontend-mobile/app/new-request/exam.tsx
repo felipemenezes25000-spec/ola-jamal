@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { createExamRequest, evaluateAssistantCompleteness } from '../../lib/api';
+import { showToast } from '../../components/ui/Toast';
+import { useInvalidateRequests } from '../../lib/hooks/useRequestsQuery';
 import { EXAM_TYPE_PRICES } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
@@ -28,7 +32,6 @@ import { CompatibleImage } from '../../components/CompatibleImage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { detectRedFlags, evaluateExamCompleteness } from '../../lib/domain/assistantIntelligence';
 
-const c = theme.colors;
 const s = theme.spacing;
 const r = theme.borderRadius;
 const ty = theme.typography;
@@ -42,6 +45,7 @@ const NARROW_BREAKPOINT = 360;
 
 export default function NewExam() {
   const router = useRouter();
+  const invalidateRequests = useInvalidateRequests();
   const { width } = useWindowDimensions();
   const oneColumn = width < NARROW_BREAKPOINT;
   const [examType, setExamType] = useState('laboratorial');
@@ -50,6 +54,8 @@ export default function NewExam() {
   const [symptoms, setSymptoms] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateExamCompleteness({
     examType,
@@ -180,9 +186,9 @@ export default function NewExam() {
         );
         return;
       }
-      Alert.alert('Sucesso!', 'Seu pedido de exame foi enviado.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      invalidateRequests();
+      showToast({ message: 'Pedido de exame enviado! Acompanhe na aba Pedidos.', type: 'success' });
+      router.replace('/(patient)/requests');
     } catch (error: unknown) {
       Alert.alert('Erro', getApiErrorMessage(error));
     } finally {
@@ -239,10 +245,10 @@ export default function NewExam() {
         <StepIndicator current={currentStep} total={4} labels={['Tipo', 'Exames', 'Sintomas', 'Revisão']} />
         <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
           <View style={styles.assistantHeader}>
-            <Ionicons name="sparkles-outline" size={18} color={c.primary.main} />
+            <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
             <Text style={styles.assistantTitle}>Dra. Renoveja: qualidade do envio</Text>
             {apiLoading && (
-              <ActivityIndicator size="small" color={c.primary.main} style={styles.assistantLoading} />
+              <ActivityIndicator size="small" color={colors.primary} style={styles.assistantLoading} />
             )}
           </View>
           <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
@@ -255,7 +261,7 @@ export default function NewExam() {
         </AppCard>
         {redFlags.isUrgent ? (
           <View style={styles.redFlagCard}>
-            <Ionicons name="warning-outline" size={18} color={c.status.error} />
+            <Ionicons name="warning-outline" size={18} color={colors.error} />
             <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
           </View>
         ) : null}
@@ -277,7 +283,7 @@ export default function NewExam() {
                 <Ionicons
                   name={type.icon}
                   size={28}
-                  color={examType === type.key ? c.primary.main : c.text.tertiary}
+                  color={examType === type.key ? colors.primary : colors.textMuted}
                 />
                 <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]} numberOfLines={1}>
                   {type.label}
@@ -307,7 +313,7 @@ export default function NewExam() {
             containerStyle={styles.inputContainer}
           />
           <TouchableOpacity style={styles.addButton} onPress={addExam}>
-            <Ionicons name="add" size={24} color={c.primary.contrast} />
+            <Ionicons name="add" size={24} color={colors.white} />
           </TouchableOpacity>
         </View>
         {exams.length > 0 && (
@@ -316,7 +322,7 @@ export default function NewExam() {
               <View key={index} style={styles.tag}>
                 <Text style={styles.tagText}>{exam}</Text>
                 <TouchableOpacity onPress={() => removeExam(index)}>
-                  <Ionicons name="close" size={16} color={c.accent.dark} />
+                  <Ionicons name="close" size={16} color={colors.accent} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -328,7 +334,7 @@ export default function NewExam() {
         <TextInput
           style={styles.textarea}
           placeholder="Descreva seus sintomas"
-          placeholderTextColor={c.text.tertiary}
+          placeholderTextColor={colors.textMuted}
           value={symptoms}
           onChangeText={setSymptoms}
           multiline
@@ -346,11 +352,11 @@ export default function NewExam() {
         </Text>
         <View style={styles.photoRow}>
           <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
-            <Ionicons name="camera" size={28} color={c.primary.main} />
+            <Ionicons name="camera" size={28} color={colors.primary} />
             <Text style={styles.photoText}>Câmera</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
-            <Ionicons name="image" size={28} color={c.primary.main} />
+            <Ionicons name="image" size={28} color={colors.primary} />
             <Text style={styles.photoText}>Galeria</Text>
           </TouchableOpacity>
         </View>
@@ -363,7 +369,7 @@ export default function NewExam() {
                   style={styles.imgRemove}
                   onPress={() => setImages(images.filter((_, j) => j !== i))}
                 >
-                  <Ionicons name="close-circle" size={20} color={c.status.error} />
+                  <Ionicons name="close-circle" size={20} color={colors.error} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -372,7 +378,7 @@ export default function NewExam() {
 
         {/* Price Info */}
         <View style={styles.priceBox}>
-          <Ionicons name="pricetag" size={18} color={c.secondary.main} />
+          <Ionicons name="pricetag" size={18} color={colors.secondary} />
           <Text style={styles.priceText}>
             Valor do pedido de exame:{' '}
             <Text style={styles.priceValue}>{selectedPrice}</Text>
@@ -398,212 +404,214 @@ export default function NewExam() {
   );
 }
 
-const styles = StyleSheet.create({
-  body: {
-    flexGrow: 1,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
-  },
-  overline: {
-    fontSize: ty.fontSize.xs,
-    lineHeight: 16,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    color: c.text.secondary,
-    marginTop: s.lg,
-    marginBottom: s.sm,
-  },
-  assistantCard: {
-    marginTop: s.md,
-    borderWidth: 1,
-    borderColor: c.primary.soft,
-    backgroundColor: c.primary.soft + '66',
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
-  },
-  assistantCardLoading: { opacity: 0.95 },
-  assistantLoading: { marginLeft: 'auto' },
-  assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
-  assistantTitle: { fontSize: 13, fontWeight: '700', color: c.primary.main },
-  assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: c.text.primary },
-  assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: c.text.secondary },
-  assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: c.status.success },
-  redFlagCard: {
-    marginTop: s.sm,
-    marginBottom: s.sm,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: c.status.errorLight,
-    backgroundColor: c.status.errorLight,
-    padding: s.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: s.sm,
-  },
-  redFlagText: { flex: 1, color: c.status.error, fontSize: 12, lineHeight: 18 },
-  stepHint: {
-    fontSize: 13,
-    color: c.text.secondary,
-    marginBottom: s.sm,
-    lineHeight: 20,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  typeRowOneCol: {
-    flexDirection: 'column',
-  },
-  typeCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  typeCardFull: {
-    width: '100%',
-  },
-  typeName: {
-    fontSize: ty.fontSize.sm,
-    fontWeight: '600',
-    color: c.text.primary,
-    marginTop: s.sm,
-  },
-  typeNameSelected: {
-    color: c.primary.main,
-  },
-  typePrice: {
-    fontSize: ty.fontSize.lg,
-    fontWeight: '700',
-    color: c.text.primary,
-    marginTop: s.xs,
-  },
-  typePriceSuffix: {
-    fontSize: ty.fontSize.xs,
-    color: c.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  typeDesc: {
-    fontSize: ty.fontSize.xs,
-    color: c.text.tertiary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s.sm,
-  },
-  inputContainer: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: c.primary.main,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.button,
-  },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: s.sm,
-    gap: s.sm,
-  },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: c.accent.soft,
-    paddingHorizontal: s.md,
-    paddingVertical: s.xs,
-    borderRadius: r.pill,
-    gap: s.xs,
-  },
-  tagText: {
-    fontSize: 13,
-    color: c.accent.dark,
-    fontWeight: '500',
-  },
-  textarea: {
-    backgroundColor: c.background.paper,
-    borderRadius: r.md,
-    padding: s.md,
-    fontSize: ty.fontSize.md,
-    color: c.text.primary,
-    minHeight: 100,
-    ...theme.shadows.card,
-  },
-  photoHint: {
-    fontSize: 12,
-    color: c.text.tertiary,
-    marginBottom: s.sm,
-  },
-  photoRow: {
-    flexDirection: 'row',
-    gap: s.md,
-  },
-  photoButton: {
-    flex: 1,
-    backgroundColor: c.background.paper,
-    borderRadius: 18,
-    paddingVertical: s.lg,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: c.border.main,
-    borderStyle: 'dashed',
-    gap: s.xs,
-    ...theme.shadows.sm,
-  },
-  photoText: {
-    fontSize: 13,
-    color: c.primary.main,
-    fontWeight: '600',
-  },
-  imagesRow: {
-    flexDirection: 'row',
-    marginTop: s.sm,
-    gap: s.sm,
-  },
-  imgWrap: {
-    position: 'relative',
-  },
-  imgPreview: {
-    width: 80,
-    height: 80,
-    borderRadius: 14,
-  },
-  imgRemove: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: c.background.paper,
-    borderRadius: 10,
-  },
-  priceBox: {
-    flexDirection: 'row',
-    backgroundColor: c.secondary.soft,
-    marginTop: s.lg,
-    padding: s.md,
-    borderRadius: r.lg,
-    gap: s.sm,
-    alignItems: 'center',
-  },
-  priceText: {
-    fontSize: ty.fontSize.sm,
-    color: c.text.primary,
-  },
-  priceValue: {
-    fontWeight: '700',
-    color: c.secondary.main,
-  },
-  priceSuffix: {
-    fontSize: ty.fontSize.xs,
-    color: c.text.tertiary,
-  },
-});
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
+    body: {
+      flexGrow: 1,
+      paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    },
+    overline: {
+      fontSize: ty.fontSize.xs,
+      lineHeight: 16,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+      color: colors.textSecondary,
+      marginTop: s.lg,
+      marginBottom: s.sm,
+    },
+    assistantCard: {
+      marginTop: s.md,
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+      backgroundColor: colors.primarySoft + '66',
+      shadowColor: 'transparent',
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 0,
+    },
+    assistantCardLoading: { opacity: 0.95 },
+    assistantLoading: { marginLeft: 'auto' },
+    assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
+    assistantTitle: { fontSize: 13, fontWeight: '700', color: colors.primary },
+    assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: colors.text },
+    assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
+    assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.success },
+    redFlagCard: {
+      marginTop: s.sm,
+      marginBottom: s.sm,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.errorLight,
+      backgroundColor: colors.errorLight,
+      padding: s.md,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: s.sm,
+    },
+    redFlagText: { flex: 1, color: colors.error, fontSize: 12, lineHeight: 18 },
+    stepHint: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginBottom: s.sm,
+      lineHeight: 20,
+    },
+    typeRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    typeRowOneCol: {
+      flexDirection: 'column',
+    },
+    typeCard: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    typeCardFull: {
+      width: '100%',
+    },
+    typeName: {
+      fontSize: ty.fontSize.sm,
+      fontWeight: '600',
+      color: colors.text,
+      marginTop: s.sm,
+    },
+    typeNameSelected: {
+      color: colors.primary,
+    },
+    typePrice: {
+      fontSize: ty.fontSize.lg,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: s.xs,
+    },
+    typePriceSuffix: {
+      fontSize: ty.fontSize.xs,
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: 2,
+    },
+    typeDesc: {
+      fontSize: ty.fontSize.xs,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 2,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+    },
+    inputContainer: {
+      flex: 1,
+      marginBottom: 0,
+    },
+    addButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.shadows.button,
+    },
+    tags: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginTop: s.sm,
+      gap: s.sm,
+    },
+    tag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: s.md,
+      paddingVertical: s.xs,
+      borderRadius: r.pill,
+      gap: s.xs,
+    },
+    tagText: {
+      fontSize: 13,
+      color: colors.accent,
+      fontWeight: '500',
+    },
+    textarea: {
+      backgroundColor: colors.surface,
+      borderRadius: r.md,
+      padding: s.md,
+      fontSize: ty.fontSize.md,
+      color: colors.text,
+      minHeight: 100,
+      ...theme.shadows.card,
+    },
+    photoHint: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginBottom: s.sm,
+    },
+    photoRow: {
+      flexDirection: 'row',
+      gap: s.md,
+    },
+    photoButton: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      paddingVertical: s.lg,
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+      gap: s.xs,
+      ...theme.shadows.sm,
+    },
+    photoText: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    imagesRow: {
+      flexDirection: 'row',
+      marginTop: s.sm,
+      gap: s.sm,
+    },
+    imgWrap: {
+      position: 'relative',
+    },
+    imgPreview: {
+      width: 80,
+      height: 80,
+      borderRadius: 14,
+    },
+    imgRemove: {
+      position: 'absolute',
+      top: -6,
+      right: -6,
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+    },
+    priceBox: {
+      flexDirection: 'row',
+      backgroundColor: colors.successLight,
+      marginTop: s.lg,
+      padding: s.md,
+      borderRadius: r.lg,
+      gap: s.sm,
+      alignItems: 'center',
+    },
+    priceText: {
+      fontSize: ty.fontSize.sm,
+      color: colors.text,
+    },
+    priceValue: {
+      fontWeight: '700',
+      color: colors.secondary,
+    },
+    priceSuffix: {
+      fontSize: ty.fontSize.xs,
+      color: colors.textMuted,
+    },
+  });
+}

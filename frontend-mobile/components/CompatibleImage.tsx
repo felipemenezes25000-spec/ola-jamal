@@ -1,24 +1,47 @@
 import React, { useState } from 'react';
-import { Image, View, Text, StyleSheet, ImageStyle, ViewStyle, Platform } from 'react-native';
+import { View, Text, StyleSheet, ImageStyle, ViewStyle, Platform } from 'react-native';
+import { Image as ExpoImage, ImageContentFit } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
+
+// Blurhash neutro (cinza claro) — placeholder durante o carregamento
+const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
 
 interface CompatibleImageProps {
   uri: string | null | undefined;
   style?: ImageStyle | ImageStyle[];
   resizeMode?: 'cover' | 'contain' | 'stretch' | 'repeat' | 'center';
   onError?: () => void;
+  /** Blurhash personalizado para placeholder. Usa o padrão cinza se omitido. */
+  blurhash?: string;
 }
 
+const RESIZE_TO_CONTENT_FIT: Record<string, ImageContentFit> = {
+  cover: 'cover',
+  contain: 'contain',
+  stretch: 'fill',
+  repeat: 'cover',
+  center: 'none',
+};
+
 /**
- * Componente de imagem compatível que trata formatos HEIC/HEIF no web.
- * Navegadores web não suportam HEIC nativamente, então mostra um fallback informativo.
+ * Componente de imagem com:
+ * - Placeholder blurhash animado durante o carregamento (expo-image)
+ * - Transição fade-in suave
+ * - Fallback para HEIC no web e erros de carregamento
+ * - Compatibilidade total com a interface anterior
  */
-export function CompatibleImage({ uri, style, resizeMode = 'cover', onError }: CompatibleImageProps) {
+export function CompatibleImage({
+  uri,
+  style,
+  resizeMode = 'cover',
+  onError,
+  blurhash = DEFAULT_BLURHASH,
+}: CompatibleImageProps) {
   const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   const uriStr = typeof uri === 'string' ? uri : '';
+
   if (!uriStr) {
     return (
       <View style={[styles.fallbackContainer, style as ViewStyle]}>
@@ -28,22 +51,11 @@ export function CompatibleImage({ uri, style, resizeMode = 'cover', onError }: C
     );
   }
 
-  // Detecta se é HEIC/HEIF pela URL ou extensão
-  const isHeic = /\.(heic|heif)$/i.test(uriStr) ||
-                 uriStr.toLowerCase().includes('heic') ||
-                 uriStr.toLowerCase().includes('heif');
+  const isHeic =
+    /\.(heic|heif)$/i.test(uriStr) ||
+    uriStr.toLowerCase().includes('heic') ||
+    uriStr.toLowerCase().includes('heif');
 
-  const handleError = () => {
-    setHasError(true);
-    setIsLoading(false);
-    onError?.();
-  };
-
-  const handleLoad = () => {
-    setIsLoading(false);
-  };
-
-  // No web, se for HEIC, mostra fallback (browsers não suportam HEIC nativamente)
   if (Platform.OS === 'web' && isHeic) {
     return (
       <View style={[styles.fallbackContainer, style as ViewStyle]}>
@@ -54,7 +66,6 @@ export function CompatibleImage({ uri, style, resizeMode = 'cover', onError }: C
     );
   }
 
-  // Erro ao carregar imagem (mobile ou web)
   if (hasError) {
     return (
       <View style={[styles.fallbackContainer, style as ViewStyle]}>
@@ -66,20 +77,18 @@ export function CompatibleImage({ uri, style, resizeMode = 'cover', onError }: C
   }
 
   return (
-    <View style={style as ViewStyle}>
-      {isLoading && (
-        <View style={[StyleSheet.absoluteFill, styles.loadingContainer]}>
-          <Ionicons name="image-outline" size={32} color={colors.textMuted} />
-        </View>
-      )}
-      <Image
-        source={{ uri: uriStr }}
-        style={style}
-        resizeMode={resizeMode}
-        onError={handleError}
-        onLoad={handleLoad}
-      />
-    </View>
+    <ExpoImage
+      source={{ uri: uriStr }}
+      style={style as ImageStyle}
+      contentFit={RESIZE_TO_CONTENT_FIT[resizeMode] ?? 'cover'}
+      placeholder={{ blurhash }}
+      transition={{ duration: 250, effect: 'cross-dissolve' }}
+      onError={() => {
+        setHasError(true);
+        onError?.();
+      }}
+      cachePolicy="memory-disk"
+    />
   );
 }
 
@@ -106,10 +115,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
   },
 });

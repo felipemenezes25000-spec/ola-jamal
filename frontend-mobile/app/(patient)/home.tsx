@@ -13,11 +13,12 @@ import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, gradients } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
-import { getRequests } from '../../lib/api';
 import { STATUS_LABELS_PT } from '../../lib/domain/statusLabels';
 import { RequestResponseDto } from '../../types/database';
+import { useRequestsQuery } from '../../lib/hooks/useRequestsQuery';
 import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
@@ -45,9 +46,10 @@ export default function PatientHome() {
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
   const { user } = useAuth();
+  const { data: requests = [], isLoading: loading, refetch } = useRequestsQuery();
+  const { colors, gradients } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const [requests, setRequests] = useState<RequestResponseDto[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoCard, setShowInfoCard] = useState(true);
 
@@ -58,39 +60,18 @@ export default function PatientHome() {
     }, [])
   );
 
-  const loadData = useCallback(async (withFeedback = false) => {
-    try {
-      const response = await getRequests({ page: 1, pageSize: 50 });
-      setRequests(response.items || []);
-      if (withFeedback) {
-        showToast({ message: 'Início atualizado', type: 'success' });
-      }
-    } catch (error: unknown) {
-      const status = (error as { status?: number })?.status;
-      if (status === 401) {
-        // Sessão expirada/inválida: AuthContext já chama clearAuth e o layout redireciona para login.
-        setRequests([]);
-        if (__DEV__) console.warn('[Home] 401: sessão encerrada, redirecionando para login.');
-      } else {
-        console.error('Error loading data:', error);
-        setRequests([]);
-      }
-      if (withFeedback) {
-        showToast({ message: 'Não foi possível atualizar o início', type: 'error' });
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
-
-  const onRefresh = () => {
+  const onRefresh = useCallback(async () => {
     haptics.light();
     setRefreshing(true);
-    loadData(true);
-  };
+    try {
+      await refetch();
+      showToast({ message: 'Início atualizado', type: 'success' });
+    } catch {
+      showToast({ message: 'Não foi possível atualizar o início', type: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   const stats = useMemo(() => ({
     pending: requests.filter(r => getRequestUiState(r).uiState === 'needs_action').length,
@@ -176,7 +157,6 @@ export default function PatientHome() {
       in_review: 80,
       submitted: 70,
       searching_doctor: 65,
-      paid: 60,
       in_consultation: 50,
     };
 
@@ -319,26 +299,38 @@ export default function PatientHome() {
 
       {followUpRequest && followUpAction ? (
         <View style={styles.section}>
-          <Pressable
-            style={({ pressed }) => [styles.followUpCard, pressed && { opacity: 0.9 }]}
-            onPress={() => router.push(`/request-detail/${followUpRequest.id}`)}
-            onPressIn={haptics.selection}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir próximo passo do pedido"
-          >
-            <View style={styles.followUpHeader}>
-              <View style={styles.followUpIcon}>
-                <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+          <View style={styles.followUpCard}>
+            <Pressable
+              onPress={() => { haptics.selection(); router.push(`/request-detail/${followUpRequest.id}`); }}
+              accessibilityRole="button"
+              accessibilityLabel={`${followUpAction.title}. ${followUpAction.whatToDo}. Toque para ver detalhes.`}
+            >
+              <View style={styles.followUpHeader}>
+                <View style={styles.followUpIcon}>
+                  <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.followUpTitle}>Dra. Renoveja: seu próximo passo</Text>
+                  <Text style={styles.followUpSubtitle}>{followUpAction.title}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} importantForAccessibility="no" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.followUpTitle}>Dra. Renoveja: seu próximo passo</Text>
-                <Text style={styles.followUpSubtitle}>{followUpAction.title}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </View>
-            <Text style={styles.followUpBody}>{followUpAction.whatToDo}</Text>
-            <Text style={styles.followUpEta}>{followUpAction.eta}</Text>
-          </Pressable>
+              <Text style={styles.followUpBody}>{followUpAction.whatToDo}</Text>
+              <Text style={styles.followUpEta}>{followUpAction.eta}</Text>
+            </Pressable>
+            {followUpAction.intent === 'pay' && needsPayment(followUpRequest) && (
+              <Pressable
+                style={({ pressed }) => [styles.followUpPayCta, pressed && { opacity: 0.85 }]}
+                onPress={() => { haptics.selection(); router.push(`/payment/request/${followUpRequest.id}`); }}
+                accessibilityRole="button"
+                accessibilityLabel="Pagar agora"
+              >
+                <Ionicons name="card" size={15} color="#FFFFFF" />
+                <Text style={styles.followUpPayCtaText}>{followUpAction.ctaLabel ?? 'Pagar agora'}</Text>
+                <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.75)" importantForAccessibility="no" />
+              </Pressable>
+            )}
+          </View>
         </View>
       ) : null}
       </FadeIn>
@@ -485,7 +477,8 @@ export default function PatientHome() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -695,4 +688,23 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_500Medium',
     color: colors.textMuted,
   },
-});
+  followUpPayCta: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    minHeight: 44,
+  },
+  followUpPayCtaText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+  },
+  });
+}

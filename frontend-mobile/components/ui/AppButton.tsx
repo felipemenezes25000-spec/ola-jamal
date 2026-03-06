@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Pressable,
   Text,
@@ -7,6 +7,7 @@ import {
   ViewStyle,
   StyleProp,
   View,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../lib/theme';
@@ -43,6 +44,8 @@ export interface AppButtonProps {
   trailing?: React.ReactNode;
   onPressIn?: () => void;
   style?: StyleProp<ViewStyle>;
+  /** Anima suavemente o botão para atrair atenção (use em CTAs de conversão). */
+  pulse?: boolean;
 }
 
 const SIZE_CONFIG: Record<AppButtonSize, { height: number; fontSize: number; fontWeight: '600' | '700'; iconSize: number }> = {
@@ -121,15 +124,54 @@ export function AppButton({
   trailing,
   onPressIn,
   style,
+  pulse = false,
 }: AppButtonProps) {
   const isDisabled = disabled || loading;
   const sizeConf = SIZE_CONFIG[size];
   const varConf = VARIANT_CONFIG[variant];
 
+  // Spring scale no press
+  const pressScale = useRef(new Animated.Value(1)).current;
+  // Pulse suave para CTAs primárias
+  const pulseScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!pulse || isDisabled) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseScale, { toValue: 1.03, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseScale, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, isDisabled, pulseScale]);
+
+  const handlePressIn = () => {
+    onPressIn?.();
+    Animated.spring(pressScale, { toValue: 0.96, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
+  };
+
+  const combinedScale = pulse && !isDisabled
+    ? Animated.multiply(pressScale, pulseScale)
+    : pressScale;
+
   return (
+    <Animated.View
+      style={[
+        fullWidth && styles.fullWidth,
+        { transform: [{ scale: combinedScale }] },
+        style,
+      ]}
+    >
     <Pressable
       onPress={onPress}
-      onPressIn={onPressIn}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.base,
@@ -142,9 +184,10 @@ export function AppButton({
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
-        style,
       ]}
       accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator
@@ -178,12 +221,13 @@ export function AppButton({
         </View>
       )}
     </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.button,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -197,8 +241,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   pressed: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.9,
+    opacity: 0.88,
   },
   content: {
     flexDirection: 'row',

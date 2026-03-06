@@ -17,11 +17,10 @@ export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boo
   if (payload.message && payload.message.trim()) return payload.message.trim();
   const s = (payload.status || '').toLowerCase();
   const patientMap: Record<string, string> = {
-    paid: 'Pagamento confirmado.',
+    paid: 'Consulta pronta. Entre na sala de vídeo.',
     signed: 'Documento assinado. Baixe em Meus pedidos.',
     delivered: 'Documento recebido.',
     approved_pending_payment: 'Solicitação aprovada. Realize o pagamento.',
-    paid: 'Consulta pronta. Entre na sala de vídeo.',
     in_consultation: 'Médico na sala. Entre na chamada.',
     consultation_finished: 'Consulta encerrada.',
     cancelled: 'Pedido cancelado.',

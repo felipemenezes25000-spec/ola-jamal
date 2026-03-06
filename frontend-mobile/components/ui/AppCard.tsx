@@ -14,6 +14,7 @@ interface AppCardProps {
   noPadding?: boolean;
   selected?: boolean;
   onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
 export function AppCard({
@@ -23,6 +24,7 @@ export function AppCard({
   noPadding = false,
   selected = false,
   onPress,
+  accessibilityLabel,
 }: AppCardProps) {
   const cardStyle = [
     styles.base,
@@ -40,6 +42,7 @@ export function AppCard({
         onPress={onPress}
         style={({ pressed }) => [...cardStyle, pressed && styles.pressed]}
         accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
       >
         {children}
       </Pressable>

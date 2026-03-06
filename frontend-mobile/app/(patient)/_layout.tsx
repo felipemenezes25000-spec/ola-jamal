@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { haptics } from '../../lib/haptics';
 import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -16,6 +16,7 @@ export default function PatientLayout() {
   const insets = useSafeAreaInsets();
   const { user, loading } = useAuth();
   const { unreadCount } = useNotifications();
+  const { colors } = useAppTheme();
 
   const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
   const tabBarPaddingBottom = Math.max(10, insets.bottom + (Platform.OS === 'ios' ? 4 : 8));

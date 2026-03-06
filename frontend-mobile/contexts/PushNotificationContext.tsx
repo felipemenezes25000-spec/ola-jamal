@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Platform, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
@@ -33,7 +33,42 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
   const lastRegisteredToken = useRef<string | null>(null);
   const [lastNotificationAt, setLastNotificationAt] = useState(0);
   const userRef = useRef(user);
+  const coldStartHandled = useRef(false);
   userRef.current = user;
+
+  /** Navega para a tela correta com base no role e no requestId/deepLink da notificação. */
+  const handleNotificationNavigation = useCallback(
+    (data: Record<string, unknown>) => {
+      const deepLink = data?.deepLink;
+      const requestId = data?.requestId;
+
+      if (typeof deepLink === 'string' && deepLink.startsWith('renoveja://')) {
+        Linking.openURL(deepLink).catch(() => {});
+        return;
+      }
+      if (requestId && typeof requestId === 'string') {
+        const u = userRef.current;
+        const path = u?.role === 'doctor'
+          ? `/doctor-request/${requestId}`
+          : `/request-detail/${requestId}`;
+        router.push(path as any);
+      }
+    },
+    [router]
+  );
+
+  /** Trata notificação pendente do cold start (app foi aberto pelo tap na notificação). */
+  useEffect(() => {
+    if (!Notifications || !user?.role || coldStartHandled.current) return;
+    coldStartHandled.current = true;
+    Notifications.getLastNotificationResponseAsync()
+      .then((response: any) => {
+        if (!response) return;
+        const data = response?.notification?.request?.content?.data ?? {};
+        handleNotificationNavigation(data);
+      })
+      .catch(() => {});
+  }, [user?.role, handleNotificationNavigation]);
 
   useEffect(() => {
     if (!Notifications) return;
@@ -42,29 +77,13 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     });
     const responseSub = Notifications.addNotificationResponseReceivedListener((response: any) => {
       const data = response?.notification?.request?.content?.data ?? {};
-      const deepLink = data?.deepLink;
-      const requestId = data?.requestId;
-
-      if (typeof deepLink === 'string' && deepLink.startsWith('renoveja://')) {
-        Linking.openURL(deepLink).catch(() => {});
-        return;
-      }
-      // Backend envia requestId; navegar com base no role do usuário (pode demorar se app foi aberto pelo tap)
-      if (requestId && typeof requestId === 'string') {
-        const nav = () => {
-          const u = userRef.current;
-          const path = u?.role === 'doctor' ? `/doctor-request/${requestId}` : `/request-detail/${requestId}`;
-          router.push(path as any);
-        };
-        if (userRef.current?.role) nav();
-        else setTimeout(nav, 800); // esperar auth carregar se app foi lançado pelo tap
-      }
+      handleNotificationNavigation(data);
     });
     return () => {
       sub.remove();
       responseSub.remove();
     };
-  }, [router]);
+  }, [handleNotificationNavigation]);
 
   useEffect(() => {
     if (!Notifications) return; // Expo Go: push não disponível

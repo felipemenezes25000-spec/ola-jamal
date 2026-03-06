@@ -6,6 +6,7 @@ import { Logo } from '../components/Logo';
 import { Loading } from '../components/Loading';
 import { useAuth } from '../contexts/AuthContext';
 import { gradients } from '../lib/theme';
+import { isOnboardingDone } from '../lib/onboarding';
 
 // Se após esse tempo ainda estiver na splash, força ir para login (evita tela travada)
 const SPLASH_MAX_MS = 4000;
@@ -18,7 +19,7 @@ export default function SplashScreen() {
   useEffect(() => {
     if (!loading) {
       const delay = user ? 400 : 100;
-      const t = setTimeout(() => {
+      const t = setTimeout(async () => {
         if (hasNavigated.current) return;
         hasNavigated.current = true;
         if (user) {
@@ -30,7 +31,10 @@ export default function SplashScreen() {
             router.replace('/(doctor)/dashboard');
           }
         } else {
-          router.replace('/(auth)/login');
+          // Primeiro acesso: mostrar onboarding para pacientes
+          const done = await isOnboardingDone();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          router.replace((done ? '/(auth)/login' : '/onboarding') as any);
         }
       }, delay);
       return () => clearTimeout(t);

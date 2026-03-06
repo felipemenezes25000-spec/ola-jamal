@@ -1,11 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
-import { colors, spacing } from '../../lib/theme';
+import { spacing } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { fetchAddressByCep } from '../../lib/viacep';
 
 function onlyDigits(s: string) {
@@ -19,6 +21,8 @@ function formatCep(value: string) {
 }
 
 export default function CompleteProfileScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [phone, setPhone] = useState('');
   const [cpf, setCpf] = useState('');
   const [cep, setCep] = useState('');
@@ -254,7 +258,8 @@ export default function CompleteProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   content: {
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
@@ -301,4 +306,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.error,
   },
-});
+  });
+}

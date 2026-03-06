@@ -25,7 +25,9 @@ import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
-import { colors, spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
+import { spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { getPatientRequests, getPatientProfileForDoctor, getPatientClinicalSummary, addDoctorPatientNote, DOCTOR_NOTE_TYPES, sortRequestsByNewestFirst, type DoctorNoteDto } from '../../lib/api';
 import type { PatientClinicalSummaryStructured } from '../../lib/api';
 import type { RequestResponseDto, PatientProfileForDoctorDto } from '../../types/database';
@@ -36,17 +38,6 @@ import { showToast } from '../../components/ui/Toast';
 import { formatDateTimeBR, formatDateBR } from '../../lib/utils/format';
 
 // ── Anamnese fields (alinhado com consultation-summary) ──
-
-const ANA_FIELDS = [
-  { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble-ellipses' as const, color: colors.primary },
-  { key: 'historia_doenca_atual', label: 'História da Doença Atual', icon: 'time' as const, color: colors.primary },
-  { key: 'sintomas', label: 'Sintomas', icon: 'thermometer' as const, color: colors.warning },
-  { key: 'medicamentos_em_uso', label: 'Medicamentos em Uso', icon: 'medical' as const, color: colors.primaryLight },
-  { key: 'alergias', label: 'Alergias', icon: 'warning' as const, color: colors.error },
-  { key: 'antecedentes_relevantes', label: 'Antecedentes', icon: 'document-text' as const, color: colors.textMuted },
-  { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash' as const, color: colors.success },
-  { key: 'outros', label: 'Outras Informações', icon: 'ellipsis-horizontal' as const, color: colors.textMuted },
-] as const;
 
 function fmtDateTime(d: string): string {
   return formatDateTimeBR(d);
@@ -109,6 +100,18 @@ export default function DoctorPatientClinicalSummary() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const ANA_FIELDS = useMemo(() => [
+    { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble-ellipses' as const, color: colors.primary },
+    { key: 'historia_doenca_atual', label: 'História da Doença Atual', icon: 'time' as const, color: colors.primary },
+    { key: 'sintomas', label: 'Sintomas', icon: 'thermometer' as const, color: colors.warning },
+    { key: 'medicamentos_em_uso', label: 'Medicamentos em Uso', icon: 'medical' as const, color: colors.primaryLight },
+    { key: 'alergias', label: 'Alergias', icon: 'warning' as const, color: colors.error },
+    { key: 'antecedentes_relevantes', label: 'Antecedentes', icon: 'document-text' as const, color: colors.textMuted },
+    { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash' as const, color: colors.success },
+    { key: 'outros', label: 'Outras Informações', icon: 'ellipsis-horizontal' as const, color: colors.textMuted },
+  ], [colors]);
 
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [profile, setProfile] = useState<PatientProfileForDoctorDto | null>(null);
@@ -851,7 +854,7 @@ export default function DoctorPatientClinicalSummary() {
                     {c.doctorConductNotes || c.aiConductSuggestion}
                   </Text>
                   {c.doctorConductNotes && c.conductUpdatedAt && (
-                    <Text style={[styles.fieldMeta, { marginTop: 4, color: colors.textMuted, fontSize: 12 }]}>
+                    <Text style={styles.fieldMeta}>
                       Editado em {fmtDateTime(c.conductUpdatedAt)}
                     </Text>
                   )}
@@ -955,7 +958,8 @@ export default function DoctorPatientClinicalSummary() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingWrap: {
     flex: 1,
@@ -1447,6 +1451,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 21,
   },
+  fieldMeta: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
 
   anamnesisBlock: {
     marginTop: spacing.md,
@@ -1548,4 +1557,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
-});
+  });
+}

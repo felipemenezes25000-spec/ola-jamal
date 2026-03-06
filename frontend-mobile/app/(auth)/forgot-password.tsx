@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,9 @@ import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppCard } from '../../components/ui/AppCard';
 import { useAuth } from '../../contexts/AuthContext';
-import { theme, colors, spacing } from '../../lib/theme';
+import { theme, spacing } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -15,6 +17,8 @@ export default function ForgotPasswordScreen() {
   const [sent, setSent] = useState(false);
   const { forgotPassword } = useAuth();
   const router = useRouter();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const handleSend = async () => {
     const e = (email || '').trim().toLowerCase();
@@ -40,7 +44,7 @@ export default function ForgotPasswordScreen() {
   return (
     <Screen variant="gradient" scroll={false} contentStyle={styles.screenContent}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-        <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
+        <Ionicons name="chevron-back" size={24} color={colors.text} />
       </TouchableOpacity>
 
       <View style={styles.cardWrapper}>
@@ -89,7 +93,8 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   screenContent: {
     justifyContent: 'flex-start',
   },
@@ -101,7 +106,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.sm,
-    shadowColor: theme.colors.text.primary,
+    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -122,7 +127,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.variants.h1.fontSize,
     lineHeight: theme.typography.variants.h1.lineHeight,
     fontWeight: theme.typography.variants.h1.fontWeight,
-    color: theme.colors.primary.main,
+    color: colors.primary,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
@@ -130,7 +135,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.variants.h2.fontSize,
     lineHeight: theme.typography.variants.h2.lineHeight,
     fontWeight: theme.typography.variants.h2.fontWeight,
-    color: theme.colors.text.primary,
+    color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
@@ -138,7 +143,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.variants.body2.fontSize,
     lineHeight: theme.typography.variants.body2.lineHeight,
     fontWeight: theme.typography.variants.body2.fontWeight,
-    color: theme.colors.text.secondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -156,4 +161,5 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-});
+  });
+}

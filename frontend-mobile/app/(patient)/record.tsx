@@ -12,7 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, gradients, shadows } from '../../lib/theme';
+import { shadows } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import {
@@ -66,36 +68,42 @@ function formatDatePt(iso: string | Date | null | undefined): string {
   return `${day} ${month} ${year}`;
 }
 
-const ENCOUNTER_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> = {
-  teleconsulta: { icon: 'videocam', color: colors.info, bg: colors.infoLight, label: 'Teleconsulta' },
-  consultation: { icon: 'videocam', color: colors.info, bg: colors.infoLight, label: 'Consulta' },
-  renovacao: { icon: 'refresh', color: colors.success, bg: colors.successLight, label: 'Renovação' },
-  prescription: { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
-  exame: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
-  exam: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
-  // EncounterType enum (backend): 1=Teleconsultation, 2=PrescriptionRenewal, 3=ExamOrder
-  '1': { icon: 'videocam', color: colors.info, bg: colors.infoLight, label: 'Teleconsulta' },
-  '2': { icon: 'refresh', color: colors.success, bg: colors.successLight, label: 'Renovação' },
-  '3': { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
-};
+function getEncounterMeta(colors: DesignColors): Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> {
+  return {
+    teleconsulta: { icon: 'videocam', color: colors.info, bg: colors.infoLight, label: 'Teleconsulta' },
+    consultation: { icon: 'videocam', color: colors.info, bg: colors.infoLight, label: 'Consulta' },
+    renovacao: { icon: 'refresh', color: colors.success, bg: colors.successLight, label: 'Renovação' },
+    prescription: { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
+    exame: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+    exam: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+    // EncounterType enum (backend): 1=Teleconsultation, 2=PrescriptionRenewal, 3=ExamOrder
+    '1': { icon: 'videocam', color: colors.info, bg: colors.infoLight, label: 'Teleconsulta' },
+    '2': { icon: 'refresh', color: colors.success, bg: colors.successLight, label: 'Renovação' },
+    '3': { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+  };
+}
 
-const DOC_TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> = {
-  prescription: { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
-  exam: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
-  report: { icon: 'document-text', color: colors.info, bg: colors.infoLight, label: 'Laudo' },
-  atestado: { icon: 'ribbon', color: colors.warning, bg: colors.warningLight, label: 'Atestado' },
-  exam_order: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
-  // DocumentType enum (backend): 1=Prescription, 2=ExamOrder, 3=MedicalReport
-  '1': { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
-  '2': { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
-  '3': { icon: 'document-text', color: colors.info, bg: colors.infoLight, label: 'Laudo' },
-};
+function getDocTypeMeta(colors: DesignColors): Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> {
+  return {
+    prescription: { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
+    exam: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+    report: { icon: 'document-text', color: colors.info, bg: colors.infoLight, label: 'Laudo' },
+    atestado: { icon: 'ribbon', color: colors.warning, bg: colors.warningLight, label: 'Atestado' },
+    exam_order: { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+    // DocumentType enum (backend): 1=Prescription, 2=ExamOrder, 3=MedicalReport
+    '1': { icon: 'medical', color: colors.accent, bg: colors.accentSoft, label: 'Receita' },
+    '2': { icon: 'flask', color: colors.accent, bg: colors.accentSoft, label: 'Exame' },
+    '3': { icon: 'document-text', color: colors.info, bg: colors.infoLight, label: 'Laudo' },
+  };
+}
 
-const DOC_STATUS_META: Record<string, { color: string; bg: string; label: string }> = {
-  signed: { color: colors.success, bg: colors.successLight, label: 'Assinado' },
-  draft: { color: colors.warning, bg: colors.warningLight, label: 'Rascunho' },
-  cancelled: { color: colors.textMuted, bg: colors.surfaceSecondary, label: 'Cancelado' },
-};
+function getDocStatusMeta(colors: DesignColors): Record<string, { color: string; bg: string; label: string }> {
+  return {
+    signed: { color: colors.success, bg: colors.successLight, label: 'Assinado' },
+    draft: { color: colors.warning, bg: colors.warningLight, label: 'Rascunho' },
+    cancelled: { color: colors.textMuted, bg: colors.surfaceSecondary, label: 'Cancelado' },
+  };
+}
 
 export default function PatientRecordScreen() {
   const insets = useSafeAreaInsets();
@@ -113,6 +121,9 @@ export default function PatientRecordScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+
+  const { colors, gradients } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
 
   const cancelledRef = useRef(false);
 
@@ -416,6 +427,9 @@ function SummaryTab({
   summary: PatientSummaryDto | null;
   router: ReturnType<typeof useRouter>;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <>
       <View style={s.statsRow}>
@@ -547,6 +561,10 @@ function SummaryTab({
 }
 
 function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const ENCOUNTER_META = useMemo(() => getEncounterMeta(colors), [colors]);
+
   const validEncounters = (encounters ?? []).filter((e): e is EncounterSummaryDto => e != null && typeof e === 'object');
   if (!validEncounters.length) {
     return (
@@ -622,6 +640,11 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
 }
 
 function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummaryDto[]; router: ReturnType<typeof useRouter> }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const DOC_TYPE_META = useMemo(() => getDocTypeMeta(colors), [colors]);
+  const DOC_STATUS_META = useMemo(() => getDocStatusMeta(colors), [colors]);
+
   if (!documents.length) {
     return (
       <View style={s.tabEmptyWrap}>
@@ -701,6 +724,9 @@ function StatCard(props: {
   color: string;
   bgColor: string;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={s.statCard}>
       <View style={[s.statIconWrap, { backgroundColor: props.bgColor }]}>
@@ -712,7 +738,8 @@ function StatCard(props: {
   );
 }
 
-const s = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingWrap: {
     flex: 1,
@@ -1120,4 +1147,5 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
-});
+  });
+}

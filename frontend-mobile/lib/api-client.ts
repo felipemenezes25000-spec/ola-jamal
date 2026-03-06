@@ -24,9 +24,9 @@ const getDefaultBaseUrl = () => {
 };
 
 const BASE_URL =
-  Platform.OS === 'web'
-    ? '' // web: relative URL → Metro proxy forwards /api/* to backend
-    : process.env.EXPO_PUBLIC_API_URL || getDefaultBaseUrl();
+  process.env.EXPO_PUBLIC_API_URL?.trim()
+    ? process.env.EXPO_PUBLIC_API_URL.trim().replace(/\/$/, '')
+    : getDefaultBaseUrl();
 
 /** Timeout para evitar loading infinito quando a API está inacessível.
  *  Render free tier pode levar até 60s para cold start, então usamos 60s. */
@@ -305,7 +305,7 @@ class ApiClient {
     }
 
     if (__DEV__ && path.includes('/auth/login')) {
-      console.log('[API] POST', `${this.baseUrl}${path}`);
+      console.warn('[API] POST', `${this.baseUrl}${path}`);
     }
 
     const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {

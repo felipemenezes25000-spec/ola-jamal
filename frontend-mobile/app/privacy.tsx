@@ -1,22 +1,26 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppHeader, AppCard } from '../components/ui';
 import { theme } from '../lib/theme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
+import type { DesignColors } from '../lib/designSystem';
 import { COMPANY } from '../lib/company';
 
-const c = theme.colors;
 const s = theme.spacing;
 const t = theme.typography;
 
 export default function PrivacyScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <Screen scroll edges={['bottom']} padding={false}>
       <AppHeader title="Privacidade" />
 
       <View style={styles.content}>
         <View style={styles.titleRow}>
-          <Ionicons name="lock-closed-outline" size={24} color={c.primary.main} />
+          <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
           <Text style={styles.pageTitle}>POLÍTICA DE PRIVACIDADE – {COMPANY.name}</Text>
         </View>
         <Text style={styles.lastUpdate}>Última atualização: março de 2026</Text>
@@ -72,6 +76,8 @@ function Section({
   children: React.ReactNode;
   last?: boolean;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.section, !last && styles.sectionBorder]}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -80,7 +86,8 @@ function Section({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingBottom: 40,
@@ -94,14 +101,14 @@ const styles = StyleSheet.create({
   },
   lastUpdate: {
     fontSize: 12,
-    color: c.text.tertiary,
+    color: colors.textMuted,
     marginBottom: s.lg,
     paddingHorizontal: s.xs,
   },
   pageTitle: {
     fontSize: t.fontSize.lg,
     fontWeight: t.fontWeight.bold,
-    color: c.text.primary,
+    color: colors.text,
     flex: 1,
   },
   card: {
@@ -113,18 +120,19 @@ const styles = StyleSheet.create({
   },
   sectionBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: c.border.light,
+    borderBottomColor: colors.borderLight,
   },
   sectionTitle: {
     fontSize: t.fontSize.sm,
     fontWeight: t.fontWeight.bold,
-    color: c.text.primary,
+    color: colors.text,
     marginBottom: s.sm,
   },
   paragraph: {
     fontSize: t.fontSize.sm,
     fontWeight: t.fontWeight.regular,
-    color: c.text.secondary,
+    color: colors.textSecondary,
     lineHeight: 22,
   },
-});
+  });
+}

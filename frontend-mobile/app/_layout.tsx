@@ -2,6 +2,17 @@ import React, { useEffect, useCallback, useState } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      retry: 1,
+    },
+  },
+});
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { isExpoGo } from '../lib/expo-go';
 import { useFonts } from '@expo-google-fonts/plus-jakarta-sans';
@@ -20,6 +31,7 @@ import { RequestUpdateBanner } from '../components/RequestUpdateBanner';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { GlobalAssistantBanner } from '../components/triage/GlobalAssistantBanner';
 import { ToastProvider } from '../components/ui/Toast';
+import { ColorSchemeProvider, useColorSchemeContext } from '../contexts/ColorSchemeContext';
 import * as SplashScreen from 'expo-splash-screen';
 import { motionTokens } from '../lib/ui/motion';
 
@@ -29,6 +41,11 @@ const PushNotificationProvider = isExpoGo
   : require('../contexts/PushNotificationContext').PushNotificationProvider;
 
 SplashScreen.preventAutoHideAsync();
+
+function DynamicStatusBar() {
+  const { isDark } = useColorSchemeContext();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
+}
 
 // Mostra o app em no máximo 1s (fontes opcionais; evita tela branca no dispositivo)
 const MAX_WAIT_MS = 1000;
@@ -71,8 +88,10 @@ export default function RootLayout() {
   }
 
   return (
+    <QueryClientProvider client={queryClient}>
+    <ColorSchemeProvider>
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <StatusBar style="auto" />
+      <DynamicStatusBar />
       <AuthProvider>
         <PushNotificationProvider>
           <NotificationProvider>
@@ -84,6 +103,7 @@ export default function RootLayout() {
               <View style={styles.layoutContent}>
                 <Stack screenOptions={motionTokens.nav.rootStack}>
                 <Stack.Screen name="index" />
+                <Stack.Screen name="onboarding" options={{ animation: 'fade', headerShown: false }} />
                 <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
                 <Stack.Screen name="(patient)" options={{ animation: 'fade' }} />
                 <Stack.Screen name="(doctor)" options={{ animation: 'fade' }} />
@@ -123,6 +143,8 @@ export default function RootLayout() {
         </PushNotificationProvider>
       </AuthProvider>
     </GestureHandlerRootView>
+    </ColorSchemeProvider>
+    </QueryClientProvider>
   );
 }
 

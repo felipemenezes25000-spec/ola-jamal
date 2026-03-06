@@ -6,19 +6,17 @@ import {
   RequestResponseDto,
   RequestStatus,
   PaymentResponseDto,
-  NotificationResponseDto,
   DoctorProfileDto,
   DoctorListResponseDto,
   PagedResponse,
-  VideoRoomResponseDto,
   CrmValidationResponseDto,
-  PushTokenDto,
   CertificateInfoDto,
   UploadCertificateResponseDto,
   PatientSummaryDto,
   EncounterSummaryDto,
   MedicalDocumentSummaryDto,
   PatientProfileForDoctorDto,
+  VideoRoomResponseDto,
 } from '../types/database';
 
 // ============================================
@@ -419,6 +417,19 @@ export async function getTimeBankBalance(consultationType: string): Promise<{ ba
   return apiClient.get(`/api/requests/time-bank?consultationType=${encodeURIComponent(consultationType)}`);
 }
 
+/** Envia texto já transcrito (Daily.co) com speaker. Usado quando transcrição é feita no cliente. */
+export async function transcribeTextChunk(
+  requestId: string,
+  text: string,
+  speaker: 'medico' | 'paciente'
+): Promise<{ ok: boolean; fullLength?: number }> {
+  return apiClient.post('/api/consultation/transcribe-text', {
+    requestId,
+    text,
+    speaker,
+  });
+}
+
 /** Envia chunk de áudio para transcrição em tempo real. Paciente envia (stream=remote); médico só visualiza. */
 export async function transcribeAudioChunk(
   requestId: string,
@@ -547,28 +558,15 @@ export async function payWithSavedCard(
 }
 
 // ============================================
-// NOTIFICATIONS
+// NOTIFICATIONS — implementação em api-notifications.ts
 // ============================================
-
-export async function fetchNotifications(
-  page: number = 1,
-  pageSize: number = 20
-): Promise<PagedResponse<NotificationResponseDto>> {
-  return apiClient.get('/api/notifications', { page, pageSize });
-}
-
-export async function markNotificationRead(notificationId: string): Promise<NotificationResponseDto> {
-  return apiClient.put(`/api/notifications/${notificationId}/read`, {});
-}
-
-export async function markAllNotificationsRead(): Promise<void> {
-  return apiClient.put('/api/notifications/read-all', {});
-}
-
-export async function getUnreadNotificationsCount(): Promise<number> {
-  const res = await apiClient.get<{ count: number }>('/api/notifications/unread-count');
-  return res?.count ?? 0;
-}
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getUnreadNotificationsCount,
+} from './api-notifications';
+export { fetchNotifications, markNotificationRead, markAllNotificationsRead, getUnreadNotificationsCount };
 
 // ============================================
 // DOCTORS
@@ -633,41 +631,20 @@ export async function validateCrm(
 }
 
 // ============================================
-// PUSH TOKENS
+// PUSH TOKENS — implementação em api-notifications.ts
 // ============================================
-
-export async function registerPushToken(token: string, deviceType: string): Promise<void> {
-  return apiClient.post('/api/push-tokens', { token, deviceType });
-}
-
-export async function unregisterPushToken(token: string): Promise<void> {
-  return apiClient.delete(`/api/push-tokens?token=${encodeURIComponent(token)}`);
-}
-
-export async function fetchPushTokens(): Promise<PushTokenDto[]> {
-  return apiClient.get('/api/push-tokens');
-}
-
-export async function setPushPreference(pushEnabled: boolean): Promise<void> {
-  return apiClient.put('/api/push-tokens/preference', { pushEnabled });
-}
-
-/** Envia um push de teste para validar se as notificações estão funcionando. */
-export async function sendTestPush(): Promise<{ message: string }> {
-  return apiClient.post('/api/push-tokens/test');
-}
+export {
+  registerPushToken,
+  unregisterPushToken,
+  fetchPushTokens,
+  setPushPreference,
+  sendTestPush,
+} from './api-notifications';
 
 // ============================================
-// VIDEO
+// VIDEO — implementação em api-video.ts
 // ============================================
-
-export async function createVideoRoom(requestId: string): Promise<VideoRoomResponseDto> {
-  return apiClient.post('/api/video/rooms', { requestId });
-}
-
-export async function fetchVideoRoom(roomId: string): Promise<VideoRoomResponseDto> {
-  return apiClient.get(`/api/video/rooms/${roomId}`);
-}
+export { createVideoRoom, fetchVideoRoom } from './api-video';
 
 // ============================================
 // SPECIALTIES
@@ -735,16 +712,9 @@ export async function revokeCertificate(id: string, reason: string): Promise<voi
 }
 
 // ============================================
-// INTEGRATIONS
+// INTEGRATIONS — implementação em api-integrations.ts
 // ============================================
-
-export async function getMercadoPagoPublicKey(): Promise<{ publicKey: string }> {
-  return apiClient.get('/api/integrations/mercadopago-public-key');
-}
-
-export async function getIntegrationStatus(): Promise<Record<string, unknown>> {
-  return apiClient.get('/api/integrations/status');
-}
+export { getMercadoPagoPublicKey, getIntegrationStatus } from './api-integrations';
 
 // ============================================
 // DOCTOR STATS (derived from requests)
@@ -775,17 +745,9 @@ export async function fetchDoctorStats(): Promise<DoctorStats> {
 }
 
 // ============================================
-// VIDEO - By Request (added endpoint)
+// VIDEO - By Request — implementação em api-video.ts
 // ============================================
-
-export async function fetchVideoRoomByRequest(requestId: string): Promise<VideoRoomResponseDto | null> {
-  try {
-    return await apiClient.get(`/api/video/rooms/by-request/${requestId}`);
-  } catch (error: unknown) {
-    if ((error as { status?: number })?.status === 404) return null;
-    throw error;
-  }
-}
+export { fetchVideoRoomByRequest } from './api-video';
 
 // ============================================
 // CLINICAL / FHIR-LITE (prontuário)

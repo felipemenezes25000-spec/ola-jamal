@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { colors, spacing } from '../lib/theme';
+import { spacing } from '../lib/theme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
+import type { DesignColors } from '../lib/designSystem';
 import { Logo } from '../components/Logo';
 import { COMPANY } from '../lib/company';
 
@@ -12,6 +14,8 @@ const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function AboutScreen() {
   const router = useRouter();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -60,7 +64,8 @@ export default function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
@@ -137,4 +142,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 20,
   },
-});
+  });
+}

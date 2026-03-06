@@ -22,7 +22,7 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.renoveja.app",
       infoPlist: {
-        UIBackgroundModes: ["voip"],
+        UIBackgroundModes: ["voip", "audio"],
         NSCameraUsageDescription: "RenoveJá+ precisa de acesso à câmera para videoconsultas",
         NSMicrophoneUsageDescription: "RenoveJá+ precisa de acesso ao microfone para videoconsultas",
         NSPhotoLibraryUsageDescription: "RenoveJá+ precisa de acesso à galeria para enviar fotos de receitas e documentos"

@@ -1,25 +1,16 @@
 import { useMemo } from 'react';
 import { usePathname } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import {
-  colors as patientColors,
-  spacing as patientSpacing,
-  borderRadius as patientRadius,
-  shadows as patientShadows,
-  typography as patientTypography,
-} from '../theme';
-import {
-  colors as doctorColors,
-  spacing as doctorSpacing,
-  borderRadius as doctorRadius,
-  shadows as doctorShadows,
-  typography as doctorTypography,
-} from '../themeDoctor';
+import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
+import { createTokens } from '../designSystem';
+import type { AppRole, ColorScheme } from '../designSystem';
 
-export type AppThemeRole = 'patient' | 'doctor';
+export type AppThemeRole = AppRole;
 
 interface UseAppThemeOptions {
   role?: AppThemeRole;
+  /** Força um scheme específico (ignora o contexto global). */
+  scheme?: ColorScheme;
 }
 
 function resolveRole(pathname: string, userRole?: string | null, forcedRole?: AppThemeRole): AppThemeRole {
@@ -30,35 +21,21 @@ function resolveRole(pathname: string, userRole?: string | null, forcedRole?: Ap
   return 'patient';
 }
 
+/**
+ * Hook central de design tokens — retorna paleta correta para:
+ * - role do usuário (patient | doctor)
+ * - color scheme do sistema/usuário (light | dark)
+ *
+ * Todos os componentes que usam `useAppTheme` recebem dark mode automaticamente.
+ * Telas com StyleSheet estático devem migrar gradualmente.
+ */
 export function useAppTheme(options?: UseAppThemeOptions) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { colorScheme: contextScheme } = useColorSchemeContext();
 
   const role = resolveRole(pathname ?? '', user?.role, options?.role);
+  const scheme = options?.scheme ?? contextScheme;
 
-  return useMemo(() => {
-    if (role === 'doctor') {
-      return {
-        role,
-        colors: doctorColors,
-        spacing: doctorSpacing,
-        radius: doctorRadius,
-        shadows: doctorShadows,
-        typography: {
-          ...patientTypography,
-          fontFamily: doctorTypography.fontFamily,
-        },
-      };
-    }
-
-    return {
-      role,
-      colors: patientColors,
-      spacing: patientSpacing,
-      radius: patientRadius,
-      shadows: patientShadows,
-      typography: patientTypography,
-    };
-  }, [role]);
+  return useMemo(() => createTokens(role, scheme), [role, scheme]);
 }
-

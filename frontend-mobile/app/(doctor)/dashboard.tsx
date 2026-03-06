@@ -15,7 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
-import { colors, spacing, typography, gradients, doctorDS } from '../../lib/themeDoctor';
+import { spacing, doctorDS } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 const pad = doctorDS.screenPaddingHorizontal;
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
@@ -65,6 +67,8 @@ export default function DoctorDashboard() {
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
   const { user } = useAuth();
+  const { colors, gradients } = useAppTheme({ role: 'doctor' });
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [queue, setQueue] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -144,6 +148,28 @@ export default function DoctorDashboard() {
     doctorHasCertificate: hasCertificate === false ? false : hasCertificate === true ? true : undefined,
   });
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" translucent backgroundColor="transparent" />
+        <LinearGradient
+          colors={gradients.doctorHeader as [string, string, ...string[]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 20 }]}
+        >
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{greeting}, Dr(a). {firstName}</Text>
+            <Text style={styles.pendingSummary}>Carregando atendimentos…</Text>
+          </View>
+        </LinearGradient>
+        <View style={styles.loadingBody}>
+          <SkeletonList count={4} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
@@ -157,7 +183,7 @@ export default function DoctorDashboard() {
         showsVerticalScrollIndicator={false}
       >
       <LinearGradient
-        colors={[...gradients.doctorHeader]}
+        colors={gradients.doctorHeader as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 20 }]}
@@ -295,12 +321,19 @@ export default function DoctorDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
   content: {},
+  loadingBody: {
+    flex: 1,
+    paddingHorizontal: pad,
+    paddingTop: spacing.lg,
+    backgroundColor: colors.background,
+  },
   header: {
     paddingHorizontal: pad,
     paddingBottom: 60,
@@ -429,4 +462,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+  });
+}

@@ -59,16 +59,17 @@ export function AppEmptyState({
 const s = StyleSheet.create({
   container: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 10 },
   iconCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  title: { fontSize: 14, fontWeight: '800', textAlign: 'center', letterSpacing: 0.2 },
-  subtitle: { fontSize: 13, textAlign: 'center', lineHeight: 20, maxWidth: 300 },
+  title: { fontSize: 18, fontWeight: '800', textAlign: 'center', letterSpacing: -0.2, lineHeight: 24 },
+  subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 21, maxWidth: 300 },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 13,
+    paddingHorizontal: 28,
     borderRadius: 16,
     marginTop: 12,
+    minHeight: 44,
   },
-  actionText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.1 },
+  actionText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.1 },
 });

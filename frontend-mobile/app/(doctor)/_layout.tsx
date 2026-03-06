@@ -3,7 +3,8 @@ import { Platform, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
 import { haptics } from '../../lib/haptics';
 import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -19,6 +20,8 @@ export default function DoctorLayout() {
   const { user, loading } = useAuth();
   const { unreadCount } = useNotifications();
   const hasUnread = unreadCount > 0;
+  const { colors } = useAppTheme({ role: 'doctor' });
+  const { isDark } = useColorSchemeContext();
 
   const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
   const tabBarPaddingBottom = Math.max(10, insets.bottom + (Platform.OS === 'ios' ? 4 : 8));
@@ -31,7 +34,7 @@ export default function DoctorLayout() {
 
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'light'} />
       <Tabs
         screenListeners={{
           tabPress: () => haptics.selection(),

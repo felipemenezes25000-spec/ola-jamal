@@ -3,10 +3,14 @@
  * Primary (botões): #2CB1FF, Header gradient: #1A9DE0 → #2CB1FF, Background: #F4F6F9
  * Status: azul ação, verde sucesso, amarelo aguardando, cinza histórico (sem roxo)
  * Plus Jakarta Sans
+ *
+ * Tokens compartilhados são importados de lib/theme.ts para evitar duplicação.
  */
 
+import { theme } from './theme';
+
 export const colors = {
-  // Primary – Azul principal (botões, CTAs) – tom #2CB1FF
+  // Primary – Azul principal (botões, CTAs)
   primary: '#2CB1FF',
   primaryDark: '#1A9DE0',
   primaryLight: '#5EC5FF',
@@ -22,71 +26,65 @@ export const colors = {
   accent: '#B8DFFB',
   accentSoft: '#E3F4FF',
 
-  // Backgrounds
+  // Backgrounds – médico usa fundo levemente diferente (#F4F6F9 vs #F8FAFC)
   background: '#F4F6F9',
   surface: '#FFFFFF',
   surfaceSecondary: '#F1F5F9',
   muted: '#E2EDF6',
 
-  // Text
+  // Text – tom mais escuro para contraste no painel médico
   text: '#121A3E',
-  textSecondary: '#475569',
+  textSecondary: theme.colors.text.secondary,
   textMuted: '#64748B',
 
-  // Borders
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
+  // Borders – reutilizados do tema base
+  border: theme.colors.border.main,
+  borderLight: theme.colors.border.light,
   ring: '#2CB1FF',
 
-  // Status
-  error: '#EF4444',
-  errorLight: '#FEE2E2',
-  warning: '#F59E0B',
-  warningLight: '#FEF3C7',
-  success: '#059669',
-  successLight: '#D1FAE5',
-  info: '#3B82F6',
-  infoLight: '#DBEAFE',
+  // Status – reutilizados do tema base para consistência
+  error: theme.colors.status.error,
+  errorLight: theme.colors.status.errorLight,
+  warning: theme.colors.status.warning,
+  warningLight: theme.colors.status.warningLight,
+  success: theme.colors.secondary.dark,
+  successLight: theme.colors.secondary.soft,
+  info: theme.colors.status.info,
+  infoLight: theme.colors.status.infoLight,
   destructive: '#DC2626',
 
   // Neutral
   white: '#FFFFFF',
-  black: '#0F172A',
+  black: theme.colors.text.primary,
 
-  // Request statuses – design system: action/success/waiting/historical only
-  statusSubmitted: '#F59E0B',
-  statusInReview: '#3B82F6',
-  statusApproved: '#059669',
-  statusPaid: '#059669',
+  // Request statuses – reutilizados do tema base
+  statusSubmitted: theme.colors.status.warning,
+  statusInReview: theme.colors.status.info,
+  statusApproved: theme.colors.secondary.dark,
+  statusPaid: theme.colors.secondary.dark,
   statusSigned: '#6B7280',
-  statusDelivered: '#059669',
+  statusDelivered: theme.colors.secondary.dark,
   statusRejected: '#6B7280',
   statusCancelled: '#6B7280',
-  statusSearching: '#F59E0B',
-  statusConsultationReady: '#3B82F6',
-  statusInConsultation: '#3B82F6',
-  statusFinished: '#059669',
+  statusSearching: theme.colors.status.warning,
+  statusConsultationReady: theme.colors.status.info,
+  statusInConsultation: theme.colors.status.info,
+  statusFinished: theme.colors.secondary.dark,
 } as const;
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-} as const;
+/** Espaçamento compartilhado com o tema do paciente. */
+export const spacing = theme.spacing;
 
 export const borderRadius = {
-  xs: 6,
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 22,
-  pill: 26,
+  xs: theme.borderRadius.xs,
+  sm: theme.borderRadius.sm,
+  md: theme.borderRadius.md,
+  lg: theme.borderRadius.lg,
+  xl: theme.borderRadius.xl,
+  pill: theme.borderRadius.pill,
   card: 14,
   cardLg: 20,
-  full: 9999,
+  full: theme.borderRadius.full,
 } as const;
 
 /** Design system: card radius 20, padding 16–20, section gap 24, button 52/16 */

@@ -6,7 +6,6 @@ import {
   SectionList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -14,11 +13,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, gradients, doctorDS } from '../../lib/themeDoctor';
+import { spacing, typography, doctorDS } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
 
@@ -31,7 +33,7 @@ function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
   }
 }
 
-function getNotificationColor(type: string): string {
+function getNotificationColor(colors: DesignColors, type: string): string {
   switch (type) {
     case 'success': return colors.success;
     case 'warning': return colors.warning;
@@ -73,12 +75,6 @@ function getAlertCategory(item: NotificationResponseDto): AlertCategory {
   return 'other';
 }
 
-const ALERT_CATEGORY_LABELS: Record<AlertCategory, string> = {
-  payment: 'Pagamentos',
-  new_request: 'Novas solicitações',
-  other: 'Outros',
-};
-
 const ListSeparator = () => <View style={{ height: 8 }} />;
 const SectionGap = () => <View style={{ height: 4 }} />;
 
@@ -91,6 +87,9 @@ export default function DoctorNotifications() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | AlertCategory>('all');
+
+  const { colors, gradients } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const headerPaddingTop = insets.top + 16;
   const horizontalPad = doctorDS.screenPaddingHorizontal;
@@ -180,7 +179,7 @@ export default function DoctorNotifications() {
   const sections = Object.entries(groupedByDate).map(([title, data]) => ({ title, data }));
 
   const renderItem = ({ item }: { item: NotificationResponseDto }) => {
-    const iconColor = getNotificationColor(item.notificationType);
+    const iconColor = getNotificationColor(colors, item.notificationType);
     return (
       <TouchableOpacity
         style={[styles.card, !item.read && styles.cardUnread]}
@@ -210,7 +209,7 @@ export default function DoctorNotifications() {
     <View style={styles.container}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
       <LinearGradient
-        colors={[...gradients.doctorHeader]}
+        colors={gradients.doctorHeader as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: headerPaddingTop, paddingHorizontal: horizontalPad }]}
@@ -259,7 +258,7 @@ export default function DoctorNotifications() {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <SkeletonList count={5} />
         </View>
       ) : (
         <SectionList
@@ -287,7 +286,8 @@ export default function DoctorNotifications() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     paddingBottom: 18,
@@ -404,4 +404,5 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 14, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.2 },
   emptySubtitle: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textMuted },
-});
+  });
+}

@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppCard } from '../components/ui/AppCard';
 import { fetchPushTokens, setPushPreference, sendTestPush } from '../lib/api';
-import { colors, spacing } from '../lib/theme';
+import { spacing } from '../lib/theme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
+import type { DesignColors } from '../lib/designSystem';
 import { getMutedKeys, unmuteAll } from '../lib/triage/triagePersistence';
 import { showToast } from '../components/ui/Toast';
+import { useColorSchemeContext } from '../contexts/ColorSchemeContext';
+import { haptics } from '../lib/haptics';
 
 /**
  * Tela de configurações acessada por "Editar Perfil" na aba Perfil.
@@ -19,6 +23,9 @@ export default function SettingsScreen() {
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [mutedCount, setMutedCount] = useState(0);
+  const { preference, setPreference, isDark } = useColorSchemeContext();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useEffect(() => {
     getMutedKeys().then(keys => setMutedCount(keys.length));
@@ -101,6 +108,43 @@ export default function SettingsScreen() {
         </AppCard>
 
         <AppCard style={styles.section}>
+          <Text style={styles.sectionTitle}>Aparência</Text>
+          <SettingItem
+            icon={isDark ? 'moon' : 'sunny-outline'}
+            label="Modo escuro"
+            right={
+              <Switch
+                value={isDark}
+                onValueChange={(val) => {
+                  haptics.selection();
+                  setPreference(val ? 'dark' : 'light');
+                }}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor={colors.white}
+                accessibilityLabel="Ativar modo escuro"
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="phone-portrait-outline"
+            label="Seguir sistema"
+            right={
+              <Switch
+                value={preference === 'system'}
+                onValueChange={(val) => {
+                  haptics.selection();
+                  setPreference(val ? 'system' : isDark ? 'dark' : 'light');
+                }}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor={colors.white}
+                accessibilityLabel="Seguir preferência do sistema"
+              />
+            }
+          />
+        </AppCard>
+
+        <AppCard style={styles.section}>
           <Text style={styles.sectionTitle}>Notificações</Text>
           <SettingItem
             icon="notifications-outline"
@@ -143,7 +187,8 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
@@ -177,4 +222,5 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.xs },
   linkText: { fontSize: 14, fontWeight: '600', color: colors.primary },
   mutedText: { fontSize: 14, fontWeight: '500', color: colors.textMuted },
-});
+  });
+}

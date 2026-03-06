@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Linking,
   useWindowDimensions,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -22,6 +21,9 @@ import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
+import type { DesignColors } from '../../lib/designSystem';
 import { AppInput, AppButton } from '../../components/ui';
 import { Logo } from '../../components/Logo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,16 +31,12 @@ import { useAuth, FORBIDDEN_MESSAGE_KEY } from '../../contexts/AuthContext';
 import { validate } from '../../lib/validation';
 import { loginSchema } from '../../lib/validation/schemas';
 
-const c = theme.colors;
 const s = theme.spacing;
 
 const LOG_RENDER = __DEV__ && false;
 const WHATSAPP_NUMBER = '5511986318000';
 const SMALL_SCREEN_HEIGHT = 700;
 const EXTRA_SMALL_SCREEN_HEIGHT = 560;
-
-// Gradiente suave único (sem bloco azul chapado)
-const AUTH_GRADIENT: [string, string, ...string[]] = [c.background.secondary, c.accent.soft, c.accent.main];
 
 // Necessário para o fluxo OAuth no app (completar sessão ao voltar do browser)
 WebBrowser.maybeCompleteAuthSession();
@@ -48,6 +46,14 @@ export default function Login() {
   const { signIn, signInWithGoogle } = useAuth();
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const { colors } = useAppTheme();
+  const { isDark } = useColorSchemeContext();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  // Gradiente de fundo: azul suave no light, escuro no dark
+  const AUTH_GRADIENT: [string, string, ...string[]] = isDark
+    ? [colors.background, colors.surfaceSecondary, '#1A3A5C']
+    : [theme.colors.background.secondary, theme.colors.accent.soft, theme.colors.accent.main];
 
   const { height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowHeight < SMALL_SCREEN_HEIGHT;
@@ -93,7 +99,7 @@ export default function Login() {
 
   const renderCount = useRef(0);
   renderCount.current += 1;
-  if (LOG_RENDER) console.log('[Login] render #', renderCount.current);
+  if (LOG_RENDER) console.warn('[Login] render #', renderCount.current);
 
   const handleEmailChange = useCallback((text: string) => {
     setEmail(text);
@@ -261,21 +267,16 @@ export default function Login() {
         containerStyle={styles.inputLast}
       />
 
-      {/* Botão Login — lugar correto: após Senha, antes de Esqueceu senha (TouchableOpacity para garantir visibilidade no Expo Go) */}
-      <View style={styles.loginButtonWrap}>
-        <TouchableOpacity
-          style={[styles.loginButtonPrimary, loading && styles.loginButtonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-          activeOpacity={0.9}
-        >
-          {loading ? (
-            <ActivityIndicator color={c.text.inverse} size="small" />
-          ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <AppButton
+        title="Entrar"
+        onPress={handleLogin}
+        loading={loading}
+        disabled={loading}
+        variant="primary"
+        fullWidth
+        size="md"
+        style={styles.loginButtonWrap}
+      />
 
       {/* Esqueceu senha */}
       <TouchableOpacity
@@ -365,7 +366,8 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   gradient: { flex: 1 },
   safeArea: { flex: 1 },
   keyboardView: { flex: 1 },
@@ -379,7 +381,7 @@ const styles = StyleSheet.create({
 
   // Card único — contém TUDO (logo + form + social + links)
   card: {
-    backgroundColor: c.background.paper,
+    backgroundColor: colors.surface,
     borderRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 20,
@@ -403,7 +405,7 @@ const styles = StyleSheet.create({
   tagline: {
     marginTop: 8,
     fontSize: 13,
-    color: c.text.secondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 19,
   },
@@ -416,7 +418,7 @@ const styles = StyleSheet.create({
   // Separador fino entre header e form
   cardDivider: {
     height: 1,
-    backgroundColor: c.border.light,
+    backgroundColor: colors.borderLight,
     marginBottom: 10,
   },
 
@@ -437,32 +439,12 @@ const styles = StyleSheet.create({
   forgotText: {
     fontSize: 13,
     fontWeight: '500',
-    color: c.primary.main,
+    color: colors.primary,
   },
 
-  // Botão Login (após Senha — lugar correto)
   loginButtonWrap: {
-    height: 52,
-    minHeight: 52,
     marginTop: 12,
     marginBottom: 8,
-  },
-  loginButtonPrimary: {
-    flex: 1,
-    height: 52,
-    backgroundColor: c.primary.main,
-    borderRadius: theme.borderRadius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  loginButtonDisabled: {
-    opacity: 0.7,
-  },
-  loginButtonText: {
-    color: c.text.inverse,
-    fontSize: 16,
-    fontWeight: '700',
   },
 
   // Separador OU
@@ -475,12 +457,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: c.border.light,
+    backgroundColor: colors.borderLight,
   },
   dividerText: {
     fontSize: 12,
     fontWeight: '500',
-    color: c.text.tertiary,
+    color: colors.textMuted,
     letterSpacing: 0.5,
   },
 
@@ -501,7 +483,7 @@ const styles = StyleSheet.create({
   },
   whatsappLinkText: {
     fontSize: 12,
-    color: c.text.tertiary,
+    color: colors.textMuted,
     textDecorationLine: 'underline',
     fontWeight: '400',
   },
@@ -515,11 +497,12 @@ const styles = StyleSheet.create({
   },
   registerText: {
     fontSize: 14,
-    color: c.text.secondary,
+    color: colors.textSecondary,
   },
   registerLink: {
     fontSize: 14,
     fontWeight: '700',
-    color: c.primary.main,
+    color: colors.primary,
   },
-});
+  });
+}

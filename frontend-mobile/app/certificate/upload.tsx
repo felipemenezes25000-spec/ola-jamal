@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,10 +10,14 @@ import { AppButton } from '../../components/ui/AppButton';
 import { AppInput } from '../../components/ui/AppInput';
 import { Loading } from '../../components/Loading';
 import { uploadCertificate, getActiveCertificate, revokeCertificate } from '../../lib/api';
-import { colors, spacing, typography, borderRadius, doctorDS } from '../../lib/themeDoctor';
+import { spacing, typography, borderRadius, doctorDS } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 
 export default function CertificateUploadScreen() {
   const router = useRouter();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [certificate, setCertificate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -173,7 +177,8 @@ export default function CertificateUploadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
   infoBanner: { alignItems: 'center', marginBottom: doctorDS.sectionGap },
@@ -214,4 +219,5 @@ const styles = StyleSheet.create({
   revokeBtnPressed: { opacity: 0.8 },
   revokeBtnDisabled: { opacity: 0.7 },
   revokeBtnText: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.error },
-});
+  });
+}

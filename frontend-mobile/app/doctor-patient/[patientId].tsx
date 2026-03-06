@@ -12,7 +12,9 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography } from '../../lib/themeDoctor';
+import { spacing, typography } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { getPatientRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -34,11 +36,6 @@ const TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   consultation: 'videocam',
 };
 
-const TYPE_COLORS: Record<string, string> = {
-  prescription: colors.primary,
-  exam: colors.info,
-  consultation: colors.success,
-};
 
 function fmtDate(d: string): string {
   const dt = new Date(d);
@@ -87,7 +84,7 @@ const CLOSED_STATUSES = new Set([
   'rejected',
 ]);
 
-function getStatusTone(status: string | null | undefined): { label: string; color: string } {
+function getStatusTone(status: string | null | undefined, colors: DesignColors): { label: string; color: string } {
   const key = (status ?? '').toLowerCase();
   if (key === 'consultation_finished') return { label: 'Finalizada', color: colors.textMuted };
   if (key === 'paid') return { label: 'Pago', color: colors.info };
@@ -99,6 +96,13 @@ export default function DoctorPatientProntuario() {
   const { patientId } = useLocalSearchParams<{ patientId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const TYPE_COLORS: Record<string, string> = useMemo(() => ({
+    prescription: colors.primary,
+    exam: colors.info,
+    consultation: colors.success,
+  }), [colors]);
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -437,7 +441,7 @@ export default function DoctorPatientProntuario() {
                   {group.items.map((req, idx) => {
                     const icon = TYPE_ICONS[req.requestType] || 'document';
                     const color = TYPE_COLORS[req.requestType] || colors.primary;
-                    const statusTone = getStatusTone(req.status);
+                    const statusTone = getStatusTone(req.status, colors);
                     const itemSummary = buildMiniSummary(req) ?? 'Sem observações registradas';
                     const isLast = idx === group.items.length - 1;
                     return (
@@ -628,6 +632,8 @@ function CompactHeader({
   onBack: () => void;
   onHelpPress?: () => void;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.compactHeader, { paddingTop: topInset + 8 }]}>
       <TouchableOpacity
@@ -664,7 +670,8 @@ function CompactHeader({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingWrap: {
     flex: 1,
@@ -1075,4 +1082,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.white,
   },
-});
+  });
+}

@@ -10,6 +10,7 @@
  * - Timer sincronizado com servidor + countdown
  * - Quality indicator, mute/camera/flip controls
  * - Notas clínicas ao encerrar (modal)
+ * - Transcrição via Daily.co (sem fallback Deepgram/expo-av)
  * - SignalR para receber TranscriptUpdate + AnamnesisUpdate + SuggestionUpdate
  * - Criação de sala Daily.co antes do join
  */
@@ -29,6 +30,7 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
+  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,7 +52,7 @@ import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { apiClient } from '../../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyCall, type ConnectionQuality } from '../../hooks/useDailyCall';
-import { useAudioRecorder } from '../../hooks/useAudioRecorder';
+import { useDailyTranscription } from '../../hooks/useDailyTranscription';
 import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -155,8 +157,8 @@ export default function VideoCallScreenInner() {
   const [bankBalance, setBankBalance] = useState<{ minutes: number; seconds: number } | null>(null);
   const [consultationType, setConsultationType] = useState<string>('medico_clinico');
 
-  // Audio recording for transcription — PACIENTE grava (seu microfone); médico só visualiza via SignalR
-  const audioRecorder = useAudioRecorder(rid, isDoctor ? 'local' : 'remote');
+  // Transcrição: Daily.co nativa (ambos) ou fallback expo-av (só paciente)
+  const canStartRecording = consultationStartedAt || requestStatus === 'in_consultation' || requestStatus === 'paid';
 
   // Anamnesis & Transcript (doctor)
   const [panelOpen, setPanelOpen] = useState(false);
@@ -175,6 +177,8 @@ export default function VideoCallScreenInner() {
   }>>([]);
   const [transcriptFilter, setTranscriptFilter] = useState<TranscriptFilter>('todos');
   const [isAiActive, setIsAiActive] = useState(false);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [showBackgroundHint, setShowBackgroundHint] = useState(true);
   const tScrollRef = useRef<ScrollView>(null);
   const signalRRef = useRef<any>(null);
 
@@ -188,6 +192,7 @@ export default function VideoCallScreenInner() {
     callState, localParticipant, remoteParticipant,
     isMuted, isCameraOff, isFrontCamera, quality, errorMessage,
     join, leave, toggleMute, toggleCamera, flipCamera,
+    callRef,
   } = useDailyCall({
     roomUrl: roomUrl ?? '',
     token: meetingToken ?? '',
@@ -203,6 +208,16 @@ export default function VideoCallScreenInner() {
       router.back();
     },
     onError: (msg) => setError(msg),
+  });
+
+  const { isTranscribing: dailyTranscriptionActive } = useDailyTranscription({
+    callRef,
+    requestId: rid,
+    isDoctor,
+    localSessionId: localParticipant?.participantId ?? null,
+    callJoined: callState === 'joined',
+    consultationActive: !!canStartRecording && callState === 'joined',
+    onSendError: (msg) => setTranscriptionError(msg),
   });
 
   // ── Panel animation ──
@@ -249,6 +264,7 @@ export default function VideoCallScreenInner() {
         if (text) {
           setTranscript(text);
           setIsAiActive(true);
+          setTranscriptionError(null);
           setTimeout(() => tScrollRef.current?.scrollToEnd({ animated: true }), 100);
         }
       });
@@ -261,6 +277,11 @@ export default function VideoCallScreenInner() {
       conn.on('SuggestionUpdate', (data: any) => {
         const items = data?.suggestions ?? data?.Suggestions ?? [];
         if (Array.isArray(items)) setSuggestions(items);
+      });
+
+      conn.on('TranscriptionError', (data: any) => {
+        const msg = data?.message ?? data?.Message ?? 'Erro na transcrição';
+        setTranscriptionError(msg);
       });
 
       conn.on('EvidenceUpdate', (data: any) => {
@@ -331,7 +352,8 @@ export default function VideoCallScreenInner() {
     if (roomUrl && meetingToken && callState === 'idle') join();
   }, [roomUrl, meetingToken, callState, join]);
 
-  // Doctor: start consultation + connect SignalR ONLY when doctor presses Start Timer
+  // Doctor: start consultation + connect SignalR. Auto-start quando paciente entra (evita perder transcrição).
+  // Ponto 4: StartConsultation → status InConsultation; ReportCallConnected (ambos) → ConsultationStartedAt.
   const handleStartTimer = useCallback(async () => {
     if (!rid || timerStartedRef.current) return;
     timerStartedRef.current = true;
@@ -350,7 +372,7 @@ export default function VideoCallScreenInner() {
       // Also report doctor as connected to help trigger server-side timer
       reportCallConnected(rid).catch(() => {});
       connectSignalR();
-      // Médico NÃO grava — transcrição vem do paciente. Médico só vê ao vivo via SignalR.
+      // Transcrição via Daily.co — médico inicia e envia ao backend; ambos veem ao vivo via SignalR.
     } catch (e: any) {
       console.warn('Failed to start consultation:', e?.message);
       // Still set local timer so UI isn't stuck
@@ -358,7 +380,7 @@ export default function VideoCallScreenInner() {
         setConsultationStartedAt(new Date().toISOString());
       }
     }
-  }, [rid, connectSignalR, isDoctor, audioRecorder, consultationStartedAt]);
+  }, [rid, connectSignalR, isDoctor, consultationStartedAt]);
 
   // Auto-start robusto: quando médico e paciente já estão conectados na sala,
   // inicia consulta automaticamente para evitar perder transcrição por falta de clique.
@@ -438,33 +460,6 @@ export default function VideoCallScreenInner() {
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
-  // Patient: iniciar gravação para transcrição quando a consulta começar (paciente fala, médico vê ao vivo)
-  // Inicia quando: (1) consultationStartedAt OU (2) status in_consultation OU (3) status paid (backend aceita ambos para transcribe)
-  const patientRecordingStartedRef = useRef(false);
-  const canStartRecording = consultationStartedAt || requestStatus === 'in_consultation' || requestStatus === 'paid';
-  useEffect(() => {
-    if (isDoctor || !rid || callState !== 'joined') return;
-    if (__DEV__) {
-      console.log('[Patient] Transcrição: canStartRecording=', canStartRecording, 'consultationStartedAt=', !!consultationStartedAt, 'requestStatus=', requestStatus);
-    }
-    if (!canStartRecording) return;
-    if (patientRecordingStartedRef.current) return;
-    patientRecordingStartedRef.current = true;
-    (async () => {
-      await new Promise(r => setTimeout(r, 500));
-      if (__DEV__) console.log('[Patient] Transcrição: iniciando gravação...');
-      const started = await audioRecorder.start();
-      if (!started) {
-        console.warn('[Patient] Transcrição: falha ao iniciar gravação. Verifique permissão de microfone.');
-        await new Promise(r => setTimeout(r, 1500));
-        const retried = await audioRecorder.start();
-        if (!retried) console.warn('[Patient] Transcrição: retry falhou');
-      } else if (__DEV__) {
-        console.log('[Patient] Transcrição: gravação iniciada');
-      }
-    })();
-  }, [isDoctor, rid, canStartRecording, callState, audioRecorder, consultationStartedAt, requestStatus]);
-
   // Countdown / Auto-finish
   useEffect(() => {
     if (!contractedMinutes || contractedMinutes <= 0) return;
@@ -485,14 +480,23 @@ export default function VideoCallScreenInner() {
     }
   }, [callSeconds, contractedMinutes]);
 
-  // Picture-in-Picture (Android): ao minimizar, pop-up flutuante com a pessoa da consulta
+  // Dica UX: esconder após 8s (usuário pode usar o celular durante a chamada)
+  useEffect(() => {
+    if (callState !== 'joined') return;
+    const t = setTimeout(() => setShowBackgroundHint(false), 8000);
+    return () => clearTimeout(t);
+  }, [callState]);
+
+  // Picture-in-Picture (Android): ao minimizar, pop-up flutuante estilo WhatsApp/Discord
+  // — arrastável, redimensionável (pinch/double-tap), chamada continua em segundo plano
   useEffect(() => {
     if (Platform.OS !== 'android' || callState !== 'joined') return;
     if (!ExpoPip.isAvailable?.()) return;
     ExpoPip.setPictureInPictureParams?.({
       autoEnterEnabled: true,
+      seamlessResizeEnabled: true,
       title: isDoctor ? 'Consulta — Paciente' : 'Consulta — Médico',
-      subtitle: 'Toque para voltar',
+      subtitle: 'Arraste para mover • Toque para expandir',
       width: 360,
       height: 480,
     });
@@ -507,9 +511,8 @@ export default function VideoCallScreenInner() {
       ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
     }
     if (timerRef.current) clearInterval(timerRef.current);
-    audioRecorder.stop();
     disconnectSignalR();
-  }, [disconnectSignalR, audioRecorder]);
+  }, [disconnectSignalR]);
 
   // End call
   const doEnd = useCallback(async (autoFinish = false) => {
@@ -533,22 +536,22 @@ export default function VideoCallScreenInner() {
     router.replace(`/consultation-summary/${rid}` as any);
   }, [leave, rid, clinicalNotes, cleanup, router]);
 
-  const onEndPress = () => {
+  const onEndPress = useCallback(() => {
     if (isDoctor) {
       const title = 'Encerrar consulta';
-      const msg = 'Deseja encerrar a videochamada agora?';
+      const msg = 'Apenas o médico pode encerrar a consulta. Isso desconecta médico e paciente. Deseja encerrar agora?';
       Alert.alert(title, msg, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Encerrar', style: 'destructive', onPress: () => doEnd(false) },
       ]);
     } else {
-      // Patient: show time bank info when leaving early
+      // Paciente: só sai da chamada — pode voltar enquanto houver minutos; só o médico encerra
       const rem = contractedMinutes ? contractedMinutes * 60 - callSeconds : null;
       const unusedMin = rem != null && rem > 0 ? Math.floor(rem / 60) : 0;
       const msg = unusedMin > 0
-        ? `Você ainda tem ~${unusedMin} minuto(s) restantes.\n\nAo sair, o tempo não utilizado será creditado no seu banco de horas para usar em futuras consultas.`
-        : 'Deseja sair da videochamada?';
-      Alert.alert('Sair da consulta', msg, [
+        ? `Você ainda tem ~${unusedMin} minuto(s) restantes.\n\nSó o médico encerra a consulta. Ao sair, o tempo não utilizado vai pro seu banco de horas. Pode voltar à sala enquanto houver tempo.`
+        : 'Só o médico encerra a consulta. Você pode sair e voltar à sala enquanto houver tempo. Deseja sair agora?';
+      Alert.alert('Sair da chamada', msg, [
         { text: 'Continuar', style: 'cancel' },
         {
           text: unusedMin > 0 ? 'Sair e guardar saldo' : 'Sair',
@@ -557,7 +560,17 @@ export default function VideoCallScreenInner() {
         },
       ]);
     }
-  };
+  }, [isDoctor, doEnd, contractedMinutes, callSeconds, leave, cleanup, router]);
+
+  // Android: botão Voltar durante a chamada — mostrar confirmação em vez de sair direto
+  useEffect(() => {
+    if (Platform.OS !== 'android' || callState !== 'joined') return;
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      onEndPress();
+      return true;
+    });
+    return () => handler.remove();
+  }, [callState, onEndPress]);
 
   const transcriptEntries = useMemo(() => parseTranscriptEntries(transcript), [transcript]);
   const doctorSpeechCount = useMemo(
@@ -695,6 +708,13 @@ export default function VideoCallScreenInner() {
           <Text style={S.recText}>Transcrição ao vivo</Text>
         </View>
       )}
+      {/* Doctor: aviso quando transcrição falha */}
+      {!isInPipMode && isDoctor && transcriptionError && (
+        <View style={[S.recIndicator, { top: insets.top + 60 + 140, backgroundColor: colors.warning + '40' }]}>
+          <Ionicons name="warning" size={14} color={colors.warning} />
+          <Text style={[S.recText, { color: colors.warning }]}>{transcriptionError}</Text>
+        </View>
+      )}
 
       {/* Patient: Time Bank Balance — oculto em PiP */}
       {!isInPipMode && !isDoctor && bankBalance && bankBalance.minutes > 0 && (
@@ -704,35 +724,16 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Patient: indicador de transcrição + contador 10s — oculto em PiP */}
+      {/* Patient: indicador de transcrição Daily.co — oculto em PiP */}
       {!isInPipMode && !isDoctor && callState === 'joined' && (
         <View style={[S.recIndicator, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
-          {audioRecorder.isRecording ? (
+          {dailyTranscriptionActive ? (
             <>
               <View style={S.recDot} />
-              <View>
-                <Text style={S.recText}>
-                  Transcrição ativa{audioRecorder.chunksSent > 0 ? ` • ${audioRecorder.chunksSent} envios` : ''}
-                </Text>
-                {audioRecorder.secondsUntilNextChunk >= 0 && (
-                  <Text style={S.recCountdownText}>
-                    Próximo envio em {audioRecorder.secondsUntilNextChunk}s
-                  </Text>
-                )}
-              </View>
-            </>
-          ) : audioRecorder.error ? (
-            <>
-              <Ionicons name="alert-circle" size={12} color={colors.warning} />
-              <Text style={[S.recText, { color: colors.warning }]}>{audioRecorder.error}</Text>
-            </>
-          ) : audioRecorder.lastChunkError ? (
-            <>
-              <Ionicons name="warning" size={12} color={colors.warning} />
-              <Text style={[S.recText, { color: colors.warning, fontSize: 12 }]}>Erro ao enviar áudio</Text>
+              <Text style={S.recText}>Transcrição ativa</Text>
             </>
           ) : canStartRecording ? (
-            <Text style={[S.recText, { opacity: 0.7 }]}>Iniciando transcrição...</Text>
+            <Text style={[S.recText, { opacity: 0.7 }]}>Aguardando médico iniciar transcrição...</Text>
           ) : (
             <Text style={[S.recText, { opacity: 0.7 }]}>
               {requestStatus === 'paid' ? 'Aguardando médico na chamada...' : 'Aguardando médico iniciar a consulta'}
@@ -741,11 +742,13 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Patient: info about early leave — oculto em PiP */}
+      {/* Patient: só o médico encerra; paciente pode sair e voltar */}
       {!isInPipMode && !isDoctor && callState === 'joined' && contractedMinutes && callSeconds > 0 && (
         <View style={[S.earlyLeaveHint, { bottom: 80 + insets.bottom + 12 }]}>
           <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-          <Text style={S.earlyLeaveText}>Sair antes? O tempo restante vai pro seu banco de horas.</Text>
+          <Text style={S.earlyLeaveText}>
+            Só o médico encerra a consulta. Pode sair e voltar enquanto houver tempo. Tempo restante vai pro banco de horas.
+          </Text>
         </View>
       )}
 
@@ -945,6 +948,21 @@ export default function VideoCallScreenInner() {
         </Animated.View>
       )}
 
+      {/* Dica: pode usar o celular durante a chamada — some após 8s */}
+      {!isInPipMode && showBackgroundHint && callState === 'joined' && (
+        <View style={[S.backgroundHint, { bottom: (insets.bottom || 20) + 90 }]}>
+          <Ionicons name="phone-portrait-outline" size={16} color={colors.primary} />
+          <Text style={S.backgroundHintText}>
+            {Platform.OS === 'android' && ExpoPip?.isAvailable?.()
+              ? 'Minimizar para usar outros apps — popup arrastável, chamada continua'
+              : 'Pode trocar de app — a chamada continua em segundo plano'}
+          </Text>
+          <TouchableOpacity onPress={() => setShowBackgroundHint(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="close" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Controls — oculto em PiP; toque na janela expande o app */}
       {!isInPipMode && (
       <View style={[S.ctrl, { paddingBottom: insets.bottom + 12 }]}>
@@ -966,11 +984,16 @@ export default function VideoCallScreenInner() {
           <Ionicons name="camera-reverse-outline" size={22} color={colors.white} />
           <Text style={S.cLbl}>Virar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[S.cb, S.endCb]} onPress={onEndPress} disabled={ending}>
+        <TouchableOpacity
+          style={[S.cb, S.endCb]}
+          onPress={onEndPress}
+          disabled={ending}
+          accessibilityLabel={isDoctor ? 'Encerrar consulta' : 'Sair da chamada'}
+        >
           {ending ? <ActivityIndicator size="small" color={colors.white} /> : (
             <Ionicons name="call" size={22} color={colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
           )}
-          <Text style={S.cLbl}>Sair</Text>
+          <Text style={S.cLbl}>{isDoctor ? 'Encerrar' : 'Sair'}</Text>
         </TouchableOpacity>
       </View>
       )}
@@ -1132,6 +1155,8 @@ const S = StyleSheet.create({
   startTimerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 1 },
 
   // Recording indicator
+  backgroundHint: { position: 'absolute', left: 12, right: 12, zIndex: 20, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(44,177,255,0.15)', borderWidth: 1, borderColor: 'rgba(44,177,255,0.3)' },
+  backgroundHintText: { flex: 1, fontSize: 12, color: colors.text, lineHeight: 18 },
   recIndicator: { position: 'absolute', left: 12, zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(220,38,38,0.8)' },
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.white },
   recText: { color: colors.white, fontSize: 12, fontWeight: '600' },

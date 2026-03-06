@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTriageEval } from '../hooks/useTriageEval';
 import { useAuth } from '../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../lib/theme';
+import { spacing } from '../lib/theme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
+import type { DesignColors } from '../lib/designSystem';
 import { COMPANY } from '../lib/company';
 
 export default function HelpFaqScreen() {
   const router = useRouter();
   const { user } = useAuth();
   useTriageEval({ context: 'help', step: 'entry', role: user?.role === 'doctor' ? 'doctor' : 'patient' });
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -80,7 +84,8 @@ export default function HelpFaqScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
@@ -101,4 +106,5 @@ const styles = StyleSheet.create({
   question: { fontSize: 14, fontWeight: '500', color: colors.text, marginTop: spacing.md },
   answer: { fontSize: 14, color: colors.textSecondary, marginTop: 4, marginBottom: spacing.md, lineHeight: 20 },
   paragraph: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md, lineHeight: 22 },
-});
+  });
+}

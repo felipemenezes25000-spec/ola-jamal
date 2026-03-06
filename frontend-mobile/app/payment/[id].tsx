@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { spacing, borderRadius, shadows } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { fetchPayment, fetchPixCode, syncPaymentStatus } from '../../lib/api';
 import { formatBRL, formatTimeBR } from '../../lib/utils/format';
 import { PaymentResponseDto } from '../../types/database';
 import { PaymentHeader } from '../../components/payment/PaymentHeader';
 import { PaymentMethodSelection } from '../../components/payment/PaymentMethodSelection';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { AppEmptyState } from '../../components/ui';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 type PayScreen = 'selection' | 'pix';
@@ -30,9 +34,12 @@ export default function PaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const paymentId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [payment, setPayment] = useState<PaymentResponseDto | null>(null);
   const [pixCode, setPixCode] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [screen, setScreen] = useState<PayScreen>('selection');
   const [autoPolling, setAutoPolling] = useState(false);
   const [checkingNow, setCheckingNow] = useState(false);
@@ -113,7 +120,7 @@ export default function PaymentScreen() {
         startPolling();
       }
     } catch (e: unknown) {
-      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Erro ao carregar pagamento');
+      setLoadError((e as Error)?.message || String(e) || 'Erro ao carregar pagamento');
     } finally {
       setLoading(false);
     }
@@ -239,8 +246,26 @@ export default function PaymentScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <PaymentHeader onBack={() => router.back()} />
+        <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
+          <SkeletonList count={3} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <PaymentHeader onBack={() => router.back()} />
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <AppEmptyState
+            icon="alert-circle-outline"
+            title="Erro ao carregar pagamento"
+            subtitle={loadError}
+            actionLabel="Tentar novamente"
+            onAction={() => { setLoadError(null); setLoading(true); loadPayment(); }}
+          />
         </View>
       </SafeAreaView>
     );
@@ -411,7 +436,8 @@ export default function PaymentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
@@ -531,4 +557,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
   },
-});
+  });
+}

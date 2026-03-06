@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +10,9 @@ import { AppInput } from '../../components/ui/AppInput';
 import { Loading } from '../../components/Loading';
 import { uploadCertificate, getActiveCertificate } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, spacing, borderRadius } from '../../lib/theme';
+import { spacing, borderRadius } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 
 /**
  * Tela obrigatória para médicos concluírem o cadastro com certificado digital.
@@ -19,6 +21,8 @@ import { colors, spacing, borderRadius } from '../../lib/theme';
 export default function CompleteDoctorScreen() {
   const router = useRouter();
   const { refreshUser, signOut } = useAuth();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [certificate, setCertificate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -222,7 +226,8 @@ export default function CompleteDoctorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
@@ -319,4 +324,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-});
+  });
+}

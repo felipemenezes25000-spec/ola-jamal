@@ -53,7 +53,7 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
   // On Android/iOS, updating parent View styles (shadow/elevation) immediately on focus
   // can trigger a layout pass that steals focus from the TextInput.
   const handleFocus = useCallback((e: any) => {
-    if (LOGIN_FOCUS_DEBUG && _logLabel) console.log('[LOGIN_FOCUS] onFocus', _logLabel);
+    if (LOGIN_FOCUS_DEBUG && _logLabel) console.warn('[LOGIN_FOCUS] onFocus', _logLabel);
     onFocus?.(e);
     if (focusUpdateScheduled.current) return;
     focusUpdateScheduled.current = true;
@@ -64,13 +64,13 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
   }, [onFocus, _logLabel]);
 
   const handleBlur = useCallback((e: any) => {
-    if (LOGIN_FOCUS_DEBUG && _logLabel) console.log('[LOGIN_FOCUS] onBlur', _logLabel);
+    if (LOGIN_FOCUS_DEBUG && _logLabel) console.warn('[LOGIN_FOCUS] onBlur', _logLabel);
     onBlur?.(e);
     setFocused(false);
   }, [onBlur, _logLabel]);
 
   const handleChangeText = useCallback((text: string) => {
-    if (LOGIN_FOCUS_DEBUG && _logLabel) console.log('[LOGIN_FOCUS] onChangeText', _logLabel, 'len=', text.length);
+    if (LOGIN_FOCUS_DEBUG && _logLabel) console.warn('[LOGIN_FOCUS] onChangeText', _logLabel, 'len=', text.length);
     onChangeText?.(text);
   }, [onChangeText, _logLabel]);
 

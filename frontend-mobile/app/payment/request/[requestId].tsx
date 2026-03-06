@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing } from '../../../lib/theme';
+import { spacing } from '../../../lib/theme';
+import { useAppTheme } from '../../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../../lib/designSystem';
 import { fetchRequestById, createPayment } from '../../../lib/api';
 import { getDisplayPrice } from '../../../lib/config/pricing';
 import { getApiErrorMessage } from '../../../lib/api-client';
@@ -22,6 +24,8 @@ export default function PaymentRequestScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const rid = Array.isArray(requestId) ? requestId[0] : requestId;
   const router = useRouter();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [pixLoading, setPixLoading] = useState(false);
@@ -143,9 +147,11 @@ export default function PaymentRequestScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
-  errorText: { fontSize: 16, color: colors.textSecondary },
-});
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    scroll: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+    errorText: { fontSize: 16, color: colors.textSecondary },
+  });
+}

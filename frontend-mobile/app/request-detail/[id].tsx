@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import { colors, spacing, borderRadius, shadows } from '../../lib/theme';
+import { spacing, borderRadius, shadows } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { fetchRequestById, markRequestDelivered, cancelRequest } from '../../lib/api';
 import { apiClient } from '../../lib/api-client';
@@ -29,6 +31,7 @@ import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
 import { AppButton, StickyCTA, FormSection, AppEmptyState } from '../../components/ui';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
 import { FormattedAiSummary } from '../../components/FormattedAiSummary';
@@ -39,6 +42,7 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 /** Texto expansível: mostra N linhas com "Ver mais" / "Ver menos". */
 function ExpandableText({ text, maxLines = 4, style }: { text: string; maxLines?: number; style?: any }) {
+  const { colors } = useAppTheme();
   const [expanded, setExpanded] = React.useState(false);
   const [needsExpand, setNeedsExpand] = React.useState(false);
   return (
@@ -127,6 +131,8 @@ export default function RequestDetailScreen() {
   const videoModalShownRef = useRef(false);
   const lastVideoModalRequestIdRef = useRef<string | null>(null);
   const { isConnected } = useNetworkStatus();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const fetchIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -364,9 +370,21 @@ export default function RequestDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Carregando...</Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Carregando...</Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
+          <SkeletonList count={4} />
         </View>
       </SafeAreaView>
     );
@@ -487,9 +505,11 @@ export default function RequestDetailScreen() {
             <Ionicons name="videocam" size={28} color={colors.white} />
             <View style={styles.videoReadyBannerText}>
               <Text style={styles.videoReadyBannerTitle}>
-                {request.status === 'in_consultation' ? 'Médico na sala — entre agora!' : 'Sua consulta está pronta'}
+                {request.status === 'in_consultation' ? 'Médico na sala — entre ou volte!' : 'Sua consulta está pronta'}
               </Text>
-              <Text style={styles.videoReadyBannerSub}>Toque para entrar na videoconsulta</Text>
+              <Text style={styles.videoReadyBannerSub}>
+                {request.status === 'in_consultation' ? 'Toque para entrar ou voltar à videoconsulta' : 'Toque para entrar na videoconsulta'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
@@ -788,7 +808,7 @@ export default function RequestDetailScreen() {
             </Text>
             <Text style={styles.videoModalSub}>
               {request.status === 'in_consultation'
-                ? 'Entre na videoconsulta agora.'
+                ? 'Entre na videoconsulta. Pode voltar à sala enquanto houver tempo contratado.'
                 : 'Entre na sala e aguarde o médico.'}
             </Text>
             <TouchableOpacity
@@ -838,7 +858,8 @@ export default function RequestDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   loadingText: { fontSize: 14, color: colors.textMuted },
@@ -1017,4 +1038,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-});
+  });
+}

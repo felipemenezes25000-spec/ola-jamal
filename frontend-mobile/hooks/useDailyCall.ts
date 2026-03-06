@@ -234,7 +234,8 @@ export function useDailyCall({
   }, [isFrontCamera]);
 
   // --- Cleanup on unmount ---
-
+  // Só roda quando o componente desmonta (ex.: após router.back() após usuário clicar Desligar).
+  // Se o app for morto pelo OS, o processo morre antes — a conexão cai e o usuário pode voltar e reentrar.
   useEffect(() => {
     return () => {
       const call = callRef.current;
@@ -261,5 +262,7 @@ export function useDailyCall({
     toggleMute,
     toggleCamera,
     flipCamera,
+    /** Ref para o DailyCall (para startTranscription, etc). */
+    callRef,
   };
 }

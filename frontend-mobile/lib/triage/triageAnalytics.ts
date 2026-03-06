@@ -10,7 +10,7 @@ export function trackTriageEvent(
   metadata?: Record<string, unknown>
 ): void {
   if (__DEV__) {
-    console.log('[TRIAGE_ANALYTICS]', event, metadata);
+    console.warn('[TRIAGE_ANALYTICS]', event, metadata);
   }
 
   // Fase 2: descomentar para enviar ao backend

@@ -42,8 +42,13 @@ export function StatusBadgeByRequest({
   const { color, bg } = UI_STATUS_COLORS[colorKey];
   const isSm = size === 'sm';
   return (
-    <View style={[styles.badge, { backgroundColor: bg, borderColor: `${color}33`, maxWidth: 180 }, isSm && styles.badgeSm]}>
-      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1} ellipsizeMode="tail">
+    <View
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={`Status: ${label}`}
+      style={[styles.badge, { backgroundColor: bg, borderColor: `${color}33`, maxWidth: 180 }, isSm && styles.badgeSm]}
+    >
+      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1} ellipsizeMode="tail" importantForAccessibility="no">
         {label}
       </Text>
     </View>
@@ -56,8 +61,13 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   const { color, bg } = UI_STATUS_COLORS[colorKey];
   const isSm = size === 'sm';
   return (
-    <View style={[styles.badge, { backgroundColor: bg, borderColor: `${color}33`, maxWidth: 180 }, isSm && styles.badgeSm]}>
-      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1} ellipsizeMode="tail">
+    <View
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={`Status: ${label}`}
+      style={[styles.badge, { backgroundColor: bg, borderColor: `${color}33`, maxWidth: 180 }, isSm && styles.badgeSm]}
+    >
+      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1} ellipsizeMode="tail" importantForAccessibility="no">
         {label}
       </Text>
     </View>
@@ -70,8 +80,13 @@ export function StatusBadgeVariant({ variant, label, size = 'md' }: StatusBadgeV
   const { color, bg } = UI_STATUS_COLORS[colorKey];
   const isSm = size === 'sm';
   return (
-    <View style={[styles.badge, { backgroundColor: bg, borderColor: `${color}33`, maxWidth: 180 }, isSm && styles.badgeSm]}>
-      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1} ellipsizeMode="tail">
+    <View
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={`Status: ${label}`}
+      style={[styles.badge, { backgroundColor: bg, borderColor: `${color}33`, maxWidth: 180 }, isSm && styles.badgeSm]}
+    >
+      <Text style={[styles.text, { color }, isSm && styles.textSm]} numberOfLines={1} ellipsizeMode="tail" importantForAccessibility="no">
         {label}
       </Text>
     </View>

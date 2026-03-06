@@ -6,19 +6,21 @@ import {
   SectionList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, gradients } from '../../lib/theme';
+import { spacing, borderRadius } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { AppHeader, AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
 
@@ -64,6 +66,9 @@ export default function PatientNotifications() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [activeFilter, setActiveFilter] = useState<NotificationFilterKey>('all');
+
+  const { colors, gradients } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const loadData = useCallback(async (withFeedback = false) => {
     try {
@@ -257,7 +262,7 @@ export default function PatientNotifications() {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <SkeletonList count={5} />
         </View>
       ) : error ? (
         <View style={styles.loadingWrap}>
@@ -295,7 +300,8 @@ export default function PatientNotifications() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -414,4 +420,5 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.textSecondary },
   emptySubtitle: { fontSize: 14, color: colors.textMuted },
-});
+  });
+}

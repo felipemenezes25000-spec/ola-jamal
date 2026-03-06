@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,10 +10,14 @@ import { AppButton } from '../components/ui/AppButton';
 import { changePassword } from '../lib/api';
 import { validate } from '../lib/validation';
 import { changePasswordSchema } from '../lib/validation/schemas';
-import { colors, spacing } from '../lib/theme';
+import { spacing } from '../lib/theme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
+import type { DesignColors } from '../lib/designSystem';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -98,7 +102,8 @@ export default function ChangePasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
@@ -112,4 +117,5 @@ const styles = StyleSheet.create({
   card: { padding: spacing.lg },
   hint: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 20 },
   errorText: { fontSize: 12, fontWeight: '500', color: colors.error, marginBottom: spacing.md },
-});
+  });
+}

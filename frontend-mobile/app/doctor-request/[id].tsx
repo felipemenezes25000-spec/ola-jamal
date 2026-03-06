@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,9 @@ import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { colors, spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
+import { spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -26,7 +28,7 @@ import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
 import { DoctorCard } from '../../components/ui/DoctorCard';
-import { AppButton, AIActionSheet } from '../../components/ui';
+import { AppButton, AIActionSheet, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { useTriageEval } from '../../hooks/useTriageEval';
@@ -47,6 +49,8 @@ const TYPE_LABELS: Record<string, string> = { prescription: 'RECEITA', exam: 'EX
 export default function DoctorRequestDetail() {
   const router = useRouter();
   const listPadding = useListBottomPadding();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
 
   const {
     request, loading, loadError, actionLoading,
@@ -95,25 +99,31 @@ export default function DoctorRequestDetail() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <DoctorHeader title="Detalhe do Pedido" onBack={() => router.back()} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Ionicons name="alert-circle-outline" size={56} color={colors.destructive} />
-          <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text, marginTop: 16 }}>Erro ao carregar</Text>
-          <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 6, textAlign: 'center' }}>Verifique sua conexão e tente novamente</Text>
-          <TouchableOpacity onPress={loadData} style={{ marginTop: 20, paddingVertical: 12, paddingHorizontal: 28, backgroundColor: colors.primary, borderRadius: 26 }}>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: colors.white }}>Tentar novamente</Text>
-          </TouchableOpacity>
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <AppEmptyState
+            icon="alert-circle-outline"
+            title="Erro ao carregar pedido"
+            subtitle="Verifique sua conexão e tente novamente."
+            actionLabel="Tentar novamente"
+            onAction={loadData}
+          />
         </View>
       </View>
     );
   }
 
   if (!request) return (
-    <View style={s.center}>
-      <Ionicons name="document-text-outline" size={56} color={colors.textMuted} />
-      <Text style={s.emptyTitle}>PEDIDO NÃO ENCONTRADO</Text>
-      <TouchableOpacity onPress={() => router.back()} style={s.emptyAction}>
-        <Text style={s.emptyActionText}>VOLTAR</Text>
-      </TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <DoctorHeader title="Detalhe do Pedido" onBack={() => router.back()} />
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <AppEmptyState
+          icon="document-text-outline"
+          title="Pedido não encontrado"
+          subtitle="Este pedido pode ter sido removido ou não está mais disponível."
+          actionLabel="Voltar"
+          onAction={() => router.back()}
+        />
+      </View>
     </View>
   );
 
@@ -215,6 +225,8 @@ export default function DoctorRequestDetail() {
 /* ---- Inline sub-sections (kept in the same file for simplicity) ---- */
 
 function DetailsCard({ request }: { request: NonNullable<ReturnType<typeof useDoctorRequest>['request']> }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <DoctorCard style={s.cardMargin}>
       <View style={s.detailsGrid}>
@@ -246,6 +258,8 @@ function DetailsCard({ request }: { request: NonNullable<ReturnType<typeof useDo
 }
 
 function MedicationsCard({ medications }: { medications: string[] | null }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (!medications || medications.length === 0) return null;
   return (
     <DoctorCard style={s.cardMargin}>
@@ -267,6 +281,8 @@ function MedicationsCard({ medications }: { medications: string[] | null }) {
 }
 
 function ExamsCard({ exams }: { exams: string[] | null }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (!exams || exams.length === 0) return null;
   return (
     <DoctorCard style={s.cardMargin}>
@@ -290,6 +306,8 @@ function ExamsCard({ exams }: { exams: string[] | null }) {
 }
 
 function SymptomsCard({ symptoms }: { symptoms: string | null }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (!symptoms) return null;
   return (
     <DoctorCard style={s.cardMargin}>
@@ -305,6 +323,8 @@ function SymptomsCard({ symptoms }: { symptoms: string | null }) {
 }
 
 function ConsultationPostSection({ request, router }: { request: NonNullable<ReturnType<typeof useDoctorRequest>['request']>; router: ReturnType<typeof useRouter> }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (request.requestType !== 'consultation' || request.status !== 'consultation_finished') return null;
   if (!request.consultationTranscript && !request.consultationAnamnesis && !request.consultationAiSuggestions) return null;
 
@@ -464,6 +484,8 @@ function ConductSection({ request, conductNotes, setConductNotes, includeConduct
   savingConduct: boolean;
   handleSaveConduct: () => Promise<void>;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (request.requestType !== 'consultation') return null;
   const [sheetOpen, setSheetOpen] = useState(false);
   const suggestion = request.aiConductSuggestion || '';
@@ -558,6 +580,8 @@ function ConductSection({ request, conductNotes, setConductNotes, includeConduct
 }
 
 function SignedDocumentCard({ request }: { request: NonNullable<ReturnType<typeof useDoctorRequest>['request']> }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (!request.signedDocumentUrl) return null;
 
   return (
@@ -588,7 +612,8 @@ function SignedDocumentCard({ request }: { request: NonNullable<ReturnType<typeo
 
 const pad = doctorDS.screenPaddingHorizontal;
 
-const s = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingContainer: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, gap: spacing.md },
@@ -649,4 +674,5 @@ const s = StyleSheet.create({
   formTextArea: { backgroundColor: colors.background, borderRadius: borderRadius.sm, padding: spacing.md, fontSize: 15, color: colors.text, minHeight: 100, borderWidth: 1, borderColor: colors.border, fontFamily: typography.fontFamily.regular },
   formBtns: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   primaryBtnFlex: { flex: 1 },
-});
+  });
+}

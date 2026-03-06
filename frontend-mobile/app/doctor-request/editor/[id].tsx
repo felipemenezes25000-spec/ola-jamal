@@ -17,7 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, shadows, typography, doctorDS } from '../../../lib/themeDoctor';
+import { spacing, borderRadius, shadows, typography, doctorDS } from '../../../lib/themeDoctor';
+import { useAppTheme } from '../../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../../lib/designSystem';
 import {
   getRequestById,
   signRequest,
@@ -35,16 +37,12 @@ import { DoctorHeader } from '../../../components/ui/DoctorHeader';
 import { DoctorCard } from '../../../components/ui/DoctorCard';
 import { AppButton } from '../../../components/ui/AppButton';
 import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
+import { AppEmptyState } from '../../../components/ui';
 import { showToast } from '../../../components/ui/Toast';
 import { getApiErrorMessage } from '../../../lib/api-client';
 import { FormattedAiSummary } from '../../../components/FormattedAiSummary';
 import { ConductSection } from '../../../components/triage';
 
-const RISK_COLORS: Record<string, { bg: string; text: string }> = {
-  low: { bg: colors.successLight, text: colors.success },
-  medium: { bg: colors.warningLight, text: colors.warning },
-  high: { bg: colors.errorLight, text: colors.destructive },
-};
 const RISK_LABELS_PT: Record<string, string> = {
   low: 'Risco baixo',
   medium: 'Risco médio',
@@ -132,7 +130,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
  * Em vez disso, passamos o base64 via postMessage após o carregamento do PDF.js.
  * O HTML fica leve e o base64 é enviado pelo canal de mensagem da WebView.
  */
-function buildPdfEmbedHtml(): string {
+function buildPdfEmbedHtml(colors: DesignColors): string {
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8"/>
@@ -238,8 +236,16 @@ export default function PrescriptionEditorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const { colors } = useAppTheme();
+  const st = useMemo(() => makeStyles(colors), [colors]);
+  const RISK_COLORS = useMemo<Record<string, { bg: string; text: string }>>(() => ({
+    low: { bg: colors.successLight, text: colors.success },
+    medium: { bg: colors.warningLight, text: colors.warning },
+    high: { bg: colors.errorLight, text: colors.destructive },
+  }), [colors]);
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [medications, setMedications] = useState<string[]>([]);
   const [exams, setExams] = useState<string[]>([]);
   const [prescriptionKind, setPrescriptionKind] = useState<PrescriptionKind>('simple');
@@ -323,6 +329,7 @@ export default function PrescriptionEditorScreen() {
       setPrescriptionKind((data.prescriptionKind as PrescriptionKind) || 'simple');
     } catch (e) {
       console.error(e);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -555,6 +562,21 @@ export default function PrescriptionEditorScreen() {
       return next;
     });
 
+  if (!loading && loadError && !request) {
+    return (
+      <SafeAreaView style={st.container} edges={['top']}>
+        <DoctorHeader title="Editor" onBack={() => router.back()} />
+        <AppEmptyState
+          icon="alert-circle-outline"
+          title="Erro ao carregar pedido"
+          subtitle="Verifique sua conexão e tente novamente."
+          actionLabel="Tentar novamente"
+          onAction={() => { setLoadError(false); setLoading(true); loadRequest(); }}
+        />
+      </SafeAreaView>
+    );
+  }
+
   if (loading || !request) {
     return (
       <SafeAreaView style={st.container} edges={['top']}>
@@ -719,7 +741,7 @@ export default function PrescriptionEditorScreen() {
                   <WebView
                     key={pdfUri}
                     ref={webViewRef}
-                    source={{ html: buildPdfEmbedHtml(), baseUrl: 'https://cdnjs.cloudflare.com' }}
+                    source={{ html: buildPdfEmbedHtml(colors), baseUrl: 'https://cdnjs.cloudflare.com' }}
                     style={[st.webview, { height: pdfViewHeight }]}
                     scrollEnabled
                     nestedScrollEnabled
@@ -792,7 +814,7 @@ export default function PrescriptionEditorScreen() {
                 <Ionicons name="sparkles" size={20} color={colors.primary} />
                 <Text style={st.aiTitle}>COPILOTO IA</Text>
                 {request.aiRiskLevel && (
-                  <View style={[st.riskBadge, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || colors.muted }]}>
+                  <View style={[st.riskBadge, { backgroundColor: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.bg || colors.textMuted }]}>
                     <Text style={[st.riskText, { color: RISK_COLORS[request.aiRiskLevel.toLowerCase()]?.text || colors.text }]}>
                       {getRiskLabelPt(request.aiRiskLevel)}
                     </Text>
@@ -1089,7 +1111,8 @@ export default function PrescriptionEditorScreen() {
   );
 }
 
-const st = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
 
@@ -1329,4 +1352,5 @@ const st = StyleSheet.create({
   bottomPrimaryBtn: { flex: 1 },
   bottomPrimaryBtnFull: { flex: 1, minWidth: 0 },
   btnText: { fontSize: 16, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.white },
-});
+  });
+}

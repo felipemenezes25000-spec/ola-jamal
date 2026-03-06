@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useCallback, useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, gradients, borderRadius, doctorDS } from '../../lib/themeDoctor';
+import { spacing, typography, borderRadius, doctorDS } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 const pad = doctorDS.screenPaddingHorizontal;
-import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { cacheRequest } from '../doctor-request/[id]';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
+import { useDoctorRequestsQuery, useInvalidateDoctorRequests } from '../../lib/hooks/useDoctorRequestsQuery';
 import RequestCard from '../../components/RequestCard';
 import { AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -30,7 +32,6 @@ import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
 import { motionTokens } from '../../lib/ui/motion';
 
-const LOG_QUEUE = __DEV__ && false;
 const ListSeparator = () => null;
 
 const TYPE_FILTER_ITEMS: { key: string; label: string; type?: string }[] = [
@@ -53,118 +54,82 @@ export default function DoctorQueue() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
-  const [requests, setRequests] = useState<RequestResponseDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const requestIdRef = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const typeParam = useMemo(() => TYPE_FILTER_ITEMS.find((c) => c.key === activeFilter)?.type, [activeFilter]);
-  const label = useMemo(() => getHeaderLabel(activeFilter), [activeFilter]);
-  const counts = useMemo(() => {
-    const all = requests.length;
-    const prescription = requests.filter((r) => r.requestType === 'prescription').length;
-    const exam = requests.filter((r) => r.requestType === 'exam').length;
-    const consultation = requests.filter((r) => r.requestType === 'consultation').length;
-    return { all, prescription, exam, consultation };
-  }, [requests]);
-
-  // Filtra localmente — tipo + busca por nome do paciente
-  const filteredRequests = useMemo(() => {
-    let list = requests;
-    if (typeParam) list = list.filter((r) => r.requestType === typeParam);
-    const q = searchText.trim().toLowerCase();
-    if (q) {
-      list = list.filter((r) =>
-        (r.patientName ?? '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [requests, typeParam, searchText]);
+  const { colors, gradients } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { subscribe, isConnected } = useRequestsEvents();
+  const invalidateDoctorRequests = useInvalidateDoctorRequests();
 
-  const loadData = useCallback(
-    async (isRefresh = false, withFeedback = false) => {
-      const rid = ++requestIdRef.current;
-      const abort = new AbortController();
-      abortRef.current = abort;
+  const {
+    data: requests = [],
+    isLoading: loading,
+    isError,
+    error: queryError,
+    refetch,
+  } = useDoctorRequestsQuery(isConnected);
 
-      if (!isRefresh) setLoading(true);
-      setError(null);
-      const start = Date.now();
-      if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue start', { rid });
-
-      try {
-        const data = await getRequests(
-          { page: 1, pageSize: 50 },
-          { signal: abort.signal }
-        );
-        if (rid !== requestIdRef.current) return;
-        const items = data?.items ?? [];
-        setRequests(sortRequestsByNewestFirst(items));
-        if (withFeedback) {
-          showToast({ message: 'Fila atualizada', type: 'success' });
-        }
-        if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue success', { rid, ms: Date.now() - start });
-      } catch (e: unknown) {
-        if (rid !== requestIdRef.current) return;
-        if ((e as { name?: string })?.name === 'AbortError') return;
-        if ((e as { status?: number })?.status === 401) return;
-        const msg = (e as Error)?.message ?? String(e);
-        setError(msg);
-        setRequests([]);
-        if (withFeedback) {
-          showToast({ message: 'Não foi possível atualizar a fila', type: 'error' });
-        }
-        if (LOG_QUEUE) console.info('[QUEUE_FETCH] DoctorQueue error', { rid, msg });
-      } finally {
-        if (rid === requestIdRef.current) {
-          setLoading(false);
-          setIsRefreshing(false);
-          abortRef.current = null;
-        }
-      }
-    },
-    []
-  );
-
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
-
-  // Atualização em tempo real via SignalR — evita médico precisar dar refresh para ver pagamento, etc.
+  // SignalR: quando chega evento, invalida cache → React Query refetcha automaticamente
   useEffect(() => {
-    return subscribe(() => loadData(true, false));
-  }, [subscribe, loadData]);
+    return subscribe(() => {
+      invalidateDoctorRequests();
+    });
+  }, [subscribe, invalidateDoctorRequests]);
 
+  // Refetch silencioso ao voltar para a tela
   useFocusEffect(
     useCallback(() => {
-      loadData();
-      // Polling: 8s quando SignalR desconectado (fallback), 30s quando conectado
-      const intervalMs = isConnected ? 30000 : 8000;
-      const interval = setInterval(() => loadData(true, false), intervalMs);
-      return () => clearInterval(interval);
-    }, [loadData, isConnected])
+      refetch();
+    }, [refetch])
   );
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     haptics.light();
     setIsRefreshing(true);
-    loadData(true, true);
-  }, [loadData]);
+    try {
+      await refetch();
+      showToast({ message: 'Fila atualizada', type: 'success' });
+    } catch {
+      showToast({ message: 'Não foi possível atualizar a fila', type: 'error' });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch]);
 
   const handleRetry = useCallback(() => {
-    setError(null);
-    loadData();
-  }, [loadData]);
+    refetch();
+  }, [refetch]);
 
   const handleFilterChange = useCallback((key: string) => {
     haptics.selection();
     setActiveFilter(key);
   }, []);
+
+  const typeParam = useMemo(
+    () => TYPE_FILTER_ITEMS.find((c) => c.key === activeFilter)?.type,
+    [activeFilter]
+  );
+  const label = useMemo(() => getHeaderLabel(activeFilter), [activeFilter]);
+
+  const counts = useMemo(() => ({
+    all: requests.length,
+    prescription: requests.filter((r) => r.requestType === 'prescription').length,
+    exam: requests.filter((r) => r.requestType === 'exam').length,
+    consultation: requests.filter((r) => r.requestType === 'consultation').length,
+  }), [requests]);
+
+  const filteredRequests = useMemo(() => {
+    let list = requests;
+    if (typeParam) list = list.filter((r) => r.requestType === typeParam);
+    const q = searchText.trim().toLowerCase();
+    if (q) list = list.filter((r) => (r.patientName ?? '').toLowerCase().includes(q));
+    return list;
+  }, [requests, typeParam, searchText]);
+
+  const periodSummary = useMemo(() => getHistoricalGroupedByPeriod(requests), [requests]);
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
   const renderDoctorItem = useCallback(({ item }: { item: RequestResponseDto }) => (
@@ -183,13 +148,14 @@ export default function DoctorQueue() {
   ), [router]);
 
   const headerPaddingTop = insets.top + 16;
+  const error = isError ? ((queryError as Error)?.message ?? 'Erro ao carregar') : null;
   const empty = !loading && !error && filteredRequests.length === 0;
-  const periodSummary = useMemo(() => getHistoricalGroupedByPeriod(requests), [requests]);
+  const isQueueEmpty = empty && requests.length === 0;
+  const isFilteredEmpty = empty && requests.length > 0;
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
-      {/* Ocean Blue gradient header */}
       <LinearGradient
         colors={gradients.doctorHeader as unknown as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
@@ -207,7 +173,6 @@ export default function DoctorQueue() {
         </View>
       </LinearGradient>
 
-      {/* Resumo realizados por período */}
       <View style={styles.periodRow}>
         {periodSummary.map(({ label: periodLabel, count }) => (
           <View key={periodLabel} style={styles.periodChip}>
@@ -226,12 +191,11 @@ export default function DoctorQueue() {
         ]}
       />
 
-      {/* Segmented control premium */}
       <AppSegmentedControl
         items={TYPE_FILTER_ITEMS.map((c) => ({
           key: c.key,
           label: c.label,
-          count: (counts as any)[c.key] ?? undefined,
+          count: (counts as Record<string, number>)[c.key] ?? undefined,
         }))}
         value={activeFilter}
         onValueChange={handleFilterChange}
@@ -239,7 +203,6 @@ export default function DoctorQueue() {
         scrollable
       />
 
-      {/* Busca por nome do paciente */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={18} color={colors.textMuted} />
         <TextInput
@@ -251,38 +214,50 @@ export default function DoctorQueue() {
           autoCapitalize="words"
           autoCorrect={false}
           returnKeyType="search"
+          accessibilityLabel="Buscar paciente"
         />
         {searchText.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchText('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity
+            onPress={() => setSearchText('')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar busca"
+          >
             <Ionicons name="close-circle" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Content */}
       {loading && requests.length === 0 ? (
         <View style={styles.loadingWrap}>
           <SkeletonList count={5} />
         </View>
       ) : error ? (
-        <View style={styles.errorWrap}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-          <Text style={styles.errorTitle}>Não foi possível carregar</Text>
-          <Text style={styles.errorMsg}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.8}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
-          </TouchableOpacity>
-        </View>
+        <AppEmptyState
+          icon="alert-circle-outline"
+          title="Não foi possível carregar"
+          subtitle={error}
+          actionLabel="Tentar novamente"
+          onAction={handleRetry}
+        />
       ) : (
         <FadeIn visible={!loading} {...motionTokens.fade.listDoctor} delay={30}>
           <FlatList
             data={filteredRequests}
             keyExtractor={keyExtractor}
             renderItem={renderDoctorItem}
-            contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: listPadding },
+              empty && styles.listContentEmpty,
+            ]}
             ItemSeparatorComponent={ListSeparator}
             refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+              />
             }
             showsVerticalScrollIndicator={false}
             removeClippedSubviews={Platform.OS !== 'web'}
@@ -290,13 +265,21 @@ export default function DoctorQueue() {
             windowSize={7}
             initialNumToRender={8}
             ListEmptyComponent={
-              empty ? (
+              isQueueEmpty ? (
                 <AppEmptyState
-                  icon="checkmark-done-circle"
-                  title={searchText.trim() ? 'Nenhum resultado' : 'Nenhum pedido aqui'}
-                  subtitle={searchText.trim() ? `Nenhum paciente encontrado para "${searchText.trim()}"` : 'Ajuste os filtros ou volte ao painel para ver todos os pedidos'}
-                  actionLabel="Voltar ao painel"
-                  onAction={() => router.push('/(doctor)/dashboard')}
+                  icon="checkmark-done-circle-outline"
+                  title="Nenhum pedido por aqui"
+                  subtitle="Quando pacientes enviarem solicitações, elas aparecerão aqui para revisão."
+                />
+              ) : isFilteredEmpty ? (
+                <AppEmptyState
+                  icon="search-outline"
+                  title="Nenhum resultado"
+                  subtitle={
+                    searchText.trim()
+                      ? `Nenhum paciente encontrado para "${searchText.trim()}"`
+                      : 'Tente ajustar o filtro ou limpar a busca.'
+                  }
                 />
               ) : null
             }
@@ -307,7 +290,8 @@ export default function DoctorQueue() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     paddingHorizontal: pad,
@@ -409,46 +393,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: pad,
     paddingTop: spacing.lg,
   },
-  errorWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.sm,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontFamily: typography.fontFamily.semibold,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  errorMsg: {
-    fontSize: 14,
-    fontFamily: typography.fontFamily.regular,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  retryBtn: {
-    marginTop: spacing.md,
-    paddingVertical: 12,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.primary,
-    borderRadius: 26,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  retryText: {
-    fontSize: 15,
-    fontFamily: typography.fontFamily.semibold,
-    fontWeight: '600',
-    color: colors.white,
-  },
   listContent: {
     paddingTop: doctorDS.sectionGap,
     paddingHorizontal: pad,
   },
   listContentEmpty: { flexGrow: 1 },
-});
+  });
+}

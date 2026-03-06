@@ -83,12 +83,11 @@ jobs:
       - name: TypeCheck
         run: npx tsc --noEmit
 
-      - name: Lint Mobile
-        working-directory: frontend-mobile
-        run: npx expo lint 2>&1 || echo "⚠ Lint completed with warnings"
+      - name: Lint
+        run: npm run lint
 
       - name: Test
-        run: npm test
+        run: npm test -- --no-coverage
 
       - name: Export (web)
         run: npx expo export --platform web

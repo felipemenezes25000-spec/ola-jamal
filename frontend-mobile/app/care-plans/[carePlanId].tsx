@@ -21,7 +21,8 @@ import {
   type CarePlan,
   type CarePlanTask,
 } from '../../lib/api-care-plans';
-import { colors } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 
 export default function CarePlanDetailsScreen() {
   const router = useRouter();
@@ -33,6 +34,8 @@ export default function CarePlanDetailsScreen() {
   const id = Array.isArray(carePlanId) ? carePlanId[0] : carePlanId;
   const isDoctor = user?.role === 'doctor';
   const isPatient = user?.role === 'patient';
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -222,7 +225,8 @@ export default function CarePlanDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
@@ -240,4 +244,5 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: colors.white, fontWeight: '800' },
   secondaryBtn: { backgroundColor: colors.textSecondary, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center' },
   secondaryBtnText: { color: colors.border, fontWeight: '700' },
-});
+  });
+}

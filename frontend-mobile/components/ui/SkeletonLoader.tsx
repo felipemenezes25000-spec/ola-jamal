@@ -1,112 +1,119 @@
 import React, { useEffect } from 'react';
-import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
+import { View, ViewStyle } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { theme } from '../../lib/theme';
 
-// Shared animation value — all skeletons shimmer in sync using a single JS animation loop.
-const sharedShimmer = new Animated.Value(0);
-let animationStarted = false;
-
-function ensureAnimationStarted() {
-    if (animationStarted) return;
-    animationStarted = true;
-    Animated.loop(
-        Animated.sequence([
-            Animated.timing(sharedShimmer, {
-                toValue: 1,
-                duration: 1000,
-                useNativeDriver: false,
-            }),
-            Animated.timing(sharedShimmer, {
-                toValue: 0,
-                duration: 1000,
-                useNativeDriver: false,
-            }),
-        ])
-    ).start();
-}
-
-const sharedBg = sharedShimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: [theme.colors.border.main, theme.colors.primary.soft],
-});
-
 interface SkeletonProps {
-    width?: number | string;
-    height?: number;
-    borderRadius?: number;
-    style?: ViewStyle;
+  width?: number | string;
+  height?: number;
+  borderRadius?: number;
+  style?: ViewStyle;
 }
 
 export function SkeletonLoader({
-    width = '100%',
-    height = 16,
-    borderRadius = 8,
-    style,
+  width = '100%',
+  height = 16,
+  borderRadius = 8,
+  style,
 }: SkeletonProps) {
-    useEffect(() => { ensureAnimationStarted(); }, []);
+  const opacity = useSharedValue(0.4);
 
-    return (
-        <Animated.View
-            style={[
-                {
-                    width: width as any,
-                    height,
-                    borderRadius,
-                    backgroundColor: sharedBg,
-                },
-                style,
-            ]}
-        />
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900 }),
+        withTiming(0.4, { duration: 900 }),
+      ),
+      -1,
+      false,
     );
+    return () => { cancelAnimation(opacity); };
+  }, [opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      accessible={false}
+      importantForAccessibility="no"
+      style={[
+        {
+          width: width as number,
+          height,
+          borderRadius,
+          backgroundColor: theme.colors.border.main,
+        },
+        animatedStyle,
+        style,
+      ]}
+    />
+  );
 }
 
-/** Pre-built skeleton cards for common patterns */
 export function SkeletonCard({ style }: { style?: ViewStyle }) {
-    return (
-        <View style={[skStyles.card, style]}>
-            <View style={skStyles.row}>
-                <SkeletonLoader width={44} height={44} borderRadius={12} />
-                <View style={skStyles.textCol}>
-                    <SkeletonLoader width="70%" height={14} />
-                    <SkeletonLoader width="50%" height={12} style={{ marginTop: 8 }} />
-                </View>
-                <SkeletonLoader width={60} height={24} borderRadius={12} />
-            </View>
+  return (
+    <View
+      style={[skStyles.card, style]}
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+    >
+      <View style={skStyles.row}>
+        <SkeletonLoader width={44} height={44} borderRadius={12} />
+        <View style={skStyles.textCol}>
+          <SkeletonLoader width="70%" height={14} />
+          <SkeletonLoader width="50%" height={12} style={{ marginTop: 8 }} />
         </View>
-    );
+        <SkeletonLoader width={60} height={24} borderRadius={12} />
+      </View>
+    </View>
+  );
 }
 
 export function SkeletonList({ count = 4 }: { count?: number }) {
-    return (
-        <View style={skStyles.list}>
-            {Array.from({ length: count }).map((_, i) => (
-                <SkeletonCard key={i} />
-            ))}
-        </View>
-    );
+  return (
+    <View
+      style={skStyles.list}
+      accessible={true}
+      accessibilityRole="progressbar"
+      accessibilityLabel="Carregando conteúdo"
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonCard key={i} />
+      ))}
+    </View>
+  );
 }
 
-const skStyles = StyleSheet.create({
-    card: {
-        backgroundColor: theme.colors.background.paper,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 10,
-        shadowColor: theme.colors.primary.main,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 3,
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    textCol: {
-        flex: 1,
-    },
-    list: {
-        gap: 8,
-    },
-});
+const skStyles = {
+  card: {
+    backgroundColor: theme.colors.background.paper,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  row: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+  },
+  textCol: {
+    flex: 1,
+  },
+  list: {
+    gap: 8,
+  },
+};

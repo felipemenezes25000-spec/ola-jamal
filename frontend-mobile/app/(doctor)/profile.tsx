@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,22 @@ import {
   ActivityIndicator,
   Modal,
   Image,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, typography, gradients, doctorDS } from '../../lib/themeDoctor';
+import { typography, gradients, doctorDS } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 const pad = doctorDS.screenPaddingHorizontal;
 import { useAuth } from '../../contexts/AuthContext';
 import { updateAvatar } from '../../lib/api';
@@ -32,6 +40,8 @@ export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, doctorProfile: doctor, signOut, refreshUser } = useAuth();
+  const { colors } = useAppTheme({ role: 'doctor' });
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [avatarImageError, setAvatarImageError] = useState(false);
@@ -110,16 +120,19 @@ export default function DoctorProfile() {
 
   const saveAvatar = async () => {
     if (!avatarPreviewUri) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setAvatarLoading(true);
     try {
       await updateAvatar(avatarPreviewUri);
       await refreshUser();
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setAvatarPreviewUri(null);
       setAvatarImageError(false);
       showToast({ message: 'Foto atualizada!', type: 'success' });
     } catch (e: unknown) {
       showToast({ message: (e as Error)?.message ?? 'Erro ao atualizar foto.', type: 'error' });
     } finally {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setAvatarLoading(false);
     }
   };
@@ -217,6 +230,7 @@ export default function DoctorProfile() {
                     router.push(item.route as Parameters<typeof router.push>[0]);
                   }}
                   accessibilityRole="button"
+                  accessibilityLabel={item.label}
                 >
                   <View style={styles.menuIconWrap}>
                     <Ionicons name={item.icon} size={20} color={colors.primary} />
@@ -257,7 +271,7 @@ export default function DoctorProfile() {
         <Text style={styles.logoutText}>Sair da conta</Text>
       </TouchableOpacity>
 
-      <Text style={styles.version}>RenoveJa+ v1.0.0</Text>
+      <Text style={styles.version}>RenoveJá+ v{require('expo-constants').default?.expoConfig?.version ?? '1.0.0'}</Text>
       <View style={{ height: insets.bottom + 24 }} />
       </FadeIn>
 
@@ -321,7 +335,8 @@ export default function DoctorProfile() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
 
   header: {
@@ -584,4 +599,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
-});
+  });
+}

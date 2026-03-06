@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, gradients } from '../../lib/theme';
+import { spacing, borderRadius } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
-import { getRequests, sortRequestsByNewestFirst } from '../../lib/api';
+import { sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto, RequestType } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -28,8 +30,8 @@ import { needsPayment } from '../../lib/domain/getRequestUiState';
 import { haptics } from '../../lib/haptics';
 import { showToast } from '../../components/ui/Toast';
 import { motionTokens } from '../../lib/ui/motion';
+import { useRequestsQuery } from '../../lib/hooks/useRequestsQuery';
 
-const LOG_QUEUE = __DEV__ && false;
 const ListSeparator = () => null;
 
 const FILTER_ITEMS: { key: string; label: string; type?: RequestType }[] = [
@@ -43,68 +45,32 @@ export default function PatientRequests() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
-  const [requests, setRequests] = useState<RequestResponseDto[]>([]);
-  const [filteredRequests, setFilteredRequests] = useState<RequestResponseDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
 
-  const requestIdRef = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
+  const { colors, gradients } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const {
+    data: requests = [],
+    isLoading: loading,
+    isError,
+    error: queryError,
+    refetch,
+  } = useRequestsQuery();
 
   const filterConfig = useMemo(() => FILTER_ITEMS.find((f) => f.key === activeFilter), [activeFilter]);
 
-  const counts = useMemo(() => {
-    const all = requests.length;
-    const prescription = requests.filter((r) => r.requestType === 'prescription').length;
-    const exam = requests.filter((r) => r.requestType === 'exam').length;
-    const consultation = requests.filter((r) => r.requestType === 'consultation').length;
-    return { all, prescription, exam, consultation };
-  }, [requests]);
+  const counts = useMemo(() => ({
+    all: requests.length,
+    prescription: requests.filter((r) => r.requestType === 'prescription').length,
+    exam: requests.filter((r) => r.requestType === 'exam').length,
+    consultation: requests.filter((r) => r.requestType === 'consultation').length,
+  }), [requests]);
 
-  const loadData = useCallback(async (isRefresh = false) => {
-    const rid = ++requestIdRef.current;
-    const abort = new AbortController();
-    abortRef.current = abort;
-
-    if (!isRefresh) setLoading(true);
-    setError(null);
-    const start = Date.now();
-    if (LOG_QUEUE) console.info('[QUEUE_FETCH] PatientRequests start', { rid });
-
-    try {
-      const response = await getRequests({ page: 1, pageSize: 50 }, { signal: abort.signal });
-      if (rid !== requestIdRef.current) return;
-      const items = response.items ?? [];
-      setRequests(sortRequestsByNewestFirst(items));
-      if (isRefresh) {
-        showToast({ message: 'Pedidos atualizados', type: 'success' });
-      }
-      if (LOG_QUEUE) console.info('[QUEUE_FETCH] PatientRequests success', { rid, ms: Date.now() - start });
-    } catch (e: unknown) {
-      if (rid !== requestIdRef.current) return;
-      if ((e as { name?: string })?.name === 'AbortError') return;
-      const msg = (e as Error)?.message ?? String(e);
-      setError(msg);
-      setRequests([]);
-      if (isRefresh) {
-        showToast({ message: 'Não foi possível atualizar os pedidos', type: 'error' });
-      }
-      if (LOG_QUEUE) console.info('[QUEUE_FETCH] PatientRequests error', { rid, msg });
-    } finally {
-      if (rid === requestIdRef.current) {
-        setLoading(false);
-        setIsRefreshing(false);
-        abortRef.current = null;
-      }
-    }
-  }, []);
-
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const toPayCount = useMemo(() => requests.filter(r => needsPayment(r)).length, [requests]);
   useTriageEval({
@@ -115,7 +81,7 @@ export default function PatientRequests() {
     toPayCount,
   });
 
-  useEffect(() => {
+  const filteredRequests = useMemo(() => {
     let result = requests;
     if (filterConfig?.type) {
       result = result.filter((r) => r.requestType === filterConfig.type);
@@ -130,19 +96,25 @@ export default function PatientRequests() {
           (r.requestType ?? '').toLowerCase().includes(q)
       );
     }
-    setFilteredRequests(sortRequestsByNewestFirst(result));
+    return sortRequestsByNewestFirst(result);
   }, [requests, filterConfig?.type, debouncedSearch]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     haptics.light();
     setIsRefreshing(true);
-    loadData(true);
-  }, [loadData]);
+    try {
+      await refetch();
+      showToast({ message: 'Pedidos atualizados', type: 'success' });
+    } catch {
+      showToast({ message: 'Não foi possível atualizar os pedidos', type: 'error' });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch]);
 
-  const handleRetry = useCallback(() => {
-    setError(null);
-    loadData();
-  }, [loadData]);
+  const handleRetry = useCallback(() => { refetch(); }, [refetch]);
+
+  const error = isError ? ((queryError as Error)?.message ?? 'Não foi possível carregar') : null;
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
   const renderPatientItem = useCallback(({ item }: { item: RequestResponseDto }) => (
@@ -157,6 +129,8 @@ export default function PatientRequests() {
   ), [router]);
 
   const empty = !loading && !error && filteredRequests.length === 0;
+  const isFirstTimeUser = empty && requests.length === 0;
+  const isFilteredEmpty = empty && requests.length > 0;
 
   return (
     <View style={styles.container}>
@@ -238,11 +212,19 @@ export default function PatientRequests() {
             windowSize={7}
             initialNumToRender={8}
             ListEmptyComponent={
-              empty ? (
+              isFirstTimeUser ? (
                 <AppEmptyState
                   icon="document-text-outline"
-                  title="Nenhum pedido encontrado"
-                  subtitle="Tente ajustar os filtros ou a busca"
+                  title="Nenhum pedido ainda"
+                  subtitle="Crie sua primeira solicitação — receita, exame ou consulta — e acompanhe tudo aqui."
+                  actionLabel="Criar primeiro pedido"
+                  onAction={() => router.push('/new-request')}
+                />
+              ) : isFilteredEmpty ? (
+                <AppEmptyState
+                  icon="search-outline"
+                  title="Nenhum resultado"
+                  subtitle="Tente ajustar os filtros ou limpar a busca."
                 />
               ) : null
             }
@@ -253,7 +235,8 @@ export default function PatientRequests() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   headerWrap: {
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
@@ -284,4 +267,5 @@ const styles = StyleSheet.create({
   retryText: { fontSize: 15, fontWeight: '600', color: colors.white },
   listContent: { paddingTop: 14, paddingHorizontal: uiTokens.screenPaddingHorizontal },
   listContentEmpty: { flexGrow: 1 },
-});
+  });
+}

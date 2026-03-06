@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,22 @@ import {
   ActivityIndicator,
   Modal,
   Image,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+
+// Habilitar LayoutAnimation no Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, gradients, shadows } from '../../lib/theme';
+import { shadows } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTriageEval } from '../../hooks/useTriageEval';
@@ -33,6 +42,8 @@ export default function PatientProfile() {
   useTriageEval({ context: 'profile', step: 'entry', role: 'patient' });
   const insets = useSafeAreaInsets();
   const { user, signOut, refreshUser } = useAuth();
+  const { colors, gradients } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
@@ -118,16 +129,19 @@ export default function PatientProfile() {
 
   const saveAvatar = async () => {
     if (!avatarPreviewUri) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setAvatarLoading(true);
     try {
       await updateAvatar(avatarPreviewUri);
       await refreshUser();
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setAvatarPreviewUri(null);
       setAvatarImageError(false);
       showToast({ message: 'Foto atualizada!', type: 'success' });
     } catch (e: unknown) {
       showToast({ message: (e as Error)?.message ?? 'Erro ao atualizar foto.', type: 'error' });
     } finally {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setAvatarLoading(false);
     }
   };
@@ -338,16 +352,18 @@ export default function PatientProfile() {
 }
 
 function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const { colors } = useAppTheme();
   return (
-    <View style={styles.infoRow}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 10 }}>
       <Ionicons name={icon} size={18} color={colors.textMuted} />
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+      <Text style={{ fontSize: 13, color: colors.textMuted, flex: 1 }}>{label}</Text>
+      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -619,4 +635,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
-});
+  });
+}

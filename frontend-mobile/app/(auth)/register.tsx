@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { theme } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
@@ -24,7 +26,6 @@ import { isValidCpf } from '../../lib/validation/cpf';
 import { fetchSpecialties, uploadCertificate } from '../../lib/api';
 import { SPECIALTIES_FALLBACK } from '../../lib/constants/specialties';
 
-const c = theme.colors;
 const s = theme.spacing;
 const t = theme.typography;
 
@@ -40,10 +41,12 @@ function formatCep(value: string) {
 
 /* ────────── Section Header ────────── */
 function SectionHeader({ icon, title }: { icon: keyof typeof Ionicons.glyphMap; title: string }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionIconWrap}>
-        <Ionicons name={icon} size={16} color={c.primary.main} />
+        <Ionicons name={icon} size={16} color={colors.primary} />
       </View>
       <Text style={styles.sectionTitle}>{title}</Text>
       <View style={styles.sectionLine} />
@@ -54,6 +57,8 @@ function SectionHeader({ icon, title }: { icon: keyof typeof Ionicons.glyphMap; 
 export default function Register() {
   const router = useRouter();
   const { signUp, signUpDoctor, refreshUser } = useAuth();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -373,7 +378,7 @@ export default function Register() {
           activeOpacity={0.8}
         >
           <View style={[styles.roleIconWrap, role === 'patient' && styles.roleIconWrapActive]}>
-            <Ionicons name="person" size={16} color={role === 'patient' ? c.text.inverse : c.text.tertiary} />
+            <Ionicons name="person" size={16} color={role === 'patient' ? colors.white : colors.textMuted} />
           </View>
           <Text style={[styles.roleText, role === 'patient' && styles.roleTextActive]}>Paciente</Text>
         </TouchableOpacity>
@@ -383,7 +388,7 @@ export default function Register() {
           activeOpacity={0.8}
         >
           <View style={[styles.roleIconWrap, role === 'doctor' && styles.roleIconWrapActive]}>
-            <Ionicons name="medical" size={16} color={role === 'doctor' ? c.text.inverse : c.text.tertiary} />
+            <Ionicons name="medical" size={16} color={role === 'doctor' ? colors.white : colors.textMuted} />
           </View>
           <Text style={[styles.roleText, role === 'doctor' && styles.roleTextActive]}>Médico</Text>
         </TouchableOpacity>
@@ -581,8 +586,8 @@ export default function Register() {
             </View>
             {specialtiesDisplayList.length > 0 ? (
               <View style={styles.specialtyBlock}>
-                <Text style={styles.specialtyLabel}>
-                  Especialidade <Text style={{ color: c.status.error }}>*</Text>
+                  <Text style={styles.specialtyLabel}>
+                  Especialidade <Text style={{ color: colors.error }}>*</Text>
                 </Text>
                 <TouchableOpacity
                   style={[
@@ -592,7 +597,7 @@ export default function Register() {
                   onPress={() => setSpecialtyOpen((o) => !o)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="medkit-outline" size={18} color={c.text.tertiary} style={{ marginRight: 8 }} />
+                  <Ionicons name="medkit-outline" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
                   <Text
                     style={[
                       styles.specialtyTriggerText,
@@ -605,17 +610,17 @@ export default function Register() {
                   <Ionicons
                     name={specialtyOpen ? 'chevron-up' : 'chevron-down'}
                     size={20}
-                    color={c.text.tertiary}
+                    color={colors.textMuted}
                   />
                 </TouchableOpacity>
                 {specialtyOpen && (
                   <View style={styles.specialtyDropdown}>
                     <View style={styles.specialtySearchWrap}>
-                      <Ionicons name="search-outline" size={18} color={c.text.tertiary} />
+                      <Ionicons name="search-outline" size={18} color={colors.textMuted} />
                       <TextInput
                         style={styles.specialtySearchInput}
                         placeholder="Pesquisar especialidade..."
-                        placeholderTextColor={c.text.tertiary}
+                        placeholderTextColor={colors.textMuted}
                         value={specialtySearch}
                         onChangeText={setSpecialtySearch}
                         autoCapitalize="none"
@@ -626,7 +631,7 @@ export default function Register() {
                           onPress={() => setSpecialtySearch('')}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons name="close-circle" size={18} color={c.text.tertiary} />
+                          <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                         </TouchableOpacity>
                       ) : null}
                     </View>
@@ -675,7 +680,7 @@ export default function Register() {
                                 {s}
                               </Text>
                               {isSelected ? (
-                                <Ionicons name="checkmark-circle" size={20} color={c.primary.main} />
+                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                               ) : null}
                             </TouchableOpacity>
                           );
@@ -797,7 +802,7 @@ export default function Register() {
             <View style={styles.certSection}>
               <View style={styles.certHeader}>
                 <View style={styles.certIconWrap}>
-                  <Ionicons name="shield-checkmark" size={16} color={c.primary.main} />
+                  <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
                 </View>
                 <View style={styles.flex1}>
                   <Text style={styles.certSectionTitle}>Certificado digital</Text>
@@ -825,7 +830,7 @@ export default function Register() {
                   <Ionicons
                     name={certFile ? 'document-attach' : 'cloud-upload-outline'}
                     size={22}
-                    color={c.primary.main}
+                    color={colors.primary}
                   />
                 </View>
                 <Text style={styles.certFileBtnText}>
@@ -848,7 +853,7 @@ export default function Register() {
         {/* ── IA Notice ── */}
         <View style={styles.aiNotice}>
           <View style={styles.aiIconWrap}>
-            <Ionicons name="sparkles" size={16} color={c.text.inverse} />
+            <Ionicons name="sparkles" size={16} color={colors.white} />
           </View>
           <Text style={styles.aiNoticeText}>
             O RenoveJá+ utiliza <Text style={styles.aiBold}>inteligência artificial</Text> para triagem, leitura de receitas e exames, e apoio às consultas — sempre sob supervisão médica. Conforme nossos Termos de Uso e Política de Privacidade.
@@ -863,7 +868,7 @@ export default function Register() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-              {acceptedTerms ? <Ionicons name="checkmark" size={16} color={c.text.inverse} /> : null}
+              {acceptedTerms ? <Ionicons name="checkmark" size={16} color={colors.white} /> : null}
             </View>
             <Text style={styles.termsLabel}>Li e aceito os </Text>
             <TouchableOpacity
@@ -884,7 +889,7 @@ export default function Register() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkbox, acceptedPrivacy && styles.checkboxChecked]}>
-              {acceptedPrivacy ? <Ionicons name="checkmark" size={16} color={c.text.inverse} /> : null}
+              {acceptedPrivacy ? <Ionicons name="checkmark" size={16} color={colors.white} /> : null}
             </View>
             <Text style={styles.termsLabel}>Li e aceito a </Text>
             <TouchableOpacity
@@ -920,7 +925,7 @@ export default function Register() {
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.whatsappRow} activeOpacity={0.7}>
-          <Ionicons name="logo-whatsapp" size={15} color={c.secondary.main} />
+          <Ionicons name="logo-whatsapp" size={15} color={colors.secondary} />
           <Text style={styles.whatsappText}>Suporte RenoveJá: (11) 98631-8000</Text>
         </TouchableOpacity>
       </View>
@@ -933,7 +938,8 @@ export default function Register() {
    ══════════════════════════════════════════ */
 const CARD_RADIUS = 24;
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   /* ── Header ── */
   header: {
     alignItems: 'center',
@@ -944,14 +950,14 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.5,
-    color: c.text.primary,
+    color: colors.text,
     textAlign: 'center',
     marginTop: s.md,
   },
   subtitle: {
     fontSize: 15,
     fontWeight: '400',
-    color: c.text.secondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: s.xs,
     lineHeight: 22,
@@ -973,24 +979,24 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 50,
     borderRadius: 16,
-    backgroundColor: c.background.paper,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: c.border.main,
+    borderColor: colors.border,
   },
   roleBtnActive: {
-    backgroundColor: c.primary.main,
-    borderColor: c.primary.main,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
     ...Platform.select({
-      ios: { shadowColor: c.primary.main, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
+      ios: { shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
       android: { elevation: 6 },
-      default: { shadowColor: c.primary.main, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
+      default: { shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
     }),
   },
   roleIconWrap: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: c.background.secondary,
+    backgroundColor: colors.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1000,15 +1006,15 @@ const styles = StyleSheet.create({
   roleText: {
     fontSize: 15,
     fontWeight: '600',
-    color: c.text.tertiary,
+    color: colors.textMuted,
   },
   roleTextActive: {
-    color: c.text.inverse,
+    color: colors.white,
   },
 
   /* ── Card ── */
   card: {
-    backgroundColor: c.background.paper,
+    backgroundColor: colors.surface,
     borderRadius: CARD_RADIUS,
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -1016,9 +1022,9 @@ const styles = StyleSheet.create({
     marginBottom: s.lg,
     overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: c.text.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
+      ios: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
       android: { elevation: 3 },
-      default: { shadowColor: c.text.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
+      default: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
     }),
   },
 
@@ -1034,21 +1040,21 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: c.primary.soft,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: c.text.primary,
+    color: colors.text,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   sectionLine: {
     flex: 1,
     height: 1,
-    backgroundColor: c.border.light,
+    backgroundColor: colors.borderLight,
     marginLeft: 4,
   },
 
@@ -1079,11 +1085,11 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 15,
-    color: c.text.secondary,
+    color: colors.textSecondary,
   },
   loginLink: {
     fontSize: 15,
-    color: c.primary.main,
+    color: colors.primary,
     fontWeight: '700',
   },
   whatsappRow: {
@@ -1093,7 +1099,7 @@ const styles = StyleSheet.create({
   },
   whatsappText: {
     fontSize: 13,
-    color: c.text.tertiary,
+    color: colors.textMuted,
     fontWeight: '500',
   },
 
@@ -1104,7 +1110,7 @@ const styles = StyleSheet.create({
   specialtyLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: c.text.primary,
+    color: colors.text,
     marginBottom: 6,
   },
   specialtyTrigger: {
@@ -1113,35 +1119,35 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 14,
-    backgroundColor: c.background.secondary,
+    backgroundColor: colors.surfaceSecondary,
     borderWidth: 1.5,
-    borderColor: c.border.main,
+    borderColor: colors.border,
     minHeight: 52,
   },
   specialtyTriggerError: {
-    borderColor: c.status.error,
+    borderColor: colors.error,
   },
   specialtyTriggerText: {
     flex: 1,
     fontSize: 15,
-    color: c.text.primary,
+    color: colors.text,
     marginRight: s.sm,
   },
   specialtyTriggerPlaceholder: {
-    color: c.text.tertiary,
+    color: colors.textMuted,
   },
   specialtyDropdown: {
     marginTop: 6,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: c.border.main,
-    backgroundColor: c.background.paper,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     maxHeight: 240,
     overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: c.text.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      ios: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
       android: { elevation: 4 },
-      default: { shadowColor: c.text.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      default: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
     }),
   },
   specialtySearchWrap: {
@@ -1150,13 +1156,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: c.border.light,
+    borderBottomColor: colors.borderLight,
     gap: 8,
   },
   specialtySearchInput: {
     flex: 1,
     fontSize: 15,
-    color: c.text.primary,
+    color: colors.text,
     paddingVertical: 8,
   },
   specialtyOptionsScroll: {
@@ -1169,29 +1175,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: c.border.light,
+    borderBottomColor: colors.borderLight,
   },
   specialtyOptionSelected: {
-    backgroundColor: c.primary.soft,
+    backgroundColor: colors.primarySoft,
   },
   specialtyOptionText: {
     flex: 1,
     fontSize: 15,
-    color: c.text.primary,
+    color: colors.text,
     marginRight: s.sm,
   },
   specialtyOptionTextSelected: {
     fontWeight: '600',
-    color: c.primary.dark,
+    color: colors.primaryDark,
   },
   specialtyOptionEmpty: {
     fontSize: 14,
-    color: c.text.tertiary,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   fieldErrorText: {
     fontSize: 12,
-    color: c.status.error,
+    color: colors.error,
     marginTop: 4,
     marginLeft: 4,
   },
@@ -1201,7 +1207,7 @@ const styles = StyleSheet.create({
     marginTop: s.md,
     padding: s.md,
     borderRadius: 16,
-    backgroundColor: c.background.secondary,
+    backgroundColor: colors.surfaceSecondary,
     gap: 12,
   },
   certHeader: {
@@ -1213,7 +1219,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: c.primary.soft,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -1221,11 +1227,11 @@ const styles = StyleSheet.create({
   certSectionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: c.text.primary,
+    color: colors.text,
   },
   certSectionDesc: {
     fontSize: 13,
-    color: c.text.tertiary,
+    color: colors.textMuted,
     lineHeight: 18,
     marginTop: 2,
   },
@@ -1237,15 +1243,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: c.primary.light,
+    borderColor: colors.primaryLight,
     borderStyle: 'dashed',
-    backgroundColor: c.background.paper,
+    backgroundColor: colors.surface,
   },
   certUploadIcon: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: c.primary.soft,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1253,7 +1259,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: c.primary.dark,
+    color: colors.primaryDark,
   },
 
   /* ── AI Notice ── */
@@ -1261,7 +1267,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: c.primary.soft,
+    backgroundColor: colors.primarySoft,
     padding: 14,
     borderRadius: 14,
     marginTop: s.md,
@@ -1271,7 +1277,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: c.primary.main,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -1279,12 +1285,12 @@ const styles = StyleSheet.create({
   aiNoticeText: {
     flex: 1,
     fontSize: 13,
-    color: c.text.secondary,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   aiBold: {
     fontWeight: '600',
-    color: c.text.primary,
+    color: colors.text,
   },
 
   /* ── Terms ── */
@@ -1302,24 +1308,25 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: c.border.dark,
+    borderColor: colors.border,
     marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: c.background.paper,
+    backgroundColor: colors.surface,
   },
   checkboxChecked: {
-    backgroundColor: c.primary.main,
-    borderColor: c.primary.main,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   termsLabel: {
     fontSize: 14,
-    color: c.text.secondary,
+    color: colors.textSecondary,
   },
   termsLink: {
     fontSize: 14,
-    color: c.primary.main,
+    color: colors.primary,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-});
+  });
+}

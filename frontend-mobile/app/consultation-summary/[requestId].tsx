@@ -20,27 +20,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 
-import { colors } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { fetchRequestById, saveConsultationSummary } from '../../lib/api';
 import type { RequestResponseDto } from '../../types/database';
 
 // ── Anamnesis fields mapping ──
 
-const ANA_FIELDS = [
-  { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble-ellipses', color: colors.primary },
-  { key: 'historia_doenca_atual', label: 'História da Doença Atual', icon: 'time', color: colors.primary },
-  { key: 'sintomas', label: 'Sintomas', icon: 'thermometer', color: colors.warning },
-  { key: 'medicamentos_em_uso', label: 'Medicamentos em Uso', icon: 'medical', color: colors.primaryLight },
-  { key: 'alergias', label: 'Alergias', icon: 'warning', color: colors.error },
-  { key: 'antecedentes_relevantes', label: 'Antecedentes', icon: 'document-text', color: colors.textMuted },
-  { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash', color: colors.success },
-  { key: 'outros', label: 'Outras Informações', icon: 'ellipsis-horizontal', color: colors.textMuted },
-] as const;
-
 export default function ConsultationSummaryScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const S = useMemo(() => makeStyles(colors), [colors]);
+  const ANA_FIELDS = useMemo(() => [
+    { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble-ellipses' as const, color: colors.primary },
+    { key: 'historia_doenca_atual', label: 'História da Doença Atual', icon: 'time' as const, color: colors.primary },
+    { key: 'sintomas', label: 'Sintomas', icon: 'thermometer' as const, color: colors.warning },
+    { key: 'medicamentos_em_uso', label: 'Medicamentos em Uso', icon: 'medical' as const, color: colors.primaryLight },
+    { key: 'alergias', label: 'Alergias', icon: 'warning' as const, color: colors.error },
+    { key: 'antecedentes_relevantes', label: 'Antecedentes', icon: 'document-text' as const, color: colors.textMuted },
+    { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash' as const, color: colors.success },
+    { key: 'outros', label: 'Outras Informações', icon: 'ellipsis-horizontal' as const, color: colors.textMuted },
+  ], [colors]);
 
   const rid = (Array.isArray(requestId) ? requestId[0] : requestId) ?? '';
 
@@ -372,7 +374,8 @@ export default function ConsultationSummaryScreen() {
 
 // ── Styles ──
 
-const S = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black },
   center: { justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadText: { color: colors.textMuted, fontSize: 14 },
@@ -484,4 +487,5 @@ const S = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
-});
+  });
+}

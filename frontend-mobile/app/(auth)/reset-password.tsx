@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,13 +9,17 @@ import { AppCard } from '../../components/ui/AppCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { validate } from '../../lib/validation';
 import { resetPasswordSchema } from '../../lib/validation/schemas';
-import { theme, colors, spacing } from '../../lib/theme';
+import { theme, spacing } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 
 export default function ResetPasswordScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>();
   const actualToken = Array.isArray(token) ? token[0] : token;
   const router = useRouter();
   const { resetPassword } = useAuth();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -76,7 +80,7 @@ export default function ResetPasswordScreen() {
         accessibilityRole="button"
         accessibilityLabel="Voltar"
       >
-        <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
+        <Ionicons name="chevron-back" size={24} color={colors.text} />
       </TouchableOpacity>
 
       <View style={styles.cardWrapper}>
@@ -122,12 +126,13 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
   backBtn: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: theme.colors.overlay.light,
+    backgroundColor: 'rgba(0,0,0,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.sm,
@@ -155,13 +160,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: theme.typography.variants.h2.fontSize,
     fontWeight: theme.typography.variants.h2.fontWeight,
-    color: theme.colors.text.primary,
+    color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: theme.typography.variants.body2.fontSize,
-    color: theme.colors.text.secondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -177,4 +182,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.md,
   },
-});
+  });
+}
