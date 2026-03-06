@@ -21,7 +21,7 @@ import { RequestResponseDto, RequestType } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
-import { AppHeader, AppSegmentedControl, AppEmptyState } from '../../components/ui';
+import { AppHeader, AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { needsPayment } from '../../lib/domain/getRequestUiState';
@@ -172,20 +172,13 @@ export default function PatientRequests() {
         </View>
       </View>
 
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>{counts.all}</Text>
-          <Text style={styles.summaryLabel}>Total</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>{toPayCount}</Text>
-          <Text style={styles.summaryLabel}>Pend. pagamento</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>{filteredRequests.length}</Text>
-          <Text style={styles.summaryLabel}>No filtro</Text>
-        </View>
-      </View>
+      <TopSummaryStrip
+        items={[
+          { label: 'Total', value: counts.all },
+          { label: 'Pend. pagamento', value: toPayCount },
+          { label: 'No filtro', value: filteredRequests.length },
+        ]}
+      />
 
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={20} color={colors.textMuted} style={styles.searchIcon} />
@@ -270,31 +263,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
   },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
-    marginTop: 4,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  summaryLabel: {
-    marginTop: 2,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
+
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',

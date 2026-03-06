@@ -15,3 +15,5 @@ export type { AIActionSheetAction } from './AIActionSheet';
 export { SkeletonLoader, SkeletonCard, SkeletonList } from './SkeletonLoader';
 export { ToastProvider, showToast } from './Toast';
 export { InfoCard } from './InfoCard';
+export { TopSummaryStrip } from './TopSummaryStrip';
+export type { TopSummaryItem } from './TopSummaryStrip';
