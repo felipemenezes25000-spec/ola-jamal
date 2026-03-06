@@ -12,6 +12,7 @@ import {
 } from '../lib/api';
 import { RequestResponseDto } from '../types/database';
 import { showToast } from '../components/ui/Toast';
+import { getApiErrorMessage } from '../lib/api-client';
 import { useRequestUpdated } from './useRequestUpdated';
 
 const _requestCache = new Map<string, RequestResponseDto>();
@@ -237,7 +238,7 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
             : [{ text: 'OK' }]
         );
       } else {
-        const message = e instanceof Error ? e.message : 'Senha incorreta ou erro na assinatura.';
+        const message = getApiErrorMessage(e) || 'Senha incorreta ou erro na assinatura.';
         showToast({ message, type: 'error' });
       }
     } finally {

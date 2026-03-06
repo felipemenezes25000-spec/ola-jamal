@@ -237,17 +237,36 @@ public class DigitalCertificateService : IDigitalCertificateService
 
             // Descriptografa o PFX (extrai bytes e senha armazenada)
             var (pfxBytes, storedPassword) = DecryptPfxFull(encryptedPfxData);
-            // Prioriza a senha armazenada (validada no upload). Evita "PKCS12 key store MAC invalid" por diferença de whitespace/encoding na digitada.
-            var passwordToUse = !string.IsNullOrWhiteSpace(storedPassword)
-                ? storedPassword
-                : (pfxPassword ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(passwordToUse))
+            var userPassword = (pfxPassword ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(storedPassword) && string.IsNullOrWhiteSpace(userPassword))
             {
                 return new DigitalSignatureResult(false, "Senha do certificado PFX é obrigatória para assinar. Envie PfxPassword no corpo da requisição.", null, null, null);
             }
 
-            // Assina o PDF com iText7 + BouncyCastle (inclui OID correto para ITI/Adobe)
-            var signedPdfBytes = SignPdfWithBouncyCastle(pfxBytes, passwordToUse, pdfBytes, certificate, documentTypeHint);
+            // Tenta assinar: prioriza senha digitada pelo usuário (ele sabe a senha certa), depois senha armazenada no upload.
+            byte[]? signedPdfBytes = null;
+            var passwordsToTry = new List<string>();
+            if (!string.IsNullOrWhiteSpace(userPassword)) passwordsToTry.Add(userPassword);
+            if (!string.IsNullOrWhiteSpace(storedPassword) && !passwordsToTry.Contains(storedPassword)) passwordsToTry.Add(storedPassword);
+
+            foreach (var pwd in passwordsToTry)
+            {
+                try
+                {
+                    signedPdfBytes = SignPdfWithBouncyCastle(pfxBytes, pwd, pdfBytes, certificate, documentTypeHint);
+                    break;
+                }
+                catch (Exception ex) when (passwordsToTry.Count > 1 &&
+                    (ex.Message.Contains("MAC", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase)))
+                {
+                    _logger.LogDebug(ex, "Senha armazenada falhou, tentando próxima.");
+                }
+            }
+
+            if (signedPdfBytes == null)
+            {
+                return new DigitalSignatureResult(false, "Senha do certificado inválida. Use a mesma senha configurada no upload do certificado.", null, null, null);
+            }
 
             // Upload do PDF assinado
             var signedPath = $"signed/{outputFileName}";

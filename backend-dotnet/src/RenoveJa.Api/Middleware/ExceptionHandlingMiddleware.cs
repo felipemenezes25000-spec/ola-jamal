@@ -90,8 +90,8 @@ public class ExceptionHandlingMiddleware(
             AuthConflictException => (HttpStatusCode.Conflict, exception.Message),
             DomainException => (HttpStatusCode.BadRequest, exception.Message),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, exception.Message),
-            InvalidOperationException => (HttpStatusCode.BadRequest,
-                IsDevelopment() ? exception.Message : "Invalid operation"),
+            // InvalidOperationException: mensagens são voltadas ao usuário (ex: senha do certificado, receita incompleta)
+            InvalidOperationException => (HttpStatusCode.BadRequest, exception.Message),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),
             _ => (HttpStatusCode.InternalServerError,
                 IsDevelopment() ? exception.Message : "Ocorreu um erro ao processar sua solicitação. Tente novamente.")

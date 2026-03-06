@@ -34,6 +34,7 @@ import { DoctorCard } from '../../../components/ui/DoctorCard';
 import { AppButton } from '../../../components/ui/AppButton';
 import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
 import { showToast } from '../../../components/ui/Toast';
+import { getApiErrorMessage } from '../../../lib/api-client';
 import { FormattedAiSummary } from '../../../components/FormattedAiSummary';
 import { ConductSection } from '../../../components/triage';
 
@@ -466,7 +467,7 @@ export default function PrescriptionEditorScreen() {
             : [{ text: 'OK' }]
         );
       } else {
-        showToast({ message: e?.message || 'Senha incorreta ou erro na assinatura.', type: 'error' });
+        showToast({ message: getApiErrorMessage(e) || 'Senha incorreta ou erro na assinatura.', type: 'error' });
       }
     } finally {
       setSigning(false);
