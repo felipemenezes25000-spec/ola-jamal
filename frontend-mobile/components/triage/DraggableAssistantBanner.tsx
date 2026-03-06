@@ -145,7 +145,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
     if (!current?.key) return;
     if (expanded) return;
     if (lastAutoExpandKey === current.key) return;
-    if (current.severity === 'attention' || current.severity === 'positive') {
+    if (current.severity === 'attention') {
       handleExpand();
       setLastAutoExpandKey(current.key);
     }
