@@ -25,6 +25,10 @@ backend-dotnet/publish-test/
 
 # OS / IDE
 .DS_Store
+.cursor/
+.cursor.backup-*/
+subagents/
+ola-jamal/
 *.log
 Thumbs.db
 
