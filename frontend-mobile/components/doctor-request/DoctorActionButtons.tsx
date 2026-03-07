@@ -71,7 +71,7 @@ export function DoctorActionButtons({
         <DoctorCard style={styles.formCard}>
           <View style={styles.formHeader}>
             <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons name="shield-checkmark" size={20} color={colors.primary.main} />
+              <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.formTitle}>Assinatura Digital ICP-Brasil</Text>
@@ -113,13 +113,13 @@ export function DoctorActionButtons({
 
       {/* --- FORMULÁRIO DE REJEIÇÃO --- */}
       {showRejectForm && (
-        <DoctorCard style={[styles.formCard, { borderColor: colors.status.error }]}>
+        <DoctorCard style={[styles.formCard, { borderColor: colors.error }]}>
           <View style={styles.formHeader}>
             <View style={[styles.iconWrap, { backgroundColor: colors.errorLight }]}>
-              <Ionicons name="close-circle" size={20} color={colors.status.error} />
+              <Ionicons name="close-circle" size={20} color={colors.error} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.formTitle, { color: colors.status.error }]}>Rejeitar Pedido</Text>
+              <Text style={[styles.formTitle, { color: colors.error }]}>Rejeitar Pedido</Text>
               <Text style={styles.formDesc}>O motivo será enviado ao paciente.</Text>
             </View>
           </View>
@@ -158,7 +158,7 @@ export function DoctorActionButtons({
       {/* --- DICA DE FILA --- */}
       {isInQueue && !showSignForm && !showRejectForm && (
         <View style={styles.hintBox}>
-          <Ionicons name="information-circle" size={20} color={colors.primary.main} />
+          <Ionicons name="information-circle" size={20} color={colors.primary} />
           <Text style={styles.hintText}>
             Pedido aguardando sua análise. Verifique os dados acima antes de decidir.
           </Text>
@@ -202,7 +202,7 @@ export function DoctorActionButtons({
               variant="primary"
               size="lg"
               icon="document-text"
-              trailing={<Ionicons name="arrow-forward" size={20} color={colors.text.inverse} />}
+              trailing={<Ionicons name="arrow-forward" size={20} color={colors.white} />}
               onPress={onNavigateEditor}
               loading={actionLoading}
               fullWidth

@@ -52,22 +52,22 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
   const isCompact = width < 360;
   const steps = requestType === 'consultation' ? CONSULTATION_STEPS : PRESCRIPTION_STEPS;
 
-  const COMPLETED_COLOR = colors.status.success;
-  const CURRENT_COLOR = colors.primary.main;
-  const PENDING_COLOR = colors.border.main; // Agora dinâmico!
+  const COMPLETED_COLOR = colors.success;
+  const CURRENT_COLOR = colors.primary;
+  const PENDING_COLOR = colors.border;
 
   if (currentStatus === 'rejected' || currentStatus === 'cancelled') {
     const isRejected = currentStatus === 'rejected';
     return (
       <View style={styles.terminalContainer}>
-        <View style={[styles.terminalCircle, { backgroundColor: isRejected ? colors.status.errorLight : colors.background.secondary }]}>
+        <View style={[styles.terminalCircle, { backgroundColor: isRejected ? colors.errorLight : colors.surfaceSecondary }]}>
           <Ionicons
             name={isRejected ? 'close-circle' : 'ban'}
             size={28}
-            color={isRejected ? colors.status.error : colors.text.tertiary}
+            color={isRejected ? colors.error : colors.textMuted}
           />
         </View>
-        <Text style={[styles.terminalText, { color: isRejected ? colors.status.error : colors.text.tertiary }]}>
+        <Text style={[styles.terminalText, { color: isRejected ? colors.error : colors.textMuted }]}>
           {isRejected ? 'Solicitação rejeitada' : 'Solicitação cancelada'}
         </Text>
       </View>
@@ -86,7 +86,7 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
         const dotColor = isCompleted ? COMPLETED_COLOR : isCurrent ? CURRENT_COLOR : PENDING_COLOR;
         const dotBg = isCompleted ? COMPLETED_COLOR : isCurrent ? CURRENT_COLOR : 'transparent';
         const lineColor = index < currentIndex ? COMPLETED_COLOR : PENDING_COLOR;
-        const textColor = isCompleted ? COMPLETED_COLOR : isCurrent ? CURRENT_COLOR : colors.text.tertiary; // Agora dinâmico!
+        const textColor = isCompleted ? COMPLETED_COLOR : isCurrent ? CURRENT_COLOR : colors.textMuted;
         const textWeight = isCurrent ? '700' : isCompleted ? '600' : '400';
 
         return (
@@ -95,9 +95,9 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
             <View style={styles.dotColumn}>
               <View style={[styles.dot, { borderColor: dotColor, backgroundColor: dotBg }]}>
                 {isCompleted ? (
-                  <Ionicons name="checkmark" size={14} color={colors.text.inverse} />
+                  <Ionicons name="checkmark" size={14} color={colors.white} />
                 ) : (
-                  <Ionicons name={step.icon} size={12} color={isCurrent ? colors.text.inverse : colors.text.tertiary} />
+                  <Ionicons name={step.icon} size={12} color={isCurrent ? colors.white : colors.textMuted} />
                 )}
               </View>
               {!isLast && (
@@ -112,8 +112,8 @@ export default function StatusTracker({ currentStatus, requestType }: Props) {
               </Text>
               {isCurrent && (
                 <View style={styles.currentBadge}>
-                  <View style={[styles.pulsingDot, { backgroundColor: colors.primary.main }]} />
-                  <Text style={[styles.currentText, { color: colors.primary.main }]}>Etapa atual</Text>
+                  <View style={[styles.pulsingDot, { backgroundColor: colors.primary }]} />
+                  <Text style={[styles.currentText, { color: colors.primary }]}>Etapa atual</Text>
                 </View>
               )}
             </View>

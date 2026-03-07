@@ -41,15 +41,15 @@ import type { DesignColors } from '../../lib/designSystem';
 const QueueItem = ({ request, onPress, colors }: { request: RequestResponseDto; onPress: () => void; colors: DesignColors }) => {
   const { label, colorKey } = getRequestUiState(request);
   
-  // Dynamic status color
+  // Dynamic status color (DesignColors: flat tokens)
   const statusColorMap: Record<string, string> = {
-    waiting: colors.status.warning,
-    info: colors.status.info,
-    success: colors.status.success,
-    error: colors.status.error
+    waiting: colors.warning,
+    info: colors.info,
+    success: colors.success,
+    error: colors.error
   };
   
-  const statusColor = statusColorMap[colorKey === 'waiting' ? 'waiting' : 'info'] || colors.primary.main;
+  const statusColor = statusColorMap[colorKey === 'waiting' ? 'waiting' : 'info'] || colors.primary;
   const isHighRisk = request.aiRiskLevel === 'high';
 
   return (
@@ -60,7 +60,7 @@ const QueueItem = ({ request, onPress, colors }: { request: RequestResponseDto; 
       accessibilityRole="button"
       accessibilityLabel={`Atender ${request.patientName}`}
     >
-      <View style={[styles.queueLeftStrip, { backgroundColor: isHighRisk ? colors.status.error : colors.primary.main }]} />
+      <View style={[styles.queueLeftStrip, { backgroundColor: isHighRisk ? colors.error : colors.primary }]} />
       
       <View style={styles.queueContent}>
         <View style={styles.queueHeader}>
@@ -69,8 +69,8 @@ const QueueItem = ({ request, onPress, colors }: { request: RequestResponseDto; 
           </Text>
           {isHighRisk && (
             <View style={[styles.riskBadge, { backgroundColor: colors.errorLight }]}>
-              <Ionicons name="alert-circle" size={12} color={colors.status.error} />
-              <Text style={[styles.riskText, { color: colors.status.error }]}>Risco Alto</Text>
+              <Ionicons name="alert-circle" size={12} color={colors.error} />
+              <Text style={[styles.riskText, { color: colors.error }]}>Risco Alto</Text>
             </View>
           )}
         </View>
@@ -99,7 +99,8 @@ export default function DoctorDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { colors, gradients, spacing, shadows, isDark } = useAppTheme();
+  const { colors, gradients, spacing, shadows, scheme } = useAppTheme();
+  const isDark = scheme === 'dark';
   
   const [queue, setQueue] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +160,7 @@ export default function DoctorDashboard() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar style={isDark ? "light" : "dark"} />
-        <View style={[styles.headerSkeleton, { backgroundColor: colors.primary.main, paddingTop: insets.top + 20 }]} />
+        <View style={[styles.headerSkeleton, { backgroundColor: colors.primary, paddingTop: insets.top + 20 }]} />
         <View style={{ padding: 20 }}>
           <SkeletonList count={3} />
         </View>
@@ -173,12 +174,12 @@ export default function DoctorDashboard() {
       
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary.contrast} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.white} />}
         showsVerticalScrollIndicator={false}
       >
         {/* HEADER */}
         <LinearGradient
-          colors={gradients.doctorHeader}
+          colors={gradients.doctorHeader as [string, string, ...string[]]}
           style={[styles.header, { paddingTop: insets.top + 24 }]}
         >
           <View style={styles.headerContent}>
@@ -202,7 +203,7 @@ export default function DoctorDashboard() {
             shadows.card
           ]}>
             <View style={styles.statCard}>
-              <Text style={[styles.statNumber, { color: colors.primary.main }]}>{pendentesCount}</Text>
+              <Text style={[styles.statNumber, { color: colors.primary }]}>{pendentesCount}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pendentes</Text>
             </View>
             <View style={[styles.dividerVertical, { backgroundColor: colors.borderLight }]} />
@@ -216,24 +217,24 @@ export default function DoctorDashboard() {
 
           {/* ACTION NEEDED: Certificate */}
           {hasCertificate === false && (
-            <FadeIn>
+            <FadeIn visible={true}>
               <TouchableOpacity
                 style={[
                   styles.alertBox,
-                  { backgroundColor: colors.warningLight, borderColor: colors.status.warning + '40' }
+                  { backgroundColor: colors.warningLight, borderColor: colors.warning + '40' }
                 ]}
                 onPress={() => router.push('/certificate/upload')}
               >
-                <Ionicons name="shield-checkmark" size={24} color={colors.status.warning} />
+                <Ionicons name="shield-checkmark" size={24} color={colors.warning} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.alertTitle, { color: colors.status.warning }]}>
+                  <Text style={[styles.alertTitle, { color: colors.warning }]}>
                     Certificado Digital pendente
                   </Text>
                   <Text style={[styles.alertDesc, { color: colors.textSecondary }]}>
                     Configure para assinar receitas.
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.status.warning} />
+                <Ionicons name="chevron-forward" size={20} color={colors.warning} />
               </TouchableOpacity>
             </FadeIn>
           )}
@@ -242,7 +243,7 @@ export default function DoctorDashboard() {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Fila de Atendimento</Text>
             <TouchableOpacity onPress={() => router.push('/(doctor)/requests')}>
-              <Text style={[styles.seeAll, { color: colors.primary.main }]}>Ver todos</Text>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>Ver todos</Text>
             </TouchableOpacity>
           </View>
 

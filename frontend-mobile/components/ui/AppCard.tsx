@@ -34,7 +34,7 @@ export function AppCard({
     ...(variant === 'outlined' ? { borderWidth: 1, borderColor: colors.borderLight } : {}),
     ...(selected ? { borderColor: colors.primary, backgroundColor: colors.surfaceSecondary } : {}), // primarySoft removido, usando surface sec
     ...(variant === 'default' ? shadows.card : {}),
-    ...(variant === 'elevated' ? shadows.cardLg : {}), // cardLg
+    ...(variant === 'elevated' ? shadows.elevated : {}),
   } as ViewStyle; // Cast to avoid TS complexity with shadows type
 
   const paddingStyle = !noPadding ? { padding: spacing.md } : undefined;
