@@ -47,10 +47,9 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
         accessTokenFactory: async () => (await getToken()) ?? '',
       })
       .withAutomaticReconnect();
-    // Reduz ruído: "Connection closed with an error" em disconnect não vira ERROR no console
+    // Só loga Warning/Error — evita poluir com "WebSocket connected", "Using HubProtocol", "Connection disconnected"
     if (signalR.LogLevel != null) {
-      const logLevel = __DEV__ ? signalR.LogLevel.Information : signalR.LogLevel.Warning;
-      builder.configureLogging(logLevel);
+      builder.configureLogging(signalR.LogLevel.Warning);
     }
     const conn = builder.build();
 

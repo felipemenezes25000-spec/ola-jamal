@@ -4,24 +4,31 @@ using System.Security.Claims;
 namespace RenoveJa.Api.Middleware;
 
 /// <summary>
-/// Middleware que registra TODAS as requisições HTTP em log (console + arquivo).
-/// Garante controle total: método, path, query, usuário, IP, status, duração, erros.
+/// Middleware que registra requisições HTTP de forma objetiva: apenas erros (4xx/5xx),
+/// requisições lentas (>3s) e exceções. Evita poluição com health checks e 2xx rápidos.
 /// </summary>
 public class ApiRequestLoggingMiddleware(RequestDelegate next, ILogger<ApiRequestLoggingMiddleware> logger)
 {
+    private const long SlowRequestThresholdMs = 3000;
+
+    private static bool ShouldSkipLogging(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return true;
+        return path.StartsWith("/api/health", StringComparison.OrdinalIgnoreCase);
+    }
+
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = context.Items["CorrelationId"]?.ToString() ?? context.TraceIdentifier;
         var path = context.Request.Path.Value ?? "";
+        if (ShouldSkipLogging(path))
+        {
+            await next(context);
+            return;
+        }
+
+        var correlationId = context.Items["CorrelationId"]?.ToString() ?? context.TraceIdentifier;
         var method = context.Request.Method;
-        var query = context.Request.QueryString.HasValue ? context.Request.QueryString.Value : "";
-
         var userId = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "-";
-        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "-";
-
-        logger.LogInformation(
-            "[API-IN] {Method} {Path}{Query} | UserId={UserId} | IP={IP} | CorrelationId={CorrelationId}",
-            method, path, query, userId, ip, correlationId);
 
         var sw = Stopwatch.StartNew();
         try
@@ -32,10 +39,18 @@ public class ApiRequestLoggingMiddleware(RequestDelegate next, ILogger<ApiReques
         {
             sw.Stop();
             var status = context.Response.StatusCode;
-            var logLevel = status >= 500 ? LogLevel.Error : status >= 400 ? LogLevel.Warning : LogLevel.Information;
-            logger.Log(logLevel,
-                "[API-OUT] {Method} {Path} | Status={Status} | {Duration}ms | UserId={UserId} | CorrelationId={CorrelationId}",
-                method, path, status, sw.ElapsedMilliseconds, userId, correlationId);
+            var durationMs = sw.ElapsedMilliseconds;
+            var isError = status >= 400;
+            var isSlow = durationMs >= SlowRequestThresholdMs;
+
+            if (isError || isSlow)
+            {
+                var logLevel = status >= 500 ? LogLevel.Error : status >= 400 ? LogLevel.Warning : LogLevel.Information;
+                var reason = isError ? $"Status={status}" : $"Lento={durationMs}ms";
+                logger.Log(logLevel,
+                    "[API] {Method} {Path} | {Reason} | {Duration}ms | UserId={UserId} | CorrelationId={CorrelationId}",
+                    method, path, reason, durationMs, userId, correlationId);
+            }
         }
     }
 }

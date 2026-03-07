@@ -156,8 +156,8 @@ export function AppButton({
           styles.base,
           {
             height: sizeConf.height,
-            backgroundColor: isDisabled ? colors.textMuted : stylesConf.bg,
-            borderColor: isDisabled ? colors.borderLight : stylesConf.border,
+            backgroundColor: isDisabled ? colors.surfaceSecondary : stylesConf.bg,
+            borderColor: isDisabled ? colors.border : stylesConf.border,
             borderWidth: stylesConf.border !== 'transparent' ? 1.5 : 0,
             paddingHorizontal: sizeConf.padding,
           },
@@ -180,7 +180,7 @@ export function AppButton({
               <Ionicons
                 name={icon}
                 size={sizeConf.iconSize}
-                color={isDisabled ? colors.textMuted : stylesConf.text}
+                color={isDisabled ? colors.textSecondary : stylesConf.text}
                 style={[styles.icon, { marginRight: title ? 8 : 0 }]}
               />
             )}
@@ -189,7 +189,7 @@ export function AppButton({
                 style={[
                   styles.text,
                   {
-                    color: isDisabled ? colors.textMuted : stylesConf.text,
+                    color: isDisabled ? colors.textSecondary : stylesConf.text,
                     fontSize: sizeConf.fontSize,
                   },
                 ]}

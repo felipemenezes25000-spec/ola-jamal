@@ -1,4 +1,5 @@
 import { apiClient } from './api-client';
+import { logApiError } from './logger';
 import {
   RequestResponseDto,
   RequestStatus,
@@ -635,10 +636,7 @@ export async function fetchSpecialties(): Promise<string[]> {
   try {
     return await apiClient.get<string[]>('/api/specialties');
   } catch (e) {
-    if (__DEV__) {
-      const base = apiClient.getBaseUrl();
-      console.warn('[API] fetchSpecialties falhou. Base URL:', base, '| Erro:', (e as { message?: string })?.message ?? e);
-    }
+    if (__DEV__) logApiError(0, '/api/specialties', (e as { message?: string })?.message ?? String(e));
     throw e;
   }
 }
@@ -720,7 +718,7 @@ export async function fetchDoctorStats(): Promise<DoctorStats> {
       totalEarnings: res.totalEarnings ?? 0,
     };
   } catch (e) {
-    console.warn('Failed to fetch doctor stats:', e);
+    if (__DEV__) logApiError(0, '/api/requests/stats', (e as { message?: string })?.message ?? String(e));
     return { pendingCount: 0, inReviewCount: 0, completedCount: 0, totalEarnings: 0 };
   }
 }

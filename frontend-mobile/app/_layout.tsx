@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet, LogBox } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -49,6 +49,11 @@ if (!isExpoGo) {
 }
 
 SplashScreen.preventAutoHideAsync();
+
+// Suprime warnings conhecidos que poluem o terminal (no-op em New Architecture)
+if (__DEV__) {
+  LogBox.ignoreLogs(['setLayoutAnimationEnabledExperimental is currently a no-op']);
+}
 
 function DynamicStatusBar() {
   const { isDark } = useColorSchemeContext();

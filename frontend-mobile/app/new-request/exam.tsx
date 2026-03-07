@@ -335,7 +335,7 @@ export default function NewExam() {
         )}
 
         {/* Symptoms */}
-        <Text style={styles.overline}>SINTOMAS (Obrigatório)</Text>
+        <Text style={styles.overline}>SINTOMAS (OBRIGATÓRIO)</Text>
         <TextInput
           ref={symptomsRef}
           style={[styles.textarea, !isFormValid && symptoms.trim().length === 0 && styles.inputError]}

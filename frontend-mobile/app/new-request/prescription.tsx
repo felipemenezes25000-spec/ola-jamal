@@ -396,7 +396,7 @@ export default function NewPrescription() {
         <StickyCTA
           summaryTitle="Total"
           summaryValue={selectedPrice}
-          summaryHint={`${completeness.score}% pronto • ${images.length} foto(s) anexada(s)`}
+          summaryHint={`${completeness.score}% pronto • ${images.length} ${images.length === 1 ? 'foto anexada' : 'fotos anexadas'}`}
           primary={{
             label: 'Enviar solicitação',
             onPress: handleSubmit,
@@ -519,8 +519,11 @@ function makeStyles(colors: DesignColors) {
     popularBadge: {
       backgroundColor: colors.primaryDark,
       paddingHorizontal: s.sm,
-      paddingVertical: 2,
+      paddingVertical: 4,
       borderRadius: r.full,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     popularText: {
       fontSize: typo.fontSize.xs,
@@ -569,8 +572,8 @@ function makeStyles(colors: DesignColors) {
     },
     checkIcon: {
       position: 'absolute',
-      top: s.sm,
-      right: s.sm,
+      top: s.md,
+      right: s.md,
     },
     photoWarningCard: {
       flexDirection: 'row',
@@ -585,6 +588,7 @@ function makeStyles(colors: DesignColors) {
     },
     photoWarningText: {
       flex: 1,
+      minWidth: 0,
       fontSize: 13,
       lineHeight: 19,
       color: colors.warning,

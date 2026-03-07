@@ -596,7 +596,7 @@ var rewriteOptions = new RewriteOptions()
     .AddRewrite(@"^(.+)/$", "$1", skipRemainingRules: true);
 app.UseRewriter(rewriteOptions);
 
-app.UseSerilogRequestLogging();
+// SerilogRequestLogging removido: ApiRequestLoggingMiddleware já registra requisições de forma objetiva (erros e lentidão).
 
 // Permite re-leitura do body em webhooks (ex.: Mercado Pago)
 app.Use(async (context, next) =>

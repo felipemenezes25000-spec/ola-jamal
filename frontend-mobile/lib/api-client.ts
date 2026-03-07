@@ -1,8 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { trackApiLatency } from './analytics';
+import { logApiError } from './logger';
 
 const TOKEN_KEY = '@renoveja:auth_token';
+
+function getPathFromResponse(response: Response): string {
+  try {
+    const base = typeof response.url === 'string' && response.url.startsWith('/')
+      ? 'http://localhost'
+      : undefined;
+    return new URL(response.url, base).pathname || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
 
 /** Gera um ID de correlação de 16 hex para rastrear a requisição no backend. */
 function generateCorrelationId(): string {
@@ -180,9 +192,9 @@ class ApiClient {
           if (response.status === 403 && this.onForbidden) {
             this.onForbidden(errorMessage);
           }
-          if (__DEV__) {
-            console.warn('[API] Erro:', response.status, errorMessage, '| URL:', this.baseUrl);
-          }
+          logApiError(response.status, getPathFromResponse(response), errorMessage, {
+            body: rawBody ? rawBody.slice(0, 200) : undefined,
+          });
           throw err;
         } else {
           errorMessage = `${response.status} ${response.statusText}`;
@@ -192,9 +204,6 @@ class ApiClient {
         if (e?.status !== undefined) {
           throw e;
         }
-        if (__DEV__ && response.status === 400) {
-          console.warn('[API] 400 - corpo da resposta:', rawBody?.slice(0, 300) || '(vazio)');
-        }
         // 400 com corpo vazio/não-JSON: comum com AllowedHosts, Supabase inválido ou backend acordando (Render)
         const hint =
           response.status === 400
@@ -203,9 +212,9 @@ class ApiClient {
         errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}${hint}`;
       }
 
-      if (__DEV__) {
-        console.warn('[API] Erro:', response.status, errorMessage, '| URL:', this.baseUrl);
-      }
+      logApiError(response.status, getPathFromResponse(response), errorMessage, {
+        body: response.status === 400 && rawBody ? rawBody.slice(0, 200) : undefined,
+      });
 
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
         this.onUnauthorized();
@@ -234,9 +243,7 @@ class ApiClient {
     }
     // Ngrok devolve HTML de "browser warning" quando o header ngrok-skip-browser-warning não é aceite. Tratar como erro.
     if (contentType.includes('text/html')) {
-      if (__DEV__) {
-        console.warn('[API] Resposta 200 com content-type text/html (página ngrok). Verifique EXPO_PUBLIC_API_URL e se o header ngrok-skip-browser-warning está sendo enviado.');
-      }
+      logApiError(502, getPathFromResponse(response), 'Resposta HTML em vez de JSON (ngrok?). Verifique EXPO_PUBLIC_API_URL.');
       throw {
         message: 'A API retornou uma página em vez de dados. Se estiver usando ngrok, confira a URL da API (EXPO_PUBLIC_API_URL) e tente novamente.',
         status: 502,
@@ -307,10 +314,6 @@ class ApiClient {
     } else {
       headers['Content-Type'] = 'application/json';
       bodyData = JSON.stringify(body ?? {});
-    }
-
-    if (__DEV__ && path.includes('/auth/login')) {
-      console.warn('[API] POST', `${this.baseUrl}${path}`);
     }
 
     const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {

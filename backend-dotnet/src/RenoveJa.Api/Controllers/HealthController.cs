@@ -80,7 +80,8 @@ public class HealthController : ControllerBase
             overall = false;
         }
 
-        _logger.LogInformation("Health check: status={Status}, checks={Checks}", overall ? "healthy" : "degraded", string.Join(",", checks.Keys));
+        if (!overall)
+            _logger.LogWarning("Health check DEGRADED: checks={Checks}", string.Join(",", checks.Keys));
         return Ok(new
         {
             status = overall ? "healthy" : "degraded",
@@ -159,8 +160,9 @@ public class HealthController : ControllerBase
         else
             overall = "healthy";
 
-        _logger.LogInformation("Readiness: status={Status}, db={Db}, storage={Storage}, payment={Payment}, ai={Ai}",
-            overall, dbOk, storageOk, paymentOk, aiOk);
+        if (overall != "healthy")
+            _logger.LogWarning("Readiness {Status}: db={Db}, storage={Storage}, payment={Payment}, ai={Ai}",
+                overall, dbOk, storageOk, paymentOk, aiOk);
 
         return Ok(new
         {

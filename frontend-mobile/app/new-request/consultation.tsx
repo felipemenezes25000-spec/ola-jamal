@@ -287,7 +287,7 @@ export default function ConsultationScreen() {
                 {type.label}
               </Text>
               <Text style={styles.typePricePerMin} numberOfLines={1}>{formatBRL(type.pricePerMin)}/min</Text>
-              <Text style={styles.typeDesc} numberOfLines={3} ellipsizeMode="tail">{type.desc}</Text>
+              <Text style={styles.typeDesc} numberOfLines={4} ellipsizeMode="tail">{type.desc}</Text>
             </AppCard>
           ))}
         </View>
@@ -502,6 +502,7 @@ function makeStyles(colors: DesignColors) {
       color: colors.textMuted,
       marginTop: s.xs,
       lineHeight: 16,
+      paddingBottom: 2,
     },
     minutesHint: {
       fontSize: t.fontSize.sm,

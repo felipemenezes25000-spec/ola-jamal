@@ -34,12 +34,11 @@ export default function AboutScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.logoSection}>
-          <View style={styles.logoImage}>
-            <Logo size="medium" variant="dark" />
-          </View>
+          <Logo size="medium" variant="dark" compact />
         </View>
 
         <Text style={styles.tagline}>TELEMEDICINA PARA SUA SAÚDE</Text>
+        <Text style={styles.taglineSub}>Renove sua receita e pedido de exames. Rápido e sem burocracia.</Text>
         <Text style={styles.version}>VERSÃO {APP_VERSION}</Text>
 
         <View style={styles.divider} />
@@ -93,12 +92,6 @@ function makeStyles(colors: DesignColors) {
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  logoImage: {
-    width: 140,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   tagline: {
     fontSize: 13,
     fontWeight: '600',
@@ -106,6 +99,14 @@ function makeStyles(colors: DesignColors) {
     textAlign: 'center',
     letterSpacing: 0.8,
     marginBottom: 4,
+  },
+  taglineSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 4,
+    paddingHorizontal: spacing.lg,
   },
   version: {
     fontSize: 12,

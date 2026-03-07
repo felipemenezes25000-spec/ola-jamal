@@ -41,7 +41,7 @@ public class ExceptionHandlingMiddleware(
             }
 
             logger.LogError(ex,
-                "[EXCEPTION] {Method} {Path} | Tipo={ExceptionType} | Message={Message} | InnerException={Inner}",
+                "[EXCEPTION] {Method} {Path} | {ExceptionType}: {Message} | Inner: {Inner}",
                 method, path, ex.GetType().Name, ex.Message,
                 ex.InnerException?.Message ?? "-");
             // Envia ao Sentry (o middleware captura antes do SDK; sem isso nada chega em Issues)
