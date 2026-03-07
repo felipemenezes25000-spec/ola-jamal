@@ -3,20 +3,22 @@ import { Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { AppCard } from '../AppCard';
 
-jest.mock('../../../lib/theme', () => ({
-  theme: {
+jest.mock('../../../lib/ui/useAppTheme', () => ({
+  useAppTheme: () => ({
     colors: {
-      background: { paper: '#fff' },
-      border: { light: '#ddd' },
-      primary: { main: '#2CB1FF', soft: '#E3F4FF' },
+      surface: '#fff',
+      borderLight: '#ddd',
+      primary: '#2CB1FF',
+      primarySoft: '#E3F4FF',
+      surfaceSecondary: '#F1F5F9',
     },
     borderRadius: { card: 12 },
-    spacing: { md: 16 },
     shadows: {
       card: { shadowColor: '#000', elevation: 2 },
       elevated: { shadowColor: '#000', elevation: 4 },
     },
-  },
+    spacing: { md: 16 },
+  }),
 }));
 
 describe('AppCard', () => {
@@ -24,7 +26,7 @@ describe('AppCard', () => {
     const { getByText } = render(
       <AppCard>
         <Text>Conteúdo</Text>
-      </AppCard>
+      </AppCard>,
     );
 
     expect(getByText('Conteúdo')).toBeTruthy();
@@ -35,7 +37,7 @@ describe('AppCard', () => {
     const { getByRole } = render(
       <AppCard onPress={onPress} accessibilityLabel="Abrir card">
         <Text>Item</Text>
-      </AppCard>
+      </AppCard>,
     );
 
     const button = getByRole('button');
@@ -50,8 +52,8 @@ describe('AppCard', () => {
         render(
           <AppCard variant={variant}>
             <Text>{variant}</Text>
-          </AppCard>
-        )
+          </AppCard>,
+        ),
       ).not.toThrow();
     });
   });
@@ -60,7 +62,7 @@ describe('AppCard', () => {
     const { getByText } = render(
       <AppCard selected>
         <Text>Selecionado</Text>
-      </AppCard>
+      </AppCard>,
     );
 
     expect(getByText('Selecionado')).toBeTruthy();
@@ -70,7 +72,7 @@ describe('AppCard', () => {
     const { getByText } = render(
       <AppCard noPadding>
         <Text>Sem padding</Text>
-      </AppCard>
+      </AppCard>,
     );
 
     expect(getByText('Sem padding')).toBeTruthy();
