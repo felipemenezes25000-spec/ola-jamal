@@ -38,6 +38,7 @@ using System.Threading.RateLimiting;
 using Serilog;
 using Microsoft.AspNetCore.Rewrite;
 using Microsoft.AspNetCore.HttpOverrides;
+using Sentry;
 
 // Carrega .env da pasta do projeto e garante Supabase no Environment (evita 400 por ServiceKey)
 static string? FindEnvPath()
@@ -111,6 +112,20 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Sentry: captura erros em tempo real (SENTRY_DSN no .env ou variáveis do Render)
+var sentryDsn = _envVars.GetValueOrDefault("SENTRY_DSN") ?? Environment.GetEnvironmentVariable("SENTRY_DSN");
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+{
+    builder.WebHost.UseSentry(o =>
+    {
+        o.Dsn = sentryDsn.Trim();
+        o.Environment = builder.Environment.EnvironmentName;
+        o.TracesSampleRate = 0.1;
+        o.SendDefaultPii = false;
+        o.Debug = !builder.Environment.IsProduction(); // Ver logs do SDK em dev
+    });
+}
 
 // AllowedHosts: em dev aceita localhost, ngrok e IP da LAN ("*"). Em Production, só aceita "*" se .env tiver AllowedHosts=* (ex.: ngrok local).
 if (!builder.Environment.IsProduction())
@@ -617,6 +632,16 @@ app.UseMiddleware<AuditMiddleware>();
 app.MapControllers();
 app.MapHub<VideoSignalingHub>("/hubs/video");
 app.MapHub<RequestsHub>("/hubs/requests");
+
+// Endpoint de verificação do Sentry (disponível sempre que SENTRY_DSN estiver configurado)
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+{
+    app.MapGet("/api/sentry-test", () =>
+    {
+        SentrySdk.CaptureMessage("Hello Sentry");
+        return Results.Ok(new { message = "Teste enviado ao Sentry" });
+    });
+}
 
 // Log para debug: URL que o app deve usar
 var apiBaseUrl = app.Configuration["Api__BaseUrl"]?.Trim();
