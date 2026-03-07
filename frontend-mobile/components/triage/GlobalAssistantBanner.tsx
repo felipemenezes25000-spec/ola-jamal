@@ -9,6 +9,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
 import { DraggableAssistantBanner } from './DraggableAssistantBanner';
 import type { CTAAction } from '../../lib/triage/triage.types';
 import { theme } from '../../lib/theme';
@@ -48,9 +49,11 @@ export function GlobalAssistantBanner() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
+  const { isModalOpen } = useModalVisibility();
   const isLoggedIn = !!user;
 
   if (shouldHideBanner(pathname, isLoggedIn, user?.role)) return null;
+  if (isModalOpen) return null;
 
   const handleAction: (action: CTAAction, message?: { requestId?: string; status?: string | null }) => void = (action, message) => {
     if (!action) return;

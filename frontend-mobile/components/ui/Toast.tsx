@@ -9,8 +9,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { colors, spacing, borderRadius, typography, theme } from '../../lib/theme';
 import { haptics } from '../../lib/haptics';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -39,6 +40,7 @@ export function showToast(config: ToastConfig) {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
     const insets = useSafeAreaInsets();
+    const { colors: themeColors } = useAppTheme();
     const [visible, setVisible] = useState(false);
     const [config, setConfig] = useState<ToastConfig>({ message: '' });
     const translateY = useRef(new Animated.Value(-100)).current;
@@ -108,7 +110,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                         activeOpacity={0.8}
                     >
                         <Ionicons name={tc.icon} size={22} color={tc.iconColor} />
-                        <Text style={styles.toastText} numberOfLines={2}>
+                        <Text style={[styles.toastText, { color: themeColors.text }]} numberOfLines={2}>
                             {config.message}
                         </Text>
                         {config.actionLabel && config.onAction ? (
@@ -117,13 +119,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                                     config.onAction?.();
                                     dismiss();
                                 }}
-                                style={styles.actionBtn}
+                                style={[styles.actionBtn, { backgroundColor: themeColors.textMuted + '20' }]}
                                 activeOpacity={0.8}
                             >
-                                <Text style={styles.actionBtnText}>{config.actionLabel}</Text>
+                                <Text style={[styles.actionBtnText, { color: themeColors.primary }]}>{config.actionLabel}</Text>
                             </TouchableOpacity>
                         ) : (
-                            <Ionicons name="close" size={18} color={colors.textMuted} />
+                            <Ionicons name="close" size={18} color={themeColors.textMuted} />
                         )}
                     </TouchableOpacity>
                 </Animated.View>
@@ -137,7 +139,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         left: spacing.md,
         right: spacing.md,
-        zIndex: 9999,
+        zIndex: theme.zIndex.toast,
         borderRadius: borderRadius.md,
         shadowColor: colors.black,
         shadowOffset: { width: 0, height: 4 },
@@ -156,19 +158,16 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: typography.fontFamily.medium,
         fontWeight: '500',
-        color: colors.text,
         lineHeight: 20,
     },
     actionBtn: {
         paddingVertical: 6,
         paddingHorizontal: 10,
         borderRadius: borderRadius.sm,
-        backgroundColor: 'rgba(0,0,0,0.06)',
     },
     actionBtnText: {
         fontSize: 13,
         fontFamily: typography.fontFamily.semibold,
         fontWeight: '600',
-        color: colors.primary,
     },
 });

@@ -60,7 +60,7 @@ const SectionGap = () => <View style={{ height: 6 }} />;
 export default function PatientNotifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { refreshUnreadCount } = useNotifications();
+  const { refreshUnreadCount, markAllReadOptimistic, decrementUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -109,9 +109,8 @@ export default function PatientNotifications() {
 
   const handleMarkAllRead = async () => {
     try {
-      await markAllNotificationsAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      refreshUnreadCount();
+      await markAllReadOptimistic();
       haptics.success();
       showToast({ message: 'Todas as notificações foram marcadas como lidas', type: 'success' });
     } catch (error) {
@@ -121,10 +120,10 @@ export default function PatientNotifications() {
   };
 
   const handleMarkRead = async (id: string, item?: NotificationResponseDto) => {
+    decrementUnreadCount();
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     try {
       await markNotificationAsRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-      refreshUnreadCount();
       haptics.selection();
       const requestId = item?.data?.requestId;
       if (requestId) {
@@ -132,6 +131,7 @@ export default function PatientNotifications() {
       }
     } catch (error) {
       console.error('Error marking as read:', error);
+      refreshUnreadCount();
     }
   };
 

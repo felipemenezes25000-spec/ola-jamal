@@ -2,13 +2,24 @@
  * @jest-environment jsdom
  */
 
-jest.mock('react-native', () => ({
-  View: 'View',
-  Text: 'Text',
-  StyleSheet: {
-    create: (s: any) => s,
-  },
-}));
+jest.mock('react-native', () => {
+  const React = require('react');
+  return {
+    View: (props: any) => {
+      const { accessibilityRole, accessibilityLabel, style, ...rest } = props;
+      return React.createElement('div', {
+        ...rest,
+        role: accessibilityRole,
+        'aria-label': accessibilityLabel,
+        'data-testid': 'offline-banner-view',
+      }, props.children);
+    },
+    Text: (props: any) => React.createElement('span', props, props.children),
+    StyleSheet: {
+      create: (s: any) => s,
+    },
+  };
+});
 
 jest.mock('../hooks/useNetworkStatus', () => ({
   useNetworkStatus: jest.fn(),
@@ -62,17 +73,15 @@ describe('OfflineBanner', () => {
 
   it('has alert accessibility role', () => {
     mockUseNetworkStatus.mockReturnValue({ isConnected: false });
-    const { container } = render(<OfflineBanner />);
-    const alertEl = container.querySelector('[accessibilityrole="alert"]');
+    render(<OfflineBanner />);
+    const alertEl = screen.getByRole('alert', { name: 'Sem conexão com a internet' });
     expect(alertEl).toBeTruthy();
   });
 
   it('has correct accessibility label', () => {
     mockUseNetworkStatus.mockReturnValue({ isConnected: false });
-    const { container } = render(<OfflineBanner />);
-    const alertEl = container.querySelector(
-      '[accessibilitylabel="Sem conexão com a internet"]'
-    );
+    render(<OfflineBanner />);
+    const alertEl = screen.getByLabelText('Sem conexão com a internet');
     expect(alertEl).toBeTruthy();
   });
 

@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { uiTokens } from '../../lib/ui/tokens';
+import { theme } from '../../lib/theme';
 import { AppButton, AppButtonVariant } from './AppButton';
 
 type Action = {
@@ -58,6 +59,7 @@ export function StickyCTA({
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           paddingBottom: padBottom,
+          zIndex: theme.zIndex.sticky,
         },
         ((shadows as any)?.sm ?? undefined) as any,
         style,

@@ -1,4 +1,11 @@
-import { loginSchema, registerSchema, completeProfileSchema, createConsultationSchema } from '../schemas';
+import {
+  loginSchema,
+  registerSchema,
+  completeProfileSchema,
+  createConsultationSchema,
+  createExamSchema,
+  createPrescriptionSchema,
+} from '../schemas';
 
 describe('schemas', () => {
   describe('loginSchema', () => {
@@ -102,6 +109,75 @@ describe('schemas', () => {
         consultationType: 'psicologo',
         durationMinutes: 10,
         symptoms: 'Dor',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects empty symptoms', () => {
+      const result = createConsultationSchema.safeParse({
+        consultationType: 'psicologo',
+        durationMinutes: 15,
+        symptoms: '',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('createExamSchema', () => {
+    it('rejects when symptoms empty and no exams/images', () => {
+      const result = createExamSchema.safeParse({
+        examType: 'laboratorial',
+        exams: [],
+        symptoms: '',
+        images: [],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects when no exams and no images', () => {
+      const result = createExamSchema.safeParse({
+        examType: 'laboratorial',
+        exams: [],
+        symptoms: 'Dor de cabeça',
+        images: [],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('accepts with exams and symptoms', () => {
+      const result = createExamSchema.safeParse({
+        examType: 'laboratorial',
+        exams: ['Hemograma'],
+        symptoms: 'Dor de cabeça',
+        images: [],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts with images and symptoms', () => {
+      const result = createExamSchema.safeParse({
+        examType: 'laboratorial',
+        exams: [],
+        symptoms: 'Dor de cabeça',
+        images: ['file:///photo.jpg'],
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('createPrescriptionSchema', () => {
+    it('accepts valid prescriptionType', () => {
+      const result = createPrescriptionSchema.safeParse({
+        prescriptionType: 'simples',
+        medications: [],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects invalid prescriptionType', () => {
+      const result = createPrescriptionSchema.safeParse({
+        prescriptionType: 'invalid',
+        medications: [],
       });
       expect(result.success).toBe(false);
     });

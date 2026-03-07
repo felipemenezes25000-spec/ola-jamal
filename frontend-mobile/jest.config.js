@@ -30,6 +30,7 @@ module.exports = {
       globals: {
         __DEV__: true,
       },
+      setupFiles: ['<rootDir>/jest.setup.early.js'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
     {
@@ -45,6 +46,7 @@ module.exports = {
       globals: {
         __DEV__: true,
       },
+      setupFiles: ['<rootDir>/jest.setup.early.js'],
     },
   ],
   collectCoverageFrom: [

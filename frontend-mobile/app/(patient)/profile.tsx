@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { haptics } from '../../lib/haptics';
 import { FadeIn } from '../../components/ui/FadeIn';
@@ -48,6 +49,12 @@ export default function PatientProfile() {
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [avatarImageError, setAvatarImageError] = useState(false);
+  const { setModalOpen } = useModalVisibility();
+
+  useEffect(() => {
+    setModalOpen(!!avatarPreviewUri);
+    return () => setModalOpen(false);
+  }, [avatarPreviewUri, setModalOpen]);
 
   const doLogout = () => {
     setLogoutLoading(true);
@@ -388,9 +395,9 @@ function makeStyles(colors: DesignColors) {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: colors.headerOverlaySurface,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: colors.headerOverlayBorder,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -402,11 +409,11 @@ function makeStyles(colors: DesignColors) {
   avatarText: {
     fontSize: 28,
     fontWeight: '800',
-    color: colors.white,
+    color: colors.headerOverlayText,
   },
   avatarOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlayBackground,
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -422,16 +429,16 @@ function makeStyles(colors: DesignColors) {
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.9)',
+    borderColor: colors.headerOverlayTextMuted,
   },
   userName: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.headerOverlayText,
   },
   userEmail: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    color: colors.headerOverlayTextMuted,
     marginTop: 4,
   },
 
@@ -552,7 +559,7 @@ function makeStyles(colors: DesignColors) {
   // Avatar preview modal
   previewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: colors.overlayBackground,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

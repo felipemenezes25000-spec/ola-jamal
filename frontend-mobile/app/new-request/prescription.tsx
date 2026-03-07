@@ -221,7 +221,7 @@ export default function NewPrescription() {
       showToast({ message: 'Solicitação enviada! Acompanhe na aba Pedidos.', type: 'success' });
       router.replace('/(patient)/requests');
     } catch (error: unknown) {
-      Alert.alert('Erro', getApiErrorMessage(error));
+      showToast({ message: getApiErrorMessage(error), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -323,7 +323,7 @@ export default function NewPrescription() {
 
           {/* Warning card — prominente, não pode ser ignorado */}
           <View style={styles.photoWarningCard}>
-            <Ionicons name="warning" size={18} color="#92400E" />
+            <Ionicons name="warning" size={18} color={colors.warning} />
             <Text style={styles.photoWarningText}>
               Envie <Text style={styles.photoWarningBold}>somente</Text> fotos do documento da receita (papel ou tela com os medicamentos). Outras imagens serão rejeitadas automaticamente.
             </Text>
@@ -582,9 +582,9 @@ function makeStyles(colors: DesignColors) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: s.sm,
-      backgroundColor: '#FEF3C7',
+      backgroundColor: colors.warningLight,
       borderWidth: 1,
-      borderColor: '#FCD34D',
+      borderColor: colors.warning,
       borderRadius: r.md,
       padding: s.md,
       marginBottom: s.sm,
@@ -593,7 +593,7 @@ function makeStyles(colors: DesignColors) {
       flex: 1,
       fontSize: 13,
       lineHeight: 19,
-      color: '#78350F',
+      color: colors.warningText,
     },
     photoWarningBold: {
       fontWeight: typo.fontWeight.bold,

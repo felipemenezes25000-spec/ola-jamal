@@ -42,6 +42,8 @@ const FAB_SIZE = 48;
 const BANNER_WIDTH = 300;
 const SPRING_CONFIG = { damping: 22, stiffness: 200 };
 const DRAG_THRESHOLD = 16; // Maior para evitar conflito com tap — tap expande, arraste move
+/** Zona de exclusão inferior: FAB nunca cobre StickyCTA/inputs (~100px). */
+const CTA_EXCLUSION_ZONE = 100;
 
 interface DraggableAssistantBannerProps {
   onAction?: (action: CTAAction, message?: { requestId?: string; status?: string | null }) => void;
@@ -69,7 +71,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
 
   const topLimitFab = (insets.top ?? 0) + padding;
   const maxXFabInit = screenW - FAB_SIZE - padding;
-  const maxYFabInit = screenH - FAB_SIZE - (insets.bottom ?? 0) - padding;
+  const maxYFabInit = screenH - FAB_SIZE - (insets.bottom ?? 0) - CTA_EXCLUSION_ZONE;
 
   useEffect(() => {
     let cancelled = false;
@@ -84,13 +86,13 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
           translateY.value = y;
         } else if (!cancelled) {
           translateX.value = screenW - padding - FAB_SIZE;
-          translateY.value = screenH - (insets.bottom ?? 0) - padding - FAB_SIZE;
+          translateY.value = screenH - (insets.bottom ?? 0) - CTA_EXCLUSION_ZONE - FAB_SIZE;
         }
         if (!cancelled) setInitialized(true);
       } catch {
         if (!cancelled) {
           translateX.value = screenW - padding - FAB_SIZE;
-          translateY.value = screenH - (insets.bottom ?? 0) - padding - FAB_SIZE;
+          translateY.value = screenH - (insets.bottom ?? 0) - CTA_EXCLUSION_ZONE - FAB_SIZE;
           setInitialized(true);
         }
       }
@@ -152,8 +154,8 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
   }, [current?.key, current?.severity, expanded, lastAutoExpandKey, handleExpand]);
 
   const topLimit = (insets.top ?? 0) + padding;
-  const bottomLimitFab = screenH - FAB_SIZE - (insets.bottom ?? 0) - padding;
-  const bottomLimitExpanded = screenH - expandedHeight - (insets.bottom ?? 0) - padding;
+  const bottomLimitFab = screenH - FAB_SIZE - (insets.bottom ?? 0) - CTA_EXCLUSION_ZONE;
+  const bottomLimitExpanded = screenH - expandedHeight - (insets.bottom ?? 0) - CTA_EXCLUSION_ZONE;
   const maxXFab = screenW - FAB_SIZE - padding;
   const maxXExpanded = screenW - bannerWidth - padding;
 
@@ -233,7 +235,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
           top: 0,
           right: 0,
           bottom: 0,
-          zIndex: 9999,
+          zIndex: theme.zIndex.float,
         },
         containerStyle,
       ]}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -136,6 +136,14 @@ export default function ConsultationScreen() {
   if (userPickedType && userAdjustedMinutes) currentStep = 3;
   if (userPickedType && userAdjustedMinutes && symptoms.trim().length > 0) currentStep = 4;
 
+  const consultationValidation = validate(createConsultationSchema, {
+    consultationType,
+    durationMinutes,
+    symptoms,
+  });
+  const isFormValid = completeness.missingRequired.length === 0 && consultationValidation.success;
+  const symptomsRef = useRef<TextInput>(null);
+
   useEffect(() => {
     let cancelled = false;
     setLoadingBank(true);
@@ -179,7 +187,7 @@ export default function ConsultationScreen() {
         router.replace('/(patient)/requests');
       }
     } catch (error: unknown) {
-      Alert.alert('Erro', getApiErrorMessage(error));
+      showToast({ message: getApiErrorMessage(error), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -187,10 +195,8 @@ export default function ConsultationScreen() {
 
   const handleSubmit = async () => {
     if (completeness.missingRequired.length > 0) {
-      Alert.alert(
-        'Faltam itens para enviar',
-        completeness.missingRequired.map((item) => `• ${item.label}`).join('\n')
-      );
+      showToast({ message: completeness.missingRequired.map((item) => item.label).join('. '), type: 'error' });
+      symptomsRef.current?.focus();
       return;
     }
 
@@ -200,7 +206,8 @@ export default function ConsultationScreen() {
       symptoms,
     });
     if (!validation.success) {
-      Alert.alert('Atenção', validation.firstError ?? 'Preencha todos os campos.');
+      showToast({ message: validation.firstError ?? 'Preencha todos os campos.', type: 'error' });
+      symptomsRef.current?.focus();
       return;
     }
     const payload = validation.data!;
@@ -315,7 +322,8 @@ export default function ConsultationScreen() {
           <Text style={styles.stepHint}>Passo 3 — Escreva o que você está sentindo ou a dúvida que tem. Isso ajuda o profissional a te atender melhor.</Text>
         )}
         <TextInput
-          style={styles.textArea}
+          ref={symptomsRef}
+          style={[styles.textArea, !isFormValid && symptoms.trim().length < 10 && styles.inputError]}
           placeholder="O que você está sentindo? Desde quando? O que gostaria de esclarecer?"
           placeholderTextColor={colors.textMuted}
           value={symptoms}
@@ -367,7 +375,7 @@ export default function ConsultationScreen() {
           label: 'Solicitar consulta',
           onPress: handleSubmit,
           loading,
-          disabled: loading,
+          disabled: loading || !isFormValid,
         }}
       />
       </View>
@@ -536,6 +544,10 @@ function makeStyles(colors: DesignColors) {
       color: colors.text,
       minHeight: 120,
       marginBottom: s.lg,
+    },
+    inputError: {
+      borderColor: colors.error,
+      borderWidth: 1.5,
     },
     totalCard: {
       marginBottom: s.lg,

@@ -39,6 +39,7 @@ import { ObservationCard } from '../../components/triage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { getNextBestActionForRequest, type NextActionIntent } from '../../lib/domain/assistantIntelligence';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
 
 /** Texto expansível: mostra N linhas com "Ver mais" / "Ver menos". */
 function ExpandableText({ text, maxLines = 4, style }: { text: string; maxLines?: number; style?: any }) {
@@ -133,6 +134,7 @@ export default function RequestDetailScreen() {
   const { isConnected } = useNetworkStatus();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { setModalOpen } = useModalVisibility();
 
   const fetchIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -448,6 +450,15 @@ export default function RequestDetailScreen() {
     );
   }
 
+  const isModalVisible =
+    (showVideoModal && request && ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation') ||
+    selectedImageUri !== null;
+
+  useEffect(() => {
+    setModalOpen(isModalVisible);
+    return () => setModalOpen(false);
+  }, [isModalVisible, setModalOpen]);
+
   if (!request) return null;
 
   // Backend aceita pagamento quando status está aguardando pagamento.
@@ -511,7 +522,7 @@ export default function RequestDetailScreen() {
                 {request.status === 'in_consultation' ? 'Toque para entrar ou voltar à videoconsulta' : 'Toque para entrar na videoconsulta'}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.8)" />
+            <Ionicons name="chevron-forward" size={24} color={colors.headerOverlayTextMuted} />
           </TouchableOpacity>
         )}
 
@@ -902,10 +913,10 @@ function makeStyles(colors: DesignColors) {
   },
   videoReadyBannerText: { flex: 1 },
   videoReadyBannerTitle: { fontSize: 16, fontWeight: '700', color: colors.white },
-  videoReadyBannerSub: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2 },
+  videoReadyBannerSub: { fontSize: 13, color: colors.headerOverlayTextMuted, marginTop: 2 },
   videoModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colors.modalOverlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
@@ -1022,15 +1033,15 @@ function makeStyles(colors: DesignColors) {
   errorBtnText: { fontSize: 15, fontWeight: '600', color: colors.white },
   thumbWrap: { marginHorizontal: spacing.sm, position: 'relative' },
   thumbImg: { width: 120, height: 120, borderRadius: 14 },
-  zoomBadge: { position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 4, alignItems: 'center', justifyContent: 'center' },
+  zoomBadge: { position: 'absolute', bottom: 6, right: 6, backgroundColor: colors.overlayBackground, borderRadius: 12, padding: 4, alignItems: 'center', justifyContent: 'center' },
   zoomHint: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.xs },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { flex: 1, backgroundColor: colors.modalOverlay, justifyContent: 'center', alignItems: 'center' },
   modalCloseBtn: {
     position: 'absolute',
     top: Platform.OS === 'web' ? 20 : 60,
     right: spacing.md,
     zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: colors.modalOverlay,
     borderRadius: 25,
     padding: 10,
     width: 50,

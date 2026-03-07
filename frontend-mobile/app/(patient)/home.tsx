@@ -16,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
-import { STATUS_LABELS_PT } from '../../lib/domain/statusLabels';
+import { STATUS_LABELS_PT, DASHBOARD_STATS_LABELS } from '../../lib/domain/statusLabels';
 import { RequestResponseDto } from '../../types/database';
 import { useRequestsQuery } from '../../lib/hooks/useRequestsQuery';
 import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
@@ -273,7 +273,7 @@ export default function PatientHome() {
       <View style={styles.statsRow}>
         <StatsCard
           icon="analytics"
-          label={STATUS_LABELS_PT.in_review}
+          label={DASHBOARD_STATS_LABELS.analyzing}
           value={stats.pending}
           iconColor={colors.warning}
           iconBgColor={colors.warningLight}
@@ -281,7 +281,7 @@ export default function PatientHome() {
         />
         <StatsCard
           icon="wallet"
-          label="A pagar"
+          label={DASHBOARD_STATS_LABELS.toPay}
           value={stats.toPay}
           iconColor={colors.error}
           iconBgColor={colors.errorLight}
@@ -289,7 +289,7 @@ export default function PatientHome() {
         />
         <StatsCard
           icon="shield-checkmark"
-          label="Prontos"
+          label={DASHBOARD_STATS_LABELS.ready}
           value={stats.ready}
           iconColor={colors.success}
           iconBgColor={colors.successLight}
@@ -325,9 +325,9 @@ export default function PatientHome() {
                 accessibilityRole="button"
                 accessibilityLabel="Pagar agora"
               >
-                <Ionicons name="card" size={15} color="#FFFFFF" />
+                <Ionicons name="card" size={15} color={colors.headerOverlayText} />
                 <Text style={styles.followUpPayCtaText}>{followUpAction.ctaLabel ?? 'Pagar agora'}</Text>
-                <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.75)" importantForAccessibility="no" />
+                <Ionicons name="arrow-forward" size={14} color={colors.headerOverlayTextMuted} importantForAccessibility="no" />
               </Pressable>
             )}
           </View>
@@ -509,23 +509,23 @@ function makeStyles(colors: DesignColors) {
     fontSize: 14,
     fontFamily: 'PlusJakartaSans_500Medium',
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.headerOverlayTextMuted,
     marginBottom: 2,
   },
   headerGreetingName: {
     fontSize: 24,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '800',
-    color: colors.white,
+    color: colors.headerOverlayText,
     letterSpacing: -0.2,
   },
   avatarBtn: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: colors.headerOverlaySurface,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: colors.headerOverlayBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -533,7 +533,7 @@ function makeStyles(colors: DesignColors) {
     fontSize: 20,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: colors.white,
+    color: colors.headerOverlayText,
   },
 
   // ─── Destaque IA ───
@@ -701,7 +701,7 @@ function makeStyles(colors: DesignColors) {
     minHeight: 44,
   },
   followUpPayCtaText: {
-    color: '#FFFFFF',
+    color: colors.headerOverlayText,
     fontSize: 14,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',

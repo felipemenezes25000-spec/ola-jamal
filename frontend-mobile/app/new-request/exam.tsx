@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -121,7 +121,11 @@ export default function NewExam() {
   if (exams.length > 0) currentStep = 3;
   if (symptoms.trim().length > 0) currentStep = 4;
 
+  const examValidation = validate(createExamSchema, { examType, exams, symptoms, images });
+  const isFormValid = completeness.missingRequired.length === 0 && examValidation.success;
+
   const selectedPrice = formatBRL(EXAM_TYPE_PRICES[examType as 'laboratorial' | 'imagem']);
+  const symptomsRef = useRef<TextInput>(null);
 
   /** Dra. Renoveja: dicas por etapa (tipo imagem, exames). */
   useTriageEval({
@@ -190,7 +194,7 @@ export default function NewExam() {
       showToast({ message: 'Pedido de exame enviado! Acompanhe na aba Pedidos.', type: 'success' });
       router.replace('/(patient)/requests');
     } catch (error: unknown) {
-      Alert.alert('Erro', getApiErrorMessage(error));
+      showToast({ message: getApiErrorMessage(error), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -198,10 +202,8 @@ export default function NewExam() {
 
   const handleSubmit = async () => {
     if (completeness.missingRequired.length > 0) {
-      Alert.alert(
-        'Faltam itens para enviar',
-        completeness.missingRequired.map((item) => `• ${item.label}`).join('\n')
-      );
+      showToast({ message: completeness.missingRequired.map((item) => item.label).join('. '), type: 'error' });
+      symptomsRef.current?.focus();
       return;
     }
 
@@ -212,7 +214,8 @@ export default function NewExam() {
       images,
     });
     if (!validation.success) {
-      Alert.alert('Preencha os campos', validation.firstError ?? 'Informe os exames desejados e os sintomas.');
+      showToast({ message: validation.firstError ?? 'Informe os exames desejados e os sintomas.', type: 'error' });
+      symptomsRef.current?.focus();
       return;
     }
     const payload = {
@@ -332,7 +335,8 @@ export default function NewExam() {
         {/* Symptoms */}
         <Text style={styles.overline}>SINTOMAS (Obrigatório)</Text>
         <TextInput
-          style={styles.textarea}
+          ref={symptomsRef}
+          style={[styles.textarea, !isFormValid && symptoms.trim().length === 0 && styles.inputError]}
           placeholder="Descreva seus sintomas"
           placeholderTextColor={colors.textMuted}
           value={symptoms}
@@ -396,7 +400,7 @@ export default function NewExam() {
           label: 'Enviar pedido',
           onPress: handleSubmit,
           loading,
-          disabled: loading,
+          disabled: loading || !isFormValid,
         }}
       />
       </View>
@@ -544,7 +548,13 @@ function makeStyles(colors: DesignColors) {
       fontSize: ty.fontSize.md,
       color: colors.text,
       minHeight: 100,
+      borderWidth: 1,
+      borderColor: colors.border,
       ...theme.shadows.card,
+    },
+    inputError: {
+      borderColor: colors.error,
+      borderWidth: 1.5,
     },
     photoHint: {
       fontSize: 12,

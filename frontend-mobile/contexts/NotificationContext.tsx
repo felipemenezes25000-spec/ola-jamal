@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
 import { usePushNotification } from './PushNotificationContext';
-import { getUnreadNotificationsCount } from '../lib/api';
+import { getUnreadNotificationsCount, markAllNotificationsAsRead } from '../lib/api';
 
 /** Intervalo de polling quando app está em primeiro plano (em ms). */
 const POLL_INTERVAL_MS = 30_000;
@@ -14,6 +14,10 @@ const UNCHANGED_THRESHOLD = 5;
 interface NotificationContextValue {
   unreadCount: number;
   refreshUnreadCount: () => Promise<void>;
+  /** Atualização otimista: zera badge imediatamente, chama API, rollback em erro. */
+  markAllReadOptimistic: () => Promise<void>;
+  /** Decrementa contador otimisticamente (ex.: ao marcar uma como lida). */
+  decrementUnreadCount: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
@@ -44,6 +48,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setUnreadCount(0);
     }
   }, [user?.id]);
+
+  const markAllReadOptimistic = useCallback(async () => {
+    setUnreadCount(0);
+    lastCount.current = 0;
+    try {
+      await markAllNotificationsAsRead();
+    } catch (e) {
+      refreshUnreadCount();
+      throw e;
+    }
+  }, [refreshUnreadCount]);
+
+  const decrementUnreadCount = useCallback(() => {
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+    lastCount.current = lastCount.current !== null ? Math.max(0, lastCount.current - 1) : null;
+  }, []);
 
   useEffect(() => {
     refreshUnreadCount();
@@ -89,7 +109,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
   }, [user?.id, refreshUnreadCount]);
 
-  const value = useMemo(() => ({ unreadCount, refreshUnreadCount }), [unreadCount, refreshUnreadCount]);
+  const value = useMemo(
+    () => ({ unreadCount, refreshUnreadCount, markAllReadOptimistic, decrementUnreadCount }),
+    [unreadCount, refreshUnreadCount, markAllReadOptimistic, decrementUnreadCount]
+  );
 
   return (
     <NotificationContext.Provider value={value}>
@@ -100,5 +123,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
 export function useNotifications() {
   const context = useContext(NotificationContext);
-  return context ?? { unreadCount: 0, refreshUnreadCount: async () => {} };
+  return context ?? {
+    unreadCount: 0,
+    refreshUnreadCount: async () => {},
+    markAllReadOptimistic: async () => {},
+    decrementUnreadCount: () => {},
+  };
 }

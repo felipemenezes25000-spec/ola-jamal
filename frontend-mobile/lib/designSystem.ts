@@ -39,8 +39,18 @@ const BRAND = {
   black: '#0F172A',
 };
 
+// ─── Header overlay (texto sobre gradiente azul — sempre claro) ───
+const HEADER_OVERLAY = {
+  headerOverlayText: '#FFFFFF',
+  headerOverlayTextMuted: 'rgba(255,255,255,0.85)',
+  headerOverlayBorder: 'rgba(255,255,255,0.4)',
+  headerOverlaySurface: 'rgba(255,255,255,0.25)',
+};
+
 // ─── Semantic light ───────────────────────────────────────────
 const PATIENT_LIGHT = {
+  overlayBackground: 'rgba(0,0,0,0.45)',
+  modalOverlay: 'rgba(0,0,0,0.7)',
   background: '#F8FAFC',
   surface: '#FFFFFF',
   surfaceSecondary: '#F1F5F9',
@@ -54,6 +64,8 @@ const PATIENT_LIGHT = {
 };
 
 const DOCTOR_LIGHT = {
+  overlayBackground: 'rgba(0,0,0,0.45)',
+  modalOverlay: 'rgba(0,0,0,0.7)',
   background: '#F4F6F9',
   surface: '#FFFFFF',
   surfaceSecondary: '#F1F5F9',
@@ -70,6 +82,8 @@ const DOCTOR_LIGHT = {
 
 // ─── Semantic dark ────────────────────────────────────────────
 const PATIENT_DARK = {
+  overlayBackground: 'rgba(0,0,0,0.6)',
+  modalOverlay: 'rgba(0,0,0,0.9)',
   background: '#0F172A',
   surface: '#1E293B',
   surfaceSecondary: '#162032',
@@ -83,6 +97,8 @@ const PATIENT_DARK = {
 };
 
 const DOCTOR_DARK = {
+  overlayBackground: 'rgba(0,0,0,0.6)',
+  modalOverlay: 'rgba(0,0,0,0.9)',
   background: '#0D1B2A',
   surface: '#1A2B3C',
   surfaceSecondary: '#152235',
@@ -95,6 +111,11 @@ const DOCTOR_DARK = {
   primarySoft: '#1A3A5C',
   primaryGhost: 'rgba(44,177,255,0.12)',
   ring: '#2CB1FF',
+};
+
+// ─── Warning card text (contraste em warningLight) ──────────────
+const WARNING_CARD = {
+  warningText: '#78350F', // amber-900, legível em warningLight
 };
 
 // ─── Status tokens (mesmo em ambos os modes) ──────────────────
@@ -140,6 +161,8 @@ export function createTokens(role: AppRole, scheme: ColorScheme) {
   const colors = {
     ...BRAND,
     ...semantic,
+    ...HEADER_OVERLAY,
+    ...WARNING_CARD,
     ...STATUS_COLORS,
     // Doctor-specific aliases
     ...(role === 'doctor' ? {

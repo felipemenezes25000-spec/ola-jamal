@@ -31,6 +31,7 @@ import { RequestUpdateBanner } from '../components/RequestUpdateBanner';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { GlobalAssistantBanner } from '../components/triage/GlobalAssistantBanner';
 import { ToastProvider } from '../components/ui/Toast';
+import { ModalVisibilityProvider } from '../contexts/ModalVisibilityContext';
 import { ColorSchemeProvider, useColorSchemeContext } from '../contexts/ColorSchemeContext';
 import * as SplashScreen from 'expo-splash-screen';
 import { motionTokens } from '../lib/ui/motion';
@@ -95,6 +96,7 @@ export default function RootLayout() {
       <AuthProvider>
         <PushNotificationProvider>
           <NotificationProvider>
+            <ModalVisibilityProvider>
             <RequestsEventsProvider>
             <GlobalRequestUpdatedToast />
             <TriageAssistantProvider>
@@ -139,6 +141,7 @@ export default function RootLayout() {
             </ToastProvider>
             </TriageAssistantProvider>
             </RequestsEventsProvider>
+            </ModalVisibilityProvider>
           </NotificationProvider>
         </PushNotificationProvider>
       </AuthProvider>

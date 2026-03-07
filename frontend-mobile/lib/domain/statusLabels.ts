@@ -43,3 +43,13 @@ export function getStatusLabelPt(status: string | null | undefined): string {
   const s = status ?? '';
   return (STATUS_LABELS_PT[s] ?? s) || '—';
 }
+
+/**
+ * Rótulos dos cards de estatísticas no dashboard (Home).
+ * Decisão: "Prontos" = documentos assinados/entregues (resumo); "Documento pronto" = próximo passo em card de follow-up.
+ */
+export const DASHBOARD_STATS_LABELS = {
+  analyzing: 'Em análise médica',
+  toPay: 'A pagar',
+  ready: 'Prontos',
+} as const;
