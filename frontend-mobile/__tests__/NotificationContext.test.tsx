@@ -26,7 +26,7 @@ jest.mock('react-native', () => ({
 }));
 
 import React from 'react';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { NotificationProvider, useNotifications } from '../contexts/NotificationContext';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -44,19 +44,15 @@ describe('NotificationContext', () => {
 
     const { result } = renderHook(() => useNotifications(), { wrapper });
 
+    await waitFor(() => expect(result.current.unreadCount).toBe(10));
+
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 100));
-    });
-
-    expect(result.current.unreadCount).toBe(10);
-
-    act(() => {
       result.current.decrementUnreadCount();
     });
 
     expect(result.current.unreadCount).toBe(9);
 
-    act(() => {
+    await act(async () => {
       result.current.decrementUnreadCount();
       result.current.decrementUnreadCount();
     });
@@ -69,13 +65,9 @@ describe('NotificationContext', () => {
 
     const { result } = renderHook(() => useNotifications(), { wrapper });
 
+    await waitFor(() => expect(result.current.unreadCount).toBe(1));
+
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 100));
-    });
-
-    expect(result.current.unreadCount).toBe(1);
-
-    act(() => {
       result.current.decrementUnreadCount();
       result.current.decrementUnreadCount();
     });
@@ -88,11 +80,7 @@ describe('NotificationContext', () => {
 
     const { result } = renderHook(() => useNotifications(), { wrapper });
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-    });
-
-    expect(result.current.unreadCount).toBe(5);
+    await waitFor(() => expect(result.current.unreadCount).toBe(5));
 
     await act(async () => {
       await result.current.markAllReadOptimistic();
@@ -107,11 +95,7 @@ describe('NotificationContext', () => {
 
     const { result } = renderHook(() => useNotifications(), { wrapper });
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-    });
-
-    expect(result.current.unreadCount).toBe(3);
+    await waitFor(() => expect(result.current.unreadCount).toBe(3));
 
     await expect(
       act(async () => {
@@ -119,11 +103,8 @@ describe('NotificationContext', () => {
       })
     ).rejects.toThrow('Network error');
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-    });
+    await waitFor(() => expect(mockGetUnreadNotificationsCount).toHaveBeenCalled());
 
-    expect(mockGetUnreadNotificationsCount).toHaveBeenCalled();
     expect(result.current.unreadCount).toBe(3);
   });
 });

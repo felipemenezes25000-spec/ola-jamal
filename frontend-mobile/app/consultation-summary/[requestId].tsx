@@ -266,12 +266,20 @@ export default function ConsultationSummaryScreen() {
                     MEDICAMENTOS SUGERIDOS
                   </Text>
                 </View>
-                {(anamnesis.medicamentos_sugeridos as string[]).map((m: string, i: number) => (
-                  <View key={i} style={S.medItem}>
-                    <Text style={S.medNum}>{i + 1}.</Text>
-                    <Text style={S.medText}>{m}</Text>
-                  </View>
-                ))}
+                {(anamnesis.medicamentos_sugeridos as (string | { nome: string; dose?: string; via?: string; posologia?: string; duracao?: string; indicacao?: string })[]).map((m, i) => {
+                  const med = typeof m === 'string' ? { nome: m, dose: '', via: '', posologia: '', duracao: '', indicacao: '' } : { nome: m.nome ?? '', dose: m.dose ?? '', via: m.via ?? '', posologia: m.posologia ?? '', duracao: m.duracao ?? '', indicacao: m.indicacao ?? '' };
+                  const parts = [med.dose, med.via, med.posologia, med.duracao].filter(Boolean);
+                  const linha = parts.length > 0 ? ` — ${parts.join(' • ')}` : '';
+                  return (
+                    <View key={i} style={S.medItemBlock}>
+                      <View style={S.medItem}>
+                        <Text style={S.medNum}>{i + 1}.</Text>
+                        <Text style={S.medNome}>{med.nome}{linha}</Text>
+                      </View>
+                      {med.indicacao ? <Text style={S.medIndicacao}>{med.indicacao}</Text> : null}
+                    </View>
+                  );
+                })}
                 <Text style={S.disclaimer}>* Sugestões da IA — decisão final do médico</Text>
               </View>
             )}
@@ -285,12 +293,20 @@ export default function ConsultationSummaryScreen() {
                     EXAMES SUGERIDOS
                   </Text>
                 </View>
-                {(anamnesis.exames_sugeridos as string[]).map((ex: string, i: number) => (
-                  <View key={i} style={S.medItem}>
-                    <Text style={S.medNum}>{i + 1}.</Text>
-                    <Text style={S.medText}>{ex}</Text>
-                  </View>
-                ))}
+                {(anamnesis.exames_sugeridos as (string | { nome: string; descricao?: string; o_que_afere?: string; indicacao?: string })[]).map((ex, i) => {
+                  const exam = typeof ex === 'string' ? { nome: ex, descricao: '', o_que_afere: '', indicacao: '' } : { nome: ex.nome ?? '', descricao: ex.descricao ?? '', o_que_afere: ex.o_que_afere ?? '', indicacao: ex.indicacao ?? '' };
+                  return (
+                    <View key={i} style={S.examItemBlock}>
+                      <View style={S.medItem}>
+                        <Text style={S.medNum}>{i + 1}.</Text>
+                        <Text style={S.medNome}>{exam.nome}</Text>
+                      </View>
+                      {exam.descricao ? <Text style={S.examDetail}>O que é: {exam.descricao}</Text> : null}
+                      {exam.o_que_afere ? <Text style={S.examDetail}>Avalia: {exam.o_que_afere}</Text> : null}
+                      {exam.indicacao ? <Text style={S.medIndicacao}>{exam.indicacao}</Text> : null}
+                    </View>
+                  );
+                })}
                 <Text style={S.disclaimer}>* Sugestões da IA — decisão final do médico</Text>
               </View>
             )}
@@ -465,9 +481,14 @@ function makeStyles(colors: DesignColors) {
   alertText: { fontSize: 13, color: colors.errorLight, lineHeight: 20, paddingLeft: 22 },
 
   medsBlock: { backgroundColor: 'rgba(139,92,246,0.08)', borderRadius: 10, padding: 12, gap: 6 },
-  medItem: { flexDirection: 'row', gap: 6, paddingLeft: 22 },
-  medNum: { color: colors.primaryLight, fontWeight: '700', fontSize: 13 },
+  medItem: { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
+  medItemBlock: { marginBottom: 10, paddingLeft: 22 },
+  medNum: { color: colors.primaryLight, fontWeight: '700', fontSize: 13, minWidth: 20 },
+  medNome: { color: colors.primaryLight, fontSize: 13, lineHeight: 20, flex: 1, fontWeight: '600' },
   medText: { color: colors.primaryLight, fontSize: 13, lineHeight: 20, flex: 1 },
+  medIndicacao: { fontSize: 12, color: colors.textSecondary, marginTop: 2, marginLeft: 20, lineHeight: 18 },
+  examItemBlock: { marginBottom: 10, paddingLeft: 22 },
+  examDetail: { fontSize: 12, color: colors.textSecondary, marginTop: 2, marginLeft: 20, lineHeight: 18 },
   disclaimer: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', paddingLeft: 22, marginTop: 4 },
 
   suggestionItem: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingLeft: 2 },

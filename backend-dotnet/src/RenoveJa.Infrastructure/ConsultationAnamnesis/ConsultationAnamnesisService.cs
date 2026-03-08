@@ -91,8 +91,8 @@ Responda em um ÚNICO JSON válido, sem markdown, com exatamente estes campos:
   },
   "cid_sugerido": "string — Hipótese (CID-10) mais provável (ex: 'Hipótese (CID): J06.9 - Infecção aguda das vias aéreas superiores') ou vazio se não há dados suficientes",
   "alertas_vermelhos": ["array de strings — sinais de alarme que requerem atenção imediata, ex: 'Dor torácica com irradiação para o braço esquerdo — avaliar SCA'"],
-  "medicamentos_sugeridos": ["array de strings — SEMPRE inclua 1-4 opções terapêuticas com dosagem indicativa quando houver queixa clara, ex: 'Dipirona 500mg VO 6/6h por 5 dias (analgesia/antitérmica)', 'Amoxicilina 500mg VO 8/8h por 7 dias (se infecção bacteriana)'"],
-  "exames_sugeridos": ["array de strings — exames complementares relevantes para o diagnóstico/conduta, ex: 'Hemograma completo', 'Glicemia de jejum', 'TSH', 'Raio-X de tórax', 'PCR', 'Creatinina'"],
+  "medicamentos_sugeridos": ["OBRIGATÓRIO — SEMPRE retorne 1-4 medicamentos como array de OBJETOS com: nome (DCB), dose (ex: 500mg), via (VO/IM/IV), posologia (ex: 6/6h, 8/8h), duracao (ex: 5 dias, 7 dias), indicacao (breve justificativa clínica). Ex: { \"nome\": \"Dipirona\", \"dose\": \"500mg\", \"via\": \"VO\", \"posologia\": \"6/6h\", \"duracao\": \"5 dias\", \"indicacao\": \"Analgesia e antitérmico\" }. Se transcript vazio/ambíguo, sugira conservador. NUNCA [] com qualquer contexto clínico."],
+  "exames_sugeridos": ["OBRIGATÓRIO — SEMPRE retorne 1-5 exames como array de OBJETOS com: nome (técnico), descricao (o que é o exame em 1-2 frases), o_que_afere (o que mede/avalia), indicacao (por que solicitar neste caso). Ex: { \"nome\": \"Hemograma completo\", \"descricao\": \"Contagem de séries vermelha, branca e plaquetária\", \"o_que_afere\": \"Anemia, infecção, inflamação, distúrbios hematológicos\", \"indicacao\": \"Avaliação de infecção bacteriana ou inflamatória\" }. O médico precisa entender cada exame sem consultar. NUNCA [] com queixa ou CID."],
   "suggestions": ["array de até 4 strings — use frases curtas em formato clínico, incluindo pelo menos uma hipótese diagnóstica e uma conduta geral, ex: 'Hipótese (CID): J06.9 - Infecção aguda de vias aéreas superiores' e 'Conduta: Visando continuidade do tratamento, prescrevo analgesia sintomática e oriento retorno se piora dos sintomas'"]
 }
 
@@ -107,8 +107,8 @@ REGRAS:
 - Se um campo não tiver dados, use string vazia ou array vazio []
 - Não invente informações que não estejam no transcript
 - Alertas vermelhos: apenas se houver base clara no transcript (não suponha)
-- Medicamentos sugeridos: OBRIGATÓRIO incluir 1-4 opções quando houver queixa principal e hipótese diagnóstica — use nomenclatura padrão (nome + dosagem + via + posologia)
-- Exames sugeridos: OBRIGATÓRIO incluir 1-5 exames complementares relevantes para a hipótese (laboratoriais, imagem, etc.) — use nomes técnicos (Hemograma, TSH, PCR, Raio-X de tórax)
+- Medicamentos sugeridos: SEMPRE 1-4 objetos com nome, dose, via, posologia, duracao, indicacao. Completo para o médico prescrever com segurança.
+- Exames sugeridos: SEMPRE 1-5 objetos com nome, descricao, o_que_afere, indicacao. Explicação clara para o médico não ficar perdido.
 - Nas suggestions, dê preferência a frases que possam ser facilmente coladas em um prontuário clínico profissional
 - Seja objetivo e use terminologia médica adequada
 - Responda APENAS o JSON, sem texto antes ou depois
@@ -127,7 +127,7 @@ REGRAS:
                 new { role = "user", content = (object)userContent }
             },
             max_tokens = 2000,
-            temperature = 0.3
+            temperature = 0.2
         };
 
         var startedAt = DateTime.UtcNow;
@@ -208,10 +208,17 @@ REGRAS:
                 enrichedObj["cid_sugerido"] = cidEl.GetRawText();
             if (root.TryGetProperty("alertas_vermelhos", out var avEl) && avEl.ValueKind == JsonValueKind.Array)
                 enrichedObj["alertas_vermelhos"] = avEl.GetRawText();
-            if (root.TryGetProperty("medicamentos_sugeridos", out var msEl) && msEl.ValueKind == JsonValueKind.Array)
-                enrichedObj["medicamentos_sugeridos"] = msEl.GetRawText();
-            if (root.TryGetProperty("exames_sugeridos", out var exEl) && exEl.ValueKind == JsonValueKind.Array)
-                enrichedObj["exames_sugeridos"] = exEl.GetRawText();
+            // Medicamentos e exames: fallback se IA retornar vazio mas houver contexto clínico
+            var hasClinicalContext = root.TryGetProperty("queixa_principal", out var qpEl) && !string.IsNullOrWhiteSpace(qpEl.GetString())
+                || root.TryGetProperty("cid_sugerido", out var cidCheck) && !string.IsNullOrWhiteSpace(cidCheck.GetString())
+                || (root.TryGetProperty("anamnesis", out var anaCheck) && anaCheck.ValueKind == JsonValueKind.Object
+                    && anaCheck.TryGetProperty("queixa_principal", out var qpAna) && !string.IsNullOrWhiteSpace(qpAna.GetString()));
+
+            var medicamentosRaw = ParseMedicamentosSugeridos(root, hasClinicalContext);
+            enrichedObj["medicamentos_sugeridos"] = medicamentosRaw;
+
+            var examesRaw = ParseExamesSugeridos(root, hasClinicalContext);
+            enrichedObj["exames_sugeridos"] = examesRaw;
 
             var enrichedJson = "{" + string.Join(",", enrichedObj.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
 
@@ -267,6 +274,79 @@ REGRAS:
                 cleaned[..Math.Min(300, cleaned.Length)]);
             return null;
         }
+    }
+
+    private string ParseMedicamentosSugeridos(JsonElement root, bool hasClinicalContext)
+    {
+        var medsList = new List<Dictionary<string, object>>();
+        if (root.TryGetProperty("medicamentos_sugeridos", out var msEl) && msEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in msEl.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    medsList.Add(new Dictionary<string, object>
+                    {
+                        ["nome"] = item.TryGetProperty("nome", out var n) ? (n.GetString() ?? "") : "",
+                        ["dose"] = item.TryGetProperty("dose", out var d) ? (d.GetString() ?? "") : "",
+                        ["via"] = item.TryGetProperty("via", out var v) ? (v.GetString() ?? "") : "",
+                        ["posologia"] = item.TryGetProperty("posologia", out var p) ? (p.GetString() ?? "") : "",
+                        ["duracao"] = item.TryGetProperty("duracao", out var du) ? (du.GetString() ?? "") : "",
+                        ["indicacao"] = item.TryGetProperty("indicacao", out var i) ? (i.GetString() ?? "") : ""
+                    });
+                }
+                else
+                {
+                    var str = item.ValueKind == JsonValueKind.String ? item.GetString() : item.GetRawText()?.Trim('"');
+                    if (!string.IsNullOrWhiteSpace(str))
+                        medsList.Add(new Dictionary<string, object> { ["nome"] = str.Trim(), ["dose"] = "", ["via"] = "", ["posologia"] = "", ["duracao"] = "", ["indicacao"] = "" });
+                }
+            }
+        }
+        if (medsList.Count == 0 && hasClinicalContext)
+        {
+            medsList.Add(new Dictionary<string, object> { ["nome"] = "Avaliar necessidade de prescrição conforme evolução clínica", ["dose"] = "", ["via"] = "", ["posologia"] = "", ["duracao"] = "", ["indicacao"] = "" });
+            _logger.LogInformation("[Anamnese IA] Fallback: medicamentos_sugeridos vazio — aplicado placeholder");
+        }
+        if (medsList.Count == 0 && !hasClinicalContext)
+            return "[]";
+        return JsonSerializer.Serialize(medsList, JsonOptions);
+    }
+
+    private string ParseExamesSugeridos(JsonElement root, bool hasClinicalContext)
+    {
+        var examsList = new List<Dictionary<string, object>>();
+        if (root.TryGetProperty("exames_sugeridos", out var exEl) && exEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in exEl.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    examsList.Add(new Dictionary<string, object>
+                    {
+                        ["nome"] = item.TryGetProperty("nome", out var n) ? (n.GetString() ?? "") : "",
+                        ["descricao"] = item.TryGetProperty("descricao", out var d) ? (d.GetString() ?? "") : "",
+                        ["o_que_afere"] = item.TryGetProperty("o_que_afere", out var o) ? (o.GetString() ?? "") : "",
+                        ["indicacao"] = item.TryGetProperty("indicacao", out var i) ? (i.GetString() ?? "") : ""
+                    });
+                }
+                else
+                {
+                    var str = item.ValueKind == JsonValueKind.String ? item.GetString() : item.GetRawText()?.Trim('"');
+                    if (!string.IsNullOrWhiteSpace(str))
+                        examsList.Add(new Dictionary<string, object> { ["nome"] = str.Trim(), ["descricao"] = "", ["o_que_afere"] = "", ["indicacao"] = "" });
+                }
+            }
+        }
+        if (examsList.Count == 0 && hasClinicalContext)
+        {
+            examsList.Add(new Dictionary<string, object> { ["nome"] = "Hemograma completo", ["descricao"] = "Contagem de séries vermelha, branca e plaquetária", ["o_que_afere"] = "Anemia, infecção, inflamação, distúrbios hematológicos", ["indicacao"] = "Avaliação inicial de infecção ou inflamação" });
+            examsList.Add(new Dictionary<string, object> { ["nome"] = "Exames complementares conforme hipótese", ["descricao"] = "Solicitar conforme evolução e hipótese diagnóstica", ["o_que_afere"] = "Variável conforme indicação", ["indicacao"] = "Complementar investigação conforme quadro clínico" });
+            _logger.LogInformation("[Anamnese IA] Fallback: exames_sugeridos vazio — aplicado placeholder");
+        }
+        if (examsList.Count == 0 && !hasClinicalContext)
+            return "[]";
+        return JsonSerializer.Serialize(examsList, JsonOptions);
     }
 
     private static string CleanJsonResponse(string raw)
@@ -327,7 +407,7 @@ REGRAS:
             if (searchTerms.Count == 0)
                 return Array.Empty<EvidenceItemDto>();
 
-            var rawEvidence = await _evidenceSearchService.SearchAsync(searchTerms, 7, cancellationToken);
+            var rawEvidence = await _evidenceSearchService.SearchAsync(searchTerms, 12, cancellationToken);
             if (rawEvidence.Count == 0)
                 return rawEvidence;
 
@@ -385,7 +465,7 @@ REGRAS:
             items.Select((e, i) => $"[{i}]\nTítulo: {e.Title}\nAbstract: {e.Abstract}"));
 
         var prompt = """
-Você é um assistente de apoio ao diagnóstico médico. Com base no contexto clínico do paciente e nos abstracts dos artigos, extraia o que REALMENTE ajuda o médico a entender o caso e tomar decisão.
+Você é um assistente de apoio ao diagnóstico médico. O médico precisa de EMBASAMENTO CIENTÍFICO SÓLIDO para se sentir SEGURO na decisão clínica. Extraia o que REALMENTE apoia o raciocínio diagnóstico e a conduta.
 
 CONTEXTO CLÍNICO DO PACIENTE:
 """ + context + """
@@ -394,16 +474,16 @@ ARTIGOS (abstracts em inglês):
 """ + articlesBlock + """
 
 Para CADA artigo [0], [1], etc., faça:
-1. Selecione 2-3 trechos (citações) do abstract que sejam RELEVANTES para o caso — frases que apoiam diagnóstico, conduta ou critérios clínicos.
+1. Selecione 2-4 trechos (citações) do abstract que sejam RELEVANTES — critérios diagnósticos, evidências de tratamento, casos clínicos similares, recomendações de guidelines.
 2. Traduza esses trechos para português brasileiro.
-3. Escreva em 1-2 frases a RELEVÂNCIA CLÍNICA: como este artigo ajuda o médico neste caso específico (ex: "Corrobora o uso de X em Y"; "Atenção aos critérios de Z").
+3. RELEVÂNCIA CLÍNICA (obrigatório, 2-4 frases): explique COMO este artigo embasa o médico: qual critério usa, qual nível de evidência, como se aplica a casos como este. Ex: "Estudo de coorte que corrobora o uso de X em Y; critérios de Z devem ser considerados; nível de evidência IIa." O médico deve sentir que tem respaldo científico.
 
 Responda APENAS um JSON válido, array de objetos na mesma ordem dos artigos:
 [
-  { "excerpts": ["trecho1 traduzido", "trecho2 traduzido"], "clinicalRelevance": "Como este artigo ajuda neste caso." },
+  { "excerpts": ["trecho1 traduzido", "trecho2 traduzido"], "clinicalRelevance": "Explicação detalhada de como este artigo embasa a decisão clínica neste caso." },
   ...
 ]
-Se um artigo não for relevante ao caso, use excerpts: [] e clinicalRelevance: "Pouca relevância direta para este caso."
+Se um artigo não for relevante, use excerpts: [] e clinicalRelevance: "Pouca relevância direta para este caso."
 Apenas o JSON, sem markdown.
 """;
 

@@ -418,30 +418,42 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
           {(() => {
             try {
               const ana = JSON.parse(request.consultationAnamnesis || '{}');
-              const meds: string[] = Array.isArray(ana.medicamentos_sugeridos) ? ana.medicamentos_sugeridos : [];
-              const examList: string[] = Array.isArray(ana.exames_sugeridos) ? ana.exames_sugeridos : [];
-              if (meds.length === 0 && examList.length === 0) return null;
+              const medsRaw = Array.isArray(ana.medicamentos_sugeridos) ? ana.medicamentos_sugeridos : [];
+              const examsRaw = Array.isArray(ana.exames_sugeridos) ? ana.exames_sugeridos : [];
+              const medDisplay = (m: unknown): string => {
+                if (typeof m === 'string') return m;
+                const o = m as { nome?: string; dose?: string; via?: string; posologia?: string; duracao?: string; indicacao?: string };
+                const parts = [o.nome, o.dose, o.via, o.posologia, o.duracao].filter(Boolean);
+                const base = parts.join(' ');
+                return o.indicacao ? `${base} (${o.indicacao})` : base;
+              };
+              const examDisplay = (e: unknown): string => {
+                if (typeof e === 'string') return e;
+                const o = e as { nome?: string; descricao?: string; o_que_afere?: string; indicacao?: string };
+                return o.nome ?? '';
+              };
+              if (medsRaw.length === 0 && examsRaw.length === 0) return null;
               return (
                 <View style={{ marginTop: 8 }}>
-                  {meds.length > 0 && (
+                  {medsRaw.length > 0 && (
                     <>
                       <Text style={[s.anaLabel, { marginBottom: 6 }]}>MEDICAMENTOS SUGERIDOS</Text>
                       <View style={s.medChipsRow}>
-                        {meds.map((m, i) => (
-                          <TouchableOpacity key={i} style={s.medChip} onPress={async () => { await Clipboard.setStringAsync(String(m ?? '')); showToast({ message: 'Copiado!', type: 'success' }); }}>
-                            <Text style={s.medChipText}>{m ?? ''}</Text>
+                        {medsRaw.map((m: unknown, i: number) => (
+                          <TouchableOpacity key={i} style={s.medChip} onPress={async () => { await Clipboard.setStringAsync(medDisplay(m)); showToast({ message: 'Copiado!', type: 'success' }); }}>
+                            <Text style={s.medChipText} numberOfLines={2}>{medDisplay(m)}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
                     </>
                   )}
-                  {examList.length > 0 && (
-                    <View style={{ marginTop: meds.length > 0 ? 12 : 0 }}>
+                  {examsRaw.length > 0 && (
+                    <View style={{ marginTop: medsRaw.length > 0 ? 12 : 0 }}>
                       <Text style={[s.anaLabel, { marginBottom: 6 }]}>EXAMES SUGERIDOS</Text>
                       <View style={s.medChipsRow}>
-                        {examList.map((ex, i) => (
-                          <TouchableOpacity key={i} style={s.medChip} onPress={async () => { await Clipboard.setStringAsync(String(ex ?? '')); showToast({ message: 'Copiado!', type: 'success' }); }}>
-                            <Text style={s.medChipText}>{ex ?? ''}</Text>
+                        {examsRaw.map((ex: unknown, i: number) => (
+                          <TouchableOpacity key={i} style={s.medChip} onPress={async () => { await Clipboard.setStringAsync(examDisplay(ex)); showToast({ message: 'Copiado!', type: 'success' }); }}>
+                            <Text style={s.medChipText} numberOfLines={2}>{examDisplay(ex)}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -456,7 +468,7 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
 
       {request.consultationEvidence && request.consultationEvidence.trim() && (() => {
         try {
-          const evidence = JSON.parse(request.consultationEvidence || '[]') as Array<{ provider?: string; url?: string; title?: string; source?: string; clinicalRelevance?: string }>;
+          const evidence = JSON.parse(request.consultationEvidence || '[]') as { provider?: string; url?: string; title?: string; source?: string; clinicalRelevance?: string }[];
           if (!Array.isArray(evidence) || evidence.length === 0) return null;
           return (
             <DoctorCard style={[s.cardMargin, { borderWidth: 1, borderColor: colors.accent }]}>
@@ -515,27 +527,41 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
       {(() => {
         try {
           const ana = JSON.parse(request.consultationAnamnesis || '{}');
-          const meds: string[] = Array.isArray(ana.medicamentos_sugeridos) ? ana.medicamentos_sugeridos : [];
-          const examList: string[] = Array.isArray(ana.exames_sugeridos) ? ana.exames_sugeridos : [];
-          if (meds.length === 0 && examList.length === 0) return null;
+          const medsRaw = Array.isArray(ana.medicamentos_sugeridos) ? ana.medicamentos_sugeridos : [];
+          const examsRaw = Array.isArray(ana.exames_sugeridos) ? ana.exames_sugeridos : [];
+          const medDisplay = (m: unknown): string => {
+            if (typeof m === 'string') return m;
+            const o = m as { nome?: string; dose?: string; via?: string; posologia?: string; duracao?: string; indicacao?: string };
+            const parts = [o.nome, o.dose, o.via, o.posologia, o.duracao].filter(Boolean);
+            const base = parts.join(' ');
+            return o.indicacao ? `${base} (${o.indicacao})` : base;
+          };
+          const examDisplay = (e: unknown): string => {
+            if (typeof e === 'string') return e;
+            const o = e as { nome?: string };
+            return o.nome ?? '';
+          };
+          const medsForPrefill = medsRaw.map((m: unknown) => medDisplay(m));
+          const examsForPrefill = examsRaw.map((e: unknown) => examDisplay(e));
+          if (medsRaw.length === 0 && examsRaw.length === 0) return null;
           return (
             <View style={[s.cardMargin, { marginBottom: 8 }]}>
-              {meds.length > 0 && (
+              {medsRaw.length > 0 && (
                 <AppButton
                   title="Criar Receita Baseada na Consulta"
                   variant="doctorPrimary"
                   trailing={<Ionicons name="chevron-forward" size={20} color={colors.white} />}
-                  onPress={() => router.push({ pathname: '/doctor-request/editor/[id]' as never, params: { id: request.id, prefillMeds: JSON.stringify(meds) } })}
+                  onPress={() => router.push({ pathname: '/doctor-request/editor/[id]' as never, params: { id: request.id, prefillMeds: JSON.stringify(medsForPrefill) } })}
                   style={{ width: '100%' }}
                 />
               )}
-              {examList.length > 0 && (
+              {examsRaw.length > 0 && (
                 <AppButton
                   title="Criar Pedido de Exame Baseado na Consulta"
                   variant="outline"
                   trailing={<Ionicons name="flask-outline" size={20} color={colors.primary} />}
-                  onPress={() => router.push({ pathname: '/new-request/exam' as never, params: { prefillExams: JSON.stringify(examList) } })}
-                  style={{ width: '100%', marginTop: meds.length > 0 ? 8 : 0 }}
+                  onPress={() => router.push({ pathname: '/new-request/exam' as never, params: { prefillExams: JSON.stringify(examsForPrefill) } })}
+                  style={{ width: '100%', marginTop: medsRaw.length > 0 ? 8 : 0 }}
                 />
               )}
             </View>

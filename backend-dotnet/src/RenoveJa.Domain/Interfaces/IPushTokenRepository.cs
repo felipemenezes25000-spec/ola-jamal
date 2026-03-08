@@ -14,4 +14,5 @@ public interface IPushTokenRepository
     Task DeleteByTokenAsync(string token, Guid userId, CancellationToken cancellationToken = default);
     Task<bool> UpdateActiveAsync(Guid id, Guid userId, bool active, CancellationToken cancellationToken = default);
     Task SetAllActiveForUserAsync(Guid userId, bool active, CancellationToken cancellationToken = default);
+    Task DeactivateByTokenAsync(string token, Guid userId, CancellationToken ct = default);
 }

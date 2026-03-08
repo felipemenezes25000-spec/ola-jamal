@@ -15,7 +15,7 @@
  * - Criação de sala Daily.co antes do join
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -36,7 +36,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DailyMediaView } from '@daily-co/react-native-daily-js';
-import * as Clipboard from 'expo-clipboard';
 import ExpoPip from 'expo-pip';
 
 import { colors } from '../../lib/themeDoctor';
@@ -56,7 +55,7 @@ import { useDailyTranscription } from '../../hooks/useDailyTranscription';
 import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const PANEL_WIDTH = Math.min(340, SCREEN_W * 0.85);
+const PANEL_WIDTH = Math.min(380, SCREEN_W * 0.9);
 
 // ──── Helpers ────
 
@@ -74,6 +73,19 @@ function qLabel(q: ConnectionQuality) {
   return q === 'good' ? 'Boa' : q === 'poor' ? 'Instável' : q === 'bad' ? 'Ruim' : '...';
 }
 
+// Tipos para medicamentos e exames sugeridos (objeto rico ou string legado)
+type MedSugerido = string | { nome: string; dose?: string; via?: string; posologia?: string; duracao?: string; indicacao?: string };
+type ExameSugerido = string | { nome: string; descricao?: string; o_que_afere?: string; indicacao?: string };
+
+function normMed(m: MedSugerido): { nome: string; dose: string; via: string; posologia: string; duracao: string; indicacao: string } {
+  if (typeof m === 'string') return { nome: m, dose: '', via: '', posologia: '', duracao: '', indicacao: '' };
+  return { nome: m.nome ?? '', dose: m.dose ?? '', via: m.via ?? '', posologia: m.posologia ?? '', duracao: m.duracao ?? '', indicacao: m.indicacao ?? '' };
+}
+function normExame(e: ExameSugerido): { nome: string; descricao: string; o_que_afere: string; indicacao: string } {
+  if (typeof e === 'string') return { nome: e, descricao: '', o_que_afere: '', indicacao: '' };
+  return { nome: e.nome ?? '', descricao: e.descricao ?? '', o_que_afere: e.o_que_afere ?? '', indicacao: e.indicacao ?? '' };
+}
+
 const ANA_FIELDS = [
   { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble-ellipses' },
   { key: 'historia_doenca_atual', label: 'HDA', icon: 'time' },
@@ -83,42 +95,6 @@ const ANA_FIELDS = [
   { key: 'antecedentes_relevantes', label: 'Antecedentes', icon: 'document-text' },
   { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash' },
 ] as const;
-
-type TranscriptSpeaker = 'medico' | 'paciente' | 'outro';
-type TranscriptFilter = 'todos' | 'medico' | 'paciente';
-
-type TranscriptEntry = {
-  speaker: TranscriptSpeaker;
-  text: string;
-};
-
-function parseTranscriptEntries(rawTranscript: string): TranscriptEntry[] {
-  if (!rawTranscript.trim()) return [];
-
-  // Backend envia "[Médico] texto [Paciente] texto [Médico] texto..." concatenado com espaços, sem quebras de linha.
-  // Split por lookahead para separar cada bloco por speaker (cada bloco começa com [Médico] ou [Paciente]).
-  const segments = rawTranscript.split(/(?=\[Médico\]|\[Paciente\])/);
-
-  return segments
-    .map((seg) => {
-      const t = seg.trim();
-      if (!t) return null;
-      if (t.startsWith('[Médico]')) {
-        return {
-          speaker: 'medico' as const,
-          text: t.replace(/^\[Médico\]\s*/, '').trim(),
-        };
-      }
-      if (t.startsWith('[Paciente]')) {
-        return {
-          speaker: 'paciente' as const,
-          text: t.replace(/^\[Paciente\]\s*/, '').trim(),
-        };
-      }
-      return { speaker: 'outro' as const, text: t };
-    })
-    .filter((e): e is TranscriptEntry => e !== null && !!e.text);
-}
 
 // ──── Main Screen ────
 
@@ -163,7 +139,7 @@ export default function VideoCallScreenInner() {
   // Anamnesis & Transcript (doctor)
   const [panelOpen, setPanelOpen] = useState(false);
   const panelAnim = useRef(new Animated.Value(0)).current;
-  const [transcript, setTranscript] = useState('');
+  const [, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<Record<string, any> | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [evidence, setEvidence] = useState<{
@@ -175,11 +151,9 @@ export default function VideoCallScreenInner() {
     clinicalRelevance?: string;
     provider?: string;
   }[]>([]);
-  const [transcriptFilter, setTranscriptFilter] = useState<TranscriptFilter>('todos');
   const [isAiActive, setIsAiActive] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
   const [showBackgroundHint, setShowBackgroundHint] = useState(true);
-  const tScrollRef = useRef<ScrollView>(null);
   const signalRRef = useRef<any>(null);
 
   // Clinical notes modal
@@ -205,6 +179,7 @@ export default function VideoCallScreenInner() {
     },
     onCallEnded: (reason) => {
       if (reason === 'ejected') Alert.alert('Tempo esgotado', 'O tempo contratado expirou.');
+      if (reason === 'meeting-ended') Alert.alert('Sessão encerrada', 'A videochamada foi encerrada.');
       cleanup();
       router.back();
     },
@@ -273,7 +248,6 @@ export default function VideoCallScreenInner() {
           setTranscript(text);
           setIsAiActive(true);
           setTranscriptionError(null);
-          setTimeout(() => tScrollRef.current?.scrollToEnd({ animated: true }), 100);
         }
       });
 
@@ -411,31 +385,45 @@ export default function VideoCallScreenInner() {
       .catch(() => {});
   }, [isDoctor, rid]);
 
-  // Report call connected when remote joins
+  // Report call connected: ambos reportam ao entrar na sala (não esperam ver o outro — evita timer zerado).
+  // Backend define consultationStartedAt quando médico E paciente tiverem reportado.
   useEffect(() => {
-    if (callState === 'joined' && remoteParticipant && !connReportedRef.current && rid) {
-      connReportedRef.current = true;
-      reportCallConnected(rid).catch(() => {});
-    }
-  }, [callState, remoteParticipant, rid]);
+    if (callState !== 'joined' || !rid || connReportedRef.current) return;
+    connReportedRef.current = true;
+    if (__DEV__) console.warn('[VideoCall] reportCallConnected —', isDoctor ? 'médico' : 'paciente');
+    reportCallConnected(rid).catch(() => {
+      connReportedRef.current = false; // retry em próxima render
+    });
+  }, [callState, rid, isDoctor]);
 
-  // Patient: ao entrar na chamada ou ao ver o médico, busca status imediatamente (timer e transcrição)
+  // Patient: ao entrar na chamada, busca status imediatamente e após 500ms (Daily pode atrasar participant list)
   useEffect(() => {
     if (isDoctor || !rid || callState !== 'joined') return;
-    fetchRequestById(rid)
-      .then(r => {
-        if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt);
-        if (r.status) setRequestStatus(r.status);
-      })
-      .catch(() => {});
-  }, [isDoctor, rid, callState, remoteParticipant]);
+    const fetchStatus = () => {
+      fetchRequestById(rid)
+        .then(r => {
+          if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt);
+          if (r.status) setRequestStatus(r.status);
+          if (__DEV__ && !r.consultationStartedAt) {
+            console.warn('[VideoCall] Patient fetch: consultationStartedAt ainda null, poll continuará');
+          }
+        })
+        .catch(() => {});
+    };
+    fetchStatus();
+    const t = setTimeout(fetchStatus, 500);
+    return () => clearTimeout(t);
+  }, [isDoctor, rid, callState]);
 
   // Patient: ao receber RequestUpdated (ex.: médico iniciou, chamada conectada), atualiza status imediatamente
   const refetchRequestForPatient = useCallback(() => {
     if (isDoctor || !rid) return;
     fetchRequestById(rid)
       .then(r => {
-        if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt);
+        if (r.consultationStartedAt) {
+          setConsultationStartedAt(r.consultationStartedAt);
+          if (__DEV__) console.warn('[VideoCall] Patient: consultationStartedAt recebido via RequestUpdated');
+        }
         if (r.status) setRequestStatus(r.status);
       })
       .catch(() => {});
@@ -454,7 +442,7 @@ export default function VideoCallScreenInner() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [consultationStartedAt]);
 
-  // Patient: poll consultationStartedAt e requestStatus — primeira busca imediata, depois a cada 1s
+  // Patient: poll consultationStartedAt — 500ms até timer iniciar (evita timer zerado por delay)
   useEffect(() => {
     if (isDoctor || !rid || consultationStartedAt) return;
     const fetchSync = () => {
@@ -466,7 +454,7 @@ export default function VideoCallScreenInner() {
         .catch(() => {});
     };
     fetchSync();
-    const poll = setInterval(fetchSync, 1000);
+    const poll = setInterval(fetchSync, 500);
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
@@ -583,20 +571,6 @@ export default function VideoCallScreenInner() {
     return () => handler.remove();
   }, [callState, onEndPress]);
 
-  const transcriptEntries = useMemo(() => parseTranscriptEntries(transcript), [transcript]);
-  const doctorSpeechCount = useMemo(
-    () => transcriptEntries.filter((entry) => entry.speaker === 'medico').length,
-    [transcriptEntries],
-  );
-  const patientSpeechCount = useMemo(
-    () => transcriptEntries.filter((entry) => entry.speaker === 'paciente').length,
-    [transcriptEntries],
-  );
-  const filteredTranscriptEntries = useMemo(() => {
-    if (transcriptFilter === 'todos') return transcriptEntries;
-    return transcriptEntries.filter((entry) => entry.speaker === transcriptFilter);
-  }, [transcriptEntries, transcriptFilter]);
-
   // ── Render helpers ──
 
   if (loading) return (
@@ -625,12 +599,13 @@ export default function VideoCallScreenInner() {
   const critical = rem != null && rem <= 60;
   const timerStr = contractedMinutes ? `${fmt(callSeconds)} / ${fmt(contractedMinutes * 60)}` : fmt(callSeconds);
   const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
+  const hasMeds = Array.isArray(anamnesis?.medicamentos_sugeridos) && anamnesis.medicamentos_sugeridos.length > 0;
+  const hasExams = Array.isArray(anamnesis?.exames_sugeridos) && anamnesis.exames_sugeridos.length > 0;
   const hasSug = suggestions.length > 0;
   const hasEv = evidence.some((e) =>
     (e.relevantExcerpts && e.relevantExcerpts.length > 0) || e.clinicalRelevance || e.translatedAbstract
   );
-  const hasT = transcript.length > 0;
-  const panelHas = hasAna || hasSug || hasEv || hasT;
+  const panelHas = hasAna || hasMeds || hasExams || hasSug || hasEv;
 
   const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH + 20, 0] });
 
@@ -732,13 +707,6 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Doctor: indicador de transcrição ao vivo — oculto em PiP */}
-      {!isInPipMode && isDoctor && timerStarted && (transcript.length > 0 || isAiActive) && (
-        <View style={[S.recIndicator, { top: insets.top + 60 + 100 }]}>
-          <View style={S.recDot} />
-          <Text style={S.recText}>Transcrição ao vivo</Text>
-        </View>
-      )}
       {/* Doctor: aviso quando transcrição falha */}
       {!isInPipMode && isDoctor && transcriptionError && (
         <View style={[S.recIndicator, { top: insets.top + 60 + 140, backgroundColor: colors.warning + '40' }]}>
@@ -819,6 +787,58 @@ export default function VideoCallScreenInner() {
               </View>
             )}
 
+            {/* Medicamentos sugeridos */}
+            {hasMeds && (
+              <View style={S.sec}>
+                <View style={S.secH}>
+                  <Ionicons name="medkit" size={16} color={colors.primaryLight} />
+                  <Text style={[S.secT, { color: colors.primaryLight }]}>MEDICAMENTOS SUGERIDOS</Text>
+                  <View style={S.badge}><Ionicons name="sparkles" size={10} color={colors.primary} /><Text style={S.badgeTxt}>IA</Text></View>
+                </View>
+                {(anamnesis!.medicamentos_sugeridos as MedSugerido[]).map((m, i) => {
+                  const med = normMed(m);
+                  const parts = [med.dose, med.via, med.posologia, med.duracao].filter(Boolean);
+                  const linha = parts.length > 0 ? ` — ${parts.join(' • ')}` : '';
+                  return (
+                    <View key={i} style={S.medItemBlock}>
+                      <View style={S.medItem}>
+                        <Text style={S.medNum}>{i + 1}.</Text>
+                        <Text style={S.medNome}>{med.nome}{linha}</Text>
+                      </View>
+                      {med.indicacao ? <Text style={S.medIndicacao}>{med.indicacao}</Text> : null}
+                    </View>
+                  );
+                })}
+                <Text style={S.panelDisclaimer}>* Sugestões da IA — decisão final do médico</Text>
+              </View>
+            )}
+
+            {/* Exames sugeridos */}
+            {hasExams && (
+              <View style={S.sec}>
+                <View style={S.secH}>
+                  <Ionicons name="flask" size={16} color={colors.primaryLight} />
+                  <Text style={[S.secT, { color: colors.primaryLight }]}>EXAMES SUGERIDOS</Text>
+                  <View style={S.badge}><Ionicons name="sparkles" size={10} color={colors.primary} /><Text style={S.badgeTxt}>IA</Text></View>
+                </View>
+                {(anamnesis!.exames_sugeridos as ExameSugerido[]).map((ex, i) => {
+                  const exam = normExame(ex);
+                  return (
+                    <View key={i} style={S.examItemBlock}>
+                      <View style={S.medItem}>
+                        <Text style={S.medNum}>{i + 1}.</Text>
+                        <Text style={S.medNome}>{exam.nome}</Text>
+                      </View>
+                      {exam.descricao ? <Text style={S.examDetail}>O que é: {exam.descricao}</Text> : null}
+                      {exam.o_que_afere ? <Text style={S.examDetail}>Avalia: {exam.o_que_afere}</Text> : null}
+                      {exam.indicacao ? <Text style={S.medIndicacao}>{exam.indicacao}</Text> : null}
+                    </View>
+                  );
+                })}
+                <Text style={S.panelDisclaimer}>* Sugestões da IA — decisão final do médico</Text>
+              </View>
+            )}
+
             {/* Evidências científicas — PubMed, Europe PMC, Semantic Scholar */}
             {hasEv && (
               <View style={S.sec}>
@@ -883,92 +903,12 @@ export default function VideoCallScreenInner() {
               </View>
             )}
 
-            {/* Transcript */}
-            {hasT && (
-              <View style={S.sec}>
-                <View style={S.secH}>
-                  <Ionicons name="mic" size={16} color={colors.textMuted} />
-                  <Text style={S.secT}>TRANSCRIÇÃO</Text>
-                  <View style={S.speakerCountPills}>
-                    <View style={S.doctorCountPill}>
-                      <Text style={S.doctorCountTxt}>Médico: {doctorSpeechCount}</Text>
-                    </View>
-                    <View style={S.patientCountPill}>
-                      <Text style={S.patientCountTxt}>Paciente: {patientSpeechCount}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity style={S.copyBtn} onPress={() => Clipboard.setStringAsync(transcript)}>
-                    <Ionicons name="copy-outline" size={12} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-                <View style={S.transcriptFilters}>
-                  <TouchableOpacity
-                    style={[S.transcriptFilterPill, transcriptFilter === 'todos' && S.transcriptFilterPillActive]}
-                    onPress={() => setTranscriptFilter('todos')}
-                  >
-                    <Text style={[S.transcriptFilterTxt, transcriptFilter === 'todos' && S.transcriptFilterTxtActive]}>
-                      Todos
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[S.transcriptFilterPill, transcriptFilter === 'medico' && S.transcriptFilterPillActive]}
-                    onPress={() => setTranscriptFilter('medico')}
-                  >
-                    <Text style={[S.transcriptFilterTxt, transcriptFilter === 'medico' && S.transcriptFilterTxtActive]}>
-                      Médico
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[S.transcriptFilterPill, transcriptFilter === 'paciente' && S.transcriptFilterPillActive]}
-                    onPress={() => setTranscriptFilter('paciente')}
-                  >
-                    <Text style={[S.transcriptFilterTxt, transcriptFilter === 'paciente' && S.transcriptFilterTxtActive]}>
-                      Paciente
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView ref={tScrollRef} style={S.tBox} nestedScrollEnabled>
-                  {filteredTranscriptEntries.map((entry, idx) => {
-                    const isDoctorEntry = entry.speaker === 'medico';
-                    const isPatientEntry = entry.speaker === 'paciente';
-                    const speakerLabel = isDoctorEntry ? 'Médico' : isPatientEntry ? 'Paciente' : 'Transcrição';
-                    return (
-                      <View
-                        key={`${entry.speaker}-${idx}`}
-                        style={[
-                          S.tItem,
-                          isDoctorEntry && S.tItemDoctor,
-                          isPatientEntry && S.tItemPatient,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            S.tItemSpeaker,
-                            isDoctorEntry && S.tItemSpeakerDoctor,
-                            isPatientEntry && S.tItemSpeakerPatient,
-                          ]}
-                        >
-                          {speakerLabel}
-                        </Text>
-                        <Text style={S.tItemText}>{entry.text}</Text>
-                      </View>
-                    );
-                  })}
-                  {filteredTranscriptEntries.length === 0 && (
-                    <View style={S.tEmpty}>
-                      <Text style={S.tEmptyTxt}>Sem falas para este filtro.</Text>
-                    </View>
-                  )}
-                </ScrollView>
-              </View>
-            )}
-
             {/* Empty */}
             {!panelHas && (
               <View style={S.panelEmpty}>
                 <Ionicons name="sparkles-outline" size={32} color={colors.textSecondary} />
                 <Text style={S.peTitle}>Anamnese IA</Text>
-                <Text style={S.peSub}>A anamnese e transcrição aparecerão aqui durante a conversa</Text>
+                <Text style={S.peSub}>Anamnese, medicamentos e exames sugeridos aparecerão aqui durante a conversa</Text>
               </View>
             )}
           </ScrollView>
@@ -1105,11 +1045,6 @@ const S = StyleSheet.create({
   patientCountPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(34,197,94,0.16)' },
   doctorCountTxt: { fontSize: 12, fontWeight: '700', color: colors.primaryLight },
   patientCountTxt: { fontSize: 12, fontWeight: '700', color: colors.successLight },
-  transcriptFilters: { flexDirection: 'row', gap: 8, marginTop: 2 },
-  transcriptFilterPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(51,65,85,0.5)' },
-  transcriptFilterPillActive: { backgroundColor: 'rgba(44,177,255,0.2)', borderWidth: 1, borderColor: 'rgba(44,177,255,0.35)' },
-  transcriptFilterTxt: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  transcriptFilterTxtActive: { color: colors.primaryLight },
 
   af: { gap: 2, paddingLeft: 4 },
   afL: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -1121,6 +1056,16 @@ const S = StyleSheet.create({
   sugItem: { flexDirection: 'row', gap: 6, alignItems: 'flex-start', paddingLeft: 4 },
   sugDng: { backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 6, padding: 6 },
   sugTxt: { fontSize: 12, color: colors.primaryLight, lineHeight: 18, flex: 1 },
+
+  medItem: { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
+  medItemBlock: { marginBottom: 10 },
+  medNum: { fontSize: 12, fontWeight: '700', color: colors.primaryLight, minWidth: 16 },
+  medNome: { fontSize: 12, color: colors.text, lineHeight: 18, flex: 1, fontWeight: '600' },
+  medText: { fontSize: 12, color: colors.border, lineHeight: 18, flex: 1 },
+  medIndicacao: { fontSize: 11, color: colors.textMuted, marginTop: 2, marginLeft: 22, lineHeight: 16 },
+  examItemBlock: { marginBottom: 10 },
+  examDetail: { fontSize: 11, color: colors.textSecondary, marginTop: 2, marginLeft: 22, lineHeight: 16 },
+  panelDisclaimer: { fontSize: 10, color: colors.textMuted, marginTop: 4, fontStyle: 'italic' },
 
   evItem: { backgroundColor: 'rgba(51,65,85,0.5)', borderRadius: 8, padding: 10, gap: 6 },
   evItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
@@ -1138,17 +1083,6 @@ const S = StyleSheet.create({
   evExcerptTxt: { fontSize: 11, color: colors.border, fontStyle: 'italic', lineHeight: 15 },
   evAbstract: { fontSize: 11, color: colors.border, lineHeight: 16 },
   evSource: { fontSize: 10, color: colors.textMuted },
-
-  tBox: { maxHeight: 190, backgroundColor: 'rgba(30,41,59,0.6)', borderRadius: 8, padding: 8 },
-  tItem: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7, backgroundColor: 'rgba(51,65,85,0.5)', marginBottom: 6 },
-  tItemDoctor: { backgroundColor: 'rgba(44,177,255,0.14)', borderWidth: 1, borderColor: 'rgba(44,177,255,0.3)' },
-  tItemPatient: { backgroundColor: 'rgba(34,197,94,0.12)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.28)' },
-  tItemSpeaker: { fontSize: 12, fontWeight: '800', color: colors.textMuted, marginBottom: 2, textTransform: 'uppercase' },
-  tItemSpeakerDoctor: { color: colors.primaryLight },
-  tItemSpeakerPatient: { color: colors.successLight },
-  tItemText: { fontSize: 12, color: colors.border, lineHeight: 18 },
-  tEmpty: { alignItems: 'center', paddingVertical: 12 },
-  tEmptyTxt: { fontSize: 12, color: colors.textMuted },
 
   panelEmpty: { alignItems: 'center', gap: 8, paddingVertical: 40 },
   peTitle: { fontSize: 14, fontWeight: '700', color: colors.textSecondary },

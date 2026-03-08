@@ -81,6 +81,8 @@ public class DailyVideoService : IDailyVideoService
     {
         var expiry = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).ToUnixTimeSeconds();
 
+        // eject_at_room_exp: quando a sala expira (exp), todos os participantes são ejetados.
+        // DefaultRoomExpiryMinutes = 120 (2h). Paciente saindo NÃO encerra a sala — médico permanece.
         var body = new
         {
             name = roomName,

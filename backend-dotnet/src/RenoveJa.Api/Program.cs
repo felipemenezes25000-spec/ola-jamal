@@ -327,6 +327,8 @@ builder.Services.AddSingleton<RenoveJa.Application.Services.Notifications.NewReq
 builder.Services.AddSingleton<RenoveJa.Application.Interfaces.INewRequestBatchService>(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());
 builder.Services.AddHostedService<RenoveJa.Application.Services.Notifications.StaleRequestReminderService>();
+builder.Services.AddSingleton<RenoveJa.Infrastructure.Notifications.ExpoPushReceiptChecker>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RenoveJa.Infrastructure.Notifications.ExpoPushReceiptChecker>());
 
 builder.Services.AddHttpClient();
 

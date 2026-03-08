@@ -90,6 +90,16 @@ public class PushTokenRepository(SupabaseClient supabase) : IPushTokenRepository
             cancellationToken);
     }
 
+    public async Task DeactivateByTokenAsync(string token, Guid userId, CancellationToken ct = default)
+    {
+        var encodedToken = Uri.EscapeDataString(token);
+        await supabase.UpdateAsync<PushTokenModel>(
+            TableName,
+            $"token=eq.{encodedToken}&user_id=eq.{userId}",
+            new { active = false },
+            ct);
+    }
+
     private static PushToken MapToDomain(PushTokenModel model)
     {
         return PushToken.Reconstitute(

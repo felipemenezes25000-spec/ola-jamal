@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppCard } from '../components/ui/AppCard';
 import { fetchPushTokens, setPushPreference, sendTestPush } from '../lib/api';
+import { getPushPreferences, updatePushPreferences, type PushPreferencesDto } from '../lib/api-push-preferences';
 import { spacing } from '../lib/theme';
 import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors } from '../lib/designSystem';
@@ -23,6 +24,13 @@ export default function SettingsScreen() {
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [mutedCount, setMutedCount] = useState(0);
+  const [categoryPrefs, setCategoryPrefs] = useState<PushPreferencesDto>({
+    requestsEnabled: true,
+    paymentsEnabled: true,
+    consultationsEnabled: true,
+    remindersEnabled: true,
+    timezone: 'America/Sao_Paulo',
+  });
   const { preference, setPreference, isDark } = useColorSchemeContext();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -40,9 +48,14 @@ export default function SettingsScreen() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    getPushPreferences()
+      .then(data => setCategoryPrefs(data))
+      .catch(() => {});
+  }, []);
+
   const handleResetMuted = async () => {
     await unmuteAll();
-    // Após reset completo da triagem, o contador zera e as mensagens podem voltar em todas as telas.
     setMutedCount(0);
   };
 
@@ -52,6 +65,16 @@ export default function SettingsScreen() {
       await setPushPreference(value);
     } catch {
       setPushEnabled(!value);
+    }
+  };
+
+  const handleCategoryToggle = async (key: keyof PushPreferencesDto, value: boolean) => {
+    const prev = { ...categoryPrefs };
+    setCategoryPrefs(p => ({ ...p, [key]: value }));
+    try {
+      await updatePushPreferences({ [key]: value });
+    } catch {
+      setCategoryPrefs(prev);
     }
   };
 
@@ -176,6 +199,61 @@ export default function SettingsScreen() {
               <Switch
                 value={emailEnabled}
                 onValueChange={setEmailEnabled}
+                trackColor={{ true: colors.success, false: colors.border }}
+                thumbColor={colors.white}
+              />
+            }
+          />
+        </AppCard>
+
+        <AppCard style={styles.section}>
+          <Text style={styles.sectionTitle}>Categorias de Push</Text>
+          <SettingItem
+            icon="document-text-outline"
+            label="Pedidos"
+            right={
+              <Switch
+                value={categoryPrefs.requestsEnabled}
+                onValueChange={(v) => handleCategoryToggle('requestsEnabled', v)}
+                trackColor={{ true: colors.success, false: colors.border }}
+                thumbColor={colors.white}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="card-outline"
+            label="Pagamentos"
+            right={
+              <Switch
+                value={categoryPrefs.paymentsEnabled}
+                onValueChange={(v) => handleCategoryToggle('paymentsEnabled', v)}
+                trackColor={{ true: colors.success, false: colors.border }}
+                thumbColor={colors.white}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="videocam-outline"
+            label="Consultas"
+            right={
+              <Switch
+                value={categoryPrefs.consultationsEnabled}
+                onValueChange={(v) => handleCategoryToggle('consultationsEnabled', v)}
+                trackColor={{ true: colors.success, false: colors.border }}
+                thumbColor={colors.white}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="time-outline"
+            label="Lembretes"
+            right={
+              <Switch
+                value={categoryPrefs.remindersEnabled}
+                onValueChange={(v) => handleCategoryToggle('remindersEnabled', v)}
                 trackColor={{ true: colors.success, false: colors.border }}
                 thumbColor={colors.white}
               />

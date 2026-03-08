@@ -18,7 +18,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "gen:api-types": "openapi-typescript ${API_URL:-http://localhost:5000}/swagger/v1/swagger.json -o types/api-generated.ts",
-    "postinstall": "npx patch-package"
+    "postinstall": "npx patch-package",
+    "eas:credentials": "cross-env EAS_NO_VCS=1 eas credentials -p android",
+    "eas:build:android": "cross-env EAS_NO_VCS=1 eas build --profile development --platform android"
   },
   "dependencies": {
     "@daily-co/config-plugin-rn-daily-js": "^0.0.11",

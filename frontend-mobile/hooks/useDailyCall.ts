@@ -149,22 +149,55 @@ export function useDailyCall({
 
       call.on('participant-left' as DailyEvent, (event: any) => {
         const participant = event?.participant;
-        // Participante remoto saiu (paciente para o médico, médico para o paciente)
-        const remoteLeft = participant && !participant.local;
-        // Usuário local foi ejetado (ex.: tempo esgotado)
-        const localEjected = participant?.local === true;
+        const localSessionId = call.participants()?.local?.session_id;
+
+        // Diagnóstico: log para validar payload quando paciente sai (bug: consulta fecha para médico)
+        if (__DEV__) {
+          console.warn('[useDailyCall] participant-left', {
+            participantLocal: participant?.local,
+            participantSessionId: participant?.session_id,
+            localSessionId,
+            isDoctor,
+            reason: event?.reason,
+          });
+        }
+
+        // Verificação robusta: só é localEjected se o session_id do que saiu for o local
+        const isLocalParticipant =
+          participant?.session_id != null &&
+          localSessionId != null &&
+          participant.session_id === localSessionId;
+        const remoteLeft = participant && !isLocalParticipant;
+        const localEjected = isLocalParticipant;
 
         if (remoteLeft) {
           setRemoteParticipant(null);
           // Paciente saiu: médico permanece na sala. Só o médico encerra a consulta.
           // Paciente pode voltar enquanto houver tempo. NUNCA chamar onCallEnded para médico aqui.
           if (!isDoctor) {
+            if (__DEV__) console.warn('[useDailyCall] onCallEnded(remote-left) — paciente viu médico sair');
             onCallEnded?.('remote-left');
           }
         }
         if (localEjected) {
+          if (__DEV__) console.warn('[useDailyCall] onCallEnded(ejected) — usuário local ejetado');
           onCallEnded?.('ejected');
         }
+      });
+
+      // meeting-ended: Daily emite quando a reunião termina (último participante sai).
+      // Defensivo: logar se médico receber inesperadamente (paciente saindo não deveria encerrar para médico).
+      call.on('meeting-ended' as DailyEvent, (event: any) => {
+        if (__DEV__) {
+          console.warn('[useDailyCall] meeting-ended (inesperado para médico quando paciente sai)', {
+            isDoctor,
+            event,
+          });
+        }
+        // Se o médico receber meeting-ended, a sessão já foi encerrada pelo Daily — notificar para cleanup
+        setCallState('idle');
+        stopQualityMonitor();
+        onCallEnded?.('meeting-ended');
       });
 
       // left-meeting só dispara quando o usuário LOCAL sai. Paciente saindo NÃO dispara isso no médico.
