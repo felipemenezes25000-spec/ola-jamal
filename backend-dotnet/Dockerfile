@@ -5,7 +5,8 @@
 # Stage 1: Restore dependencies
 # IMPORTANTE: o contexto de build no Railway/Render é a raiz do repositório.
 # Um único COPY evita race condition do BuildKit (erro "unexpected commit digest").
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS restore
+# Tag fixo evita "content sha256:... not found" quando MCR rotaciona layers do :8.0
+FROM mcr.microsoft.com/dotnet/sdk:8.0.204-bookworm-slim AS restore
 WORKDIR /src
 COPY backend-dotnet/ .
 RUN dotnet restore
@@ -19,7 +20,7 @@ FROM build AS publish
 RUN dotnet publish src/RenoveJa.Api/RenoveJa.Api.csproj -c Release -o /app/publish --no-build
 
 # Stage 4: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.12-bookworm-slim AS runtime
 WORKDIR /app
 
 # Install required native dependencies for iText/BouncyCastle
