@@ -6,7 +6,6 @@ import {
   SectionList,
   TouchableOpacity,
   RefreshControl,
-  Animated,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   Platform,
   KeyboardAvoidingView,
@@ -16,7 +15,6 @@ import { useListBottomPadding } from '../../lib/ui/responsive';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
-import type { ComponentProps } from 'react';
 import { spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
@@ -26,7 +24,7 @@ import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
 import { DoctorCard } from '../../components/ui/DoctorCard';
-import { AppButton, AIActionSheet, AppEmptyState } from '../../components/ui';
+import { AppButton, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { useTriageEval } from '../../hooks/useTriageEval';
@@ -42,8 +40,6 @@ import { DoctorActionButtons } from '../../components/doctor-request/DoctorActio
 import { AnamnesisCard } from '../../components/prontuario/AnamnesisCard';
 import { ConductForm } from '../../components/prontuario/ConductForm';
 import { parseAnamnesis, parseSuggestions, parseEvidence, displayMedicamento, displayExame } from '../../lib/domain/anamnesis';
-
-type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 export { cacheRequest } from '../../hooks/useDoctorRequest';
 
@@ -459,7 +455,8 @@ function ConductSection({ request, conductNotes, setConductNotes, includeConduct
   savingConduct: boolean;
   handleSaveConduct: () => Promise<void>;
 }) {
-  const s = useMemo(() => makeStyles(useAppTheme({ role: 'doctor' }).colors), []);
+  const { colors } = useAppTheme({ role: 'doctor' });
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (request.requestType !== 'consultation') return null;
 
   return (

@@ -18,7 +18,6 @@ import { spacing, borderRadius, typography } from '../../lib/themeDoctor';
 import { showToast } from '../ui/Toast';
 import {
   type AnamnesisData,
-  type AnaFieldDef,
   type FieldSeverity,
   ANA_FIELDS,
   ANA_FIELDS_COMPACT,

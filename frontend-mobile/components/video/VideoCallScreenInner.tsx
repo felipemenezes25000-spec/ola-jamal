@@ -23,7 +23,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  ScrollView,
   TextInput,
   Modal,
   Dimensions,
@@ -579,7 +578,7 @@ export default function VideoCallScreenInner() {
         },
       ]);
     }
-  }, [isDoctor, doEnd, contractedMinutes, callSeconds, leave, cleanup, router]);
+  }, [isDoctor, doEnd, contractedMinutes, callSeconds, leave, cleanup, router, rid]);
 
   // Android: botão Voltar durante a chamada — mostrar confirmação em vez de sair direto
   useEffect(() => {
@@ -631,7 +630,7 @@ export default function VideoCallScreenInner() {
 
   // PiP: remote sempre principal — evita SurfaceView conflict no overlay pequeno do Android
   // Local é mostrado como mini-preview apenas quando NÃO em PiP
-  const localIsMain = false;
+  const _localIsMain = false;
   const remoteIsMain = true;
 
   return (

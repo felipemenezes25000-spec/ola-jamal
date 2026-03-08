@@ -1,0 +1,15 @@
+{
+  "version": "0.2",
+  "language": "en,pt",
+  "words": [
+    "RenoveJá",
+    "renovejasaude",
+    "Formspree"
+  ],
+  "ignorePaths": [
+    "node_modules",
+    "dist",
+    "*.min.js",
+    "package-lock.json"
+  ]
+}

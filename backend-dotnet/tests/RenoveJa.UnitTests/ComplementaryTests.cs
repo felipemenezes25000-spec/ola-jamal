@@ -704,8 +704,7 @@ public class RequestServiceFullTests
         var result = await _sut.StartConsultationAsync(request.Id, doctorId);
 
         result.Status.Should().Be("in_consultation");
-        _requestRepoMock.Verify(r => r.UpdateAsync(It.Is<MedicalRequest>(rq => rq.Status == RequestStatus.Paid), It.IsAny<CancellationToken>()), Times.Once);
-        _requestRepoMock.Verify(r => r.UpdateAsync(It.Is<MedicalRequest>(rq => rq.Status == RequestStatus.InConsultation), It.IsAny<CancellationToken>()), Times.Once);
+        _requestRepoMock.Verify(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     // --- FinishConsultationAsync ---

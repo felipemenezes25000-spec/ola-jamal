@@ -165,7 +165,7 @@ public class RequestServiceTests
         payment.Should().BeNull();
 
         _requestRepoMock.Verify(r => r.CreateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()), Times.Once);
-        _pushDispatcherMock.Verify(x => x.SendAsync(It.IsAny<RenoveJa.Application.DTOs.Notifications.PushNotificationRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+        // SendAsync comentado no RequestService.CreatePrescriptionAsync (push "Pedido enviado" desnecessário)
     }
 
     [Fact]

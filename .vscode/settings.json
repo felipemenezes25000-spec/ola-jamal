@@ -44,6 +44,9 @@
   "breadcrumbs.enabled": true,
   "git.autofetch": true,
 
+  "cSpell.language": "en,pt",
+  "cSpell.enabled": true,
+
   "workbench.colorCustomizations": {
     "editorCursor.foreground": "#39FF14",
     "editor.lineHighlightBackground": "#39FF141F",

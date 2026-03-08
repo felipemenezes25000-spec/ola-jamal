@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { spacing, borderRadius, typography } from '../../lib/themeDoctor';
+import { spacing, typography } from '../../lib/themeDoctor';
 import type { RequestResponseDto } from '../../types/database';
 import { AppSegmentedControl, AppEmptyState } from '../ui';
 import { formatDateTimeBR, formatDateBR } from '../../lib/utils/format';

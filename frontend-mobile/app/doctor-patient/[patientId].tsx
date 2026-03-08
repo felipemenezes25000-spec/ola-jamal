@@ -22,7 +22,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { spacing, borderRadius, typography } from '../../lib/themeDoctor';
+import { spacing } from '../../lib/themeDoctor';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';

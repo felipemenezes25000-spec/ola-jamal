@@ -131,16 +131,16 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
   const diagDiferencial: DiagDiferencial[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.diagnostico_diferencial) ? (anamnesis!.diagnostico_diferencial as DiagDiferencial[]) : []; }
     catch { return []; }
-  }, [anamnesis?.diagnostico_diferencial]);
+  }, [anamnesis]);
   const exameFisicoDirigido = (anamnesis?.exame_fisico_dirigido as string) ?? '';
   const orientacoesPaciente: string[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.orientacoes_paciente) ? (anamnesis!.orientacoes_paciente as string[]) : []; }
     catch { return []; }
-  }, [anamnesis?.orientacoes_paciente]);
+  }, [anamnesis]);
   const criteriosRetorno: string[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.criterios_retorno) ? (anamnesis!.criterios_retorno as string[]) : []; }
     catch { return []; }
-  }, [anamnesis?.criterios_retorno]);
+  }, [anamnesis]);
   const perguntasSugeridas: PerguntaSugerida[] = useMemo(() => {
     try {
       if (!Array.isArray(anamnesis?.perguntas_sugeridas)) return [];
@@ -156,27 +156,27 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
             }
       ).filter((p: PerguntaSugerida) => p.pergunta.length > 0);
     } catch { return []; }
-  }, [anamnesis?.perguntas_sugeridas]);
+  }, [anamnesis]);
   const lacunasAnamnese: string[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.lacunas_anamnese) ? (anamnesis!.lacunas_anamnese as string[]) : []; }
     catch { return []; }
-  }, [anamnesis?.lacunas_anamnese]);
+  }, [anamnesis]);
   const alertasVermelhos: string[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.alertas_vermelhos) ? (anamnesis!.alertas_vermelhos as string[]) : []; }
     catch { return []; }
-  }, [anamnesis?.alertas_vermelhos]);
+  }, [anamnesis]);
   const meds: MedSugerido[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.medicamentos_sugeridos) ? (anamnesis!.medicamentos_sugeridos as MedSugerido[]) : []; }
     catch { return []; }
-  }, [anamnesis?.medicamentos_sugeridos]);
+  }, [anamnesis]);
   const exames: ExameSugerido[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.exames_sugeridos) ? (anamnesis!.exames_sugeridos as ExameSugerido[]) : []; }
     catch { return []; }
-  }, [anamnesis?.exames_sugeridos]);
+  }, [anamnesis]);
   const interacoesCruzadas: InteracaoCruzada[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.interacoes_cruzadas) ? (anamnesis!.interacoes_cruzadas as InteracaoCruzada[]) : []; }
     catch { return []; }
-  }, [anamnesis?.interacoes_cruzadas]);
+  }, [anamnesis]);
 
   const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
 

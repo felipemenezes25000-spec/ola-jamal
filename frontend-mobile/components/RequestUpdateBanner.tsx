@@ -15,7 +15,7 @@ import { useAppTheme } from '../lib/ui/useAppTheme';
 import { uiTokens } from '../lib/ui/tokens';
 
 export function RequestUpdateBanner() {
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets(); // reservado para futura margem segura (prefix _ = unused)
   const router = useRouter();
   const { pendingUpdate, setPendingUpdate } = useRequestsEvents();
   const { user } = useAuth();
