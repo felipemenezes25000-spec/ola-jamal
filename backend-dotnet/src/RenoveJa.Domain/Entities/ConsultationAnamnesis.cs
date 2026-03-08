@@ -8,6 +8,7 @@ public class ConsultationAnamnesis : Entity
     public Guid RequestId { get; private set; }
     public Guid PatientId { get; private set; }
     public string? TranscriptText { get; private set; }
+    public string? TranscriptFileUrl { get; private set; }
     public string? AnamnesisJson { get; private set; }
     public string? AiSuggestionsJson { get; private set; }
 
@@ -19,6 +20,7 @@ public class ConsultationAnamnesis : Entity
         Guid requestId,
         Guid patientId,
         string? transcriptText,
+        string? transcriptFileUrl,
         string? anamnesisJson,
         string? aiSuggestionsJson,
         DateTime createdAt)
@@ -27,11 +29,12 @@ public class ConsultationAnamnesis : Entity
         RequestId = requestId;
         PatientId = patientId;
         TranscriptText = transcriptText;
+        TranscriptFileUrl = transcriptFileUrl;
         AnamnesisJson = anamnesisJson;
         AiSuggestionsJson = aiSuggestionsJson;
     }
 
-    public static ConsultationAnamnesis Create(Guid requestId, Guid patientId, string? transcriptText, string? anamnesisJson, string? aiSuggestionsJson)
+    public static ConsultationAnamnesis Create(Guid requestId, Guid patientId, string? transcriptText, string? transcriptFileUrl, string? anamnesisJson, string? aiSuggestionsJson)
     {
         if (requestId == Guid.Empty)
             throw new Domain.Exceptions.DomainException("Request ID is required");
@@ -43,6 +46,7 @@ public class ConsultationAnamnesis : Entity
             requestId,
             patientId,
             transcriptText,
+            transcriptFileUrl,
             anamnesisJson,
             aiSuggestionsJson,
             DateTime.UtcNow);
@@ -53,6 +57,7 @@ public class ConsultationAnamnesis : Entity
         Guid requestId,
         Guid patientId,
         string? transcriptText,
+        string? transcriptFileUrl,
         string? anamnesisJson,
         string? aiSuggestionsJson,
         DateTime createdAt)
@@ -62,14 +67,16 @@ public class ConsultationAnamnesis : Entity
             requestId,
             patientId,
             transcriptText,
+            transcriptFileUrl,
             anamnesisJson,
             aiSuggestionsJson,
             createdAt);
     }
 
-    public void Update(string? transcriptText, string? anamnesisJson, string? aiSuggestionsJson)
+    public void Update(string? transcriptText, string? transcriptFileUrl, string? anamnesisJson, string? aiSuggestionsJson)
     {
         TranscriptText = transcriptText;
+        TranscriptFileUrl = transcriptFileUrl;
         AnamnesisJson = anamnesisJson;
         AiSuggestionsJson = aiSuggestionsJson;
     }

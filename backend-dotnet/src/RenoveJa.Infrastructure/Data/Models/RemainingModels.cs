@@ -30,11 +30,19 @@ public class VideoRoomModel
 public class ConsultationAnamnesisModel
 {
     public Guid Id { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("request_id")]
     public Guid RequestId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("patient_id")]
     public Guid PatientId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("transcript_text")]
     public string? TranscriptText { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("transcript_file_url")]
+    public string? TranscriptFileUrl { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("anamnesis_json")]
     public string? AnamnesisJson { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("ai_suggestions_json")]
     public string? AiSuggestionsJson { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("created_at")]
     public DateTime CreatedAt { get; set; }
 }
 

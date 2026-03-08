@@ -64,6 +64,7 @@ public class ConsultationAnamnesisRepository(SupabaseClient supabase) : IConsult
             model.RequestId,
             model.PatientId,
             model.TranscriptText,
+            model.TranscriptFileUrl,
             model.AnamnesisJson,
             model.AiSuggestionsJson,
             model.CreatedAt);
@@ -77,6 +78,7 @@ public class ConsultationAnamnesisRepository(SupabaseClient supabase) : IConsult
             RequestId = entity.RequestId,
             PatientId = entity.PatientId,
             TranscriptText = entity.TranscriptText,
+            TranscriptFileUrl = entity.TranscriptFileUrl,
             AnamnesisJson = entity.AnamnesisJson,
             AiSuggestionsJson = entity.AiSuggestionsJson,
             CreatedAt = entity.CreatedAt

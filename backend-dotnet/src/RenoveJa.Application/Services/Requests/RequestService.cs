@@ -1138,6 +1138,30 @@ public class RequestService(
         var sessionData = consultationSessionStore.GetAndRemove(id);
         if (sessionData != null)
         {
+            string? transcriptFileUrl = null;
+            if (!string.IsNullOrWhiteSpace(sessionData.TranscriptText))
+            {
+                try
+                {
+                    var path = $"transcripts/{id}.txt";
+                    var bytes = Encoding.UTF8.GetBytes(sessionData.TranscriptText);
+                    var result = await storageService.UploadAsync(path, bytes, "text/plain; charset=utf-8", cancellationToken);
+                    if (result.Success && !string.IsNullOrEmpty(result.Url))
+                    {
+                        transcriptFileUrl = result.Url;
+                        logger.LogInformation("[FinishConsultation] Transcrição salva em Storage: RequestId={RequestId} Path={Path}", id, path);
+                    }
+                    else
+                    {
+                        logger.LogWarning("[FinishConsultation] Falha ao fazer upload da transcrição: RequestId={RequestId} Error={Error}", id, result.ErrorMessage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "[FinishConsultation] Exceção ao fazer upload da transcrição para Storage: RequestId={RequestId}", id);
+                }
+            }
+
             try
             {
                 var existing = await consultationAnamnesisRepository.GetByRequestIdAsync(id, cancellationToken);
@@ -1146,14 +1170,16 @@ public class RequestService(
                     var oldValues = new Dictionary<string, object?>
                     {
                         ["transcript"] = existing.TranscriptText,
+                        ["transcript_file_url"] = existing.TranscriptFileUrl,
                         ["anamnesis_json"] = existing.AnamnesisJson,
                         ["ai_suggestions_json"] = existing.AiSuggestionsJson
                     };
-                    existing.Update(sessionData.TranscriptText, sessionData.AnamnesisJson, sessionData.AiSuggestionsJson);
+                    existing.Update(sessionData.TranscriptText, transcriptFileUrl, sessionData.AnamnesisJson, sessionData.AiSuggestionsJson);
                     await consultationAnamnesisRepository.UpdateAsync(existing, cancellationToken);
                     var newValues = new Dictionary<string, object?>
                     {
                         ["transcript"] = existing.TranscriptText,
+                        ["transcript_file_url"] = existing.TranscriptFileUrl,
                         ["anamnesis_json"] = existing.AnamnesisJson,
                         ["ai_suggestions_json"] = existing.AiSuggestionsJson
                     };
@@ -1165,6 +1191,7 @@ public class RequestService(
                         id,
                         sessionData.PatientId,
                         sessionData.TranscriptText,
+                        transcriptFileUrl,
                         sessionData.AnamnesisJson,
                         sessionData.AiSuggestionsJson);
                     await consultationAnamnesisRepository.CreateAsync(entity, cancellationToken);
@@ -1172,6 +1199,7 @@ public class RequestService(
                     {
                         ["request_id"] = id,
                         ["transcript"] = entity.TranscriptText,
+                        ["transcript_file_url"] = entity.TranscriptFileUrl,
                         ["anamnesis_json"] = entity.AnamnesisJson,
                         ["ai_suggestions_json"] = entity.AiSuggestionsJson
                     };
@@ -1182,6 +1210,10 @@ public class RequestService(
             {
                 logger.LogWarning(ex, "Failed to persist consultation anamnesis for request {RequestId}", id);
             }
+        }
+        else
+        {
+            logger.LogInformation("[FinishConsultation] Sem dados de sessão para persistir: RequestId={RequestId} (transcrição pode não ter sido enviada via transcribe-text)", id);
         }
 
         // B1: Finalizar Encounter no prontuário com anamnese e plano

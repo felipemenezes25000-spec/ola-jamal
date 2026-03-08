@@ -14,6 +14,7 @@ public class SupabaseStorageService : IStorageService
     private const string PrescriptionBucket = "prescription-images";
     private const string CertificatesBucket = "certificates";
     private const string VerifyPdfBucket = "prescriptions";
+    private const string ConsultationTranscriptsBucket = "consultation-transcripts";
 
     private static string GetBucketForPath(string path)
     {
@@ -23,6 +24,8 @@ public class SupabaseStorageService : IStorageService
         if (path.StartsWith("receitas/", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("signed/", StringComparison.OrdinalIgnoreCase))
             return VerifyPdfBucket;
+        if (path.StartsWith("transcripts/", StringComparison.OrdinalIgnoreCase))
+            return ConsultationTranscriptsBucket;
         return PrescriptionBucket;
     }
     private readonly HttpClient _httpClient;
