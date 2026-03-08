@@ -14,10 +14,21 @@ buildscript {
 }
 
 allprojects {
+  configurations.all {
+    resolutionStrategy {
+      force 'org.jitsi:webrtc:124.0.0'
+    }
+  }
+
   repositories {
     google()
     mavenCentral()
-    maven { url 'https://www.jitpack.io' }
+    maven {
+      url 'https://www.jitpack.io'
+      content {
+        excludeGroup "org.jitsi"
+      }
+    }
   }
 }
 

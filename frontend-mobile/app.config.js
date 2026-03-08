@@ -66,6 +66,7 @@ export default {
           "enableScreenShare": false
         }
       ],
+      "./plugins/withDailyPipForeground.js",
       [
         "expo-build-properties",
         {

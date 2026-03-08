@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Platform, NativeModules } from 'react-native';
 import Daily, {
   DailyCall,
   DailyEvent,
@@ -134,6 +135,19 @@ export function useDailyCall({
         setCallState('joined');
         updateParticipants();
         startQualityMonitor();
+        // Foreground service mantém câmera/microfone ativos em PiP (Android)
+        if (Platform.OS === 'android') {
+          const DailyNativeUtils = NativeModules.DailyNativeUtils;
+          if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
+            DailyNativeUtils.setShowOngoingMeetingNotification(
+              true,
+              'Consulta em andamento',
+              'Toque para expandir',
+              'ic_daily_videocam_24dp',
+              'renoveja-call'
+            );
+          }
+        }
       });
 
       call.on('participant-joined' as DailyEvent, (event: any) => {
@@ -235,6 +249,12 @@ export function useDailyCall({
     try {
       setCallState('leaving');
       stopQualityMonitor();
+      if (Platform.OS === 'android') {
+        const DailyNativeUtils = NativeModules.DailyNativeUtils;
+        if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
+          DailyNativeUtils.setShowOngoingMeetingNotification(false, '', '', '', 'renoveja-call');
+        }
+      }
       await call.leave();
       await call.destroy();
     } catch {
