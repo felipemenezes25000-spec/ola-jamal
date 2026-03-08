@@ -25,8 +25,7 @@ public static class EvidenceProvider
     public const string ClinicalTrials = "ClinicalTrials.gov";
 }
 
-/// <summary>Item de evidência: artigo científico com trechos relevantes e relevância clínica para apoio ao diagnóstico.</summary>
-/// <param name="Url">Link direto para o artigo na biblioteca de origem (PubMed, Europe PMC, Semantic Scholar).</param>
+/// <summary>Item de evidência: artigo científico com trechos relevantes, relevância clínica e conexão com o paciente.</summary>
 public record EvidenceItemDto(
     string Title,
     string Abstract,
@@ -35,7 +34,10 @@ public record EvidenceItemDto(
     IReadOnlyList<string>? RelevantExcerpts = null,
     string? ClinicalRelevance = null,
     string? Provider = null,
-    string? Url = null);
+    string? Url = null,
+    string? ConexaoComPaciente = null,
+    string? NivelEvidencia = null,
+    string? MotivoSelecao = null);
 
 /// <summary>Resultado do serviço de anamnese: JSON estruturado + sugestões + evidências (apoio à decisão).</summary>
 public record ConsultationAnamnesisResult(string AnamnesisJson, IReadOnlyList<string> Suggestions, IReadOnlyList<EvidenceItemDto> Evidence);

@@ -199,7 +199,7 @@ const s = StyleSheet.create({
   },
   segmentScrollable: {
     flex: 0,
-    minWidth: 80,
+    minWidth: 96,
     paddingHorizontal: 12,
     borderRadius: 12,
     justifyContent: 'center',
@@ -213,7 +213,9 @@ const s = StyleSheet.create({
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 6,
+    flexWrap: 'nowrap',
   },
   label: {
     fontWeight: '700',
@@ -227,6 +229,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   pressed: {
     opacity: 0.9,

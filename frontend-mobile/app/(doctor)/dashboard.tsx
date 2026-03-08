@@ -30,7 +30,6 @@ import {
   getPendingForPanel,
   getRequestUiState,
 } from '../../lib/domain/getRequestUiState';
-import { formatRelativeTime } from '../../lib/utils/format';
 import { haptics } from '../../lib/haptics';
 import { showToast } from '../../components/ui/Toast';
 import type { DesignColors } from '../../lib/designSystem';
@@ -65,7 +64,7 @@ const QueueItem = ({ request, onPress, colors }: { request: RequestResponseDto; 
       <View style={styles.queueContent}>
         <View style={styles.queueHeader}>
           <Text style={[styles.queueType, { color: colors.textSecondary }]}>
-            {request.requestType === 'prescription' ? 'Receita' : 'Exame/Consulta'}
+            {request.requestType === 'prescription' ? 'Receita' : request.requestType === 'exam' ? 'Exame' : 'Consulta'}
           </Text>
           {isHighRisk && (
             <View style={[styles.riskBadge, { backgroundColor: colors.errorLight }]}>
@@ -80,10 +79,6 @@ const QueueItem = ({ request, onPress, colors }: { request: RequestResponseDto; 
         </Text>
         
         <View style={styles.queueFooter}>
-          <Text style={[styles.queueTime, { color: colors.textSecondary }]}>
-            {formatRelativeTime(request.createdAt)}
-          </Text>
-          <View style={[styles.statusDot, { backgroundColor: colors.textMuted }]} />
           <Text style={[styles.queueStatus, { color: statusColor }]}>{label}</Text>
         </View>
       </View>
@@ -111,7 +106,7 @@ export default function DoctorDashboard() {
     try {
       const [cert, res] = await Promise.allSettled([
         getActiveCertificate(),
-        getRequests({ page: 1, pageSize: 50 }),
+        getRequests({ page: 1, pageSize: 500 }),
       ]);
       setHasCertificate(cert.status === 'fulfilled' && !!cert.value);
       const items = res.status === 'fulfilled' ? (res.value?.items ?? []) : [];
@@ -439,16 +434,6 @@ const styles = StyleSheet.create({
   queueFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  queueTime: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  statusDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginHorizontal: 8,
   },
   queueStatus: {
     fontSize: 13,

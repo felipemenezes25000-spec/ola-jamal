@@ -18,7 +18,7 @@ export function useDoctorRequestsQuery(isSignalRConnected: boolean) {
   return useQuery<RequestResponseDto[]>({
     queryKey: DOCTOR_REQUESTS_QUERY_KEY,
     queryFn: async () => {
-      const response = await getRequests({ page: 1, pageSize: 50 });
+      const response = await getRequests({ page: 1, pageSize: 500 });
       return sortRequestsByNewestFirst(response.items ?? []);
     },
     staleTime: 10_000,

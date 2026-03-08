@@ -24,7 +24,7 @@ import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
 import { useDoctorRequestsQuery, useInvalidateDoctorRequests } from '../../lib/hooks/useDoctorRequestsQuery';
 import RequestCard from '../../components/RequestCard';
-import { AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
+import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { showToast } from '../../components/ui/Toast';
@@ -174,35 +174,28 @@ export default function DoctorQueue() {
         </View>
       </LinearGradient>
 
-      <View style={styles.periodRow}>
-        {periodSummary.map(({ label: periodLabel, count }) => (
-          <View key={periodLabel} style={styles.periodChip}>
-            <Text style={styles.periodChipLabel} numberOfLines={1}>{periodLabel}</Text>
-            <Text style={styles.periodChipCount}>{count}</Text>
-          </View>
-        ))}
+      <View style={styles.contentSection}>
+        <View style={styles.periodRow}>
+          {periodSummary.map(({ label: periodLabel, count }) => (
+            <View key={periodLabel} style={styles.periodChip}>
+              <Text style={styles.periodChipLabel} numberOfLines={1}>{periodLabel}</Text>
+              <Text style={styles.periodChipCount}>{count}</Text>
+            </View>
+          ))}
+        </View>
+
+        <AppSegmentedControl
+          items={TYPE_FILTER_ITEMS.map((c) => ({
+            key: c.key,
+            label: c.label,
+            count: (counts as Record<string, number>)[c.key] ?? undefined,
+          }))}
+          value={activeFilter}
+          onValueChange={handleFilterChange}
+          disabled={loading}
+          scrollable
+        />
       </View>
-
-      <TopSummaryStrip
-        compact
-        items={[
-          { label: 'Total', value: counts.all },
-          { label: 'Consultas', value: counts.consultation },
-          { label: 'Exibidos', value: filteredRequests.length },
-        ]}
-      />
-
-      <AppSegmentedControl
-        items={TYPE_FILTER_ITEMS.map((c) => ({
-          key: c.key,
-          label: c.label,
-          count: (counts as Record<string, number>)[c.key] ?? undefined,
-        }))}
-        value={activeFilter}
-        onValueChange={handleFilterChange}
-        disabled={loading}
-        scrollable
-      />
 
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={18} color={colors.textMuted} />
@@ -342,7 +335,7 @@ function makeStyles(colors: DesignColors) {
     paddingHorizontal: 14,
     marginHorizontal: pad,
     marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 10,
@@ -354,40 +347,41 @@ function makeStyles(colors: DesignColors) {
     color: colors.text,
     paddingVertical: 12,
   },
-  periodRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: pad,
+  contentSection: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs,
     backgroundColor: colors.background,
   },
+  periodRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: pad,
+    marginBottom: spacing.sm,
+  },
   periodChip: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 0,
-    minWidth: 0,
+    flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: colors.borderLight,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   periodChipLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.textMuted,
     marginBottom: 4,
     textAlign: 'center',
     letterSpacing: 0.2,
   },
   periodChipCount: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
     color: colors.text,
+    textAlign: 'center',
   },
   loadingWrap: {
     flex: 1,
@@ -395,7 +389,7 @@ function makeStyles(colors: DesignColors) {
     paddingTop: spacing.lg,
   },
   listContent: {
-    paddingTop: doctorDS.sectionGap,
+    paddingTop: spacing.md,
     paddingHorizontal: pad,
   },
   listContentEmpty: { flexGrow: 1 },

@@ -51,6 +51,20 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         _aiInteractionLogRepository = aiInteractionLogRepository;
     }
 
+    private string GetAnamnesisModel()
+    {
+        var specific = _config.Value?.ModelAnamnesis?.Trim();
+        if (!string.IsNullOrEmpty(specific)) return specific;
+        return _config.Value?.Model ?? "gpt-4o";
+    }
+
+    private string GetEvidenceModel()
+    {
+        var specific = _config.Value?.ModelEvidence?.Trim();
+        if (!string.IsNullOrEmpty(specific)) return specific;
+        return _config.Value?.Model ?? "gpt-4o";
+    }
+
     public async Task<ConsultationAnamnesisResult?> UpdateAnamnesisAndSuggestionsAsync(
         string transcriptSoFar,
         string? previousAnamnesisJson,
@@ -78,9 +92,10 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             ? $"Transcript da consulta (incluindo identificação de locutor quando disponível):\n\n{transcriptSoFar}"
             : $"Anamnese anterior (mantenha e enriqueça com novas informações do transcript):\n{previousAnamnesisJson}\n\nTranscript atualizado:\n{transcriptSoFar}";
 
+        var anamnesisModel = GetAnamnesisModel();
         var requestBody = new
         {
-            model = _config.Value?.Model ?? "gpt-4o",
+            model = anamnesisModel,
             messages = new object[]
             {
                 new { role = "system", content = (object)systemPrompt },
@@ -98,20 +113,20 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         client.Timeout = TimeSpan.FromSeconds(50);
 
         using var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
-        _logger.LogInformation("[Anamnese IA v2] Chamando OpenAI: model={Model}",
-            _config.Value?.Model ?? "gpt-4o");
+        _logger.LogInformation("[Anamnese IA v2] Chamando OpenAI: model={Model} (anamnese)",
+            anamnesisModel);
 
         var response = await client.PostAsync($"{ApiBaseUrl}/chat/completions", requestContent, cancellationToken);
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogWarning("[Anamnese IA v2] OpenAI error StatusCode={StatusCode}", response.StatusCode);
+            _logger.LogWarning("[Anamnese IA v2] OpenAI error StatusCode={StatusCode} model={Model}", response.StatusCode, anamnesisModel);
             try
             {
                 await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
                     serviceName: nameof(ConsultationAnamnesisService),
-                    modelName: _config.Value?.Model ?? "gpt-4o",
+                    modelName: anamnesisModel,
                     promptHash: promptHash,
                     success: false,
                     durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds,
@@ -185,7 +200,7 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             CopyArrayIfExists(root, enrichedObj, "perguntas_sugeridas");
             CopyArrayIfExists(root, enrichedObj, "lacunas_anamnese");
 
-            // Medicamentos and exames
+            // Medicamentos, exames e interações cruzadas
             var hasClinicalContext = HasClinicalContext(root);
             var medicamentosRaw = ParseMedicamentosSugeridosV2(root, hasClinicalContext);
             enrichedObj["medicamentos_sugeridos"] = medicamentosRaw;
@@ -193,19 +208,29 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             var examesRaw = ParseExamesSugeridosV2(root, hasClinicalContext);
             enrichedObj["exames_sugeridos"] = examesRaw;
 
+            CopyArrayIfExists(root, enrichedObj, "interacoes_cruzadas");
+
+            // ═══ FALLBACKS: garantir que dados nunca fiquem vazios ═══
+            EnsurePerguntasFallback(root, enrichedObj, transcriptSoFar);
+            EnsureSuggestionsFallback(root, enrichedObj, hasClinicalContext);
+
             var enrichedJson = "{" + string.Join(",", enrichedObj.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
 
             // Extract suggestions list
             var suggestions = ExtractSuggestions(root);
+            if (suggestions.Count == 0)
+            {
+                suggestions.Add("Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta.");
+            }
 
-            // Evidências PubMed
-            var evidence = await FetchAndTranslateEvidenceAsync(root, apiKey, cancellationToken);
+            // Evidências científicas multi-fonte
+            var evidence = await FetchAndTranslateEvidenceAsync(root, apiKey, cancellationToken, transcriptSoFar);
 
             try
             {
                 await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
                     serviceName: nameof(ConsultationAnamnesisService),
-                    modelName: _config.Value?.Model ?? "gpt-4o",
+                    modelName: anamnesisModel,
                     promptHash: promptHash,
                     success: true,
                     responseSummary: cleaned.Length > 500 ? cleaned[..500] : cleaned,
@@ -229,151 +254,302 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
     }
 
     /// <summary>
-    /// Prompt v2: muito mais rico em informações clínicas para o médico.
-    /// Inclui diagnóstico diferencial, CID validado, medicamentos com interações,
-    /// exames com TUSS, classificação de gravidade e orientações.
+    /// Prompt v3: modelo híbrido com dados ultra-completos.
+    /// Medicamentos 4-10, exames 4-12, perguntas 4-8, sugestões 3-7,
+    /// interações cruzadas obrigatórias, CID mais específico possível.
     /// </summary>
     private static string BuildSystemPromptV2()
     {
         return """
-Você é um assistente de apoio à consulta médica de ALTO NÍVEL, atuando como COPILOTO DO MÉDICO na plataforma RenoveJá+ (telemedicina brasileira).
-Toda saída é APENAS APOIO À DECISÃO CLÍNICA — a conduta final é exclusivamente do médico.
-Conformidade com CFM Resolução 2.299/2021 e normas éticas vigentes.
+Você é um COPILOTO CLÍNICO DE ELITE na plataforma RenoveJá+ (telemedicina brasileira).
+Toda saída é APOIO À DECISÃO CLÍNICA — conduta final exclusiva do médico.
+CFM Resolução 2.299/2021 e normas éticas vigentes.
 
-O transcript pode conter linhas prefixadas com [Médico] ou [Paciente].
+O transcript contém linhas [Médico] e [Paciente].
 
 Responda em um ÚNICO JSON válido, sem markdown, com EXATAMENTE estes campos:
 
 {
   "anamnesis": {
-    "queixa_principal": "Queixa e duração: [o que trouxe o paciente + há quanto tempo]. Seja específico: localização, intensidade (EVA 0-10 se aplicável), caráter da dor, irradiação.",
-    "historia_doenca_atual": "Evolução / anamnese: início, fatores de melhora/piora, tratamentos já tentados, cronologia dos eventos. Use formato OPQRST quando aplicável (Onset, Provocation, Quality, Region, Severity, Time).",
-    "sintomas": ["Lista de TODOS os sintomas em linguagem clínica objetiva, incluindo sintomas negativos relevantes (ex: 'nega febre', 'nega dispneia')"],
-    "revisao_sistemas": "Revisão de sistemas pertinente: cardiovascular, respiratório, gastrointestinal, neurológico, musculoesquelético, psiquiátrico — conforme relevância clínica",
-    "medicamentos_em_uso": ["Lista de medicamentos atuais com dose e frequência quando informados. Ex: 'Losartana 50mg 1x/dia'"],
-    "alergias": "Alergias conhecidas (medicamentos, alimentos, outros). Se nenhuma: 'NKDA (nega alergias conhecidas)'",
-    "antecedentes_pessoais": "Comorbidades, cirurgias, internações, hábitos (tabagismo, etilismo, atividade física)",
-    "antecedentes_familiares": "Histórico familiar relevante (DM, HAS, CA, DAC, AVC)",
-    "habitos_vida": "Tabagismo (maços/ano), etilismo, drogas, sedentarismo, dieta — quando mencionados",
-    "outros": "Qualquer informação adicional relevante não coberta acima"
+    "queixa_principal": "Queixa e duração com localização, intensidade (EVA 0-10), caráter, irradiação. Seja PRECISO.",
+    "historia_doenca_atual": "Evolução usando OPQRST (Onset, Provocation, Quality, Region, Severity, Time). Fatores de melhora/piora, tratamentos tentados, cronologia.",
+    "sintomas": ["TODOS os sintomas em linguagem clínica, incluindo negativos relevantes ('nega febre', 'nega dispneia')"],
+    "revisao_sistemas": "Revisão pertinente: cardiovascular, respiratório, GI, neurológico, musculoesquelético, psiquiátrico",
+    "medicamentos_em_uso": ["Medicamentos atuais com dose e frequência. Ex: 'Losartana 50mg 1x/dia'. ESSENCIAL para análise de interações."],
+    "alergias": "Alergias conhecidas. Se nenhuma: 'NKDA'",
+    "antecedentes_pessoais": "Comorbidades, cirurgias, internações, hábitos",
+    "antecedentes_familiares": "Histórico familiar: DM, HAS, CA, DAC, AVC",
+    "habitos_vida": "Tabagismo (maços/ano), etilismo, drogas, sedentarismo, dieta",
+    "outros": "Informação adicional relevante não coberta acima"
   },
 
-  "cid_sugerido": "OBRIGATÓRIO quando houver dados — Formato: 'CÓDIGO - Descrição completa'. Use APENAS códigos CID-10 VÁLIDOS (padrão OMS/SUS). Exemplos corretos: 'J06.9 - Infecção aguda das vias aéreas superiores, não especificada', 'M54.5 - Dor lombar baixa', 'K21.0 - Doença do refluxo gastroesofágico com esofagite'. NUNCA invente códigos. Se incerto, use o código mais genérico da subcategoria (ex: .9).",
+  "cid_sugerido": "OBRIGATÓRIO. Formato: 'CÓDIGO - Descrição'. Use o código MAIS ESPECÍFICO (subcategoria). Ex: 'J03.0 - Amigdalite estreptocócica' (não J06.9). Se incerto, use .9. NUNCA invente códigos.",
 
-  "confianca_cid": "alta | media | baixa — baseada na quantidade e qualidade dos dados clínicos disponíveis",
+  "confianca_cid": "alta | media | baixa",
 
   "diagnostico_diferencial": [
     {
-      "hipotese": "Diagnóstico mais provável",
-      "cid": "Código CID-10 — descrição",
+      "hipotese": "Nome da hipótese",
+      "cid": "CID-10 — descrição",
       "probabilidade": "alta | media | baixa",
-      "argumentos_a_favor": "Dados clínicos que suportam esta hipótese",
-      "argumentos_contra": "Dados que não se encaixam ou estão ausentes",
-      "exames_confirmatorios": "Exames que confirmariam/descartariam esta hipótese"
+      "argumentos_a_favor": "Dados que suportam",
+      "argumentos_contra": "Dados ausentes ou contra",
+      "exames_confirmatorios": "Exames que confirmariam/descartariam"
     }
   ],
 
-  "classificacao_gravidade": "verde | amarelo | laranja | vermelho — Protocolo Manchester simplificado. Verde: não urgente. Amarelo: pouco urgente. Laranja: urgente. Vermelho: emergência.",
+  "classificacao_gravidade": "verde | amarelo | laranja | vermelho (Manchester)",
 
-  "alertas_vermelhos": ["APENAS se houver base CLARA no transcript. Sinais de alarme que requerem ação IMEDIATA. Formato: 'SINAL — SIGNIFICADO CLÍNICO — AÇÃO SUGERIDA'. Ex: 'Dor torácica com irradiação para MSE + sudorese — Possível SCA — Encaminhar urgência/SAMU'"],
+  "alertas_vermelhos": ["APENAS com base CLARA no transcript. Formato: 'SINAL — SIGNIFICADO — AÇÃO'. Ex: 'Dor torácica + sudorese — SCA — SAMU'"],
 
-  "exame_fisico_dirigido": "O que o médico deve examinar nesta consulta: sinais vitais relevantes, manobras específicas, pontos de atenção. Ex: 'Ausculta pulmonar (crepitações basais?), FR, SpO2, temperatura. Sinal de Blumberg se dor abdominal.'",
+  "exame_fisico_dirigido": "O que examinar: sinais vitais, manobras, pontos de atenção.",
 
   "medicamentos_sugeridos": [
     {
-      "nome": "Nome genérico (DCB) com concentração. Ex: 'Amoxicilina 500mg'. Use SEMPRE o nome genérico oficial brasileiro.",
-      "classe_terapeutica": "Classificação farmacológica detalhada. Ex: 'Antibiótico β-lactâmico — Aminopenicilina de amplo espectro'",
-      "dose": "Dose por tomada com unidade. Ex: '500mg', '10mg/kg', '1g'",
-      "via": "VO | IM | IV | SC | Tópica | Inalatória | Retal | Sublingual | Nasal | Oftálmica",
-      "posologia": "Frequência detalhada. Ex: '8/8h por 7 dias', '12/12h antes das refeições', '1x/dia à noite'",
-      "duracao": "Tempo de tratamento. Ex: '7 dias', '14 dias', '30 dias', 'uso contínuo', '3 meses com reavaliação'",
-      "indicacao": "Justificativa clínica objetiva ligada ao quadro atual",
-      "contraindicacoes": "TODAS as contraindicações relevantes. Ex: 'Alergia a penicilinas, mononucleose, insuficiência hepática grave, gestação (cat. X)'",
-      "interacoes": "Interações medicamentosas com TODOS os medicamentos que o paciente já usa + interações graves conhecidas",
-      "alerta_faixa_etaria": "Ajuste de dose para idosos (>65a), crianças, gestantes/lactantes, nefropatas, hepatopatas. Vazio se não aplicável",
-      "alternativa": "Alternativa terapêutica completa. Ex: 'Azitromicina 500mg 1x/dia por 3 dias se alergia a penicilinas'"
+      "nome": "Genérico (DCB) + concentração. Ex: 'Amoxicilina 500mg'",
+      "classe_terapeutica": "Classificação farmacológica. Ex: 'Antibiótico β-lactâmico — Aminopenicilina'",
+      "dose": "Dose por tomada",
+      "via": "VO | IM | IV | SC | Tópica | Inalatória | Sublingual | Nasal",
+      "posologia": "Frequência. Ex: '8/8h por 7 dias'",
+      "duracao": "Ex: '7 dias', 'uso contínuo'",
+      "indicacao": "Justificativa clínica ligada ao caso",
+      "contraindicacoes": "Todas relevantes",
+      "interacoes": "Interações com TODOS medicamentos que o paciente JÁ USA + interações graves conhecidas. Se paciente usa Losartana → avaliar hipotensão com IECA. Sempre cruzar.",
+      "mecanismo_acao": "Como o medicamento atua. Ex: 'Inibe COX-1 e COX-2, reduzindo prostaglandinas → efeito analgésico/anti-inflamatório/antipirético'",
+      "ajuste_renal": "Ajuste se ClCr < 30, < 60. Vazio se não necessário",
+      "ajuste_hepatico": "Ajuste se insuficiência hepática. Vazio se não necessário",
+      "alerta_faixa_etaria": "Ajuste para idosos/crianças/gestantes/lactantes",
+      "alternativa": "Alternativa completa. Ex: 'Azitromicina 500mg 1x/dia 3 dias se alergia a penicilinas'"
+    }
+  ],
+
+  "interacoes_cruzadas": [
+    {
+      "medicamento_a": "Nome do medicamento A (pode ser em uso OU sugerido)",
+      "medicamento_b": "Nome do medicamento B (pode ser em uso OU sugerido)",
+      "tipo": "grave | moderada | leve",
+      "descricao": "Descrição da interação e consequência clínica. Ex: 'Metformina + Contraste iodado → risco de acidose lática. Suspender metformina 48h antes e após'",
+      "conduta": "O que fazer. Ex: 'Monitorar PA de perto', 'Espaçar doses em 2h', 'Contraindicação absoluta'"
     }
   ],
 
   "exames_sugeridos": [
     {
-      "nome": "Nome técnico completo. Ex: 'Hemograma completo com contagem de plaquetas', 'Proteína C-Reativa (PCR) quantitativa'",
-      "codigo_tuss": "Código TUSS/CBHPM quando conhecido. Ex: '40304361'. Vazio se não souber. Pesquise o código correto.",
-      "descricao": "O que é o exame — objetivo em 1-2 frases",
-      "o_que_afere": "O que mede/avalia — específico para ESTE caso. Ex: 'Identifica anemia, leucocitose (infecção), linfocitose (viral), trombocitopenia'",
-      "indicacao": "Justificativa clínica detalhada para ESTE paciente específico. Por que este exame é necessário AGORA.",
-      "preparo_paciente": "Preparo necessário detalhado. Ex: 'Jejum de 8-12h', 'Suspender metformina 48h antes se com contraste', 'Esvaziar bexiga antes do exame'. Vazio se não precisa",
-      "prazo_resultado": "Tempo estimado. Ex: '24-48h', '3-5 dias úteis', '7-10 dias (cultura)'",
-      "urgencia": "rotina | urgente — urgente se o resultado pode mudar a conduta imediata"
+      "nome": "Nome técnico completo",
+      "codigo_tuss": "Código TUSS/CBHPM quando conhecido. Vazio se não souber",
+      "descricao": "O que é o exame",
+      "o_que_afere": "O que mede — específico para ESTE caso",
+      "indicacao": "Justificativa para ESTE paciente AGORA",
+      "interpretacao_esperada": "O que se espera encontrar SE a hipótese principal estiver correta. Ex: 'Leucocitose >12.000 com desvio à esquerda sugere infecção bacteriana; PCR >10 corrobora'. FUNDAMENTAL para o médico.",
+      "preparo_paciente": "Preparo necessário. Vazio se não precisa",
+      "prazo_resultado": "Tempo estimado",
+      "urgencia": "rotina | urgente"
     }
   ],
 
-  "orientacoes_paciente": ["Orientações que o médico pode compartilhar com o paciente em linguagem acessível. Ex: 'Beber bastante água — pelo menos 2 litros por dia', 'Evitar alimentos gordurosos e cafeína', 'Repouso relativo por 3-5 dias'. 2-5 itens."],
+  "orientacoes_paciente": ["Orientações em linguagem acessível. 3-6 itens."],
 
-  "criterios_retorno": ["Sinais de alarme para o paciente procurar atendimento antes do retorno. Em linguagem acessível. Ex: 'Se a febre passar de 39°C ou não melhorar em 48h', 'Se tiver falta de ar ou dor no peito'. 2-4 itens."],
+  "criterios_retorno": ["Sinais de alarme para o paciente. 2-5 itens."],
 
   "perguntas_sugeridas": [
     {
-      "pergunta": "Pergunta ESPECÍFICA E DIRETA que o médico deveria fazer ao paciente AGORA. Escrita na 2ª pessoa, linguagem natural conversacional. Deve ser a pergunta que MAIS MUDA a conduta neste momento. Ex: 'Essa dor piora quando você respira fundo ou quando tosse?', 'Você está sentindo falta de ar quando faz esforço ou mesmo parado?'",
-      "objetivo": "EXATAMENTE o que essa pergunta confirma ou descarta. Ex: 'Diferencia dor pleurítica (sim → investigar pneumonia/TEP) de dor muscular (não → osteomuscular). Muda necessidade de raio-X de tórax.'",
-      "hipoteses_afetadas": "Mapa decisório claro: 'Se SIM → favorece J18.9 (Pneumonia), solicitar RX tórax PA/perfil + hemograma. Se NÃO → favorece M54.5 (Lombalgia), AINE + repouso'",
-      "prioridade": "alta | media | baixa — alta = RED FLAG ou muda conduta imediata; media = refina entre diagnósticos diferenciais; baixa = complementar/seguimento"
+      "pergunta": "Pergunta DIRETA em 2ª pessoa, linguagem natural. A que MAIS MUDA A CONDUTA agora.",
+      "objetivo": "O que confirma/descarta. Ex: 'Diferencia pleurítica de muscular → muda RX'",
+      "hipoteses_afetadas": "Mapa decisório: 'Se SIM → J18.9, RX tórax. Se NÃO → M54.5, AINE'",
+      "impacto_na_conduta": "Detalhamento: o que muda na prescrição/encaminhamento se sim vs não",
+      "prioridade": "alta | media | baixa"
     }
   ],
 
-  "lacunas_anamnese": ["Informações ESSENCIAIS que ainda FALTAM na anamnese e que o médico deveria obter. Diferente de perguntas_sugeridas: aqui é o que está FALTANDO, não perguntas específicas. Ex: 'Não informou alergias medicamentosas', 'Falta história pregressa de cirurgias', 'Não mencionou se está grávida ou amamentando'. 2-5 itens. Array vazio se anamnese estiver completa."],
+  "lacunas_anamnese": ["Informações ESSENCIAIS faltando. 2-5 itens. Array vazio se completa."],
 
-  "suggestions": ["Até 5 frases em formato clínico para prontuário. Inclua: hipótese diagnóstica principal, diagnósticos diferenciais, conduta geral, orientações de seguimento. Ex: 'HD: J06.9 - IVAS. DD: J03.9 (Amigdalite), J01.9 (Sinusite). Conduta: Analgesia + repouso. Retorno em 7 dias ou se piora.'"]
+  "suggestions": ["3-7 frases para prontuário. HD principal, DD, conduta, seguimento."]
 }
 
-REGRAS SOBRE PERGUNTAS SUGERIDAS (estilo "Akinator clínico"):
-- SEMPRE gere 3-6 perguntas, priorizadas por impacto diagnóstico
-- As perguntas devem ser SEQUENCIAIS: a mais importante primeiro (a que mais muda a conduta)
-- Perguntas devem soar NATURAIS, como o médico falaria em consulta (2ª pessoa, linguagem coloquial médica)
-- NÃO repita perguntas sobre informações que JÁ ESTÃO no transcript (o paciente já respondeu)
-- Cada pergunta DEVE ter um MAPA DECISÓRIO CLARO: "Se SIM → conduta X. Se NÃO → conduta Y"
-- Tipo "árvore de decisão": se o paciente respondeu X, as próximas perguntas refinam nessa direção
-- CATEGORIAS de perguntas (use mix):
-  * RED FLAGS: perguntas que identificam emergência (sempre prioridade alta)
-  * DISCRIMINATÓRIAS: diferenciam entre diagnósticos do diferencial (prioridade alta/média)
-  * TEMPORAIS: cronologia, evolução, padrão de sintomas (prioridade média)
-  * FUNCIONAIS: impacto na vida diária, limitações (prioridade média)
-  * COMPLEMENTARES: hábitos, alergias, medicamentos atuais que faltam (prioridade baixa)
-- Exemplos:
-  * "Essa dor vai para o braço esquerdo, mandíbula ou costas?" (SCA → SAMU vs DRGE → IBP)
-  * "A tosse é seca ou com catarro? Se catarro, que cor: transparente, amarela ou esverdeada?" (viral vs bacteriano → ATB?)
-  * "Você está fazendo xixi normal? Quantidade, cor, arde?" (ITU, nefropatia, desidratação)
-  * "Está conseguindo comer e beber normalmente? Perdeu peso recentemente?" (gravidade, desidratação, CA)
-  * "Alguém da família teve algo parecido recentemente?" (surto viral, exposição)
+═══ REGRAS OBRIGATÓRIAS DE COMPLETUDE ═══
 
-REGRAS SOBRE LACUNAS:
-- Liste APENAS informações clinicamente relevantes que estão faltando
-- Priorize: alergias > medicamentos em uso > antecedentes > gestação/amamentação > hábitos
-- Se o paciente já deu informação suficiente para uma anamnese completa, retorne array vazio
+MEDICAMENTOS (OBRIGATÓRIO 4-10, NUNCA menos de 4):
+- Tratamento ETIOLÓGICO (ex: antibiótico se infeccioso, antiviral se viral)
+- Tratamento SINTOMÁTICO (analgésico, antitérmico, antiemético, antidiarreico)
+- Tratamento ADJUVANTE (protetor gástrico se AINE, probiótico se ATB, antihistamínico se necessário)
+- PROFILAXIA quando indicada (vacina, profilaxia VTE, profilaxia de stress ulcer)
+- Campo "mecanismo_acao" OBRIGATÓRIO — como o fármaco age
+- Campos "ajuste_renal" e "ajuste_hepatico" — preencher quando houver necessidade
+- SEMPRE cruze interações com medicamentos_em_uso do paciente
+- Se transcript < 200 caracteres mas há queixa identificável, sugira medicamentos SINTOMÁTICOS básicos (analgésico, antitérmico)
 
-REGRAS OBRIGATÓRIAS:
-1. NUNCA invente informações que não estejam no transcript
-2. CID-10: use APENAS códigos válidos da classificação OFICIAL OMS. Use o código MAIS ESPECÍFICO possível (ex: J03.0 em vez de J06.9 se amigdalite estreptocócica). Na dúvida, use .9 (não especificado). SEMPRE inclua a descrição completa após o código.
-3. Diagnóstico diferencial: SEMPRE 2-4 hipóteses quando houver dados mínimos (queixa + 1 dado clínico). Inclua o mais provável E o mais grave (mesmo que improvável).
-4. Medicamentos: SEMPRE 3-8 medicamentos com TODOS os campos preenchidos. Inclua:
-   - Tratamento ETIOLÓGICO (ex: antibiótico se infeccioso)
-   - Tratamento SINTOMÁTICO (analgésico, antitérmico, antiemético)
-   - Tratamento ADJUVANTE (protetor gástrico se AINE, probiótico se ATB)
-   - PROFILAXIA se indicada
-   Prefira genéricos (DCB). SEMPRE inclua contraindicações e interações com medicamentos que o paciente já usa.
-5. Exames: SEMPRE 3-10 exames com TODOS os campos. Organize por CATEGORIAS:
-   - LABORATORIAIS BÁSICOS: hemograma, PCR/VHS, glicemia, ureia, creatinina, eletrólitos, TGO/TGP, EAS
-   - LABORATORIAIS ESPECÍFICOS: conforme hipótese (TSH, HbA1c, sorologias, culturas, marcadores tumorais)
-   - IMAGEM: RX, USG, TC, RM — conforme indicação clínica
-   - FUNCIONAIS: ECG, espirometria, audiometria — conforme indicação
-   Inclua TUSS quando souber. Justifique CADA exame para ESTE paciente.
-6. Se algum campo não tiver dados, use string vazia "" ou array vazio []
-7. Classificação de gravidade: SEMPRE preencha baseado nos dados disponíveis
-8. Alertas vermelhos: APENAS quando fundamentados no transcript — nunca suponha
-9. Seja OBJETIVO e use terminologia médica adequada
-10. Responda APENAS o JSON, sem texto antes ou depois
-11. Perguntas sugeridas: SEMPRE 3-6, priorizadas por impacto. NÃO repita o que o paciente já disse. Cada uma com mapa decisório claro.
+INTERAÇÕES CRUZADAS (OBRIGATÓRIO se paciente usa ≥1 medicamento):
+- Avaliar TODOS os pares: medicamento_em_uso × medicamento_sugerido E medicamento_sugerido × medicamento_sugerido
+- Classificar como grave/moderada/leve
+- Incluir conduta para cada interação
+- Se nenhuma interação relevante, retornar array vazio []
+
+EXAMES (OBRIGATÓRIO 4-12, NUNCA menos de 4):
+- LABORATORIAIS BÁSICOS: hemograma, PCR/VHS, glicemia, ureia/creatinina, eletrólitos, TGO/TGP, EAS
+- LABORATORIAIS ESPECÍFICOS: conforme hipótese (TSH, HbA1c, sorologias, culturas, marcadores)
+- IMAGEM: RX, USG, TC, RM conforme indicação
+- FUNCIONAIS: ECG, espirometria conforme indicação
+- Campo "interpretacao_esperada" OBRIGATÓRIO — o que o médico deve esperar se hipótese correta
+- Exames devem cobrir TODAS as hipóteses do diferencial
+- Se transcript < 200 chars, inclua exames BÁSICOS de triagem (hemograma, glicemia, ureia, creatinina, EAS)
+
+PERGUNTAS SUGERIDAS (OBRIGATÓRIO 4-8, NUNCA vazio):
+- Estilo "Akinator clínico": a mais importante primeiro
+- Campo "impacto_na_conduta" OBRIGATÓRIO: detalhe o que muda se SIM vs NÃO
+- Prioridade: RED FLAGS > discriminatórias > temporais > funcionais > complementares
+- NÃO repetir o que o paciente já disse no transcript
+- Se transcript < 200 chars, gere perguntas de ABERTURA:
+  1. "Qual é a sua queixa principal? O que está sentindo?"
+  2. "Há quanto tempo está com isso?"
+  3. "De 0 a 10, qual a intensidade?"
+  4. "Está tomando algum remédio atualmente?"
+  5. "Tem alergia a algum medicamento?"
+  6. "Já teve alguma cirurgia ou internação?"
+
+SUGESTÕES (OBRIGATÓRIO 3-7, NUNCA vazio):
+- Mesmo com poucos dados, gere sugestões parciais: "HD provável: ... (dados limitados, aguardando mais informações)"
+- Inclua: hipótese principal + diferenciais + conduta inicial + seguimento
+- Se transcript < 200 chars: "Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta"
+
+CID (MÁXIMA ASSERTIVIDADE):
+- Use o código MAIS ESPECÍFICO possível com subcategoria
+- SEMPRE inclua 2-4 CIDs nos diferenciais
+- Confira que o código existe na CID-10 OMS
+
+═══ REGRAS GERAIS ═══
+1. NUNCA invente informações ausentes no transcript
+2. Responda APENAS o JSON, sem texto antes ou depois
+3. Se algum campo não tiver dados, use "" ou []
+4. Classificação de gravidade: SEMPRE preencha
+5. Alertas vermelhos: APENAS quando fundamentados
+6. Terminologia médica adequada e objetiva
 """;
+    }
+
+    // ── Fallbacks: dados nunca vazios ──
+
+    private static void EnsurePerguntasFallback(JsonElement root, Dictionary<string, object> enrichedObj, string? transcriptSoFar)
+    {
+        var hasPerguntas = false;
+        if (root.TryGetProperty("perguntas_sugeridas", out var pEl) && pEl.ValueKind == JsonValueKind.Array && pEl.GetArrayLength() > 0)
+            hasPerguntas = true;
+
+        if (hasPerguntas) return;
+
+        var isEarlyConsultation = string.IsNullOrWhiteSpace(transcriptSoFar) || transcriptSoFar!.Length < 200;
+        List<object> fallback;
+
+        if (isEarlyConsultation)
+        {
+            fallback = new List<object>
+            {
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Qual é a sua queixa principal? O que está sentindo?",
+                    ["objetivo"] = "Identificar motivo da consulta para direcionar anamnese",
+                    ["hipoteses_afetadas"] = "Define o eixo diagnóstico principal",
+                    ["impacto_na_conduta"] = "Determina toda a linha de investigação subsequente",
+                    ["prioridade"] = "alta"
+                },
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Há quanto tempo está com isso? Começou de repente ou foi piorando aos poucos?",
+                    ["objetivo"] = "Estabelecer cronologia — agudo vs crônico muda a conduta",
+                    ["hipoteses_afetadas"] = "Agudo favorece infecção/trauma; crônico favorece degenerativo/metabólico",
+                    ["impacto_na_conduta"] = "Agudo pode requerer urgência; crônico permite investigação programada",
+                    ["prioridade"] = "alta"
+                },
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "De 0 a 10, qual a intensidade do que está sentindo? Interfere nas suas atividades do dia a dia?",
+                    ["objetivo"] = "Quantificar gravidade (EVA) e impacto funcional",
+                    ["hipoteses_afetadas"] = "Intensidade alta sugere investigação urgente",
+                    ["impacto_na_conduta"] = "EVA ≥7 pode indicar analgesia mais potente e exames de imagem",
+                    ["prioridade"] = "alta"
+                },
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Está tomando algum remédio atualmente? Qual, dose e há quanto tempo?",
+                    ["objetivo"] = "Mapear farmacoterapia atual para avaliar interações e ajustes",
+                    ["hipoteses_afetadas"] = "Medicamentos em uso influenciam diagnóstico diferencial e prescrição",
+                    ["impacto_na_conduta"] = "Evita interações medicamentosas e duplicações terapêuticas",
+                    ["prioridade"] = "media"
+                },
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Tem alergia a algum medicamento, alimento ou substância?",
+                    ["objetivo"] = "Prevenir reações adversas na prescrição",
+                    ["hipoteses_afetadas"] = "Restringe opções farmacológicas",
+                    ["impacto_na_conduta"] = "Muda escolha do medicamento (ex: alergia penicilina → macrolídeo)",
+                    ["prioridade"] = "media"
+                }
+            };
+        }
+        else
+        {
+            fallback = new List<object>
+            {
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Além do que já me contou, tem sentido mais algum sintoma que não mencionou?",
+                    ["objetivo"] = "Capturar sintomas não relatados espontaneamente",
+                    ["hipoteses_afetadas"] = "Novos sintomas podem alterar diagnóstico diferencial",
+                    ["impacto_na_conduta"] = "Pode revelar red flags ou alterar a hipótese principal",
+                    ["prioridade"] = "media"
+                },
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Já teve algum episódio parecido antes? Precisou ir ao hospital?",
+                    ["objetivo"] = "Identificar recorrência e gravidade prévia",
+                    ["hipoteses_afetadas"] = "Recorrência sugere doença crônica; hospitalização prévia indica gravidade",
+                    ["impacto_na_conduta"] = "Recorrência pode indicar necessidade de investigação mais profunda",
+                    ["prioridade"] = "media"
+                },
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Na sua família, alguém tem problemas de saúde crônicos como diabetes, pressão alta ou câncer?",
+                    ["objetivo"] = "Avaliar predisposição genética/familiar",
+                    ["hipoteses_afetadas"] = "Antecedentes familiares alteram probabilidade de várias hipóteses",
+                    ["impacto_na_conduta"] = "Pode indicar rastreamento precoce ou exames adicionais",
+                    ["prioridade"] = "baixa"
+                },
+                new Dictionary<string, string>
+                {
+                    ["pergunta"] = "Está dormindo bem? Sentiu mudanças no apetite, humor ou energia ultimamente?",
+                    ["objetivo"] = "Rastrear componente psicossomático/psiquiátrico",
+                    ["hipoteses_afetadas"] = "Alterações sugerem depressão, ansiedade ou doença sistêmica",
+                    ["impacto_na_conduta"] = "Pode adicionar abordagem psiquiátrica/psicológica ao plano",
+                    ["prioridade"] = "baixa"
+                }
+            };
+        }
+
+        enrichedObj["perguntas_sugeridas"] = JsonSerializer.Serialize(fallback, JsonOptions);
+    }
+
+    private static void EnsureSuggestionsFallback(JsonElement root, Dictionary<string, object> enrichedObj, bool hasClinicalContext)
+    {
+        var hasSuggestions = false;
+        if (root.TryGetProperty("suggestions", out var sEl) && sEl.ValueKind == JsonValueKind.Array && sEl.GetArrayLength() > 0)
+            hasSuggestions = true;
+
+        if (hasSuggestions) return;
+
+        var fallbackSuggestions = hasClinicalContext
+            ? new List<string>
+            {
+                "Avaliação inicial realizada — refinar hipótese diagnóstica com exames complementares.",
+                "Solicitar exames laboratoriais básicos para diagnóstico diferencial.",
+                "Reavaliar em 7-14 dias ou antes se piora dos sintomas."
+            }
+            : new List<string>
+            {
+                "Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta.",
+                "Continuar coleta de dados: queixa, duração, intensidade, medicamentos em uso, alergias.",
+                "Sugestões completas serão geradas conforme a consulta evolui."
+            };
+
+        enrichedObj["suggestions_fallback"] = JsonSerializer.Serialize(fallbackSuggestions, JsonOptions);
     }
 
     // ── Helpers ──
@@ -447,6 +623,9 @@ REGRAS OBRIGATÓRIAS:
                         ["indicacao"] = GetStr(item, "indicacao"),
                         ["contraindicacoes"] = GetStr(item, "contraindicacoes"),
                         ["interacoes"] = GetStr(item, "interacoes"),
+                        ["mecanismo_acao"] = GetStr(item, "mecanismo_acao"),
+                        ["ajuste_renal"] = GetStr(item, "ajuste_renal"),
+                        ["ajuste_hepatico"] = GetStr(item, "ajuste_hepatico"),
                         ["alerta_faixa_etaria"] = GetStr(item, "alerta_faixa_etaria"),
                         ["alternativa"] = GetStr(item, "alternativa")
                     });
@@ -459,8 +638,9 @@ REGRAS OBRIGATÓRIAS:
                         {
                             ["nome"] = str.Trim(), ["classe_terapeutica"] = "", ["dose"] = "",
                             ["via"] = "", ["posologia"] = "", ["duracao"] = "", ["indicacao"] = "",
-                            ["contraindicacoes"] = "", ["interacoes"] = "", ["alerta_faixa_etaria"] = "",
-                            ["alternativa"] = ""
+                            ["contraindicacoes"] = "", ["interacoes"] = "", ["mecanismo_acao"] = "",
+                            ["ajuste_renal"] = "", ["ajuste_hepatico"] = "",
+                            ["alerta_faixa_etaria"] = "", ["alternativa"] = ""
                         });
                 }
             }
@@ -496,6 +676,7 @@ REGRAS OBRIGATÓRIAS:
                         ["descricao"] = GetStr(item, "descricao"),
                         ["o_que_afere"] = GetStr(item, "o_que_afere"),
                         ["indicacao"] = GetStr(item, "indicacao"),
+                        ["interpretacao_esperada"] = GetStr(item, "interpretacao_esperada"),
                         ["preparo_paciente"] = GetStr(item, "preparo_paciente"),
                         ["prazo_resultado"] = GetStr(item, "prazo_resultado"),
                         ["urgencia"] = GetStr(item, "urgencia")
@@ -508,8 +689,8 @@ REGRAS OBRIGATÓRIAS:
                         examsList.Add(new Dictionary<string, object>
                         {
                             ["nome"] = str.Trim(), ["codigo_tuss"] = "", ["descricao"] = "",
-                            ["o_que_afere"] = "", ["indicacao"] = "", ["preparo_paciente"] = "",
-                            ["prazo_resultado"] = "", ["urgencia"] = "rotina"
+                            ["o_que_afere"] = "", ["indicacao"] = "", ["interpretacao_esperada"] = "",
+                            ["preparo_paciente"] = "", ["prazo_resultado"] = "", ["urgencia"] = "rotina"
                         });
                 }
             }
@@ -626,7 +807,8 @@ REGRAS OBRIGATÓRIAS:
     private async Task<IReadOnlyList<EvidenceItemDto>> FetchAndTranslateEvidenceAsync(
         JsonElement root,
         string apiKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? transcriptSoFar = null)
     {
         try
         {
@@ -638,7 +820,7 @@ REGRAS OBRIGATÓRIAS:
             if (rawEvidence.Count == 0)
                 return rawEvidence;
 
-            return await ExtractRelevantEvidenceAsync(rawEvidence, root, apiKey, cancellationToken);
+            return await ExtractRelevantEvidenceAsync(rawEvidence, root, apiKey, cancellationToken, transcriptSoFar);
         }
         catch (Exception ex)
         {
@@ -693,44 +875,68 @@ REGRAS OBRIGATÓRIAS:
         IReadOnlyList<EvidenceItemDto> items,
         JsonElement root,
         string apiKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? transcriptSoFar = null)
     {
         if (items.Count == 0)
             return items;
 
         var context = BuildClinicalContextForPrompt(root);
+
+        var transcriptBlock = "";
+        if (!string.IsNullOrWhiteSpace(transcriptSoFar))
+        {
+            var trimmed = transcriptSoFar.Length > 1500 ? transcriptSoFar[^1500..] : transcriptSoFar;
+            transcriptBlock = $"\n\nRESUMO DO QUE O PACIENTE DISSE (últimas falas):\n{trimmed}";
+        }
+
         var articlesBlock = string.Join("\n\n---\n\n",
             items.Select((e, i) => $"[{i}]\nTítulo: {e.Title}\nAbstract: {e.Abstract}"));
 
         var prompt = """
-Você é um assistente de apoio ao diagnóstico médico. O médico precisa de EMBASAMENTO CIENTÍFICO SÓLIDO.
+Você é um especialista em MEDICINA BASEADA EM EVIDÊNCIAS para a plataforma RenoveJá+.
+O médico precisa de EMBASAMENTO CIENTÍFICO SÓLIDO e CONTEXTUALIZADO ao paciente.
 
 CONTEXTO CLÍNICO DO PACIENTE:
-""" + context + """
+""" + context + transcriptBlock + """
 
 ARTIGOS (abstracts em inglês):
 """ + articlesBlock + """
 
-Para CADA artigo [0], [1], etc.:
-1. Selecione 2-4 trechos relevantes (critérios diagnósticos, evidências de tratamento, guidelines)
-2. Traduza os trechos para português brasileiro
-3. RELEVÂNCIA CLÍNICA (2-4 frases): como este artigo embasa a decisão, nível de evidência, aplicabilidade
+Para CADA artigo [0], [1], etc., analise com RIGOR:
+
+1. RELEVÂNCIA: Este artigo se aplica ao quadro DESTE paciente? Considere diagnóstico, sintomas, perfil.
+2. Se RELEVANTE:
+   - Extraia 2-4 trechos-chave (critérios diagnósticos, evidências de tratamento, guidelines, dados de eficácia)
+   - Traduza para português brasileiro
+   - Explique a CONEXÃO COM O PACIENTE (1-2 frases: por que este artigo importa para ESTE caso específico)
+   - Classifique o NÍVEL DE EVIDÊNCIA (I=meta-análise/RCT, II=coorte, III=caso-controle, IV=série de casos, V=opinião expert)
+3. Se IRRELEVANTE: marque como irrelevante (será filtrado)
 
 Responda APENAS um JSON válido:
 [
-  { "excerpts": ["trecho1 traduzido", "trecho2"], "clinicalRelevance": "Explicação..." },
+  {
+    "relevant": true,
+    "excerpts": ["trecho1 traduzido", "trecho2"],
+    "clinicalRelevance": "Explicação de como embasa a decisão...",
+    "conexao_com_paciente": "Por que este artigo é relevante PARA ESTE PACIENTE: [relação direta com o que foi dito/apresentado]",
+    "nivel_evidencia": "I | II | III | IV | V",
+    "motivo_selecao": "Em 1 frase: por que este artigo foi escolhido entre tantos"
+  },
+  { "relevant": false, "excerpts": [], "clinicalRelevance": "", "conexao_com_paciente": "", "nivel_evidencia": "", "motivo_selecao": "" },
   ...
 ]
-Se irrelevante: excerpts: [], clinicalRelevance: "Pouca relevância direta."
 Apenas JSON, sem markdown.
 """;
 
+        var evidenceModel = GetEvidenceModel();
+        _logger.LogInformation("[Evidências IA] Chamando OpenAI: model={Model} (evidências)", evidenceModel);
         var requestBody = new
         {
-            model = _config.Value?.Model ?? "gpt-4o",
+            model = evidenceModel,
             messages = new object[] { new { role = "user", content = (object)prompt } },
             max_tokens = 4000,
-            temperature = 0.2
+            temperature = 0.15
         };
 
         var json = JsonSerializer.Serialize(requestBody, JsonOptions);
@@ -771,12 +977,34 @@ Apenas JSON, sem markdown.
                 if (el.TryGetProperty("clinicalRelevance", out var relEl))
                     relevance = relEl.GetString()?.Trim() ?? "";
 
+                var isRelevant = true;
+                if (el.TryGetProperty("relevant", out var relFlag) && relFlag.ValueKind == JsonValueKind.False)
+                    isRelevant = false;
+                if (!isRelevant && excerpts.Count == 0)
+                {
+                    idx++;
+                    continue;
+                }
+
+                var conexao = "";
+                if (el.TryGetProperty("conexao_com_paciente", out var conEl))
+                    conexao = conEl.GetString()?.Trim() ?? "";
+                var nivelEvidencia = "";
+                if (el.TryGetProperty("nivel_evidencia", out var nivEl))
+                    nivelEvidencia = nivEl.GetString()?.Trim() ?? "";
+                var motivoSelecao = "";
+                if (el.TryGetProperty("motivo_selecao", out var motEl))
+                    motivoSelecao = motEl.GetString()?.Trim() ?? "";
+
                 result.Add(new EvidenceItemDto(
                     item.Title, item.Abstract, item.Source,
                     TranslatedAbstract: excerpts.Count > 0 ? string.Join("\n\n", excerpts) : null,
                     RelevantExcerpts: excerpts.Count > 0 ? excerpts : null,
                     ClinicalRelevance: !string.IsNullOrEmpty(relevance) ? relevance : null,
-                    Provider: item.Provider, Url: item.Url));
+                    Provider: item.Provider, Url: item.Url,
+                    ConexaoComPaciente: !string.IsNullOrEmpty(conexao) ? conexao : null,
+                    NivelEvidencia: !string.IsNullOrEmpty(nivelEvidencia) ? nivelEvidencia : null,
+                    MotivoSelecao: !string.IsNullOrEmpty(motivoSelecao) ? motivoSelecao : null));
                 idx++;
             }
             return result;

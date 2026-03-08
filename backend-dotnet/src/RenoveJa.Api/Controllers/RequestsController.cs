@@ -263,7 +263,7 @@ public class RequestsController(
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        pageSize = Math.Clamp(pageSize, 1, 500);
         if (page < 1) page = 1;
         var userId = GetUserId();
         logger.LogInformation("[GetRequests] GET /api/requests userId={UserId} (from token), page={Page}, pageSize={PageSize}", userId, page, pageSize);

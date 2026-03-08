@@ -1021,29 +1021,30 @@ public class PaymentServiceFullTests
             .ReturnsAsync(payment);
 
         var result = await _sut.GetPaymentAsync(payment.Id, userId);
-        result.Amount.Should().Be(100);
+        result.Should().NotBeNull();
+        result!.Amount.Should().Be(100);
         result.UserId.Should().Be(userId);
     }
 
     [Fact]
-    public async Task GetPaymentAsync_ShouldThrow_WhenNotOwner()
+    public async Task GetPaymentAsync_ShouldReturnNull_WhenNotOwner()
     {
         var payment = Payment.CreatePixPayment(Guid.NewGuid(), Guid.NewGuid(), 100);
         _paymentRepoMock.Setup(r => r.GetByIdAsync(payment.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(payment);
 
-        Func<Task> act = () => _sut.GetPaymentAsync(payment.Id, Guid.NewGuid());
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        var result = await _sut.GetPaymentAsync(payment.Id, Guid.NewGuid());
+        result.Should().BeNull();
     }
 
     [Fact]
-    public async Task GetPaymentAsync_ShouldThrow_WhenNotFound()
+    public async Task GetPaymentAsync_ShouldReturnNull_WhenNotFound()
     {
         _paymentRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Payment?)null);
 
-        Func<Task> act = () => _sut.GetPaymentAsync(Guid.NewGuid(), Guid.NewGuid());
-        await act.Should().ThrowAsync<KeyNotFoundException>();
+        var result = await _sut.GetPaymentAsync(Guid.NewGuid(), Guid.NewGuid());
+        result.Should().BeNull();
     }
 
     [Fact]

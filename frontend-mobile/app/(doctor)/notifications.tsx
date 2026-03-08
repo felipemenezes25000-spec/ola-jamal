@@ -19,7 +19,7 @@ import type { DesignColors } from '../../lib/designSystem';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
+import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
@@ -232,29 +232,23 @@ export default function DoctorNotifications() {
         </View>
       </LinearGradient>
 
-      <TopSummaryStrip
-        compact
-        items={[
-          { label: 'Total', value: notifications.length },
-          { label: 'Não lidas', value: unreadCount },
-          { label: 'Pagamentos', value: categoryCounts.payment },
-        ]}
-      />
-
-      <AppSegmentedControl
-        items={[
-          { key: 'all', label: 'Todos', count: notifications.length },
-          { key: 'payment', label: 'Pagamentos', count: categoryCounts.payment },
-          { key: 'new_request', label: 'Solicitações', count: categoryCounts.new_request },
-          { key: 'other', label: 'Outros', count: categoryCounts.other },
-        ]}
-        value={activeFilter}
-        onValueChange={(value) => {
-          haptics.selection();
-          setActiveFilter(value as 'all' | AlertCategory);
-        }}
-        size="sm"
-      />
+      <View style={styles.contentSection}>
+        <AppSegmentedControl
+          items={[
+            { key: 'all', label: 'Todos', count: notifications.length },
+            { key: 'payment', label: 'Pagamentos', count: categoryCounts.payment },
+            { key: 'new_request', label: 'Solicitações', count: categoryCounts.new_request },
+            { key: 'other', label: 'Outros', count: categoryCounts.other },
+          ]}
+          value={activeFilter}
+          onValueChange={(value) => {
+            haptics.selection();
+            setActiveFilter(value as 'all' | AlertCategory);
+          }}
+          size="sm"
+          scrollable
+        />
+      </View>
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -314,13 +308,10 @@ function makeStyles(colors: DesignColors) {
     marginTop: 4,
     letterSpacing: 0.2,
   },
-  categoryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: doctorDS.screenPaddingHorizontal,
+  contentSection: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
   },
   categoryChip: {
     backgroundColor: colors.primarySoft,
@@ -343,6 +334,7 @@ function makeStyles(colors: DesignColors) {
   markAllText: { fontSize: 12, fontFamily: typography.fontFamily.bold, color: colors.white, fontWeight: '700', letterSpacing: 0.2 },
   listContent: {
     paddingHorizontal: doctorDS.screenPaddingHorizontal,
+    paddingTop: spacing.sm,
   },
   card: {
     flexDirection: 'row',
@@ -364,26 +356,33 @@ function makeStyles(colors: DesignColors) {
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: spacing.md,
+    flexShrink: 0,
   },
-  cardBody: { flex: 1, minWidth: 0 },
+  cardBody: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
   cardTitle: { fontSize: 14, fontFamily: typography.fontFamily.semibold, fontWeight: '600', color: colors.text },
   cardTitleUnread: { fontWeight: '700' },
   cardMessage: { fontSize: 13, fontFamily: typography.fontFamily.regular, color: colors.textSecondary, marginTop: 2, lineHeight: 18 },
   cardTime: { fontSize: 12, fontFamily: typography.fontFamily.regular, color: colors.textMuted, marginTop: 4 },
   unreadDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: 4,
     backgroundColor: colors.primary,
     marginLeft: spacing.sm,
+    flexShrink: 0,
+    alignSelf: 'center',
   },
   groupLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.textMuted,
     letterSpacing: 0.2,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
   sectionGap: { height: spacing.sm },

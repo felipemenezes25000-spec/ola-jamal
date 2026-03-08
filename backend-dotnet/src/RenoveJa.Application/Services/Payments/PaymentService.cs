@@ -370,19 +370,16 @@ public class PaymentService(
     }
 
     /// <summary>
-    /// Obtém um pagamento pelo ID.
+    /// Obtém um pagamento pelo ID. Retorna null se não encontrado ou se o usuário não for o dono.
     /// </summary>
-    public async Task<PaymentResponseDto> GetPaymentAsync(
+    public async Task<PaymentResponseDto?> GetPaymentAsync(
         Guid id,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
         var payment = await paymentRepository.GetByIdAsync(id, cancellationToken);
-        if (payment == null)
-            throw new KeyNotFoundException("Payment not found");
-
-        if (payment.UserId != userId)
-            throw new UnauthorizedAccessException("Somente o dono do pagamento pode acessá-lo");
+        if (payment == null || payment.UserId != userId)
+            return null;
 
         return MapToDto(payment);
     }

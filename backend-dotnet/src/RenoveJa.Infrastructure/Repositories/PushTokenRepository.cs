@@ -56,6 +56,33 @@ public class PushTokenRepository(SupabaseClient supabase) : IPushTokenRepository
         return MapToDomain(created);
     }
 
+    public async Task<PushToken> RegisterOrUpdateAsync(PushToken pushToken, CancellationToken cancellationToken = default)
+    {
+        var encodedToken = Uri.EscapeDataString(pushToken.Token);
+        var filter = $"user_id=eq.{pushToken.UserId}&token=eq.{encodedToken}";
+        var existing = await supabase.GetSingleAsync<PushTokenModel>(
+            TableName,
+            filter: filter,
+            cancellationToken: cancellationToken);
+
+        if (existing != null)
+        {
+            var updated = await supabase.UpdateAsync<PushTokenModel>(
+                TableName,
+                filter,
+                new { active = true },
+                cancellationToken);
+            return MapToDomain(updated);
+        }
+
+        var model = MapToModel(pushToken);
+        var created = await supabase.InsertAsync<PushTokenModel>(
+            TableName,
+            model,
+            cancellationToken);
+        return MapToDomain(created);
+    }
+
     public async Task DeleteByTokenAsync(string token, Guid userId, CancellationToken cancellationToken = default)
     {
         // Token (ExponentPushToken[xxx]) contém [ ] que quebram o filtro na URL se não codificados

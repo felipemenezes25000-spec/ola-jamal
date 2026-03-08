@@ -12,7 +12,10 @@ public interface IPaymentService
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task<PaymentResponseDto> GetPaymentAsync(
+    /// <summary>
+    /// Obtém um pagamento pelo ID. Retorna null se não encontrado ou se o usuário não for o dono.
+    /// </summary>
+    Task<PaymentResponseDto?> GetPaymentAsync(
         Guid id,
         Guid userId,
         CancellationToken cancellationToken = default);

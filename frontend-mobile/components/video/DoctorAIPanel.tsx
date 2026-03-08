@@ -22,12 +22,13 @@ type MedSugerido = string | {
   nome: string; classe_terapeutica?: string; dose?: string; via?: string;
   posologia?: string; duracao?: string; indicacao?: string;
   contraindicacoes?: string; interacoes?: string;
+  mecanismo_acao?: string; ajuste_renal?: string; ajuste_hepatico?: string;
   alerta_faixa_etaria?: string; alternativa?: string;
 };
 
 type ExameSugerido = string | {
   nome: string; codigo_tuss?: string; descricao?: string;
-  o_que_afere?: string; indicacao?: string;
+  o_que_afere?: string; indicacao?: string; interpretacao_esperada?: string;
   preparo_paciente?: string; prazo_resultado?: string; urgencia?: string;
 };
 
@@ -41,13 +42,23 @@ type PerguntaSugerida = {
   pergunta: string;
   objetivo?: string;
   hipoteses_afetadas?: string;
+  impacto_na_conduta?: string;
   prioridade?: 'alta' | 'media' | 'baixa';
+};
+
+type InteracaoCruzada = {
+  medicamento_a: string;
+  medicamento_b: string;
+  tipo: 'grave' | 'moderada' | 'leve';
+  descricao: string;
+  conduta: string;
 };
 
 type EvidenceItem = {
   title: string; abstract: string; source: string;
   translatedAbstract?: string; relevantExcerpts?: string[];
   clinicalRelevance?: string; provider?: string; url?: string;
+  conexaoComPaciente?: string; nivelEvidencia?: string; motivoSelecao?: string;
 };
 
 interface DoctorAIPanelProps {
@@ -145,8 +156,14 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
       if (!Array.isArray(anamnesis?.perguntas_sugeridas)) return [];
       return (anamnesis!.perguntas_sugeridas as unknown[]).map((p: unknown) =>
         typeof p === 'string'
-          ? { pergunta: p, objetivo: '', hipoteses_afetadas: '', prioridade: 'media' as const }
-          : { pergunta: (p as PerguntaSugerida).pergunta ?? '', objetivo: (p as PerguntaSugerida).objetivo ?? '', hipoteses_afetadas: (p as PerguntaSugerida).hipoteses_afetadas ?? '', prioridade: ((p as PerguntaSugerida).prioridade ?? 'media') as 'alta' | 'media' | 'baixa' }
+          ? { pergunta: p, objetivo: '', hipoteses_afetadas: '', impacto_na_conduta: '', prioridade: 'media' as const }
+          : {
+              pergunta: (p as PerguntaSugerida).pergunta ?? '',
+              objetivo: (p as PerguntaSugerida).objetivo ?? '',
+              hipoteses_afetadas: (p as PerguntaSugerida).hipoteses_afetadas ?? '',
+              impacto_na_conduta: (p as PerguntaSugerida).impacto_na_conduta ?? '',
+              prioridade: ((p as PerguntaSugerida).prioridade ?? 'media') as 'alta' | 'media' | 'baixa',
+            }
       ).filter((p: PerguntaSugerida) => p.pergunta.length > 0);
     } catch { return []; }
   }, [anamnesis?.perguntas_sugeridas]);
@@ -166,6 +183,10 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
     try { return Array.isArray(anamnesis?.exames_sugeridos) ? (anamnesis!.exames_sugeridos as ExameSugerido[]) : []; }
     catch { return []; }
   }, [anamnesis?.exames_sugeridos]);
+  const interacoesCruzadas: InteracaoCruzada[] = useMemo(() => {
+    try { return Array.isArray(anamnesis?.interacoes_cruzadas) ? (anamnesis!.interacoes_cruzadas as InteracaoCruzada[]) : []; }
+    catch { return []; }
+  }, [anamnesis?.interacoes_cruzadas]);
 
   const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
 
@@ -415,7 +436,7 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
                   const parts = [med.dose, med.via, med.posologia, med.duracao].filter(Boolean);
                   const linha = parts.length > 0 ? parts.join(' • ') : '';
                   const isExpanded = expandedMeds.has(i);
-                  const hasDetails = med.classe_terapeutica || med.contraindicacoes || med.interacoes || med.alerta_faixa_etaria || med.alternativa;
+                  const hasDetails = med.classe_terapeutica || med.mecanismo_acao || med.contraindicacoes || med.interacoes || med.ajuste_renal || med.ajuste_hepatico || med.alerta_faixa_etaria || med.alternativa;
                   return (
                     <TouchableOpacity
                       key={i}
@@ -446,6 +467,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
                               <Text style={S.medDetailText}>{med.classe_terapeutica}</Text>
                             </View>
                           ) : null}
+                          {med.mecanismo_acao ? (
+                            <View style={S.medDetailRow}>
+                              <Ionicons name="cog-outline" size={11} color={colors.primary} />
+                              <Text style={[S.medDetailText, { color: colors.primary }]}>Mecanismo: {med.mecanismo_acao}</Text>
+                            </View>
+                          ) : null}
                           {med.contraindicacoes ? (
                             <View style={S.medDetailRow}>
                               <Ionicons name="close-circle-outline" size={11} color={colors.error} />
@@ -456,6 +483,18 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
                             <View style={S.medDetailRow}>
                               <Ionicons name="swap-horizontal" size={11} color="#D97706" />
                               <Text style={[S.medDetailText, { color: '#D97706' }]}>Interações: {med.interacoes}</Text>
+                            </View>
+                          ) : null}
+                          {med.ajuste_renal ? (
+                            <View style={S.medDetailRow}>
+                              <Ionicons name="water-outline" size={11} color="#7C3AED" />
+                              <Text style={[S.medDetailText, { color: '#7C3AED' }]}>Ajuste renal: {med.ajuste_renal}</Text>
+                            </View>
+                          ) : null}
+                          {med.ajuste_hepatico ? (
+                            <View style={S.medDetailRow}>
+                              <Ionicons name="nutrition-outline" size={11} color="#7C3AED" />
+                              <Text style={[S.medDetailText, { color: '#7C3AED' }]}>Ajuste hepático: {med.ajuste_hepatico}</Text>
                             </View>
                           ) : null}
                           {med.alerta_faixa_etaria ? (
@@ -491,6 +530,41 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             )}
 
+            {/* Drug interactions */}
+            {interacoesCruzadas.length > 0 && (
+              <View style={S.sec}>
+                <View style={S.secH}>
+                  <Ionicons name="warning" size={14} color="#DC2626" />
+                  <Text style={[S.secT, { color: '#DC2626' }]}>INTERAÇÕES MEDICAMENTOSAS ({interacoesCruzadas.length})</Text>
+                </View>
+                {interacoesCruzadas.map((ic, i) => {
+                  const tipoColor = ic.tipo === 'grave' ? '#DC2626' : ic.tipo === 'moderada' ? '#EA580C' : '#D97706';
+                  const tipoBg = ic.tipo === 'grave' ? '#FEF2F2' : ic.tipo === 'moderada' ? '#FFF7ED' : '#FFFBEB';
+                  const tipoLabel = ic.tipo === 'grave' ? 'GRAVE' : ic.tipo === 'moderada' ? 'MODERADA' : 'LEVE';
+                  return (
+                    <View key={i} style={[S.interacaoCard, { backgroundColor: tipoBg, borderColor: tipoColor + '30' }]}>
+                      <View style={S.interacaoHeader}>
+                        <Ionicons name="alert-circle" size={14} color={tipoColor} />
+                        <View style={[S.interacaoTipoBadge, { backgroundColor: tipoColor + '15' }]}>
+                          <Text style={[S.interacaoTipoText, { color: tipoColor }]}>{tipoLabel}</Text>
+                        </View>
+                      </View>
+                      <Text style={S.interacaoMeds}>
+                        {ic.medicamento_a} × {ic.medicamento_b}
+                      </Text>
+                      <Text style={[S.interacaoDesc, { color: tipoColor }]}>{ic.descricao}</Text>
+                      {ic.conduta ? (
+                        <View style={S.interacaoCondutaRow}>
+                          <Ionicons name="arrow-forward-circle-outline" size={11} color={colors.primary} />
+                          <Text style={S.interacaoConduta}>{ic.conduta}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
             {/* Exams */}
             {exames.length > 0 && (
               <View style={S.sec}>
@@ -522,6 +596,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
                       ) : null}
                       {exam.indicacao ? (
                         <Text style={S.examIndicacao}>↳ {exam.indicacao}</Text>
+                      ) : null}
+                      {exam.interpretacao_esperada ? (
+                        <View style={S.examInterpretacao}>
+                          <Ionicons name="analytics-outline" size={11} color="#7C3AED" />
+                          <Text style={S.examInterpretacaoText}>Esperado: {exam.interpretacao_esperada}</Text>
+                        </View>
                       ) : null}
                       {exam.preparo_paciente ? (
                         <Text style={S.examPreparo}>📋 Preparo: {exam.preparo_paciente}</Text>
@@ -625,6 +705,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
                           <Text style={S.perguntaHipText}>{p.hipoteses_afetadas}</Text>
                         </View>
                       ) : null}
+                      {p.impacto_na_conduta ? (
+                        <View style={S.perguntaImpacto}>
+                          <Ionicons name="trending-up-outline" size={11} color="#7C3AED" />
+                          <Text style={S.perguntaImpactoText}>{p.impacto_na_conduta}</Text>
+                        </View>
+                      ) : null}
                       <TouchableOpacity
                         style={S.perguntaCopyBtn}
                         onPress={() => copyToClipboard(p.pergunta, 'Pergunta')}
@@ -640,9 +726,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             ) : (
               <View style={S.emptyState}>
-                <Ionicons name="help-circle-outline" size={32} color={colors.textMuted} />
-                <Text style={S.emptyTitle}>Sem perguntas sugeridas</Text>
-                <Text style={S.emptySub}>Conforme a conversa avança, a IA sugere perguntas para refinar o diagnóstico</Text>
+                <Ionicons name="help-circle-outline" size={32} color="#EA580C" />
+                <Text style={S.emptyTitle}>Perguntas sendo geradas...</Text>
+                <Text style={S.emptySub}>
+                  Perguntas priorizadas por impacto clínico serão geradas assim que houver dados do transcript.
+                  Comece a conversa com o paciente para ativar o Akinator clínico.
+                </Text>
               </View>
             )}
 
@@ -692,9 +781,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             ) : (
               <View style={S.emptyState}>
-                <Ionicons name="bulb-outline" size={32} color={colors.textMuted} />
-                <Text style={S.emptyTitle}>Sem sugestões ainda</Text>
-                <Text style={S.emptySub}>Sugestões clínicas aparecerão durante a conversa</Text>
+                <Ionicons name="bulb-outline" size={32} color={colors.primary} />
+                <Text style={S.emptyTitle}>Sugestões em processamento</Text>
+                <Text style={S.emptySub}>
+                  Sugestões parciais aparecerão com os primeiros dados da anamnese.
+                  HD, diagnóstico diferencial e conduta serão refinados conforme a consulta evolui.
+                </Text>
               </View>
             )}
           </>
@@ -715,12 +807,26 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
                 </View>
                 {filteredEvidence.map((e, i) => {
                   const isExpanded = expandedEvidence.has(i);
+                  const nivelBadge = e.nivelEvidencia ? `Nível ${e.nivelEvidencia}` : '';
                   return (
                     <TouchableOpacity key={i} style={S.evItem} onPress={() => toggleEvidenceExpand(i)} activeOpacity={0.7}>
                       <View style={S.evHeader}>
                         <Text style={S.evTitle} numberOfLines={isExpanded ? undefined : 2}>{e.title}</Text>
-                        <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+                        <View style={S.evHeaderRight}>
+                          {nivelBadge ? (
+                            <View style={S.evNivelBadge}>
+                              <Text style={S.evNivelText}>{nivelBadge}</Text>
+                            </View>
+                          ) : null}
+                          <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+                        </View>
                       </View>
+                      {e.conexaoComPaciente && (
+                        <View style={S.evConexao}>
+                          <Ionicons name="person" size={11} color="#7C3AED" />
+                          <Text style={S.evConexaoText}>{e.conexaoComPaciente}</Text>
+                        </View>
+                      )}
                       {e.clinicalRelevance && (
                         <View style={S.evRelevance}>
                           <Ionicons name="medical" size={11} color={colors.primary} />
@@ -732,6 +838,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
                           <Text style={S.evExcerptText}>"{excerpt}"</Text>
                         </View>
                       ))}
+                      {isExpanded && e.motivoSelecao && (
+                        <View style={S.evMotivo}>
+                          <Ionicons name="checkmark-circle-outline" size={11} color={colors.textMuted} />
+                          <Text style={S.evMotivoText}>{e.motivoSelecao}</Text>
+                        </View>
+                      )}
                       <View style={S.evFooter}>
                         <Text style={S.evSource}>{e.source}</Text>
                         <View style={[S.evProviderBadge,
@@ -748,9 +860,13 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             ) : (
               <View style={S.emptyState}>
-                <Ionicons name="library-outline" size={32} color={colors.textMuted} />
-                <Text style={S.emptyTitle}>Sem evidências</Text>
-                <Text style={S.emptySub}>Artigos relevantes aparecerão conforme a anamnese avança</Text>
+                <Ionicons name="library-outline" size={32} color={colors.primary} />
+                <Text style={S.emptyTitle}>Buscando evidências científicas...</Text>
+                <Text style={S.emptySub}>
+                  Artigos de PubMed, Europe PMC, Semantic Scholar e ClinicalTrials.gov
+                  serão selecionados e traduzidos conforme a hipótese diagnóstica se forma.
+                  Cada artigo virá com trechos contextualizados ao paciente.
+                </Text>
               </View>
             )}
           </>
@@ -863,6 +979,18 @@ function makeStyles(colors: PanelColors) {
     examDetail: { fontSize: 11, color: colors.textSecondary, marginLeft: 30, lineHeight: 16 },
     examIndicacao: { fontSize: 11, color: colors.textMuted, marginLeft: 30, lineHeight: 16 },
     examPreparo: { fontSize: 11, color: '#D97706', marginLeft: 30, lineHeight: 16 },
+    examInterpretacao: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginLeft: 30, marginTop: 2, backgroundColor: '#F5F3FF', borderRadius: 6, padding: 6 },
+    examInterpretacaoText: { fontSize: 11, color: '#7C3AED', lineHeight: 16, flex: 1, fontStyle: 'italic' },
+
+    // Drug interactions
+    interacaoCard: { borderRadius: 10, padding: 12, gap: 6, borderWidth: 1 },
+    interacaoHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    interacaoTipoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+    interacaoTipoText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+    interacaoMeds: { fontSize: 13, fontWeight: '700', color: colors.text },
+    interacaoDesc: { fontSize: 12, lineHeight: 18 },
+    interacaoCondutaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 2 },
+    interacaoConduta: { fontSize: 11, color: colors.primary, lineHeight: 16, flex: 1, fontWeight: '600' },
 
     disclaimer: { fontSize: 10, color: colors.textMuted, fontStyle: 'italic', marginTop: 4 },
 
@@ -891,6 +1019,8 @@ function makeStyles(colors: PanelColors) {
     perguntaObjText: { fontSize: 11, color: colors.primary, lineHeight: 16, flex: 1 },
     perguntaHip: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingLeft: 4, backgroundColor: colors.surfaceSecondary, borderRadius: 6, padding: 6 },
     perguntaHipText: { fontSize: 11, color: colors.textSecondary, lineHeight: 16, flex: 1 },
+    perguntaImpacto: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingLeft: 4, backgroundColor: '#F5F3FF', borderRadius: 6, padding: 6 },
+    perguntaImpactoText: { fontSize: 11, color: '#7C3AED', lineHeight: 16, flex: 1 },
     perguntaCopyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6, backgroundColor: colors.primarySoft },
     perguntaCopyText: { fontSize: 10, color: colors.primary, fontWeight: '600' },
     perguntaDisclaimer: { flexDirection: 'row', gap: 6, alignItems: 'flex-start', paddingHorizontal: 4, marginTop: 4 },
@@ -905,7 +1035,12 @@ function makeStyles(colors: PanelColors) {
     // Evidence
     evItem: { backgroundColor: colors.surfaceSecondary, borderRadius: 8, padding: 10, gap: 6, borderWidth: 1, borderColor: colors.border },
     evHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+    evHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     evTitle: { fontSize: 12, fontWeight: '700', color: colors.text, lineHeight: 16, flex: 1 },
+    evNivelBadge: { backgroundColor: '#7C3AED15', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+    evNivelText: { fontSize: 9, fontWeight: '700', color: '#7C3AED', letterSpacing: 0.3 },
+    evConexao: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#F5F3FF', borderRadius: 6, padding: 6 },
+    evConexaoText: { fontSize: 11, color: '#7C3AED', lineHeight: 15, flex: 1, fontWeight: '600' },
     evRelevance: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: colors.primarySoft, borderRadius: 6, padding: 6 },
     evRelevanceText: { fontSize: 11, color: colors.primary, lineHeight: 15, flex: 1 },
     evExcerpt: { borderLeftWidth: 2, borderLeftColor: colors.primary, paddingLeft: 8, marginLeft: 4 },
@@ -920,6 +1055,8 @@ function makeStyles(colors: PanelColors) {
     evEuropePmc: { backgroundColor: '#3B82F6' },
     evSemantic: { backgroundColor: '#7C3AED' },
     evClinicalTrials: { backgroundColor: '#065F46' },
+    evMotivo: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingHorizontal: 4, marginTop: 2 },
+    evMotivoText: { fontSize: 10, color: colors.textMuted, lineHeight: 14, flex: 1, fontStyle: 'italic' },
 
     // Empty
     emptyState: { alignItems: 'center', gap: 8, paddingVertical: 40 },

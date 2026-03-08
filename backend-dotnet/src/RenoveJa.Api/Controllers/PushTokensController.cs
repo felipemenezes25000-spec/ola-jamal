@@ -31,7 +31,7 @@ public class PushTokensController(
         var userId = GetUserId();
         logger.LogInformation("PushTokens RegisterToken: userId={UserId}, deviceType={DeviceType}", userId, request.DeviceType);
         var pushToken = PushToken.Create(userId, request.Token, request.DeviceType);
-        pushToken = await pushTokenRepository.CreateAsync(pushToken, cancellationToken);
+        pushToken = await pushTokenRepository.RegisterOrUpdateAsync(pushToken, cancellationToken);
 
         return Ok(new
         {

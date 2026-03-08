@@ -82,6 +82,8 @@ public class PaymentsController(
     {
         var userId = GetUserId();
         var payment = await paymentService.GetPaymentAsync(id, userId, cancellationToken);
+        if (payment == null)
+            return NotFound(new { message = "Pagamento não encontrado" });
         return Ok(payment);
     }
 
@@ -96,6 +98,8 @@ public class PaymentsController(
     {
         var userId = GetUserId();
         var payment = await paymentService.GetPaymentAsync(id, userId, cancellationToken);
+        if (payment == null)
+            return NotFound(new { message = "Pagamento não encontrado" });
         var code = payment.PixCopyPaste ?? payment.PixQrCode ?? "";
         return Content(code, "text/plain; charset=utf-8");
     }
