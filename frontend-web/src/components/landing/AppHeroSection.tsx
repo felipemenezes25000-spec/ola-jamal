@@ -3,9 +3,9 @@ import { ArrowRight, BrainCircuit, Building2, FileCheck2, Shield, Stethoscope } 
 import { Button } from '@/components/ui/button';
 
 const trustIndicators = [
-  { icon: BrainCircuit, text: 'IA assistiva para triagem e organização clínica' },
-  { icon: Shield, text: 'LGPD, auditoria e assinatura ICP-Brasil' },
-  { icon: FileCheck2, text: 'Receitas, exames e verificação pública por QR Code' },
+  { icon: BrainCircuit, text: 'IA assistiva para triagem, leitura documental e organização clínica' },
+  { icon: Shield, text: 'Telemedicina online com rastreabilidade, LGPD e ICP-Brasil' },
+  { icon: FileCheck2, text: 'Receitas, exames, teleconsultas e verificação pública por QR Code' },
 ];
 
 const institutionPillars = [
@@ -16,8 +16,8 @@ const institutionPillars = [
   },
   {
     icon: Stethoscope,
-    title: 'Governança clínica preservada',
-    text: 'Triagem, revisão e emissão com decisão final sempre do profissional habilitado.',
+    title: 'Decisão final do médico',
+    text: 'A IA auxilia o fluxo, mas a avaliação clínica, a conduta e a emissão permanecem sob responsabilidade do profissional habilitado.',
   },
 ];
 
@@ -59,12 +59,12 @@ export function AppHeroSection() {
 
             <div className="space-y-4">
               <h1 className="font-display text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
-                Plataforma digital para <span className="text-primary">apoiar jornadas assistenciais e documentais</span> na saúde.
+                Plataforma de <span className="text-primary">telemedicina online com IA assistiva</span> e decisão final do médico.
               </h1>
               <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:mx-0 lg:text-xl">
-                O RenoveJá+ pode apoiar governo, hospitais, clínicas e parceiros em fluxos de renovação de receitas,
-                pedidos de exame, teleconsultas e validação documental, com IA assistiva, rastreabilidade operacional
-                e decisão final sempre do médico.
+                O RenoveJá+ apoia governo, hospitais, clínicas e parceiros em jornadas de telemedicina online,
+                renovação de receitas, pedidos de exame, teleconsultas e validação documental, com IA assistiva para
+                organização do fluxo e decisão final sempre do médico, em linha com a Resolução CFM n.º 2.454/2026.
               </p>
             </div>
 
@@ -135,14 +135,15 @@ export function AppHeroSection() {
                 <div className="flex items-center justify-between rounded-2xl bg-muted/60 p-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Capacidades atuais</p>
-                    <p className="mt-1 text-lg font-bold text-foreground">Receita, exame, teleconsulta e verificação</p>
+                    <p className="mt-1 text-lg font-bold text-foreground">Telemedicina online, receita, exame e verificação</p>
                   </div>
                   <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Atual</div>
                 </div>
 
                 <div className="grid gap-3">
                   {[
-                    'Triagem assistida por IA com rastreabilidade',
+                    'IA assistiva com supervisão médica e rastreabilidade operacional',
+                    'Teleconsulta online com fluxo documentado e acompanhamento digital',
                     'Assinatura digital e verificação pública por QR Code',
                     'Receita azul e amarela em breve',
                   ].map((item) => (

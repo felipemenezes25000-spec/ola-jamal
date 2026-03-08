@@ -1,33 +1,33 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, AppHeader, AppCard } from '../components/ui';
-import { theme } from '../lib/theme';
+import { ScreenHeader, AppCard } from '../components/ui';
 import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors } from '../lib/designSystem';
+import { uiTokens } from '../lib/ui/tokens';
 import { COMPANY } from '../lib/company';
-
-const s = theme.spacing;
-const t = theme.typography;
 
 export default function PrivacyScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
-    <Screen scroll edges={['bottom']} padding={false}>
-      <AppHeader title="Privacidade" />
-
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <ScreenHeader title="Política de Privacidade" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.titleRow}>
           <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
-          <Text style={styles.pageTitle}>POLÍTICA DE PRIVACIDADE – {COMPANY.name}</Text>
+          <Text style={styles.pageTitle}>Política de Privacidade – {COMPANY.name}</Text>
         </View>
         <Text style={styles.lastUpdate}>Última atualização: março de 2026</Text>
 
         <AppCard style={styles.card}>
           <Section title="1. Compromisso e base legal">
-          A {COMPANY.name} está comprometida com a proteção dos seus dados pessoais em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei 13.709/2018), com o Marco Civil da Internet (Lei 12.965/2014) e com o Código de Defesa do Consumidor quando aplicável. O tratamento de dados de saúde é realizado com base, conforme o caso, na execução de contrato, no cumprimento de obrigação legal ou regulatória e na tutela da saúde (artigos 7º e 11 da LGPD), podendo ainda se apoiar em consentimento quando exigido pela legislação.
+            A {COMPANY.name} está comprometida com a proteção dos seus dados pessoais em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei 13.709/2018), com o Marco Civil da Internet (Lei 12.965/2014) e com o Código de Defesa do Consumidor quando aplicável. O tratamento de dados de saúde é realizado com base, conforme o caso, na execução de contrato, no cumprimento de obrigação legal ou regulatória e na tutela da saúde (artigos 7º e 11 da LGPD), podendo ainda se apoiar em consentimento quando exigido pela legislação.
           </Section>
 
           <Section title="2. Controlador, DPO e finalidade">
@@ -38,12 +38,12 @@ export default function PrivacyScreen() {
             Coletamos dados de identificação e cadastro (nome, e-mail, telefone, CPF, data de nascimento, endereço quando aplicável) e dados sensíveis de saúde necessários ao atendimento: informações relacionadas a solicitações de receitas, exames e consultas, incluindo imagens e textos que você envia. Para médicos, podem ser tratados ainda CRM, especialidade e dados do certificado digital (a senha do certificado não é armazenada; é utilizada apenas no momento da assinatura). Nas consultas por vídeo: tratamos dados de voz na forma de transcrição em texto (não há gravação de áudio ou vídeo) e o texto processado por IA para fins de apoio à consulta, registro em prontuário e melhoria do serviço, em conformidade com a LGPD e com as normas do CFM; o tempo de retenção é alinhado ao prontuário e à legislação aplicável.
           </Section>
 
-          <Section title="3.2. Uso de IA e operadores">
-            Imagens de receita e exame são enviadas a provedor de IA (OpenAI) para análise e triagem — o médico sempre decide. O áudio da consulta é transcrito por provedor externo (OpenAI Whisper) e o texto pode ser processado por IA para anamnese. Não há gravação de áudio nem vídeo; apenas texto e dados estruturados são armazenados. Esses provedores são tratados como operadores com obrigações de confidencialidade e proteção de dados equivalentes às nossas.
-          </Section>
-
           <Section title="3.1. Dados do assistente virtual e conduta médica">
             Além dos dados descritos na seção anterior, coletamos e tratamos: dados de interação com o assistente virtual de triagem (Dra. Renoveja), incluindo mensagens visualizadas e ações tomadas, para melhoria do serviço; condutas médicas registradas pelo profissional de saúde, que integram o prontuário eletrônico; e observações automáticas geradas pela plataforma, de caráter orientativo. Estes dados são tratados com as mesmas salvaguardas aplicadas aos demais dados de saúde, em conformidade com a LGPD.
+          </Section>
+
+          <Section title="3.2. Uso de IA e operadores">
+            Imagens de receita e exame são enviadas a provedor de IA (OpenAI) para análise e triagem — o médico sempre decide. O áudio da consulta é transcrito por provedor externo (OpenAI Whisper) e o texto pode ser processado por IA para anamnese. Não há gravação de áudio nem vídeo; apenas texto e dados estruturados são armazenados. Esses provedores são tratados como operadores com obrigações de confidencialidade e proteção de dados equivalentes às nossas.
           </Section>
 
           <Section title="4. Compartilhamento e não comercialização">
@@ -62,8 +62,10 @@ export default function PrivacyScreen() {
             Esta Política de Privacidade pode ser alterada. Alterações relevantes serão comunicadas por meio do aplicativo ou e-mail. O uso continuado após as alterações constitui aceitação da nova versão. Para questões sobre proteção de dados e privacidade: {COMPANY.fullContact}.
           </Section>
         </AppCard>
-      </View>
-    </Screen>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -77,7 +79,7 @@ function Section({
   last?: boolean;
 }) {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeSectionStyles(colors), [colors]);
   return (
     <View style={[styles.section, !last && styles.sectionBorder]}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -88,51 +90,62 @@ function Section({
 
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s.sm,
-    marginBottom: s.xs,
-    paddingHorizontal: s.xs,
-  },
-  lastUpdate: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: s.lg,
-    paddingHorizontal: s.xs,
-  },
-  pageTitle: {
-    fontSize: t.fontSize.lg,
-    fontWeight: t.fontWeight.bold,
-    color: colors.text,
-    flex: 1,
-  },
-  card: {
-    padding: s.lg,
-  },
-  section: {
-    paddingBottom: s.lg,
-    marginBottom: s.lg,
-  },
-  sectionBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  sectionTitle: {
-    fontSize: t.fontSize.sm,
-    fontWeight: t.fontWeight.bold,
-    color: colors.text,
-    marginBottom: s.sm,
-  },
-  paragraph: {
-    fontSize: t.fontSize.sm,
-    fontWeight: t.fontWeight.regular,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
+    container: { flex: 1, backgroundColor: colors.background },
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: uiTokens.screenPaddingHorizontal,
+      paddingBottom: uiTokens.sectionGap * 3,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: uiTokens.spacing.sm,
+      marginBottom: uiTokens.spacing.xs,
+    },
+    lastUpdate: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textMuted,
+      marginBottom: uiTokens.spacing.lg,
+    },
+    pageTitle: {
+      flex: 1,
+      fontSize: 18,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+    },
+    card: {
+      padding: uiTokens.spacing.lg,
+    },
+    bottomSpacer: {
+      height: uiTokens.sectionGap * 2,
+    },
+  });
+}
+
+function makeSectionStyles(colors: DesignColors) {
+  return StyleSheet.create({
+    section: {
+      paddingBottom: uiTokens.spacing.lg,
+      marginBottom: uiTokens.spacing.lg,
+    },
+    sectionBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: uiTokens.spacing.sm,
+    },
+    paragraph: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textSecondary,
+      lineHeight: 22,
+    },
   });
 }

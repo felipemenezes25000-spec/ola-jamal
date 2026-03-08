@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppCard } from '../components/ui/AppCard';
+import { ScreenHeader, AppCard } from '../components/ui';
 import { fetchPushTokens, setPushPreference, sendTestPush } from '../lib/api';
 import { getPushPreferences, updatePushPreferences, type PushPreferencesDto } from '../lib/api-push-preferences';
-import { spacing } from '../lib/theme';
 import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors } from '../lib/designSystem';
+import { uiTokens } from '../lib/ui/tokens';
 import { getMutedKeys, unmuteAll } from '../lib/triage/triagePersistence';
 import { showToast } from '../components/ui/Toast';
 import { useColorSchemeContext } from '../contexts/ColorSchemeContext';
 import { haptics } from '../lib/haptics';
 
 /**
- * Tela de configurações acessada por "Editar Perfil" na aba Perfil.
- * Contém apenas opções que NÃO estão na aba Perfil (evita duplicação).
- * Alterar senha, Termos, Sobre, Ajuda, Sair etc. ficam só na aba Perfil.
+ * Tela de configurações acessada por "Configurações" na aba Perfil.
+ * Contém opções de assistente, aparência, notificações e categorias de push.
  */
 export default function SettingsScreen() {
   const router = useRouter();
@@ -55,6 +53,7 @@ export default function SettingsScreen() {
   }, []);
 
   const handleResetMuted = async () => {
+    haptics.selection();
     await unmuteAll();
     setMutedCount(0);
   };
@@ -79,6 +78,7 @@ export default function SettingsScreen() {
   };
 
   const handleTestPush = async () => {
+    haptics.selection();
     try {
       await sendTestPush();
       showToast({ message: 'Push de teste enviado. Verifique seu dispositivo.', type: 'success' });
@@ -99,20 +99,13 @@ export default function SettingsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.primaryDark} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Configurações</Text>
-        <View style={{ width: 24 }} />
-      </View>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <ScreenHeader title="Configurações" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <AppCard style={styles.section}>
           <Text style={styles.sectionTitle}>Assistente Dra. Renoveja</Text>
           <SettingItem
@@ -120,7 +113,7 @@ export default function SettingsScreen() {
             label={`Reativar mensagens silenciadas (${mutedCount})`}
             right={
               mutedCount > 0 ? (
-                <TouchableOpacity onPress={handleResetMuted}>
+                <TouchableOpacity onPress={handleResetMuted} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                   <Text style={styles.linkText}>Reativar</Text>
                 </TouchableOpacity>
               ) : (
@@ -186,7 +179,7 @@ export default function SettingsScreen() {
             icon="send-outline"
             label="Testar push"
             right={
-              <TouchableOpacity onPress={handleTestPush}>
+              <TouchableOpacity onPress={handleTestPush} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                 <Text style={styles.linkText}>Enviar</Text>
               </TouchableOpacity>
             }
@@ -260,45 +253,72 @@ export default function SettingsScreen() {
             }
           />
         </AppCard>
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.primaryDark },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  section: { marginBottom: spacing.md },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: spacing.md,
-  },
-  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm },
-  itemIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  itemLabel: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.text },
-  divider: { height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.xs },
-  linkText: { fontSize: 14, fontWeight: '600', color: colors.primary },
-  mutedText: { fontSize: 14, fontWeight: '500', color: colors.textMuted },
+    container: { flex: 1, backgroundColor: colors.background },
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: uiTokens.screenPaddingHorizontal,
+      paddingBottom: uiTokens.sectionGap * 3,
+    },
+    section: { marginBottom: uiTokens.sectionGap },
+    sectionTitle: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans_600SemiBold',
+      fontWeight: '600',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: uiTokens.spacing.lg,
+    },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: uiTokens.spacing.sm,
+    },
+    itemIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.primarySoft,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: uiTokens.spacing.lg,
+    },
+    itemLabel: {
+      flex: 1,
+      fontSize: 15,
+      fontFamily: 'PlusJakartaSans_500Medium',
+      fontWeight: '500',
+      color: colors.text,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.borderLight,
+      marginVertical: uiTokens.spacing.xs,
+      marginLeft: 52,
+    },
+    linkText: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_600SemiBold',
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    mutedText: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_500Medium',
+      fontWeight: '500',
+      color: colors.textMuted,
+    },
+    bottomSpacer: {
+      height: uiTokens.sectionGap * 2,
+    },
   });
 }

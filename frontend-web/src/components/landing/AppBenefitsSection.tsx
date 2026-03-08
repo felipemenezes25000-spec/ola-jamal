@@ -6,13 +6,13 @@ const solutions = [
     icon: BrainCircuit,
     title: 'IA assistiva, não autônoma',
     description:
-      'A plataforma apoia leitura documental, triagem e organização de informações, mantendo a decisão final com o médico.',
+      'A plataforma apoia leitura documental, triagem e organização de informações nas jornadas de telemedicina online, mantendo a decisão final com o médico.',
   },
   {
     icon: Stethoscope,
-    title: 'Fluxo clínico supervisionado',
+    title: 'Telemedicina online com supervisão clínica',
     description:
-      'Solicitações passam por revisão profissional, com visibilidade da fila, critérios clínicos e possibilidade de ajuste antes da emissão.',
+      'Solicitações, teleconsultas e emissões passam por revisão profissional, com visibilidade da fila, critérios clínicos e possibilidade de ajuste antes da emissão.',
   },
   {
     icon: FileCheck2,
@@ -30,7 +30,7 @@ const solutions = [
     icon: ShieldCheck,
     title: 'Conformidade de ponta a ponta',
     description:
-      'Arquitetura pensada para LGPD, trilha de auditoria e alinhamento com regras regulatórias aplicáveis à telemedicina.',
+      'Arquitetura pensada para LGPD, trilha de auditoria e alinhamento com regras regulatórias aplicáveis à telemedicina, incluindo a Resolução CFM n.º 2.454/2026.',
   },
   {
     icon: ScanSearch,
@@ -55,11 +55,11 @@ export function AppBenefitsSection() {
             A solução
           </span>
           <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
-            Um fluxo digital para apoiar operação, rastreabilidade e continuidade do atendimento.
+            Telemedicina online com apoio operacional, rastreabilidade e responsabilidade clínica preservada.
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">
-            O RenoveJá+ foi desenhado para apoiar pacientes, médicos e gestores em uma jornada mais ágil,
-            auditável e estruturada, com uso responsável de IA e responsabilidade clínica preservada.
+            O RenoveJá+ foi desenhado para apoiar pacientes, médicos e gestores em jornadas digitais de telemedicina,
+            com uso responsável de IA assistiva, fluxos auditáveis e decisão final sempre do médico.
           </p>
         </motion.div>
 

@@ -1,18 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity } from 'react-native';
-import { AppCard } from '../components/ui/AppCard';
-import { AppInput } from '../components/ui/AppInput';
-import { AppButton } from '../components/ui/AppButton';
+import { ScreenHeader, AppCard, AppInput, AppButton } from '../components/ui';
 import { changePassword } from '../lib/api';
 import { validate } from '../lib/validation';
 import { changePasswordSchema } from '../lib/validation/schemas';
-import { spacing } from '../lib/theme';
 import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors } from '../lib/designSystem';
+import { uiTokens } from '../lib/ui/tokens';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -50,21 +45,11 @@ export default function ChangePasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.primaryDark} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Alterar Senha</Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title="Alterar Senha" />
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="always"
         showsVerticalScrollIndicator={false}
       >
@@ -98,24 +83,32 @@ export default function ChangePasswordScreen() {
           <AppButton title="Alterar Senha" onPress={handleSubmit} loading={loading} fullWidth />
         </AppCard>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.primaryDark },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  card: { padding: spacing.lg },
-  hint: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 20 },
-  errorText: { fontSize: 12, fontWeight: '500', color: colors.error, marginBottom: spacing.md },
+    container: { flex: 1, backgroundColor: colors.background },
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: uiTokens.screenPaddingHorizontal,
+      paddingBottom: uiTokens.sectionGap * 3,
+    },
+    card: { padding: uiTokens.spacing.lg },
+    hint: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textSecondary,
+      marginBottom: uiTokens.spacing.lg,
+      lineHeight: 20,
+    },
+    errorText: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans_500Medium',
+      fontWeight: '500',
+      color: colors.error,
+      marginBottom: uiTokens.spacing.md,
+    },
   });
 }

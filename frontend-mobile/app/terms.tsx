@@ -1,27 +1,27 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, AppHeader, AppCard } from '../components/ui';
-import { theme } from '../lib/theme';
+import { ScreenHeader, AppCard } from '../components/ui';
 import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors } from '../lib/designSystem';
+import { uiTokens } from '../lib/ui/tokens';
 import { COMPANY } from '../lib/company';
-
-const s = theme.spacing;
-const t = theme.typography;
 
 export default function TermsScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
-    <Screen scroll edges={['bottom']} padding={false}>
-      <AppHeader title="Termos de Uso" />
-
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <ScreenHeader title="Termos de Uso" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.titleRow}>
           <Ionicons name="document-text-outline" size={24} color={colors.primary} />
-          <Text style={styles.pageTitle}>TERMOS DE USO – {COMPANY.name}</Text>
+          <Text style={styles.pageTitle}>Termos de Uso – {COMPANY.name}</Text>
         </View>
         <Text style={styles.lastUpdate}>Última atualização: março de 2026</Text>
 
@@ -82,8 +82,10 @@ export default function TermsScreen() {
             Dúvidas sobre estes Termos: {COMPANY.fullContact}. Fica eleito o foro da comarca de São Paulo/SP para dirimir quaisquer controvérsias.
           </Section>
         </AppCard>
-      </View>
-    </Screen>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -97,7 +99,7 @@ function Section({
   last?: boolean;
 }) {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeSectionStyles(colors), [colors]);
   return (
     <View style={[styles.section, !last && styles.sectionBorder]}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -108,51 +110,62 @@ function Section({
 
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s.sm,
-    marginBottom: s.xs,
-    paddingHorizontal: s.xs,
-  },
-  lastUpdate: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: s.lg,
-    paddingHorizontal: s.xs,
-  },
-  pageTitle: {
-    fontSize: t.fontSize.lg,
-    fontWeight: t.fontWeight.bold,
-    color: colors.text,
-    flex: 1,
-  },
-  card: {
-    padding: s.lg,
-  },
-  section: {
-    paddingBottom: s.lg,
-    marginBottom: s.lg,
-  },
-  sectionBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  sectionTitle: {
-    fontSize: t.fontSize.sm,
-    fontWeight: t.fontWeight.bold,
-    color: colors.text,
-    marginBottom: s.sm,
-  },
-  paragraph: {
-    fontSize: t.fontSize.sm,
-    fontWeight: t.fontWeight.regular,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
+    container: { flex: 1, backgroundColor: colors.background },
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: uiTokens.screenPaddingHorizontal,
+      paddingBottom: uiTokens.sectionGap * 3,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: uiTokens.spacing.sm,
+      marginBottom: uiTokens.spacing.xs,
+    },
+    lastUpdate: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textMuted,
+      marginBottom: uiTokens.spacing.lg,
+    },
+    pageTitle: {
+      flex: 1,
+      fontSize: 18,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+    },
+    card: {
+      padding: uiTokens.spacing.lg,
+    },
+    bottomSpacer: {
+      height: uiTokens.sectionGap * 2,
+    },
+  });
+}
+
+function makeSectionStyles(colors: DesignColors) {
+  return StyleSheet.create({
+    section: {
+      paddingBottom: uiTokens.spacing.lg,
+      marginBottom: uiTokens.spacing.lg,
+    },
+    sectionBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: uiTokens.spacing.sm,
+    },
+    paragraph: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textSecondary,
+      lineHeight: 22,
+    },
   });
 }

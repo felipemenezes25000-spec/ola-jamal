@@ -21,9 +21,9 @@ const content: Record<
 > = {
   patient: {
     eyebrow: 'Jornada do paciente',
-    title: 'Acesso simples a jornadas recorrentes de saúde',
+    title: 'Acesso simples a jornadas de telemedicina online',
     description:
-      'Uma experiência guiada para reduzir deslocamentos, organizar documentos e acompanhar o status de cada etapa.',
+      'Uma experiência guiada para reduzir deslocamentos, organizar documentos, participar de teleconsultas online e acompanhar o status de cada etapa.',
     items: [
       {
         icon: FileText,
@@ -37,8 +37,8 @@ const content: Record<
       },
       {
         icon: Video,
-        title: 'Teleconsulta e orientação',
-        description: 'Acesso a jornadas de atendimento remoto quando a avaliação clínica exigir contato síncrono.',
+        title: 'Teleconsulta online e orientação',
+        description: 'Acesso a jornadas de atendimento remoto quando a avaliação clínica exigir contato síncrono entre paciente e médico.',
       },
     ],
   },
@@ -46,12 +46,12 @@ const content: Record<
     eyebrow: 'Jornada médica',
     title: 'Mais contexto para decidir com segurança e agilidade',
     description:
-      'A IA organiza dados e a plataforma estrutura o fluxo, mas a responsabilidade clínica permanece integralmente com o profissional.',
+      'A IA organiza dados e a plataforma estrutura o fluxo de telemedicina online, mas a responsabilidade clínica e a decisão final permanecem integralmente com o profissional.',
     items: [
       {
         icon: BrainCircuit,
         title: 'Triagem assistida por IA',
-        description: 'Resumo do caso, leitura documental e organização de informações para revisão mais ágil.',
+        description: 'Resumo do caso, leitura documental e organização de informações para revisão mais ágil, sem substituir o julgamento clínico.',
       },
       {
         icon: Stethoscope,
@@ -69,7 +69,7 @@ const content: Record<
     eyebrow: 'Gestão e governança',
     title: 'Operação mais previsível para instituições e redes',
     description:
-      'Capacidades para escalar atendimento digital com visibilidade operacional, controles e integração gradual.',
+      'Capacidades para escalar telemedicina online com visibilidade operacional, controles, governança e integração gradual.',
     items: [
       {
         icon: Building2,
@@ -116,8 +116,8 @@ export function AppTutorialSection() {
             Funcionalidades organizadas por perfil de uso.
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">
-            A proposta aqui é mostrar, de forma objetiva, como o produto pode apoiar modelos públicos
-            e privados de atenção à saúde sem abrir mão de governança clínica.
+            A proposta aqui é mostrar, de forma objetiva, como a plataforma pode apoiar modelos públicos
+            e privados de telemedicina online sem abrir mão de governança clínica, rastreabilidade e decisão final do médico.
           </p>
         </motion.div>
 
@@ -156,8 +156,8 @@ export function AppTutorialSection() {
               <div className="mt-8 rounded-[1.75rem] border border-border/60 bg-card p-5">
                 <div className="grid gap-3">
                   {[
-                    'Fluxos mobile-first para jornadas recorrentes',
-                    'Camada de IA para ganho operacional com supervisão médica',
+                    'Fluxos mobile-first para telemedicina online e jornadas recorrentes',
+                    'Camada de IA assistiva para ganho operacional com supervisão médica',
                     'Trilha auditável e documentação verificável',
                   ].map((item) => (
                     <div key={item} className="flex items-center gap-3 rounded-2xl bg-muted/40 px-4 py-3">

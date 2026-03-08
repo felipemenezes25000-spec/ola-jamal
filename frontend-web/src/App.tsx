@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import Index from '@/pages/Index';
 import Verify from '@/pages/Verify';
+import RecuperarSenha from '@/pages/RecuperarSenha';
 import Cookies from '@/pages/Cookies';
 import AdminLogin from '@/pages/admin/AdminLogin';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
@@ -26,6 +27,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/verify/:id" element={<Verify />} />
+        <Route path="/recuperar-senha" element={<RecuperarSenha />} />
         <Route path="/cookies" element={<Cookies />} />
 
         {/* Admin — renovejasaude.com.br/admin */}

@@ -16,4 +16,6 @@ public class SmtpConfig
     public string FromName { get; set; } = "RenoveJá";
     /// <summary>URL base do front/app para o link de redefinição (ex.: https://app.renoveja.com.br/recuperar-senha).</summary>
     public string ResetPasswordBaseUrl { get; set; } = "https://renovejasaude.com.br/recuperar-senha";
+    /// <summary>E-mail de destino para formulário de contato institucional.</summary>
+    public string ContactToEmail { get; set; } = "contato@renovejasaude.com.br";
 }

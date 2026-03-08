@@ -6,13 +6,13 @@ const complianceItems = [
     icon: Stethoscope,
     title: 'Decisão clínica preservada',
     description:
-      'A IA atua como apoio operacional e documental. A decisão final sobre conduta, emissão e validação continua sendo do médico.',
+      'A IA atua como apoio operacional e documental. A decisão final sobre conduta, teleconsulta, emissão e validação continua sendo do médico.',
   },
   {
     icon: ShieldCheck,
     title: 'Conformidade com telemedicina',
     description:
-      'Comunicação institucional alinhada ao uso responsável de tecnologia na saúde, com destaque para a Resolução CFM n.º 2.454/2026.',
+      'Comunicação institucional alinhada ao uso responsável de tecnologia na saúde e à telemedicina online, com destaque para a Resolução CFM n.º 2.454, de 11 de fevereiro de 2026.',
   },
   {
     icon: BadgeCheck,
@@ -60,11 +60,11 @@ export function AppPricingSection() {
             Conformidade e segurança
           </span>
           <h2 className="font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-            Tecnologia aplicada com responsabilidade clínica, jurídica e operacional.
+            Telemedicina online com responsabilidade clínica, jurídica e operacional.
           </h2>
           <p className="mt-6 text-lg text-white/70">
             Esta seção destaca os pilares de confiança necessários para adoção por governo, hospitais,
-            clínicas, operadoras e demais parceiros institucionais.
+            clínicas, operadoras e demais parceiros institucionais, com IA assistiva e decisão final sempre do médico.
           </p>
         </motion.div>
 

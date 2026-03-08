@@ -3,6 +3,7 @@ export { AppInput } from './AppInput';
 export { AppButton } from './AppButton';
 export { AppCard } from './AppCard';
 export { AppHeader } from './AppHeader';
+export { ScreenHeader } from './ScreenHeader';
 export { BottomActionBar } from './BottomActionBar';
 export { AppSegmentedControl } from './AppSegmentedControl';
 export type { AppSegmentedItem } from './AppSegmentedControl';

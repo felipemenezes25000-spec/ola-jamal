@@ -7,7 +7,7 @@ Cada parte do projeto tem seu próprio `.env` e `.env.example`. **Não misture**
 ## 1. Backend (API .NET)
 
 | Arquivo | Conteúdo | Commitar? |
-|---------|----------|-----------|
+| --- | --- | --- |
 | `backend-dotnet/src/RenoveJa.Api/.env` | Valores reais (local ou copiados do Render) | **Não** |
 | `backend-dotnet/src/RenoveJa.Api/.env.example` | Todas as chaves com placeholders | Sim |
 
@@ -21,7 +21,7 @@ Cada parte do projeto tem seu próprio `.env` e `.env.example`. **Não misture**
 - OpenAI: `OpenAI__ApiKey`, `OpenAI__Model`
 - Certificado: `CertificateEncryption__Key`
 - Mercado Pago: `MercadoPago__AccessToken`, `MercadoPago__PublicKey`, `MercadoPago__ClientId`, `MercadoPago__ClientSecret`, `MercadoPago__NotificationUrl`, `MercadoPago__WebhookSecret`
-- SMTP: `Smtp__Host`, `Smtp__Port`, `Smtp__EnableSsl`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromEmail`, `Smtp__FromName`, `Smtp__ResetPasswordBaseUrl`
+- SMTP: `Smtp__Host`, `Smtp__Port`, `Smtp__EnableSsl`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromEmail`, `Smtp__FromName`, `Smtp__ResetPasswordBaseUrl`, `Smtp__ContactToEmail` (formulário de contato)
 - InfoSimples: `InfoSimples__ApiToken`
 - Daily.co: `DAILY_API_KEY`, `DAILY_DOMAIN`, `DAILY_ROOM_PREFIX`, `DAILY_ROOM_EXPIRY_MINUTES`
 
@@ -34,7 +34,7 @@ No **Render**, configure as mesmas chaves em: Dashboard → serviço (ola-jamal)
 ## 2. Frontend mobile (Expo / React Native)
 
 | Arquivo | Conteúdo | Commitar? |
-|---------|----------|-----------|
+| --- | --- | --- |
 | `frontend-mobile/.env` | Valores reais (local / EAS) | **Não** |
 | `frontend-mobile/.env.example` | Chaves com placeholders | Sim |
 
@@ -55,7 +55,7 @@ Não coloque no mobile: `Supabase__ServiceKey`, chaves do Mercado Pago, OpenAI, 
 ## 3. Frontend web (Vite)
 
 | Arquivo | Conteúdo | Commitar? |
-|---------|----------|-----------|
+| --- | --- | --- |
 | `frontend-web/.env` | Valores reais | **Não** |
 | `frontend-web/.env.example` | Chaves com placeholders | Sim |
 
@@ -70,7 +70,7 @@ Não coloque no mobile: `Supabase__ServiceKey`, chaves do Mercado Pago, OpenAI, 
 ## Resumo
 
 | Parte | Pasta | .env (valores reais) | .env.example (placeholders) |
-|-------|--------|----------------------|-----------------------------|
+| --- | --- | --- | --- |
 | Backend | `backend-dotnet/src/RenoveJa.Api/` | Não commitar | Commitar |
 | Mobile | `frontend-mobile/` | Não commitar | Commitar |
 | Web | `frontend-web/` | Não commitar | Commitar |
