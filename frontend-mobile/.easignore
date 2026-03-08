@@ -2,6 +2,9 @@
 android/app/build
 android/.gradle
 
+# CNG/Prebuild: EAS regenera pastas nativas a partir do app.config.js
+android
+
 # IDE
 .vscode
 .idea

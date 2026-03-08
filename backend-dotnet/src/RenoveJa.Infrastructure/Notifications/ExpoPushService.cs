@@ -12,16 +12,19 @@ public class ExpoPushService : IPushNotificationSender
     private readonly HttpClient _httpClient;
     private readonly IPushTokenRepository _pushTokenRepository;
     private readonly ILogger<ExpoPushService> _logger;
+    private readonly ExpoPushReceiptChecker? _receiptChecker;
     private const string ExpoApiUrl = "https://exp.host/--/api/v2/push/send";
 
     public ExpoPushService(
         IHttpClientFactory httpFactory,
         IPushTokenRepository pushTokenRepository,
-        ILogger<ExpoPushService> logger)
+        ILogger<ExpoPushService> logger,
+        ExpoPushReceiptChecker? receiptChecker = null)
     {
         _httpClient = httpFactory.CreateClient();
         _pushTokenRepository = pushTokenRepository;
         _logger = logger;
+        _receiptChecker = receiptChecker;
     }
 
     public async Task SendAsync(Guid userId, string title, string body, Dictionary<string, object?>? data = null, CancellationToken ct = default)
@@ -98,7 +101,15 @@ public class ExpoPushService : IPushNotificationSender
                                 : "?";
                             _logger.LogWarning("Expo push ticket error for user {UserId} token[{Idx}]: {Message} | details: {Details} | token: {TokenPreview}",
                                 request.UserId, idx, msg, details ?? "null", tokenPreview);
-                            // DeviceNotRegistered → considerar remover token do banco (futuro)
+                            // DeviceNotRegistered → ReceiptChecker desativa o token
+                        }
+                        else if (status == "ok" && _receiptChecker != null)
+                        {
+                            var ticketId = ticket.TryGetProperty("id", out var tid) ? tid.GetString() : null;
+                            if (ticketId != null && idx < activeTokens.Count)
+                            {
+                                _receiptChecker.EnqueueTicket(ticketId, activeTokens[idx].Token, request.UserId);
+                            }
                         }
                         idx++;
                     }

@@ -20,7 +20,8 @@
     "gen:api-types": "openapi-typescript ${API_URL:-http://localhost:5000}/swagger/v1/swagger.json -o types/api-generated.ts",
     "postinstall": "npx patch-package",
     "eas:credentials": "cross-env EAS_NO_VCS=1 eas credentials -p android",
-    "eas:build:android": "cross-env EAS_NO_VCS=1 eas build --profile development --platform android"
+    "eas:build:android": "cross-env EAS_NO_VCS=1 eas build --profile development --platform android",
+    "prepare:icons": "node scripts/prepare-icons.js"
   },
   "dependencies": {
     "@daily-co/config-plugin-rn-daily-js": "^0.0.11",
@@ -72,6 +73,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "eas-cli": "^16.0.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/react-native": "^13.3.3",
@@ -90,11 +92,20 @@
     "openapi-typescript": "^7.8.0",
     "react-refresh": "^0.14.2",
     "react-test-renderer": "^19.1.0",
+    "sharp": "^0.34.5",
     "ts-jest": "^29.4.6",
     "typescript": "~5.9.2"
   },
   "overrides": {
     "lightningcss": "1.31.1"
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-background-timer", "@daily-co/react-native-daily-js", "@daily-co/react-native-webrtc", "expo-pip"],
+        "listUnknownPackages": false
+      }
+    }
   },
   "private": true
 }

@@ -19,7 +19,7 @@ if ($JsonPath -and (Test-Path $JsonPath)) {
     Write-Host "Copiado para: $dest" -ForegroundColor Green
     Write-Host "`nExecutando EAS credentials..." -ForegroundColor Yellow
     Push-Location $frontend
-    npx --yes eas-cli credentials --platform android
+    npx eas credentials --platform android
     Pop-Location
     Write-Host "`nRemovendo copia local (seguranca)..." -ForegroundColor Gray
     Remove-Item $dest -Force -ErrorAction SilentlyContinue

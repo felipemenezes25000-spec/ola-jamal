@@ -157,7 +157,7 @@ public static class PushNotificationRules
         BuildRequest(userId, "consultation_scheduled", requestId, RequestType.Consultation, RequestStatus.SearchingDoctor,
             "Consulta confirmada ✅",
             "Sua consulta foi agendada.",
-            deepLinkSuffix: isDoctor ? $"doctor-consultation/{requestId}" : $"consultation/{requestId}",
+            deepLinkSuffix: isDoctor ? $"doctor-request/{requestId}" : $"video/{requestId}",
             channel: PushChannel.Quiet, highPriority: false,
             category: PushCategory.Consultations);
 
@@ -165,7 +165,7 @@ public static class PushNotificationRules
         BuildRequest(userId, "consultation_starting_soon", requestId, RequestType.Consultation, RequestStatus.Paid,
             $"Sua consulta começa em {minutesLeft} min",
             "Toque para entrar na sala.",
-            deepLinkSuffix: $"consultation/{requestId}?action=join",
+            deepLinkSuffix: $"video/{requestId}",
             channel: minutesLeft <= 10 ? PushChannel.Default : PushChannel.Quiet,
             highPriority: minutesLeft <= 10,
             category: PushCategory.Consultations,
@@ -175,7 +175,7 @@ public static class PushNotificationRules
         BuildRequest(patientId, "doctor_ready", requestId, RequestType.Consultation, RequestStatus.Paid,
             "Seu médico já está pronto",
             "Toque para entrar na consulta.",
-            deepLinkSuffix: $"consultation/{requestId}?action=join",
+            deepLinkSuffix: $"video/{requestId}",
             category: PushCategory.Consultations,
             bypassQuietHours: true);
 
