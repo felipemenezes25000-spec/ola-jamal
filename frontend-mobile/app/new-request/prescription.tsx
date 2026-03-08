@@ -221,11 +221,11 @@ export default function NewPrescription() {
   };
 
   return (
-    <Screen scroll={false} edges={['bottom']} padding={false}>
+    <Screen scroll={false} edges={['top', 'bottom']} padding={false}>
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[styles.body, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
           <AppHeader title="Renovação de Receita" />
-          <StepIndicator current={currentStep} total={3} labels={['Tipo', 'Foto', 'Revisão']} />
+          <StepIndicator current={currentStep} total={3} labels={['Tipo', 'Foto', 'Revisão']} showConnectorLines={false} />
           {isConnected === false && (
             <View style={styles.offlineBanner}>
               <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
@@ -318,7 +318,7 @@ export default function NewPrescription() {
           <View style={styles.photoWarningCard}>
             <Ionicons name="warning" size={18} color={colors.warning} />
             <Text style={styles.photoWarningText}>
-              Envie <Text style={styles.photoWarningBold}>somente</Text> fotos do documento da receita (papel ou tela com os medicamentos). Outras imagens serão rejeitadas automaticamente.
+              Envie <Text style={styles.photoWarningBold}>somente</Text> fotos da receita (papel ou tela). Outras imagens serão rejeitadas.
             </Text>
           </View>
 
@@ -429,11 +429,14 @@ function makeStyles(colors: DesignColors) {
     },
     offlineText: { flex: 1, color: colors.textSecondary, fontSize: 12 },
     sectionLabel: {
-      ...typo.variants.overline,
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 16,
+      textTransform: 'uppercase',
       color: colors.textSecondary,
       marginTop: s.lg,
       marginBottom: s.sm,
-    } as any,
+    },
     stepHint: {
       fontSize: 13,
       color: colors.textSecondary,
@@ -451,7 +454,6 @@ function makeStyles(colors: DesignColors) {
       shadowRadius: 0,
       shadowOffset: { width: 0, height: 0 },
       elevation: 0,
-      overflow: 'hidden',
     },
     assistantCardLoading: {
       opacity: 0.95,
@@ -472,6 +474,7 @@ function makeStyles(colors: DesignColors) {
     assistantProgress: {
       marginTop: 6,
       fontSize: 14,
+      lineHeight: 20,
       fontWeight: typo.fontWeight.semibold,
       color: colors.text,
     },
@@ -594,6 +597,7 @@ function makeStyles(colors: DesignColors) {
     photoWarningText: {
       flex: 1,
       minWidth: 0,
+      flexShrink: 1,
       fontSize: 13,
       lineHeight: 19,
       color: colors.warning,

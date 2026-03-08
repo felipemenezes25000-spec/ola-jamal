@@ -10,7 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../lib/theme';
@@ -45,6 +45,7 @@ const NARROW_BREAKPOINT = 360;
 
 export default function NewExam() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ prefillExams?: string }>();
   const invalidateRequests = useInvalidateRequests();
   const { width } = useWindowDimensions();
   const oneColumn = width < NARROW_BREAKPOINT;
@@ -65,6 +66,18 @@ export default function NewExam() {
   });
   const redFlagsLocal = detectRedFlags(symptoms);
   const [apiLoading, setApiLoading] = useState(false);
+  /** Prefill de exames vindos da consulta (ex.: médico clicou em "Criar Pedido de Exame Baseado na Consulta") */
+  useEffect(() => {
+    const raw = params.prefillExams;
+    if (raw && typeof raw === 'string') {
+      try {
+        const arr = JSON.parse(raw) as string[];
+        if (Array.isArray(arr) && arr.length > 0) {
+          setExams(arr.filter(Boolean));
+        }
+      } catch { /* ignore */ }
+    }
+  }, [params.prefillExams]);
   const [apiResult, setApiResult] = useState<{
     score: number;
     doneCount: number;
@@ -243,7 +256,7 @@ export default function NewExam() {
   };
 
   return (
-    <Screen scroll={false} padding={false} edges={['bottom']}>
+    <Screen scroll={false} padding={false} edges={['top', 'bottom']}>
       <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
         <AppHeader title="Novo Exame" />
@@ -420,11 +433,10 @@ function makeStyles(colors: DesignColors) {
       paddingHorizontal: uiTokens.screenPaddingHorizontal,
     },
     overline: {
-      fontSize: ty.fontSize.xs,
+      fontSize: 12,
+      fontWeight: '600',
       lineHeight: 16,
-      fontWeight: '700',
       textTransform: 'uppercase',
-      letterSpacing: 1.2,
       color: colors.textSecondary,
       marginTop: s.lg,
       marginBottom: s.sm,
@@ -444,7 +456,7 @@ function makeStyles(colors: DesignColors) {
     assistantLoading: { marginLeft: 'auto' },
     assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
     assistantTitle: { fontSize: 13, fontWeight: '700', color: colors.primary },
-    assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: colors.text },
+    assistantProgress: { marginTop: 6, fontSize: 14, lineHeight: 20, fontWeight: '700', color: colors.text },
     assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
     assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.success },
     redFlagCard: {

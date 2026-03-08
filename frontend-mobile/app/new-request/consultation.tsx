@@ -230,11 +230,11 @@ export default function ConsultationScreen() {
   };
 
   return (
-    <Screen scroll={false} edges={['bottom']} padding={false}>
+    <Screen scroll={false} edges={['top', 'bottom']} padding={false}>
       <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
         <AppHeader title="Consulta Breve" />
-        <StepIndicator current={currentStep} total={4} labels={['Profissional', 'Minutos', 'Sintomas', 'Revisão']} />
+        <StepIndicator current={currentStep} total={4} labels={['Profissional', 'Minutos', 'Sintomas', 'Revisão']} showConnectorLines={false} />
         <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
           <View style={styles.assistantHeader}>
             <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
@@ -257,18 +257,6 @@ export default function ConsultationScreen() {
             <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
           </View>
         ) : null}
-        {/* Banner */}
-        <AppCard style={styles.banner}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="videocam" size={28} color={colors.primary} />
-          </View>
-          <View style={styles.bannerTitleWrap}>
-            <Text style={styles.bannerTitle} numberOfLines={2}>Consulta Breve - Renoveja+</Text>
-          </View>
-          <Text style={styles.bannerDesc}>
-            Plantão de dúvidas em telemedicina para sanar dúvidas pontuais!
-          </Text>
-        </AppCard>
 
         {/* Tipo: Psicólogo ou Médico Clínico */}
         <Text style={styles.overline}>TIPO DE PROFISSIONAL</Text>
@@ -329,7 +317,7 @@ export default function ConsultationScreen() {
             styles.textArea,
             symptoms.trim().length > 0 && symptoms.trim().length < 10 && [styles.inputError, { borderColor: colors.warning + 'CC' }],
           ]}
-          placeholder="O que você está sentindo? Desde quando? O que gostaria de esclarecer?"
+          placeholder="Descreva sintomas, desde quando e sua dúvida"
           placeholderTextColor={colors.textMuted}
           value={symptoms}
           onChangeText={setSymptoms}
@@ -394,6 +382,7 @@ function makeStyles(colors: DesignColors) {
       flexGrow: 1,
       paddingHorizontal: uiTokens.screenPaddingHorizontal,
       paddingBottom: s.xl,
+      overflow: 'hidden',
     },
     assistantCard: {
       marginTop: s.md,
@@ -411,7 +400,7 @@ function makeStyles(colors: DesignColors) {
     assistantLoading: { marginLeft: 'auto' },
     assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
     assistantTitle: { fontSize: 13, fontWeight: '700', color: colors.primary },
-    assistantProgress: { marginTop: 6, fontSize: 14, fontWeight: '700', color: colors.text },
+    assistantProgress: { marginTop: 6, fontSize: 14, lineHeight: 20, fontWeight: '700', color: colors.text },
     assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
     assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.success },
     redFlagCard: {
@@ -427,41 +416,11 @@ function makeStyles(colors: DesignColors) {
       gap: s.sm,
     },
     redFlagText: { flex: 1, color: colors.error, fontSize: 12, lineHeight: 18 },
-    banner: {
-      alignItems: 'center',
-      marginTop: s.xs,
-      marginBottom: s.lg,
-      paddingHorizontal: s.lg,
-    },
-    bannerTitleWrap: {
-      alignSelf: 'stretch',
-      paddingHorizontal: s.sm,
-    },
-    iconCircle: {
-      width: 64,
-      height: 64,
-      borderRadius: 20,
-      backgroundColor: colors.primarySoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: s.sm,
-    },
-    bannerTitle: {
-      ...t.variants.h3,
-      color: colors.text,
-      marginTop: s.xs,
-      textAlign: 'center',
-    },
-    bannerDesc: {
-      fontSize: t.fontSize.sm,
-      lineHeight: 20,
-      color: colors.text,
-      textAlign: 'center',
-      marginTop: s.xs,
-      alignSelf: 'stretch',
-    },
     overline: {
-      ...t.variants.overline,
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 16,
+      textTransform: 'uppercase',
       color: colors.textSecondary,
       marginBottom: s.sm,
     },
@@ -498,6 +457,7 @@ function makeStyles(colors: DesignColors) {
     },
     typePricePerMin: {
       fontSize: t.fontSize.lg,
+      lineHeight: 24,
       fontWeight: '700',
       color: colors.text,
       marginTop: s.xs,
@@ -522,6 +482,7 @@ function makeStyles(colors: DesignColors) {
       justifyContent: 'center',
       gap: s.lg,
       marginBottom: s.lg,
+      alignSelf: 'stretch',
     },
     stepperBtn: {
       width: 48,
@@ -554,10 +515,10 @@ function makeStyles(colors: DesignColors) {
       paddingTop: s.md,
       paddingBottom: s.md,
       fontSize: t.fontSize.md,
+      lineHeight: 22,
       color: colors.text,
       minHeight: 120,
       marginBottom: s.lg,
-      overflow: 'hidden',
     },
     inputError: {
       borderWidth: 2,
@@ -572,16 +533,22 @@ function makeStyles(colors: DesignColors) {
       marginBottom: s.xs,
     },
     totalLabel: {
-      ...t.variants.body2,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '400',
       color: colors.textSecondary,
       flex: 1,
     },
     totalValue: {
-      ...t.variants.h2,
+      fontSize: 22,
+      lineHeight: 28,
+      fontWeight: '700',
       color: colors.primary,
     },
     discountValue: {
-      ...t.variants.h3,
+      fontSize: 18,
+      lineHeight: 22,
+      fontWeight: '600',
       color: colors.success,
     },
     freeLabel: {
@@ -603,7 +570,7 @@ function makeStyles(colors: DesignColors) {
       gap: s.sm,
     },
     bankText: {
-      fontSize: t.fontSize.sm,
+      fontSize: 14,
       color: colors.success,
       flex: 1,
       lineHeight: 18,
