@@ -96,7 +96,7 @@ public static class PushNotificationRules
             "Aprovado ✅ falta só o pagamento",
             "Pague para liberar a assinatura do documento.",
             targetRole: "patient",
-            deepLinkSuffix: $"payment/{requestId}",
+            deepLinkSuffix: $"payment/request/{requestId}",
             category: PushCategory.Payments);
 
     public static PushNotificationRequest PaymentFailed(Guid userId, Guid requestId) =>
@@ -104,7 +104,7 @@ public static class PushNotificationRules
             "Pagamento não concluído",
             "Toque para tentar novamente ou trocar a forma de pagamento.",
             targetRole: "patient",
-            deepLinkSuffix: $"payment/{requestId}?retry=1",
+            deepLinkSuffix: $"payment/request/{requestId}?retry=1",
             category: PushCategory.Payments);
 
     public static PushNotificationRequest Paid(Guid userId, Guid requestId, RequestType requestType) =>
@@ -212,6 +212,7 @@ public static class PushNotificationRules
             "Não conseguimos iniciar a consulta",
             "Toque para remarcar ou falar com o suporte.",
             targetRole: isDoctor ? "doctor" : "patient",
+            deepLinkSuffix: isDoctor ? $"doctor-request/{requestId}" : $"request-detail/{requestId}",
             channel: PushChannel.Quiet, highPriority: false,
             category: PushCategory.System);
 
@@ -233,7 +234,7 @@ public static class PushNotificationRules
             "Pagamento pendente",
             "Seu pedido está aprovado. Toque para concluir o pagamento.",
             targetRole: "patient",
-            deepLinkSuffix: $"payment/{requestId}",
+            deepLinkSuffix: $"payment/request/{requestId}",
             channel: PushChannel.Default,
             category: PushCategory.Reminders,
             collapseKeySuffix: "reminder_payment");

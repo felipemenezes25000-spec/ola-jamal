@@ -10,7 +10,7 @@
  * - Timer sincronizado com servidor + countdown
  * - Quality indicator, mute/camera/flip controls
  * - Notas clínicas ao encerrar (modal)
- * - Transcrição via Daily.co (sem fallback Deepgram/expo-av)
+ * - Transcrição via Whisper (useAudioRecorder grava áudio, backend transcreve)
  * - SignalR para receber TranscriptUpdate + AnamnesisUpdate + SuggestionUpdate
  * - Criação de sala Daily.co antes do join
  */
@@ -51,7 +51,7 @@ import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { apiClient } from '../../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyCall, type ConnectionQuality } from '../../hooks/useDailyCall';
-import { useDailyTranscription } from '../../hooks/useDailyTranscription';
+import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -138,7 +138,7 @@ export default function VideoCallScreenInner() {
   const [bankBalance, setBankBalance] = useState<{ minutes: number; seconds: number } | null>(null);
   const [, setConsultationType] = useState<string>('medico_clinico');
 
-  // Transcrição: Daily.co nativa (ambos) ou fallback expo-av (só paciente)
+  // Transcrição: Whisper via useAudioRecorder (ambos gravam microfone, backend transcreve)
   const canStartRecording = consultationStartedAt || requestStatus === 'in_consultation' || requestStatus === 'paid';
 
   // Anamnesis & Transcript (doctor)
@@ -171,7 +171,6 @@ export default function VideoCallScreenInner() {
     callState, localParticipant, remoteParticipant,
     isMuted, isCameraOff, isFrontCamera, quality, errorMessage,
     join, leave, toggleMute, toggleCamera, flipCamera,
-    callRef,
   } = useDailyCall({
     roomUrl: roomUrl ?? '',
     token: meetingToken ?? '',
@@ -194,16 +193,18 @@ export default function VideoCallScreenInner() {
     onError: (msg) => setError(msg),
   });
 
-  const { isTranscribing: dailyTranscriptionActive } = useDailyTranscription({
-    callRef,
-    requestId: rid,
-    isDoctor,
-    localSessionId: localParticipant?.participantId ?? null,
-    callJoined: callState === 'joined',
-    consultationActive: !!canStartRecording && callState === 'joined',
-    onSendError: (msg) => setTranscriptionError(msg),
-    onSendSuccess: () => setTranscriptionError(null),
-  });
+  const audioRecorder = useAudioRecorder(rid, isDoctor ? 'local' : 'remote');
+  const audioRecorderRef = useRef(audioRecorder);
+  audioRecorderRef.current = audioRecorder;
+
+  // Whisper: inicia gravação automaticamente quando consulta iniciada e na sala
+  useEffect(() => {
+    if (!canStartRecording || callState !== 'joined' || !rid) return;
+    audioRecorderRef.current.start().catch(() => {});
+    return () => {
+      audioRecorderRef.current.stop().catch(() => {});
+    };
+  }, [canStartRecording, callState, rid]);
 
   // ── Panel animation ──
 
@@ -362,7 +363,7 @@ export default function VideoCallScreenInner() {
       // Also report doctor as connected to help trigger server-side timer
       reportCallConnected(rid).catch(() => {});
       connectSignalR();
-      // Transcrição via Daily.co — médico inicia e envia ao backend; ambos veem ao vivo via SignalR.
+      // Transcrição via Whisper — useAudioRecorder inicia automaticamente; ambos veem ao vivo via SignalR.
     } catch (e: any) {
       console.warn('Failed to start consultation:', e?.message);
       // Still set local timer so UI isn't stuck
@@ -518,6 +519,7 @@ export default function VideoCallScreenInner() {
       ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
     }
     if (timerRef.current) clearInterval(timerRef.current);
+    audioRecorderRef.current.stop().catch(() => {});
     disconnectSignalR();
   }, [disconnectSignalR]);
 
@@ -731,11 +733,11 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Doctor: aviso quando transcrição falha */}
-      {!isInPipMode && isDoctor && transcriptionError && (
+      {/* Doctor: aviso quando transcrição falha (SignalR ou erro de envio Whisper) */}
+      {!isInPipMode && isDoctor && (transcriptionError || audioRecorder.lastChunkError) && (
         <View style={[S.recIndicator, { top: insets.top + 60 + 140, backgroundColor: colors.warning + '40' }]}>
           <Ionicons name="warning" size={14} color={colors.warning} />
-          <Text style={[S.recText, { color: colors.warning }]}>{transcriptionError}</Text>
+          <Text style={[S.recText, { color: colors.warning }]}>{transcriptionError || audioRecorder.lastChunkError}</Text>
         </View>
       )}
 
@@ -747,10 +749,10 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Patient: indicador de transcrição Daily.co — oculto em PiP */}
+      {/* Patient: indicador de transcrição Whisper — oculto em PiP */}
       {!isInPipMode && !isDoctor && callState === 'joined' && (
-        <View style={[dailyTranscriptionActive ? S.recIndicatorActive : S.recIndicatorMuted, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
-          {dailyTranscriptionActive ? (
+        <View style={[audioRecorder.isRecording ? S.recIndicatorActive : S.recIndicatorMuted, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
+          {audioRecorder.isRecording ? (
             <>
               <View style={S.recDot} />
               <Text style={S.recText}>Transcrição ativa</Text>

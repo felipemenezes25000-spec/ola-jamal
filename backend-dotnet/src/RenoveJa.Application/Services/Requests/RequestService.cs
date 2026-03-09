@@ -2313,7 +2313,7 @@ public class RequestService(
         try
         {
             var doctors = await doctorRepository.GetAvailableAsync(null, cancellationToken);
-            foreach (var doc in doctors.Take(5))
+            foreach (var doc in doctors.Take(3))
                 newRequestBatchService.AddToBatch(doc.UserId, tipoSolicitacao);
         }
         catch (Exception ex)

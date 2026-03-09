@@ -15,8 +15,8 @@ public class NewRequestBatchService : BackgroundService, INewRequestBatchService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NewRequestBatchService> _logger;
     private readonly ConcurrentDictionary<Guid, BatchEntry> _batches = new();
-    private static readonly TimeSpan BatchWindow = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan BatchWindow = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(45);
 
     private sealed class BatchEntry
     {

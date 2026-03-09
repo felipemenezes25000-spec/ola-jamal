@@ -12,8 +12,8 @@ public class OpenAIConfig
     public string ApiKey { get; set; } = string.Empty;
     /// <summary>Modelo padrão (fallback). Usado quando ModelAnamnesis/ModelEvidence não definidos.</summary>
     public string Model { get; set; } = "gpt-4o";
-    /// <summary>Modelo para anamnese na consulta. Se vazio, usa Model. Ex: gpt-5-mini (economia ~94%).</summary>
-    public string ModelAnamnesis { get; set; } = "gpt-5-mini";
-    /// <summary>Modelo para evidências científicas (tradução + relevância). Se vazio, usa Model. Ex: gpt-5.1.</summary>
-    public string ModelEvidence { get; set; } = "gpt-5.1";
+    /// <summary>Modelo para anamnese na consulta. Se vazio, usa Model. Padrão: gpt-4o-mini.</summary>
+    public string ModelAnamnesis { get; set; } = "gpt-4o-mini";
+    /// <summary>Modelo para evidências científicas (tradução + relevância). Se vazio, usa Model. Padrão: gpt-4o.</summary>
+    public string ModelEvidence { get; set; } = "gpt-4o";
 }

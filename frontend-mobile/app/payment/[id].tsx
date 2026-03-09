@@ -19,7 +19,7 @@ import * as Clipboard from 'expo-clipboard';
 import { spacing, borderRadius, shadows } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { fetchPayment, fetchPixCode, syncPaymentStatus } from '../../lib/api';
+import { fetchPayment, fetchPaymentByRequest, fetchPixCode, syncPaymentStatus } from '../../lib/api';
 import { formatBRL, formatTimeBR } from '../../lib/utils/format';
 import { PaymentResponseDto } from '../../types/database';
 import { PaymentHeader } from '../../components/payment/PaymentHeader';
@@ -94,7 +94,23 @@ export default function PaymentScreen() {
   const loadPayment = async () => {
     if (!paymentId) return;
     try {
-      const data = await fetchPayment(paymentId);
+      let data: PaymentResponseDto;
+      try {
+        data = await fetchPayment(paymentId);
+      } catch (e: unknown) {
+        // Deep link antigo pode enviar requestId em vez de paymentId — fallback
+        const byRequest = await fetchPaymentByRequest(paymentId);
+        if (byRequest) {
+          router.replace(`/payment/${byRequest.id}` as never);
+          return;
+        }
+        const msg = (e as Error)?.message ?? '';
+        if (msg.toLowerCase().includes('not found') || msg.includes('404')) {
+          router.replace(`/payment/request/${paymentId}` as never);
+          return;
+        }
+        throw e;
+      }
       setPayment(data);
       if (data.status === 'approved') {
         setScreen('pix'); // Mostra tela PIX com botão "Pagamento Aprovado"

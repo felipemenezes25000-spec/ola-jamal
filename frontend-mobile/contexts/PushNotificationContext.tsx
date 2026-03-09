@@ -31,14 +31,16 @@ if (Notifications) {
         }
       } catch {}
 
-      // Se targetRole está definido e não bate com o role ativo, suprime heads-up
+      // Se targetRole está definido e não bate com o role ativo, suprime completamente.
+      // Evita que médico receba notificações de paciente (e vice-versa) quando o mesmo
+      // dispositivo tem token registrado em ambas as contas.
       if (targetRole && currentRole && targetRole !== currentRole) {
         return {
           shouldShowAlert: false,
           shouldPlaySound: false,
-          shouldSetBadge: true, // Still update badge count
+          shouldSetBadge: false,
           shouldShowBanner: false,
-          shouldShowList: true, // Still show in notification center
+          shouldShowList: false,
         };
       }
 

@@ -19,8 +19,8 @@ public class StaleRequestReminderService : BackgroundService
     private readonly IMemoryCache _cache;
     private readonly ILogger<StaleRequestReminderService> _logger;
     private static readonly TimeSpan PaymentPendingThreshold = TimeSpan.FromHours(6);
-    private static readonly TimeSpan InReviewThreshold = TimeSpan.FromMinutes(30);
-    private static readonly TimeSpan RunInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan InReviewThreshold = TimeSpan.FromMinutes(60);
+    private static readonly TimeSpan RunInterval = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan ReminderCooldown = TimeSpan.FromHours(12);
 
     public StaleRequestReminderService(IServiceScopeFactory scopeFactory, IMemoryCache cache, ILogger<StaleRequestReminderService> logger)

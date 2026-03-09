@@ -131,6 +131,7 @@ export default function RootLayout() {
                 <Stack.Screen name="video/[requestId]" options={motionTokens.nav.softPush} />
 
                 {/* Fluxos médico: transição mais direta */}
+                <Stack.Screen name="doctor-requests" options={{ animation: 'fade', headerShown: false }} />
                 <Stack.Screen name="doctor-request/[id]" options={motionTokens.nav.snappyPush} />
                 <Stack.Screen name="doctor-request/editor/[id]" options={motionTokens.nav.snappyPush} />
                 <Stack.Screen name="doctor-patient/[patientId]" options={motionTokens.nav.snappyPush} />
