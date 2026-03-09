@@ -7,6 +7,7 @@ import { haptics } from '../../lib/haptics';
 import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 
 const TAB_BAR_BASE_HEIGHT = 56;
 const TAB_BAR_PADDING_TOP = 8;
@@ -29,6 +30,7 @@ export default function PatientLayout() {
   }, [loading, user, router]);
 
   return (
+    <ErrorBoundary>
     <Tabs
       screenListeners={{
         tabPress: () => haptics.selection(),
@@ -132,6 +134,7 @@ export default function PatientLayout() {
         }}
       />
     </Tabs>
+    </ErrorBoundary>
   );
 }
 

@@ -16,13 +16,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
-import { cacheRequest } from '../doctor-request/[id]';
+import { cacheRequest } from '../../hooks/useDoctorRequest';
 
 import { AppEmptyState, SectionHeader } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -170,22 +171,33 @@ export default function DoctorDashboard() {
   const [hasCertificate, setHasCertificate] = useState<boolean | null>(null);
 
   // ─── Data Loading ───────────────────────────────────────────
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const loadData = useCallback(async (withFeedback = false) => {
     try {
       const [cert, res] = await Promise.allSettled([
         getActiveCertificate(),
         getRequests({ page: 1, pageSize: 100 }), // reduced from 500 for performance
       ]);
+      if (!mountedRef.current) return;
       setHasCertificate(cert.status === 'fulfilled' && !!cert.value);
-      const items = res.status === 'fulfilled' ? (res.value?.items ?? []) : [];
+      const rawItems = res.status === 'fulfilled' ? res.value?.items : undefined;
+      const items = Array.isArray(rawItems) ? rawItems : [];
       setQueue(items);
       if (withFeedback) showToast({ message: 'Painel atualizado', type: 'success' });
     } catch (e) {
-      console.error(e);
+      if (__DEV__) console.error('[DoctorDashboard] loadData error:', e);
+      if (!mountedRef.current) return;
       if (withFeedback) showToast({ message: 'Erro ao atualizar', type: 'error' });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -231,13 +243,18 @@ export default function DoctorDashboard() {
     [user?.name]
   );
 
+  // ─── Gradiente seguro (evita crash se gradients.doctorHeader for undefined)
+  const headerGradient = Array.isArray(gradients?.doctorHeader) && gradients.doctorHeader.length > 0
+    ? (gradients.doctorHeader as [string, string, ...string[]])
+    : (['#0369A1', '#0EA5E9'] as [string, string, ...string[]]);
+
   // ─── Loading State ─────────────────────────────────────────
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar style="light" />
         <LinearGradient
-          colors={gradients.doctorHeader as [string, string, ...string[]]}
+          colors={headerGradient}
           style={[styles.headerSkeleton, { paddingTop: insets.top + 20 }]}
         />
         <View style={{ padding: SCREEN_PAD }}>
@@ -251,6 +268,16 @@ export default function DoctorDashboard() {
     weekday: 'long', day: 'numeric', month: 'long',
   });
 
+  // ─── Queue Item Press Handler (stable reference per item) ───
+  const handleQueueItemPress = useCallback(
+    (item: RequestResponseDto) => {
+      haptics.selection();
+      cacheRequest(item);
+      router.push(`/doctor-request/${item.id}`);
+    },
+    [router]
+  );
+
   // ─── Queue Item Renderer ───────────────────────────────────
   const renderQueueItem: ListRenderItem<RequestResponseDto> = useCallback(
     ({ item, index }) => (
@@ -258,15 +285,11 @@ export default function DoctorDashboard() {
         <QueueItem
           request={item}
           colors={colors}
-          onPress={() => {
-            haptics.selection();
-            cacheRequest(item);
-            router.push(`/doctor-request/${item.id}`);
-          }}
+          onPress={() => handleQueueItemPress(item)}
         />
       </FadeIn>
     ),
-    [colors, router]
+    [colors, handleQueueItemPress]
   );
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
@@ -276,7 +299,7 @@ export default function DoctorDashboard() {
     <>
       {/* ── HEADER GRADIENT ── */}
       <LinearGradient
-        colors={gradients.doctorHeader as [string, string, ...string[]]}
+        colors={headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 24 }]}
@@ -434,6 +457,7 @@ export default function DoctorDashboard() {
 
   // ─── Render ────────────────────────────────────────────────
   return (
+    <ErrorBoundary>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style="light" backgroundColor="transparent" translucent />
       <FlatList
@@ -460,6 +484,7 @@ export default function DoctorDashboard() {
         contentInsetAdjustmentBehavior="never"
       />
     </View>
+    </ErrorBoundary>
   );
 }
 
@@ -522,7 +547,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 16,  // unified with design system card radius
     borderWidth: 1,
     gap: 7,
   },

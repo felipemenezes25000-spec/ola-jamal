@@ -9,6 +9,7 @@ import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { PulsingNotificationIcon } from '../../components/PulsingNotificationIcon';
 import { useAuth } from '../../contexts/AuthContext';
+import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 
 const TAB_BAR_BASE_HEIGHT = Platform.OS === 'ios' ? 56 : 56;
 const TAB_BAR_PADDING_TOP = 8;
@@ -32,7 +33,7 @@ export default function DoctorLayout() {
   }, [loading, user, router]);
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar style={isDark ? 'light' : 'light'} />
       <Tabs
         screenListeners={{
@@ -132,7 +133,7 @@ export default function DoctorLayout() {
           }}
         />
       </Tabs>
-    </>
+    </ErrorBoundary>
   );
 }
 
