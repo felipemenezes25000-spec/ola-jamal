@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { nav } from './ui/../lib/navigation';
+import { nav } from '../lib/navigation';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useRequestsEvents } from '../contexts/RequestsEventsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { showToast } from './ui/Toast';
 import type { RequestUpdatedPayload } from '../lib/requestsEvents';
-import { useAppTheme } from './ui/../lib/ui/useAppTheme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
 
 /** Normaliza status para comparação (in_consultation, InConsultation, etc.) */
 function normalizeStatus(s: string | undefined): string {

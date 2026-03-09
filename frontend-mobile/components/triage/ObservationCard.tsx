@@ -17,7 +17,7 @@ import type { DesignColors } from '../../lib/designSystem';
 
 type CardMode = 'auto' | 'conduct';
 
-interface ObservationCardPropsinterface ObservationCardProps {
+interface ObservationCardProps {
   mode: CardMode;
   text: string;
   doctorName?: string | null;

@@ -19,9 +19,13 @@ export default {
       resizeMode: "contain",
       backgroundColor: "#0EA5E9"
     },
+    updates: {
+      url: "https://u.expo.dev/beb0f102-cc22-45a9-80a6-7e735968e6d2"
+    },
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.renoveja.app",
+      runtimeVersion: { policy: "appVersion" },
       infoPlist: {
         UIBackgroundModes: ["voip", "audio", "remote-notification"],
         NSCameraUsageDescription: "RenoveJá+ precisa de acesso à câmera para videoconsultas",
@@ -30,6 +34,7 @@ export default {
       }
     },
     android: {
+      runtimeVersion: "1.0.0",
       ...(existsSync(googleServicesPath) && { googleServicesFile: "./google-services.json" }),
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
