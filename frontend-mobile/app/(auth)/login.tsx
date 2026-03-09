@@ -15,8 +15,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
-import * as WebBrowser from 'expo-web-browser';
-import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../lib/theme';
@@ -33,9 +32,6 @@ import { loginSchema } from '../../lib/validation/schemas';
 const LOG_RENDER = __DEV__ && false;
 const WHATSAPP_NUMBER = '5511986318000';
 const SMALL_SCREEN_HEIGHT = 700;
-
-// Necessário para o fluxo OAuth no app (completar sessão ao voltar do browser)
-WebBrowser.maybeCompleteAuthSession();
 
 export default function Login() {
   const router = useRouter();
@@ -63,19 +59,15 @@ export default function Login() {
     (extra?.googleIosClientId || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
 
   const hasGoogleConfig = !!(googleWebClientId || googleAndroidClientId || googleIosClientId);
-  // Placeholder com formato válido de clientId Google para passar a validação
-  // invariantClientId do expo-auth-session (rejeita strings sem formato correto).
-  // O botão fica disabled quando hasGoogleConfig=false, então nunca será usado de fato.
-  const PLACEHOLDER_CLIENT_ID = '000000000000-placeholder.apps.googleusercontent.com';
-  const [request, , promptGoogle] = useIdTokenAuthRequest({
-    webClientId: googleWebClientId || PLACEHOLDER_CLIENT_ID,
-    androidClientId: Platform.OS === 'android'
-      ? (googleAndroidClientId || googleWebClientId || PLACEHOLDER_CLIENT_ID)
-      : undefined,
-    iosClientId: Platform.OS === 'ios'
-      ? (googleIosClientId || googleWebClientId || PLACEHOLDER_CLIENT_ID)
-      : undefined,
-  });
+
+  useEffect(() => {
+    if (googleWebClientId) {
+      GoogleSignin.configure({
+        webClientId: googleWebClientId,
+        offlineAccess: false,
+      });
+    }
+  }, [googleWebClientId]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -161,7 +153,7 @@ export default function Login() {
   const handleGooglePress = useCallback(async () => {
     if (!hasGoogleConfig || !googleWebClientId?.trim()) {
       if (__DEV__) {
-        console.warn('[Login] Google OAuth não configurado. Ver CONFIG_GOOGLE_OAUTH.md e variáveis EXPO_PUBLIC_GOOGLE_*.', {
+        console.warn('[Login] Google OAuth não configurado.', {
           googleWebClientId,
           googleAndroidClientId,
           googleIosClientId,
@@ -173,39 +165,46 @@ export default function Login() {
       );
       return;
     }
-    if (!request) {
-      Alert.alert(
-        'Aguarde um momento',
-        'O login com Google ainda está carregando. Aguarde alguns segundos e tente novamente.'
-      );
-      return;
-    }
     setGoogleLoading(true);
     try {
-      const result = await promptGoogle();
-      if (result.type === 'success' && result.params?.id_token) {
-        const idToken = result.params.id_token as string;
-        const user = await signInWithGoogle(idToken);
-        const dest = !user.profileComplete
-          ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
-          : user.role === 'doctor'
-          ? '/(doctor)/dashboard'
-          : '/(patient)/home';
-        setTimeout(() => router.replace(dest as any), 0);
-      } else if (result.type === 'error') {
-        const err = result.error;
-        if (err?.message && !err.message.includes('cancel')) {
-          Alert.alert('Erro no Google', err.message);
-        }
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      if ((response as { type?: string })?.type === 'cancelled') {
+        return;
       }
+
+      const idToken = (response as { data?: { idToken?: string }; idToken?: string })?.data?.idToken
+        ?? (response as { idToken?: string })?.idToken;
+      if (!idToken) {
+        throw new Error('Google não retornou o ID Token.');
+      }
+
+      const user = await signInWithGoogle(idToken);
+      const dest = !user.profileComplete
+        ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
+        : user.role === 'doctor'
+        ? '/(doctor)/dashboard'
+        : '/(patient)/home';
+      setTimeout(() => router.replace(dest as any), 0);
     } catch (error: unknown) {
-      const err = error as { message?: string };
+      const err = error as { code?: string; message?: string };
+      if (err?.code === statusCodes.SIGN_IN_CANCELLED) {
+        return;
+      }
+      if (err?.code === statusCodes.IN_PROGRESS) {
+        return;
+      }
+      if (err?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert('Erro', 'Google Play Services não disponível neste dispositivo.');
+        return;
+      }
       const msg = err?.message || String(error) || 'Erro ao fazer login com Google.';
       Alert.alert('Erro no login', msg);
     } finally {
       setGoogleLoading(false);
     }
-  }, [googleWebClientId, googleAndroidClientId, googleIosClientId, hasGoogleConfig, request, promptGoogle, signInWithGoogle, router]);
+  }, [hasGoogleConfig, googleWebClientId, googleAndroidClientId, googleIosClientId, signInWithGoogle, router]);
 
   const openWhatsApp = useCallback(() => {
     const url = `https://wa.me/${WHATSAPP_NUMBER}`;

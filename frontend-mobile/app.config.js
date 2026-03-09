@@ -48,6 +48,12 @@ export default {
       favicon: "./assets/favicon.png"
     },
     plugins: [
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          iosUrlScheme: "com.googleusercontent.apps.462336676738-sm6n4bup7ajvg8b9mslifls8i48o1hih"
+        }
+      ],
       "expo-router",
       "expo-font",
       "expo-pip",

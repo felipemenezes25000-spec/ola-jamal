@@ -178,6 +178,31 @@ Veja `.env.example` para lista completa.
 | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | Google OAuth Client ID (Android) |
 | `EXPO_PUBLIC_TRIAGE_ENABLED` | Habilitar triagem com IA (true/false) |
 
+### Login com Google (OAuth)
+
+Credenciais OAuth configuradas no Google Cloud (projeto `renoveja-487500` / `462336676738`):
+
+| Tipo | Client ID |
+|------|-----------|
+| Web | `462336676738-vr3ap789t68l7vbf5j32h8auqnr9a0ih.apps.googleusercontent.com` |
+| Android | `462336676738-0s001pi533f2d3o7j86t2o3ktvbr9oga.apps.googleusercontent.com` |
+| iOS | `462336676738-sm6n4bup7ajvg8b9mslifls8i48o1hih.apps.googleusercontent.com` |
+
+**Setup rápido:**
+
+1. Frontend mobile:
+```bash
+cd frontend-mobile
+./scripts/setup-google-oauth.sh 462336676738-vr3ap789t68l7vbf5j32h8auqnr9a0ih.apps.googleusercontent.com 462336676738-0s001pi533f2d3o7j86t2o3ktvbr9oga.apps.googleusercontent.com 462336676738-sm6n4bup7ajvg8b9mslifls8i48o1hih.apps.googleusercontent.com
+npx expo start --clear
+```
+
+2. Backend (Render): `Google__ClientId` já está configurado no serviço `ola-jamal`.
+
+3. Tela de consentimento: modo Teste, usuário `contato@renovejasaude.com.br` adicionado.
+
+4. Documentação detalhada: `docs/LOGIN_GOOGLE_PASSO_A_PASSO.md`
+
 ---
 
 ## Como Rodar

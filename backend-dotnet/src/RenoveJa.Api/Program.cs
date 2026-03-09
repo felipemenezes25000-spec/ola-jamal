@@ -207,6 +207,11 @@ builder.Services.Configure<SupabaseConfig>(options =>
 // Configure Google Auth (login com Google)
 builder.Services.Configure<GoogleAuthConfig>(
     builder.Configuration.GetSection("Google"));
+{
+    var googleClientId = builder.Configuration.GetSection("Google")["ClientId"];
+    if (string.IsNullOrWhiteSpace(googleClientId))
+        Console.WriteLine("⚠️  [WARN] Google:ClientId não configurado. Login com Google não funcionará. Defina a env var Google__ClientId.");
+}
 
 // Configure Mercado Pago
 builder.Services.Configure<MercadoPagoConfig>(
