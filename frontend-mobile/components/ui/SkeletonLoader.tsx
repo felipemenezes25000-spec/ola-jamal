@@ -8,7 +8,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { theme } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
 
 interface SkeletonProps {
   width?: number | string;
@@ -23,6 +23,7 @@ export function SkeletonLoader({
   borderRadius = 8,
   style,
 }: SkeletonProps) {
+  const { colors } = useAppTheme();
   const opacity = useSharedValue(0.4);
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export function SkeletonLoader({
           width: width as number,
           height,
           borderRadius,
-          backgroundColor: theme.colors.border.main,
+          backgroundColor: colors.border,
         },
         animatedStyle,
         style,
@@ -60,9 +61,20 @@ export function SkeletonLoader({
 }
 
 export function SkeletonCard({ style }: { style?: ViewStyle }) {
+  const { colors, shadows } = useAppTheme();
+
   return (
     <View
-      style={[skStyles.card, style]}
+      style={[
+        {
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          padding: 16,
+          marginBottom: 10,
+          ...shadows.card,
+        },
+        style,
+      ]}
       accessible={false}
       importantForAccessibility="no-hide-descendants"
     >
@@ -94,17 +106,6 @@ export function SkeletonList({ count = 4 }: { count?: number }) {
 }
 
 const skStyles = {
-  card: {
-    backgroundColor: theme.colors.background.paper,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
   row: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,

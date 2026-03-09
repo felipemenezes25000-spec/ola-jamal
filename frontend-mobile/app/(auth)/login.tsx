@@ -50,7 +50,7 @@ export default function Login() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const AUTH_GRADIENT: [string, string, ...string[]] = isDark
-    ? [colors.background, colors.surfaceSecondary, '#1A3A5C']
+    ? [colors.background, colors.surfaceSecondary, colors.primaryDark]
     : [theme.colors.background.secondary, theme.colors.accent.soft, theme.colors.accent.main];
 
   const { height: windowHeight } = useWindowDimensions();

@@ -4,7 +4,6 @@
 
 import React from 'react';
 import { View, StyleSheet, ViewStyle, Pressable, StyleProp } from 'react-native';
-import { doctorDS, shadows } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 
 export interface DoctorCardProps {
@@ -22,11 +21,16 @@ export function DoctorCard({
   onPress,
   accessibilityLabel,
 }: DoctorCardProps) {
-  const { colors } = useAppTheme({ role: 'doctor' });
+  const { colors, borderRadius, shadows: themeShadows } = useAppTheme({ role: 'doctor' });
   const cardStyle: StyleProp<ViewStyle> = [
     styles.card,
-    { backgroundColor: colors.surface },
-    !noPadding && { padding: doctorDS.cardPadding },
+    {
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.card,
+      borderColor: colors.borderLight,
+      ...themeShadows.card,
+    },
+    !noPadding && { padding: 16 },
     style,
   ];
 
@@ -48,9 +52,8 @@ export function DoctorCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
     overflow: 'hidden',
-    ...shadows.card,
+    borderWidth: 1,
   },
   pressed: {
     opacity: 0.93,

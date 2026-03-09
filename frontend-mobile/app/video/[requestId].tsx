@@ -192,7 +192,7 @@ function makeStyles(colors: DesignColors) {
     margin: spacing.md,
     marginTop: spacing.xl,
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.md,

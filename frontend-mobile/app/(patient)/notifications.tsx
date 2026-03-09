@@ -398,13 +398,13 @@ function makeStyles(colors: DesignColors, isDark: boolean) {
     paddingBottom: 8,
   },
   headerClip: {
-    borderRadius: 22,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   markAllBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -435,7 +435,7 @@ function makeStyles(colors: DesignColors, isDark: boolean) {
     elevation: isDark ? 0 : 2,
   },
   cardUnread: {
-    backgroundColor: isDark ? colors.primarySoft : '#F0F9FF',
+    backgroundColor: colors.primarySoft,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },

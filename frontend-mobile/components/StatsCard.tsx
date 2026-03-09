@@ -61,7 +61,7 @@ const createStyles = (
     flex: 1,
     minWidth: 90,
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: 16,
     paddingTop: 14,
     paddingBottom: 14,
     paddingHorizontal: 10,

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ImageStyle, ViewStyle, Platform } from 'react-native';
 import { Image as ExpoImage, ImageContentFit } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../lib/theme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
 
 // Blurhash neutro (cinza claro) — placeholder durante o carregamento
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
@@ -39,14 +39,15 @@ export function CompatibleImage({
   blurhash = DEFAULT_BLURHASH,
 }: CompatibleImageProps) {
   const [hasError, setHasError] = useState(false);
+  const { colors } = useAppTheme();
 
   const uriStr = typeof uri === 'string' ? uri : '';
 
   if (!uriStr) {
     return (
-      <View style={[styles.fallbackContainer, style as ViewStyle]}>
+      <View style={[styles.fallbackContainer, { backgroundColor: colors.background, borderColor: colors.border }, style as ViewStyle]}>
         <Ionicons name="image-outline" size={36} color={colors.textMuted} />
-        <Text style={styles.fallbackText}>Imagem indisponível</Text>
+        <Text style={[styles.fallbackText, { color: colors.text }]}>Imagem indisponível</Text>
       </View>
     );
   }
@@ -94,9 +95,7 @@ export function CompatibleImage({
 
 const styles = StyleSheet.create({
   fallbackContainer: {
-    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -107,13 +106,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
     textAlign: 'center',
   },
   fallbackSubtext: {
     marginTop: 4,
     fontSize: 12,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

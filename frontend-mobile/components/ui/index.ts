@@ -9,6 +9,8 @@ export { AppSegmentedControl } from './AppSegmentedControl';
 export type { AppSegmentedItem } from './AppSegmentedControl';
 export { StickyCTA } from './StickyCTA';
 export { FormSection } from './FormSection';
+export { FormField } from './FormField';
+export { SectionHeader } from './SectionHeader';
 export { StepIndicator } from './StepIndicator';
 export { AppEmptyState } from './AppEmptyState';
 export { AIActionSheet } from './AIActionSheet';

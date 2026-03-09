@@ -9,7 +9,7 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../lib/theme';
+import { useAppTheme } from '../lib/ui/useAppTheme';
 
 interface PulsingNotificationIconProps {
   color: string;
@@ -45,6 +45,7 @@ export function PulsingNotificationIcon({ color, size, hasUnread }: PulsingNotif
   }));
 
   // Quando há não lidas, usa cor de alerta para destacar
+  const { colors } = useAppTheme();
   const iconColor = hasUnread ? colors.error : color;
 
   return (

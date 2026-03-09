@@ -932,7 +932,7 @@ function makeStyles(colors: DesignColors) {
   },
   videoModalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.xl,
     alignItems: 'center',
     minWidth: 280,

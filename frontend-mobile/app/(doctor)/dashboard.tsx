@@ -3,10 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   RefreshControl,
   TouchableOpacity,
+  Pressable,
   Animated,
+  ListRenderItem,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -17,11 +19,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { cacheRequest } from '../doctor-request/[id]';
 
-import { AppEmptyState } from '../../components/ui';
+import { AppEmptyState, SectionHeader } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { QueueItem } from '../../components/doctor/QueueItem';
@@ -34,7 +37,9 @@ import { haptics } from '../../lib/haptics';
 import { showToast } from '../../components/ui/Toast';
 import { motionTokens } from '../../lib/ui/motion';
 
-// ─── Saudação por turno ────────────────────────────────────────
+const SCREEN_PAD = 20;
+
+// ─── Helpers ────────────────────────────────────────────────────
 function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return 'Bom dia';
@@ -42,17 +47,30 @@ function getGreeting(): string {
   return 'Boa noite';
 }
 
-// ─── Card de métrica animado ───────────────────────────────────
+function sanitizeDoctorName(name: string): { displayFirst: string; greetingName: string } {
+  const raw = name.trim().split(/\s+/).filter(Boolean);
+  const prefixes = ['dr', 'dr.', 'dra', 'dra.'];
+  const first = raw[0] ?? '';
+  const isPrefix = prefixes.includes(first.toLowerCase().replace(/\.$/, ''));
+  const displayFirst = isPrefix && raw.length > 1 ? raw[1] : first || 'Médico';
+  const greetingName = displayFirst.toLowerCase().startsWith('dr') ? displayFirst : `Dr(a). ${displayFirst}`;
+  return { displayFirst, greetingName };
+}
+
+// ─── MetricCard ─────────────────────────────────────────────────
 interface MetricCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   value: number;
   label: string;
   color: string;
   bg: string;
+  labelColor: string;
   delay: number;
 }
 
-function MetricCard({ icon, value, label, color, bg, delay }: MetricCardProps) {
+const MetricCard = React.memo(function MetricCard({
+  icon, value, label, color, bg, labelColor, delay,
+}: MetricCardProps) {
   const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -69,20 +87,81 @@ function MetricCard({ icon, value, label, color, bg, delay }: MetricCardProps) {
   return (
     <Animated.View style={[styles.metricCard, { opacity, transform: [{ scale }] }]}>
       <View style={[styles.metricIconWrap, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={22} color={color} />
+        <Ionicons name={icon} size={20} color={color} />
       </View>
       <Text style={[styles.metricValue, { color }]}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={[styles.metricLabel, { color: labelColor }]}>{label}</Text>
     </Animated.View>
+  );
+});
+
+// ─── QuickAction ────────────────────────────────────────────────
+interface QuickActionProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  colors: DesignColors;
+}
+
+function QuickAction({ icon, label, onPress, colors }: QuickActionProps) {
+  return (
+    <Pressable
+      onPress={() => { haptics.selection(); onPress(); }}
+      style={({ pressed }) => [
+        styles.quickAction,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.borderLight,
+        },
+        pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={[styles.quickActionIcon, { backgroundColor: colors.primarySoft }]}>
+        <Ionicons name={icon} size={18} color={colors.primary} />
+      </View>
+      <Text style={[styles.quickActionLabel, { color: colors.text }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
-// ─── Dashboard ─────────────────────────────────────────────────
+// ─── CertificateAlert ───────────────────────────────────────────
+function CertificateAlert({ colors, onPress }: { colors: DesignColors; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.certAlert, { backgroundColor: colors.warningLight, borderColor: colors.warning + '35' }]}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel="Configurar certificado digital"
+    >
+      <View style={[styles.certIconWrap, { backgroundColor: colors.warning + '22' }]}>
+        <Ionicons name="shield-checkmark" size={20} color={colors.warning} />
+      </View>
+      <View style={styles.certText}>
+        <Text style={[styles.certTitle, { color: colors.warning }]}>
+          Certificado Digital pendente
+        </Text>
+        <Text style={[styles.certDesc, { color: colors.textSecondary }]}>
+          Configure para assinar receitas digitalmente.
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.warning} />
+    </TouchableOpacity>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═════════════════════════════════════════════════════════════════
 export default function DoctorDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { colors, gradients, shadows, scheme } = useAppTheme({ role: 'doctor' });
+  const { colors, gradients, shadows, scheme, borderRadius, spacing } = useAppTheme({ role: 'doctor' });
   const isDark = scheme === 'dark';
 
   const [queue, setQueue] = useState<RequestResponseDto[]>([]);
@@ -90,11 +169,12 @@ export default function DoctorDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [hasCertificate, setHasCertificate] = useState<boolean | null>(null);
 
+  // ─── Data Loading ───────────────────────────────────────────
   const loadData = useCallback(async (withFeedback = false) => {
     try {
       const [cert, res] = await Promise.allSettled([
         getActiveCertificate(),
-        getRequests({ page: 1, pageSize: 500 }),
+        getRequests({ page: 1, pageSize: 100 }), // reduced from 500 for performance
       ]);
       setHasCertificate(cert.status === 'fulfilled' && !!cert.value);
       const items = res.status === 'fulfilled' ? (res.value?.items ?? []) : [];
@@ -125,279 +205,296 @@ export default function DoctorDashboard() {
     return subscribe(() => loadData());
   }, [subscribe, loadData]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     haptics.light();
     setRefreshing(true);
     loadData(true);
-  };
+  }, [loadData]);
 
-  const pendingList = useMemo(() => getPendingForPanel(queue, 10), [queue]);
-  const pendentesCount = countPendentes(queue);
-  const todayDone = useMemo(
-    () => queue.filter((q) => q.status === 'approved' || q.status === 'signed' || q.status === 'delivered').length,
-    [queue]
-  );
-  const prescriptionCount = useMemo(
-    () => queue.filter((q) => q.requestType === 'prescription').length,
-    [queue]
-  );
-  const consultationCount = useMemo(
-    () => queue.filter((q) => q.requestType === 'consultation').length,
-    [queue]
+  // ─── Derived Data ──────────────────────────────────────────
+  const pendingList = useMemo(() => getPendingForPanel(queue, 15), [queue]);
+  const stats = useMemo(() => {
+    let pendentes = 0, done = 0, prescriptions = 0, consultations = 0, exams = 0;
+    const doneStatuses = ['approved', 'signed', 'delivered'];
+    for (const q of queue) {
+      if (doneStatuses.includes(q.status)) done++;
+      if (q.requestType === 'prescription') prescriptions++;
+      if (q.requestType === 'consultation') consultations++;
+      if (q.requestType === 'exam') exams++;
+    }
+    pendentes = countPendentes(queue);
+    return { pendentes, done, prescriptions, consultations, exams };
+  }, [queue]);
+
+  const { displayFirst, greetingName } = useMemo(
+    () => sanitizeDoctorName(user?.name || ''),
+    [user?.name]
   );
 
-  // Nome sanitizado
-  const rawNames = (user?.name || '').trim().split(/\s+/).filter(Boolean);
-  const titlePrefixes = ['dr', 'dr.', 'dra', 'dra.'];
-  const firstPart = rawNames[0] ?? '';
-  const isTitle = titlePrefixes.includes(firstPart.toLowerCase().replace(/\.$/, ''));
-  const displayFirst = isTitle && rawNames.length > 1 ? rawNames[1] : firstPart || 'Médico';
-  const greetingName = displayFirst.toLowerCase().startsWith('dr') ? displayFirst : `Dr(a). ${displayFirst}`;
-
+  // ─── Loading State ─────────────────────────────────────────
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar style="light" />
-        <View
-          style={[
-            styles.headerSkeleton,
-            { backgroundColor: colors.primary, paddingTop: insets.top + 20 },
-          ]}
+        <LinearGradient
+          colors={gradients.doctorHeader as [string, string, ...string[]]}
+          style={[styles.headerSkeleton, { paddingTop: insets.top + 20 }]}
         />
-        <View style={{ padding: 20 }}>
-          <SkeletonList count={4} />
+        <View style={{ padding: SCREEN_PAD }}>
+          <SkeletonList count={5} />
         </View>
       </View>
     );
   }
 
   const dateStr = new Date().toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    weekday: 'long', day: 'numeric', month: 'long',
   });
 
+  // ─── Queue Item Renderer ───────────────────────────────────
+  const renderQueueItem: ListRenderItem<RequestResponseDto> = useCallback(
+    ({ item, index }) => (
+      <FadeIn key={item.id} visible duration={200} fromY={8} delay={index * 30} fill={false}>
+        <QueueItem
+          request={item}
+          colors={colors}
+          onPress={() => {
+            haptics.selection();
+            cacheRequest(item);
+            router.push(`/doctor-request/${item.id}`);
+          }}
+        />
+      </FadeIn>
+    ),
+    [colors, router]
+  );
+
+  const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
+
+  // ─── Header Component (rendered inside FlatList) ───────────
+  const ListHeader = useMemo(() => (
+    <>
+      {/* ── HEADER GRADIENT ── */}
+      <LinearGradient
+        colors={gradients.doctorHeader as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 24 }]}
+      >
+        <View style={styles.headerTop}>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.greeting, { color: colors.headerOverlayTextMuted }]}>
+              {getGreeting()},
+            </Text>
+            <Text style={[styles.doctorName, { color: colors.headerOverlayText }]} numberOfLines={1}>
+              {greetingName}
+            </Text>
+            <Text style={[styles.date, { color: colors.headerOverlayTextSubtle }]}>
+              {dateStr}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.avatarBtn, {
+              backgroundColor: colors.headerOverlaySurface,
+              borderColor: colors.headerOverlayBorder,
+            }]}
+            onPress={() => { haptics.selection(); router.push('/(doctor)/profile'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir perfil"
+          >
+            <Text style={[styles.avatarInitials, { color: colors.headerOverlayText }]}>
+              {(displayFirst[0] ?? 'M').toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Status pill */}
+        <View style={[styles.statusPill, {
+          backgroundColor: colors.headerOverlaySurface,
+          borderColor: colors.headerOverlayBorder,
+        }]}>
+          <View style={[styles.onlineDot, {
+            backgroundColor: isConnected ? colors.success : colors.warning,
+          }]} />
+          <Text style={[styles.statusText, { color: colors.headerOverlayTextMuted }]}>
+            {isConnected ? 'Online' : 'Reconectando'} · {stats.pendentes > 0 ? `${stats.pendentes} aguardando` : 'Fila limpa'}
+          </Text>
+        </View>
+      </LinearGradient>
+
+      {/* ── MÉTRICAS ── */}
+      <View style={styles.metricsSection}>
+        <View style={[styles.metricsGrid, {
+          backgroundColor: colors.surface,
+          borderRadius: borderRadius.card,
+          ...shadows.card,
+        }]}>
+          <MetricCard
+            icon="time"
+            value={stats.pendentes}
+            label="Pendentes"
+            color={stats.pendentes > 0 ? colors.warning : colors.textMuted}
+            bg={stats.pendentes > 0 ? colors.warningLight : colors.surfaceSecondary}
+            labelColor={colors.textMuted}
+            delay={60}
+          />
+          <View style={[styles.metricDivider, { backgroundColor: colors.borderLight }]} />
+          <MetricCard
+            icon="checkmark-circle"
+            value={stats.done}
+            label="Atendidos"
+            color={colors.success}
+            bg={colors.successLight}
+            labelColor={colors.textMuted}
+            delay={120}
+          />
+          <View style={[styles.metricDivider, { backgroundColor: colors.borderLight }]} />
+          <MetricCard
+            icon="document-text"
+            value={stats.prescriptions}
+            label="Receitas"
+            color={colors.info}
+            bg={colors.infoLight}
+            labelColor={colors.textMuted}
+            delay={180}
+          />
+          <View style={[styles.metricDivider, { backgroundColor: colors.borderLight }]} />
+          <MetricCard
+            icon="videocam"
+            value={stats.consultations}
+            label="Consultas"
+            color={colors.primary}
+            bg={colors.primarySoft}
+            labelColor={colors.textMuted}
+            delay={240}
+          />
+        </View>
+      </View>
+
+      {/* ── ATALHOS RÁPIDOS ── */}
+      <View style={styles.quickActionsRow}>
+        <QuickAction
+          icon="document-text-outline"
+          label="Pedidos"
+          onPress={() => router.push('/(doctor)/requests')}
+          colors={colors}
+        />
+        <QuickAction
+          icon="notifications-outline"
+          label="Alertas"
+          onPress={() => router.push('/(doctor)/notifications')}
+          colors={colors}
+        />
+        <QuickAction
+          icon="shield-checkmark-outline"
+          label="Certificado"
+          onPress={() => router.push('/certificate/upload')}
+          colors={colors}
+        />
+      </View>
+
+      {/* ── ALERTA CERTIFICADO ── */}
+      {hasCertificate === false && (
+        <FadeIn visible {...motionTokens.fade.doctorSection} delay={80} fill={false}>
+          <View style={{ paddingHorizontal: SCREEN_PAD }}>
+            <CertificateAlert
+              colors={colors}
+              onPress={() => { haptics.selection(); router.push('/certificate/upload'); }}
+            />
+          </View>
+        </FadeIn>
+      )}
+
+      {/* ── SECTION HEADER: FILA ── */}
+      <View style={{ paddingHorizontal: SCREEN_PAD }}>
+        <SectionHeader
+          title="Fila de Atendimento"
+          count={stats.pendentes > 0 ? stats.pendentes : undefined}
+          actionText="Ver todos"
+          onAction={() => { haptics.light(); router.push('/(doctor)/requests'); }}
+        />
+      </View>
+    </>
+  ), [
+    gradients, insets, colors, greetingName, displayFirst, dateStr,
+    isConnected, stats, hasCertificate, shadows, borderRadius, router, isDark,
+  ]);
+
+  // ─── Empty State ───────────────────────────────────────────
+  const ListEmpty = useMemo(() => (
+    <View style={{ paddingHorizontal: SCREEN_PAD }}>
+      <AppEmptyState
+        icon="checkmark-done-circle"
+        title="Fila limpa!"
+        subtitle="Nenhum paciente aguardando no momento."
+      />
+    </View>
+  ), []);
+
+  // ─── Render ────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style="light" backgroundColor="transparent" translucent />
-
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+      <FlatList
+        data={pendingList}
+        renderItem={renderQueueItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        contentContainerStyle={{
+          paddingBottom: 100 + insets.bottom,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={colors.headerOverlayText}
+            progressViewOffset={insets.top}
           />
         }
         showsVerticalScrollIndicator={false}
-      >
-        {/* ── HEADER ── */}
-        <LinearGradient
-          colors={gradients.doctorHeader as [string, string, ...string[]]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: insets.top + 24 }]}
-        >
-          <View style={styles.headerTop}>
-            <View style={styles.headerLeft}>
-              <Text style={[styles.greeting, { color: colors.headerOverlayText }]}>
-                {getGreeting()},
-              </Text>
-              <Text style={[styles.doctorName, { color: colors.headerOverlayText }]} numberOfLines={1}>
-                {greetingName}
-              </Text>
-              <Text style={[styles.date, { color: colors.headerOverlayTextMuted }]}>
-                {dateStr}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.avatarBtn, { backgroundColor: colors.headerOverlaySurface, borderColor: colors.headerOverlayBorder }]}
-              onPress={() => {
-                haptics.selection();
-                router.push('/(doctor)/profile');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Abrir perfil"
-            >
-              <Text style={[styles.avatarInitials, { color: colors.headerOverlayText }]}>
-                {(displayFirst[0] ?? user?.name?.[0] ?? 'M').toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Status online */}
-          <View style={[styles.statusPill, { backgroundColor: colors.headerOverlaySurface, borderColor: colors.headerOverlayBorder }]}>
-            <View style={[styles.onlineDot, { backgroundColor: colors.success }]} />
-            <Text style={[styles.statusText, { color: colors.headerOverlayTextMuted }]}>
-              Online · {pendentesCount > 0 ? `${pendentesCount} aguardando` : 'Fila limpa'}
-            </Text>
-          </View>
-        </LinearGradient>
-
-        {/* ── GRID DE MÉTRICAS ── */}
-        <View style={[styles.metricsSection, { marginTop: -1 }]}>
-          <View style={[styles.metricsGrid, { backgroundColor: colors.surface, ...shadows.card }]}>
-            <MetricCard
-              icon="time"
-              value={pendentesCount}
-              label="Pendentes"
-              color={pendentesCount > 0 ? colors.warning : colors.textMuted}
-              bg={pendentesCount > 0 ? colors.warningLight : colors.surfaceSecondary}
-              delay={60}
-            />
-            <View style={[styles.metricDivider, { backgroundColor: colors.borderLight }]} />
-            <MetricCard
-              icon="checkmark-circle"
-              value={todayDone}
-              label="Atendidos"
-              color={colors.success}
-              bg={colors.successLight}
-              delay={120}
-            />
-            <View style={[styles.metricDivider, { backgroundColor: colors.borderLight }]} />
-            <MetricCard
-              icon="document-text"
-              value={prescriptionCount}
-              label="Receitas"
-              color={colors.info}
-              bg={colors.infoLight}
-              delay={180}
-            />
-            <View style={[styles.metricDivider, { backgroundColor: colors.borderLight }]} />
-            <MetricCard
-              icon="videocam"
-              value={consultationCount}
-              label="Consultas"
-              color={colors.primary}
-              bg={colors.primarySoft}
-              delay={240}
-            />
-          </View>
-        </View>
-
-        <View style={styles.body}>
-          {/* ── ALERTA: Certificado pendente ── */}
-          {hasCertificate === false && (
-            <FadeIn visible {...motionTokens.fade.doctorSection} delay={80} fill={false}>
-              <TouchableOpacity
-                style={[
-                  styles.certAlert,
-                  {
-                    backgroundColor: isDark ? colors.warningLight : '#FFFBEB',
-                    borderColor: colors.warning + '35',
-                  },
-                ]}
-                onPress={() => {
-                  haptics.selection();
-                  router.push('/certificate/upload');
-                }}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Configurar certificado digital"
-              >
-                <View style={[styles.certIconWrap, { backgroundColor: colors.warning + '22' }]}>
-                  <Ionicons name="shield-checkmark" size={22} color={colors.warning} />
-                </View>
-                <View style={styles.certText}>
-                  <Text style={[styles.certTitle, { color: colors.warning }]}>
-                    Certificado Digital pendente
-                  </Text>
-                  <Text style={[styles.certDesc, { color: colors.textSecondary }]}>
-                    Configure para assinar receitas digitalmente.
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.warning} />
-              </TouchableOpacity>
-            </FadeIn>
-          )}
-
-          {/* ── FILA ── */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Fila de Atendimento
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                haptics.light();
-                router.push('/(doctor)/requests');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Ver todos os pedidos"
-            >
-              <Text style={[styles.seeAll, { color: colors.primary }]}>Ver todos</Text>
-            </TouchableOpacity>
-          </View>
-
-          {pendingList.length > 0 ? (
-            <FadeIn visible {...motionTokens.fade.listDoctor} delay={40} fill={false}>
-              <View>
-                {pendingList.map((req, i) => (
-                  <FadeIn
-                    key={req.id}
-                    visible
-                    duration={200}
-                    fromY={8}
-                    delay={i * 40}
-                    fill={false}
-                  >
-                    <QueueItem
-                      request={req}
-                      colors={colors}
-                      onPress={() => {
-                        haptics.selection();
-                        cacheRequest(req);
-                        router.push(`/doctor-request/${req.id}`);
-                      }}
-                    />
-                  </FadeIn>
-                ))}
-              </View>
-            </FadeIn>
-          ) : (
-            <AppEmptyState
-              icon="checkmark-done-circle"
-              title="Fila limpa!"
-              subtitle="Nenhum paciente aguardando no momento."
-            />
-          )}
-        </View>
-      </ScrollView>
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        contentInsetAdjustmentBehavior="never"
+      />
     </View>
   );
 }
 
+// ─── Styles ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // Header
   headerSkeleton: {
     height: 180,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingHorizontal: SCREEN_PAD,
+    paddingBottom: 22,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   headerLeft: { flex: 1, minWidth: 0 },
   greeting: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    opacity: 0.85,
+    marginBottom: 2,
   },
   doctorName: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: 0.2,
-    marginTop: 1,
+    letterSpacing: -0.3,
     marginBottom: 4,
   },
   date: {
@@ -439,65 +536,91 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Métricas
+  // Metrics
   metricsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: SCREEN_PAD,
+    marginTop: -1,
+    marginBottom: 16,
   },
   metricsGrid: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    padding: 16,
+    padding: 14,
     marginTop: 16,
   },
   metricCard: {
     flex: 1,
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   metricIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   metricLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#94A3B8',
     letterSpacing: 0.2,
   },
   metricDivider: {
     width: 1,
-    height: 48,
-    marginHorizontal: 4,
+    height: 44,
+    marginHorizontal: 3,
   },
 
-  body: {
-    paddingHorizontal: 20,
+  // Quick Actions
+  quickActionsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SCREEN_PAD,
+    gap: 10,
+    marginBottom: 20,
+  },
+  quickAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  quickActionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  quickActionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
   },
 
-  // Alerta certificado
+  // Certificate Alert
   certAlert: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     marginBottom: 20,
     borderWidth: 1,
     gap: 12,
   },
   certIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -511,22 +634,6 @@ const styles = StyleSheet.create({
   certDesc: {
     fontSize: 12,
     fontWeight: '500',
-  },
-
-  // Seção
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 0.1,
-  },
-  seeAll: {
-    fontSize: 14,
-    fontWeight: '600',
+    lineHeight: 16,
   },
 });

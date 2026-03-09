@@ -12,9 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { shadows } from '../../lib/theme';
+// shadows now from useAppTheme
 import { useAppTheme } from '../../lib/ui/useAppTheme';
-import type { DesignColors } from '../../lib/designSystem';
+import type { DesignColors, DesignTokens } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import {
@@ -122,8 +122,8 @@ export default function PatientRecordScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
 
-  const { colors, gradients } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, gradients, shadows } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
 
   const cancelledRef = useRef(false);
 
@@ -427,8 +427,8 @@ function SummaryTab({
   summary: PatientSummaryDto | null;
   router: ReturnType<typeof useRouter>;
 }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, shadows } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
 
   return (
     <>
@@ -561,8 +561,8 @@ function SummaryTab({
 }
 
 function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, shadows } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
   const ENCOUNTER_META = useMemo(() => getEncounterMeta(colors), [colors]);
 
   const validEncounters = (encounters ?? []).filter((e): e is EncounterSummaryDto => e != null && typeof e === 'object');
@@ -640,8 +640,8 @@ function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
 }
 
 function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummaryDto[]; router: ReturnType<typeof useRouter> }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, shadows } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
   const DOC_TYPE_META = useMemo(() => getDocTypeMeta(colors), [colors]);
   const DOC_STATUS_META = useMemo(() => getDocStatusMeta(colors), [colors]);
 
@@ -724,8 +724,8 @@ function StatCard(props: {
   color: string;
   bgColor: string;
 }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, shadows } = useAppTheme();
+  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
 
   return (
     <View style={s.statCard}>
@@ -738,7 +738,7 @@ function StatCard(props: {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingWrap: {
@@ -839,7 +839,7 @@ function makeStyles(colors: DesignColors) {
   filterChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 16,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,

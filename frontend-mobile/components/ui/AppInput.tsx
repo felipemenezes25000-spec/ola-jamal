@@ -13,7 +13,7 @@ import { useAppTheme, type AppThemeRole } from '../../lib/ui/useAppTheme';
 
 const LOGIN_FOCUS_DEBUG = __DEV__ && false;
 
-interface AppInputProps extends Omit<TextInputProps, 'role'> {
+export interface AppInputProps extends Omit<TextInputProps, 'role'> {
   label?: string;
   required?: boolean;
   error?: string;
@@ -159,9 +159,9 @@ const createStyles = (
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
-    minHeight: 52,
+    minHeight: 50,
     paddingHorizontal: 14,
   },
   focusRing: {

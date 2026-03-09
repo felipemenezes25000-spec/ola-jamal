@@ -10,7 +10,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../lib/theme';
+
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 
 export type AppButtonVariant =
@@ -63,7 +63,7 @@ export function AppButton({
   style,
   pulse = false,
 }: AppButtonProps) {
-  const { colors } = useAppTheme();
+  const { colors, shadows: themeShadows } = useAppTheme();
   const isDisabled = disabled || loading;
   const sizeConf = SIZE_CONFIG[size];
 
@@ -71,19 +71,19 @@ export function AppButton({
     switch (variant) {
       case 'secondary':
       case 'doctorSecondary':
-        return { bg: colors.secondary, text: colors.white, border: 'transparent', shadow: theme.shadows.button };
+        return { bg: colors.secondary, text: colors.white, border: 'transparent', shadow: themeShadows.button };
       case 'outline':
       case 'doctorOutline':
-        return { bg: 'transparent', text: colors.primary, border: colors.border, shadow: theme.shadows.none };
+        return { bg: 'transparent', text: colors.primary, border: colors.border, shadow: themeShadows.none };
       case 'ghost':
-        return { bg: 'transparent', text: colors.primary, border: 'transparent', shadow: theme.shadows.none };
+        return { bg: 'transparent', text: colors.primary, border: 'transparent', shadow: themeShadows.none };
       case 'danger':
       case 'doctorDanger':
-        return { bg: colors.error, text: colors.white, border: 'transparent', shadow: theme.shadows.button };
+        return { bg: colors.error, text: colors.white, border: 'transparent', shadow: themeShadows.button };
       case 'primary':
       case 'doctorPrimary':
       default:
-        return { bg: colors.primary, text: colors.white, border: 'transparent', shadow: theme.shadows.button };
+        return { bg: colors.primary, text: colors.white, border: 'transparent', shadow: themeShadows.button };
     }
   };
 

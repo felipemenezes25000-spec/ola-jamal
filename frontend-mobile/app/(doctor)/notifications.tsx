@@ -329,8 +329,8 @@ function makeStyles(colors: DesignColors) {
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       paddingBottom: 20,
-      borderBottomLeftRadius: 32,
-      borderBottomRightRadius: 32,
+      borderBottomLeftRadius: 28,
+      borderBottomRightRadius: 28,
     },
     headerRow: {
       flexDirection: 'row',

@@ -29,6 +29,12 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }),
 }));
 
+jest.mock('../lib/ui/useAppTheme', () => ({
+  useAppTheme: () => ({
+    colors: { error: '#EF4444', white: '#FFFFFF' },
+  }),
+}));
+
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');
   return {

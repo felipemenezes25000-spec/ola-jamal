@@ -1,16 +1,17 @@
 /**
- * Legacy theme - re-exports from lib/theme.ts
- * New code should import from '../lib/theme' directly
+ * Legacy theme — Pure re-export from lib/theme.ts
+ * DO NOT add new tokens here. Use designSystem.ts or useAppTheme().
  */
 import { theme, colors as themeColors, spacing as themeSpacing, borderRadius as themeBorderRadius, shadows as themeShadows, gradients as themeGradients } from '../lib/theme';
 
 export const colors = {
   ...themeColors,
-  primaryLighter: '#7DD3FC',
-  primaryPale: '#BAE6FD',
-  primaryPaler: '#E0F2FE',
-  primaryDarker: '#075985',
-  secondaryLight: '#34D399',
+  // Legacy aliases — all map to existing palette values
+  primaryLighter: '#7DD3FC',  // palette.primary[300]
+  primaryPale: '#BAE6FD',     // palette.primary[200]
+  primaryPaler: '#E0F2FE',    // palette.primary[100]
+  primaryDarker: '#075985',   // palette.primary[800]
+  secondaryLight: '#34D399',  // emerald 400
 
   gray50: '#F8FAFC',
   gray100: '#F1F5F9',
@@ -27,29 +28,8 @@ export const colors = {
 };
 
 export const spacing = themeSpacing;
-
-export const borderRadius = {
-  ...themeBorderRadius,
-  xxl: 28,
-};
-
-export const shadows = {
-  ...themeShadows,
-  md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-};
+export const borderRadius = { ...themeBorderRadius, xxl: 28 };
+export const shadows = themeShadows;
 
 export const typography = {
   h1: { fontSize: 30, fontWeight: '800' as const, lineHeight: 38, letterSpacing: -0.5 },
@@ -68,7 +48,7 @@ export const typography = {
 
 export const gradients = {
   ...themeGradients,
-  primary: ['#0EA5E9', '#0284C7'] as const,
+  primary: ['#0284C7', '#0EA5E9'] as const,
   primaryLight: ['#38BDF8', '#0EA5E9'] as const,
   light: ['#E0F2FE', '#BAE6FD'] as const,
   pale: ['#E0F2FE', '#F0F8FF'] as const,

@@ -247,7 +247,7 @@ function makeStyles(colors: DesignColors) {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.border ?? '#E2E8F0',
+    backgroundColor: colors.border,
   },
   dotActive: {
     width: 24,

@@ -7,7 +7,7 @@ import {
     ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, shadows } from '../../lib/themeDoctor';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
 
 interface BottomActionBarProps {
     children: React.ReactNode;
@@ -22,10 +22,22 @@ export function BottomActionBar({
     keyboardAware = true,
 }: BottomActionBarProps) {
     const insets = useSafeAreaInsets();
+    const { colors, spacing, shadows } = useAppTheme();
     const paddingBottom = Math.max(insets.bottom, spacing.md);
 
     const content = (
-        <View style={[styles.container, { paddingBottom }, style]}>
+        <View style={[
+            styles.container,
+            {
+                paddingBottom,
+                paddingHorizontal: spacing.md,
+                paddingTop: spacing.md,
+                backgroundColor: colors.surface,
+                borderTopColor: colors.borderLight,
+                ...shadows.sm,
+            },
+            style,
+        ]}>
             {children}
         </View>
     );
@@ -43,12 +55,7 @@ export function BottomActionBar({
 
 const styles = StyleSheet.create({
     container: {
-        paddingHorizontal: spacing.md,
-        paddingTop: spacing.md,
-        backgroundColor: colors.surface,
         borderTopWidth: 1,
-        borderTopColor: colors.border,
-        gap: spacing.sm,
-        ...shadows.sm,
+        gap: 8,
     },
 });

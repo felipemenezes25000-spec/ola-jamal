@@ -23,12 +23,14 @@ interface ToastConfig {
     onAction?: () => void;
 }
 
-const TYPE_CONFIG: Record<ToastType, { bg: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string }> = {
-    success: { bg: colors.successLight, icon: 'checkmark-circle', iconColor: colors.success },
-    error: { bg: colors.errorLight, icon: 'alert-circle', iconColor: colors.error },
-    info: { bg: colors.infoLight, icon: 'information-circle', iconColor: colors.info },
-    warning: { bg: colors.warningLight, icon: 'warning', iconColor: colors.warning },
-};
+function getTypeConfig(c: { successLight: string; success: string; errorLight: string; error: string; infoLight: string; info: string; warningLight: string; warning: string }) {
+  return {
+    success: { bg: c.successLight, icon: 'checkmark-circle' as keyof typeof Ionicons.glyphMap, iconColor: c.success },
+    error: { bg: c.errorLight, icon: 'alert-circle' as keyof typeof Ionicons.glyphMap, iconColor: c.error },
+    info: { bg: c.infoLight, icon: 'information-circle' as keyof typeof Ionicons.glyphMap, iconColor: c.info },
+    warning: { bg: c.warningLight, icon: 'warning' as keyof typeof Ionicons.glyphMap, iconColor: c.warning },
+  };
+}
 
 // Global toast state
 let _showToast: ((config: ToastConfig) => void) | null = null;
@@ -86,7 +88,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, [translateY]);
 
     const type = config.type ?? 'info';
-    const tc = TYPE_CONFIG[type];
+    const typeConfig = getTypeConfig(themeColors);
+    const tc = typeConfig[type];
 
     return (
         <>

@@ -408,7 +408,7 @@ function makeStyles(colors: DesignColors) {
       paddingHorizontal: 10,
       paddingVertical: 5,
       backgroundColor: colors.success,
-      borderRadius: 20,
+      borderRadius: 16,
     },
     chipText: {
       fontSize: 12,

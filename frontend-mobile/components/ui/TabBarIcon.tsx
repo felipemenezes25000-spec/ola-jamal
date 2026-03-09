@@ -11,7 +11,7 @@ interface TabBarIconProps {
 }
 
 export function TabBarIcon({ name, color, focused, activeColor }: TabBarIconProps) {
-  const activeIndicatorColor = activeColor ?? '#2CB1FF';
+  const activeIndicatorColor = activeColor ?? '#0EA5E9';
   const pillWidth = useRef(new Animated.Value(focused ? 28 : 0)).current;
   const pillOpacity = useRef(new Animated.Value(focused ? 1 : 0)).current;
   const scale = useRef(new Animated.Value(focused ? 1.1 : 1)).current;

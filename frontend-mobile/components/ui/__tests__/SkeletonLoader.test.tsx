@@ -2,13 +2,16 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { SkeletonCard, SkeletonList, SkeletonLoader } from '../SkeletonLoader';
 
-jest.mock('../../../lib/theme', () => ({
-  theme: {
+jest.mock('../../../lib/ui/useAppTheme', () => ({
+  useAppTheme: () => ({
     colors: {
-      border: { main: '#e5e7eb' },
-      background: { paper: '#ffffff' },
+      border: '#e5e7eb',
+      surface: '#ffffff',
     },
-  },
+    shadows: {
+      card: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+    },
+  }),
 }));
 
 describe('Skeleton components', () => {

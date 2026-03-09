@@ -27,7 +27,7 @@ export function AppCard({
 
   const cardStyles: ViewStyle = {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: borderRadius.card,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.borderLight,

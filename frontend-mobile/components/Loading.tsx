@@ -1,9 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
-import { theme } from '../lib/theme';
-
-const colors = theme.colors;
-const spacing = theme.spacing;
+import { useAppTheme } from '../lib/ui/useAppTheme';
 
 interface LoadingProps {
   message?: string;
@@ -11,11 +8,18 @@ interface LoadingProps {
   color?: string;
 }
 
-export function Loading({ message, size = 'large', color = colors.text.inverse }: LoadingProps) {
+export function Loading({ message, size = 'large', color }: LoadingProps) {
+  const { colors, spacing } = useAppTheme();
+  const resolvedColor = color ?? colors.primary;
+
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size={size} color={color} />
-      {message && <Text style={[styles.message, { color }]}>{message}</Text>}
+    <View style={[styles.container, { padding: spacing.lg }]}>
+      <ActivityIndicator size={size} color={resolvedColor} />
+      {message && (
+        <Text style={[styles.message, { color: resolvedColor, marginTop: spacing.sm }]}>
+          {message}
+        </Text>
+      )}
     </View>
   );
 }
@@ -24,13 +28,11 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
   },
   message: {
     fontSize: 14,
     fontWeight: '400',
     lineHeight: 20,
-    marginTop: spacing.sm,
-    textAlign: 'center' as const,
+    textAlign: 'center',
   },
 });

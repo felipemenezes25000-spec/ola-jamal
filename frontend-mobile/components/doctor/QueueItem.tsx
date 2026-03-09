@@ -19,16 +19,36 @@ function timeWaiting(createdAt: string): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
+function getPreviewText(request: RequestResponseDto): string | null {
+  if (request.requestType === 'prescription' && request.medications?.length) {
+    const first = request.medications[0];
+    const more = request.medications.length > 1 ? ` +${request.medications.length - 1}` : '';
+    return first + more;
+  }
+  if (request.requestType === 'exam' && request.exams?.length) {
+    const first = request.exams[0];
+    const more = request.exams.length > 1 ? ` +${request.exams.length - 1}` : '';
+    return first + more;
+  }
+  if (request.requestType === 'consultation' && request.symptoms) {
+    return request.symptoms.length > 50 ? request.symptoms.slice(0, 50) + '…' : request.symptoms;
+  }
+  return null;
+}
+
 interface QueueItemProps {
   request: RequestResponseDto;
   onPress: () => void;
   colors: DesignColors;
 }
 
-export function QueueItem({ request, onPress, colors }: QueueItemProps) {
+export const QueueItem = React.memo(function QueueItem({
+  request, onPress, colors,
+}: QueueItemProps) {
   const { label, colorKey } = getRequestUiState(request);
   const isHighRisk = request.aiRiskLevel === 'high';
   const typeConf = TYPE_LABELS[request.requestType] ?? { label: 'Pedido', icon: 'document' as keyof typeof Ionicons.glyphMap };
+  const preview = getPreviewText(request);
 
   const statusColor = colorKey === 'action'
     ? colors.info
@@ -38,7 +58,13 @@ export function QueueItem({ request, onPress, colors }: QueueItemProps) {
     ? colors.warning
     : colors.textMuted;
 
-  const accentColor = isHighRisk ? colors.error : (colorKey === 'action' ? colors.primary : colorKey === 'success' ? colors.success : colors.primary);
+  const accentColor = isHighRisk
+    ? colors.error
+    : colorKey === 'action'
+    ? colors.primary
+    : colorKey === 'success'
+    ? colors.success
+    : colors.primary;
 
   const initials = (request.patientName || 'P')
     .split(' ')
@@ -53,7 +79,7 @@ export function QueueItem({ request, onPress, colors }: QueueItemProps) {
         styles.card,
         {
           backgroundColor: colors.surface,
-          borderColor: colors.borderLight,
+          borderColor: isHighRisk ? colors.error + '30' : colors.borderLight,
           shadowColor: colors.black,
         },
         pressed && styles.pressed,
@@ -61,60 +87,71 @@ export function QueueItem({ request, onPress, colors }: QueueItemProps) {
       accessibilityRole="button"
       accessibilityLabel={`Atender ${request.patientName ?? 'paciente'} — ${typeConf.label}`}
     >
-      {/* Faixa lateral colorida */}
+      {/* Accent strip */}
       <View style={[styles.strip, { backgroundColor: accentColor }]} />
 
-      {/* Avatar com iniciais */}
-      <View style={[styles.avatar, { backgroundColor: accentColor + '18' }]}>
+      {/* Avatar */}
+      <View style={[styles.avatar, { backgroundColor: accentColor + '15' }]}>
         <Text style={[styles.avatarText, { color: accentColor }]}>{initials}</Text>
       </View>
 
-      {/* Conteúdo */}
+      {/* Content */}
       <View style={styles.content}>
+        {/* Top: type + risk */}
         <View style={styles.topRow}>
           <View style={[styles.typePill, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name={typeConf.icon} size={11} color={colors.primary} />
+            <Ionicons name={typeConf.icon} size={10} color={colors.primary} />
             <Text style={[styles.typeLabel, { color: colors.primary }]}>{typeConf.label}</Text>
           </View>
           {isHighRisk && (
             <View style={[styles.riskPill, { backgroundColor: colors.errorLight }]}>
-              <Ionicons name="alert-circle" size={11} color={colors.error} />
-              <Text style={[styles.riskLabel, { color: colors.error }]}>Risco Alto</Text>
+              <Ionicons name="alert-circle" size={10} color={colors.error} />
+              <Text style={[styles.riskLabel, { color: colors.error }]}>Alto</Text>
             </View>
           )}
-        </View>
-
-        <Text style={[styles.patientName, { color: colors.text }]} numberOfLines={1}>
-          {request.patientName || 'Paciente'}
-        </Text>
-
-        <View style={styles.bottomRow}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusLabel, { color: statusColor }]}>{label}</Text>
           <View style={styles.spacer} />
-          <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+          <Ionicons name="time-outline" size={11} color={colors.textMuted} />
           <Text style={[styles.timeLabel, { color: colors.textMuted }]}>
             {timeWaiting(request.createdAt)}
           </Text>
         </View>
+
+        {/* Patient name */}
+        <Text style={[styles.patientName, { color: colors.text }]} numberOfLines={1}>
+          {request.patientName || 'Paciente'}
+        </Text>
+
+        {/* Preview text (medications, exams, symptoms) */}
+        {preview && (
+          <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
+            {preview}
+          </Text>
+        )}
+
+        {/* Status row */}
+        <View style={styles.bottomRow}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusLabel, { color: statusColor }]}>{label}</Text>
+        </View>
       </View>
 
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.chevron} />
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={styles.chevron} />
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    marginBottom: 10,
+    borderRadius: 14,
+    marginBottom: 8,
+    marginHorizontal: 20,
     borderWidth: 1,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     elevation: 2,
   },
   pressed: {
@@ -122,45 +159,45 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   strip: {
-    width: 4,
+    width: 3,
     alignSelf: 'stretch',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
-    marginRight: 12,
+    marginRight: 10,
     flexShrink: 0,
   },
   avatarText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   content: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
     minWidth: 0,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 5,
+    gap: 5,
+    marginBottom: 4,
   },
   typePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   typeLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
@@ -168,26 +205,38 @@ const styles = StyleSheet.create({
   riskPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   riskLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  spacer: { flex: 1 },
+  timeLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 2,
   },
   patientName: {
     fontSize: 15,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 2,
     letterSpacing: 0.1,
+  },
+  preview: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginBottom: 5,
+    lineHeight: 16,
   },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
   },
   statusDot: {
     width: 6,
@@ -198,14 +247,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  spacer: { flex: 1 },
-  timeLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginLeft: 2,
-  },
   chevron: {
-    marginRight: 14,
+    marginRight: 12,
     marginLeft: 4,
     flexShrink: 0,
   },

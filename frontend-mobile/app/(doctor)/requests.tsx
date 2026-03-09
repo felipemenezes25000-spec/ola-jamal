@@ -379,8 +379,8 @@ function makeStyles(colors: DesignColors) {
     header: {
       paddingHorizontal: pad,
       paddingBottom: 24,
-      borderBottomLeftRadius: 32,
-      borderBottomRightRadius: 32,
+      borderBottomLeftRadius: 28,
+      borderBottomRightRadius: 28,
     },
     headerRow: {
       flexDirection: 'row',
@@ -410,7 +410,7 @@ function makeStyles(colors: DesignColors) {
     countBadge: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,

@@ -19,7 +19,7 @@ describe('createTokens', () => {
     });
 
     it('primary é consistente', () => {
-      expect(t.colors.primary).toBe('#2CB1FF');
+      expect(t.colors.primary).toBe('#0EA5E9');
     });
 
     it('exporta spacing completo', () => {
@@ -51,7 +51,7 @@ describe('createTokens', () => {
     });
 
     it('primary permanece igual no dark mode', () => {
-      expect(t.colors.primary).toBe('#2CB1FF');
+      expect(t.colors.primary).toBe('#0EA5E9');
     });
 
     it('bordas mais escuras no dark mode', () => {

@@ -22,9 +22,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { shadows } from '../../lib/theme';
+// shadows now from useAppTheme
 import { useAppTheme } from '../../lib/ui/useAppTheme';
-import type { DesignColors } from '../../lib/designSystem';
+import type { DesignColors, DesignTokens } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
@@ -46,8 +46,8 @@ export default function PatientProfile() {
   useTriageEval({ context: 'profile', step: 'entry', role: 'patient' });
   const insets = useSafeAreaInsets();
   const { user, signOut, refreshUser } = useAuth();
-  const { colors, gradients } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, gradients, shadows } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
@@ -371,7 +371,7 @@ function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   return StyleSheet.create({
   container: {
     flex: 1,

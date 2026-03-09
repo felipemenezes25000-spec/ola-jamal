@@ -153,7 +153,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
-      borderRadius: 18,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.borderLight,
       marginHorizontal: uiTokens.screenPaddingHorizontal,

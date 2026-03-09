@@ -5,6 +5,10 @@ import { logApiError } from './logger';
 
 const TOKEN_KEY = '@renoveja:auth_token';
 
+/** Debounce 401 logs: múltiplas chamadas simultâneas geram um único log. */
+let last401LogAt = 0;
+const LOG_401_DEBOUNCE_MS = 3000;
+
 function getPathFromResponse(response: Response): string {
   try {
     const base = typeof response.url === 'string' && response.url.startsWith('/')
@@ -192,9 +196,20 @@ class ApiClient {
           if (response.status === 403 && this.onForbidden) {
             this.onForbidden(errorMessage);
           }
-          logApiError(response.status, getPathFromResponse(response), errorMessage, {
-            body: rawBody ? rawBody.slice(0, 200) : undefined,
-          });
+          const path = getPathFromResponse(response);
+          if (response.status === 401) {
+            const now = Date.now();
+            if (now - last401LogAt > LOG_401_DEBOUNCE_MS) {
+              last401LogAt = now;
+              logApiError(response.status, path, errorMessage, {
+                body: rawBody ? rawBody.slice(0, 200) : undefined,
+              });
+            }
+          } else {
+            logApiError(response.status, path, errorMessage, {
+              body: rawBody ? rawBody.slice(0, 200) : undefined,
+            });
+          }
           throw err;
         } else {
           errorMessage = `${response.status} ${response.statusText}`;
@@ -212,9 +227,17 @@ class ApiClient {
         errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}${hint}`;
       }
 
-      logApiError(response.status, getPathFromResponse(response), errorMessage, {
-        body: response.status === 400 && rawBody ? rawBody.slice(0, 200) : undefined,
-      });
+      const path = getPathFromResponse(response);
+      const bodyExtra = rawBody ? { body: rawBody.slice(0, 200) } : undefined;
+      if (response.status === 401) {
+        const now = Date.now();
+        if (now - last401LogAt > LOG_401_DEBOUNCE_MS) {
+          last401LogAt = now;
+          logApiError(response.status, path, errorMessage, bodyExtra);
+        }
+      } else {
+        logApiError(response.status, path, errorMessage, bodyExtra);
+      }
 
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
         this.onUnauthorized();

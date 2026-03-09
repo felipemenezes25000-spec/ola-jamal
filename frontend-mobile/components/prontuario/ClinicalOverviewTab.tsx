@@ -285,7 +285,7 @@ function makeStyles(colors: DesignColors) {
     draAvatar: {
       width: 40,
       height: 40,
-      borderRadius: 20,
+      borderRadius: 16,
       borderWidth: 1.5,
       borderColor: colors.primary,
       backgroundColor: colors.primarySoft,

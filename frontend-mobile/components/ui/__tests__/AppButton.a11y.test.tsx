@@ -15,6 +15,13 @@ jest.mock('../../../lib/ui/useAppTheme', () => ({
       white: '#FFFFFF',
       textMuted: '#94A3B8',
       borderLight: '#E2E8F0',
+      border: '#E2E8F0',
+      surfaceSecondary: '#F1F5F9',
+      textSecondary: '#64748B',
+    },
+    shadows: {
+      button: { shadowColor: '#2CB1FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },
+      none: { shadowColor: '#000', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
     },
   }),
 }));

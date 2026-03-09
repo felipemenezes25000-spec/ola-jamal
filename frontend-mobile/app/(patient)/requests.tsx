@@ -243,7 +243,7 @@ function makeStyles(colors: DesignColors) {
     paddingBottom: 8,
   },
   headerClip: {
-    borderRadius: 22,
+    borderRadius: 16,
     overflow: 'hidden',
   },
 

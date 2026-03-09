@@ -230,7 +230,7 @@ function makeStyles(colors: DesignColors) {
   container: { flex: 1, backgroundColor: colors.black },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.text, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.text, alignItems: 'center', justifyContent: 'center' },
   title: { color: colors.border, fontSize: 18, fontWeight: '700' },
   subtle: { color: colors.textMuted, fontSize: 12 },
   content: { padding: 12, gap: 12, paddingBottom: 30 },

@@ -1,15 +1,13 @@
 import React from 'react';
 import { Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
-import { theme } from '../../lib/theme';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
 
 interface AppChipProps {
   label: string;
   selected?: boolean;
   onPress: () => void;
   disabled?: boolean;
-  /** Cor de destaque quando selecionado (ex: theme.colors.primary.main) */
   accentColor?: string;
-  /** Cor de fundo quando selecionado (ex: theme.colors.primary.soft) */
   accentSoftColor?: string;
   style?: ViewStyle;
 }
@@ -23,15 +21,22 @@ export function AppChip({
   selected = false,
   onPress,
   disabled = false,
-  accentColor = theme.colors.primary.main,
-  accentSoftColor = theme.colors.primary.soft,
+  accentColor,
+  accentSoftColor,
   style,
 }: AppChipProps) {
+  const { colors } = useAppTheme();
+  const accent = accentColor ?? colors.primary;
+  const accentSoft = accentSoftColor ?? colors.primarySoft;
+
   return (
     <Pressable
       style={[
         styles.chip,
-        selected && { backgroundColor: accentSoftColor, borderColor: accentColor },
+        {
+          backgroundColor: selected ? accentSoft : colors.surface,
+          borderColor: selected ? accent : colors.border,
+        },
         style,
       ]}
       onPress={onPress}
@@ -41,7 +46,11 @@ export function AppChip({
       accessibilityLabel={`Filtrar por ${label}`}
     >
       <Text
-        style={[styles.chipText, selected && { color: accentColor, fontWeight: '700' }]}
+        style={[
+          styles.chipText,
+          { color: selected ? accent : colors.textSecondary },
+          selected && { fontWeight: '700' },
+        ]}
         numberOfLines={1}
         ellipsizeMode="tail"
       >
@@ -56,16 +65,13 @@ const styles = StyleSheet.create({
     height: CHIP_HEIGHT,
     paddingHorizontal: CHIP_PADDING_H,
     borderRadius: CHIP_BORDER_RADIUS,
-    backgroundColor: theme.colors.background.paper,
     borderWidth: 1.5,
-    borderColor: theme.colors.border.main,
     justifyContent: 'center',
     alignItems: 'center',
   },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: theme.colors.text.secondary,
   },
 });
 

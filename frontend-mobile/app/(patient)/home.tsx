@@ -507,8 +507,8 @@ function makeStyles(colors: DesignColors) {
   header: {
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: 56,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   headerRow: {
     flexDirection: 'row',
@@ -624,7 +624,7 @@ function makeStyles(colors: DesignColors) {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -669,7 +669,7 @@ function makeStyles(colors: DesignColors) {
   // ─── Follow-up Card v2: mais limpo ───
   followUpCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.primary + '20',
