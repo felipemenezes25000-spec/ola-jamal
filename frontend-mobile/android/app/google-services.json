@@ -12,7 +12,12 @@
           "package_name": "com.renoveja.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "598286841038-j095u3iopiqltpgbvu0f5od924etobk7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCcvTvTuiYcgG8gOvrCCrPfowKpYNGVYwk"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "598286841038-j095u3iopiqltpgbvu0f5od924etobk7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "598286841038-28ili7c5stg5524sicropmm7s7nkq936.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.renoveja.app"
+              }
+            }
+          ]
         }
       }
     }

@@ -98,3 +98,57 @@ O valor costuma ser o **mesmo** que o `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` quando 
 | **Backend** | `Google:ClientId` = mesmo Client ID Web (para validar o token do app). |
 
 Depois de alterar o `.env`, faça um **novo build** do app para as variáveis serem aplicadas.
+
+---
+
+## Erro "DEVELOPER_ERROR" ao clicar em Google
+
+Esse erro **sempre** indica desalinhamento entre o app e o Google Cloud Console. A causa mais comum é o **SHA-1** do certificado de assinatura não estar cadastrado.
+
+### Passo a passo para corrigir
+
+1. **Obter o SHA-1 do keystore que assina o app**
+
+   - **Debug (Expo dev client, APK local):** use o `debug.keystore`:
+     ```powershell
+     keytool -list -v -keystore android\app\debug.keystore -alias androiddebugkey -storepass android -keypass android
+     ```
+     Procure a linha `SHA1:` e copie o valor (ex.: `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`).
+
+   - **Release (EAS Build / Play Store):** use `eas credentials` ou o Play Console para obter o SHA-1.
+
+2. **Adicionar o SHA-1 no Firebase Console**
+
+   - Acesse [Firebase Console](https://console.firebase.google.com/) → projeto **renoveja-be43f**.
+   - **Configurações do projeto** (ícone de engrenagem) → **Seus apps**.
+   - Selecione o app Android (`com.renoveja.app`).
+   - Clique em **Adicionar impressão digital** e cole o SHA-1.
+   - Baixe o novo `google-services.json` e substitua em `android/app/google-services.json`.
+
+3. **Verificar o cliente OAuth Android no Google Cloud Console**
+
+   - Acesse [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → projeto do RenoveJá.
+   - Em **OAuth 2.0 Client IDs**, localize o cliente **Android** (ex.: `RenoveJá Android`).
+   - Confirme:
+     - **Nome do pacote:** `com.renoveja.app`
+     - **Impressão digital SHA-1:** inclua o SHA-1 do passo 1.
+   - Se não existir, crie um novo cliente OAuth do tipo **Android** com esses dados.
+
+4. **Firebase Auth**
+
+   - No Firebase: **Build** → **Authentication** → **Sign-in method**.
+   - Verifique se **Google** está habilitado.
+
+5. **Rebuild do app**
+
+   - Após alterar o `google-services.json` ou as credenciais, faça um novo build:
+     ```bash
+     npx expo prebuild --clean
+     npx expo run:android
+     ```
+   - Ou, se usar EAS: `eas build --platform android --profile development` (ou o perfil que usar).
+
+### Referência
+
+- [Troubleshooting react-native-google-signin](https://react-native-google-signin.github.io/docs/troubleshooting)
+- [Config Doctor](https://react-native-google-signin.github.io/docs/config-doctor) (ferramenta paga para extrair SHA-1 do APK/dispositivo)
