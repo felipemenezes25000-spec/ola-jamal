@@ -45,8 +45,6 @@ import { FormattedAiSummary } from '../../../components/FormattedAiSummary';
 import { ConductSection } from '../../../components/triage';
 import { SignFormCard } from '../../../components/doctor-request/editor/SignFormCard';
 import { ComplianceCard } from '../../../components/doctor-request/editor/ComplianceCard';
-import { PdfPreviewCard } from '../../../components/doctor-request/editor/PdfPreviewCard';
-import { MedicationListEditor } from '../../../components/doctor-request/editor/MedicationListEditor';
 
 const RISK_LABELS_PT: Record<string, string> = {
   low: 'Risco baixo',

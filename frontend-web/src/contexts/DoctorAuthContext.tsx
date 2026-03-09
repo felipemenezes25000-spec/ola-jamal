@@ -14,7 +14,9 @@ interface DoctorAuthState {
   doctorProfile: DoctorProfile | null;
   loading: boolean;
   isAuthenticated: boolean;
+  profileComplete: boolean;
   refreshUser: () => Promise<void>;
+  setAuthFromLogin: (user: DoctorUser) => void;
   signOut: () => void;
 }
 
@@ -27,19 +29,33 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const [me, profile] = await Promise.all([getMe(), getDoctorProfile()]);
+      const me = await getMe();
       setUser(me);
-      setDoctorProfile(profile);
+      try {
+        const profile = await getDoctorProfile();
+        setDoctorProfile(profile);
+      } catch {
+        setDoctorProfile(null);
+      }
     } catch {
       setUser(null);
       setDoctorProfile(null);
     }
   }, []);
 
+  const setAuthFromLogin = useCallback((loggedUser: DoctorUser) => {
+    setUser(loggedUser);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     if (!getToken()) {
       setLoading(false);
       return;
+    }
+    const stored = getStoredUser();
+    if (stored && !user) {
+      setUser(stored);
     }
     refreshUser().finally(() => setLoading(false));
   }, [refreshUser]);
@@ -55,7 +71,9 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
         doctorProfile,
         loading,
         isAuthenticated: !!user && !!getToken(),
+        profileComplete: user?.profileComplete !== false,
         refreshUser,
+        setAuthFromLogin,
         signOut,
       }}
     >

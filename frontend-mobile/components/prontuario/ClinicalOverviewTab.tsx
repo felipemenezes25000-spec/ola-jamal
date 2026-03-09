@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { spacing, borderRadius, typography } from '../../lib/themeDoctor';
-import { SectionCard, Disclaimer, EmptySection } from './shared';
+import { SectionCard, Disclaimer } from './shared';
 import type { PatientClinicalSummaryStructured } from '../../lib/api';
 
 interface ClinicalOverviewTabProps {

@@ -15,6 +15,7 @@ const DoctorPatientRecord = lazy(() => import('@/pages/doctor/DoctorPatientRecor
 const DoctorNotifications = lazy(() => import('@/pages/doctor/DoctorNotifications'));
 const DoctorProfile = lazy(() => import('@/pages/doctor/DoctorProfile'));
 const DoctorVideoCall = lazy(() => import('@/pages/doctor/DoctorVideoCall'));
+const DoctorCompleteDoctor = lazy(() => import('@/pages/doctor/DoctorCompleteDoctor'));
 
 function FullPageLoader() {
   return (
@@ -28,10 +29,26 @@ function FullPageLoader() {
 }
 
 function DoctorProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading } = useDoctorAuth();
+  const { isAuthenticated, loading, profileComplete } = useDoctorAuth();
 
   if (loading) return <FullPageLoader />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!profileComplete) return <Navigate to="/completar-cadastro" replace />;
+  return <>{children}</>;
+}
+
+function DoctorLoginOrRedirect() {
+  const { isAuthenticated, loading, profileComplete } = useDoctorAuth();
+  if (loading) return <FullPageLoader />;
+  if (isAuthenticated) return <Navigate to={profileComplete ? '/dashboard' : '/completar-cadastro'} replace />;
+  return <DoctorLogin />;
+}
+
+function DoctorCompleteOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading, profileComplete } = useDoctorAuth();
+  if (loading) return <FullPageLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (profileComplete) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -39,8 +56,9 @@ function DoctorRoutes() {
   return (
     <Suspense fallback={<FullPageLoader />}>
       <Routes>
-        <Route path="/login" element={<DoctorLogin />} />
+        <Route path="/login" element={<DoctorLoginOrRedirect />} />
         <Route path="/registro" element={<DoctorRegister />} />
+        <Route path="/completar-cadastro" element={<DoctorCompleteOnlyRoute><DoctorCompleteDoctor /></DoctorCompleteOnlyRoute>} />
 
         <Route path="/" element={<DoctorProtectedRoute><DoctorDashboard /></DoctorProtectedRoute>} />
         <Route path="/dashboard" element={<DoctorProtectedRoute><DoctorDashboard /></DoctorProtectedRoute>} />

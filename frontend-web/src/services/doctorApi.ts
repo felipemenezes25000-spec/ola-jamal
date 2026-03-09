@@ -8,6 +8,7 @@ export interface DoctorUser {
   email: string;
   name: string;
   role: string;
+  profileComplete?: boolean;
   avatarUrl?: string;
 }
 
@@ -158,8 +159,9 @@ export async function loginDoctor(email: string, password: string) {
     throw new Error(data.message || 'Credenciais inválidas');
   }
   const data = await res.json();
-  if (data.user?.role !== 'doctor') {
-    throw new Error('Acesso restrito a médicos');
+  const role = (data.user?.role ?? '').toString().toLowerCase();
+  if (role !== 'doctor') {
+    throw new Error('Acesso restrito a médicos. Use uma conta de médico.');
   }
   storeAuth(data.token, data.user);
   return data;

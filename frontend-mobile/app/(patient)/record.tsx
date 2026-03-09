@@ -7,7 +7,6 @@ import {
   RefreshControl,
   Pressable,
   Alert,
-  ListRenderItem,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -27,6 +26,7 @@ import type {
   PatientSummaryDto,
   EncounterSummaryDto,
   MedicalDocumentSummaryDto,
+  DocumentTypeName,
 } from '../../types/database';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
@@ -105,6 +105,18 @@ function getDocStatusMeta(colors: DesignColors): Record<string, { color: string;
     cancelled: { color: colors.textMuted, bg: colors.surfaceSecondary, label: 'Cancelado' },
   };
 }
+
+function normalizeDocumentType(value: unknown): DocumentTypeName {
+  const normalized = String(value ?? '').toLowerCase();
+  if (normalized === 'prescription' || normalized === '1') return 'prescription';
+  if (normalized === 'examorder' || normalized === 'exam_order' || normalized === 'exam' || normalized === '2') return 'examOrder';
+  return 'medicalReport';
+}
+
+type RecordListItem =
+  | { kind: 'resumo'; id: 'resumo' }
+  | { kind: 'encounter'; data: EncounterSummaryDto }
+  | { kind: 'document'; data: MedicalDocumentSummaryDto };
 
 export default function PatientRecordScreen() {
   const insets = useSafeAreaInsets();
@@ -242,7 +254,7 @@ export default function PatientRecordScreen() {
             .filter((d): d is MedicalDocumentSummaryDto => d != null && typeof d === 'object')
             .map((d) => ({
               id: String(d?.id ?? ''),
-              documentType: String(d?.documentType ?? ''),
+              documentType: normalizeDocumentType(d?.documentType),
               status: String(d?.status ?? 'draft'),
               createdAt: d?.createdAt != null ? (typeof d.createdAt === 'string' ? d.createdAt : new Date(d.createdAt).toISOString()) : '',
               signedAt: d?.signedAt != null ? (typeof d.signedAt === 'string' ? d.signedAt : new Date(d.signedAt).toISOString()) : null,
@@ -319,6 +331,12 @@ export default function PatientRecordScreen() {
     return valid.filter((d) => allowed.includes(String(d?.documentType ?? '').toLowerCase()));
   }, [documents, activeFilter]);
 
+  const listData = useMemo<RecordListItem[]>(() => {
+    if (activeTab === 'resumo') return [{ kind: 'resumo', id: 'resumo' }];
+    if (activeTab === 'timeline') return filteredEncounters.map((data) => ({ kind: 'encounter', data }));
+    return filteredDocuments.map((data) => ({ kind: 'document', data }));
+  }, [activeTab, filteredEncounters, filteredDocuments]);
+
   return (
     <ErrorBoundary>
       <View style={s.container}>
@@ -343,11 +361,11 @@ export default function PatientRecordScreen() {
           style={s.container}
           contentContainerStyle={{ paddingBottom: listPadding }}
           showsVerticalScrollIndicator={false}
-          data={activeTab === 'resumo' ? ['resumo'] : activeTab === 'timeline' ? filteredEncounters : filteredDocuments}
-          keyExtractor={(_item, idx) => {
-            if (activeTab === 'resumo') return 'resumo';
-            if (activeTab === 'timeline') return ((_item as EncounterSummaryDto)?.id ?? `enc-${idx}`);
-            return ((_item as MedicalDocumentSummaryDto)?.id ?? `doc-${idx}`);
+          data={listData}
+          keyExtractor={(item, idx) => {
+            if (item.kind === 'resumo') return item.id;
+            if (item.kind === 'encounter') return item.data.id ?? `enc-${idx}`;
+            return item.data.id ?? `doc-${idx}`;
           }}
           refreshControl={
             <RefreshControl
@@ -408,11 +426,11 @@ export default function PatientRecordScreen() {
             </>
           }
           renderItem={({ item, index }) => {
-            if (activeTab === 'resumo') return null;
-            if (activeTab === 'timeline') {
-              return <TimelineItem encounter={item as EncounterSummaryDto} index={index} total={filteredEncounters.length} />;
+            if (item.kind === 'resumo') return null;
+            if (item.kind === 'encounter') {
+              return <TimelineItem encounter={item.data} index={index} total={filteredEncounters.length} />;
             }
-            return <DocumentItem document={item as MedicalDocumentSummaryDto} index={index} router={router} />;
+            return <DocumentItem document={item.data} index={index} router={router} />;
           }}
           ListEmptyComponent={
             activeTab !== 'resumo' ? (
@@ -684,163 +702,6 @@ const DocumentItem = React.memo(function DocumentItem({ document: doc, index: id
     </View>
   );
 });
-
-function TimelineTab({ encounters }: { encounters: EncounterSummaryDto[] }) {
-  const { colors, shadows } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
-  const ENCOUNTER_META = useMemo(() => getEncounterMeta(colors), [colors]);
-
-  const validEncounters = (encounters ?? []).filter((e): e is EncounterSummaryDto => e != null && typeof e === 'object');
-  if (!validEncounters.length) {
-    return (
-      <View style={s.tabEmptyWrap}>
-        <AppEmptyState
-          icon="time-outline"
-          title="Nenhum atendimento"
-          subtitle="Seus atendimentos aparecerão aqui"
-        />
-      </View>
-    );
-  }
-
-  const sorted = [...validEncounters].sort((a, b) => {
-    const ta = new Date(a?.startedAt ?? 0).getTime();
-    const tb = new Date(b?.startedAt ?? 0).getTime();
-    if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
-    return tb - ta;
-  });
-
-  return (
-    <View style={s.timelineContainer}>
-      {sorted.map((enc, idx) => {
-        const typeKey = String(enc?.type ?? '').toLowerCase();
-        const meta = ENCOUNTER_META[typeKey] ?? {
-          icon: 'ellipse' as const,
-          color: colors.textMuted,
-          bg: colors.surfaceSecondary,
-          label: String(enc?.type ?? ''),
-        };
-        const isLast = idx === sorted.length - 1;
-        const encId = enc?.id != null ? String(enc.id) : `enc-${idx}`;
-
-        return (
-          <View key={encId} style={s.timelineRow}>
-            <View style={s.timelineLineCol}>
-              <View style={[s.timelineDot, { backgroundColor: meta.color }]}>
-                <Ionicons name={meta.icon} size={14} color={colors.white} />
-              </View>
-              {!isLast && <View style={s.timelineLine} />}
-            </View>
-            <View style={[s.timelineCard, isLast && { marginBottom: 0 }]}>
-              <View style={s.timelineCardHeader}>
-                <View style={[s.timelineTypeBadge, { backgroundColor: meta.bg }]}>
-                  <Text style={[s.timelineTypeText, { color: meta.color }]}>
-                    {meta.label}
-                  </Text>
-                </View>
-                <Text style={s.timelineDate}>{formatDatePt(enc?.startedAt)}</Text>
-              </View>
-              {enc?.mainIcd10Code && (
-                <Text style={s.timelineDescription} numberOfLines={2}>
-                  {enc.mainIcd10Code}
-                </Text>
-              )}
-              <View style={s.timelineStatusRow}>
-                <View
-                  style={[
-                    s.timelineStatusDot,
-                    { backgroundColor: enc?.finishedAt ? colors.success : colors.warning },
-                  ]}
-                />
-                <Text style={s.timelineStatusText}>
-                  {enc?.finishedAt ? 'Concluído' : 'Em andamento'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-function DocumentsTab({ documents, router }: { documents: MedicalDocumentSummaryDto[]; router: ReturnType<typeof useRouter> }) {
-  const { colors, shadows } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
-  const DOC_TYPE_META = useMemo(() => getDocTypeMeta(colors), [colors]);
-  const DOC_STATUS_META = useMemo(() => getDocStatusMeta(colors), [colors]);
-
-  if (!documents.length) {
-    return (
-      <View style={s.tabEmptyWrap}>
-        <AppEmptyState
-          icon="document-text-outline"
-          title="Nenhum documento"
-          subtitle="Seus documentos médicos aparecerão aqui"
-        />
-      </View>
-    );
-  }
-
-  const sorted = [...documents].sort(
-    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-  );
-
-  return (
-    <View style={s.docsContainer}>
-      {sorted.map((doc, idx) => {
-        const typeKey = String(doc.documentType ?? '').toLowerCase();
-        const typeMeta = DOC_TYPE_META[typeKey] ?? {
-          icon: 'document-outline' as const,
-          color: colors.textMuted,
-          bg: colors.surfaceSecondary,
-          label: String(doc.documentType ?? 'Documento'),
-        };
-        const statusKey = String(doc.status ?? '').toLowerCase();
-        const statusMeta = DOC_STATUS_META[statusKey] ?? {
-          color: colors.textMuted,
-          bg: colors.surfaceSecondary,
-          label: String(doc.status ?? 'Documento'),
-        };
-
-        return (
-          <View key={doc.id ?? `doc-${idx}`} style={s.docCard}>
-            <View style={[s.docIconWrap, { backgroundColor: typeMeta.bg }]}>
-              <Ionicons name={typeMeta.icon} size={20} color={typeMeta.color} />
-            </View>
-            <View style={s.docContent}>
-              <Text style={s.docTitle}>{typeMeta.label}</Text>
-              <Text style={s.docDate}>{formatDatePt(doc.createdAt)}</Text>
-              <View style={[s.docStatusBadge, { backgroundColor: statusMeta.bg }]}>
-                <View
-                  style={[s.docStatusDot, { backgroundColor: statusMeta.color }]}
-                />
-                <Text style={[s.docStatusText, { color: statusMeta.color }]}>
-                  {statusMeta.label}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              style={({ pressed }) => [
-                s.docActionBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={() => {
-                Alert.alert(
-                  typeMeta.label,
-                  `Documento ${statusMeta.label.toLowerCase()} em ${formatDatePt(doc.createdAt)}.\n\nPara baixar o PDF assinado, acesse a tela de Pedidos e localize o pedido correspondente.`,
-                  [{ text: 'OK' }, { text: 'Ir para Pedidos', onPress: () => router.push('/(patient)/requests') }]
-                );
-              }}
-            >
-              <Ionicons name="eye-outline" size={18} color={colors.primary} />
-            </Pressable>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
 
 function StatCard(props: {
   icon: keyof typeof Ionicons.glyphMap;

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DesignColors } from '../../../lib/designSystem';
 

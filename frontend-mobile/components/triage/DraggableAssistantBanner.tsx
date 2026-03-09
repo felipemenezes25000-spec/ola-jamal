@@ -56,7 +56,7 @@ export function DraggableAssistantBanner({ onAction, onCompanionPress, container
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const { current } = useTriageAssistant();
-  const { colors, zIndex, shadows } = useAppTheme({ role: 'patient' });
+  const { colors, zIndex } = useAppTheme({ role: 'patient' });
 
   const padding = 16;
   const [expanded, setExpanded] = useState(false);

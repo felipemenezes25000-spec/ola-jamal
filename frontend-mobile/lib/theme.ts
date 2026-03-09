@@ -8,12 +8,10 @@
  */
 
 import {
-  patientTokens,
   spacing as dsSpacing,
   borderRadius as dsBorderRadius,
   shadows as dsShadows,
   typography as dsTypography,
-  layout as dsLayout,
 } from './designSystem';
 
 // ─── "theme" object for legacy imports like `import { theme } from './theme'` ──

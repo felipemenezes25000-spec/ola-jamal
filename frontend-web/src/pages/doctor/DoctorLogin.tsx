@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
 import { loginDoctor, forgotPassword } from '@/services/doctorApi';
 import { toast } from 'sonner';
 import { Loader2, Stethoscope, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
@@ -17,6 +18,7 @@ export default function DoctorLogin() {
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const navigate = useNavigate();
+  const { setAuthFromLogin } = useDoctorAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,9 +28,10 @@ export default function DoctorLogin() {
     }
     setLoading(true);
     try {
-      await loginDoctor(email, password);
+      const data = await loginDoctor(email, password);
+      setAuthFromLogin(data.user);
       toast.success('Bem-vindo!');
-      navigate('/dashboard');
+      navigate(data.user?.profileComplete === false ? '/completar-cadastro' : '/dashboard');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Credenciais inválidas');
     } finally {

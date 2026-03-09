@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Platform,
   KeyboardAvoidingView,
   Linking,
@@ -14,13 +13,10 @@ import { useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import * as Clipboard from 'expo-clipboard';
-import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { getDisplayPrice } from '../../lib/config/pricing';
-import { formatBRL } from '../../lib/utils/format';
 import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
@@ -46,6 +42,7 @@ import { parseAnamnesis, parseSuggestions, parseEvidence, displayMedicamento, di
 export { cacheRequest } from '../../hooks/useDoctorRequest';
 
 const TYPE_LABELS: Record<string, string> = { prescription: 'RECEITA', exam: 'EXAME', consultation: 'CONSULTA' };
+const HORIZONTAL_PAD = doctorDS.screenPaddingHorizontal;
 
 export default function DoctorRequestDetail() {
   const router = useRouter();
@@ -388,7 +385,7 @@ function makeStyles(colors: DesignColors) {
   emptyTitle: { fontSize: 14, fontFamily: typography.fontFamily.bold, color: colors.textSecondary, letterSpacing: 0.8 },
   emptyAction: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md, marginTop: spacing.sm },
   emptyActionText: { fontSize: 13, fontFamily: typography.fontFamily.bold, fontWeight: '700', color: colors.white, letterSpacing: 0.6 },
-  cardMargin: { marginHorizontal: pad, marginTop: spacing.md },
+  cardMargin: { marginHorizontal: HORIZONTAL_PAD, marginTop: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.text, letterSpacing: 0.5 },
   sectionIconWrap: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },

@@ -251,7 +251,7 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
       criteriosRetorno.forEach(c => parts.push(`⚠️ ${c}`));
     }
     return parts.join('\n');
-  }, [cidSugerido, cidDescricao, gravidade, diagDiferencial, anamnesis, meds, exames, orientacoesPaciente, criteriosRetorno]);
+  }, [cidSugerido, cidDescricao, gravidade, GRAVITY_CONFIG, diagDiferencial, anamnesis, meds, exames, orientacoesPaciente, criteriosRetorno]);
 
   return (
     <View style={S.container}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { AppInput, AppInputProps } from './AppInput';
 
@@ -24,7 +24,7 @@ export function FormField({
   children,
   ...inputProps
 }: FormFieldProps) {
-  const { colors, typography, spacing, borderRadius } = useAppTheme();
+  const { colors, typography } = useAppTheme();
 
   return (
     <View style={styles.container}>

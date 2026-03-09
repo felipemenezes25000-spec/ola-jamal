@@ -20,6 +20,7 @@ import type { DesignColors } from '../../lib/designSystem';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
+import { SectionHeader } from '../../components/ui/SectionHeader';
 import { Logo } from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchAddressByCep } from '../../lib/viacep';
@@ -38,10 +39,6 @@ function formatCep(value: string) {
   if (d.length <= 5) return d;
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
-
-/* ────────── Section Header ────────── */
-// SectionHeader imported from shared UI components — uses variant="form" for icon+line style
-import { SectionHeader } from '../../components/ui/SectionHeader';
 
 export default function Register() {
   const router = useRouter();

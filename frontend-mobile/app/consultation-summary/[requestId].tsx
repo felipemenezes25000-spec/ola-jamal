@@ -24,7 +24,7 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { fetchRequestById, saveConsultationSummary } from '../../lib/api';
 import type { RequestResponseDto } from '../../types/database';
-import { ANA_FIELDS_COMPACT as ANA_FIELDS, parseAnamnesis, anamnesisToText } from '../../lib/domain/anamnesis';
+import { parseAnamnesis } from '../../lib/domain/anamnesis';
 import { AnamnesisCard } from '../../components/prontuario/AnamnesisCard';
 
 export default function ConsultationSummaryScreen() {
@@ -115,11 +115,6 @@ export default function ConsultationSummaryScreen() {
   const copyText = async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
     Alert.alert('Copiado', `${label} copiado para área de transferência.`);
-  };
-
-  const copyFullAnamnesis = () => {
-    if (!anamnesis) return;
-    copyText(anamnesisToText(anamnesis, ANA_FIELDS), 'Anamnese');
   };
 
   if (loading) {

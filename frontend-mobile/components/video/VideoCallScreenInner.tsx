@@ -26,7 +26,6 @@ import {
   Dimensions,
   Animated,
   Platform,
-  KeyboardAvoidingView,
   BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -41,7 +40,6 @@ import DoctorAIPanel from './DoctorAIPanel';
 import { VideoCallControls, VideoCallTopBar, VideoCallWaiting, ClinicalNotesModal } from './parts';
 import {
   startConsultation,
-  type StartConsultationResponse,
   finishConsultation,
   fetchRequestById,
   autoFinishConsultation,
@@ -51,24 +49,12 @@ import {
 import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { apiClient } from '../../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
-import { useDailyCall, type ConnectionQuality } from '../../hooks/useDailyCall';
+import { useDailyCall } from '../../hooks/useDailyCall';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PANEL_WIDTH = Math.min(380, SCREEN_W * 0.9);
-
-// ──── Helpers ────
-
-function fmt(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-}
-
-function qLabel(q: ConnectionQuality) {
-  return q === 'good' ? 'Boa' : q === 'poor' ? 'Instável' : q === 'bad' ? 'Ruim' : '...';
-}
 
 // ──── Main Screen ────
 
@@ -83,9 +69,6 @@ export default function VideoCallScreenInner() {
   const colors = darkTheme.colors;
   const modalColors = darkTheme.colors;
   const S = useMemo(() => makeStyles(colors, modalColors), [colors, modalColors]);
-  const qColor = useCallback((q: ConnectionQuality) => {
-    return q === 'good' ? colors.success : q === 'poor' ? colors.warning : q === 'bad' ? colors.error : colors.textMuted;
-  }, [colors]);
 
   const rid = (Array.isArray(requestId) ? requestId[0] : requestId) ?? '';
   const isDoctor = user?.role === 'doctor';
@@ -621,10 +604,6 @@ export default function VideoCallScreenInner() {
     </View>
   );
 
-  const rem = contractedMinutes ? contractedMinutes * 60 - callSeconds : null;
-  const urgent = rem != null && rem <= 120;
-  const critical = rem != null && rem <= 60;
-  const timerStr = contractedMinutes ? `${fmt(callSeconds)} / ${fmt(contractedMinutes * 60)}` : fmt(callSeconds);
   const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
   const hasMeds = Array.isArray(anamnesis?.medicamentos_sugeridos) && anamnesis.medicamentos_sugeridos.length > 0;
   const hasExams = Array.isArray(anamnesis?.exames_sugeridos) && anamnesis.exames_sugeridos.length > 0;
@@ -817,7 +796,7 @@ export default function VideoCallScreenInner() {
 
 // ──── Styles (light mode: overlays legíveis, fundo escuro só para área do vídeo) ────
 
-type VideoColors = { primary: string; text: string; textMuted: string; textSecondary: string; white: string; black: string; error: string; warning: string; success: string; successLight: string; destructive: string; primaryLight: string; border: string; errorLight: string; surface: string; surfaceSecondary: string };
+type VideoColors = { primary: string; text: string; textMuted: string; textSecondary: string; white: string; black: string; error: string; warning: string; success: string; successLight: string; destructive: string; primaryLight: string; border: string; errorLight: string; surface: string; surfaceSecondary: string; background: string };
 
 function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   const mc = modalColors || colors;

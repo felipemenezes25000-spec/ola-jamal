@@ -14,7 +14,7 @@ interface SignFormCardProps {
   profileBlocked: boolean;
   onGoToProfile: () => void;
   colors: DesignColors;
-  scrollRef?: React.RefObject<ScrollView>;
+  scrollRef?: React.RefObject<ScrollView | null>;
 }
 
 export const SignFormCard = React.memo(function SignFormCard({

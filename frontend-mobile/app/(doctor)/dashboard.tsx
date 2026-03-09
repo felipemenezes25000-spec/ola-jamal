@@ -40,6 +40,12 @@ import { motionTokens } from '../../lib/ui/motion';
 
 const SCREEN_PAD = 20;
 
+function isValidRequestItem(value: unknown): value is RequestResponseDto {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<RequestResponseDto>;
+  return typeof candidate.id === 'string' && candidate.id.length > 0 && typeof candidate.status === 'string';
+}
+
 // ─── Helpers ────────────────────────────────────────────────────
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -162,8 +168,7 @@ export default function DoctorDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { colors, gradients, shadows, scheme, borderRadius } = useAppTheme({ role: 'doctor' });
-  const isDark = scheme === 'dark';
+  const { colors, gradients, shadows, borderRadius } = useAppTheme({ role: 'doctor' });
 
   const [queue, setQueue] = useState<RequestResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,7 +191,7 @@ export default function DoctorDashboard() {
       if (!mountedRef.current) return;
       setHasCertificate(cert.status === 'fulfilled' && !!cert.value);
       const rawItems = res.status === 'fulfilled' ? res.value?.items : undefined;
-      const items = Array.isArray(rawItems) ? rawItems : [];
+      const items = Array.isArray(rawItems) ? rawItems.filter(isValidRequestItem) : [];
       setQueue(items);
       if (withFeedback) showToast({ message: 'Painel atualizado', type: 'success' });
     } catch (e) {
@@ -244,9 +249,12 @@ export default function DoctorDashboard() {
   );
 
   // ─── Gradiente seguro (evita crash se gradients.doctorHeader for undefined)
-  const headerGradient = Array.isArray(gradients?.doctorHeader) && gradients.doctorHeader.length > 0
-    ? (gradients.doctorHeader as [string, string, ...string[]])
-    : (['#0369A1', '#0EA5E9'] as [string, string, ...string[]]);
+  const headerGradient = useMemo<[string, string, ...string[]]>(
+    () => (Array.isArray(gradients?.doctorHeader) && gradients.doctorHeader.length > 0
+      ? (gradients.doctorHeader as [string, string, ...string[]])
+      : (['#0369A1', '#0EA5E9'] as [string, string, ...string[]])),
+    [gradients?.doctorHeader]
+  );
 
   const dateStr = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -425,7 +433,7 @@ export default function DoctorDashboard() {
     </>
   ), [
     headerGradient, insets, colors, greetingName, displayFirst, dateStr,
-    isConnected, stats, hasCertificate, shadows, borderRadius, router, isDark,
+    isConnected, stats, hasCertificate, shadows, borderRadius, router,
   ]);
 
   // ─── Empty State ───────────────────────────────────────────

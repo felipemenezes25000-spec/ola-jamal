@@ -100,8 +100,9 @@ export function getRequestUiState(
 }
 
 /** Request exige ação do médico agora (painel "Atendimentos pendentes"). */
-export function isPendingForPanel(request: RequestResponseDto): boolean {
-  const s = request.status;
+export function isPendingForPanel(request: RequestResponseDto | null | undefined): boolean {
+  const s = request?.status;
+  if (!s) return false;
   return [
     'searching_doctor',
     'in_consultation',
@@ -119,18 +120,18 @@ export function isPendingForPanel(request: RequestResponseDto): boolean {
 /** Conta para card "Na fila" (amarelo): submitted, in_review, pending_payment, approved_pending_payment, searching_doctor */
 export function countNaFila(requests: RequestResponseDto[]): number {
   return requests.filter((r) =>
-    ['submitted', 'in_review', 'pending_payment', 'approved_pending_payment', 'searching_doctor'].includes(r.status)
+    !!r?.status && ['submitted', 'in_review', 'pending_payment', 'approved_pending_payment', 'searching_doctor'].includes(r.status)
   ).length;
 }
 
 /** Conta para card "Consulta pronta" (azul) */
 export function countConsultaPronta(requests: RequestResponseDto[]): number {
-  return requests.filter((r) => r.status === 'paid').length;
+  return requests.filter((r) => r?.status === 'paid').length;
 }
 
 /** Conta para card "Em consulta" (verde) */
 export function countEmConsulta(requests: RequestResponseDto[]): number {
-  return requests.filter((r) => r.status === 'in_consultation').length;
+  return requests.filter((r) => r?.status === 'in_consultation').length;
 }
 
 /** Total de atendimentos que exigem ação (para o header "Você tem X atendimentos pendentes") */
@@ -145,7 +146,7 @@ export function getPendingForPanel(requests: RequestResponseDto[], limit = 3): R
 
 /** Request já finalizado (não aparece no painel de pendentes) */
 export function isHistorical(request: RequestResponseDto): boolean {
-  return (STATUS_TO_UI[request.status] ?? 'historical') === 'historical';
+  return (STATUS_TO_UI[request?.status ?? ''] ?? 'historical') === 'historical';
 }
 
 /** Agrupa atendimentos realizados por dia para o painel (resumo por dia, sem listar todos). */
