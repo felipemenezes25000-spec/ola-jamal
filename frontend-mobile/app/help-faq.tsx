@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTriageEval } from '../hooks/useTriageEval';
 import { useAuth } from '../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,7 +61,6 @@ const POLICY_SECTIONS = [
 ];
 
 export default function HelpFaqScreen() {
-  const router = useRouter();
   const { user } = useAuth();
   useTriageEval({ context: 'help', step: 'entry', role: user?.role === 'doctor' ? 'doctor' : 'patient' });
   const { colors } = useAppTheme();

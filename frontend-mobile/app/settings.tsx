@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader, AppCard } from '../components/ui';
 import { fetchPushTokens, setPushPreference, sendTestPush } from '../lib/api';
@@ -18,7 +17,6 @@ import { haptics } from '../lib/haptics';
  * Contém opções de assistente, aparência, notificações e categorias de push.
  */
 export default function SettingsScreen() {
-  const router = useRouter();
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [mutedCount, setMutedCount] = useState(0);
