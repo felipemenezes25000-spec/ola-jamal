@@ -145,33 +145,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Mostra o app na hora com usuário em cache; valida token em background
-        clearTimeout(guard);
-        setUser(parsedUser);
-        if (parsedDoctorProfile) setDoctorProfile(parsedDoctorProfile);
-        setLoading(false);
-
-        // Valida token em background (sem travar a abertura).
-        // Só desloga em erros de autenticação (401/403); falhas de rede ou timeout mantêm a sessão em cache.
+        // Valida token ANTES de setar user — evita cascade de 401 em unread-count, requests, hub, etc.
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
         try {
           const currentUser = await apiClient.get<UserDto>('/api/auth/me', undefined, {
             signal: controller.signal,
           });
+          clearTimeout(guard);
           setUser(currentUser);
           if (currentUser.role === 'doctor' && parsedDoctorProfile) {
             setDoctorProfile(parsedDoctorProfile);
           }
+          setLoading(false);
         } catch (err: unknown) {
           const status = (err as { status?: number })?.status;
           const isAborted = err instanceof Error && err.name === 'AbortError';
           if (status === 401 || status === 403) {
             // Token inválido ou expirado: desloga
+            clearTimeout(guard);
             await clearAuth();
           } else if (!isAborted) {
-            // Falha de rede, 5xx, timeout — mantém sessão com dados em cache
-            if (__DEV__) console.warn('[AuthContext] Validação background falhou (rede/servidor), mantendo sessão em cache:', err);
+            // Falha de rede, 5xx, timeout — mantém sessão com dados em cache (optimistic)
+            if (__DEV__) console.warn('[AuthContext] Validação falhou (rede/servidor), mantendo sessão em cache:', err);
+            clearTimeout(guard);
+            setUser(parsedUser);
+            if (parsedDoctorProfile) setDoctorProfile(parsedDoctorProfile);
+            setLoading(false);
+          } else {
+            // Timeout: mantém sessão em cache
+            clearTimeout(guard);
+            setUser(parsedUser);
+            if (parsedDoctorProfile) setDoctorProfile(parsedDoctorProfile);
+            setLoading(false);
           }
         } finally {
           clearTimeout(timeoutId);
@@ -201,7 +207,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let lastClearAt = 0;
+    const UNAUTHORIZED_DEBOUNCE_MS = 2000;
     apiClient.setOnUnauthorized(() => {
+      const now = Date.now();
+      if (now - lastClearAt < UNAUTHORIZED_DEBOUNCE_MS) return;
+      lastClearAt = now;
       clearAuth();
     });
     apiClient.setOnForbidden(async (message) => {
