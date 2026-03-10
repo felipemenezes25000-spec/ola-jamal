@@ -1,47 +1,24 @@
 /**
  * useAudioRecorder — Captura áudio do microfone em chunks e envia para transcrição.
  *
+ * Orchestrates:
+ * - useAudioChunking: chunk sending + cycling logic
+ * - Microphone permissions + audio mode
+ * - Recording start/stop lifecycle
+ * - Chunk interval + countdown timer
+ * - Cleanup on unmount
+ *
  * Fluxo: O PACIENTE grava (seu microfone). O médico fica mudo e só vê transcrição/anamnese ao vivo.
  *  1. Solicita permissão de microfone
- *  2. Grava áudio em chunks de CHUNK_DURATION_MS (10s)
- *  3. A cada chunk: para → lê arquivo → envia POST /api/consultation/transcribe (stream: remote)
+ *  2. Grava áudio em chunks de 10s
+ *  3. A cada chunk: para → lê arquivo → envia POST /api/consultation/transcribe
  *  4. Backend: Deepgram transcreve → SessionStore acumula → SignalR broadcast
- *  5. Médico: SignalR listener atualiza painel de transcrição/anamnese
- *
- * Compatível com teleconsulta (Daily.co) e consulta presencial.
  */
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
-import * as FileSystem from 'expo-file-system/legacy';
-import { transcribeAudioChunk } from '../lib/api';
-
-const CHUNK_DURATION_MS = 10_000; // 10 segundos por chunk
-
-const RECORDING_OPTIONS: Audio.RecordingOptions = {
-  isMeteringEnabled: false,
-  android: {
-    extension: '.m4a',
-    outputFormat: 2, // MPEG_4
-    audioEncoder: 3, // AAC
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 64000,
-  },
-  ios: {
-    extension: '.m4a',
-    audioQuality: 0x40, // MEDIUM
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 64000,
-    outputFormat: undefined, // Let iOS choose best AAC format
-  },
-  web: {
-    mimeType: 'audio/webm',
-    bitsPerSecond: 64000,
-  },
-};
+import { useAudioChunking, CHUNK_DURATION_MS, RECORDING_OPTIONS } from './useAudioChunking';
 
 interface UseAudioRecorderReturn {
   /** Whether audio is currently being recorded */
@@ -50,11 +27,11 @@ interface UseAudioRecorderReturn {
   chunksSent: number;
   /** Number of chunks that failed to send */
   chunksFailed: number;
-  /** Segundos até o próximo envio de chunk (0–10). Útil para mostrar "Próximo envio em Xs" ao paciente. */
+  /** Segundos até o próximo envio de chunk (0–10) */
   secondsUntilNextChunk: number;
   /** Last error message (permissão, gravação) */
   error: string | null;
-  /** Último erro de envio (API/rede) — útil quando chunksFailed > 0 */
+  /** Último erro de envio (API/rede) */
   lastChunkError: string | null;
   /** Start recording and sending chunks */
   start: () => Promise<boolean>;
@@ -64,119 +41,32 @@ interface UseAudioRecorderReturn {
 
 export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' = 'local'): UseAudioRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
-  const [chunksSent, setChunksSent] = useState(0);
-  const [chunksFailed, setChunksFailed] = useState(0);
-  const [secondsUntilNextChunk, setSecondsUntilNextChunk] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [lastChunkError, setLastChunkError] = useState<string | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeRef = useRef(false);
-  const chunkIndexRef = useRef(0);
   const chunkCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Send a recorded chunk to the transcription API ──
-
-  const sendChunk = useCallback(
-    async (uri: string, stream: 'local' | 'remote' = 'local') => {
-      try {
-        // Check file exists and has content
-        const fileInfo = await FileSystem.getInfoAsync(uri);
-        const fileSize = fileInfo.exists ? ((fileInfo as unknown as { size?: number }).size ?? 0) : 0;
-        if (!fileInfo.exists || (fileSize ?? 0) < 500) {
-          if (__DEV__) {
-            console.warn(`[AudioRecorder] Chunk ignorado: arquivo muito pequeno (${fileSize ?? 0} bytes). Fale durante a gravação.`);
-          }
-          return;
-        }
-
-        const extension = Platform.OS === 'web' ? 'webm' : 'm4a';
-        const mimeType = Platform.OS === 'web' ? 'audio/webm' : 'audio/mp4';
-        const fileName = `chunk_${chunkIndexRef.current}.${extension}`;
-        chunkIndexRef.current++;
-
-        // React Native FormData accepts { uri, name, type } — use URI as-is (expo-av) on both platforms
-        const fileObject = {
-          uri,
-          name: fileName,
-          type: mimeType,
-        };
-
-        await transcribeAudioChunk(requestId, fileObject as any, stream);
-        setChunksSent((c) => c + 1);
-        setLastChunkError(null);
-        setSecondsUntilNextChunk(CHUNK_DURATION_MS / 1000);
-        if (__DEV__) {
-          console.warn(`[AudioRecorder] Chunk enviado OK (total: ${chunkIndexRef.current})`);
-        }
-      } catch (e: any) {
-        const msg = e?.message ?? String(e);
-        const status = e?.status;
-        const display = status != null ? `[${status}] ${msg}` : msg;
-        console.warn(`[AudioRecorder] Chunk send failed:`, display);
-        setLastChunkError(display);
-        setChunksFailed((c) => c + 1);
-        // Don't stop recording on individual chunk failure
-      } finally {
-        // Clean up temp file
-        try {
-          await FileSystem.deleteAsync(uri, { idempotent: true });
-        } catch {}
-      }
-    },
-    [requestId],
-  );
-
-  // ── Record one chunk, stop previous, send it, start new ──
-
-  const cycleChunk = useCallback(async () => {
-    if (!activeRef.current) return;
-
-    // 1. Stop current recording and get URI
-    const prevRecording = recordingRef.current;
-    let prevUri: string | null = null;
-
-    if (prevRecording) {
-      try {
-        const status = await prevRecording.getStatusAsync();
-        if (status.isRecording) {
-          await prevRecording.stopAndUnloadAsync();
-        }
-        prevUri = prevRecording.getURI();
-      } catch (e: any) {
-        console.warn('[AudioRecorder] Stop chunk error:', e?.message);
-      }
-      recordingRef.current = null;
-    }
-
-    // 2. Start new recording immediately (minimize gap)
-    if (activeRef.current) {
-      try {
-        const { recording } = await Audio.Recording.createAsync(RECORDING_OPTIONS);
-        recordingRef.current = recording;
-      } catch (e: any) {
-        console.warn('[AudioRecorder] Start new chunk error:', e?.message);
-        // Try again on next cycle
-      }
-    }
-
-    // 3. Send previous chunk in background (don't block next recording)
-    if (prevUri) {
-      sendChunk(prevUri, stream).catch(() => {});
-    }
-  }, [sendChunk, stream]);
+  const {
+    chunksSent,
+    chunksFailed,
+    lastChunkError,
+    secondsUntilNextChunk,
+    setSecondsUntilNextChunk,
+    sendChunk,
+    cycleChunk,
+    resetCounters,
+  } = useAudioChunking(requestId);
 
   // ── Start recording ──
 
   const start = useCallback(async (): Promise<boolean> => {
-    if (activeRef.current) return true; // Already recording
+    if (activeRef.current) return true;
 
     try {
       setError(null);
-      setChunksSent(0);
-      setChunksFailed(0);
-      chunkIndexRef.current = 0;
+      resetCounters();
 
       // Request microphone permission
       const permission = await Audio.requestPermissionsAsync();
@@ -187,7 +77,7 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
         return false;
       }
 
-      // Configure audio mode for recording during call (DuckOthers allows recording alongside Daily.co)
+      // Configure audio mode for recording during call
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -214,9 +104,12 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
       }
 
       // Set up chunk cycle interval
-      intervalRef.current = setInterval(cycleChunk, CHUNK_DURATION_MS);
+      intervalRef.current = setInterval(
+        () => cycleChunk(recordingRef, activeRef, stream),
+        CHUNK_DURATION_MS,
+      );
 
-      // Countdown para próximo envio (paciente vê "Próximo envio em Xs")
+      // Countdown para próximo envio
       setSecondsUntilNextChunk(CHUNK_DURATION_MS / 1000);
       chunkCountdownRef.current = setInterval(() => {
         setSecondsUntilNextChunk((s) => (s <= 1 ? CHUNK_DURATION_MS / 1000 : s - 1));
@@ -232,7 +125,7 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
       setIsRecording(false);
       return false;
     }
-  }, [cycleChunk]);
+  }, [cycleChunk, stream, resetCounters, setSecondsUntilNextChunk]);
 
   // ── Stop recording ──
 
@@ -263,7 +156,6 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
         const uri = finalRecording.getURI();
         recordingRef.current = null;
         if (uri) {
-          // Send final chunk synchronously (we're ending the session)
           await sendChunk(uri, stream);
         }
       } catch (e: any) {
@@ -280,10 +172,8 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
       });
     } catch {}
 
-    console.warn(
-      `[AudioRecorder] Stopped. Sent: ${chunkIndexRef.current} chunks`,
-    );
-  }, [sendChunk, stream]);
+    console.warn('[AudioRecorder] Stopped.');
+  }, [sendChunk, stream, setSecondsUntilNextChunk]);
 
   // ── Cleanup on unmount ──
 
