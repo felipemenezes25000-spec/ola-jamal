@@ -89,15 +89,41 @@ jobs:
             echo "⚠ ANDROID_KEYSTORE_BASE64 não configurado. Build release usará debug signing."
           else
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
-            echo "" >> android/gradle.properties
-            echo "RELEASE_STORE_FILE=release-keystore.jks" >> android/gradle.properties
-            echo "RELEASE_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/gradle.properties
-            echo "RELEASE_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/gradle.properties
-            echo "RELEASE_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/gradle.properties
-            echo "✓ Keystore configurado para signing release"
+
+            # Inject signingConfigs into app/build.gradle
+            cat > /tmp/inject-signing.js << 'NODESCRIPT'
+            const fs = require("fs");
+            const f = "android/app/build.gradle";
+            let g = fs.readFileSync(f, "utf8");
+            const sp = process.env.STORE_PASS;
+            const ka = process.env.KEY_ALIAS;
+            const kp = process.env.KEY_PASS;
+            const block = [
+              "    signingConfigs {",
+              "        release {",
+              '            storeFile file("release-keystore.jks")',
+              '            storePassword "' + sp + '"',
+              '            keyAlias "' + ka + '"',
+              '            keyPassword "' + kp + '"',
+              "        }",
+              "    }",
+            ].join("\n");
+            g = g.replace(/(android\s*\{)/, "$1\n" + block);
+            if (g.includes("signingConfig signingConfigs.debug")) {
+              g = g.replace("signingConfig signingConfigs.debug", "signingConfig signingConfigs.release");
+            } else {
+              g = g.replace(/buildTypes\s*\{/, "buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }");
+            }
+            fs.writeFileSync(f, g);
+            console.log("✓ signingConfigs injected into build.gradle");
+            NODESCRIPT
+            node /tmp/inject-signing.js
           fi
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Increase Gradle JVM memory
         run: |
