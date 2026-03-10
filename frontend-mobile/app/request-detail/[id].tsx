@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
@@ -23,10 +23,10 @@ import { spacing, borderRadius, shadows } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
-import { fetchRequestById, markRequestDelivered, cancelRequest, getDocumentDownloadUrl } from '../../lib/api';
+import { getDocumentDownloadUrl } from '../../lib/api';
+import { useRequestDetailQuery, useCancelRequest, useMarkDelivered } from '../../lib/hooks/useRequestDetailQuery';
 import { getDisplayPrice } from '../../lib/config/pricing';
 import { formatBRL, formatDateTimeBR } from '../../lib/utils/format';
-import { RequestResponseDto } from '../../types/database';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
 import { AppButton, StickyCTA, FormSection, AppEmptyState } from '../../components/ui';
@@ -113,87 +113,34 @@ function getNextActionIcon(intent: NextActionIntent): keyof typeof Ionicons.glyp
   }
 }
 
-const LOG_DETAIL = __DEV__ && false;
-
-/** Statuses em que o pagamento pode ser confirmado pelo webhook enquanto o usuário está na tela. */
-const AWAITING_PAYMENT_STATUSES = ['approved_pending_payment', 'pending_payment'] as const;
-
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const { height: windowHeight } = useWindowDimensions();
   const listPadding = useListBottomPadding();
-  const [request, setRequest] = useState<RequestResponseDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [documentActionLoading, setDocumentActionLoading] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const videoModalShownRef = useRef(false);
   const lastVideoModalRequestIdRef = useRef<string | null>(null);
+  const payInFlightRef = useRef(false);
   const { isConnected } = useNetworkStatus();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { setModalOpen } = useModalVisibility();
 
-  const fetchIdRef = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
-  const payInFlightRef = useRef(false);
-
-  const load = useCallback(async () => {
-    if (!requestId) { setLoading(false); return; }
-    const fid = ++fetchIdRef.current;
-    const abort = new AbortController();
-    abortRef.current = abort;
-
-    setLoading(true);
-    setDetailError(null);
-    const start = Date.now();
-    if (LOG_DETAIL) console.warn('[DETAIL_FETCH] start', { requestId, fid });
-
-    try {
-      const data = await fetchRequestById(requestId, { signal: abort.signal });
-      if (fid !== fetchIdRef.current) return;
-      setRequest(data);
-      if (LOG_DETAIL) console.warn('[DETAIL_FETCH] success', { requestId, fid, ms: Date.now() - start });
-    } catch (e: unknown) {
-      if (fid !== fetchIdRef.current) return;
-      if ((e as { name?: string })?.name === 'AbortError') return;
-      const msg = (e as Error)?.message ?? String(e);
-      setDetailError(msg);
-      setRequest(null);
-      if (LOG_DETAIL) console.warn('[DETAIL_FETCH] error', { requestId, fid, msg });
-    } finally {
-      if (fid === fetchIdRef.current) {
-        setLoading(false);
-        abortRef.current = null;
-      }
-    }
-  }, [requestId]);
-
-  /** Refresh silencioso (sem loading) para refletir confirmação de pagamento pelo webhook. */
-  const mountedRef = useRef(true);
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  const loadSilent = useCallback(async () => {
-    if (!requestId) return;
-    try {
-      const data = await fetchRequestById(requestId);
-      if (mountedRef.current) setRequest(data);
-    } catch {
-      // Ignore; não alterar estado em caso de erro no poll
-    }
-  }, [requestId]);
-
-  // Cleanup: abortar request pendente ao desmontar
-  useEffect(() => {
-    return () => { abortRef.current?.abort(); };
-  }, []);
-
-  // Carregar ao entrar/voltar na tela (useFocusEffect cobre mount + focus)
-  useFocusEffect(useCallback(() => { if (requestId) load(); }, [requestId, load]));
+  const {
+    data: request,
+    isLoading: loading,
+    isError: hasError,
+    error: queryError,
+    refetch,
+  } = useRequestDetailQuery(requestId);
+  const cancelMutation = useCancelRequest();
+  const markDeliveredMutation = useMarkDelivered();
+  const detailError = hasError ? ((queryError as Error)?.message ?? String(queryError)) : null;
+  const actionLoading = cancelMutation.isPending;
 
   // Modal visibility: deve ficar ANTES de qualquer early return para respeitar Rules of Hooks
   const isModalVisible =
@@ -220,54 +167,6 @@ export default function RequestDetailScreen() {
       setShowVideoModal(true);
     }
   }, [request?.id, request?.status, request?.requestType, request]);
-
-  /** Polling: aguardando pagamento OU consulta pronta (paid) — para detectar webhook de pagamento ou médico iniciando. */
-  const MAX_POLLS = 90;
-  const pollCountRef = useRef(0);
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    const awaiting = request && (
-      (AWAITING_PAYMENT_STATUSES as readonly string[]).includes(request.status) ||
-      (request.requestType === 'consultation' && request.status === 'paid')
-    );
-    if (!awaiting) {
-      pollCountRef.current = 0;
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-      return;
-    }
-    pollCountRef.current = 0;
-    const isConsultationWaiting = request.requestType === 'consultation' && request.status === 'paid';
-    const baseDelay = isConsultationWaiting ? 3000 : 5000;
-
-    const getDelay = (count: number) => {
-      if (count < 12) return baseDelay;          // primeiros ~1min: normal
-      if (count < 36) return baseDelay * 2;       // ~2-4min: dobro
-      return baseDelay * 4;                        // depois: 4x (12-20s)
-    };
-
-    const schedulePoll = () => {
-      pollTimerRef.current = setTimeout(() => {
-        pollCountRef.current += 1;
-        if (pollCountRef.current >= MAX_POLLS) {
-          pollTimerRef.current = null;
-          return;
-        }
-        loadSilent();
-        schedulePoll();
-      }, getDelay(pollCountRef.current));
-    };
-    schedulePoll();
-
-    return () => {
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
-  }, [request?.status, request?.id, request, loadSilent]);
 
   /** Dra. Renova: mensagens no contexto do detalhe (conduta disponível, documento pronto). */
   useTriageEval({
@@ -305,8 +204,7 @@ export default function RequestDetailScreen() {
   const markAsDeliveredIfSigned = async () => {
     if (!requestId || !request || request.status !== 'signed') return;
     try {
-      const updated = await markRequestDelivered(requestId);
-      setRequest(updated);
+      await markDeliveredMutation.mutateAsync(requestId);
     } catch {
       // Ignore; status may already be delivered
     }
@@ -381,14 +279,10 @@ export default function RequestDetailScreen() {
           text: 'Sim, cancelar',
           style: 'destructive',
           onPress: async () => {
-            setActionLoading(true);
             try {
-              const updated = await cancelRequest(requestId);
-              setRequest(updated);
+              await cancelMutation.mutateAsync(requestId);
             } catch (e: unknown) {
               Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível cancelar.');
-            } finally {
-              setActionLoading(false);
             }
           },
         },
@@ -470,7 +364,7 @@ export default function RequestDetailScreen() {
             title="Erro ao carregar"
             subtitle={detailError}
             actionLabel="Tentar novamente"
-            onAction={() => load()}
+            onAction={() => refetch()}
           />
         </View>
       </SafeAreaView>

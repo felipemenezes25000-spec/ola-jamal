@@ -19,9 +19,9 @@ import * as Clipboard from 'expo-clipboard';
 import { spacing, borderRadius, shadows } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { fetchPayment, fetchPaymentByRequest, fetchPixCode, syncPaymentStatus } from '../../lib/api';
+import { fetchPayment, fetchPixCode, syncPaymentStatus } from '../../lib/api';
+import { usePaymentQuery, usePaymentQueryHelpers, PaymentRedirectError } from '../../lib/hooks';
 import { formatBRL, formatTimeBR } from '../../lib/utils/format';
-import { PaymentResponseDto } from '../../types/database';
 import { PaymentHeader } from '../../components/payment/PaymentHeader';
 import { PaymentMethodSelection } from '../../components/payment/PaymentMethodSelection';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -36,10 +36,8 @@ export default function PaymentScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [payment, setPayment] = useState<PaymentResponseDto | null>(null);
+  const { setPaymentData } = usePaymentQueryHelpers();
   const [pixCode, setPixCode] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [screen, setScreen] = useState<PayScreen>('selection');
   const [autoPolling, setAutoPolling] = useState(false);
   const [checkingNow, setCheckingNow] = useState(false);
@@ -50,18 +48,68 @@ export default function PaymentScreen() {
   const { isConnected } = useNetworkStatus();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
-  const paymentRef = useRef<PaymentResponseDto | null>(null);
   const MAX_POLLS = 180; // 180 × 5s = 15 min
   const PIX_EXPIRATION_MINUTES = 30;
 
+  const {
+    data: payment,
+    isLoading: loading,
+    isError: hasLoadError,
+    error: queryError,
+    refetch,
+    isFetched,
+  } = usePaymentQuery(paymentId);
+  const loadError = hasLoadError && !(queryError instanceof PaymentRedirectError)
+    ? ((queryError as Error)?.message || String(queryError) || 'Erro ao carregar pagamento')
+    : null;
+  const paymentRef = useRef(payment);
+  paymentRef.current = payment;
+
+  // Redirect quando deep link envia requestId (PaymentRedirectError)
   useEffect(() => {
-    paymentRef.current = payment;
-  }, [payment]);
+    if (queryError instanceof PaymentRedirectError && queryError.redirectTo) {
+      router.replace(queryError.redirectTo as never);
+    }
+  }, [queryError, router]);
+
+  // Side effects após carregar: setScreen, setPixCode, startPolling
+  const startPollingRef = useRef<() => void>(() => {});
+  const pixFetchStartedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!payment || !paymentId || !isFetched) return;
+    if (payment.status === 'approved') {
+      setScreen('pix');
+      return;
+    }
+    if (payment.paymentMethod === 'pix' && (payment.pixQrCodeBase64 || payment.pixCopyPaste)) {
+      setScreen('pix');
+      setPixCode(payment.pixCopyPaste || '');
+      startPollingRef.current();
+    } else if (payment.paymentMethod === 'pix' && pixFetchStartedRef.current !== payment.id) {
+      pixFetchStartedRef.current = payment.id;
+      setScreen('pix');
+      (async () => {
+        try {
+          const code = await fetchPixCode(payment.id);
+          setPixCode(code);
+        } catch (e) {
+          if (__DEV__) console.error('Error fetching PIX code:', e);
+        }
+        try {
+          const refreshed = await fetchPayment(paymentId);
+          setPaymentData(paymentId, refreshed);
+        } catch (e) {
+          if (__DEV__) console.warn('[Payment] refresh após PIX falhou:', e);
+        }
+        startPollingRef.current();
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- payment fields are sufficient; full payment causes unnecessary reruns
+  }, [payment?.id, payment?.status, payment?.paymentMethod, payment?.pixQrCodeBase64, payment?.pixCopyPaste, paymentId, isFetched, setPaymentData]);
 
   useEffect(() => {
-    loadPayment();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [paymentId, loadPayment]);
+  }, []);
 
   // Verifica status imediatamente quando o usuário volta ao app (ex.: após pagar PIX no app do banco)
   const checkPaymentStatusOnResume = useCallback(async () => {
@@ -69,7 +117,7 @@ export default function PaymentScreen() {
     if (!paymentId || !current?.requestId || current.status === 'approved') return;
     try {
       const synced = await syncPaymentStatus(current.requestId);
-      setPayment(synced);
+      setPaymentData(paymentId, synced);
       setLastCheckedAt(new Date());
       if (synced.status === 'approved') {
         if (pollRef.current) clearInterval(pollRef.current);
@@ -78,7 +126,7 @@ export default function PaymentScreen() {
     } catch (e) {
       if (__DEV__) console.warn('[Payment] syncPaymentStatus erro:', e);
     }
-  }, [paymentId]);
+  }, [paymentId, setPaymentData]);
 
   useEffect(() => {
     if (screen !== 'pix') return;
@@ -89,63 +137,6 @@ export default function PaymentScreen() {
     });
     return () => subscription.remove();
   }, [screen, checkPaymentStatusOnResume]);
-
-  const loadPayment = useCallback(async () => {
-    if (!paymentId) return;
-    try {
-      let data: PaymentResponseDto;
-      try {
-        data = await fetchPayment(paymentId);
-      } catch (e: unknown) {
-        // Deep link antigo pode enviar requestId em vez de paymentId — fallback
-        const byRequest = await fetchPaymentByRequest(paymentId);
-        if (byRequest) {
-          router.replace(`/payment/${byRequest.id}` as never);
-          return;
-        }
-        const msg = (e as Error)?.message ?? '';
-        if (msg.toLowerCase().includes('not found') || msg.includes('404')) {
-          router.replace(`/payment/request/${paymentId}` as never);
-          return;
-        }
-        throw e;
-      }
-      setPayment(data);
-      if (data.status === 'approved') {
-        setScreen('pix'); // Mostra tela PIX com botão "Pagamento Aprovado"
-        return;
-      }
-      // Se o pagamento já tem dados PIX (criado via /payment/request/[requestId]),
-      // pular direto para a tela do QR code sem precisar clicar novamente
-      if (data.paymentMethod === 'pix' && (data.pixQrCodeBase64 || data.pixCopyPaste)) {
-        setScreen('pix');
-        setPixCode(data.pixCopyPaste || '');
-        startPolling();
-      } else if (data.paymentMethod === 'pix') {
-        // Pagamento PIX criado mas sem QR code ainda — buscar e ir direto
-        setScreen('pix');
-        try {
-          const code = await fetchPixCode(data.id);
-          setPixCode(code);
-        } catch (e) {
-          console.error('Error fetching PIX code:', e);
-        }
-        // Re-fetch payment to get QR code base64 that may have been generated
-        try {
-          const refreshed = await fetchPayment(paymentId);
-          setPayment(refreshed);
-        } catch (e) {
-          if (__DEV__) console.warn('[Payment] refresh após PIX falhou:', e);
-        }
-        startPolling();
-      }
-    } catch (e: unknown) {
-      setLoadError((e as Error)?.message || String(e) || 'Erro ao carregar pagamento');
-    } finally {
-      setLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- startPolling uses ref pattern
-  }, [paymentId, router]);
 
   const handleSelectPix = async () => {
     if (selectingPix) return;
@@ -179,6 +170,7 @@ export default function PaymentScreen() {
   };
 
   const startPolling = useCallback(() => {
+    if (!paymentId) return;
     if (pollRef.current) clearInterval(pollRef.current);
     pollCountRef.current = 0;
     setAutoPolling(true);
@@ -192,22 +184,23 @@ export default function PaymentScreen() {
       const currentPayment = paymentRef.current;
       const reqId = currentPayment?.requestId;
       try {
-        // A cada 6 polls (30s), sincroniza com MP para resolver webhooks falhados
         const useSync = pollCountRef.current % 6 === 0 && reqId;
         const updated = useSync && reqId
           ? await syncPaymentStatus(reqId)
-          : await fetchPayment(paymentId!);
-        setPayment(updated);
+          : await fetchPayment(paymentId);
+        setPaymentData(paymentId, updated);
         if (updated.status === 'approved') {
           if (pollRef.current) clearInterval(pollRef.current);
           setAutoPolling(false);
-          setPayment(updated); // Mostra card com botão "Ver Pedido"
         }
       } catch (e) {
         if (__DEV__) console.warn('[Payment] polling erro:', e);
       }
     }, 5000);
-  }, [paymentId]);
+  }, [paymentId, setPaymentData]);
+
+  // Atribui startPolling ao ref para o useEffect de side effects
+  startPollingRef.current = startPolling;
 
   const handleCopyPix = async () => {
     const code = payment?.pixCopyPaste || pixCode;
@@ -230,33 +223,30 @@ export default function PaymentScreen() {
   };
 
   const handleCheckStatus = async () => {
-    if (!payment?.requestId || checkingNow) return;
+    if (!payment?.requestId || checkingNow || !paymentId) return;
     if (isConnected === false) {
       Alert.alert('Sem conexão', 'Conecte-se à internet para verificar o pagamento.');
       return;
     }
     setCheckingNow(true);
     try {
-      // Sincroniza com Mercado Pago (resolve caso webhook tenha falhado)
       const synced = await syncPaymentStatus(payment.requestId);
-      setPayment(synced);
+      setPaymentData(paymentId, synced);
       setLastCheckedAt(new Date());
       if (synced.status === 'approved') {
         if (pollRef.current) clearInterval(pollRef.current);
         setAutoPolling(false);
-        setPayment(synced); // Mostra card com botão "Ver Pedido"
       } else {
         Alert.alert('Aguardando', 'Pagamento ainda não confirmado pelo Mercado Pago. Tente novamente em alguns segundos.');
       }
     } catch (e: unknown) {
-      // Fallback: tenta buscar o pagamento normalmente
       try {
-        const updated = await fetchPayment(paymentId!);
-        setPayment(updated);
+        const updated = await fetchPayment(paymentId);
+        setPaymentData(paymentId, updated);
         if (updated.status === 'approved') {
           if (pollRef.current) clearInterval(pollRef.current);
           setAutoPolling(false);
-          setPayment(updated); // Mostra card com botão "Ver Pedido"
+          setCheckingNow(false);
           return;
         }
       } catch (fallbackErr) {
@@ -289,7 +279,7 @@ export default function PaymentScreen() {
             title="Erro ao carregar pagamento"
             subtitle={loadError}
             actionLabel="Tentar novamente"
-            onAction={() => { setLoadError(null); setLoading(true); loadPayment(); }}
+            onAction={() => refetch()}
           />
         </View>
       </SafeAreaView>
