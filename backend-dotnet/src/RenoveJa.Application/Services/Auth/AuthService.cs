@@ -269,9 +269,10 @@ public class AuthService(
             throw new InvalidOperationException("Google:ClientId não configurado em appsettings.");
 
         // Aceitar tanto o Web Client ID quanto o Android Client ID como audience válido
-        var allowedAudiences = new List<string> { clientId };
+        // Trim para evitar whitespace/newline das env vars
+        var allowedAudiences = new List<string> { clientId.Trim() };
         if (!string.IsNullOrWhiteSpace(config?.AndroidClientId))
-            allowedAudiences.Add(config.AndroidClientId);
+            allowedAudiences.Add(config.AndroidClientId.Trim());
 
         // Decodificar o JWT para ver o audience real (sem validar)
         try
