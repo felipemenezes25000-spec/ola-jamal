@@ -141,7 +141,7 @@ export default function DoctorVideoCall() {
         setContractedMinutes(data.contractedMinutes ?? null);
 
         if (data.patientId) {
-          try { setPatient(await getPatientProfile(data.patientId)); } catch {}
+          try { setPatient(await getPatientProfile(data.patientId)); } catch { /* paciente opcional */ }
         }
 
         // Start consultation if not already
@@ -155,7 +155,7 @@ export default function DoctorVideoCall() {
               toast.warning(result.chronicWarning, { duration: 8000 });
             }
             setConsultationStarted(true);
-          } catch {}
+          } catch { /* startConsultation já iniciado */ }
         } else if (data.status?.toLowerCase().includes('in_consultation')) {
           setConsultationStarted(true);
           // Recover timer if consultation already started
@@ -224,7 +224,7 @@ export default function DoctorVideoCall() {
       await finishConsultation(requestId, { conductNotes: doctorNotes });
       toast.success('Consulta finalizada com sucesso');
       setFinishDialogOpen(false);
-      navigate(`/pedidos/${requestId}`);
+      navigate(`/resumo-consulta/${requestId}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao finalizar');
     } finally {
@@ -524,7 +524,7 @@ export default function DoctorVideoCall() {
                         Sugestões da IA
                       </p>
                       <div className="space-y-2">
-                        {suggestions.map((s: any, i: number) => (
+                        {(suggestions as (string | { text?: string; suggestion?: string })[]).map((s, i) => (
                           <motion.div
                             key={i}
                             initial={{ opacity: 0, x: -10 }}
@@ -548,7 +548,7 @@ export default function DoctorVideoCall() {
                         <GraduationCap className="h-3.5 w-3.5" /> Evidências Científicas
                       </p>
                       <div className="space-y-2">
-                        {evidence.map((e: any, i: number) => (
+                        {(evidence as { title?: string; source?: string; provider?: string; translatedAbstract?: string; clinicalRelevance?: string; url?: string }[]).map((e, i) => (
                           <motion.div
                             key={i}
                             initial={{ opacity: 0 }}

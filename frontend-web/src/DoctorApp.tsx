@@ -15,6 +15,7 @@ import { Toaster } from 'sonner';
 import { DoctorAuthProvider, useDoctorAuth } from '@/contexts/DoctorAuthContext';
 import { CommandPalette } from '@/components/doctor/CommandPalette';
 import { ShortcutsDialog } from '@/components/doctor/ShortcutsDialog';
+import { OfflineBanner } from '@/components/doctor/OfflineBanner';
 import { SkeletonPage } from '@/components/ui/skeleton';
 import { useTheme } from '@/hooks/useTheme';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -31,6 +32,7 @@ const DoctorPatientRecord = lazy(() => import('@/pages/doctor/DoctorPatientRecor
 const DoctorNotifications = lazy(() => import('@/pages/doctor/DoctorNotifications'));
 const DoctorProfile = lazy(() => import('@/pages/doctor/DoctorProfile'));
 const DoctorVideoCall = lazy(() => import('@/pages/doctor/DoctorVideoCall'));
+const DoctorConsultationSummary = lazy(() => import('@/pages/doctor/DoctorConsultationSummary'));
 const DoctorCompleteDoctor = lazy(() => import('@/pages/doctor/DoctorCompleteDoctor'));
 
 function FullPageLoader() {
@@ -88,6 +90,7 @@ function DoctorShell() {
 
   return (
     <>
+      <OfflineBanner />
       {/* Command Palette — always available */}
       <CommandPalette onToggleDarkMode={toggleDarkMode} isDark={isDark} />
 
@@ -112,6 +115,7 @@ function DoctorShell() {
             <Route path="/notificacoes" element={<DoctorProtectedRoute><DoctorNotifications /></DoctorProtectedRoute>} />
             <Route path="/perfil" element={<DoctorProtectedRoute><DoctorProfile /></DoctorProtectedRoute>} />
             <Route path="/video/:requestId" element={<DoctorProtectedRoute><DoctorVideoCall /></DoctorProtectedRoute>} />
+            <Route path="/resumo-consulta/:requestId" element={<DoctorProtectedRoute><DoctorConsultationSummary /></DoctorProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

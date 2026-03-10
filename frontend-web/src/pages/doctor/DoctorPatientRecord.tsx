@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DoctorLayout } from '@/components/doctor/DoctorLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  getPatientProfile, getPatientRequests, getPatientClinicalSummary,
-  type PatientProfile, type MedicalRequest,
+  getPatientProfile, getPatientRequests, getPatientClinicalSummary, addDoctorNote,
+  type PatientProfile, type MedicalRequest, type DoctorNoteDto,
+  DOCTOR_NOTE_TYPES,
 } from '@/services/doctorApi';
 import { toShortId } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -15,7 +17,7 @@ import { motion } from 'framer-motion';
 import {
   Loader2, ArrowLeft, User, Calendar, Phone, Mail, Heart,
   AlertTriangle, FileText, FlaskConical, Stethoscope, Clock,
-  ChevronRight, Activity, Shield,
+  ChevronRight, Activity, Shield, FileStack, StickyNote, PlusCircle, Eye,
 } from 'lucide-react';
 
 function getTypeIcon(type: string) {
@@ -36,31 +38,127 @@ function getTypeLabel(type: string) {
   }
 }
 
+function ClinicalNotesForm({
+  requests,
+  onAdd,
+}: {
+  requests: MedicalRequest[];
+  onAdd: (noteType: string, content: string, requestId?: string) => Promise<void>;
+}) {
+  const [content, setContent] = useState('');
+  const [noteType, setNoteType] = useState('progress_note');
+  const [linkedRequestId, setLinkedRequestId] = useState<string | undefined>();
+  const [adding, setAdding] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+    setAdding(true);
+    try {
+      await onAdd(noteType, content, linkedRequestId);
+      setContent('');
+      setLinkedRequestId(undefined);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const sortedRequests = useMemo(() => [...requests].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8), [requests]);
+
+  return (
+    <Card className="shadow-sm border-l-4 border-l-primary">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Nova nota clínica</CardTitle>
+        <p className="text-xs text-muted-foreground">Evolução, impressão diagnóstica, complementos e observações</p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase">Tipo da nota</label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {DOCTOR_NOTE_TYPES.map(t => (
+                <Button
+                  key={t.key}
+                  type="button"
+                  variant={noteType === t.key ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setNoteType(t.key)}
+                >
+                  {t.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase">Conteúdo</label>
+            <Textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="Ex: Opto por associar medicação X ao esquema atual..."
+              className="mt-2 min-h-[88px]"
+            />
+          </div>
+          {sortedRequests.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase">Vincular a atendimento (opcional)</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button type="button" variant={!linkedRequestId ? 'default' : 'outline'} size="sm" onClick={() => setLinkedRequestId(undefined)}>Nenhum</Button>
+                {sortedRequests.map(r => (
+                  <Button key={r.id} type="button" variant={linkedRequestId === r.id ? 'default' : 'outline'} size="sm" onClick={() => setLinkedRequestId(linkedRequestId === r.id ? undefined : r.id)}>
+                    {getTypeLabel(r.type)} · {new Date(r.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          <Button type="submit" disabled={!content.trim() || adding} className="gap-2">
+            {adding && <Loader2 className="h-4 w-4 animate-spin" />}
+            Registrar nota
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DoctorPatientRecord() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const [patient, setPatient] = useState<PatientProfile | null>(null);
   const [requests, setRequests] = useState<MedicalRequest[]>([]);
-  const [, setSummary] = useState<Record<string, unknown> | null>(null);
+  const [summaryData, setSummaryData] = useState<{ structured?: { problemList?: string[]; activeMedications?: string[]; narrativeSummary?: string; alerts?: string[] } | null; doctorNotes?: DoctorNoteDto[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!patientId) return;
     setLoading(true);
-    Promise.all([
-      getPatientProfile(patientId),
-      getPatientRequests(patientId).catch(() => []),
-      getPatientClinicalSummary(patientId).catch(() => null),
-    ])
-      .then(([p, r, s]) => {
-        setPatient(p);
-        const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? [];
-        setRequests(list);
-        setSummary(s);
-      })
-      .catch(() => toast.error('Erro ao carregar prontuário'))
-      .finally(() => setLoading(false));
+    try {
+      const [p, r, s] = await Promise.all([
+        getPatientProfile(patientId),
+        getPatientRequests(patientId).catch(() => []),
+        getPatientClinicalSummary(patientId).catch(() => null),
+      ]);
+      setPatient(p);
+      const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? [];
+      setRequests(list);
+      setSummaryData(s ? { structured: s.structured ?? null, doctorNotes: s.doctorNotes ?? [] } : null);
+    } catch {
+      toast.error('Erro ao carregar prontuário');
+    } finally {
+      setLoading(false);
+    }
   }, [patientId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const age = useMemo(() => {
+    if (!patient?.birthDate) return null;
+    // Idade em anos — Date.now estável por sessão
+    const nowMs = Date.now(); // eslint-disable-line react-hooks/purity
+    return Math.floor((nowMs - new Date(patient.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  }, [patient?.birthDate]);
 
   if (loading) {
     return (
@@ -86,10 +184,30 @@ export default function DoctorPatientRecord() {
   const prescriptions = requests.filter(r => r.type === 'prescription');
   const examsReqs = requests.filter(r => r.type === 'exam');
   const consultations = requests.filter(r => r.type === 'consultation');
+  const doctorNotes = summaryData?.doctorNotes ?? [];
+  const documentsCount = prescriptions.length + examsReqs.length;
 
-  const age = patient.birthDate
-    ? Math.floor((Date.now() - new Date(patient.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-    : null;
+  const handleAddNote = useCallback(async (noteType: string, content: string, requestId?: string) => {
+    if (!patientId || !content.trim()) return;
+    try {
+      const note = await addDoctorNote(patientId, { noteType, content: content.trim(), requestId });
+      setSummaryData(prev => ({
+        ...prev,
+        doctorNotes: [note, ...(prev?.doctorNotes ?? [])],
+      }));
+      toast.success('Nota registrada');
+    } catch {
+      toast.error('Não foi possível registrar a nota');
+    }
+  }, [patientId]);
+
+  const getNoteIcon = (key: string) => {
+    const t = DOCTOR_NOTE_TYPES.find(x => x.key === key);
+    if (t?.icon === 'Stethoscope') return Stethoscope;
+    if (t?.icon === 'PlusCircle') return PlusCircle;
+    if (t?.icon === 'Eye') return Eye;
+    return FileText;
+  };
 
   return (
     <DoctorLayout>
@@ -167,25 +285,51 @@ export default function DoctorPatientRecord() {
           </Card>
         </motion.div>
 
-        {/* Tabs */}
+        {/* Tabs — alinhado ao mobile: Visão Geral | Consultas | Documentos | Notas */}
         <Tabs defaultValue="overview">
-          <TabsList className="w-full justify-start">
+          <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
             <TabsTrigger value="overview" className="gap-1.5">
               <Activity className="h-3.5 w-3.5" /> Visão Geral
             </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="gap-1.5">
-              <FileText className="h-3.5 w-3.5" /> Receitas ({prescriptions.length})
-            </TabsTrigger>
-            <TabsTrigger value="exams" className="gap-1.5">
-              <FlaskConical className="h-3.5 w-3.5" /> Exames ({examsReqs.length})
-            </TabsTrigger>
             <TabsTrigger value="consultations" className="gap-1.5">
               <Stethoscope className="h-3.5 w-3.5" /> Consultas ({consultations.length})
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="gap-1.5">
+              <FileStack className="h-3.5 w-3.5" /> Documentos ({documentsCount})
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="gap-1.5">
+              <StickyNote className="h-3.5 w-3.5" /> Notas ({doctorNotes.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 mt-4">
+              {/* Resumo estruturado (IA) — alinhado ao mobile */}
+              {summaryData?.structured && (summaryData.structured.problemList?.length || summaryData.structured.narrativeSummary || summaryData.structured.alerts?.length) ? (
+                <Card className="shadow-sm border-primary/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Resumo clínico</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-0">
+                    {summaryData.structured.narrativeSummary && (
+                      <p className="text-sm text-muted-foreground">{summaryData.structured.narrativeSummary}</p>
+                    )}
+                    {summaryData.structured.problemList && summaryData.structured.problemList.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Problemas ativos</p>
+                        <ul className="text-sm list-disc list-inside space-y-0.5">{summaryData.structured.problemList.map((p, i) => <li key={i}>{p}</li>)}</ul>
+                      </div>
+                    )}
+                    {summaryData.structured.alerts && summaryData.structured.alerts.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {summaryData.structured.alerts.map((a, i) => (
+                          <Badge key={i} variant="destructive" className="text-xs">{a}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-3">
                 <Card className="shadow-sm">
                   <CardContent className="p-5 text-center">
@@ -251,56 +395,94 @@ export default function DoctorPatientRecord() {
             </motion.div>
           </TabsContent>
 
-          {['prescriptions', 'exams', 'consultations'].map(tab => {
-            const list =
-              tab === 'prescriptions' ? prescriptions :
-              tab === 'exams' ? examsReqs :
-              consultations;
-            return (
-              <TabsContent key={tab} value={tab}>
-                <div className="space-y-2 mt-4">
-                  {list.length === 0 ? (
-                    <Card className="shadow-sm">
-                      <CardContent className="py-12 text-center">
-                        <p className="text-sm text-muted-foreground">Nenhum registro</p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    list
-                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                      .map(req => {
-                        const Icon = getTypeIcon(req.type);
-                        return (
-                          <Card
-                            key={req.id}
-                            className="shadow-sm hover:shadow-md cursor-pointer transition-all group"
-                            onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}
-                          >
-                            <CardContent className="p-4 flex items-center gap-4">
-                              <div className="p-3 rounded-xl bg-muted"><Icon className="h-5 w-5 text-muted-foreground" /></div>
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{getTypeLabel(req.type)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(req.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                </p>
-                              </div>
-                              <Badge variant="secondary" className="text-[10px]">{req.status}</Badge>
-                              {req.signedDocumentUrl && (
-                                <div className="flex items-center gap-1 text-emerald-600">
-                                  <Shield className="h-3.5 w-3.5" />
-                                  <span className="text-[10px] font-medium">Assinado</span>
-                                </div>
-                              )}
-                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                            </CardContent>
-                          </Card>
-                        );
-                      })
-                  )}
-                </div>
-              </TabsContent>
-            );
-          })}
+          {/* Consultas */}
+          <TabsContent value="consultations">
+            <div className="space-y-2 mt-4">
+              {consultations.length === 0 ? (
+                <Card className="shadow-sm"><CardContent className="py-12 text-center"><p className="text-sm text-muted-foreground">Nenhuma consulta</p></CardContent></Card>
+              ) : (
+                [...consultations].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(req => (
+                  <Card key={req.id} className="shadow-sm hover:shadow-md cursor-pointer transition-all group" onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}>
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-muted"><Stethoscope className="h-5 w-5 text-muted-foreground" /></div>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">Consulta</p>
+                        <p className="text-xs text-muted-foreground">{new Date(req.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px]">{req.status}</Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Documentos — receitas + exames (alinhado ao mobile) */}
+          <TabsContent value="documents">
+            <div className="space-y-2 mt-4">
+              {documentsCount === 0 ? (
+                <Card className="shadow-sm"><CardContent className="py-12 text-center"><p className="text-sm text-muted-foreground">Nenhum documento</p></CardContent></Card>
+              ) : (
+                [...prescriptions, ...examsReqs]
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map(req => {
+                    const Icon = getTypeIcon(req.type);
+                    const items = req.type === 'prescription' ? (req.medications?.map(m => m.name) ?? []) : (req.exams?.map(e => e.name) ?? []);
+                    return (
+                      <Card key={req.id} className="shadow-sm hover:shadow-md cursor-pointer transition-all group" onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}>
+                        <CardContent className="p-4 flex items-center gap-4">
+                          <div className="p-3 rounded-xl bg-muted"><Icon className="h-5 w-5 text-muted-foreground" /></div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{getTypeLabel(req.type)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(req.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                              {items.length > 0 ? ` · ${items.length} item(ns)` : ''}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="text-[10px]">{req.status}</Badge>
+                          {req.signedDocumentUrl && <Shield className="h-3.5 w-3.5 text-emerald-600" />}
+                          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Notas clínicas — alinhado ao mobile */}
+          <TabsContent value="notes">
+            <div className="space-y-4 mt-4">
+              <ClinicalNotesForm requests={requests} onAdd={handleAddNote} />
+              {doctorNotes.length > 0 ? (
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-2"><CardTitle className="text-base">Histórico ({doctorNotes.length})</CardTitle></CardHeader>
+                  <CardContent className="space-y-4 pt-0">
+                    {doctorNotes.map((note, idx) => (
+                      <div key={note.id} className={idx < doctorNotes.length - 1 ? 'pb-4 border-b border-border' : ''}>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <Badge variant="secondary" className="text-[10px] gap-1">
+                            {(() => { const I = getNoteIcon(note.noteType); return <I className="h-2.5 w-2.5" /> })()}
+                            {DOCTOR_NOTE_TYPES.find(t => t.key === note.noteType)?.label ?? note.noteType}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">{new Date(note.createdAt).toLocaleString('pt-BR')}</span>
+                        </div>
+                        <p className="text-sm">{note.content}</p>
+                        {note.requestId && (
+                          <Button variant="link" size="sm" className="h-auto p-0 mt-1 text-xs" onClick={() => navigate(`/pedidos/${toShortId(note.requestId as string)}`)}>
+                            Ver atendimento vinculado →
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="shadow-sm"><CardContent className="py-12 text-center"><p className="text-sm text-muted-foreground">Nenhuma nota registrada. Use o formulário acima.</p></CardContent></Card>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </DoctorLayout>

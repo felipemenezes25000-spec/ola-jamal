@@ -15,10 +15,11 @@ import {
   CreditCard, Stethoscope, ChevronRight,
 } from 'lucide-react';
 
-function getCategoryIcon(type: string) {
-  if (type.includes('payment') || type.includes('pago')) return CreditCard;
-  if (type.includes('consult')) return Stethoscope;
-  if (type.includes('request') || type.includes('pedido')) return FileText;
+function getCategoryIcon(type: string | undefined) {
+  const t = (type ?? '').toLowerCase();
+  if (t.includes('payment') || t.includes('pago')) return CreditCard;
+  if (t.includes('consult')) return Stethoscope;
+  if (t.includes('request') || t.includes('pedido')) return FileText;
   return Bell;
 }
 

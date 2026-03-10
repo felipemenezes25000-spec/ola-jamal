@@ -80,8 +80,10 @@ export function CommandPalette({ onToggleDarkMode, isDark }: CommandPaletteProps
     });
   }, [items, query]);
 
-  // Reset selection when results change
-  useEffect(() => { setSelectedIndex(0); }, [filtered.length]);
+  // Reset selection when results change (defer to avoid sync setState in effect)
+  useEffect(() => {
+    queueMicrotask(() => setSelectedIndex(0));
+  }, [filtered.length]);
 
   // Global shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
@@ -138,9 +140,11 @@ export function CommandPalette({ onToggleDarkMode, isDark }: CommandPaletteProps
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm animate-in fade-in duration-150"
+      <button
+        type="button"
+        className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm animate-in fade-in duration-150 w-full h-full cursor-default"
         onClick={() => { setOpen(false); setQuery(''); }}
+        aria-label="Fechar busca"
       />
 
       {/* Palette */}

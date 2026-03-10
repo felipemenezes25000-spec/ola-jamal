@@ -39,7 +39,7 @@ function getApiBase(): string {
 }
 
 export function useRequestEvents(onEvent?: EventHandler) {
-  const connectionRef = useRef<any>(null);
+  const connectionRef = useRef<{ stop: () => Promise<void> } | null>(null);
   const handlersRef = useRef<Set<EventHandler>>(new Set());
   const [connected, setConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RequestEvent | null>(null);
@@ -116,12 +116,12 @@ export function useRequestEvents(onEvent?: EventHandler) {
  * Recebe: TranscriptUpdate, AnamnesisUpdate, SuggestionUpdate, EvidenceUpdate
  */
 export function useVideoSignaling(requestId: string | undefined) {
-  const connectionRef = useRef<any>(null);
+  const connectionRef = useRef<{ stop: () => Promise<void> } | null>(null);
   const [connected, setConnected] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [evidence, setEvidence] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<unknown[]>([]);
+  const [evidence, setEvidence] = useState<unknown[]>([]);
 
   useEffect(() => {
     if (!requestId) return;
@@ -151,11 +151,11 @@ export function useVideoSignaling(requestId: string | undefined) {
         setAnamnesis(data.anamnesisJson);
       });
 
-      connection.on('SuggestionUpdate', (data: { suggestions: any[] }) => {
+      connection.on('SuggestionUpdate', (data: { suggestions: unknown[] }) => {
         setSuggestions(data.suggestions || []);
       });
 
-      connection.on('EvidenceUpdate', (data: { evidence: any[] }) => {
+      connection.on('EvidenceUpdate', (data: { evidence: unknown[] }) => {
         setEvidence(data.evidence || []);
       });
 

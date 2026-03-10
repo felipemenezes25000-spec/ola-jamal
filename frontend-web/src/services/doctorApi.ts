@@ -73,6 +73,10 @@ export interface MedicalRequest {
   // Access
   accessCode?: string;
   signedAt?: string;
+  // Consultation summary (pós-vídeo)
+  consultationTranscript?: string | null;
+  consultationAnamnesis?: string | null;
+  consultationAiSuggestions?: string | null;
 }
 
 export interface Medication {
@@ -132,6 +136,35 @@ export interface DoctorNote {
   content: string;
   requestId?: string;
 }
+
+export interface DoctorNoteDto {
+  id: string;
+  noteType: string;
+  content: string;
+  requestId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientClinicalSummaryResponse {
+  summary?: string | null;
+  fallback?: string | null;
+  structured?: {
+    problemList?: string[];
+    activeMedications?: string[];
+    carePlan?: string;
+    narrativeSummary?: string;
+    alerts?: string[];
+  } | null;
+  doctorNotes?: DoctorNoteDto[];
+}
+
+export const DOCTOR_NOTE_TYPES = [
+  { key: 'progress_note', label: 'Evolução', icon: 'FileText' },
+  { key: 'clinical_impression', label: 'Impressão diagnóstica', icon: 'Stethoscope' },
+  { key: 'addendum', label: 'Complemento', icon: 'PlusCircle' },
+  { key: 'observation', label: 'Observação', icon: 'Eye' },
+] as const;
 
 export interface Recording {
   id: string;
@@ -515,7 +548,7 @@ export async function getPatientRequests(patientId: string) {
   return res.json();
 }
 
-export async function getPatientClinicalSummary(patientId: string) {
+export async function getPatientClinicalSummary(patientId: string): Promise<PatientClinicalSummaryResponse> {
   const res = await authFetch(`/api/requests/by-patient/${patientId}/summary`);
   if (!res.ok) throw new Error('Erro ao buscar resumo clínico');
   return res.json();
@@ -523,7 +556,7 @@ export async function getPatientClinicalSummary(patientId: string) {
 
 // ── NEW: Doctor Notes ──
 
-export async function addDoctorNote(patientId: string, note: DoctorNote) {
+export async function addDoctorNote(patientId: string, note: DoctorNote): Promise<DoctorNoteDto> {
   const res = await authFetch(`/api/requests/by-patient/${patientId}/doctor-notes`, {
     method: 'POST',
     body: JSON.stringify(note),
