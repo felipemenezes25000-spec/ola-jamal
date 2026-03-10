@@ -878,9 +878,12 @@ public class PaymentService(
         string title,
         string message,
         CancellationToken cancellationToken,
-        Guid? requestId = null)
+        Guid? requestId = null,
+        string targetRole = "patient")
     {
-        var data = requestId.HasValue ? new Dictionary<string, object?> { ["requestId"] = requestId.Value.ToString() } : null;
+        var data = new Dictionary<string, object?> { ["targetRole"] = targetRole };
+        if (requestId.HasValue)
+            data["requestId"] = requestId.Value.ToString();
         var notification = Notification.Create(userId, title, message, NotificationType.Success, data);
         await notificationRepository.CreateAsync(notification, cancellationToken);
         await pushNotificationSender.SendAsync(userId, title, message, data, cancellationToken);

@@ -203,7 +203,8 @@ public class CarePlanService(
                     new Dictionary<string, object?>
                     {
                         ["carePlanId"] = carePlan.Id.ToString(),
-                        ["deepLink"] = deepLink
+                        ["deepLink"] = deepLink,
+                        ["targetRole"] = "patient"
                     }),
                 cancellationToken);
 
@@ -211,7 +212,7 @@ public class CarePlanService(
                 carePlan.PatientId,
                 "Plano da consulta disponível",
                 "Seu médico criou um plano com próximos passos.",
-                new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString(), ["deepLink"] = deepLink },
+                new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString(), ["deepLink"] = deepLink, ["targetRole"] = "patient" },
                 cancellationToken);
 
             await outboxEventRepository.MarkProcessedAsync(outboxId, cancellationToken);
@@ -299,14 +300,14 @@ public class CarePlanService(
                         "Resultados enviados pelo paciente",
                         "Um plano de cuidados está pronto para revisão médica.",
                         NotificationType.Info,
-                        new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString() }),
+                        new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString(), ["targetRole"] = "doctor" }),
                     cancellationToken);
 
                 await pushNotificationSender.SendAsync(
                     carePlan.ResponsibleDoctorId,
                     "Resultados enviados pelo paciente",
                     "Um plano de cuidados está pronto para revisão.",
-                    new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString() },
+                    new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString(), ["targetRole"] = "doctor" },
                     cancellationToken);
 
                 await outboxEventRepository.MarkProcessedAsync(outboxId, cancellationToken);
@@ -436,14 +437,14 @@ public class CarePlanService(
                         "Plano de cuidados encerrado",
                         "Seu médico revisou os resultados e encerrou o plano.",
                         NotificationType.Success,
-                        new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString() }),
+                        new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString(), ["targetRole"] = "patient" }),
                     cancellationToken);
 
                 await pushNotificationSender.SendAsync(
                     carePlan.PatientId,
                     "Plano de cuidados encerrado",
                     "Seu médico revisou os resultados e encerrou o plano.",
-                    new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString() },
+                    new Dictionary<string, object?> { ["carePlanId"] = carePlan.Id.ToString(), ["targetRole"] = "patient" },
                     cancellationToken);
 
                 await outboxEventRepository.MarkProcessedAsync(outboxId, cancellationToken);

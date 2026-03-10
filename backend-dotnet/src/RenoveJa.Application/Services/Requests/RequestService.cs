@@ -1573,7 +1573,8 @@ public class RequestService(
                         "Reanálise Solicitada",
                         "O paciente solicitou reanálise da receita. Nova análise da IA disponível (com dúvidas para sua avaliação).",
                         cancellationToken,
-                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
+                        targetRole: "doctor");
                 }
             }
             else if (result.SignsOfTampering == true)
@@ -1628,7 +1629,8 @@ public class RequestService(
                             "Reanálise Solicitada",
                             "O paciente solicitou reanálise da receita. Nova análise da IA disponível.",
                             cancellationToken,
-                            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+                            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
+                            targetRole: "doctor");
                     }
                 }
             }
@@ -1784,7 +1786,8 @@ public class RequestService(
             "Reanálise concluída",
             "A reanálise da IA foi concluída. A nova análise está disponível.",
             cancellationToken,
-            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+            new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
+            targetRole: "doctor");
         return MapRequestToDto(request);
     }
 
@@ -1822,7 +1825,8 @@ public class RequestService(
                         "Reanálise Solicitada",
                         "O paciente solicitou reanálise do pedido de exame. Nova análise da IA disponível (com dúvidas para sua avaliação).",
                         cancellationToken,
-                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
+                        targetRole: "doctor");
                 }
             }
             else if (hasImages && result.SignsOfTampering == true)
@@ -1858,7 +1862,8 @@ public class RequestService(
                         "Reanálise Solicitada",
                         "O paciente solicitou reanálise do pedido de exame. Nova análise da IA disponível.",
                         cancellationToken,
-                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+                        new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
+                        targetRole: "doctor");
                 }
             }
         }
@@ -2127,7 +2132,8 @@ public class RequestService(
                 "Documento Recebido",
                 $"O paciente {request.PatientName ?? "paciente"} recebeu o {tipoDoc}.",
                 cancellationToken,
-                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
+                targetRole: "doctor");
         }
 
         return MapRequestToDto(request);
@@ -2170,7 +2176,8 @@ public class RequestService(
                 "Pedido Cancelado",
                 "O paciente cancelou o pedido.",
                 cancellationToken,
-                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() });
+                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
+                targetRole: "doctor");
         }
 
         return MapRequestToDto(request);
@@ -2295,11 +2302,14 @@ public class RequestService(
         string title,
         string message,
         CancellationToken cancellationToken,
-        Dictionary<string, object?>? data = null)
+        Dictionary<string, object?>? data = null,
+        string targetRole = "patient")
     {
-        var notification = Notification.Create(userId, title, message, NotificationType.Info, data);
+        var mergedData = data != null ? new Dictionary<string, object?>(data) : new Dictionary<string, object?>();
+        mergedData["targetRole"] = targetRole;
+        var notification = Notification.Create(userId, title, message, NotificationType.Info, mergedData);
         await notificationRepository.CreateAsync(notification, cancellationToken);
-        await pushNotificationSender.SendAsync(userId, title, message, ct: cancellationToken);
+        await pushNotificationSender.SendAsync(userId, title, message, mergedData, cancellationToken);
     }
 
     /// <summary>
