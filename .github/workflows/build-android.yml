@@ -89,7 +89,7 @@ jobs:
             echo "⚠ ANDROID_KEYSTORE_BASE64 não configurado. Build release usará debug signing."
           else
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
-            node -e 'const fs=require("fs"),f="android/app/build.gradle",sp=process.env.STORE_PASS,ka=process.env.KEY_ALIAS,kp=process.env.KEY_PASS;let g=fs.readFileSync(f,"utf8");const b="    signingConfigs {\n        release {\n            storeFile file(\"release-keystore.jks\")\n            storePassword \""+sp+"\"\n            keyAlias \""+ka+"\"\n            keyPassword \""+kp+"\"\n        }\n    }";g=g.replace(/(android\s*\{)/,"$1\n"+b);g.includes("signingConfig signingConfigs.debug")?g=g.replace("signingConfig signingConfigs.debug","signingConfig signingConfigs.release"):g=g.replace(/buildTypes\s*\{/,"buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }");fs.writeFileSync(f,g);console.log("✓ signingConfigs injected")'
+            node -e 'const fs=require("fs"),f="android/app/build.gradle",sp=process.env.STORE_PASS,ka=process.env.KEY_ALIAS,kp=process.env.KEY_PASS;let g=fs.readFileSync(f,"utf8");const b="    signingConfigs {\n        release {\n            storeFile file(\"release-keystore.jks\")\n            storePassword \""+sp+"\"\n            keyAlias \""+ka+"\"\n            keyPassword \""+kp+"\"\n        }\n    }";g=g.replace(/(android\s*\{)/,"$1\n"+b);g=g.replaceAll("signingConfig signingConfigs.debug","signingConfig signingConfigs.release");fs.writeFileSync(f,g);console.log("✓ signingConfigs injected");console.log(g.match(/signingConfig.*/g))'
           fi
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
