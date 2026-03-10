@@ -239,7 +239,8 @@ public class AuthServiceExtendedTests
             new Mock<IClinicalRecordService>().Object,
             new Mock<IConsentRepository>().Object,
             new Mock<IStorageService>().Object,
-            smtpConfig, googleConfig);
+            smtpConfig, googleConfig,
+            new Microsoft.Extensions.Logging.Abstractions.NullLogger<AuthService>());
     }
 
     private static User CreatePatient(Guid id) =>

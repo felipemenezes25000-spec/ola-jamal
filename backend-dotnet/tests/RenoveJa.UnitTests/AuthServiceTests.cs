@@ -42,7 +42,8 @@ public class AuthServiceTests
             new Mock<IConsentRepository>().Object,
             new Mock<IStorageService>().Object,
             smtpConfig,
-            googleAuthConfig);
+            googleAuthConfig,
+            new Microsoft.Extensions.Logging.Abstractions.NullLogger<AuthService>());
     }
 
     [Fact]
