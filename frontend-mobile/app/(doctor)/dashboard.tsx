@@ -9,6 +9,7 @@ import {
   Pressable,
   Animated,
   ListRenderItem,
+  Image,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -318,9 +319,17 @@ export default function DoctorDashboard() {
             accessibilityRole="button"
             accessibilityLabel="Abrir perfil"
           >
-            <Text style={[styles.avatarInitials, { color: colors.headerOverlayText }]}>
-              {(displayFirst[0] ?? 'M').toUpperCase()}
-            </Text>
+            {user?.avatarUrl ? (
+              <Image
+                source={{ uri: user.avatarUrl }}
+                style={{ width: '100%', height: '100%', borderRadius: 24 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={[styles.avatarInitials, { color: colors.headerOverlayText }]}>
+                {(displayFirst[0] ?? 'M').toUpperCase()}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -539,6 +548,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,

@@ -12,6 +12,7 @@ public class SupabaseStorageService : IStorageService
 {
     public const string HttpClientName = "SupabaseStorage";
     private const string PrescriptionBucket = "prescription-images";
+    private const string AvatarsBucket = "avatars";
     private const string CertificatesBucket = "certificates";
     private const string VerifyPdfBucket = "prescriptions";
     private const string ConsultationTranscriptsBucket = "consultation-transcripts";
@@ -20,13 +21,28 @@ public class SupabaseStorageService : IStorageService
     {
         if (path.StartsWith("certificates/", StringComparison.OrdinalIgnoreCase))
             return CertificatesBucket;
-        // PDFs de receita e assinados vão para o bucket 'prescriptions' (usado pela Edge Function verify)
         if (path.StartsWith("receitas/", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("signed/", StringComparison.OrdinalIgnoreCase))
             return VerifyPdfBucket;
         if (path.StartsWith("transcripts/", StringComparison.OrdinalIgnoreCase))
             return ConsultationTranscriptsBucket;
+        if (path.StartsWith("avatars/", StringComparison.OrdinalIgnoreCase))
+            return AvatarsBucket;
+        if (path.StartsWith("prescription-images/", StringComparison.OrdinalIgnoreCase))
+            return PrescriptionBucket;
         return PrescriptionBucket;
+    }
+
+    /// <summary>
+    /// Para paths com prefixo de bucket, retorna o path real do objeto para a requisição HTTP.
+    /// </summary>
+    private static string GetObjectPathForRequest(string path, string bucket)
+    {
+        if (bucket == AvatarsBucket && path.StartsWith("avatars/", StringComparison.OrdinalIgnoreCase))
+            return path["avatars/".Length..];
+        if (bucket == PrescriptionBucket && path.StartsWith("prescription-images/", StringComparison.OrdinalIgnoreCase))
+            return path["prescription-images/".Length..];
+        return path;
     }
     private readonly HttpClient _httpClient;
     private readonly SupabaseConfig _config;
@@ -89,9 +105,9 @@ public class SupabaseStorageService : IStorageService
         if (string.IsNullOrEmpty(extension))
             extension = ".jpg";
         var safeFileName = $"{Guid.NewGuid():N}{extension}";
-        var objectPath = $"avatars/{userId}/{safeFileName}";
+        var objectPath = $"{userId}/{safeFileName}";
 
-        var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{PrescriptionBucket}/{objectPath}";
+        var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{AvatarsBucket}/{objectPath}";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("apikey", _config.ServiceKey);
@@ -107,7 +123,7 @@ public class SupabaseStorageService : IStorageService
             throw new InvalidOperationException($"Avatar upload failed: {response.StatusCode}. {body}");
         }
 
-        return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{PrescriptionBucket}/{objectPath}";
+        return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{AvatarsBucket}/{objectPath}";
     }
 
     /// <inheritdoc />
@@ -120,7 +136,8 @@ public class SupabaseStorageService : IStorageService
         try
         {
             var bucket = GetBucketForPath(path);
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
+            var objectPath = GetObjectPathForRequest(path, bucket);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{objectPath}";
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -153,7 +170,8 @@ public class SupabaseStorageService : IStorageService
         try
         {
             var bucket = GetBucketForPath(path);
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
+            var objectPath = GetObjectPathForRequest(path, bucket);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{objectPath}";
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -179,7 +197,8 @@ public class SupabaseStorageService : IStorageService
         try
         {
             var bucket = GetBucketForPath(path);
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
+            var objectPath = GetObjectPathForRequest(path, bucket);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{objectPath}";
 
             using var request = new HttpRequestMessage(HttpMethod.Delete, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -202,7 +221,8 @@ public class SupabaseStorageService : IStorageService
         try
         {
             var bucket = GetBucketForPath(path);
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path}";
+            var objectPath = GetObjectPathForRequest(path, bucket);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{objectPath}";
 
             using var request = new HttpRequestMessage(HttpMethod.Head, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -221,7 +241,8 @@ public class SupabaseStorageService : IStorageService
     public string GetPublicUrl(string path)
     {
         var bucket = GetBucketForPath(path);
-        return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{bucket}/{path}";
+        var objectPath = GetObjectPathForRequest(path, bucket);
+        return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{bucket}/{objectPath}";
     }
 
     /// <inheritdoc />
@@ -240,7 +261,8 @@ public class SupabaseStorageService : IStorageService
         try
         {
             var bucket = GetBucketForPath(path);
-            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/sign/{bucket}/{path}";
+            var objectPath = GetObjectPathForRequest(path, bucket);
+            var url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/sign/{bucket}/{objectPath}";
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("apikey", _config.ServiceKey);
@@ -274,9 +296,10 @@ public class SupabaseStorageService : IStorageService
     }
 
     /// <summary>
-    /// Extrai o PATH do objeto a partir de uma URL pública do Supabase Storage.
-    /// Ex.: {base}/storage/v1/object/public/{bucket}/{path} -> {path}
-    /// Retorna null se não for do nosso storage ou não estiver no formato esperado.
+    /// Extrai o path do objeto a partir de uma URL pública do Supabase Storage.
+    /// Retorna "{bucket}/{path}" para roteamento correto em DeleteAsync/DownloadAsync.
+    /// Ex.: .../public/avatars/userId/file -> "avatars/userId/file"
+    /// Ex.: .../public/prescription-images/avatars/userId/file -> "prescription-images/avatars/userId/file" (legado)
     /// </summary>
     private string? ExtractPathFromPublicUrl(string publicUrl)
     {
@@ -285,18 +308,12 @@ public class SupabaseStorageService : IStorageService
         var baseUrl = _config.Url.TrimEnd('/');
         if (!publicUrl.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase)) return null;
 
-        // suporta qualquer bucket
         var marker = "/storage/v1/object/public/";
         var idx = publicUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
         if (idx < 0) return null;
 
-        var after = publicUrl[(idx + marker.Length)..]; // "{bucket}/{path}"
-        var firstSlash = after.IndexOf('/');
-        if (firstSlash <= 0) return null;
-
-        var path = after[(firstSlash + 1)..];
-
-        return string.IsNullOrWhiteSpace(path) ? null : path.Trim();
+        var path = publicUrl[(idx + marker.Length)..].Trim();
+        return string.IsNullOrWhiteSpace(path) ? null : path;
     }
 
     /// <inheritdoc />

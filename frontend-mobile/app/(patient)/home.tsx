@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
+  Image,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -273,7 +274,15 @@ export default function PatientHome() {
             accessibilityRole="button"
             accessibilityLabel="Abrir perfil"
           >
-            <Text style={styles.avatarInitial}>{initial}</Text>
+            {user?.avatarUrl ? (
+              <Image
+                source={{ uri: user.avatarUrl }}
+                style={{ width: '100%', height: '100%', borderRadius: 16 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={styles.avatarInitial}>{initial}</Text>
+            )}
           </Pressable>
         </View>
       </LinearGradient>
@@ -536,6 +545,7 @@ function makeStyles(colors: DesignColors) {
     borderRadius: 16,
     backgroundColor: colors.headerOverlaySurface,
     borderWidth: 2,
+    overflow: 'hidden',
     borderColor: colors.headerOverlayBorder,
     alignItems: 'center',
     justifyContent: 'center',

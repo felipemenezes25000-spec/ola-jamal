@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Pressable,
   Alert,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -394,7 +395,15 @@ export default function PatientRecordScreen() {
                 </Text>
               </View>
               <View style={s.avatarCircle}>
-                <Text style={s.avatarText}>{initials}</Text>
+                {user?.avatarUrl ? (
+                  <Image
+                    source={{ uri: user.avatarUrl }}
+                    style={{ width: '100%', height: '100%', borderRadius: 28 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={s.avatarText}>{initials}</Text>
+                )}
               </View>
             </View>
           </LinearGradient>
@@ -778,6 +787,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     width: 56,
     height: 56,
     borderRadius: 28,
+    overflow: 'hidden',
     backgroundColor: colors.headerOverlaySurface,
     borderWidth: 2,
     borderColor: colors.headerOverlayBorder,

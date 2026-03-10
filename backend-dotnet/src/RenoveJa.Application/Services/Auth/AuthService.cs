@@ -499,6 +499,23 @@ public class AuthService(
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("Usuário não encontrado.");
 
+        // Deletar avatar antigo do storage se existir (bucket avatars ou prescription-images legado)
+        if (!string.IsNullOrWhiteSpace(user.AvatarUrl))
+        {
+            try
+            {
+                var oldPath = storageService.ExtractPathFromStorageUrl(user.AvatarUrl);
+                if (!string.IsNullOrEmpty(oldPath))
+                {
+                    await storageService.DeleteAsync(oldPath, cancellationToken);
+                }
+            }
+            catch
+            {
+                // Não bloquear upload novo por falha na limpeza do antigo
+            }
+        }
+
         var avatarUrl = await storageService.UploadAvatarAsync(fileStream, fileName, contentType, userId, cancellationToken);
         user.UpdateProfile(avatarUrl: avatarUrl);
         user = await userRepository.UpdateAsync(user, cancellationToken);

@@ -254,7 +254,7 @@ export async function updateDoctorProfile(payload: Partial<DoctorProfile>) {
 
 export async function updateAvatar(file: File) {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('avatar', file);
   const res = await authFetch('/api/auth/avatar', {
     method: 'PATCH',
     body: formData,
