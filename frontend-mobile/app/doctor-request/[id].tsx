@@ -27,6 +27,7 @@ import { showToast } from '../../components/ui/Toast';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { useDoctorRequest } from '../../hooks/useDoctorRequest';
 import { useFocusEffect } from 'expo-router';
+import { useAuth } from '../../contexts/AuthContext';
 
 import { getPatientProfileForDoctor } from '../../lib/api';
 import type { PatientProfileForDoctorDto } from '../../types/database';
@@ -59,6 +60,14 @@ export default function DoctorRequestDetail() {
     handleApprove, handleReject, handleSign, handleAcceptConsultation,
     canApprove, canReject, canSign, canAccept, canVideo, isInQueue, requestId,
   } = useDoctorRequest();
+
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.role === 'patient' && requestId) {
+      router.replace(`/request-detail/${requestId}`);
+    }
+  }, [user?.role, requestId, router]);
 
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
   const [patientProfile, setPatientProfile] = useState<PatientProfileForDoctorDto | null | undefined>(undefined);

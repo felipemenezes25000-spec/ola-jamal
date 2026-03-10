@@ -23,9 +23,10 @@ import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { layout as dsLayout } from '../../lib/designSystem';
-import { getRequests, getActiveCertificate } from '../../lib/api';
+import { getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { cacheRequest } from '../../lib/requestCache';
+import { useDoctorRequestsQuery, useInvalidateDoctorRequests } from '../../lib/hooks/useDoctorRequestsQuery';
 
 import { AppEmptyState, SectionHeader } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -39,23 +40,11 @@ import {
 import { haptics } from '../../lib/haptics';
 import { showToast } from '../../components/ui/Toast';
 import { motionTokens } from '../../lib/ui/motion';
+import { getGreeting } from '../../lib/utils/format';
 
 const SCREEN_PAD = dsLayout.screenPaddingHorizontal;
 
-function isValidRequestItem(value: unknown): value is RequestResponseDto {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<RequestResponseDto>;
-  return typeof candidate.id === 'string' && candidate.id.length > 0 && typeof candidate.status === 'string';
-}
-
 // ─── Helpers ────────────────────────────────────────────────────
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Bom dia';
-  if (h < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
 function sanitizeDoctorName(name: string): { displayFirst: string; greetingName: string } {
   const raw = name.trim().split(/\s+/).filter(Boolean);
   const prefixes = ['dr', 'dr.', 'dra', 'dra.'];
@@ -172,77 +161,56 @@ export default function DoctorDashboard() {
   const { user } = useAuth();
   const { colors, gradients, shadows, borderRadius } = useAppTheme({ role: 'doctor' });
 
-  const [queue, setQueue] = useState<RequestResponseDto[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasCertificate, setHasCertificate] = useState<boolean | null>(null);
 
-  // ─── Data Loading ───────────────────────────────────────────
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
-
-  const loadData = useCallback(async (withFeedback = false) => {
-    try {
-      const [cert, res] = await Promise.allSettled([
-        getActiveCertificate(),
-        getRequests({ page: 1, pageSize: 100 }), // reduced from 500 for performance
-      ]);
-      if (!mountedRef.current) return;
-      setHasCertificate(cert.status === 'fulfilled' && !!cert.value);
-      const rawItems = res.status === 'fulfilled' ? res.value?.items : undefined;
-      const items = Array.isArray(rawItems) ? rawItems.filter(isValidRequestItem) : [];
-      setQueue(items);
-      if (withFeedback) showToast({ message: 'Painel atualizado', type: 'success' });
-    } catch (e) {
-      if (__DEV__) console.error('[DoctorDashboard] loadData error:', e);
-      if (!mountedRef.current) return;
-      if (withFeedback) showToast({ message: 'Erro ao atualizar', type: 'error' });
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    }
-  }, []);
-
   const { subscribe, isConnected } = useRequestsEvents();
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      if (!isConnected) {
-        const interval = setInterval(loadData, 10000);
-        return () => clearInterval(interval);
-      }
-    }, [loadData, isConnected])
-  );
+  const invalidateDoctorRequests = useInvalidateDoctorRequests();
+  const {
+    data: queue = [],
+    isLoading: loading,
+    refetch,
+  } = useDoctorRequestsQuery(isConnected);
 
   useEffect(() => {
-    return subscribe(() => loadData());
-  }, [subscribe, loadData]);
+    let cancelled = false;
+    getActiveCertificate()
+      .then((cert) => { if (!cancelled) setHasCertificate(!!cert); })
+      .catch(() => { if (!cancelled) setHasCertificate(false); });
+    return () => { cancelled = true; };
+  }, []);
 
-  const onRefresh = useCallback(() => {
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+
+  useEffect(() => {
+    return subscribe(() => invalidateDoctorRequests());
+  }, [subscribe, invalidateDoctorRequests]);
+
+  const onRefresh = useCallback(async () => {
     haptics.light();
     setRefreshing(true);
-    loadData(true);
-  }, [loadData]);
+    try {
+      await refetch();
+      showToast({ message: 'Painel atualizado', type: 'success' });
+    } catch {
+      showToast({ message: 'Erro ao atualizar', type: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   // ─── Derived Data ──────────────────────────────────────────
   const pendingList = useMemo(() => getPendingForPanel(queue, 15), [queue]);
   const stats = useMemo(() => {
-    let pendentes = 0, done = 0, prescriptions = 0, consultations = 0, exams = 0;
+    let pendentes = 0, done = 0, prescriptions = 0, consultations = 0;
     const doneStatuses = ['approved', 'signed', 'delivered'];
     for (const q of queue) {
       if (doneStatuses.includes(q.status)) done++;
       if (q.requestType === 'prescription') prescriptions++;
       if (q.requestType === 'consultation') consultations++;
-      if (q.requestType === 'exam') exams++;
     }
     pendentes = countPendentes(queue);
-    return { pendentes, done, prescriptions, consultations, exams };
+    return { pendentes, done, prescriptions, consultations };
   }, [queue]);
 
   const { displayFirst, greetingName } = useMemo(
@@ -343,7 +311,7 @@ export default function DoctorDashboard() {
             backgroundColor: isConnected ? colors.success : colors.warning,
           }]} />
           <Text style={[styles.statusText, { color: colors.headerOverlayTextMuted }]}>
-            {isConnected ? 'Online' : 'Reconectando'} · {stats.pendentes > 0 ? `${stats.pendentes} aguardando` : 'Fila limpa'}
+            {isConnected ? 'Online' : 'Reconectando'}
           </Text>
         </View>
       </LinearGradient>
@@ -444,7 +412,7 @@ export default function DoctorDashboard() {
   ), [
     headerGradient, insets, colors, greetingName, displayFirst, dateStr,
     isConnected, stats, hasCertificate, shadows, borderRadius, router,
-    user.avatarUrl,
+    user?.avatarUrl,
   ]);
 
   // ─── Empty State ───────────────────────────────────────────

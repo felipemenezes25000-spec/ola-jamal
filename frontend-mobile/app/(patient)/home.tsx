@@ -40,6 +40,7 @@ import { getNextBestActionForRequest } from '../../lib/domain/assistantIntellige
 import { getAssistantNextAction } from '../../lib/api';
 import type { AssistantNextActionResponseData } from '../../lib/api';
 import { motionTokens } from '../../lib/ui/motion';
+import { getGreeting } from '../../lib/utils/format';
 
 export default function PatientHome() {
   const router = useRouter();
@@ -227,14 +228,6 @@ export default function PatientHome() {
     status: followUpRequest?.status,
     requestType: followUpRequest?.requestType as any,
   });
-
-  // Greeting baseado no horário
-  const getGreeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Bom dia';
-    if (h < 18) return 'Boa tarde';
-    return 'Boa noite';
-  };
 
   return (
     <View style={styles.container}>

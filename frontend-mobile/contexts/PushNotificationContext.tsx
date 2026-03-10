@@ -3,7 +3,8 @@ import { Platform, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAuth } from './AuthContext';
-import { registerPushToken, unregisterPushToken } from '../lib/api';
+import { registerPushToken } from '../lib/api';
+import { setLastRegisteredPushToken } from '../lib/pushTokenRegistry';
 import { isExpoGo } from '../lib/expo-go';
 
 // Push foi removido do Expo Go no SDK 53 — não carregar o módulo no Expo Go para evitar erro
@@ -135,10 +136,8 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     if (!Notifications) return; // Expo Go: push não disponível
     if (Platform.OS === 'web') return; // push token não suportado na web
     if (!user) {
-      if (lastRegisteredToken.current) {
-        unregisterPushToken(lastRegisteredToken.current).catch(() => {});
-        lastRegisteredToken.current = null;
-      }
+      lastRegisteredToken.current = null;
+      setLastRegisteredPushToken(null);
       return;
     }
 
@@ -171,6 +170,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
 
         await registerPushToken(token, Platform.OS);
         lastRegisteredToken.current = token;
+        setLastRegisteredPushToken(token);
       } catch (error) {
         console.warn('Push token registration failed:', error);
       }

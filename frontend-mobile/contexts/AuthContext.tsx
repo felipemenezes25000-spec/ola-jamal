@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../lib/api-client';
+import { unregisterPushToken } from '../lib/api';
+import { getLastRegisteredPushToken, setLastRegisteredPushToken } from '../lib/pushTokenRegistry';
 import { UserDto, UserRole, AuthResponseDto, DoctorProfileDto } from '../types/database';
 
 interface AuthContextType {
@@ -337,6 +339,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiClient.post('/api/auth/logout', {});
     } catch (error) {
       if (__DEV__) console.warn('Logout API error (local logout will continue):', error);
+    }
+    try {
+      const pushToken = getLastRegisteredPushToken();
+      if (pushToken) {
+        await unregisterPushToken(pushToken);
+        setLastRegisteredPushToken(null);
+      }
+    } catch {
+      // Ignore — token pode já estar inválido
     }
     try {
       await clearAuth();

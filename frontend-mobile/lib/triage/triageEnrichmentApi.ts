@@ -89,6 +89,8 @@ export async function enrichTriageMessage(
 
   const enrichPromise = (async (): Promise<{ text: string; isPersonalized: true } | null> => {
     try {
+      const token = await apiClient.getAuthToken();
+      if (!token) return null; // Não chama API sem autenticação
       const res = await apiClient.post<TriageEnrichResponse>('/api/triage/enrich', body);
       if (res?.text && res.isPersonalized) {
         const safeText = sanitizeEnrichedText(res.text);

@@ -22,6 +22,7 @@ import * as Clipboard from 'expo-clipboard';
 
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
+import { useAuth } from '../../contexts/AuthContext';
 import { fetchRequestById, saveConsultationSummary } from '../../lib/api';
 import type { RequestResponseDto } from '../../types/database';
 import { parseAnamnesis } from '../../lib/domain/anamnesis';
@@ -31,6 +32,7 @@ export default function ConsultationSummaryScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { colors } = useAppTheme();
   const S = useMemo(() => makeStyles(colors), [colors]);
 
@@ -76,9 +78,9 @@ export default function ConsultationSummaryScreen() {
       .finally(() => setLoading(false));
   }, [rid, router]);
 
-  /** Salva anamnese e nota clínica no prontuário automaticamente. */
+  /** Salva anamnese e nota clínica no prontuário automaticamente. Apenas médico pode salvar. */
   const saveToRecord = useCallback(async (anamnesisJson: string | null, plan: string) => {
-    if (!rid) return;
+    if (!rid || user?.role !== 'doctor') return;
     try {
       await saveConsultationSummary(rid, {
         anamnesis: anamnesisJson ?? undefined,
@@ -87,29 +89,31 @@ export default function ConsultationSummaryScreen() {
     } catch {
       // Silencioso — o backend já salvou na finalização; este é um refresh
     }
-  }, [rid]);
+  }, [rid, user?.role]);
 
   const lastSavedNote = useRef<string | null>(null);
   const userHasEdited = useRef(false);
 
-  /** Auto-save ao carregar: garante anamnese e nota no prontuário. */
+  /** Auto-save ao carregar: garante anamnese e nota no prontuário (apenas médico). */
   useEffect(() => {
-    if (!request || !rid || initialSaveDone.current) return;
+    if (!request || !rid || initialSaveDone.current || user?.role !== 'doctor') return;
     initialSaveDone.current = true;
     const plan = request.notes ?? '';
     lastSavedNote.current = plan;
     saveToRecord(request.consultationAnamnesis ?? null, plan);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.role guard; saveToRecord already depends on it
   }, [request, rid, saveToRecord]);
 
-  /** Auto-save ao editar a nota clínica (debounce 2s). Só quando o usuário alterou. */
+  /** Auto-save ao editar a nota clínica (debounce 2s). Só quando o usuário alterou. Apenas médico. */
   useEffect(() => {
-    if (!rid || !request || !userHasEdited.current) return;
+    if (!rid || !request || !userHasEdited.current || user?.role !== 'doctor') return;
     if (lastSavedNote.current === clinicalNote) return;
     const t = setTimeout(() => {
       lastSavedNote.current = clinicalNote;
       saveToRecord(request.consultationAnamnesis ?? null, clinicalNote);
     }, 2000);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.role guard
   }, [clinicalNote, rid, request, saveToRecord]);
 
   const copyText = async (text: string, label: string) => {
@@ -204,24 +208,28 @@ export default function ConsultationSummaryScreen() {
           </View>
         )}
 
-        {/* Nota Clínica (editável) */}
+        {/* Nota Clínica (editável apenas para médico) */}
         <View style={S.section}>
           <View style={S.sectionHeader}>
             <Ionicons name="document-text-outline" size={18} color={colors.primary} />
             <Text style={S.sectionTitle}>Nota Clínica</Text>
           </View>
-          <TextInput
-            style={S.clinicalNoteInput}
-            placeholder="Digite ou edite a nota clínica (salva automaticamente no prontuário)"
-            placeholderTextColor={colors.textMuted}
-            value={clinicalNote}
-            onChangeText={(t) => {
-              userHasEdited.current = true;
-              setClinicalNote(t);
-            }}
-            multiline
-            numberOfLines={4}
-          />
+          {user?.role === 'doctor' ? (
+            <TextInput
+              style={S.clinicalNoteInput}
+              placeholder="Digite ou edite a nota clínica (salva automaticamente no prontuário)"
+              placeholderTextColor={colors.textMuted}
+              value={clinicalNote}
+              onChangeText={(t) => {
+                userHasEdited.current = true;
+                setClinicalNote(t);
+              }}
+              multiline
+              numberOfLines={4}
+            />
+          ) : (
+            <Text style={S.clinicalNoteReadOnly}>{clinicalNote || '—'}</Text>
+          )}
         </View>
 
         {/* Transcript */}
@@ -394,6 +402,12 @@ function makeStyles(colors: DesignColors) {
     color: colors.text,
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  clinicalNoteReadOnly: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 21,
+    paddingVertical: 8,
   },
   actionBtn: {
     flexDirection: 'row',

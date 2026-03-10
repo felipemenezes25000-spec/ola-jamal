@@ -4,6 +4,8 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useRequestsEvents } from '../contexts/RequestsEventsContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useInvalidateRequests } from '../lib/hooks/useRequestsQuery';
+import { useInvalidateDoctorRequests } from '../lib/hooks/useDoctorRequestsQuery';
 import { showToast } from './ui/Toast';
 import type { RequestUpdatedPayload } from '../lib/requestsEvents';
 import { useAppTheme } from '../lib/ui/useAppTheme';
@@ -53,6 +55,8 @@ export function GlobalRequestUpdatedToast() {
   const pathname = usePathname();
   const { subscribe, setPendingUpdate } = useRequestsEvents();
   const { user } = useAuth();
+  const invalidateRequests = useInvalidateRequests();
+  const invalidateDoctorRequests = useInvalidateDoctorRequests();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const routerRef = useRef(router);
@@ -67,6 +71,8 @@ export function GlobalRequestUpdatedToast() {
     if (!user) return;
     const unsubscribe = subscribe((payload: RequestUpdatedPayload) => {
       const isDoctor = user?.role === 'doctor';
+      if (isDoctor) invalidateDoctorRequests();
+      else invalidateRequests();
       const message = getMessageForUser(payload, isDoctor);
       const requestId = payload.requestId || '';
 
@@ -105,7 +111,7 @@ export function GlobalRequestUpdatedToast() {
       });
     });
     return unsubscribe;
-  }, [user, subscribe, setPendingUpdate]);
+  }, [user, subscribe, setPendingUpdate, invalidateRequests, invalidateDoctorRequests]);
 
   // Countdown: decrementa a cada segundo e navega quando chegar em 0
   useEffect(() => {

@@ -193,6 +193,11 @@ export default function PatientRecordScreen() {
   });
 
   const load = useCallback(async (withFeedback = false) => {
+    if (!user?.id) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     cancelledRef.current = false;
     setError(false);
     try {
@@ -281,15 +286,16 @@ export default function PatientRecordScreen() {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [user?.id]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      if (user?.id) load();
+      else setLoading(false);
       return () => {
         cancelledRef.current = true;
       };
-    }, [load])
+    }, [load, user?.id])
   );
 
   const onRefresh = () => {

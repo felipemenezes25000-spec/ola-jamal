@@ -19,24 +19,15 @@ import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getNotifications, markNotificationAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
+import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { AppHeader, AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
+import { getDateGroupForSection, timeAgoShort } from '../../lib/utils/format';
 
 // ── Helpers ────────────────────────────────────────────────────
-
-function getDateGroup(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return 'Hoje';
-  if (days === 1) return 'Ontem';
-  if (days < 7) return 'Esta semana';
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
-}
 
 type NotificationFilterKey = 'all' | 'payment' | 'request' | 'consultation';
 
@@ -128,6 +119,7 @@ const SectionGap = () => <View style={{ height: 6 }} />;
 export default function PatientNotifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { refreshUnreadCount, markAllReadOptimistic, decrementUnreadCount } = useNotifications();
   const [allNotifications, setAllNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,6 +146,7 @@ export default function PatientNotifications() {
   }, [allNotifications]);
 
   const loadData = useCallback(async (withFeedback = false) => {
+    if (!user?.id) return;
     try {
       setError(false);
       const response = await getNotifications({ page: 1, pageSize: 50 });
@@ -171,11 +164,12 @@ export default function PatientNotifications() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (user?.id) loadData();
+    else setLoading(false);
+  }, [loadData, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -226,20 +220,6 @@ export default function PatientNotifications() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Agora';
-    if (mins < 60) return `${mins} min`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h atrás`;
-    const days = Math.floor(hours / 24);
-    if (days === 1) return 'Ontem';
-    return `${days}d atrás`;
-  };
-
   const renderItem = ({ item }: { item: NotificationResponseDto }) => {
     const visual = getNotificationVisual(item, colors);
 
@@ -263,7 +243,7 @@ export default function PatientNotifications() {
           </View>
           <Text style={styles.cardMessage} numberOfLines={2}>{item.message}</Text>
           <View style={styles.metaRow}>
-            <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+            <Text style={styles.cardDate}>{timeAgoShort(item.createdAt)}</Text>
             <View style={[styles.categoryBadge, { backgroundColor: isDark ? visual.color + '15' : visual.bgColor }]}>
               <Text style={[styles.categoryText, { color: visual.color }]}>{visual.label}</Text>
             </View>
@@ -291,7 +271,7 @@ export default function PatientNotifications() {
 
   const sections = Object.entries(
     filteredNotifications.reduce<Record<string, NotificationResponseDto[]>>((acc, n) => {
-      const g = getDateGroup(n.createdAt);
+      const g = getDateGroupForSection(n.createdAt);
       if (!acc[g]) acc[g] = [];
       acc[g].push(n);
       return acc;

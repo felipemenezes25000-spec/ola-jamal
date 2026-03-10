@@ -6,44 +6,31 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getRequests, type MedicalRequest } from '@/services/doctorApi';
-import { toShortId } from '@/lib/utils';
+import { parseApiList, getTypeIcon, getTypeLabel, getStatusInfo } from '@/lib/doctor-helpers';
 import { motion } from 'framer-motion';
 import {
-  Loader2, Search, FileText, FlaskConical, Stethoscope, Filter,
-  ArrowRight, User, Calendar, SortDesc,
+  Loader2, Search, Filter, ArrowRight, User, Calendar, SortDesc,
 } from 'lucide-react';
 
-function getTypeIcon(type: string) {
-  switch (type) {
-    case 'prescription': return FileText;
-    case 'exam': return FlaskConical;
-    case 'consultation': return Stethoscope;
-    default: return FileText;
-  }
+/** Status do backend (camelCase) normalizado para comparação. */
+function norm(s: string): string {
+  return s.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
 }
 
-function getTypeLabel(type: string) {
-  switch (type) {
-    case 'prescription': return 'Receita';
-    case 'exam': return 'Exame';
-    case 'consultation': return 'Consulta';
-    default: return type;
+function matchesStatusFilter(status: string, filter: string): boolean {
+  const n = norm(status);
+  switch (filter) {
+    case 'pending':
+      return ['submitted', 'pending', 'in_review', 'searching_doctor', 'approved_pending_payment', 'consultation_ready', 'consultation_accepted'].includes(n);
+    case 'paid':
+      return ['paid', 'in_consultation'].includes(n);
+    case 'signed':
+      return ['signed', 'delivered', 'consultation_finished', 'completed'].includes(n);
+    case 'rejected':
+      return ['rejected', 'cancelled'].includes(n);
+    default:
+      return true;
   }
-}
-
-function getStatusInfo(status: string) {
-  const map: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
-    pending: { label: 'Pendente', variant: 'outline', color: 'border-orange-300 text-orange-600 bg-orange-50' },
-    approved: { label: 'Aprovado', variant: 'secondary', color: 'border-blue-300 text-blue-600 bg-blue-50' },
-    paid: { label: 'Pago', variant: 'default', color: 'border-emerald-300 text-emerald-600 bg-emerald-50' },
-    signed: { label: 'Assinado', variant: 'secondary', color: 'border-emerald-300 text-emerald-700 bg-emerald-50' },
-    rejected: { label: 'Recusado', variant: 'destructive', color: 'border-red-300 text-red-600 bg-red-50' },
-    cancelled: { label: 'Cancelado', variant: 'destructive', color: 'border-gray-300 text-gray-500 bg-gray-50' },
-    consultation_accepted: { label: 'Aceita', variant: 'default', color: 'border-primary/30 text-primary bg-primary/5' },
-    in_consultation: { label: 'Em consulta', variant: 'default', color: 'border-primary/30 text-primary bg-primary/5' },
-    completed: { label: 'Concluído', variant: 'secondary', color: 'border-emerald-300 text-emerald-700 bg-emerald-50' },
-  };
-  return map[status] || { label: status, variant: 'outline' as const, color: '' };
 }
 
 type FilterType = 'all' | 'prescription' | 'exam' | 'consultation';
@@ -75,10 +62,7 @@ export default function DoctorRequests() {
 
   useEffect(() => {
     getRequests({ page: 1, pageSize: 500 })
-      .then(data => {
-        const list = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-        setRequests(list);
-      })
+      .then(data => setRequests(parseApiList<MedicalRequest>(data)))
       .catch(() => setRequests([]))
       .finally(() => setLoading(false));
   }, []);
@@ -86,7 +70,7 @@ export default function DoctorRequests() {
   const filtered = useMemo(() => {
     let result = [...requests];
     if (typeFilter !== 'all') result = result.filter(r => r.type === typeFilter);
-    if (statusFilter !== 'all') result = result.filter(r => r.status === statusFilter);
+    if (statusFilter !== 'all') result = result.filter(r => matchesStatusFilter(r.status, statusFilter));
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(r =>
@@ -211,7 +195,7 @@ export default function DoctorRequests() {
                 >
                   <Card
                     className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border-border/50 hover:border-border group"
-                    onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}
+                    onClick={() => navigate(`/pedidos/${req.id}`)}
                   >
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-center gap-4">
@@ -233,7 +217,7 @@ export default function DoctorRequests() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <Badge variant={statusInfo.variant} className={`text-[10px] ${statusInfo.color}`}>
+                          <Badge variant={statusInfo.variant} className={`text-[10px] ${statusInfo.color} ${statusInfo.bgColor}`}>
                             {statusInfo.label}
                           </Badge>
                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />

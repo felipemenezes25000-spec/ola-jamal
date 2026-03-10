@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { getRequestById, saveConsultationSummary } from '@/services/doctorApi';
-import { toShortId } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
   Loader2, ArrowLeft, FileText, Lightbulb, Mic, Copy, CheckCircle2,
@@ -135,7 +134,7 @@ export default function DoctorConsultationSummary() {
       <div className="space-y-6 max-w-3xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/pedidos/${toShortId(requestId!)}`)} aria-label="Voltar">
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/pedidos/${requestId}`)} aria-label="Voltar">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -244,7 +243,7 @@ export default function DoctorConsultationSummary() {
           <p>Conteúdo gerado por IA como apoio à decisão clínica. A revisão e validação médica são obrigatórias. Conformidade com CFM Resolução 2.299/2021.</p>
         </div>
 
-        <Button className="w-full gap-2" onClick={() => navigate(`/pedidos/${toShortId(requestId!)}`)}>
+        <Button className="w-full gap-2" onClick={() => navigate(`/pedidos/${requestId}`)}>
           <CheckCircle2 className="h-4 w-4" /> Concluir
         </Button>
       </div>

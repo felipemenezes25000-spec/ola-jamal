@@ -83,12 +83,18 @@ const STATUS_MAP: Record<string, StatusInfo> = {
   pending_payment:          { label: 'Aguardando pagamento',     variant: 'outline',      color: 'text-amber-600',   bgColor: 'bg-amber-50 border-amber-200',     icon: Clock,         priority: 3 },
   completed:                { label: 'Concluído',                variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2,  priority: 9 },
 
-  // Consultation-specific legacy
+  // Consultation-specific (legacy)
   consultation_accepted:    { label: 'Consulta aceita',          variant: 'default',      color: 'text-primary',     bgColor: 'bg-primary/5 border-primary/20',   icon: Stethoscope,   priority: 3 },
 };
 
+/** Normaliza status camelCase (backend) para snake_case (STATUS_MAP). Exportado para uso em páginas. */
+export function normalizeStatus(status: string | undefined): string {
+  if (!status) return '';
+  return status.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+}
+
 export function getStatusInfo(status: string): StatusInfo {
-  const normalized = status?.toLowerCase().replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+  const normalized = normalizeStatus(status);
   return STATUS_MAP[normalized] || STATUS_MAP[status] || {
     label: status || 'Desconhecido',
     variant: 'outline' as const,
@@ -100,8 +106,8 @@ export function getStatusInfo(status: string): StatusInfo {
 }
 
 export function isActionableStatus(status: string): boolean {
-  const actionable = ['submitted', 'pending', 'paid', 'in_review', 'consultation_accepted', 'consultation_ready', 'in_consultation', 'approved'];
-  const normalized = status?.toLowerCase().replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+  const actionable = ['submitted', 'pending', 'paid', 'in_review', 'searching_doctor', 'consultation_accepted', 'consultation_ready', 'in_consultation', 'approved', 'approved_pending_payment'];
+  const normalized = normalizeStatus(status);
   return actionable.includes(normalized) || actionable.includes(status);
 }
 

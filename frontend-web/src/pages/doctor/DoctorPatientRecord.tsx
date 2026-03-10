@@ -11,7 +11,7 @@ import {
   type PatientProfile, type MedicalRequest, type DoctorNoteDto,
   DOCTOR_NOTE_TYPES,
 } from '@/services/doctorApi';
-import { toShortId } from '@/lib/utils';
+import { parseApiList, getTypeIcon, getTypeLabel } from '@/lib/doctor-helpers';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
@@ -19,24 +19,6 @@ import {
   AlertTriangle, FileText, FlaskConical, Stethoscope, Clock,
   ChevronRight, Activity, Shield, FileStack, StickyNote, PlusCircle, Eye,
 } from 'lucide-react';
-
-function getTypeIcon(type: string) {
-  switch (type) {
-    case 'prescription': return FileText;
-    case 'exam': return FlaskConical;
-    case 'consultation': return Stethoscope;
-    default: return FileText;
-  }
-}
-
-function getTypeLabel(type: string) {
-  switch (type) {
-    case 'prescription': return 'Receita';
-    case 'exam': return 'Exame';
-    case 'consultation': return 'Consulta';
-    default: return type;
-  }
-}
 
 function ClinicalNotesForm({
   requests,
@@ -144,8 +126,7 @@ export default function DoctorPatientRecord() {
         getPatientClinicalSummary(patientId).catch(() => null),
       ]);
       setPatient(p);
-      const list = Array.isArray(r) ? r : r?.items ?? r?.data ?? [];
-      setRequests(list);
+      setRequests(parseApiList<MedicalRequest>(r));
       setSummaryData(s ? { structured: s.structured ?? null, doctorNotes: s.doctorNotes ?? [] } : null);
     } catch {
       toast.error('Erro ao carregar prontuário');
@@ -376,7 +357,7 @@ export default function DoctorPatientRecord() {
                           return (
                             <button
                               key={req.id}
-                              onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}
+                              onClick={() => navigate(`/pedidos/${req.id}`)}
                               className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
                             >
                               <div className="p-2 rounded-lg bg-muted"><Icon className="h-4 w-4 text-muted-foreground" /></div>
@@ -406,7 +387,7 @@ export default function DoctorPatientRecord() {
                 <Card className="shadow-sm"><CardContent className="py-12 text-center"><p className="text-sm text-muted-foreground">Nenhuma consulta</p></CardContent></Card>
               ) : (
                 [...consultations].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(req => (
-                  <Card key={req.id} className="shadow-sm hover:shadow-md cursor-pointer transition-all group" onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}>
+                  <Card key={req.id} className="shadow-sm hover:shadow-md cursor-pointer transition-all group" onClick={() => navigate(`/pedidos/${req.id}`)}>
                     <CardContent className="p-4 flex items-center gap-4">
                       <div className="p-3 rounded-xl bg-muted"><Stethoscope className="h-5 w-5 text-muted-foreground" /></div>
                       <div className="flex-1">
@@ -434,7 +415,7 @@ export default function DoctorPatientRecord() {
                     const Icon = getTypeIcon(req.type);
                     const items = req.type === 'prescription' ? (req.medications?.map(m => m.name) ?? []) : (req.exams?.map(e => e.name) ?? []);
                     return (
-                      <Card key={req.id} className="shadow-sm hover:shadow-md cursor-pointer transition-all group" onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}>
+                      <Card key={req.id} className="shadow-sm hover:shadow-md cursor-pointer transition-all group" onClick={() => navigate(`/pedidos/${req.id}`)}>
                         <CardContent className="p-4 flex items-center gap-4">
                           <div className="p-3 rounded-xl bg-muted"><Icon className="h-5 w-5 text-muted-foreground" /></div>
                           <div className="flex-1">
@@ -474,7 +455,7 @@ export default function DoctorPatientRecord() {
                         </div>
                         <p className="text-sm">{note.content}</p>
                         {note.requestId && (
-                          <Button variant="link" size="sm" className="h-auto p-0 mt-1 text-xs" onClick={() => navigate(`/pedidos/${toShortId(note.requestId as string)}`)}>
+                          <Button variant="link" size="sm" className="h-auto p-0 mt-1 text-xs" onClick={() => navigate(`/pedidos/${note.requestId}`)}>
                             Ver atendimento vinculado →
                           </Button>
                         )}

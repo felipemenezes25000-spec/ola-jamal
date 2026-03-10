@@ -39,6 +39,7 @@ import { useTriageEval } from '../../hooks/useTriageEval';
 import { getNextBestActionForRequest, type NextActionIntent } from '../../lib/domain/assistantIntelligence';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 /** Texto expansível: mostra N linhas com "Ver mais" / "Ver menos". */
 function ExpandableText({ text, maxLines = 4, style }: { text: string; maxLines?: number; style?: any }) {
@@ -117,6 +118,13 @@ export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.role === 'doctor' && requestId) {
+      router.replace(`/doctor-request/${requestId}`);
+    }
+  }, [user?.role, requestId, router]);
   const { height: windowHeight } = useWindowDimensions();
   const listPadding = useListBottomPadding();
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);

@@ -18,6 +18,7 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
+import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
@@ -27,25 +28,9 @@ import { haptics } from '../../lib/haptics';
 import { NotificationCard } from '../../components/doctor/NotificationCard';
 import type { NotificationVisual } from '../../components/doctor/NotificationCard';
 import { motionTokens } from '../../lib/ui/motion';
+import { timeAgoShort, getDateGroupForSection } from '../../lib/utils/format';
 
 // ── Helpers ─────────────────────────────────────────────────────
-
-function timeAgo(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (diff < 60) return 'Agora';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 172800) return 'Ontem';
-  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-}
-
-function getDateGroup(dateStr: string): string {
-  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-  if (days === 0) return 'Hoje';
-  if (days === 1) return 'Ontem';
-  if (days < 7) return 'Esta semana';
-  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
-}
 
 type AlertCategory = 'new_request' | 'payment' | 'consultation' | 'system';
 
@@ -93,6 +78,7 @@ export default function DoctorNotifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
+  const { user } = useAuth();
   const { refreshUnreadCount } = useNotifications();
   const [allNotifications, setAllNotifications] = useState<NotificationResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +106,7 @@ export default function DoctorNotifications() {
   }, [allNotifications]);
 
   const loadData = useCallback(async (withFeedback = false) => {
+    if (!user?.id) return;
     try {
       const data = await getNotifications({ page: 1, pageSize: 50 });
       setAllNotifications(data.items || []);
@@ -131,9 +118,12 @@ export default function DoctorNotifications() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user?.id]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    if (user?.id) loadData();
+    else setLoading(false);
+  }, [loadData, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -196,7 +186,7 @@ export default function DoctorNotifications() {
 
   const groupedByDate = filteredNotifications.reduce<Record<string, NotificationResponseDto[]>>(
     (acc, n) => {
-      const g = getDateGroup(n.createdAt);
+      const g = getDateGroupForSection(n.createdAt);
       if (!acc[g]) acc[g] = [];
       acc[g].push(n);
       return acc;
@@ -288,7 +278,7 @@ export default function DoctorNotifications() {
                   colors={colors}
                   isDark={isDark}
                   onPress={() => handleMarkRead(item.id, item)}
-                  timeAgo={timeAgo(item.createdAt)}
+                  timeAgo={timeAgoShort(item.createdAt)}
                 />
               </FadeIn>
             )}

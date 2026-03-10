@@ -139,7 +139,7 @@ export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, doctorProfile: doctor, signOut, refreshUser } = useAuth();
-  const { colors, gradients, shadows, scheme } = useAppTheme({ role: 'doctor' });
+  const { colors, gradients, scheme } = useAppTheme({ role: 'doctor' });
   const isDark = scheme === 'dark';
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
 

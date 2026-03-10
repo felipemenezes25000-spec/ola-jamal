@@ -4,25 +4,18 @@ import { DoctorLayout } from '@/components/doctor/DoctorLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getRequests, type MedicalRequest } from '@/services/doctorApi';
-import { toShortId } from '@/lib/utils';
+import { parseApiList, getStatusInfo } from '@/lib/doctor-helpers';
 import { motion } from 'framer-motion';
 import {
   Loader2, Stethoscope, User, Calendar, Video, ArrowRight,
   CheckCircle2,
 } from 'lucide-react';
 
-function getConsultStatus(status: string) {
-  const map: Record<string, { label: string; color: string; bgColor: string }> = {
-    pending: { label: 'Aguardando', color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
-    paid: { label: 'Pago — Aceitar', color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200' },
-    consultation_accepted: { label: 'Aceita — Iniciar', color: 'text-primary', bgColor: 'bg-primary/5 border-primary/20' },
-    in_consultation: { label: 'Em andamento', color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200' },
-    completed: { label: 'Concluída', color: 'text-gray-500', bgColor: 'bg-gray-50 border-gray-200' },
-    signed: { label: 'Finalizada', color: 'text-gray-500', bgColor: 'bg-gray-50 border-gray-200' },
-    rejected: { label: 'Recusada', color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
-    cancelled: { label: 'Cancelada', color: 'text-gray-400', bgColor: 'bg-gray-50 border-gray-200' },
-  };
-  return map[status] || { label: status, color: 'text-gray-500', bgColor: 'bg-gray-50 border-gray-200' };
+const ACTIVE_STATUSES = ['submitted', 'pending', 'searching_doctor', 'approved_pending_payment', 'paid', 'consultation_ready', 'consultation_accepted', 'in_consultation'];
+
+function isActiveConsultation(status: string): boolean {
+  const n = status.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+  return ACTIVE_STATUSES.includes(n);
 }
 
 type TabValue = 'active' | 'history';
@@ -35,22 +28,13 @@ export default function DoctorConsultations() {
 
   useEffect(() => {
     getRequests({ page: 1, pageSize: 200, type: 'consultation' })
-      .then(data => {
-        const list = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-        setRequests(list.filter((r: MedicalRequest) => r.type === 'consultation'));
-      })
+      .then(data => setRequests(parseApiList<MedicalRequest>(data).filter(r => r.type === 'consultation')))
       .catch(() => setRequests([]))
       .finally(() => setLoading(false));
   }, []);
 
-  const active = useMemo(
-    () => requests.filter(r => ['pending', 'paid', 'consultation_accepted', 'in_consultation'].includes(r.status)),
-    [requests]
-  );
-  const history = useMemo(
-    () => requests.filter(r => !['pending', 'paid', 'consultation_accepted', 'in_consultation'].includes(r.status)),
-    [requests]
-  );
+  const active = useMemo(() => requests.filter(r => isActiveConsultation(r.status)), [requests]);
+  const history = useMemo(() => requests.filter(r => !isActiveConsultation(r.status)), [requests]);
 
   const list = tab === 'active' ? active : history;
 
@@ -107,8 +91,9 @@ export default function DoctorConsultations() {
             {list
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
               .map((req, i) => {
-                const statusInfo = getConsultStatus(req.status);
-                const canVideo = ['consultation_accepted', 'in_consultation'].includes(req.status);
+                const statusInfo = getStatusInfo(req.status);
+                const statusNorm = req.status.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+                const canVideo = ['consultation_accepted', 'consultation_ready', 'in_consultation'].includes(statusNorm);
 
                 return (
                   <motion.div
@@ -158,7 +143,7 @@ export default function DoctorConsultations() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate(`/pedidos/${toShortId(req.id)}`)}
+                                onClick={() => navigate(`/pedidos/${req.id}`)}
                                 className="gap-1"
                               >
                                 Ver

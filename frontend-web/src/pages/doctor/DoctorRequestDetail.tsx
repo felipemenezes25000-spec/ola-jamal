@@ -13,31 +13,14 @@ import {
   getRequestById, approveRequest, rejectRequest, acceptConsultation,
   getPatientProfile, type MedicalRequest, type PatientProfile,
 } from '@/services/doctorApi';
+import { getTypeLabel, getTypeIcon, getStatusInfo, normalizeStatus } from '@/lib/doctor-helpers';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Loader2, ArrowLeft, FileText, FlaskConical, Stethoscope, User, Calendar,
-  CheckCircle2, XCircle, Pen, Video, Phone, Mail, AlertTriangle,
-  Clock, Pill, ClipboardList, Brain, Shield, ChevronRight,
+  Loader2, ArrowLeft, User, Calendar, CheckCircle2, XCircle, Pen, Video,
+  Phone, Mail, AlertTriangle, Clock, Pill, ClipboardList, Brain, Shield, ChevronRight,
+  Stethoscope,
 } from 'lucide-react';
-
-function getTypeLabel(type: string) {
-  switch (type) {
-    case 'prescription': return 'Receita';
-    case 'exam': return 'Exame';
-    case 'consultation': return 'Consulta';
-    default: return type;
-  }
-}
-
-function getTypeIcon(type: string) {
-  switch (type) {
-    case 'prescription': return FileText;
-    case 'exam': return FlaskConical;
-    case 'consultation': return Stethoscope;
-    default: return FileText;
-  }
-}
 
 /** Normaliza symptoms para array (backend pode retornar string ou string[]). */
 function normalizeSymptoms(symptoms: unknown): string[] {
@@ -45,21 +28,6 @@ function normalizeSymptoms(symptoms: unknown): string[] {
   if (typeof symptoms === 'string' && symptoms.trim())
     return symptoms.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
   return [];
-}
-
-function getStatusInfo(status: string) {
-  const map: Record<string, { label: string; color: string; bgColor: string }> = {
-    pending: { label: 'Pendente', color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
-    approved: { label: 'Aprovado', color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200' },
-    paid: { label: 'Pago — Aguardando assinatura', color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200' },
-    signed: { label: 'Assinado', color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200' },
-    rejected: { label: 'Recusado', color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
-    cancelled: { label: 'Cancelado', color: 'text-gray-500', bgColor: 'bg-gray-50 border-gray-200' },
-    consultation_accepted: { label: 'Consulta aceita', color: 'text-primary', bgColor: 'bg-primary/5 border-primary/20' },
-    in_consultation: { label: 'Em consulta', color: 'text-primary', bgColor: 'bg-primary/5 border-primary/20' },
-    completed: { label: 'Concluído', color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200' },
-  };
-  return map[status] || { label: status, color: 'text-gray-500', bgColor: 'bg-gray-50 border-gray-200' };
 }
 
 export default function DoctorRequestDetail() {
@@ -161,12 +129,13 @@ export default function DoctorRequestDetail() {
   const statusInfo = getStatusInfo(request.status);
   const Icon = getTypeIcon(request.type);
   const symptomsList = normalizeSymptoms(request.symptoms);
+  const statusNorm = normalizeStatus(request.status);
 
-  const canApprove = request.status === 'pending';
-  const canReject = ['pending', 'approved'].includes(request.status);
-  const canEdit = ['paid', 'approved'].includes(request.status);
-  const canVideo = request.type === 'consultation' && ['consultation_accepted', 'in_consultation'].includes(request.status);
-  const canAcceptConsult = request.type === 'consultation' && request.status === 'paid';
+  const canApprove = ['submitted', 'pending'].includes(statusNorm);
+  const canReject = ['submitted', 'pending', 'in_review', 'approved_pending_payment', 'approved', 'paid'].includes(statusNorm);
+  const canEdit = ['paid'].includes(statusNorm);
+  const canVideo = request.type === 'consultation' && ['consultation_accepted', 'consultation_ready', 'in_consultation'].includes(statusNorm);
+  const canAcceptConsult = request.type === 'consultation' && statusNorm === 'paid';
 
   return (
     <DoctorLayout>

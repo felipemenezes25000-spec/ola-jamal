@@ -62,6 +62,43 @@ export function formatDateTimeBR(dateStr: string | Date): string {
 }
 
 /**
+ * Saudação por horário: "Bom dia", "Boa tarde", "Boa noite".
+ */
+export function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+/**
+ * Tempo relativo compacto para notificações: "Agora", "5 min", "2h", "Ontem", ou data curta.
+ */
+export function timeAgoShort(dateStr: string | Date): string {
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  if (Number.isNaN(date.getTime())) return '—';
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60) return 'Agora';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 172800) return 'Ontem';
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+/**
+ * Grupo de data para seções de lista: "Hoje", "Ontem", "Esta semana", ou data longa.
+ */
+export function getDateGroupForSection(dateStr: string | Date): string {
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  if (Number.isNaN(date.getTime())) return '—';
+  const days = Math.floor((Date.now() - date.getTime()) / 86400000);
+  if (days === 0) return 'Hoje';
+  if (days === 1) return 'Ontem';
+  if (days < 7) return 'Esta semana';
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+}
+
+/**
  * Formata tempo relativo em pt-BR: "Agora", "Há X min", "Há X h", "Há X dias".
  */
 export function formatRelativeTime(dateStr: string | Date): string {

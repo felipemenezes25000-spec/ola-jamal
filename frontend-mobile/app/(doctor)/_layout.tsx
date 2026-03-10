@@ -11,7 +11,7 @@ import { PulsingNotificationIcon } from '../../components/PulsingNotificationIco
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 
-const TAB_BAR_BASE_HEIGHT = Platform.OS === 'ios' ? 56 : 56;
+const TAB_BAR_BASE_HEIGHT = 56;
 const TAB_BAR_PADDING_TOP = 8;
 
 export default function DoctorLayout() {
@@ -29,12 +29,16 @@ export default function DoctorLayout() {
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/(auth)/login');
+      return;
+    }
+    if (!loading && user?.role === 'patient') {
+      router.replace('/(patient)/home');
     }
   }, [loading, user, router]);
 
   return (
     <ErrorBoundary>
-      <StatusBar style={isDark ? 'light' : 'light'} />
+      <StatusBar style="light" />
       <Tabs
         screenListeners={{
           tabPress: () => haptics.selection(),

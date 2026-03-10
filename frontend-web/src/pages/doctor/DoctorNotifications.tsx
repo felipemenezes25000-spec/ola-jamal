@@ -7,7 +7,7 @@ import {
   getNotifications, markNotificationRead, markAllNotificationsRead,
   type NotificationItem,
 } from '@/services/doctorApi';
-import { toShortId } from '@/lib/utils';
+import { parseApiList } from '@/lib/doctor-helpers';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
@@ -62,10 +62,7 @@ export default function DoctorNotifications() {
 
   useEffect(() => {
     getNotifications({ page: 1, pageSize: 50 })
-      .then(data => {
-        const list = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
-        setNotifications(list);
-      })
+      .then(data => setNotifications(parseApiList<NotificationItem>(data)))
       .catch(() => setNotifications([]))
       .finally(() => setLoading(false));
   }, []);
@@ -86,7 +83,7 @@ export default function DoctorNotifications() {
 
   const handleNavigate = (item: NotificationItem) => {
     const requestId = item.data?.requestId as string | undefined;
-    if (requestId) navigate(`/pedidos/${toShortId(requestId)}`);
+    if (requestId) navigate(`/pedidos/${requestId}`);
   };
 
   const handleMarkAllRead = async () => {

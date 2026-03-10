@@ -26,6 +26,10 @@ export default function PatientLayout() {
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/(auth)/login');
+      return;
+    }
+    if (!loading && user?.role === 'doctor') {
+      router.replace('/(doctor)/dashboard');
     }
   }, [loading, user, router]);
 
@@ -109,21 +113,21 @@ export default function PatientLayout() {
           ),
         }}
       />
-        <Tabs.Screen
-          name="notifications"
-          options={{
-            title: 'Alertas',
-            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-            tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon
-                name={focused ? 'notifications' : 'notifications-outline'}
-                color={color}
-                focused={focused}
-                activeColor={colors.primary}
-              />
-            ),
-          }}
-        />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Alertas',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name={focused ? 'notifications' : 'notifications-outline'}
+              color={color}
+              focused={focused}
+              activeColor={colors.primary}
+            />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
