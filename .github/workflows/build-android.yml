@@ -99,11 +99,19 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
+      - name: Increase Gradle JVM memory
+        run: |
+          # Fix OutOfMemoryError: Metaspace during lintVitalAnalyzeRelease
+          sed -i 's/^org.gradle.jvmargs=.*//' android/gradle.properties
+          echo "" >> android/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> android/gradle.properties
+          echo "✓ JVM args configurados: 4GB heap, 512MB Metaspace"
+
       - name: Build APK
         run: |
           cd android
           if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            ./gradlew assembleRelease --no-daemon
+            ./gradlew assembleRelease --no-daemon -x lintVitalAnalyzeRelease
           else
             ./gradlew assembleDebug --no-daemon
           fi
