@@ -29,17 +29,20 @@ export const VideoCallControls = React.memo(function VideoCallControls({
   colors, insetBottom, isMuted, isCameraOff, isDoctor, ending, hasPip,
   onToggleMute, onToggleCamera, onFlipCamera, onEnd, onEnterPip,
 }: VideoCallControlsProps) {
+  // Fundo escuro para contraste: ícones/texto brancos visíveis (evita botões brancos invisíveis)
+  const btnBg = colors.surfaceSecondary;
+
   return (
     <View style={[S.ctrl, { paddingBottom: insetBottom + 12 }]}>
       {hasPip && onEnterPip && (
-        <TouchableOpacity style={[S.cb, { backgroundColor: colors.text }]} onPress={onEnterPip}
+        <TouchableOpacity style={[S.cb, { backgroundColor: btnBg }]} onPress={onEnterPip}
           accessibilityRole="button" accessibilityLabel="Minimizar em janela flutuante">
           <Ionicons name="contract-outline" size={22} color={colors.white} />
           <Text style={S.cLbl}>Minimizar</Text>
         </TouchableOpacity>
       )}
       <TouchableOpacity
-        style={[S.cb, { backgroundColor: isMuted ? 'rgba(239,68,68,0.6)' : colors.text }]}
+        style={[S.cb, { backgroundColor: isMuted ? 'rgba(239,68,68,0.6)' : btnBg }]}
         onPress={onToggleMute}
         accessibilityRole="button"
         accessibilityLabel={isMuted ? 'Microfone mudo, toque para ativar' : 'Microfone ativo, toque para mutar'}
@@ -48,7 +51,7 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         <Text style={S.cLbl}>{isMuted ? 'Mudo' : 'Mic'}</Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[S.cb, { backgroundColor: isCameraOff ? 'rgba(239,68,68,0.6)' : colors.text }]}
+        style={[S.cb, { backgroundColor: isCameraOff ? 'rgba(239,68,68,0.6)' : btnBg }]}
         onPress={onToggleCamera}
         accessibilityRole="button"
         accessibilityLabel={isCameraOff ? 'Câmera desligada' : 'Câmera ligada'}
@@ -56,7 +59,7 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={22} color={colors.white} />
         <Text style={S.cLbl}>{isCameraOff ? 'Off' : 'Câm'}</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[S.cb, { backgroundColor: colors.text }]} onPress={onFlipCamera}
+      <TouchableOpacity style={[S.cb, { backgroundColor: btnBg }]} onPress={onFlipCamera}
         accessibilityRole="button" accessibilityLabel="Virar câmera">
         <Ionicons name="camera-reverse-outline" size={22} color={colors.white} />
         <Text style={S.cLbl}>Virar</Text>
