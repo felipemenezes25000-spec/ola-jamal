@@ -44,14 +44,17 @@ export function RequestsEventsProvider({ children }: { children: React.ReactNode
     let retryCount = 0;
     const maxRetries = 3;
 
+    const RECONNECT_COOLDOWN_MS = 10_000;
+    let lastReconnectAt = 0;
+
     const tryConnect = () => {
       if (cancelled) return;
       startRequestsEventsConnection().then((ok) => {
         if (!cancelled) setConnected(ok && isRequestsEventsConnected());
-        // Se falhou e ainda não esgotou retries, tenta de novo em 5s (token pode não estar pronto)
+        // Se falhou e ainda não esgotou retries, tenta de novo em 10s (evita spam em cold start)
         if (!ok && !cancelled && retryCount < maxRetries) {
           retryCount++;
-          setTimeout(tryConnect, 5000);
+          setTimeout(tryConnect, 10_000);
         }
       });
     };
@@ -59,15 +62,17 @@ export function RequestsEventsProvider({ children }: { children: React.ReactNode
 
     const interval = setInterval(() => {
       if (!cancelled) setConnected(isRequestsEventsConnected());
-    }, 3000);
+    }, 5000);
 
-    // Reconectar ao voltar do background — evita ficar sem updates após app minimizado
+    // Reconectar ao voltar do background — cooldown evita spam se usuário alterna apps rapidamente
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && !cancelled && user && !isRequestsEventsConnected()) {
-        startRequestsEventsConnection().then((ok) => {
-          if (!cancelled) setConnected(ok && isRequestsEventsConnected());
-        });
-      }
+      if (state !== 'active' || cancelled || !user || isRequestsEventsConnected()) return;
+      const now = Date.now();
+      if (now - lastReconnectAt < RECONNECT_COOLDOWN_MS) return;
+      lastReconnectAt = now;
+      startRequestsEventsConnection().then((ok) => {
+        if (!cancelled) setConnected(ok && isRequestsEventsConnected());
+      });
     });
 
     return () => {

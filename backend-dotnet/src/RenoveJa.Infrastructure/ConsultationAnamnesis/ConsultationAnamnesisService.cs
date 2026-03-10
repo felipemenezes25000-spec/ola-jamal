@@ -216,8 +216,18 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
 
             var enrichedJson = "{" + string.Join(",", enrichedObj.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
 
-            // Extract suggestions list
+            // Extract suggestions list — SEMPRE retornar algo (fallback garante sugestões funcionarem sempre)
             var suggestions = ExtractSuggestions(root);
+            if (suggestions.Count == 0 && enrichedObj.TryGetValue("suggestions_fallback", out var fbVal))
+            {
+                try
+                {
+                    var fallback = JsonSerializer.Deserialize<List<string>>(fbVal.ToString() ?? "[]");
+                    if (fallback?.Count > 0)
+                        suggestions.AddRange(fallback);
+                }
+                catch { /* ignore */ }
+            }
             if (suggestions.Count == 0)
             {
                 suggestions.Add("Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta.");
@@ -275,7 +285,7 @@ Responda em um ÚNICO JSON válido, sem markdown, com EXATAMENTE estes campos:
     "historia_doenca_atual": "Evolução usando OPQRST (Onset, Provocation, Quality, Region, Severity, Time). Fatores de melhora/piora, tratamentos tentados, cronologia.",
     "sintomas": ["TODOS os sintomas em linguagem clínica, incluindo negativos relevantes ('nega febre', 'nega dispneia')"],
     "revisao_sistemas": "Revisão pertinente: cardiovascular, respiratório, GI, neurológico, musculoesquelético, psiquiátrico",
-    "medicamentos_em_uso": ["Medicamentos atuais com dose e frequência. Ex: 'Losartana 50mg 1x/dia'. ESSENCIAL para análise de interações."],
+    "medicamentos_em_uso": ["INFIRA o nome do medicamento mesmo quando o paciente usar linguagem coloquial. Exemplos: 'remédio pra pressão' → Losartana ou Anlodipino; 'vitamina' → Complexo B ou Polivitamínico; 'remédio do coração' → AAS ou estatinas; 'para dormir' → Melatonina ou Zolpidem; 'pra diabetes' → Metformina; 'anti-inflamatório' → Ibuprofeno ou Diclofenaco. Liste o nome técnico (DCB) com dose quando possível. ESSENCIAL para interações."],
     "alergias": "Alergias conhecidas. Se nenhuma: 'NKDA'",
     "antecedentes_pessoais": "Comorbidades, cirurgias, internações, hábitos",
     "antecedentes_familiares": "Histórico familiar: DM, HAS, CA, DAC, AVC",
@@ -394,10 +404,10 @@ EXAMES (OBRIGATÓRIO 4-12, NUNCA menos de 4):
 - Se transcript < 200 chars, inclua exames BÁSICOS de triagem (hemograma, glicemia, ureia, creatinina, EAS)
 
 PERGUNTAS SUGERIDAS (OBRIGATÓRIO 4-8, NUNCA vazio):
-- Estilo "Akinator clínico": a mais importante primeiro
-- Campo "impacto_na_conduta" OBRIGATÓRIO: detalhe o que muda se SIM vs NÃO
-- Prioridade: RED FLAGS > discriminatórias > temporais > funcionais > complementares
-- NÃO repetir o que o paciente já disse no transcript
+- FORMULAÇÃO PELA IA: derive 100% do transcript. Perguntas que façam SENTIDO CLÍNICO para o médico perguntar AGORA, dado o que o paciente já disse.
+- Estilo "Akinator clínico": a mais importante primeiro, prioridade RED FLAGS > discriminatórias > temporais > funcionais
+- Campo "impacto_na_conduta" OBRIGATÓRIO: detalhe o que muda se SIM vs NÃO na conduta médica
+- COINCIDÊNCIA COM A FALA: NUNCA pergunte o que o paciente já respondeu. Avance na linha de raciocínio. Ex: se disse "dor de cabeça há 3 dias" → não pergunte "há quanto tempo"; pergunte localização, caráter, irradiação, fatores de melhora/piora, etc.
 - Se transcript < 200 chars, gere perguntas de ABERTURA:
   1. "Qual é a sua queixa principal? O que está sentindo?"
   2. "Há quanto tempo está com isso?"
@@ -411,9 +421,11 @@ SUGESTÕES (OBRIGATÓRIO 3-7, NUNCA vazio):
 - Inclua: hipótese principal + diferenciais + conduta inicial + seguimento
 - Se transcript < 200 chars: "Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta"
 
-CID (MÁXIMA ASSERTIVIDADE):
-- Use o código MAIS ESPECÍFICO possível com subcategoria
+CID (OBRIGATÓRIO — SEMPRE TRAZER):
+- cid_sugerido e diagnostico_diferencial[].cid: SEMPRE preencher. Nunca deixar vazio.
+- Use o código MAIS ESPECÍFICO possível com subcategoria (ex: J03.0, não J06.9)
 - SEMPRE inclua 2-4 CIDs nos diferenciais
+- Se dados insuficientes: use R69 (Mal-estar e fadiga) ou R51 (Cefaleia) conforme o que o paciente mencionou como queixa
 - Confira que o código existe na CID-10 OMS
 
 ═══ REGRAS GERAIS ═══

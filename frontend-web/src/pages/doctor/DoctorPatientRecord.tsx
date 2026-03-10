@@ -123,7 +123,8 @@ function ClinicalNotesForm({
 }
 
 export default function DoctorPatientRecord() {
-  const { patientId } = useParams<{ patientId: string }>();
+  const params = useParams<{ patientId: string }>();
+  const patientId = typeof params.patientId === 'string' ? params.patientId : Array.isArray(params.patientId) ? params.patientId[0] : undefined;
   const navigate = useNavigate();
   const [patient, setPatient] = useState<PatientProfile | null>(null);
   const [requests, setRequests] = useState<MedicalRequest[]>([]);
@@ -131,7 +132,10 @@ export default function DoctorPatientRecord() {
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    if (!patientId) return;
+    if (!patientId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [p, r, s] = await Promise.all([
@@ -156,7 +160,6 @@ export default function DoctorPatientRecord() {
 
   const age = useMemo(() => {
     if (!patient?.birthDate) return null;
-    // Idade em anos — Date.now estável por sessão
     const nowMs = Date.now();
     return Math.floor((nowMs - new Date(patient.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
   }, [patient?.birthDate]);
@@ -166,7 +169,7 @@ export default function DoctorPatientRecord() {
     try {
       const note = await addDoctorNote(patientId, { noteType, content: content.trim(), requestId });
       setSummaryData(prev => ({
-        ...prev,
+        ...(prev ?? {}),
         doctorNotes: [note, ...(prev?.doctorNotes ?? [])],
       }));
       toast.success('Nota registrada');
@@ -174,6 +177,20 @@ export default function DoctorPatientRecord() {
       toast.error('Não foi possível registrar a nota');
     }
   }, [patientId]);
+
+  const prescriptions = requests.filter(r => r.type === 'prescription');
+  const examsReqs = requests.filter(r => r.type === 'exam');
+  const consultations = requests.filter(r => r.type === 'consultation');
+  const doctorNotes = summaryData?.doctorNotes ?? [];
+  const documentsCount = prescriptions.length + examsReqs.length;
+
+  const getNoteIcon = (key: string) => {
+    const t = DOCTOR_NOTE_TYPES.find(x => x.key === key);
+    if (t?.icon === 'Stethoscope') return Stethoscope;
+    if (t?.icon === 'PlusCircle') return PlusCircle;
+    if (t?.icon === 'Eye') return Eye;
+    return FileText;
+  };
 
   if (loading) {
     return (
@@ -195,20 +212,6 @@ export default function DoctorPatientRecord() {
       </DoctorLayout>
     );
   }
-
-  const prescriptions = requests.filter(r => r.type === 'prescription');
-  const examsReqs = requests.filter(r => r.type === 'exam');
-  const consultations = requests.filter(r => r.type === 'consultation');
-  const doctorNotes = summaryData?.doctorNotes ?? [];
-  const documentsCount = prescriptions.length + examsReqs.length;
-
-  const getNoteIcon = (key: string) => {
-    const t = DOCTOR_NOTE_TYPES.find(x => x.key === key);
-    if (t?.icon === 'Stethoscope') return Stethoscope;
-    if (t?.icon === 'PlusCircle') return PlusCircle;
-    if (t?.icon === 'Eye') return Eye;
-    return FileText;
-  };
 
   return (
     <DoctorLayout>

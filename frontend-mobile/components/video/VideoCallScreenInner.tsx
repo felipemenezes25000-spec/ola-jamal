@@ -608,9 +608,7 @@ export default function VideoCallScreenInner() {
   const hasMeds = Array.isArray(anamnesis?.medicamentos_sugeridos) && anamnesis.medicamentos_sugeridos.length > 0;
   const hasExams = Array.isArray(anamnesis?.exames_sugeridos) && anamnesis.exames_sugeridos.length > 0;
   const hasSug = suggestions.length > 0;
-  const hasEv = evidence.some((e) =>
-    (e.relevantExcerpts && e.relevantExcerpts.length > 0) || e.clinicalRelevance || e.translatedAbstract
-  );
+  const hasEv = evidence.some((e) => e.title?.trim());
   const panelHas = hasAna || hasMeds || hasExams || hasSug || hasEv;
 
   const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH + 20, 0] });

@@ -29,8 +29,8 @@ export const VideoCallControls = React.memo(function VideoCallControls({
   colors, insetBottom, isMuted, isCameraOff, isDoctor, ending, hasPip,
   onToggleMute, onToggleCamera, onFlipCamera, onEnd, onEnterPip,
 }: VideoCallControlsProps) {
-  // Fundo escuro para contraste: ícones/texto brancos visíveis (evita botões brancos invisíveis)
-  const btnBg = colors.surfaceSecondary;
+  // Cor fixa escura — garante contraste em todos os dispositivos (evita botões brancos invisíveis)
+  const btnBg = '#1E293B';
 
   return (
     <View style={[S.ctrl, { paddingBottom: insetBottom + 12 }]}>

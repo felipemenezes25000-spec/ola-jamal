@@ -10,6 +10,8 @@ const POLL_INTERVAL_MS = 30_000;
 const POLL_INTERVAL_SLOW_MS = 60_000;
 /** Número de polls sem mudança antes de mudar para intervalo lento. */
 const UNCHANGED_THRESHOLD = 5;
+/** Mínimo entre chamadas à API unread-count (evita spam em cascade). */
+const MIN_INTERVAL_BETWEEN_CALLS_MS = 5_000;
 
 interface NotificationContextValue {
   unreadCount: number;
@@ -29,12 +31,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const appState = useRef(AppState.currentState);
   const unchangedPolls = useRef(0);
   const lastCount = useRef<number | null>(null);
+  const lastCallAt = useRef<number>(0);
+  const inFlight = useRef(false);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!user?.id) {
       setUnreadCount(0);
       return;
     }
+    const now = Date.now();
+    if (inFlight.current) return;
+    if (now - lastCallAt.current < MIN_INTERVAL_BETWEEN_CALLS_MS) return;
+    inFlight.current = true;
+    lastCallAt.current = now;
     try {
       const count = await getUnreadNotificationsCount();
       if (lastCount.current !== null && count === lastCount.current) {
@@ -46,6 +55,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setUnreadCount(count);
     } catch {
       setUnreadCount(0);
+    } finally {
+      inFlight.current = false;
     }
   }, [user?.id]);
 

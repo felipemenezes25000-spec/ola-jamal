@@ -42,11 +42,13 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic SignalR
     const signalR = require('@microsoft/signalr');
     const url = getHubUrl();
+    // Retry policy: 5s, 15s, 30s — evita spam de negotiate em cold start (Render)
+    const retryDelays = [5000, 15000, 30000];
     const builder = new signalR.HubConnectionBuilder()
       .withUrl(url, {
         accessTokenFactory: async () => (await getToken()) ?? '',
       })
-      .withAutomaticReconnect();
+      .withAutomaticReconnect(retryDelays);
     // Só loga Warning/Error — evita poluir com "WebSocket connected", "Using HubProtocol", "Connection disconnected"
     if (signalR.LogLevel != null) {
       builder.configureLogging(signalR.LogLevel.Warning);
