@@ -159,23 +159,23 @@ export default function PatientProfile() {
     {
       title: 'Conta',
       items: [
-        { icon: 'settings-outline' as const, label: 'Configurações', onPress: () => router.push('/settings') },
-        { icon: 'lock-closed-outline' as const, label: 'Alterar Senha', onPress: () => router.push('/change-password') },
+        { icon: 'settings-outline' as const, label: 'Configurações', onPress: () => router.push('/settings'), iconColor: colors.textSecondary, iconBg: colors.surfaceSecondary },
+        { icon: 'lock-closed-outline' as const, label: 'Alterar Senha', onPress: () => router.push('/change-password'), iconColor: colors.primary, iconBg: colors.primarySoft },
       ],
     },
     {
       title: 'Suporte',
       items: [
-        { icon: 'help-circle-outline' as const, label: 'Ajuda e FAQ', onPress: () => router.push('/help-faq') },
-        { icon: 'chatbubble-outline' as const, label: 'Fale Conosco', onPress: () => router.push('/help-faq') },
+        { icon: 'help-circle-outline' as const, label: 'Ajuda e FAQ', onPress: () => router.push('/help-faq'), iconColor: colors.warning, iconBg: colors.warningLight },
+        { icon: 'chatbubble-outline' as const, label: 'Fale Conosco', onPress: () => router.push('/help-faq'), iconColor: colors.success, iconBg: colors.successLight },
       ],
     },
     {
       title: 'Legal',
       items: [
-        { icon: 'document-text-outline' as const, label: 'Termos de Uso', onPress: () => router.push('/terms') },
-        { icon: 'shield-outline' as const, label: 'Política de Privacidade', onPress: () => router.push('/privacy') },
-        { icon: 'information-circle-outline' as const, label: 'Sobre', onPress: () => router.push('/about') },
+        { icon: 'document-text-outline' as const, label: 'Termos de Uso', onPress: () => router.push('/terms'), iconColor: colors.textMuted, iconBg: colors.surfaceSecondary },
+        { icon: 'shield-outline' as const, label: 'Política de Privacidade', onPress: () => router.push('/privacy'), iconColor: colors.info, iconBg: colors.infoLight },
+        { icon: 'information-circle-outline' as const, label: 'Sobre', onPress: () => router.push('/about'), iconColor: colors.textMuted, iconBg: colors.surfaceSecondary },
       ],
     },
   ];
@@ -259,8 +259,8 @@ export default function PatientProfile() {
                 accessibilityRole="button"
                 accessibilityLabel={item.label}
               >
-                <View style={styles.menuIconWrap}>
-                  <Ionicons name={item.icon} size={20} color={colors.primary} />
+                <View style={[styles.menuIconWrap, { backgroundColor: item.iconBg }]}>
+                  <Ionicons name={item.icon} size={20} color={item.iconColor} />
                 </View>
                 <Text style={styles.menuLabel}>{item.label}</Text>
                 <View style={styles.menuChevronWrap}>
@@ -479,7 +479,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
 
   // Menu
   menuSection: {
-    marginTop: 20,
+    marginTop: 24,
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   sectionTitle: {
@@ -503,6 +503,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: colors.borderLight,
+    ...shadows.cardLg,
   },
   menuItemPressed: {
     opacity: 0.85,
@@ -511,8 +512,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   menuIconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

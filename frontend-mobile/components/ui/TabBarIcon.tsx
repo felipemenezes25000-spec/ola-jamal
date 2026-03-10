@@ -14,14 +14,14 @@ interface TabBarIconProps {
 export function TabBarIcon({ name, color, focused, activeColor }: TabBarIconProps) {
   const { colors } = useAppTheme();
   const activeIndicatorColor = activeColor ?? colors.primary;
-  const pillWidth = useRef(new Animated.Value(focused ? 28 : 0)).current;
+  const pillWidth = useRef(new Animated.Value(focused ? 36 : 0)).current;
   const pillOpacity = useRef(new Animated.Value(focused ? 1 : 0)).current;
   const scale = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(pillWidth, {
-        toValue: focused ? 28 : 0,
+        toValue: focused ? 36 : 0,
         tension: 160,
         friction: 10,
         useNativeDriver: false,
@@ -46,7 +46,7 @@ export function TabBarIcon({ name, color, focused, activeColor }: TabBarIconProp
       <Animated.View
         style={{
           width: pillWidth,
-          height: 3,
+          height: 4,
           borderRadius: 2,
           backgroundColor: activeIndicatorColor,
           opacity: pillOpacity,
@@ -54,7 +54,7 @@ export function TabBarIcon({ name, color, focused, activeColor }: TabBarIconProp
         }}
       />
       <Animated.View style={{ transform: [{ scale }] }}>
-        <Ionicons name={name} size={22} color={color} />
+        <Ionicons name={name} size={focused ? 24 : 22} color={color} />
       </Animated.View>
     </View>
   );

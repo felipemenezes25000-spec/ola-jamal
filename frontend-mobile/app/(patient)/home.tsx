@@ -560,9 +560,9 @@ function makeStyles(colors: DesignColors) {
   // ─── Stats v2 ───
   statsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: -40,
-    marginBottom: 0,
+    gap: 14,
+    marginTop: -48,
+    marginBottom: 8,
     paddingHorizontal: dsLayout.screenPaddingHorizontal,
     zIndex: 10,
     position: 'relative',
@@ -571,12 +571,12 @@ function makeStyles(colors: DesignColors) {
   // ─── AI Banner ───
   aiBannerWrap: {
     paddingHorizontal: dsLayout.screenPaddingHorizontal,
-    marginTop: 20,
+    marginTop: 28,
   },
 
   // ─── Sections ───
   section: {
-    marginTop: 24,
+    marginTop: 28,
     paddingHorizontal: dsLayout.screenPaddingHorizontal,
   },
   sectionHeader: {
@@ -614,7 +614,7 @@ function makeStyles(colors: DesignColors) {
 
   // ─── Actions v2 ───
   actionsSection: {
-    marginTop: 28,
+    marginTop: 32,
     paddingHorizontal: dsLayout.screenPaddingHorizontal,
   },
   actionsColumn: {

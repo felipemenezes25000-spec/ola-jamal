@@ -5,6 +5,14 @@ import { useAppTheme, type AppThemeRole } from '../../lib/ui/useAppTheme';
 
 export type LargeActionCardVariant = 'primary' | 'exam' | 'consultation';
 
+function getVariantColors(c: { primary: string; primarySoft: string; info: string; infoLight: string; success: string; successLight: string }) {
+  return {
+    primary: { accent: c.primary, bg: c.primarySoft, border: c.primary + '26', chevronBg: c.primarySoft },
+    exam: { accent: c.info, bg: c.infoLight, border: c.info + '26', chevronBg: c.infoLight },
+    consultation: { accent: c.success, bg: c.successLight, border: c.success + '26', chevronBg: c.successLight },
+  } as const;
+}
+
 interface LargeActionCardProps {
   icon: React.ReactNode;
   title: string;
@@ -29,12 +37,13 @@ export function LargeActionCard({
     Platform.OS === 'web'
       ? { boxShadow: '0px 2px 12px rgba(0,0,0,0.05)' }
       : shadows.card;
+  const vc = getVariantColors(colors)[variant];
 
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.borderLight, borderRadius: radius.card },
+        { backgroundColor: vc.bg, borderColor: vc.border, borderLeftColor: vc.accent, borderRadius: radius.card },
         cardShadow,
         pressed && styles.pressed,
       ]}
@@ -51,10 +60,8 @@ export function LargeActionCard({
           {description}
         </Text>
       </View>
-      <View style={styles.chevronWrap}>
-        <View style={[styles.chevronCircle, { backgroundColor: colors.surfaceSecondary }]}>
-          <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-        </View>
+      <View style={[styles.chevronCircle, { backgroundColor: vc.chevronBg }]}>
+        <Ionicons name="chevron-forward" size={18} color={vc.accent} />
       </View>
     </Pressable>
   );
@@ -66,13 +73,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
+    borderLeftWidth: 4,
     paddingVertical: 18,
     paddingHorizontal: 16,
     minHeight: 80,
   },
   pressed: {
     opacity: 0.88,
-    transform: [{ scale: 0.985 }],
+    transform: [{ scale: 0.98 }],
   },
   iconWrap: {
     width: 48,
@@ -100,14 +108,12 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_400Regular',
     lineHeight: 18,
   },
-  chevronWrap: {
-    flexShrink: 0,
-  },
   chevronCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 4,
   },
 });

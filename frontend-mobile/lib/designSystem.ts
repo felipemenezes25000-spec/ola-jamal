@@ -203,6 +203,7 @@ const SHADOWS = {
   lg:       { shadowColor: palette.neutral[900], shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 },
   button:   { shadowColor: palette.primary[600], shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 3 },
   card:     { shadowColor: palette.neutral[900], shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2 },
+  cardLg:   { shadowColor: palette.neutral[900], shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 14, elevation: 3 },
   elevated: { shadowColor: palette.neutral[900], shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1,  shadowRadius: 20, elevation: 6 },
 } as const;
 

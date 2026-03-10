@@ -55,22 +55,22 @@ export function StatsCard({
 
 const createStyles = (
   colors: { surface: string; text: string; textMuted: string; borderLight: string },
-  shadows: { card: object }
+  shadows: { card: object; cardLg: object }
 ) => StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 90,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
+    paddingTop: 16,
+    paddingBottom: 16,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
     borderWidth: 1,
     borderColor: colors.borderLight,
-    ...shadows.card,
+    ...shadows.cardLg,
   },
   pressed: {
     transform: [{ scale: 0.96 }],

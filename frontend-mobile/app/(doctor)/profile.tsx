@@ -139,7 +139,7 @@ export default function DoctorProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, doctorProfile: doctor, signOut, refreshUser } = useAuth();
-  const { colors, gradients, scheme } = useAppTheme({ role: 'doctor' });
+  const { colors, gradients, shadows, scheme } = useAppTheme({ role: 'doctor' });
   const isDark = scheme === 'dark';
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
 
@@ -533,7 +533,7 @@ function makeStyles(colors: DesignColors, _isDark: boolean) {
 
     // Menu
     menuSection: {
-      marginTop: 20,
+      marginTop: 28,
       paddingHorizontal: pad,
     },
     sectionTitle: {
@@ -559,9 +559,9 @@ function makeStyles(colors: DesignColors, _isDark: boolean) {
       backgroundColor: 'rgba(0,0,0,0.03)',
     },
     menuIconWrap: {
-      width: 38,
-      height: 38,
-      borderRadius: 11,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 13,

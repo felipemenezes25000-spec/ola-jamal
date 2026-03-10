@@ -51,10 +51,10 @@ export default function PatientLayout() {
             ios: {
               shadowColor: colors.black,
               shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.06,
-              shadowRadius: 12,
+              shadowOpacity: 0.08,
+              shadowRadius: 16,
             },
-            android: { elevation: 8 },
+            android: { elevation: 10 },
           }),
         },
         tabBarItemStyle: {

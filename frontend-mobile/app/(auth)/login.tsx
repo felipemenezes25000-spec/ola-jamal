@@ -207,6 +207,8 @@ export default function Login() {
   const content = (
     <View style={[styles.card, isSmallScreen && styles.cardSmall]}>
 
+      <View style={styles.accentBar} />
+
       {/* Logo + tagline */}
       <View style={[styles.logoSection, isSmallScreen && styles.logoSectionSmall]}>
         <Logo size="small" variant="dark" compact />
@@ -300,7 +302,7 @@ export default function Login() {
       <View style={styles.footerSection}>
         <View style={styles.registerRow}>
           <Text style={styles.registerText}>Não tem uma conta? </Text>
-          <TouchableOpacity onPress={handleRegister} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={handleRegister} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.registerPill}>
             <Text style={styles.registerLink}>Crie agora</Text>
           </TouchableOpacity>
         </View>
@@ -378,6 +380,14 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     paddingTop: 20,
     paddingBottom: 18,
   },
+  accentBar: {
+    width: 48,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
 
   logoSection: {
     alignItems: 'center',
@@ -389,15 +399,16 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   tagline: {
     marginTop: 10,
     fontSize: 14,
-    color: colors.textSecondary,
+    fontWeight: '500',
+    color: colors.text,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
     fontFamily: 'PlusJakartaSans_400Regular',
   },
   taglineSmall: {
-    fontSize: 12,
+    fontSize: 13,
     marginTop: 6,
-    lineHeight: 17,
+    lineHeight: 19,
   },
 
   // Inputs
@@ -430,7 +441,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginVertical: 18,
     gap: 12,
   },
   dividerLine: {
@@ -453,6 +464,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   socialButton: {
     flex: 1,
     height: 48,
+    marginBottom: 12,
   },
 
   // Footer v2: mais espaço
@@ -476,6 +488,12 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     fontWeight: '700',
     fontFamily: 'PlusJakartaSans_700Bold',
     color: colors.primary,
+  },
+  registerPill: {
+    backgroundColor: '#E3F4FF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   whatsappLink: {
     alignSelf: 'center',
