@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { uiTokens } from '../../lib/ui/tokens';
+import { layout as dsLayout, shadows as dsShadows, borderRadius as dsBorderRadius } from '../../lib/designSystem';
 import { DASHBOARD_STATS_LABELS } from '../../lib/domain/statusLabels';
 import { RequestResponseDto } from '../../types/database';
 import { useRequestsQuery } from '../../lib/hooks/useRequestsQuery';
@@ -490,7 +490,7 @@ export default function PatientHome() {
       )}
       </FadeIn>
 
-          <View style={{ height: uiTokens.cardGap * 3 }} />
+          <View style={{ height: dsLayout.cardGap * 3 }} />
         </ScrollView>
         </FadeIn>
       )}
@@ -507,14 +507,14 @@ function makeStyles(colors: DesignColors) {
   content: {},
   loadingContainer: {
     flex: 1,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     paddingTop: 80,
     backgroundColor: colors.background,
   },
 
   // ─── Header v2: mais compacto e limpo ───
   header: {
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     paddingBottom: 56,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -563,21 +563,21 @@ function makeStyles(colors: DesignColors) {
     gap: 10,
     marginTop: -40,
     marginBottom: 0,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     zIndex: 10,
     position: 'relative',
   },
 
   // ─── AI Banner ───
   aiBannerWrap: {
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     marginTop: 20,
   },
 
   // ─── Sections ───
   section: {
     marginTop: 24,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -615,7 +615,7 @@ function makeStyles(colors: DesignColors) {
   // ─── Actions v2 ───
   actionsSection: {
     marginTop: 28,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
   },
   actionsColumn: {
     flexDirection: 'column',
@@ -634,15 +634,11 @@ function makeStyles(colors: DesignColors) {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: dsBorderRadius.card,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
+    ...dsShadows.card,
   },
   recordIconWrap: {
     width: 44,
@@ -679,15 +675,11 @@ function makeStyles(colors: DesignColors) {
   // ─── Follow-up Card v2: mais limpo ───
   followUpCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: dsBorderRadius.card,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.primary + '20',
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
+    ...dsShadows.card,
   },
   followUpHeader: {
     flexDirection: 'row',

@@ -126,6 +126,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'PlusJakartaSans_700Bold',
     letterSpacing: 0.2,
   },
   textSm: {

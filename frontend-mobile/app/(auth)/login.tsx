@@ -19,11 +19,11 @@ import Constants from 'expo-constants';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
-import type { DesignColors } from '../../lib/designSystem';
+import type { DesignColors, DesignTokens } from '../../lib/designSystem';
 import { AppInput, AppButton } from '../../components/ui';
+import { FadeIn } from '../../components/ui/FadeIn';
 import { Logo } from '../../components/Logo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth, FORBIDDEN_MESSAGE_KEY } from '../../contexts/AuthContext';
@@ -46,13 +46,13 @@ export default function Login() {
   const { signIn, signInWithGoogle } = useAuth();
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
-  const { colors } = useAppTheme();
+  const { colors, shadows } = useAppTheme();
   const { isDark } = useColorSchemeContext();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
 
   const AUTH_GRADIENT: [string, string, ...string[]] = isDark
     ? [colors.background, colors.surfaceSecondary, colors.primaryDark]
-    : [theme.colors.background.secondary, theme.colors.accent.soft, theme.colors.accent.main];
+    : [colors.surfaceSecondary, colors.primarySoft, colors.primary];
 
   const { height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowHeight < SMALL_SCREEN_HEIGHT;
@@ -340,7 +340,9 @@ export default function Login() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            {content}
+            <FadeIn visible duration={300} fromY={12} fill={false}>
+              {content}
+            </FadeIn>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -348,7 +350,7 @@ export default function Login() {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   return StyleSheet.create({
   gradient: { flex: 1 },
   safeArea: { flex: 1 },
@@ -369,7 +371,7 @@ function makeStyles(colors: DesignColors) {
     paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 24,
-    ...theme.shadows.elevated,
+    ...shadows.elevated,
   },
   cardSmall: {
     paddingHorizontal: 20,

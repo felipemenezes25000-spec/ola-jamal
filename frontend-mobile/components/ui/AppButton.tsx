@@ -195,5 +195,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     textAlign: 'center',
   },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: 0.92 },
 });

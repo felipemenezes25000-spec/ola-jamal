@@ -14,9 +14,9 @@ import { useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { theme } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
+import { spacing } from '../../lib/designSystem';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
@@ -28,7 +28,7 @@ import { isValidCpf } from '../../lib/validation/cpf';
 import { fetchSpecialties, uploadCertificate } from '../../lib/api';
 import { SPECIALTIES_FALLBACK } from '../../lib/constants/specialties';
 
-const s = theme.spacing;
+const s = spacing;
 
 function onlyDigits(s: string) {
   return (s || '').replace(/\D/g, '');

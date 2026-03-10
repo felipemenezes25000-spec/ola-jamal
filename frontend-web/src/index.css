@@ -157,6 +157,10 @@ html {
     border: 1px solid rgba(255, 255, 255, 0.8);
     box-shadow: var(--shadow-md);
   }
+  .page-enter {
+    animation: animate-in-fade 0.25s ease-out, animate-in-slide-top 0.15s ease-out;
+    animation-fill-mode: both;
+  }
   .shadow-card {
     box-shadow: var(--shadow-card);
   }

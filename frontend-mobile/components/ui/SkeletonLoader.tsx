@@ -61,16 +61,16 @@ export function SkeletonLoader({
 }
 
 export function SkeletonCard({ style }: { style?: ViewStyle }) {
-  const { colors, shadows } = useAppTheme();
+  const { colors, shadows, borderRadius, spacing } = useAppTheme();
 
   return (
     <View
       style={[
         {
           backgroundColor: colors.surface,
-          borderRadius: 16,
-          padding: 16,
-          marginBottom: 10,
+          borderRadius: borderRadius.card,
+          padding: spacing.md,
+          marginBottom: spacing.sm + 2,
           ...shadows.card,
         },
         style,

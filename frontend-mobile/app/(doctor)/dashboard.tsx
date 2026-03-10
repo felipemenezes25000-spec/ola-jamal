@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
+import { layout as dsLayout } from '../../lib/designSystem';
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
 import { cacheRequest } from '../../lib/requestCache';
@@ -39,7 +40,7 @@ import { haptics } from '../../lib/haptics';
 import { showToast } from '../../components/ui/Toast';
 import { motionTokens } from '../../lib/ui/motion';
 
-const SCREEN_PAD = 20;
+const SCREEN_PAD = dsLayout.screenPaddingHorizontal;
 
 function isValidRequestItem(value: unknown): value is RequestResponseDto {
   if (!value || typeof value !== 'object') return false;
@@ -443,6 +444,7 @@ export default function DoctorDashboard() {
   ), [
     headerGradient, insets, colors, greetingName, displayFirst, dateStr,
     isConnected, stats, hasCertificate, shadows, borderRadius, router,
+    user.avatarUrl,
   ]);
 
   // ─── Empty State ───────────────────────────────────────────
@@ -531,17 +533,20 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'PlusJakartaSans_500Medium',
     marginBottom: 2,
   },
   doctorName: {
     fontSize: 24,
     fontWeight: '800',
+    fontFamily: 'PlusJakartaSans_700Bold',
     letterSpacing: -0.3,
     marginBottom: 4,
   },
   date: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: 'PlusJakartaSans_500Medium',
     textTransform: 'capitalize',
   },
   avatarBtn: {
@@ -577,6 +582,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
 
   // Metrics
@@ -606,11 +612,13 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 22,
     fontWeight: '800',
+    fontFamily: 'PlusJakartaSans_700Bold',
     letterSpacing: -0.5,
   },
   metricLabel: {
     fontSize: 11,
     fontWeight: '600',
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     letterSpacing: 0.2,
   },
   metricDivider: {

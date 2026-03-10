@@ -11,6 +11,8 @@ jest.mock('../../../lib/ui/useAppTheme', () => ({
     shadows: {
       card: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
     },
+    borderRadius: { card: 16 },
+    spacing: { md: 16, sm: 8 },
   }),
 }));
 

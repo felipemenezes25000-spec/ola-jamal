@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend-dotnet",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "dotnet run --project backend-dotnet/src/RenoveJa.Api"],
+      "port": 5000
+    },
+    {
+      "name": "frontend-web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd frontend-web && npm run dev"],
+      "port": 5173
+    },
+    {
+      "name": "frontend-mobile",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd frontend-mobile && npm run start"],
+      "port": 8081
+    }
+  ]
+}

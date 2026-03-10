@@ -123,7 +123,7 @@ export default function DoctorDashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight">
               {getGreeting()}, Dr. {firstName}
             </h1>
             <p className="text-muted-foreground mt-1 flex items-center gap-2">
@@ -162,7 +162,7 @@ export default function DoctorDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08 }}
                 >
-                  <Card className={`shadow-sm hover:shadow-md transition-all duration-200 border-border/50 ${stat.urgent ? 'ring-1 ring-orange-300' : ''}`}>
+                  <Card className={`shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 border-border/50 ${stat.urgent ? 'ring-1 ring-orange-300' : ''}`}>
                     <CardContent className="p-5">
                       <div className="flex items-center justify-between">
                         <div>

@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { uiTokens } from '../lib/ui/tokens';
 import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors, DesignTokens } from '../lib/designSystem';
+import { layout as dsLayout, borderRadius as dsBorderRadius } from '../lib/designSystem';
 import { StatusBadge } from './StatusBadge';
 import { getDisplayPrice } from '../lib/config/pricing';
 import { formatBRL, formatDateBR } from '../lib/utils/format';
@@ -153,10 +153,10 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
-      borderRadius: 16,
+      borderRadius: dsBorderRadius.card,
       borderWidth: 1,
       borderColor: colors.borderLight,
-      marginHorizontal: uiTokens.screenPaddingHorizontal,
+      marginHorizontal: dsLayout.screenPaddingHorizontal,
       marginBottom: 10,
       padding: 14,
       ...shadows.card,
@@ -165,8 +165,8 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
       marginHorizontal: 0,
     },
     pressed: {
-      transform: [{ scale: 0.98 }],
-      opacity: 0.9,
+      transform: [{ scale: 0.985 }],
+      opacity: 0.92,
     },
     iconContainer: {
       width: 42,

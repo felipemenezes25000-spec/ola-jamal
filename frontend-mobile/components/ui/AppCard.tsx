@@ -51,7 +51,7 @@ export function AppCard({
         onPress={onPress}
         style={({ pressed }) => [
           combinedStyles,
-          pressed && { opacity: 0.9, transform: [{ scale: 0.985 }] },
+          pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] },
         ]}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
