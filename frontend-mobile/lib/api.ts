@@ -19,6 +19,11 @@
  *   import { fetchRequests } from '../lib/api-requests';
  */
 
+import { fetchRequests, fetchRequestById } from './api-requests';
+import { fetchPaymentByRequest, fetchPayment, fetchPixCode } from './api-payments';
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from './api-notifications';
+import { fetchDoctorQueue } from './api-doctors';
+
 // Re-export UserDto for consumers that imported it from api.ts
 export type { UserDto } from '../types/database';
 
@@ -48,11 +53,6 @@ export { createVideoRoom, fetchVideoRoom, fetchVideoRoomByRequest } from './api-
 export { getMercadoPagoPublicKey, getIntegrationStatus } from './api-integrations';
 
 // ── Aliases (backward compat for screens) ───────────────────────
-import { fetchRequests, fetchRequestById } from './api-requests';
-import { fetchPaymentByRequest, fetchPayment, fetchPixCode } from './api-payments';
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from './api-notifications';
-import { fetchDoctorQueue } from './api-doctors';
-
 export function getRequests(
   params?: { page?: number; pageSize?: number; status?: string; type?: string },
   options?: { signal?: AbortSignal }
