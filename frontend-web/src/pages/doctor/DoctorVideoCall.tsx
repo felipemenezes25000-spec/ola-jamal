@@ -42,18 +42,15 @@ import { useVideoSignaling } from '@/hooks/useSignalR';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Loader2, ArrowLeft, User, ExternalLink, Clock, FileText,
+  Loader2, ArrowLeft, User, ExternalLink, FileText,
   Brain, Mic, Sparkles, AlertTriangle,
   CheckCircle2, Save, PhoneOff, Heart, Activity,
-  Stethoscope, Shield, Timer, Maximize2, Minimize2,
+  Stethoscope, Shield,
   MessageSquare, Lightbulb, GraduationCap,
 } from 'lucide-react';
-
-function formatTimer(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
+import { VideoTopBar, VideoFrame } from '@/components/doctor/video/VideoControls';
+import { TranscriptionPanel } from '@/components/doctor/video/TranscriptionPanel';
+import { ConsultationStats } from '@/components/doctor/video/ConsultationStats';
 
 interface AnamnesisData {
   queixa_principal?: string;
@@ -277,94 +274,27 @@ export default function DoctorVideoCall() {
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
       {/* ── Top Bar ── */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800 shrink-0">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost" size="icon"
-            onClick={() => {
-              if (consultationStarted) {
-                setFinishDialogOpen(true);
-              } else {
-                navigate(`/pedidos/${requestId}`);
-              }
-            }}
-            className="text-gray-400 hover:text-white hover:bg-gray-800"
-            aria-label="Voltar"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-
-          {/* Status indicators */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-sm text-gray-300 font-medium">Consulta em andamento</span>
-            </div>
-            {signalConnected && (
-              <Badge variant="outline" className="text-emerald-400 border-emerald-800 text-[10px] gap-1">
-                <Sparkles className="h-3 w-3" /> IA Ativa
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Timer */}
-        <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-sm ${
-          timeExceeded ? 'bg-red-900/50 text-red-400' :
-          timeWarning ? 'bg-amber-900/50 text-amber-400' :
-          'bg-gray-800 text-gray-300'
-        }`}>
-          <Timer className="h-3.5 w-3.5" />
-          <span>{formatTimer(timerSeconds)}</span>
-          {contractedMinutes && (
-            <span className="text-gray-500">/ {contractedMinutes}min</span>
-          )}
-        </div>
-
-        {/* Patient + actions */}
-        <div className="flex items-center gap-3">
-          {request && (
-            <div className="flex items-center gap-2 text-gray-400">
-              <User className="h-4 w-4" />
-              <span className="text-sm">{request.patientName}</span>
-            </div>
-          )}
-          <Button
-            variant="ghost" size="sm"
-            className="text-gray-400 hover:text-white hover:bg-gray-800 gap-1.5"
-            onClick={() => window.open(roomUrl, '_blank')}
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Nova aba
-          </Button>
-          <Button
-            size="sm"
-            className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
-            onClick={() => setFinishDialogOpen(true)}
-          >
-            <PhoneOff className="h-3.5 w-3.5" /> Encerrar
-          </Button>
-        </div>
-      </div>
+      <VideoTopBar
+        consultationStarted={consultationStarted}
+        timerSeconds={timerSeconds}
+        contractedMinutes={contractedMinutes}
+        patientName={request?.patientName}
+        roomUrl={roomUrl}
+        signalConnected={signalConnected}
+        timeExceeded={!!timeExceeded}
+        timeWarning={!!timeWarning}
+        onFinish={() => setFinishDialogOpen(true)}
+        onBack={() => navigate(`/pedidos/${requestId}`)}
+      />
 
       {/* ── Main Content: Video + AI Panel ── */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Video */}
-        <div className={`relative transition-all duration-300 ${isExpanded ? 'w-[40%]' : 'w-[60%]'}`}>
-          <iframe
-            src={roomUrl}
-            allow="camera; microphone; display-capture; autoplay; clipboard-write"
-            className="w-full h-full border-0"
-            title="Videochamada"
-            onLoad={handleIframeLoad}
-          />
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="absolute bottom-4 right-4 p-2 rounded-lg bg-gray-900/80 text-gray-400 hover:text-white transition-colors"
-            aria-label={isExpanded ? 'Expandir vídeo' : 'Expandir painel'}
-          >
-            {isExpanded ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-          </button>
-        </div>
+        <VideoFrame
+          roomUrl={roomUrl}
+          isExpanded={isExpanded}
+          onToggleExpand={() => setIsExpanded(!isExpanded)}
+          onIframeLoad={handleIframeLoad}
+        />
 
         {/* ── AI Clinical Panel ── */}
         <div className={`bg-gray-900 border-l border-gray-800 flex flex-col transition-all duration-300 ${isExpanded ? 'w-[60%]' : 'w-[40%]'}`}>
@@ -412,49 +342,7 @@ export default function DoctorVideoCall() {
 
             {/* ── Transcript Tab ── */}
             <TabsContent value="transcript" className="flex-1 overflow-auto p-4 m-0">
-              {transcript.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4">
-                    <Mic className="h-8 w-8 text-gray-600" />
-                  </div>
-                  <p className="text-sm text-gray-400 font-medium">Aguardando transcrição</p>
-                  <p className="text-xs text-gray-600 mt-1 max-w-xs">
-                    A transcrição em tempo real aparecerá aqui conforme a conversa acontece.
-                    Powered by OpenAI Whisper.
-                  </p>
-                  <div className="flex items-center gap-2 mt-4 px-3 py-1.5 rounded-full bg-gray-800 text-[10px] text-gray-500">
-                    <Shield className="h-3 w-3" />
-                    Resolução CFM 2.454/2026 — IA como auxílio
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {transcript.split('\n').filter(Boolean).map((line, i) => {
-                    const isMedico = line.startsWith('[Médico]');
-                    const isPaciente = line.startsWith('[Paciente]');
-                    const text = line.replace(/^\[(Médico|Paciente)\]\s*/, '');
-                    return (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`flex gap-3 ${isMedico ? 'justify-end' : ''}`}
-                      >
-                        <div className={`max-w-[85%] p-3 rounded-xl text-sm ${
-                          isMedico
-                            ? 'bg-primary/20 text-primary-foreground ml-auto'
-                            : 'bg-gray-800 text-gray-300'
-                        }`}>
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60">
-                            {isMedico ? 'Médico' : isPaciente ? 'Paciente' : 'Sistema'}
-                          </p>
-                          <p>{text}</p>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
+              <TranscriptionPanel transcript={transcript} />
             </TabsContent>
 
             {/* ── Anamnesis Tab ── */}
@@ -629,27 +517,12 @@ export default function DoctorVideoCall() {
 
           <div className="space-y-3">
             {/* Summary of what was captured */}
-            <div className="rounded-xl bg-muted p-4 space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resumo da consulta</p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Duração: {formatTimer(timerSeconds)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mic className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Transcrição: {transcript.length > 0 ? `${transcript.length} chars` : 'Não disponível'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Brain className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Anamnese: {filledFields > 0 ? `${filledFields} campos` : 'Não gerada'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Sugestões: {suggestions.length || 0}</span>
-                </div>
-              </div>
-            </div>
+            <ConsultationStats
+              timerSeconds={timerSeconds}
+              transcriptLength={transcript.length}
+              filledAnamnesisFields={filledFields}
+              suggestionsCount={suggestions.length}
+            />
 
             {/* CFM compliance notice */}
             <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-xs">
