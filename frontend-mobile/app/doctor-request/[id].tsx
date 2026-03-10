@@ -39,7 +39,7 @@ import { AnamnesisCard } from '../../components/prontuario/AnamnesisCard';
 import { ConductForm } from '../../components/prontuario/ConductForm';
 import { parseAnamnesis, parseSuggestions, parseEvidence, displayMedicamento, displayExame } from '../../lib/domain/anamnesis';
 
-export { cacheRequest } from '../../hooks/useDoctorRequest';
+export { cacheRequest } from '../../lib/requestCache';
 
 const TYPE_LABELS: Record<string, string> = { prescription: 'RECEITA', exam: 'EXAME', consultation: 'CONSULTA' };
 const HORIZONTAL_PAD = doctorDS.screenPaddingHorizontal;

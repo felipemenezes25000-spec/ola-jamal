@@ -24,7 +24,7 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { getRequests, getActiveCertificate } from '../../lib/api';
 import { RequestResponseDto } from '../../types/database';
-import { cacheRequest } from '../../hooks/useDoctorRequest';
+import { cacheRequest } from '../../lib/requestCache';
 
 import { AppEmptyState, SectionHeader } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';

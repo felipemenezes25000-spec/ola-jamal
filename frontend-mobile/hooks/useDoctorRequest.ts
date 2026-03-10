@@ -1,30 +1,24 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Alert, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import {
-  getRequestById,
-  approveRequest,
-  rejectRequest,
-  signRequest,
-  acceptConsultation,
-  updateConduct,
-  validatePrescription,
-} from '../lib/api';
-import { RequestResponseDto } from '../types/database';
-import { showToast } from '../components/ui/Toast';
-import { getApiErrorMessage } from '../lib/api-client';
-import { useRequestUpdated } from './useRequestUpdated';
+/**
+ * useDoctorRequest — Orchestrator hook for the doctor request detail screen.
+ *
+ * Composes:
+ * - requestCache (in-memory LRU for instant initial render)
+ * - useRequestActions (approve, reject, sign, accept handlers)
+ *
+ * Owns: data loading, form state (reject, sign, conduct), permission flags.
+ */
 
-const MAX_CACHE_SIZE = 50;
-const _requestCache = new Map<string, RequestResponseDto>();
-export function cacheRequest(r: RequestResponseDto) {
-  if (_requestCache.size >= MAX_CACHE_SIZE) {
-    // Remove o mais antigo (primeiro inserido)
-    const firstKey = _requestCache.keys().next().value;
-    if (firstKey) _requestCache.delete(firstKey);
-  }
-  _requestCache.set(r.id, r);
-}
+import { useState, useCallback, useEffect } from 'react';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { getRequestById, updateConduct } from '../lib/api';
+import type { RequestResponseDto } from '../types/database';
+import { showToast } from '../components/ui/Toast';
+import { useRequestUpdated } from './useRequestUpdated';
+import { useRequestActions } from './useRequestActions';
+import { getCachedRequest, cacheRequest } from '../lib/requestCache';
+
+// Re-export for backward compatibility (dashboard, [id].tsx, requests.tsx)
+export { cacheRequest } from '../lib/requestCache';
 
 export interface UseDoctorRequestReturn {
   request: RequestResponseDto | null;
@@ -67,13 +61,17 @@ export interface UseDoctorRequestReturn {
 
 export function useDoctorRequest(): UseDoctorRequestReturn {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const requestId = (Array.isArray(id) ? id[0] : id) ?? '';
-  const cached = _requestCache.get(requestId);
+  const cached = getCachedRequest(requestId);
+
+  // ── Data state ──
 
   const [request, setRequest] = useState<RequestResponseDto | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+
+  // ── Form state ──
+
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [certPassword, setCertPassword] = useState('');
@@ -81,7 +79,8 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
   const [conductNotes, setConductNotes] = useState('');
   const [includeConductInPdf, setIncludeConductInPdf] = useState(true);
   const [savingConduct, setSavingConduct] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+
+  // ── Data loading ──
 
   const loadData = useCallback(async () => {
     if (!requestId) return;
@@ -89,7 +88,7 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
       setLoadError(false);
       const fresh = await getRequestById(requestId);
       setRequest(fresh);
-      _requestCache.set(requestId, fresh);
+      cacheRequest(fresh);
     } catch {
       console.warn('Error loading request');
       if (!request) setLoadError(true);
@@ -103,11 +102,15 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
 
   useRequestUpdated(requestId || undefined, loadData);
 
+  // ── Sync conduct form with loaded request ──
+
   useEffect(() => {
     if (!request) return;
     setConductNotes(request.doctorConductNotes || '');
     setIncludeConductInPdf(request.includeConductInPdf ?? true);
   }, [request?.id, request?.doctorConductNotes, request?.includeConductInPdf, request]);
+
+  // ── Conduct save ──
 
   const handleSaveConduct = async () => {
     if (!requestId || !request) return;
@@ -118,150 +121,39 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
         includeConductInPdf,
       });
       setRequest(updated);
-      _requestCache.set(requestId, updated);
+      cacheRequest(updated);
       showToast({ message: 'Conduta salva no prontuário.', type: 'success' });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Falha ao salvar conduta. Tente novamente.';
-      showToast({
-        message,
-        type: 'error',
-      });
+      showToast({ message, type: 'error' });
     } finally {
       setSavingConduct(false);
     }
   };
 
-  const executeApprove = async () => {
-    if (!requestId) return;
-    setActionLoading(true);
-    try {
-      await approveRequest(requestId);
-      await loadData();
-      showToast({ message: 'Solicitação aprovada com sucesso!', type: 'success' });
-    } catch (e: unknown) {
-      showToast({ message: (e as Error)?.message || 'Falha ao aprovar.', type: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  // ── Action handlers (composed hook) ──
 
-  const handleApprove = () => {
-    if (Platform.OS === 'web') {
-      if (window.confirm('Confirma a aprovação?')) executeApprove();
-    } else {
-      Alert.alert('Aprovar', 'Confirma a aprovação?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Aprovar', onPress: executeApprove },
-      ]);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!rejectionReason.trim()) {
-      showToast({ message: 'Informe o motivo da rejeição.', type: 'warning' });
-      return;
-    }
-    if (!requestId) return;
-    setActionLoading(true);
-    try {
-      await rejectRequest(requestId, rejectionReason.trim());
-      loadData();
-      setShowRejectForm(false);
-      showToast({ message: 'Pedido rejeitado.', type: 'info' });
-    } catch (e: unknown) {
-      showToast({ message: (e as Error)?.message || 'Falha ao rejeitar.', type: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSign = async () => {
-    if (!certPassword.trim()) {
-      showToast({ message: 'Digite a senha do certificado.', type: 'warning' });
-      return;
-    }
-    if (!requestId || !request) return;
-    setActionLoading(true);
-    try {
-      const validation = await validatePrescription(requestId);
-      if (!validation.valid) {
-        const needsPatientProfile = (validation.missingFields ?? []).some(
-          (f) =>
-            f.includes('paciente.sexo') ||
-            f.includes('paciente.data_nascimento') ||
-            f.includes('paciente.endereço')
-        );
-        const needsDoctorProfile = (validation.missingFields ?? []).some(
-          (f) => f.includes('médico.endereço') || f.includes('médico.telefone')
-        );
-        const checklist = (validation.messages ?? []).join('\n• ');
-        const action = needsPatientProfile
-          ? 'O paciente precisa completar sexo, data de nascimento ou endereço no perfil.'
-          : needsDoctorProfile
-            ? 'Para assinar, é obrigatório preencher endereço e telefone profissional no seu perfil de médico.'
-            : 'Corrija os campos indicados antes de assinar.';
-
-        Alert.alert(
-          'Receita incompleta',
-          `${action}\n\n• ${checklist}`,
-          needsDoctorProfile
-            ? [
-                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as never) },
-                { text: 'OK', style: 'cancel' },
-              ]
-            : [{ text: 'OK' }]
-        );
-        setActionLoading(false);
-        return;
-      }
-
-      await signRequest(requestId, { pfxPassword: certPassword });
-      await loadData();
+  const {
+    actionLoading,
+    handleApprove,
+    handleReject,
+    handleSign,
+    handleAcceptConsultation,
+  } = useRequestActions({
+    requestId,
+    request,
+    rejectionReason,
+    certPassword,
+    loadData,
+    onRejectSuccess: () => setShowRejectForm(false),
+    onSignSuccess: () => {
       setShowSignForm(false);
       setCertPassword('');
-      showToast({ message: 'Documento assinado digitalmente!', type: 'success' });
-    } catch (e: unknown) {
-      setCertPassword('');
-      const err = e as { missingFields?: string[]; messages?: string[]; message?: string } | undefined;
-      if (err?.missingFields?.length || err?.messages?.length) {
-        const checklist = (err?.messages ?? [err?.message ?? 'Erro']).join('\n• ');
-        const needsDoctorProfile = (err?.missingFields ?? []).some(
-          (f: string) => f.includes('médico.endereço') || f.includes('médico.telefone')
-        );
-        Alert.alert(
-          'Receita incompleta',
-          needsDoctorProfile
-            ? `Para assinar, preencha endereço e telefone profissional no seu perfil de médico.\n\n• ${checklist}`
-            : `Verifique os campos obrigatórios:\n\n• ${checklist}`,
-          needsDoctorProfile
-            ? [
-                { text: 'IR AO MEU PERFIL', onPress: () => router.push('/(doctor)/profile' as never) },
-                { text: 'OK', style: 'cancel' },
-              ]
-            : [{ text: 'OK' }]
-        );
-      } else {
-        const message = getApiErrorMessage(e) || 'Senha incorreta ou erro na assinatura.';
-        showToast({ message, type: 'error' });
-      }
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    },
+    onSignError: () => setCertPassword(''),
+  });
 
-  const handleAcceptConsultation = async () => {
-    if (!requestId) return;
-    setActionLoading(true);
-    try {
-      await acceptConsultation(requestId);
-      loadData();
-      showToast({ message: 'Consulta aceita!', type: 'success' });
-    } catch (e: unknown) {
-      showToast({ message: (e as Error)?.message || 'Falha ao aceitar.', type: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  // ── Permission flags ──
 
   const canApprove = !!(request && (request.status === 'submitted' || request.status === 'in_review') && request.requestType !== 'consultation');
   const canReject = !!(request && (request.status === 'submitted' || request.status === 'in_review'));
