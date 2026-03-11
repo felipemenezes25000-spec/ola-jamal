@@ -318,11 +318,12 @@ Responda em um ÚNICO JSON válido, sem markdown, com EXATAMENTE estes campos:
     {
       "nome": "Genérico (DCB) + concentração. Ex: 'Amoxicilina 500mg'",
       "classe_terapeutica": "Classificação farmacológica. Ex: 'Antibiótico β-lactâmico — Aminopenicilina'",
-      "dose": "Dose por tomada",
+      "dose": "Dose por tomada. Ex: '500mg' ou '2 comprimidos de 500mg'",
       "via": "VO | IM | IV | SC | Tópica | Inalatória | Sublingual | Nasal",
-      "posologia": "Frequência. Ex: '8/8h por 7 dias'",
+      "posologia": "Frequência em linguagem clara. Ex: '1 comprimido de 8 em 8 horas' ou '2 comprimidos de 12 em 12 horas'",
       "duracao": "Ex: '7 dias', 'uso contínuo'",
-      "indicacao": "Justificativa clínica ligada ao caso",
+      "indicacao": "Indicado para [doença/CID]. Serve para [objetivo terapêutico]. Ex: 'Indicado para sinusite bacteriana. Trata a infecção e reduz secreção.'",
+      "melhora_esperada": "OBRIGATÓRIO quando confianca_cid=alta. Ex: 'Melhora dos sintomas em 2-3 dias; resolução em 7-10 dias'",
       "contraindicacoes": "Todas relevantes",
       "interacoes": "Interações com TODOS medicamentos que o paciente JÁ USA + interações graves conhecidas. Se paciente usa Losartana → avaliar hipotensão com IECA. Sempre cruzar.",
       "mecanismo_acao": "Como o medicamento atua. Ex: 'Inibe COX-1 e COX-2, reduzindo prostaglandinas → efeito analgésico/anti-inflamatório/antipirético'",
@@ -378,15 +379,25 @@ Responda em um ÚNICO JSON válido, sem markdown, com EXATAMENTE estes campos:
 
 ═══ REGRAS OBRIGATÓRIAS DE COMPLETUDE ═══
 
-MEDICAMENTOS (OBRIGATÓRIO 4-10, NUNCA menos de 4):
-- Tratamento ETIOLÓGICO (ex: antibiótico se infeccioso, antiviral se viral)
-- Tratamento SINTOMÁTICO (analgésico, antitérmico, antiemético, antidiarreico)
-- Tratamento ADJUVANTE (protetor gástrico se AINE, probiótico se ATB, antihistamínico se necessário)
+MEDICAMENTOS (MÍNIMO 2, PREFERIR 3 OU MAIS — SEMPRE COINCIDENTES COM O CASO):
+- OBRIGATÓRIO: TODOS os medicamentos devem ser COINCIDENTES com o CID, sintomas e quadro clínico. NUNCA sugerir medicamentos genéricos ou irrelevantes.
+- Mínimo 2 medicamentos; preferir 3 ou mais quando o caso permitir (etiologia + sintomático + adjuvante).
+- Contam como medicamentos: soro fisiológico (lavagem nasal, nebulização), sprays nasais, pomadas, colírios, soluções, suplementos — inclua quando indicado para o caso.
+- Tratamento ETIOLÓGICO (ex: antibiótico se infeccioso, antiviral se viral) — ligado ao CID
+- Tratamento SINTOMÁTICO (analgésico, antitérmico, antiemético, antidiarreico) — para os sintomas relatados
+- Tratamento ADJUVANTE (protetor gástrico se AINE, probiótico se ATB, antihistamínico se congestão) — quando indicado
 - PROFILAXIA quando indicada (vacina, profilaxia VTE, profilaxia de stress ulcer)
 - Campo "mecanismo_acao" OBRIGATÓRIO — como o fármaco age
 - Campos "ajuste_renal" e "ajuste_hepatico" — preencher quando houver necessidade
 - SEMPRE cruze interações com medicamentos_em_uso do paciente
-- Se transcript < 200 caracteres mas há queixa identificável, sugira medicamentos SINTOMÁTICOS básicos (analgésico, antitérmico)
+- Se transcript < 200 caracteres mas há queixa identificável, sugira 3+ medicamentos SINTOMÁTICOS básicos coincidentes (analgésico, antitérmico conforme sintomas)
+
+QUANDO confianca_cid = "alta" (doenças de alta prevalência: sinusite, faringite, otite, gripe, cistite, dermatite, etc.):
+- Formato OBRIGATÓRIO para cada medicamento: "X comprimidos de Xmg de [nome] de X em X horas por X dias"
+- Exemplo sinusite: "Amoxicilina 500mg — 1 comprimido de 8 em 8 horas por 7-10 dias. Indicado para sinusite bacteriana. Melhora em 2-3 dias; resolução em 7-10 dias."
+- Exemplo sintomático: "Paracetamol 750mg — 1 comprimido de 6 em 6 horas se dor/febre. Analgésico e antitérmico. Alívio em 30-60 min."
+- Campo "melhora_esperada" OBRIGATÓRIO: "Melhora em X dias" ou "Alívio em X horas" — orienta o paciente sobre expectativa
+- Campo "indicacao" deve incluir: doença/CID + objetivo ("serve para curar infecção", "reduz dor e febre")
 
 INTERAÇÕES CRUZADAS (OBRIGATÓRIO se paciente usa ≥1 medicamento):
 - Avaliar TODOS os pares: medicamento_em_uso × medicamento_sugerido E medicamento_sugerido × medicamento_sugerido
@@ -435,6 +446,7 @@ CID (OBRIGATÓRIO — SEMPRE TRAZER):
 4. Classificação de gravidade: SEMPRE preencha
 5. Alertas vermelhos: APENAS quando fundamentados
 6. Terminologia médica adequada e objetiva
+7. Medicamentos: MÍNIMO 2, preferir 3+. Incluir soro fisiológico, sprays, pomadas quando indicado. Todos COINCIDENTES com o caso.
 """;
     }
 
@@ -633,6 +645,7 @@ CID (OBRIGATÓRIO — SEMPRE TRAZER):
                         ["posologia"] = GetStr(item, "posologia"),
                         ["duracao"] = GetStr(item, "duracao"),
                         ["indicacao"] = GetStr(item, "indicacao"),
+                        ["melhora_esperada"] = GetStr(item, "melhora_esperada"),
                         ["contraindicacoes"] = GetStr(item, "contraindicacoes"),
                         ["interacoes"] = GetStr(item, "interacoes"),
                         ["mecanismo_acao"] = GetStr(item, "mecanismo_acao"),
@@ -649,8 +662,8 @@ CID (OBRIGATÓRIO — SEMPRE TRAZER):
                         medsList.Add(new Dictionary<string, object>
                         {
                             ["nome"] = str.Trim(), ["classe_terapeutica"] = "", ["dose"] = "",
-                            ["via"] = "", ["posologia"] = "", ["duracao"] = "", ["indicacao"] = "",
-                            ["contraindicacoes"] = "", ["interacoes"] = "", ["mecanismo_acao"] = "",
+                            ["via"] = "",                             ["posologia"] = "", ["duracao"] = "", ["indicacao"] = "",
+                            ["melhora_esperada"] = "", ["contraindicacoes"] = "", ["interacoes"] = "", ["mecanismo_acao"] = "",
                             ["ajuste_renal"] = "", ["ajuste_hepatico"] = "",
                             ["alerta_faixa_etaria"] = "", ["alternativa"] = ""
                         });

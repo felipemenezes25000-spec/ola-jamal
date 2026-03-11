@@ -375,12 +375,14 @@ public class MedicalRequest : AggregateRoot
 
     public void Approve(decimal price, string? notes = null, List<string>? medications = null, List<string>? exams = null)
     {
-        if (price <= 0)
-            throw new DomainException("Price must be greater than zero");
+        if (price < 0)
+            throw new DomainException("Price cannot be negative");
+        if (price <= 0 && RequestType != Enums.RequestType.Consultation)
+            throw new DomainException("Price must be greater than zero for non-consultation requests");
 
         if (RequestType == Enums.RequestType.Consultation)
         {
-            // Fluxo de consulta: SearchingDoctor | InReview | ConsultationReady -> ApprovedPendingPayment
+            // Fluxo de consulta: SearchingDoctor | InReview | ConsultationReady -> ApprovedPendingPayment ou Paid (se gratuito)
             if (Status != RequestStatus.SearchingDoctor && Status != RequestStatus.InReview && Status != RequestStatus.ConsultationReady)
                 throw new DomainException("Consultation must be searching doctor before approval");
         }
@@ -393,13 +395,16 @@ public class MedicalRequest : AggregateRoot
 #pragma warning restore CS0618
         }
 
-        Price = Money.Create(price);
+        Price = price == 0 ? Money.Zero : Money.Create(price);
         Notes = notes;
         if (medications != null)
             Medications = medications;
         if (exams != null)
             Exams = exams;
-        Status = RequestStatus.ApprovedPendingPayment;
+        // Consulta gratuita (banco de horas): vai direto para Paid, sem fluxo de pagamento
+        Status = (RequestType == Enums.RequestType.Consultation && price == 0)
+            ? RequestStatus.Paid
+            : RequestStatus.ApprovedPendingPayment;
         UpdatedAt = DateTime.UtcNow;
     }
 
@@ -487,12 +492,12 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    /// <summary>Define o preço e marca a consulta como pronta para pagamento.</summary>
     /// <summary>Define o preço efetivo da consulta (após descontos do banco de horas), sem alterar o status.</summary>
+    /// <remarks>Persiste Price=0 quando consulta é gratuita (banco de horas cobre 100%).</remarks>
     public void SetEffectivePrice(decimal price)
     {
         if (price < 0) throw new DomainException("Price cannot be negative");
-        Price = price > 0 ? Money.Create(price) : null;
+        Price = price == 0 ? Money.Zero : Money.Create(price);
         UpdatedAt = DateTime.UtcNow;
     }
 

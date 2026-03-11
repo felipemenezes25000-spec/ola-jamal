@@ -954,15 +954,19 @@ public class RequestService(
         }
 
         request.AssignDoctor(doctorId, doctor.Name);
-        request.Approve(effectivePrice > 0 ? effectivePrice : 1m);
+        request.Approve(effectivePrice);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var roomName = $"consultation-{request.Id}";
         var videoRoom = VideoRoom.Create(request.Id, roomName);
         videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 
-        await PublishRequestUpdatedAsync(request, "Médico aceitou — efetue o pagamento", cancellationToken);
-        await pushDispatcher.SendAsync(PushNotificationRules.ApprovedPendingPayment(request.PatientId, request.Id, RequestType.Consultation), cancellationToken);
+        var isFree = effectivePrice <= 0;
+        await PublishRequestUpdatedAsync(request, isFree ? "Médico aceitou — consulta confirmada" : "Médico aceitou — efetue o pagamento", cancellationToken);
+        if (isFree)
+            await pushDispatcher.SendAsync(PushNotificationRules.DoctorReady(request.PatientId, request.Id), cancellationToken);
+        else
+            await pushDispatcher.SendAsync(PushNotificationRules.ApprovedPendingPayment(request.PatientId, request.Id, RequestType.Consultation), cancellationToken);
 
         return (MapRequestToDto(request), MapVideoRoomToDto(videoRoom));
     }

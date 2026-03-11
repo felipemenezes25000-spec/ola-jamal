@@ -480,6 +480,12 @@ export default function DoctorVideoCall() {
                   <p className="text-[10px] text-gray-600 mb-3">
                     Suas notas são salvas no prontuário eletrônico. A IA pode ter gerado um rascunho baseado na consulta.
                   </p>
+                  <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-start gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                    <p className="text-xs text-gray-300">
+                      Oriente o paciente sobre como usar cada medicamento (dose, horários, duração) e quando retornar.
+                    </p>
+                  </div>
                 </div>
                 <Textarea
                   value={doctorNotes}
