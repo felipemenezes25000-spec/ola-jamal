@@ -47,6 +47,8 @@
   "cSpell.language": "en,pt",
   "cSpell.enabled": true,
 
+  "tailwindCSS.files.exclude": ["**/.claude/**", "**/node_modules/**"],
+
   "workbench.colorCustomizations": {
     "editorCursor.foreground": "#39FF14",
     "editor.lineHighlightBackground": "#39FF141F",

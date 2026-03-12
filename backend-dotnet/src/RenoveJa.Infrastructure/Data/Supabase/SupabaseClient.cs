@@ -142,7 +142,12 @@ public class SupabaseClient
         request.Headers.Accept.ParseAdd("application/json");
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                $"Supabase GET {table} failed: {response.StatusCode}. Url: {url}. Response: {(errorBody ?? "").Substring(0, Math.Min(2000, (errorBody ?? "").Length))}");
+        }
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
         var list = JsonSerializer.Deserialize<List<T>>(content, _jsonOptions);
