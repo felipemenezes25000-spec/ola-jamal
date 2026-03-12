@@ -204,7 +204,8 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             Exams = model.Exams,
             ExamImages = model.ExamImages,
             Symptoms = model.Symptoms,
-            Price = model.Price,
+            // Envia null em vez de 0: constraint requests_price_positive rejeita 0 (consultas gratuitas via banco de horas)
+            Price = model.Price == 0m ? null : model.Price,
             Notes = model.Notes,
             RejectionReason = model.RejectionReason,
             AccessCode = model.AccessCode,
