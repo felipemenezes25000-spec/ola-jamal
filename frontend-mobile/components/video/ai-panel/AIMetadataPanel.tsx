@@ -10,10 +10,9 @@ import type { PerguntaSugerida, EvidenceItem, PanelColors } from './types';
 import { makeStyles } from './types';
 
 interface AIMetadataPanelProps {
-  activeTab: 'perguntas' | 'historico' | 'evidencias';
+  activeTab: 'perguntas' | 'evidencias';
   perguntasSugeridas: PerguntaSugerida[];
   lacunasAnamnese: string[];
-  suggestions: string[];
   filteredEvidence: EvidenceItem[];
   expandedEvidence: Set<number>;
   toggleEvidenceExpand: (idx: number) => void;
@@ -25,7 +24,6 @@ export function AIMetadataPanel({
   activeTab,
   perguntasSugeridas,
   lacunasAnamnese,
-  suggestions,
   filteredEvidence,
   expandedEvidence,
   toggleEvidenceExpand,
@@ -128,27 +126,6 @@ export function AIMetadataPanel({
           </Text>
         </View>
       </>
-    );
-  }
-
-  if (activeTab === 'historico') {
-    return (
-      <View style={S.sec}>
-        <View style={S.secH}>
-          <Ionicons name="bulb" size={14} color={colors.primary} />
-          <Text style={[S.secT, { color: colors.primary }]}>SUGESTÕES CLÍNICAS</Text>
-        </View>
-        {(suggestions.length > 0 ? suggestions : ['Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta.']).map((s, i) => {
-          const str = typeof s === 'string' ? s : '';
-          const red = str.startsWith('\uD83D\uDEA8');
-          return (
-            <View key={i} style={[S.sugItem, red && S.sugDng]}>
-              <Ionicons name={red ? 'alert-circle' : 'bulb-outline'} size={14} color={red ? colors.error : colors.primary} />
-              <Text style={[S.sugTxt, red && { color: colors.error }]}>{str.replace('\uD83D\uDEA8 ', '')}</Text>
-            </View>
-          );
-        })}
-      </View>
     );
   }
 

@@ -243,6 +243,24 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </button>
             )}
 
+            {suggestions.length > 0 && (
+              <div className="p-3 rounded-xl border border-primary/20 bg-primary/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-primary text-xs font-bold uppercase tracking-wider">Resumo da IA</span>
+                </div>
+                {suggestions.map((s, i) => {
+                  const text = typeof s === 'string' ? s : (s?.text ?? s?.suggestion ?? '');
+                  if (!text) return null;
+                  return (
+                    <div key={i} className="flex gap-2 text-sm text-gray-200">
+                      <span className="text-primary font-bold shrink-0">•</span>
+                      <span>{text}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <AIIndicators
               gravidade={gravidade}
               denominadorComum={denominadorComum}
@@ -271,12 +289,11 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
           </>
         )}
 
-        {(activeTab === 'perguntas' || activeTab === 'historico' || activeTab === 'evidencias') && (
+        {(activeTab === 'perguntas' || activeTab === 'evidencias') && (
           <AIMetadataPanel
             activeTab={activeTab}
             perguntasSugeridas={perguntasSugeridas}
             lacunasAnamnese={lacunasAnamnese}
-            suggestions={suggestions}
             filteredEvidence={filteredEvidence}
             expandedEvidence={expandedEvidence}
             toggleEvidenceExpand={toggleEvidenceExpand}

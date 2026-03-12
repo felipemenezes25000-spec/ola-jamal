@@ -73,8 +73,6 @@ public class MercadoPagoService(
         // Log request completo
         logger.LogInformation("[MP-REQUEST] POST {Url}, CorrelationId={CorrelationId}, IdempotencyKey={IdempotencyKey}, Payload={Payload}",
             requestUrl, correlationId ?? "null", idempotencyKey, json);
-        Console.WriteLine($"[MP-REQUEST] CorrelationId={correlationId ?? "null"}, Url={requestUrl}, Payload={json}");
-
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         var response = await client.PostAsync(requestUrl, content, cancellationToken);
 
@@ -84,8 +82,6 @@ public class MercadoPagoService(
 
         logger.LogInformation("[MP-RESPONSE] Status={Status}, CorrelationId={CorrelationId}, BodyLength={Length}, Headers={Headers}",
             (int)response.StatusCode, correlationId ?? "null", responseBody.Length, responseHeaders);
-        Console.WriteLine($"[MP-RESPONSE] CorrelationId={correlationId ?? "null"}, Status={(int)response.StatusCode}, BodyLength={responseBody.Length}");
-
         if (!response.IsSuccessStatusCode)
         {
             var isUnauth = response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
@@ -304,8 +300,6 @@ public class MercadoPagoService(
         // Log request completo
         logger.LogInformation("[MP-REQUEST] POST {Url}, CorrelationId={CorrelationId}, IdempotencyKey={IdempotencyKey}, Payload={Payload}",
             requestUrl, correlationId ?? "null", idempotencyKey, json);
-        Console.WriteLine($"[MP-REQUEST] CorrelationId={correlationId ?? "null"}, Url={requestUrl}, Payload={json}");
-
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         var response = await client.PostAsync(requestUrl, content, cancellationToken);
 
@@ -315,8 +309,6 @@ public class MercadoPagoService(
 
         logger.LogInformation("[MP-RESPONSE] Status={Status}, CorrelationId={CorrelationId}, BodyLength={Length}, Headers={Headers}",
             (int)response.StatusCode, correlationId ?? "null", responseBody.Length, responseHeaders);
-        Console.WriteLine($"[MP-RESPONSE] CorrelationId={correlationId ?? "null"}, Status={(int)response.StatusCode}, BodyLength={responseBody.Length}");
-
         if (!response.IsSuccessStatusCode)
         {
             var isUnauth = response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
@@ -387,9 +379,17 @@ public class MercadoPagoService(
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         var idempotencyKey = Guid.NewGuid().ToString();
         client.DefaultRequestHeaders.Add("X-Idempotency-Key", idempotencyKey);
+
+        logger.LogInformation("[MP-REQUEST] POST {Url}, CorrelationId={CorrelationId}, IdempotencyKey={IdempotencyKey}, Payload={Payload}",
+            requestUrl, correlationId ?? "null", idempotencyKey, json);
+
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         var response = await client.PostAsync(requestUrl, content, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        var responseHeaders = string.Join("; ", response.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
+
+        logger.LogInformation("[MP-RESPONSE] Status={Status}, CorrelationId={CorrelationId}, BodyLength={Length}, Headers={Headers}",
+            (int)response.StatusCode, correlationId ?? "null", responseBody.Length, responseHeaders);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -508,7 +508,6 @@ public class MercadoPagoService(
         // Log request completo
         logger.LogInformation("[MP-REQUEST] POST {Url}, CorrelationId={CorrelationId}, Payload={Payload}",
             requestUrl, correlationId ?? "null", json);
-        Console.WriteLine($"[MP-REQUEST] CorrelationId={correlationId ?? "null"}, Url={requestUrl}, Payload={json}");
 
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         var response = await client.PostAsync(requestUrl, content, cancellationToken);
@@ -518,7 +517,6 @@ public class MercadoPagoService(
 
         logger.LogInformation("[MP-RESPONSE] Status={Status}, CorrelationId={CorrelationId}, BodyLength={Length}, Headers={Headers}",
             (int)response.StatusCode, correlationId ?? "null", responseBody.Length, responseHeaders);
-        Console.WriteLine($"[MP-RESPONSE] CorrelationId={correlationId ?? "null"}, Status={(int)response.StatusCode}, BodyLength={responseBody.Length}");
 
         if (!response.IsSuccessStatusCode)
         {
@@ -570,7 +568,6 @@ public class MercadoPagoService(
             if (!string.IsNullOrEmpty(status) && status.Equals("rejected", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(statusDetail))
             {
                 logger.LogWarning("MP pagamento {PaymentId} rejeitado. Motivo: {StatusDetail}", paymentId, statusDetail);
-                Console.WriteLine($"[MP-REJECTED] PaymentId={paymentId}, status_detail={statusDetail}");
             }
             return status;
         }

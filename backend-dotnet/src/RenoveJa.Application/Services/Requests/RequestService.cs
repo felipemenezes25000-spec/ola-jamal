@@ -537,27 +537,23 @@ public class RequestService(
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("[GetUserRequests] userId={UserId}", userId);
-        Console.WriteLine($"[GetUserRequests] userId={userId}");
 
         // Check if user is a doctor
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         logger.LogInformation("[GetUserRequests] user from DB: Id={UserId}, Role={Role}, Email={Email}",
             user?.Id, user?.Role.ToString(), user?.Email ?? "(null)");
-        Console.WriteLine($"[GetUserRequests] user from DB: Id={user?.Id}, Role={user?.Role}, Email={user?.Email ?? "(null)"}");
 
         List<MedicalRequest> requests;
 
         if (user?.Role == UserRole.Doctor)
         {
             logger.LogInformation("[GetUserRequests] branch: Doctor - fetching assigned + available (1 query for queue)");
-            Console.WriteLine("[GetUserRequests] branch: Doctor - fetching assigned + available");
 
             var doctorRequests = await requestRepository.GetByDoctorIdAsync(userId, cancellationToken);
             var available = await requestRepository.GetAvailableForQueueAsync(cancellationToken);
 
             logger.LogInformation("[GetUserRequests] doctor: assignedCount={Assigned}, availableInQueue={Available}",
                 doctorRequests.Count, available.Count);
-            Console.WriteLine($"[GetUserRequests] doctor: assigned={doctorRequests.Count}, available={available.Count}");
 
             requests = doctorRequests.Concat(available)
                 .DistinctBy(r => r.Id)
@@ -569,10 +565,8 @@ public class RequestService(
         else
         {
             logger.LogInformation("[GetUserRequests] branch: Patient (or user not found) - fetching by patient_id");
-            Console.WriteLine("[GetUserRequests] branch: Patient (or user not found)");
             requests = await requestRepository.GetByPatientIdAsync(userId, cancellationToken);
             logger.LogInformation("[GetUserRequests] patient: totalRequests={Total}", requests.Count);
-            Console.WriteLine($"[GetUserRequests] patient: totalRequests={requests.Count}");
         }
 
         if (!string.IsNullOrWhiteSpace(status))

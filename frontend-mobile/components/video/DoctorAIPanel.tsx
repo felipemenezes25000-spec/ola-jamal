@@ -191,7 +191,7 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
             accessibilityState={{ selected: activeTab === tab.key }}
           >
             <Ionicons
-              name={tab.icon as 'document-text' | 'help-circle' | 'bulb' | 'library'}
+              name={tab.icon as 'document-text' | 'help-circle' | 'library'}
               size={14}
               color={activeTab === tab.key ? colors.primary : colors.textMuted}
             />
@@ -228,6 +228,25 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </TouchableOpacity>
             )}
 
+            {suggestions.length > 0 && (
+              <View style={[S.sec, { padding: 10, backgroundColor: colors.primarySoft, borderRadius: 10, borderWidth: 1, borderColor: colors.primary + '25' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <Ionicons name="bulb" size={14} color={colors.primary} />
+                  <Text style={[S.secT, { color: colors.primary }]}>RESUMO DA IA</Text>
+                </View>
+                {suggestions.map((s, i) => {
+                  const text = typeof s === 'string' ? s : String((s as { text?: string; suggestion?: string })?.text ?? (s as { text?: string; suggestion?: string })?.suggestion ?? '');
+                  if (!text) return null;
+                  return (
+                    <View key={i} style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
+                      <Text style={{ fontSize: 10, color: colors.primary, fontWeight: '700' }}>•</Text>
+                      <Text style={{ fontSize: 12, color: colors.text, flex: 1 }}>{text}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
             <AIIndicators
               gravidade={gravidade}
               denominadorComum={denominadorComum}
@@ -260,13 +279,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
           </>
         )}
 
-        {/* Perguntas / Sugestões / Evidências tabs */}
-        {(activeTab === 'perguntas' || activeTab === 'historico' || activeTab === 'evidencias') && (
+        {/* Perguntas / Evidências tabs */}
+        {(activeTab === 'perguntas' || activeTab === 'evidencias') && (
           <AIMetadataPanel
             activeTab={activeTab}
             perguntasSugeridas={perguntasSugeridas}
             lacunasAnamnese={lacunasAnamnese}
-            suggestions={suggestions}
             filteredEvidence={filteredEvidence}
             expandedEvidence={expandedEvidence}
             toggleEvidenceExpand={toggleEvidenceExpand}

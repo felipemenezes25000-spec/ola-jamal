@@ -29,8 +29,8 @@ export const VideoCallControls = React.memo(function VideoCallControls({
   colors, insetBottom, isMuted, isCameraOff, isDoctor, ending, hasPip,
   onToggleMute, onToggleCamera, onFlipCamera, onEnd, onEnterPip,
 }: VideoCallControlsProps) {
-  // Cor fixa escura — garante contraste em todos os dispositivos (evita botões brancos invisíveis)
-  const btnBg = '#1E293B';
+  // Cor escura para contraste sobre overlay de vídeo (usa surface do tema para consistência com dark mode)
+  const btnBg = colors.surfaceSecondary;
 
   return (
     <View style={[S.ctrl, { paddingBottom: insetBottom + 12 }]}>
@@ -38,7 +38,7 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         <TouchableOpacity style={[S.cb, { backgroundColor: btnBg }]} onPress={onEnterPip}
           accessibilityRole="button" accessibilityLabel="Minimizar em janela flutuante">
           <Ionicons name="contract-outline" size={22} color={colors.white} />
-          <Text style={S.cLbl}>Minimizar</Text>
+          <Text style={[S.cLbl, { color: colors.white }]}>Minimizar</Text>
         </TouchableOpacity>
       )}
       <TouchableOpacity
@@ -48,7 +48,7 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         accessibilityLabel={isMuted ? 'Microfone mudo, toque para ativar' : 'Microfone ativo, toque para mutar'}
       >
         <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={22} color={colors.white} />
-        <Text style={S.cLbl}>{isMuted ? 'Mudo' : 'Mic'}</Text>
+        <Text style={[S.cLbl, { color: colors.white }]}>{isMuted ? 'Mudo' : 'Mic'}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[S.cb, { backgroundColor: isCameraOff ? 'rgba(239,68,68,0.6)' : btnBg }]}
@@ -57,12 +57,12 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         accessibilityLabel={isCameraOff ? 'Câmera desligada' : 'Câmera ligada'}
       >
         <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={22} color={colors.white} />
-        <Text style={S.cLbl}>{isCameraOff ? 'Off' : 'Câm'}</Text>
+        <Text style={[S.cLbl, { color: colors.white }]}>{isCameraOff ? 'Off' : 'Câm'}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[S.cb, { backgroundColor: btnBg }]} onPress={onFlipCamera}
         accessibilityRole="button" accessibilityLabel="Virar câmera">
         <Ionicons name="camera-reverse-outline" size={22} color={colors.white} />
-        <Text style={S.cLbl}>Virar</Text>
+        <Text style={[S.cLbl, { color: colors.white }]}>Virar</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[S.cb, S.endCb, { backgroundColor: colors.destructive }]}
@@ -74,7 +74,7 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         ) : (
           <Ionicons name="call" size={22} color={colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
         )}
-        <Text style={S.cLbl}>{isDoctor ? 'Encerrar' : 'Sair'}</Text>
+        <Text style={[S.cLbl, { color: colors.white }]}>{isDoctor ? 'Encerrar' : 'Sair'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -88,5 +88,5 @@ const S = StyleSheet.create({
   },
   cb: { width: 56, height: 64, borderRadius: 16, justifyContent: 'center', alignItems: 'center', gap: 4 },
   endCb: {},
-  cLbl: { fontSize: 12, color: '#FFFFFF', fontWeight: '600' },
+  cLbl: { fontSize: 12, fontWeight: '600' },
 });

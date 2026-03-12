@@ -80,7 +80,7 @@ export function useVideoCallEvents(
       const conn = builder.build();
 
       conn.on('TranscriptUpdate', (data: any) => {
-        const text = data?.fullText ?? data?.FullText ?? '';
+        const text = data?.fullText ?? data?.FullText ?? data?.fullTranscript ?? '';
         if (text) {
           setTranscript(text);
           setIsAiActive(true);
@@ -94,7 +94,8 @@ export function useVideoCallEvents(
       });
 
       conn.on('SuggestionUpdate', (data: any) => {
-        const items = data?.suggestions ?? data?.Suggestions ?? [];
+        // Backend envia SuggestionUpdateDto(Items) — JSON camelCase: items
+        const items = data?.items ?? data?.Items ?? data?.suggestions ?? data?.Suggestions ?? [];
         if (Array.isArray(items)) setSuggestions(items);
       });
 

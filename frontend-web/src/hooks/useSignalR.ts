@@ -143,20 +143,23 @@ export function useVideoSignaling(requestId: string | undefined) {
         .configureLogging(sr.LogLevel.Warning)
         .build();
 
-      connection.on('TranscriptUpdate', (data: { fullText?: string; fullTranscript?: string }) => {
-        setTranscript(data.fullText ?? data.fullTranscript ?? '');
+      connection.on('TranscriptUpdate', (data: { fullText?: string; FullText?: string; fullTranscript?: string }) => {
+        setTranscript(data.fullText ?? data.FullText ?? data.fullTranscript ?? '');
       });
 
-      connection.on('AnamnesisUpdate', (data: { anamnesisJson: string }) => {
-        setAnamnesis(data.anamnesisJson);
+      connection.on('AnamnesisUpdate', (data: { anamnesisJson?: string; AnamnesisJson?: string }) => {
+        setAnamnesis(data.anamnesisJson ?? data.AnamnesisJson ?? null);
       });
 
-      connection.on('SuggestionUpdate', (data: { suggestions?: unknown[]; items?: unknown[] }) => {
-        setSuggestions(data.suggestions ?? data.items ?? []);
+      connection.on('SuggestionUpdate', (data: { items?: unknown[]; Items?: unknown[]; suggestions?: unknown[] }) => {
+        // Backend envia SuggestionUpdateDto(Items) — JSON camelCase: items
+        const items = data.items ?? data.Items ?? data.suggestions ?? [];
+        setSuggestions(Array.isArray(items) ? items : []);
       });
 
-      connection.on('EvidenceUpdate', (data: { evidence?: unknown[]; items?: unknown[] }) => {
-        setEvidence(data.evidence ?? data.items ?? []);
+      connection.on('EvidenceUpdate', (data: { items?: unknown[]; Items?: unknown[]; evidence?: unknown[] }) => {
+        const items = data.items ?? data.Items ?? data.evidence ?? [];
+        setEvidence(Array.isArray(items) ? items : []);
       });
 
       try {

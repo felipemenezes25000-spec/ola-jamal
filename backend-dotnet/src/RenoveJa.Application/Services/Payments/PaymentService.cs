@@ -158,7 +158,6 @@ public class PaymentService(
 
         logger.LogInformation("[PAYMENT-ATTEMPT] Iniciando criação de pagamento PIX. CorrelationId={CorrelationId}, RequestId={RequestId}, UserId={UserId}, Amount={Amount}",
             correlationId, requestId, userId, amount);
-        Console.WriteLine($"[PAYMENT-ATTEMPT] CorrelationId={correlationId}, RequestId={requestId}, UserId={userId}, Amount={amount}");
 
         PaymentAttempt? attempt = null;
         try
@@ -208,7 +207,6 @@ public class PaymentService(
 
             logger.LogInformation("[PAYMENT-ATTEMPT] Pagamento PIX criado com sucesso. CorrelationId={CorrelationId}, PaymentId={PaymentId}, MercadoPagoPaymentId={MpPaymentId}",
                 correlationId, payment.Id, pixResult.ExternalId);
-            Console.WriteLine($"[PAYMENT-ATTEMPT] Sucesso. CorrelationId={correlationId}, PaymentId={payment.Id}, MpPaymentId={pixResult.ExternalId}");
 
             await CreateNotificationAsync(
                 userId,
@@ -249,7 +247,6 @@ public class PaymentService(
 
             logger.LogError(ex, "[PAYMENT-ATTEMPT] Falha ao criar pagamento PIX. CorrelationId={CorrelationId}, RequestId={RequestId}",
                 correlationId, requestId);
-            Console.WriteLine($"[PAYMENT-ATTEMPT] Falha. CorrelationId={correlationId}, Error={ex.Message}");
             throw;
         }
     }
@@ -507,25 +504,20 @@ public class PaymentService(
             return;
 
         logger.LogInformation("[WEBHOOK-PROCESS] Processando webhook. Action={Action}, PaymentId={PaymentId}", action ?? "(null/topic)", mpPaymentId);
-        Console.WriteLine($"[WEBHOOK-PROCESS] Action={action ?? "(null/topic)"}, PaymentId={mpPaymentId}");
 
         var payment = await paymentRepository.GetByExternalIdAsync(mpPaymentId, cancellationToken);
         logger.LogInformation("[WEBHOOK-PROCESS] GetByExternalId({MpPaymentId}) => {Found}", mpPaymentId, payment != null ? $"PaymentId={payment.Id}" : "null");
-        Console.WriteLine($"[WEBHOOK-PROCESS] GetByExternalId({mpPaymentId}) => {(payment != null ? $"PaymentId={payment.Id}" : "null")}");
 
         if (payment == null)
         {
             logger.LogInformation("[WEBHOOK-PROCESS] Buscando detalhes do pagamento no MP para encontrar external_reference...");
-            Console.WriteLine("[WEBHOOK-PROCESS] Buscando detalhes no MP...");
             var details = await mercadoPagoService.GetPaymentDetailsAsync(mpPaymentId, cancellationToken);
             logger.LogInformation("[WEBHOOK-PROCESS] MP details: ExternalReference={ExtRef}", details?.ExternalReference ?? "null");
-            Console.WriteLine($"[WEBHOOK-PROCESS] MP details: ExternalReference={details?.ExternalReference ?? "null"}");
             if (details != null && !string.IsNullOrEmpty(details.ExternalReference) &&
                 Guid.TryParse(details.ExternalReference, out var requestIdFromExt))
             {
                 payment = await paymentRepository.GetByRequestIdAsync(requestIdFromExt, cancellationToken);
                 logger.LogInformation("[WEBHOOK-PROCESS] GetByRequestId({RequestId}) => {Found}", requestIdFromExt, payment != null ? $"PaymentId={payment.Id}" : "null");
-                Console.WriteLine($"[WEBHOOK-PROCESS] GetByRequestId({requestIdFromExt}) => {(payment != null ? $"PaymentId={payment.Id}" : "null")}");
                 if (payment != null)
                 {
                     payment.SetExternalId(mpPaymentId);
@@ -537,30 +529,25 @@ public class PaymentService(
         if (payment == null)
         {
             logger.LogWarning("[WEBHOOK-PROCESS] Pagamento NÃO encontrado para MpPaymentId={MpPaymentId}. Ignorando.", mpPaymentId);
-            Console.WriteLine($"[WEBHOOK-PROCESS] Pagamento NÃO encontrado para {mpPaymentId}. Ignorando.");
             return;
         }
 
         if (!payment.IsPending())
         {
             logger.LogInformation("[WEBHOOK-PROCESS] Pagamento já não está pendente. Status atual. PaymentId={PaymentId}", payment.Id);
-            Console.WriteLine($"[WEBHOOK-PROCESS] Pagamento já não pendente. PaymentId={payment.Id}");
             return;
         }
 
         // Verify payment status with MercadoPago API
         logger.LogInformation("[WEBHOOK-PROCESS] Verificando status real no MP API para pagamento {MpPaymentId}...", mpPaymentId);
-        Console.WriteLine($"[WEBHOOK-PROCESS] Verificando status no MP para {mpPaymentId}...");
         var realStatus = await mercadoPagoService.GetPaymentStatusAsync(mpPaymentId, cancellationToken);
         if (string.IsNullOrEmpty(realStatus))
         {
             logger.LogWarning("[WEBHOOK-PROCESS] Não foi possível verificar status do pagamento {PaymentId} na API do MP", mpPaymentId);
-            Console.WriteLine($"[WEBHOOK-PROCESS] FALHA ao verificar status no MP para {mpPaymentId}");
             return;
         }
 
         logger.LogInformation("[WEBHOOK-PROCESS] Pagamento {PaymentId} status real do MP = {Status}", mpPaymentId, realStatus);
-        Console.WriteLine($"[WEBHOOK-PROCESS] Status real do MP para {mpPaymentId} = {realStatus}");
 
         if (realStatus.Equals("approved", StringComparison.OrdinalIgnoreCase))
         {

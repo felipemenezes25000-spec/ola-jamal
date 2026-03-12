@@ -1,10 +1,9 @@
 /**
- * AIMetadataPanel — Tabs Perguntas, Sugestões e Evidências.
+ * AIMetadataPanel — Tabs Perguntas e Evidências.
  */
 import {
   HelpCircle,
   AlertCircle,
-  Lightbulb,
   Library,
   Flag,
   GitBranch,
@@ -19,10 +18,9 @@ import {
 import type { PerguntaSugerida, EvidenceItem } from './types';
 
 interface AIMetadataPanelProps {
-  activeTab: 'perguntas' | 'historico' | 'evidencias';
+  activeTab: 'perguntas' | 'evidencias';
   perguntasSugeridas: PerguntaSugerida[];
   lacunasAnamnese: string[];
-  suggestions: (string | { text?: string; suggestion?: string })[];
   filteredEvidence: EvidenceItem[];
   expandedEvidence: Set<number>;
   toggleEvidenceExpand: (idx: number) => void;
@@ -33,7 +31,6 @@ export function AIMetadataPanel({
   activeTab,
   perguntasSugeridas,
   lacunasAnamnese,
-  suggestions,
   filteredEvidence,
   expandedEvidence,
   toggleEvidenceExpand,
@@ -139,35 +136,6 @@ export function AIMetadataPanel({
           </p>
         </div>
       </>
-    );
-  }
-
-  if (activeTab === 'historico') {
-    const items = suggestions.length > 0 ? suggestions : ['Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta.'];
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Lightbulb className="h-3.5 w-3.5 text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Sugestões Clínicas</span>
-        </div>
-        {items.map((s, i) => {
-          const str = typeof s === 'string' ? s : s.text ?? s.suggestion ?? JSON.stringify(s);
-          const red = str.startsWith('🚨');
-          return (
-            <div
-              key={i}
-              className={`flex gap-2 items-start p-2 rounded-lg ${red ? 'bg-red-950/30' : 'bg-gray-800/30'}`}
-            >
-              {red ? (
-                <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
-              ) : (
-                <Lightbulb className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-              )}
-              <p className={`text-sm ${red ? 'text-red-400' : 'text-primary'}`}>{str.replace('🚨 ', '')}</p>
-            </div>
-          );
-        })}
-      </div>
     );
   }
 

@@ -490,7 +490,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     color: colors.primary,
   },
   registerPill: {
-    backgroundColor: '#E3F4FF',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 10,

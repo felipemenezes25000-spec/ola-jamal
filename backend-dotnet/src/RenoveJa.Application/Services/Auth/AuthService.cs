@@ -163,6 +163,8 @@ public class AuthService(
 
     /// <summary>
     /// Remove doctor_profile e user (rollback quando falha criação de token no registro de médico).
+    /// NOTA: Atualmente não é chamado — RegisterDoctorAsync não emite token e não tem passos pós-DoctorProfile que possam falhar.
+    /// Reservado para uso futuro se houver fluxo que crie token/notificação após DoctorProfile e precise de rollback completo.
     /// </summary>
     private async Task RollbackDoctorRegistrationAsync(Guid userId, Guid doctorProfileId, CancellationToken cancellationToken)
     {
