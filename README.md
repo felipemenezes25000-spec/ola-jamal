@@ -16,6 +16,7 @@ Plataforma de telemedicina para **renovação de receitas**, **pedidos de exame*
 | **Vídeo** | Daily.co |
 | **IA** | OpenAI GPT-4o, Deepgram |
 | **Assinatura** | ICP-Brasil (PAdES) |
+| **Monitoramento** | Sentry (erros + logs estruturados) |
 
 ---
 
@@ -32,7 +33,9 @@ ola-jamal/
 │   ├── architecture/   # Arquitetura e fluxos
 │   ├── compliance/     # LGPD, contratos
 │   ├── deploy/         # Deploy (Vercel, Render)
-│   └── setup/          # Configuração inicial
+│   ├── setup/          # Configuração inicial
+│   ├── technical/      # Convenções técnicas (logs, etc.)
+│   └── infra/          # Migrations, Supabase
 └── scripts/            # Scripts utilitários (FCM, testes)
 ```
 
@@ -83,10 +86,11 @@ docker-compose up --build
 
 | Módulo | Principais variáveis |
 |--------|----------------------|
-| **Backend** | `Supabase__Url`, `Supabase__ServiceKey`, `OpenAI__ApiKey`, `MercadoPago__AccessToken` |
-| **Mobile** | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` |
+| **Backend** | `Supabase__Url`, `Supabase__ServiceKey`, `OpenAI__ApiKey`, `MercadoPago__AccessToken`, `SENTRY_DSN` |
+| **Mobile** | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_SENTRY_DSN` |
+| **Web** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL`, `VITE_SENTRY_DSN` |
 
-Consulte `backend-dotnet/docs/VARIAVEIS_AMBIENTE.md` e `docs/setup/CONFIG_GOOGLE_OAUTH.md` para detalhes.
+Consulte `backend-dotnet/docs/VARIAVEIS_AMBIENTE.md`, `docs/setup/CONFIG_GOOGLE_OAUTH.md` e os `.env.example` de cada módulo.
 
 ---
 
@@ -94,8 +98,23 @@ Consulte `backend-dotnet/docs/VARIAVEIS_AMBIENTE.md` e `docs/setup/CONFIG_GOOGLE
 
 - **Paciente:** Renovação de receita, pedido de exame, teleconsulta, pagamento PIX/cartão, prontuário
 - **Médico:** Fila de atendimentos, triagem com IA, aprovação/rejeição, assinatura digital, vídeo
-- **Verificação:** QR Code no documento → digitar código → validar e baixar 2ª via (sem login)
+- **Verificação:** QR Code no documento → digitar código 6 dígitos → validar e baixar 2ª via (sem login). Verify v2 via Supabase Edge Function.
 - **Admin:** Trilha de auditoria, feature flags, gestão de médicos
+
+---
+
+## Monitoramento (Sentry)
+
+Sentry está integrado em todos os módulos. Se o DSN estiver vazio, o Sentry fica desativado sem quebrar o app.
+
+| Módulo | DSN | Comportamento |
+|--------|-----|---------------|
+| Backend | `SENTRY_DSN` | Erros + logs Warning+ |
+| Frontend Web | `VITE_SENTRY_DSN` | Erros + logs Warning+ |
+| Frontend Mobile | `EXPO_PUBLIC_SENTRY_DSN` | Erros + logs Warning+ |
+
+- **Logger estruturado:** `lib/logger` (web/mobile) envia `warn`/`error`/`exception` ao Sentry; `info`/`debug` ficam só no console.
+- **Convenção de logs:** `docs/technical/LOGS_CONVENCAO.md`
 
 ---
 
@@ -118,6 +137,7 @@ Ver `docs/deploy/` para instruções específicas.
 |-----------|----------|
 | [Guides](docs/guides/) | Quick Start, tutoriais, deploy, Expo |
 | [Architecture](docs/architecture/) | Análise ponta a ponta, fluxos |
+| [Technical](docs/technical/) | Convenção de logs, validação triagem |
 | [Compliance](docs/compliance/) | LGPD, RIPD, ROPA, checklists |
 | [Setup](docs/setup/) | Google OAuth, configuração |
 | [Backend](backend-dotnet/docs/) | Variáveis, debug, Mercado Pago |
@@ -131,10 +151,10 @@ Ver `docs/deploy/` para instruções específicas.
 cd backend-dotnet && dotnet test
 
 # Mobile
-cd frontend-mobile && npm test
+cd frontend-mobile && npm run test -- --watchAll=false
 
 # Web
-cd frontend-web && npm run build
+cd frontend-web && npm run test:run && npm run build
 ```
 
 ---
@@ -150,4 +170,4 @@ GitHub Actions em `main` e `fix/frontend-performance-responsive`:
 
 ---
 
-**RenoveJá+** — .NET 8 · Expo · Supabase · Mercado Pago · Daily.co · OpenAI · ICP-Brasil
+**RenoveJá+** — .NET 8 · Expo · Supabase · Mercado Pago · Daily.co · OpenAI · ICP-Brasil · Sentry
