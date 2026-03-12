@@ -520,8 +520,8 @@ public class RequestService(
             medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
         }
 
-        // Paciente acabou de enviar — push "Pedido enviado" desnecessário
-        // await pushDispatcher.SendAsync(PushNotificationRules.Submitted(userId, medicalRequest.Id, RequestType.Consultation), cancellationToken);
+        // Confirma para o paciente que a consulta foi agendada na fila
+        await pushDispatcher.SendAsync(PushNotificationRules.ConsultationScheduled(userId, medicalRequest.Id, isDoctor: false), cancellationToken);
 
         await NotifyAvailableDoctorsOfNewRequestAsync("consulta", medicalRequest, cancellationToken);
         await requestEventsPublisher.NotifyNewRequestToDoctorsAsync(medicalRequest.Id, "submitted", "Nova consulta na fila", cancellationToken);
@@ -903,8 +903,8 @@ public class RequestService(
             request.AssignDoctor(doctorUser.Id, doctorUser.Name);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
 
-            // "Seu pedido está em análise" — push informativo desnecessário (paciente já vê na tela)
-            // await pushDispatcher.SendAsync(PushNotificationRules.InReview(request.PatientId, request.Id, request.RequestType), cancellationToken);
+            // Notifica o paciente que um profissional está analisando (melhora percepção de andamento)
+            await pushDispatcher.SendAsync(PushNotificationRules.InReview(request.PatientId, request.Id, request.RequestType), cancellationToken);
             await pushDispatcher.SendAsync(PushNotificationRules.RequestAssigned(doctorUser.Id, request.Id, request.RequestType), cancellationToken);
         }
 
@@ -2684,7 +2684,8 @@ public class RequestService(
             request.AiConductSuggestion,
             request.AiSuggestedExams,
             request.ConductUpdatedAt,
-            request.ConductUpdatedBy);
+            request.ConductUpdatedBy,
+            request.PrescriptionValidDays);
     }
 
     private List<string> ToProxyImageUrls(Guid requestId, List<string> urls, string imageType)
@@ -2718,7 +2719,8 @@ public class RequestService(
         IReadOnlyList<string> medications,
         CancellationToken cancellationToken)
     {
-        var all = await requestRepository.GetByPatientIdAsync(patientUserId, cancellationToken);
+        var all = await requestRepository.GetByPatientIdAsync(patientUserId, cancellationToken)
+            ?? new List<MedicalRequest>();
 
         var activeStatuses = new[]
         {
@@ -2730,7 +2732,7 @@ public class RequestService(
         };
 
         // Normaliza medicamentos para comparação case-insensitive
-        var medsNormalized = medications
+        var medsNormalized = (medications ?? Array.Empty<string>())
             .Where(m => !string.IsNullOrWhiteSpace(m))
             .Select(m => m.Trim().ToLowerInvariant())
             .ToList();
@@ -2818,7 +2820,8 @@ public class RequestService(
     {
         if (exams == null || exams.Count == 0) return;
 
-        var all = await requestRepository.GetByPatientIdAsync(patientUserId, cancellationToken);
+        var all = await requestRepository.GetByPatientIdAsync(patientUserId, cancellationToken)
+            ?? new List<MedicalRequest>();
 
         var examsNormalized = exams
             .Where(e => !string.IsNullOrWhiteSpace(e))

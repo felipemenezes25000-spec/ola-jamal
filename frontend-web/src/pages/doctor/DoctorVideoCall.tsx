@@ -143,7 +143,7 @@ export default function DoctorVideoCall() {
         }
 
         // Start consultation if not already
-        const needsStart = ['paid', 'consultation_accepted', 'consultation_ready'].some(
+        const needsStart = ['paid', 'consultation_ready'].some(
           s => data.status?.toLowerCase().includes(s.toLowerCase())
         );
         if (needsStart) {

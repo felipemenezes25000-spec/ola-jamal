@@ -84,7 +84,8 @@ const STATUS_MAP: Record<string, StatusInfo> = {
   completed:                { label: 'Concluído',                variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2,  priority: 9 },
 
   // Consultation-specific (legacy)
-  consultation_accepted:    { label: 'Consulta aceita',          variant: 'default',      color: 'text-primary',     bgColor: 'bg-primary/5 border-primary/20',   icon: Stethoscope,   priority: 3 },
+  // consultation_accepted: alias de consultation_ready (status legado em dados históricos)
+  consultation_accepted:    { label: 'Consulta pronta',           variant: 'default',      color: 'text-primary',     bgColor: 'bg-primary/5 border-primary/20',   icon: Stethoscope,   priority: 3 },
 };
 
 /** Normaliza status camelCase (backend) para snake_case (STATUS_MAP). Exportado para uso em páginas. */
@@ -106,7 +107,7 @@ export function getStatusInfo(status: string): StatusInfo {
 }
 
 export function isActionableStatus(status: string): boolean {
-  const actionable = ['submitted', 'pending', 'paid', 'in_review', 'searching_doctor', 'consultation_accepted', 'consultation_ready', 'in_consultation', 'approved', 'approved_pending_payment'];
+  const actionable = ['submitted', 'pending', 'paid', 'in_review', 'searching_doctor', 'consultation_ready', 'in_consultation', 'approved', 'approved_pending_payment'];
   const normalized = normalizeStatus(status);
   return actionable.includes(normalized) || actionable.includes(status);
 }

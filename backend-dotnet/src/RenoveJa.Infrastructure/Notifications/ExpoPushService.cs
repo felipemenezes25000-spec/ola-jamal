@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.DTOs.Notifications;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 
 namespace RenoveJa.Infrastructure.Notifications;
@@ -46,12 +47,23 @@ public class ExpoPushService : IPushNotificationSender
 
     public async Task SendAsync(PushNotificationRequest request, CancellationToken ct = default)
     {
-        var tokens = await _pushTokenRepository.GetByUserIdAsync(request.UserId, ct);
-        var activeTokens = tokens.Where(t => t.Active).ToList();
+        // Se a notificação tem targetRole definido, busca só tokens desse role.
+        // Evita envio cruzado quando o mesmo user_id já teve tokens de ambos os roles (ex.: médico que também usa como paciente).
+        List<PushToken> tokens;
+        var targetRole = request.Payload?.TargetRole;
+        if (!string.IsNullOrEmpty(targetRole))
+            tokens = await _pushTokenRepository.GetActiveByUserIdAndRoleAsync(request.UserId, targetRole, ct);
+        else
+            tokens = await _pushTokenRepository.GetByUserIdAsync(request.UserId, ct);
+        // Filtrar tokens válidos para Expo: ExponentPushToken[...] ou formato UUID.
+        // Tokens Web Push (JSON com "endpoint") são para VAPID — não para a API Expo.
+        var activeTokens = tokens
+            .Where(t => t.Active && IsExpoToken(t.Token))
+            .ToList();
 
         if (activeTokens.Count == 0)
         {
-            _logger.LogDebug("No active push tokens for user {UserId}", request.UserId);
+            _logger.LogDebug("No active Expo push tokens for user {UserId} (web-only tokens are excluded)", request.UserId);
             return;
         }
 
@@ -135,6 +147,15 @@ public class ExpoPushService : IPushNotificationSender
         {
             _logger.LogError(ex, "Failed to send push notification to user {UserId}", request.UserId);
         }
+    }
+
+    /// <summary>Token Expo válido começa com "ExponentPushToken[" ou tem formato de token mobile.</summary>
+    private static bool IsExpoToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+        // Web Push subscriptions são JSON com chave "endpoint"
+        if (token.TrimStart().StartsWith("{")) return false;
+        return true;
     }
 
     private static Dictionary<string, object?> BuildDataDict(PushNotificationPayload p)

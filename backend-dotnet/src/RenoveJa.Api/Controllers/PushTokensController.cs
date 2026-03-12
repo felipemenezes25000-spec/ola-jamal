@@ -29,8 +29,11 @@ public class PushTokensController(
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        logger.LogInformation("PushTokens RegisterToken: userId={UserId}, deviceType={DeviceType}", userId, request.DeviceType);
-        var pushToken = PushToken.Create(userId, request.Token, request.DeviceType);
+        // Role vem do JWT claim para garantir que não seja falsificado pelo client
+        var roleClaim = User.FindFirstValue(ClaimTypes.Role) ?? "patient";
+        var role = roleClaim.ToLowerInvariant() == "doctor" ? "doctor" : "patient";
+        logger.LogInformation("PushTokens RegisterToken: userId={UserId}, deviceType={DeviceType}, role={Role}", userId, request.DeviceType, role);
+        var pushToken = PushToken.Create(userId, request.Token, request.DeviceType, role);
         pushToken = await pushTokenRepository.RegisterOrUpdateAsync(pushToken, cancellationToken);
 
         return Ok(new

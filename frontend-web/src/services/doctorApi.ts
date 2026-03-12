@@ -90,6 +90,8 @@ export interface MedicalRequest {
   consultationAnamnesis?: string | null;
   consultationAiSuggestions?: string | null;
   consultationEvidence?: string | null;
+  /** Dias de validade da receita a partir de signedAt. Null = default 30 dias. */
+  prescriptionValidDays?: number | null;
 }
 
 export interface Medication {

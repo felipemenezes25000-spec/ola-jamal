@@ -187,8 +187,11 @@ export function DoctorSidebar() {
           <div className="mx-3 lg:mx-4 mb-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
             <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
               <BellRing className="h-3.5 w-3.5 text-primary" />
-              Ativar alertas
+              Ativar alertas em breve
             </p>
+            {/* TODO: Web push via VAPID não implementado no backend ainda.
+                Por ora apenas armazenamos a subscription. Remover este banner
+                até ter o sender VAPID configurado para não gerar expectativa. */}
             <p className="text-[10px] text-muted-foreground mb-2.5 leading-relaxed">
               Receba notificações de novos pedidos mesmo com a aba minimizada.
             </p>

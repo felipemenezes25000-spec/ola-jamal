@@ -164,7 +164,7 @@ export default function DoctorRequestDetail() {
   const canApprove = ['submitted', 'pending'].includes(statusNorm);
   const canReject = ['submitted', 'pending', 'in_review', 'approved_pending_payment', 'approved', 'paid'].includes(statusNorm);
   const canEdit = ['paid'].includes(statusNorm);
-  const canVideo = request.type === 'consultation' && ['consultation_accepted', 'consultation_ready', 'in_consultation'].includes(statusNorm);
+  const canVideo = request.type === 'consultation' && ['consultation_ready', 'in_consultation'].includes(statusNorm);
   const canAcceptConsult = request.type === 'consultation' && statusNorm === 'paid';
 
   return (

@@ -299,7 +299,7 @@ export default function DoctorRequestEditor() {
         setSigning(false);
         return;
       }
-      await signRequest(id, certPassword);
+      await signRequest(id, certPassword.trim());
       toast.success('Documento assinado digitalmente!');
       setSignDialogOpen(false);
       navigate(`/pedidos/${id}`);

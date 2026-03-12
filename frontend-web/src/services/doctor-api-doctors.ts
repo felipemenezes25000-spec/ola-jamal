@@ -79,10 +79,10 @@ export async function revokeCertificate(id: string, reason: string) {
 
 // ── Push Tokens ──
 
-export async function registerPushToken(token: string) {
+export async function registerPushToken(token: string, deviceType: string = 'web') {
   const res = await authFetch('/api/push-tokens', {
     method: 'POST',
-    body: JSON.stringify({ token, deviceType: 'web' }),
+    body: JSON.stringify({ token, deviceType }),
   });
   if (!res.ok) throw new Error('Erro ao registrar push token');
   return res.json();

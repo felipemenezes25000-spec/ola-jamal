@@ -38,6 +38,8 @@ public class MedicalRequest : AggregateRoot
     // Consultation time-based billing
     public string? ConsultationType { get; private set; }
     public int? ContractedMinutes { get; private set; }
+    /// <summary>Dias de validade da receita a partir de SignedAt. Default 30. Nulo = usa default.</summary>
+    public int? PrescriptionValidDays { get; private set; }
     public decimal? PricePerMinute { get; private set; }
     /// <summary>Momento em que médico e paciente estão conectados na chamada (timer começa).</summary>
     public DateTime? ConsultationStartedAt { get; private set; }
@@ -253,7 +255,8 @@ public class MedicalRequest : AggregateRoot
         string? aiConductSuggestion = null,
         string? aiSuggestedExams = null,
         DateTime? conductUpdatedAt = null,
-        Guid? conductUpdatedBy = null)
+        Guid? conductUpdatedBy = null,
+        int? prescriptionValidDays = null)
     {
         var request = new MedicalRequest(
             id,
@@ -309,6 +312,8 @@ public class MedicalRequest : AggregateRoot
         request.AiSuggestedExams = aiSuggestedExams;
         request.ConductUpdatedAt = conductUpdatedAt;
         request.ConductUpdatedBy = conductUpdatedBy;
+        if (prescriptionValidDays.HasValue)
+            request.PrescriptionValidDays = prescriptionValidDays;
 
         return request;
     }

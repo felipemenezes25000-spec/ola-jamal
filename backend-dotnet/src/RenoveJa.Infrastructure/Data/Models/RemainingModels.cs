@@ -70,4 +70,6 @@ public class PushTokenModel
     public string DeviceType { get; set; } = "unknown";
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; }
+    /// <summary>Role do usuário no momento do registro: "patient" ou "doctor".</summary>
+    public string Role { get; set; } = "patient";
 }

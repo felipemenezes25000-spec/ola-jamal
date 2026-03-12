@@ -355,7 +355,8 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             aiConductSuggestion: model.AiConductSuggestion,
             aiSuggestedExams: model.AiSuggestedExams,
             conductUpdatedAt: model.ConductUpdatedAt,
-            conductUpdatedBy: model.ConductUpdatedBy);
+            conductUpdatedBy: model.ConductUpdatedBy,
+            prescriptionValidDays: model.PrescriptionValidDays);
     }
 
     private static string ToShortCode(Guid id) =>
@@ -404,6 +405,7 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             ConsultationType = request.ConsultationType,
             ContractedMinutes = request.ContractedMinutes,
             PricePerMinute = request.PricePerMinute,
+            PrescriptionValidDays = request.PrescriptionValidDays,
             ConsultationStartedAt = request.ConsultationStartedAt,
             DoctorCallConnectedAt = request.DoctorCallConnectedAt,
             PatientCallConnectedAt = request.PatientCallConnectedAt,

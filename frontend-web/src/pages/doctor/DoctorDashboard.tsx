@@ -50,13 +50,7 @@ export default function DoctorDashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
-  }, [loadData]);
-
-  // Real-time updates via SignalR
+  // Real-time updates via SignalR (deve vir antes do useEffect que usa realtimeConnected)
   const { connected: realtimeConnected } = useRequestEvents(
     useCallback((event: { requestId: string; status: string; message?: string }) => {
       toast.info(`Pedido atualizado: ${event.status}`, {
@@ -71,10 +65,20 @@ export default function DoctorDashboard() {
     }, [loadData, navigate])
   );
 
+  useEffect(() => {
+    loadData();
+    // Polling de fallback: só executa se SignalR não estiver conectado.
+    // Quando realtimeConnected=true, os eventos já disparam loadData() via useRequestEvents.
+    const interval = setInterval(() => {
+      if (!realtimeConnected) loadData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadData, realtimeConnected]);
+
   const pendentes = requests.filter(r => isActionableStatus(r.status));
   const consultasAtivas = requests.filter(r =>
     r.type === 'consultation' &&
-    ['consultation_accepted', 'in_consultation', 'paid', 'consultation_ready'].some(s => r.status?.toLowerCase().includes(s.toLowerCase()))
+    ['in_consultation', 'paid', 'consultation_ready'].some(s => r.status?.toLowerCase().includes(s.toLowerCase()))
   );
   const comRiscoAlto = requests.filter(r =>
     r.aiRiskLevel && (r.aiRiskLevel.toLowerCase().includes('high') || r.aiRiskLevel.toLowerCase().includes('alto'))

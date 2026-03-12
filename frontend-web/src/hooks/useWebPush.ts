@@ -68,8 +68,10 @@ export function useWebPush(enabled: boolean): UseWebPushReturn {
       }
 
       subscriptionRef.current = subscription;
+      // Web Push subscription serializada como JSON — o backend armazena mas não envia via Expo.
+      // Futuramente um sender VAPID dedicado lerá esses tokens para notificações no browser.
       const token = JSON.stringify(subscription.toJSON());
-      await registerPushToken(token);
+      await registerPushToken(token, 'web_push');
     } catch (err) {
       console.warn('[WebPush] Subscription failed:', err);
     }

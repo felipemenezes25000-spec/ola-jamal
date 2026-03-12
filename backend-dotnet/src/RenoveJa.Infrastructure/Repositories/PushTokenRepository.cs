@@ -148,6 +148,16 @@ public class PushTokenRepository(SupabaseClient supabase) : IPushTokenRepository
             ct);
     }
 
+    public async Task<List<PushToken>> GetActiveByUserIdAndRoleAsync(Guid userId, string role, CancellationToken ct = default)
+    {
+        var encodedRole = Uri.EscapeDataString(role);
+        var models = await supabase.GetAllAsync<PushTokenModel>(
+            TableName,
+            filter: $"user_id=eq.{userId}&active=eq.true&role=eq.{encodedRole}",
+            cancellationToken: ct);
+        return models.Select(MapToDomain).ToList();
+    }
+
     private static PushToken MapToDomain(PushTokenModel model)
     {
         return PushToken.Reconstitute(
@@ -156,7 +166,8 @@ public class PushTokenRepository(SupabaseClient supabase) : IPushTokenRepository
             model.Token,
             model.DeviceType,
             model.Active,
-            model.CreatedAt);
+            model.CreatedAt,
+            model.Role);
     }
 
     private static PushTokenModel MapToModel(PushToken token)
@@ -168,7 +179,8 @@ public class PushTokenRepository(SupabaseClient supabase) : IPushTokenRepository
             Token = token.Token,
             DeviceType = token.DeviceType,
             Active = token.Active,
-            CreatedAt = token.CreatedAt
+            CreatedAt = token.CreatedAt,
+            Role = token.Role
         };
     }
 }

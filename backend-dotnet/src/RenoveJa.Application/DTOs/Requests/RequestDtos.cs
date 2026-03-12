@@ -100,7 +100,9 @@ public record RequestResponseDto(
     string? AiConductSuggestion = null,
     string? AiSuggestedExams = null,
     DateTime? ConductUpdatedAt = null,
-    Guid? ConductUpdatedBy = null
+    Guid? ConductUpdatedBy = null,
+    /// <summary>Dias de validade da receita a partir de SignedAt. Null = usa default do backend (30 dias).</summary>
+    int? PrescriptionValidDays = null
 );
 
 /// <summary>Médico atualiza medicamentos, notas e tipo de receita antes da assinatura.</summary>
