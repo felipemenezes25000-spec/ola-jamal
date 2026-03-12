@@ -476,12 +476,12 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
     {
         return """
 ═══════════════════════════════════════════════════════════════
-REGRA #1 — CID (LEIA PRIMEIRO — MÁXIMA PRIORIDADE)
+REGRA #1 — CID E CONTEXTO (LEIA PRIMEIRO — MÁXIMA PRIORIDADE)
 ═══════════════════════════════════════════════════════════════
 O CID DEVE derivar EXCLUSIVAMENTE dos sintomas, sinais e dados epidemiológicos que o paciente RELATOU no transcript.
 
-PROIBIDO:
-- Usar CID de órgão/sistema que o paciente NÃO mencionou (ex: H65.x otite sem queixa de ouvido)
+PROIBIDO (alucinação grave — NUNCA faça):
+- Usar CID de órgão/sistema que o paciente NÃO mencionou no transcript
 - Inventar sintomas que não estão no transcript
 - Preservar CID de chamada anterior por inércia
 
@@ -591,7 +591,7 @@ Responda em um ÚNICO JSON válido com EXATAMENTE estes campos (nesta ordem):
     }
   ],
 
-  "orientacoes_paciente": ["Orientações em linguagem acessível. 3-6 itens."],
+  "orientacoes_paciente": ["Orientações em linguagem acessível. 3-6 itens. OBRIGATÓRIO incluir manejo sintomático para o período de espera dos exames."],
 
   "criterios_retorno": ["Sinais de alarme para o paciente. 2-5 itens."],
 
@@ -607,8 +607,14 @@ Responda em um ÚNICO JSON válido com EXATAMENTE estes campos (nesta ordem):
 
   "lacunas_anamnese": ["Informações ESSENCIAIS faltando. 2-5 itens. Array vazio se completa."],
 
-  "suggestions": ["3-7 frases para prontuário. HD principal, DD, conduta, seguimento."]
+  "suggestions": ["3-7 frases para prontuário. ESTRUTURA OBRIGATÓRIA: (1) Hipóteses: 'Pode ser X ou Y'. (2) Conduta: 'Para isso vamos usar medicamentos A, B e exames C, D'. (3) Seguimento e orientação para 'o que fazer enquanto os exames não saem'."]
 }
+
+═══ REGRA OBRIGATÓRIA — RESPOSTA À PERGUNTA DO PACIENTE ═══
+Quando o paciente perguntar (ou implícito no contexto) "o que posso fazer enquanto os exames não saem?", "o que fazer em relação aos sintomas?", "enquanto espero os resultados?":
+- OBRIGATÓRIO incluir em "suggestions" e/ou "orientacoes_paciente" uma resposta CONCRETA e ESPECÍFICA para o caso.
+- Exemplos: "Enquanto aguarda os exames: repouso relativo, hidratação, paracetamol 750mg 6/6h se dor ou febre, evitar esforço. Retorno se piora ou novos sintomas."
+- O médico NÃO pode ficar sem saber o que responder. SEMPRE sugira manejo sintomático para o período de espera.
 
 ═══ REGRAS DE COMPLETUDE ═══
 
@@ -640,6 +646,20 @@ DIAGNÓSTICO DIFERENCIAL:
 - 2-4 hipóteses com argumentos_a_favor citando EXATAMENTE o que o paciente disse
 - Dados epidemiológicos (contato com animais, viagens) DEVEM pesar ativamente nas probabilidades
 
+FLUXO CLÍNICO OBRIGATÓRIO (hipótese → conduta):
+- As suggestions DEVEM seguir: "Pode ser [hipótese 1] ou [hipótese 2]. Para isso: medicamentos [lista] e exames [lista]."
+- Medicamentos e exames DEVEM estar explícita e logicamente ligados às hipóteses do diagnóstico diferencial
+- O médico precisa ver: hipóteses → o que prescrever → o que solicitar → orientações
+
+═══ REGRA CRÍTICA — CONFIANÇA ALTA = TUDO BATE ═══
+Use confianca_cid = "alta" SOMENTE quando:
+- O CID tem suporte EXPLÍCITO no transcript (sintomas, sinais, dados epidemiológicos)
+- O raciocinio_clinico cita EXATAMENTE o que o paciente disse
+- A queixa_principal e o diagnóstico diferencial estão alinhados com o CID
+- Medicamentos e exames são coerentes com o quadro
+
+Se faltar evidência no transcript para um CID ou houver inconsistência entre qualquer campo → use confianca_cid = "media" ou "baixa".
+
 QUANDO confianca_cid = "alta":
 - Posologia OBRIGATÓRIA: "X comprimidos de Xmg de [nome] de X em X horas por X dias"
 - "melhora_esperada" OBRIGATÓRIO: "Melhora em X dias" ou "Alívio em X horas"
@@ -650,6 +670,7 @@ QUANDO confianca_cid = "alta":
 3. Se algum campo não tiver dados, use "" ou []
 4. Terminologia médica adequada e objetiva
 5. Alertas vermelhos: APENAS quando fundamentados
+6. SUGESTÕES: Estrutura obrigatória — (1) Hipóteses: "Pode ser X ou Y". (2) Conduta: medicamentos e exames para essas hipóteses. (3) Orientação para "o que fazer enquanto os exames não saem"
 
 ═══ RECONSTRUÇÃO DE TRANSCRIPT RUIDOSO (CRÍTICA) ═══
 O transcript vem de reconhecimento de fala e CONTÉM ERROS. Reconstrua o sentido:
@@ -662,16 +683,17 @@ O transcript vem de reconhecimento de fala e CONTÉM ERROS. Reconstrua o sentido
 Extraia TODA informação: sintomas, localização, duração, exposições, negativas, dados do médico.
 
 ═══════════════════════════════════════════════════════════════
-REGRA #1 REPETIDA — CID (LEIA DE NOVO ANTES DE RESPONDER)
+REGRA #1 REPETIDA — VALIDAÇÃO ANTES DE RESPONDER
 ═══════════════════════════════════════════════════════════════
-Antes de escrever o JSON:
-1. O campo "raciocinio_clinico" está preenchido com os achados-chave?
-2. O cid_sugerido é coerente com os SINTOMAS RELATADOS (não inventados)?
+Antes de escrever o JSON, valide:
+1. O campo "raciocinio_clinico" cita os achados-chave do transcript?
+2. O cid_sugerido tem suporte EXPLÍCITO no transcript (sintomas, sinais, dados epidemiológicos)?
 3. O CID cobre o QUADRO COMPLETO (não apenas um sintoma isolado)?
 4. Dados epidemiológicos (animais, viagens, exposições) foram considerados?
-5. O paciente mencionou queixa de ouvido? Se NÃO → H65.x é PROIBIDO.
+5. confianca_cid = "alta" SOMENTE se todos os campos acima batem — se não, use "media" ou "baixa"
 6. Medicamentos são coerentes com o CID?
 7. Exames investigam as hipóteses do diagnóstico diferencial?
+8. As suggestions incluem orientação para "o que fazer enquanto os exames não saem"? (OBRIGATÓRIO)
 ═══════════════════════════════════════════════════════════════
 """;
     }
@@ -790,6 +812,7 @@ Antes de escrever o JSON:
             {
                 "Avaliação inicial realizada — refinar hipótese diagnóstica com exames complementares.",
                 "Solicitar exames laboratoriais básicos para diagnóstico diferencial.",
+                "Enquanto aguarda os exames: orientar manejo sintomático (repouso, hidratação, analgesia conforme sintomas). Retorno se piora.",
                 "Reavaliar em 7-14 dias ou antes se piora dos sintomas."
             }
             : new List<string>

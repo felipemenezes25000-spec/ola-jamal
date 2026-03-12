@@ -38,6 +38,14 @@ export default function ConsultationSummaryScreen() {
 
   const rid = (Array.isArray(requestId) ? requestId[0] : requestId) ?? '';
 
+  // Paciente não precisa ver resumo da consulta (IA, anamnese, etc.) — redireciona para o pedido
+  const isPatient = user != null && user.role !== 'doctor';
+  useEffect(() => {
+    if (isPatient && rid) {
+      router.replace(`/request-detail/${rid}`);
+    }
+  }, [isPatient, rid, router]);
+
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState<RequestResponseDto | null>(null);
   const [expandedTranscript, setExpandedTranscript] = useState(false);
@@ -120,6 +128,14 @@ export default function ConsultationSummaryScreen() {
     await Clipboard.setStringAsync(text);
     Alert.alert('Copiado', `${label} copiado para área de transferência.`);
   };
+
+  if (isPatient && rid) {
+    return (
+      <View style={[S.container, S.center]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   if (loading) {
     return (

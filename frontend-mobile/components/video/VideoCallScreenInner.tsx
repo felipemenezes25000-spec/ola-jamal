@@ -82,6 +82,7 @@ export default function VideoCallScreenInner() {
   // Core state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [initKey, setInitKey] = useState(0);
   const [ending, setEnding] = useState(false);
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [meetingToken, setMeetingToken] = useState<string | null>(null);
@@ -202,40 +203,58 @@ export default function VideoCallScreenInner() {
 
   // SignalR connectSignalR / disconnectSignalR provided by useVideoCallEvents hook above
 
-  // ── Init: create room + fetch token ──
+  // ── Init: create room + fetch token (timeout 25s evita loading infinito) ──
+
+  const INIT_TIMEOUT_MS = 25_000;
 
   useEffect(() => {
     if (!rid) return;
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Conexão demorou demais. Verifique sua internet e tente novamente.')),
+        INIT_TIMEOUT_MS,
+      );
+    });
 
     (async () => {
       try {
-        // 1. Ensure Daily room exists (idempotent — backend creates on Daily.co)
-        await createDailyRoom(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] createDailyRoom failed:', e); });
+        // 1. Room + request em paralelo (independentes)
+        const results = await Promise.race([
+          Promise.all([
+            createDailyRoom(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] createDailyRoom failed:', e); }),
+            fetchRequestById(rid),
+          ]),
+          timeoutPromise,
+        ]);
         if (cancelled) return;
+        const req = Array.isArray(results) ? results[1] : null;
+        if (req?.contractedMinutes) setContractedMinutes(req.contractedMinutes);
+        if (req?.consultationStartedAt) setConsultationStartedAt(req.consultationStartedAt);
+        if (req?.status) setRequestStatus(req.status);
 
-        // 2. Get join token
-        const joinData = await fetchJoinToken(rid);
+        // 2. Join token (precisa da sala criada)
+        const joinData = await Promise.race([fetchJoinToken(rid), timeoutPromise]);
         if (cancelled) return;
+        if (timeoutId) clearTimeout(timeoutId);
         setRoomUrl(joinData.roomUrl);
         setMeetingToken(joinData.token);
-        setContractedMinutes(joinData.contractedMinutes);
-
-        // 3. Get request data
-        const req = await fetchRequestById(rid);
-        if (cancelled) return;
-        if (req.contractedMinutes) setContractedMinutes(req.contractedMinutes);
-        if (req.consultationStartedAt) setConsultationStartedAt(req.consultationStartedAt);
-        if (req.status) setRequestStatus(req.status);
+        if (joinData.contractedMinutes != null) setContractedMinutes(joinData.contractedMinutes);
       } catch (e: any) {
+        if (timeoutId) clearTimeout(timeoutId);
         if (!cancelled) setError(e?.message || 'Erro ao iniciar videochamada');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [rid]);
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [rid, initKey]);
 
   // Auto-join when token ready
   useEffect(() => {
@@ -497,7 +516,7 @@ export default function VideoCallScreenInner() {
     <View style={[S.container, S.center]}>
       <Ionicons name="alert-circle" size={56} color={colors.error} />
       <Text style={S.errText}>{error || errorMessage || 'Erro na chamada'}</Text>
-      <TouchableOpacity style={S.retryBtn} onPress={() => { setError(''); setLoading(true); }}>
+      <TouchableOpacity style={S.retryBtn} onPress={() => { setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
         <Text style={S.retryTxt}>Tentar novamente</Text>
       </TouchableOpacity>
       <TouchableOpacity style={{ marginTop: 8, padding: 10 }} onPress={() => router.back()}>
