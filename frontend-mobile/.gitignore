@@ -17,3 +17,8 @@ google-services.json
 GoogleService-Info.plist
 *-fcm-key.json
 *-firebase-adminsdk-*.json
+
+# Native folders - EAS Build gera via prebuild em cada build
+# Evita "No variants exist" (AGP 8.11) por pasta android/ desatualizada
+android/
+ios/
