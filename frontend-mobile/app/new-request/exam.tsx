@@ -23,6 +23,7 @@ import { useInvalidateRequests } from '../../lib/hooks/useRequestsQuery';
 import { EXAM_TYPE_PRICES } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
+import { isDuplicateRequestError } from '../../lib/hooks/useCreateRequest';
 import { validate } from '../../lib/validation';
 import { createExamSchema } from '../../lib/validation/schemas';
 import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
@@ -209,7 +210,18 @@ export default function NewExam() {
       showToast({ message: 'Pedido de exame enviado! Acompanhe na aba Pedidos.', type: 'success' });
       router.replace('/(patient)/requests');
     } catch (error: unknown) {
-      showToast({ message: getApiErrorMessage(error), type: 'error' });
+      if (isDuplicateRequestError(error)) {
+        Alert.alert(
+          'Pedido em andamento',
+          error.message,
+          [
+            { text: 'Ver meus pedidos', onPress: () => router.replace('/(patient)/requests'), style: 'default' },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
+      } else {
+        showToast({ message: getApiErrorMessage(error), type: 'error' });
+      }
     } finally {
       setLoading(false);
     }

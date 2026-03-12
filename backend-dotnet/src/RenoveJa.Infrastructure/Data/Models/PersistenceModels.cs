@@ -172,6 +172,8 @@ public class RequestModel
     public string? RejectionReason { get; set; }
     public string? AccessCode { get; set; }
     public DateTime? SignedAt { get; set; }
+    [JsonPropertyName("prescription_valid_days")]
+    public int? PrescriptionValidDays { get; set; }
     public string? SignedDocumentUrl { get; set; }
     public string? SignatureId { get; set; }
     public string? AiSummaryForDoctor { get; set; }

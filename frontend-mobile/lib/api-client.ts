@@ -55,6 +55,10 @@ export interface ApiError {
   missingFields?: string[];
   /** Mensagens de validação em PT-BR */
   messages?: string[];
+  /** Código da regra de duplicata: "active_request" | "cooldown_prescription" | "cooldown_exam" */
+  code?: string;
+  /** Dias restantes até poder solicitar novamente (apenas para cooldown) */
+  cooldownDays?: number;
 }
 
 type OnUnauthorizedCallback = () => void | Promise<void>;
@@ -187,6 +191,8 @@ class ApiClient {
             errors,
             missingFields: errorData.missingFields,
             messages: errorData.messages,
+            code: errorData.code,
+            cooldownDays: errorData.cooldownDays,
           };
           if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
             unauthorizedHandled = true;

@@ -45,7 +45,7 @@ export default function ResetPasswordScreen() {
     }
     setLoading(true);
     try {
-      await resetPassword(actualToken, result.data!.newPassword);
+      await resetPassword(actualToken, result.data.newPassword);
       Alert.alert(
         'Senha alterada!',
         'Sua senha foi redefinida com sucesso. Faça login com a nova senha.',

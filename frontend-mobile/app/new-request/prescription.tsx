@@ -20,6 +20,7 @@ import { createPrescriptionRequest } from '../../lib/api';
 import { PRESCRIPTION_TYPE_PRICES } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
+import { isDuplicateRequestError } from '../../lib/hooks/useCreateRequest';
 import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
@@ -214,7 +215,29 @@ export default function NewPrescription() {
       showToast({ message: 'Solicitação enviada! Acompanhe na aba Pedidos.', type: 'success' });
       router.replace('/(patient)/requests');
     } catch (error: unknown) {
-      showToast({ message: getApiErrorMessage(error), type: 'error' });
+      if (isDuplicateRequestError(error)) {
+        const { code, cooldownDays, message } = error;
+        if (code === 'active_request') {
+          Alert.alert(
+            'Pedido em andamento',
+            message,
+            [
+              { text: 'Ver meus pedidos', onPress: () => router.replace('/(patient)/requests'), style: 'default' },
+              { text: 'OK', style: 'cancel' },
+            ]
+          );
+        } else if (code === 'cooldown_prescription' && cooldownDays != null) {
+          Alert.alert(
+            'Renovação muito cedo',
+            `${message}\n\nPrazo mínimo exigido pela regulamentação médica (CFM/ANVISA).`,
+            [{ text: 'Entendi', style: 'default' }]
+          );
+        } else {
+          Alert.alert('Não foi possível enviar', message, [{ text: 'OK' }]);
+        }
+      } else {
+        showToast({ message: getApiErrorMessage(error), type: 'error' });
+      }
     } finally {
       setLoading(false);
     }

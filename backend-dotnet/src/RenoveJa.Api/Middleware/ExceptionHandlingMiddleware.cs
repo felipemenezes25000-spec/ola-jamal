@@ -88,6 +88,21 @@ public class ExceptionHandlingMiddleware(
             return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
         }
 
+        if (exception is DuplicateRequestException dre)
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict; // 409
+            var response = new
+            {
+                status = 409,
+                message = dre.Message,
+                code = dre.Code,
+                cooldownDays = dre.CooldownDays,
+                requestId
+            };
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
+        }
+
         // 502/503/504 do upstream (Supabase): retornar 503 para o cliente poder exibir "tente novamente"
         if (exception is HttpRequestException && (
             exception.Message.Contains("502", StringComparison.OrdinalIgnoreCase) ||

@@ -22,7 +22,7 @@ import type { DesignColors } from '../../lib/designSystem';
 import { RequestResponseDto } from '../../types/database';
 import { cacheRequest } from '../doctor-request/[id]';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
-import { getHistoricalGroupedByPeriod } from '../../lib/domain/getRequestUiState';
+import { getHistoricalGroupedByPeriod, type PeriodGroup } from '../../lib/domain/getRequestUiState';
 import { useDoctorRequestsQuery, useInvalidateDoctorRequests } from '../../lib/hooks/useDoctorRequestsQuery';
 import RequestCard from '../../components/RequestCard';
 import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
@@ -240,7 +240,7 @@ export default function DoctorQueue() {
       {/* ── PERIOD CHIPS ── */}
       {periodSummary.length > 0 && (
         <View style={styles.periodRow}>
-          {periodSummary.map(({ label: periodLabel, count }, i) => (
+          {periodSummary.map(({ label: periodLabel, count }: PeriodGroup, i) => (
             <PeriodChip
               key={periodLabel}
               label={periodLabel}

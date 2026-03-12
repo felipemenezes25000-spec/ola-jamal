@@ -21,6 +21,7 @@ import {
   type CreateExamRequestData,
   type CreateConsultationRequestData,
 } from '../api';
+import type { ApiError } from '../api-client';
 import { REQUESTS_QUERY_KEY } from './useRequestsQuery';
 
 export function useCreatePrescription() {
@@ -57,4 +58,19 @@ export function useCreateConsultation() {
       queryClient.invalidateQueries({ queryKey: REQUESTS_QUERY_KEY });
     },
   });
+}
+
+/**
+ * Retorna true se o erro é uma rejeição de duplicata (HTTP 409)
+ * vinda da regra de cooldown/pedido ativo.
+ */
+export function isDuplicateRequestError(err: unknown): err is ApiError & { status: 409 } {
+  return (
+    !!err &&
+    typeof err === 'object' &&
+    'status' in err &&
+    (err as ApiError).status === 409 &&
+    'code' in err &&
+    typeof (err as ApiError).code === 'string'
+  );
 }

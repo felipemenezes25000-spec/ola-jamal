@@ -1,0 +1,77 @@
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Enums;
+using RenoveJa.Domain.Interfaces;
+
+namespace RenoveJa.Application.Services.Notifications;
+
+/// <summary>
+/// Background service que envia lembretes de renovação de receita.
+/// Receitas entregues (delivered) que vencem nos próximos 7 dias → paciente.
+/// Cooldown de 7 dias por request para evitar spam.
+/// </summary>
+public class RenewalReminderService : BackgroundService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IMemoryCache _cache;
+    private readonly ILogger<RenewalReminderService> _logger;
+    private static readonly TimeSpan RunInterval = TimeSpan.FromHours(24);
+    private static readonly TimeSpan ReminderCooldown = TimeSpan.FromDays(7);
+    private const int DaysAhead = 7;
+
+    public RenewalReminderService(IServiceScopeFactory scopeFactory, IMemoryCache cache, ILogger<RenewalReminderService> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _cache = cache;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await SendRemindersAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao enviar lembretes de renovação de receita");
+            }
+
+            await Task.Delay(RunInterval, stoppingToken);
+        }
+    }
+
+    private async Task SendRemindersAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var requestRepo = scope.ServiceProvider.GetRequiredService<IRequestRepository>();
+        var dispatcher = scope.ServiceProvider.GetRequiredService<IPushNotificationDispatcher>();
+
+        var now = DateTime.UtcNow;
+        var expiring = await requestRepo.GetPrescriptionsExpiringSoonAsync(now, DaysAhead, ct);
+
+        foreach (var req in expiring)
+        {
+            if (req.RequestType != RequestType.Prescription) continue;
+
+            var cooldownKey = $"reminder_renewal:{req.Id}";
+            if (_cache.TryGetValue(cooldownKey, out _)) continue;
+
+            try
+            {
+                var pushReq = PushNotificationRules.RenewalReminder(req.PatientId, req.Id);
+                await dispatcher.SendAsync(pushReq, ct);
+                _cache.Set(cooldownKey, true, ReminderCooldown);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao enviar lembrete de renovação para request {RequestId}", req.Id);
+            }
+        }
+    }
+}

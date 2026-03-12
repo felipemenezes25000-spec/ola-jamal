@@ -174,6 +174,29 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
         return models.Select(MapToDomain).ToList();
     }
 
+    public async Task<List<MedicalRequest>> GetPrescriptionsExpiringSoonAsync(DateTime nowUtc, int daysAhead = 7, CancellationToken cancellationToken = default)
+    {
+        var filter = "request_type=eq.prescription&status=eq.delivered&signed_at=not.is.null";
+        var models = await supabase.GetAllAsync<RequestModel>(
+            TableName,
+            filter: filter,
+            cancellationToken: cancellationToken);
+
+        var validDays = 30;
+        var windowEnd = nowUtc.AddDays(daysAhead);
+
+        return models
+            .Where(m =>
+            {
+                if (!m.SignedAt.HasValue) return false;
+                var days = m.PrescriptionValidDays ?? validDays;
+                var validUntil = m.SignedAt.Value.AddDays(days);
+                return validUntil >= nowUtc && validUntil <= windowEnd;
+            })
+            .Select(MapToDomain)
+            .ToList();
+    }
+
     public async Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(request);

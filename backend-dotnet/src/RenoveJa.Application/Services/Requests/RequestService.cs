@@ -327,6 +327,7 @@ public class RequestService(
         var prescriptionKind = ParsePrescriptionKind(request.PrescriptionKind);
 
         var medications = request.Medications ?? new List<string>();
+        await EnforcePrescriptionCooldownAsync(userId, prescriptionKind, medications, cancellationToken);
         var controlledDuplicateWarning = await BuildControlledDuplicateWarningAsync(userId, prescriptionKind, medications, cancellationToken);
 
         var medicalRequest = MedicalRequest.CreatePrescription(
@@ -391,6 +392,8 @@ public class RequestService(
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null)
             throw new InvalidOperationException("User not found");
+
+        await EnforceExamCooldownAsync(userId, request.Exams ?? new List<string>(), cancellationToken);
 
         var medicalRequest = MedicalRequest.CreateExam(
             userId,
@@ -2698,6 +2701,168 @@ public class RequestService(
         for (var i = 0; i < urls.Count; i++)
             result.Add($"{baseUrl}/{i}?token={Uri.EscapeDataString(docToken)}");
         return result;
+    }
+
+    /// <summary>
+    /// Valida se o paciente já tem um pedido de receita ativo ou dentro do período mínimo
+    /// entre renovações conforme tipo da receita. Lança DuplicateRequestException se bloqueado.
+    ///
+    /// Regras:
+    ///   Simples     → bloqueia se existe pedido ativo (não rejeitado/cancelado)
+    ///   Controlada  → bloqueia se solicitou nos últimos 30 dias (CFM Res. 2.314/2022)
+    ///   Azul        → bloqueia se solicitou nos últimos 60 dias (Portaria 344/98 ANVISA)
+    /// </summary>
+    private async Task EnforcePrescriptionCooldownAsync(
+        Guid patientUserId,
+        PrescriptionKind? kind,
+        IReadOnlyList<string> medications,
+        CancellationToken cancellationToken)
+    {
+        var all = await requestRepository.GetByPatientIdAsync(patientUserId, cancellationToken);
+
+        var activeStatuses = new[]
+        {
+            RequestStatus.Submitted,
+            RequestStatus.InReview,
+            RequestStatus.ApprovedPendingPayment,
+            RequestStatus.Paid,
+            RequestStatus.Signed,
+        };
+
+        // Normaliza medicamentos para comparação case-insensitive
+        var medsNormalized = medications
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Select(m => m.Trim().ToLowerInvariant())
+            .ToList();
+
+        var prescriptions = all
+            .Where(r =>
+                r.RequestType == RequestType.Prescription &&
+                r.Status != RequestStatus.Rejected &&
+                r.Status != RequestStatus.Cancelled)
+            .ToList();
+
+        // ── Receita Simples: bloqueia se já tem pedido ativo ──────────────────
+        if (kind == null || kind == PrescriptionKind.Simple)
+        {
+            var hasActive = prescriptions.Any(r =>
+                activeStatuses.Contains(r.Status) &&
+                (r.PrescriptionKind == null || r.PrescriptionKind == PrescriptionKind.Simple));
+
+            if (hasActive)
+                throw new DuplicateRequestException(
+                    "Você já tem uma solicitação de receita simples em andamento. " +
+                    "Aguarde a conclusão antes de enviar uma nova.",
+                    code: "active_request");
+        }
+
+        // ── Receita Controlada: mínimo 30 dias entre renovações ───────────────
+        if (kind == PrescriptionKind.ControlledSpecial)
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-30);
+            var recent = prescriptions
+                .Where(r =>
+                    r.PrescriptionKind == PrescriptionKind.ControlledSpecial &&
+                    r.CreatedAt >= cutoff)
+                .OrderByDescending(r => r.CreatedAt)
+                .FirstOrDefault();
+
+            if (recent != null)
+            {
+                var daysSince = (int)(DateTime.UtcNow - recent.CreatedAt).TotalDays;
+                var daysRemaining = 30 - daysSince;
+                throw new DuplicateRequestException(
+                    $"Receitas controladas só podem ser renovadas a cada 30 dias. " +
+                    $"Sua última solicitação foi há {daysSince} dia{(daysSince == 1 ? "" : "s")}. " +
+                    $"Aguarde mais {daysRemaining} dia{(daysRemaining == 1 ? "" : "s")}.",
+                    code: "cooldown_prescription",
+                    cooldownDays: daysRemaining);
+            }
+        }
+
+        // ── Receita Azul (psicotrópico): mínimo 60 dias ───────────────────────
+        // Nota: PrescriptionType.Blue está desabilitado no controller por enquanto,
+        // mas a regra já fica implementada para quando for liberado.
+        if (medsNormalized.Count > 0)
+        {
+            var cutoffBlue = DateTime.UtcNow.AddDays(-60);
+            var recentBlue = prescriptions
+                .Where(r =>
+                    r.PrescriptionType == PrescriptionType.Blue &&
+                    r.CreatedAt >= cutoffBlue)
+                .OrderByDescending(r => r.CreatedAt)
+                .FirstOrDefault();
+
+            if (recentBlue != null)
+            {
+                var daysSince = (int)(DateTime.UtcNow - recentBlue.CreatedAt).TotalDays;
+                var daysRemaining = 60 - daysSince;
+                throw new DuplicateRequestException(
+                    $"Receitas azuis (psicotrópicos) só podem ser renovadas a cada 60 dias. " +
+                    $"Sua última solicitação foi há {daysSince} dia{(daysSince == 1 ? "" : "s")}. " +
+                    $"Aguarde mais {daysRemaining} dia{(daysRemaining == 1 ? "" : "s")}.",
+                    code: "cooldown_prescription",
+                    cooldownDays: daysRemaining);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Valida se o paciente já tem um pedido de exame ativo com ao menos um exame em comum.
+    /// Lança DuplicateRequestException se bloqueado.
+    /// </summary>
+    private async Task EnforceExamCooldownAsync(
+        Guid patientUserId,
+        IReadOnlyList<string> exams,
+        CancellationToken cancellationToken)
+    {
+        if (exams == null || exams.Count == 0) return;
+
+        var all = await requestRepository.GetByPatientIdAsync(patientUserId, cancellationToken);
+
+        var examsNormalized = exams
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Select(e => e.Trim().ToLowerInvariant())
+            .ToList();
+
+        if (examsNormalized.Count == 0) return;
+
+        var activeStatuses = new[]
+        {
+            RequestStatus.Submitted,
+            RequestStatus.InReview,
+            RequestStatus.ApprovedPendingPayment,
+            RequestStatus.Paid,
+            RequestStatus.Signed,
+        };
+
+        var conflictingRequest = all.FirstOrDefault(r =>
+            r.RequestType == RequestType.Exam &&
+            activeStatuses.Contains(r.Status) &&
+            r.Exams != null &&
+            r.Exams.Any(e => examsNormalized.Any(n =>
+                !string.IsNullOrWhiteSpace(e) &&
+                e.ToLowerInvariant().Contains(n))));
+
+        if (conflictingRequest != null)
+        {
+            // Encontra os exames em conflito para mensagem mais clara
+            var conflicting = conflictingRequest.Exams?
+                .Where(e => examsNormalized.Any(n =>
+                    !string.IsNullOrWhiteSpace(e) &&
+                    e.ToLowerInvariant().Contains(n)))
+                .Take(2)
+                .ToList() ?? new List<string>();
+
+            var examsDesc = conflicting.Count > 0
+                ? string.Join(", ", conflicting)
+                : "os mesmos exames";
+
+            throw new DuplicateRequestException(
+                $"Você já tem um pedido de exame em andamento para: {examsDesc}. " +
+                "Aguarde a conclusão antes de solicitar novamente.",
+                code: "cooldown_exam");
+        }
     }
 
     private async Task<string?> BuildControlledDuplicateWarningAsync(

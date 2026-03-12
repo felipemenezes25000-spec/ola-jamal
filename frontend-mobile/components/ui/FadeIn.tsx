@@ -10,7 +10,7 @@ interface FadeInProps {
   fill?: boolean;
   easing?: (value: number) => number;
   style?: StyleProp<ViewStyle>;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 /**
@@ -62,7 +62,7 @@ export function FadeIn({
 
   return (
     <Animated.View style={[{ opacity, transform: [{ translateY }], ...(fill ? { flex: 1 } : null) }, style]}>
-      {children}
+      {children ?? null}
     </Animated.View>
   );
 }

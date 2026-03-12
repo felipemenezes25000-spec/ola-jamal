@@ -250,4 +250,17 @@ public static class PushNotificationRules
             channel: PushChannel.Quiet,
             category: PushCategory.Reminders,
             collapseKeySuffix: "reminder_inreview");
+
+    // ── Lembretes de renovação (receita vencendo) ────────────────────────────
+
+    /// <summary>Lembrete: receita vence em breve — paciente deve renovar.</summary>
+    public static PushNotificationRequest RenewalReminder(Guid patientId, Guid requestId) =>
+        BuildRequest(patientId, "reminder_renewal", requestId, RequestType.Prescription, RequestStatus.Delivered,
+            "Receita vencendo em breve",
+            "Sua receita está próxima do vencimento. Renove agora para não ficar sem medicamento.",
+            targetRole: "patient",
+            deepLinkSuffix: $"request-detail/{requestId}",
+            channel: PushChannel.Quiet,
+            category: PushCategory.Reminders,
+            collapseKeySuffix: "reminder_renewal");
 }

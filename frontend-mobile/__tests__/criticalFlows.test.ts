@@ -28,13 +28,13 @@ describe('Fluxo de Login', () => {
   it('aceita credenciais válidas', () => {
     const r = validate(loginSchema, { email: 'paciente@renoveja.com', password: 'senha123' });
     expect(r.success).toBe(true);
-    expect(r.data?.email).toBe('paciente@renoveja.com');
+    if (r.success) expect(r.data.email).toBe('paciente@renoveja.com');
   });
 
   it('rejeita email em branco', () => {
     const r = validate(loginSchema, { email: '', password: 'senha123' });
     expect(r.success).toBe(false);
-    expect(r.firstError).toMatch(/email/i);
+    if (!r.success) expect(r.firstError).toMatch(/email/i);
   });
 
   it('rejeita email mal-formado', () => {
@@ -50,7 +50,7 @@ describe('Fluxo de Login', () => {
   it('normaliza email para minúsculas', () => {
     const r = validate(loginSchema, { email: '  USER@DOMINIO.COM  ', password: 'x' });
     expect(r.success).toBe(true);
-    expect(r.data?.email).toBe('user@dominio.com');
+    if (r.success) expect(r.data.email).toBe('user@dominio.com');
   });
 });
 
@@ -70,7 +70,7 @@ describe('Fluxo de Reset de Senha', () => {
   it('rejeita senhas diferentes', () => {
     const r = validate(resetPasswordSchema, { newPassword: 'SenhaCorreta1', confirmPassword: 'SenhaErrada1' });
     expect(r.success).toBe(false);
-    expect(r.firstError).toMatch(/coincidem/i);
+    if (!r.success) expect(r.firstError).toMatch(/coincidem/i);
   });
 });
 

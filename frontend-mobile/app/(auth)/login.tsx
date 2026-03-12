@@ -113,7 +113,7 @@ export default function Login() {
     setErrors({});
     setLoading(true);
     try {
-      const user = await signIn(result.data!.email, result.data!.password);
+      const user = await signIn(result.data.email, result.data.password);
       const dest = !user.profileComplete
         ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
         : user.role === 'doctor'

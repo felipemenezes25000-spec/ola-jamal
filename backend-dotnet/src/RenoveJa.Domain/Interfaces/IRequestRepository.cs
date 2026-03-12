@@ -24,6 +24,9 @@ public interface IRequestRepository
     /// <summary>Pedidos em InReview com updated_at anterior ao cutoff (para lembretes de pedido parado).</summary>
     Task<List<MedicalRequest>> GetStaleInReviewAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default);
 
+    /// <summary>Receitas entregues (delivered) que vencem nos próximos N dias. Para lembretes de renovação.</summary>
+    Task<List<MedicalRequest>> GetPrescriptionsExpiringSoonAsync(DateTime nowUtc, int daysAhead = 7, CancellationToken cancellationToken = default);
+
     Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default);
     Task<MedicalRequest> UpdateAsync(MedicalRequest request, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
