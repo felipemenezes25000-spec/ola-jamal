@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { DoctorLayout } from '@/components/doctor/DoctorLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,16 +15,24 @@ import {
   getPreviewPdf, getPreviewExamPdf, signRequest,
   type MedicalRequest, type Medication, type ExamItem,
 } from '@/services/doctorApi';
+import { validatePrescription } from '@/services/doctor-api-consultation';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Loader2, ArrowLeft, Plus, Trash2, Save, FileSignature, Eye, Pill,
-  FlaskConical, FileText, AlertTriangle, Lock, CheckCircle2,
+  FlaskConical, FileText, AlertTriangle, Lock, CheckCircle2, Sparkles,
+  XCircle, X,
 } from 'lucide-react';
+
+interface EditorLocationState {
+  prefillMeds?: { name: string; dosage: string; frequency: string; duration: string }[];
+}
 
 export default function DoctorRequestEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as EditorLocationState | null;
   const [request, setRequest] = useState<MedicalRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,22 +46,82 @@ export default function DoctorRequestEditor() {
   const [exams, setExams] = useState<ExamItem[]>([]);
   const [notes, setNotes] = useState('');
   const [conductNotes, setConductNotes] = useState('');
+  const [includeConductInPdf, setIncludeConductInPdf] = useState(true);
   const [prescriptionKind, setPrescriptionKind] = useState('simple');
+  const [complianceValidation, setComplianceValidation] = useState<{
+    valid: boolean;
+    messages?: string[];
+    missingFields?: string[];
+  } | null>(null);
+  const [rejectedSuggestions, setRejectedSuggestions] = useState<Set<string>>(new Set());
+
+  function parseAiMedications(aiExtractedJson: string | null): string[] {
+    if (!aiExtractedJson) return [];
+    try {
+      const obj = JSON.parse(aiExtractedJson) as { medications?: unknown[] };
+      const arr = obj?.medications;
+      if (Array.isArray(arr)) {
+        return arr.map((m) => String(m ?? '').trim()).filter(Boolean);
+      }
+    } catch {
+      /* ignore */
+    }
+    return [];
+  }
+
+  const suggestedFromAi = parseAiMedications(request?.aiExtractedJson ?? null).filter(
+    (m) =>
+      !medications.some((med) => med.name?.toLowerCase().includes(m.toLowerCase().split(' ')[0] ?? '')) &&
+      !rejectedSuggestions.has(m)
+  );
+
+  const refreshCompliance = useCallback(async () => {
+    if (!id || !request) return;
+    if (request.type !== 'prescription' && request.type !== 'exam') return;
+    try {
+      const v = await validatePrescription(id);
+      setComplianceValidation({
+        valid: v.valid ?? true,
+        messages: v.messages ?? [],
+        missingFields: v.missingFields ?? [],
+      });
+    } catch {
+      setComplianceValidation(null);
+    }
+  }, [id, request?.id, request?.type]);
 
   useEffect(() => {
     if (!id) return;
     getRequestById(id)
-      .then(data => {
+      .then((data) => {
         setRequest(data);
-        setMedications(data.medications || [{ name: '', dosage: '', frequency: '', duration: '' }]);
-        setExams(data.exams || [{ name: '', notes: '' }]);
+        const prefill = state?.prefillMeds;
+        if (data.type === 'consultation' && prefill?.length) {
+          setMedications(prefill.map((m) => ({ name: m.name || '', dosage: m.dosage || '', frequency: m.frequency || '', duration: m.duration || '' })));
+        } else if (data.medications?.length) {
+          setMedications(data.medications);
+        } else if (data.type === 'prescription') {
+          setMedications([{ name: '', dosage: '', frequency: '', duration: '' }]);
+        }
+        if (data.exams?.length) {
+          setExams(data.exams);
+        } else if (data.type === 'exam') {
+          setExams([{ name: '', notes: '' }]);
+        }
         setNotes(data.notes || '');
         setConductNotes(data.doctorConductNotes || '');
+        setIncludeConductInPdf(data.includeConductInPdf !== false);
         setPrescriptionKind(data.prescriptionKind || 'simple');
       })
       .catch(() => toast.error('Erro ao carregar'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, state?.prefillMeds]);
+
+  useEffect(() => {
+    if (id && request && (request.type === 'prescription' || request.type === 'exam')) {
+      void refreshCompliance();
+    }
+  }, [id, request?.id, request?.type, refreshCompliance]);
 
   const addMedication = () => setMedications(prev => [...prev, { name: '', dosage: '', frequency: '', duration: '' }]);
   const removeMedication = (i: number) => setMedications(prev => prev.filter((_, idx) => idx !== i));
@@ -76,9 +144,10 @@ export default function DoctorRequestEditor() {
       } else if (request.type === 'exam') {
         await updateExamContent(id, { exams, notes });
       }
-      if (conductNotes !== request.doctorConductNotes) {
-        await updateConduct(id, { conductNotes });
-      }
+      await updateConduct(id, { conductNotes, includeConductInPdf });
+      const updated = await getRequestById(id);
+      setRequest(updated);
+      await refreshCompliance();
       toast.success('Salvo com sucesso');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
@@ -106,6 +175,13 @@ export default function DoctorRequestEditor() {
     setSigning(true);
     try {
       await handleSave();
+      const validation = await validatePrescription(id);
+      if (!validation.valid) {
+        const checklist = (validation.messages ?? []).join('\n• ');
+        toast.error(`Receita incompleta. Corrija antes de assinar:\n\n• ${checklist}`, { duration: 8000 });
+        setSigning(false);
+        return;
+      }
       await signRequest(id, certPassword);
       toast.success('Documento assinado digitalmente!');
       setSignDialogOpen(false);
@@ -132,6 +208,51 @@ export default function DoctorRequestEditor() {
       <DoctorLayout>
         <div className="text-center py-20">
           <p className="text-muted-foreground">Pedido não encontrado</p>
+        </div>
+      </DoctorLayout>
+    );
+  }
+
+  if (request.type === 'consultation') {
+    const prefill = state?.prefillMeds ?? [];
+    return (
+      <DoctorLayout>
+        <div className="space-y-6 max-w-2xl mx-auto">
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/pedidos/${id}`)} aria-label="Voltar">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <Card className="shadow-sm">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center gap-2 text-amber-700">
+                <AlertTriangle className="h-5 w-5 shrink-0" />
+                <p className="font-medium">Editor disponível apenas para receitas e exames</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Este pedido é uma consulta. Para criar receita ou exame a partir da anamnese, use o app mobile ou edite um pedido de receita/exame existente.
+              </p>
+              {prefill.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Medicamentos sugeridos</p>
+                  <div className="flex flex-wrap gap-2">
+                    {prefill.map((m, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={async () => {
+                          const text = typeof m === 'object' && m?.name ? m.name : String(m);
+                          await navigator.clipboard.writeText(text);
+                          toast.success('Copiado!');
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-sm font-medium text-primary transition-colors"
+                      >
+                        {typeof m === 'object' && m?.name ? m.name : String(m)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </DoctorLayout>
     );
@@ -177,6 +298,27 @@ export default function DoctorRequestEditor() {
         <div className="grid gap-6 lg:grid-cols-5">
           {/* Editor */}
           <div className="lg:col-span-3 space-y-5">
+            {/* Compliance validation */}
+            {complianceValidation && !complianceValidation.valid && complianceValidation.messages && complianceValidation.messages.length > 0 && (
+              <Card className="shadow-sm border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span className="font-semibold text-amber-800 dark:text-amber-300">Campos obrigatórios</span>
+                  </div>
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mb-2">Complete os itens abaixo antes de assinar:</p>
+                  <ul className="space-y-1">
+                    {complianceValidation.messages.map((msg, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        <span>{msg}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Prescription kind */}
             {isPrescription && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
@@ -199,6 +341,43 @@ export default function DoctorRequestEditor() {
                   </CardContent>
                 </Card>
               </motion.div>
+            )}
+
+            {/* AI medication suggestions (prescription only) */}
+            {isPrescription && suggestedFromAi.length > 0 && (
+              <Card className="shadow-sm border-primary/20 bg-primary/[0.02]">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Medicamentos sugeridos pela IA
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedFromAi.map((med, i) => (
+                      <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted text-sm">
+                        <span className="truncate max-w-[200px]">{med}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMedications((prev) => [...prev, { name: med, dosage: '', frequency: '', duration: '' }])}
+                          className="p-1 rounded hover:bg-primary/20 text-primary"
+                          aria-label={`Adicionar ${med}`}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejectedSuggestions((p) => new Set(p).add(med))}
+                          className="p-1 rounded hover:bg-destructive/20 text-muted-foreground"
+                          aria-label={`Rejeitar ${med}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {/* Items */}
@@ -308,13 +487,22 @@ export default function DoctorRequestEditor() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Conduta Médica</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 space-y-3">
                   <Textarea
                     value={conductNotes}
                     onChange={e => setConductNotes(e.target.value)}
                     placeholder="Anotações sobre conduta clínica..."
                     rows={3}
                   />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeConductInPdf}
+                      onChange={e => setIncludeConductInPdf(e.target.checked)}
+                      className="rounded border-input"
+                    />
+                    <span className="text-sm">Incluir conduta no PDF do documento</span>
+                  </label>
                 </CardContent>
               </Card>
             </motion.div>

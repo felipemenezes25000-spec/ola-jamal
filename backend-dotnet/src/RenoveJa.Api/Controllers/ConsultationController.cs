@@ -94,7 +94,8 @@ public class ConsultationController(
         sessionStore.EnsureSession(requestId, request.PatientId);
         logger.LogDebug("[Transcribe] Sessão garantida para RequestId={RequestId}", requestId);
 
-        var rawText = await transcriptionService.TranscribeAsync(audioBytes, file.FileName, cancellationToken);
+        var currentTranscript = sessionStore.GetTranscript(requestId);
+        var rawText = await transcriptionService.TranscribeAsync(audioBytes, file.FileName, currentTranscript, cancellationToken);
         if (string.IsNullOrWhiteSpace(rawText))
         {
             logger.LogWarning("[Transcribe] TRANSCRICAO_NAO_OCORRE: Whisper retornou vazio. RequestId={RequestId} | Verifique logs [Whisper] para causa (OpenAI key, áudio sem fala, etc.)",
@@ -339,7 +340,7 @@ public class ConsultationController(
         await fileStream.CopyToAsync(ms, cancellationToken);
         var audioBytes = ms.ToArray();
 
-        var rawText = await transcriptionService.TranscribeAsync(audioBytes, file.FileName, cancellationToken);
+        var rawText = await transcriptionService.TranscribeAsync(audioBytes, file.FileName, null, cancellationToken);
         logger.LogInformation("[TranscribeTest] Resultado: transcribed={Transcribed}, textLength={Len}",
             !string.IsNullOrWhiteSpace(rawText), rawText?.Length ?? 0);
 

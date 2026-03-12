@@ -11,6 +11,7 @@ import { ANA_FIELDS as SHARED_ANA_FIELDS } from '../../../lib/domain/anamnesis';
 export type MedSugerido = string | {
   nome: string; classe_terapeutica?: string; dose?: string; via?: string;
   posologia?: string; duracao?: string; indicacao?: string;
+  melhora_esperada?: string;
   contraindicacoes?: string; interacoes?: string;
   mecanismo_acao?: string; ajuste_renal?: string; ajuste_hepatico?: string;
   alerta_faixa_etaria?: string; alternativa?: string;

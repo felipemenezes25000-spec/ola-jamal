@@ -6,7 +6,7 @@ import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
 import { usePWA } from '@/hooks/usePWA';
 import {
   LayoutDashboard, FileText, Bell, User, Menu, X, LogOut,
-  Stethoscope, Video, Download, Share2,
+  Stethoscope, Video, Download, Share2, Settings,
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +15,7 @@ const navItems = [
   { to: '/consultas', label: 'Consultas', icon: Video },
   { to: '/notificacoes', label: 'Alertas', icon: Bell },
   { to: '/perfil', label: 'Perfil', icon: User },
+  { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
 export function DoctorSidebar() {

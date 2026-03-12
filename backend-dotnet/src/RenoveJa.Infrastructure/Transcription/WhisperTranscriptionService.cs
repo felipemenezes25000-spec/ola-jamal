@@ -34,10 +34,11 @@ public class WhisperTranscriptionService : ITranscriptionService
     public async Task<string?> TranscribeAsync(
         byte[] audioBytes,
         string? fileName = null,
+        string? previousContext = null,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("[Whisper] TranscribeAsync INICIO | fileName={FileName} | audioBytesLen={Len}",
-            fileName ?? "(null)", audioBytes?.Length ?? 0);
+        _logger.LogInformation("[Whisper] TranscribeAsync INICIO | fileName={FileName} | audioBytesLen={Len} | hasContext={HasCtx}",
+            fileName ?? "(null)", audioBytes?.Length ?? 0, !string.IsNullOrWhiteSpace(previousContext));
 
         var cfg = _config.Value ?? new OpenAIConfig();
         var apiKey = cfg.ApiKey?.Trim();
@@ -63,6 +64,16 @@ public class WhisperTranscriptionService : ITranscriptionService
         content.Add(new ByteArrayContent(audioBytes), "file", safeFileName);
         content.Add(new StringContent(DefaultModel), "model");
         content.Add(new StringContent("pt"), "language");
+
+        // Prompt de contexto: últimas ~180 palavras do transcript anterior.
+        // O Whisper usa isso para manter continuidade entre chunks, evitando
+        // palavras cortadas, repetições e erros de contexto nas fronteiras.
+        if (!string.IsNullOrWhiteSpace(previousContext))
+        {
+            var contextTrimmed = TrimToLastWords(previousContext, 180);
+            content.Add(new StringContent(contextTrimmed), "prompt");
+            _logger.LogDebug("[Whisper] Prompt de contexto: {Len} palavras", contextTrimmed.Split(' ').Length);
+        }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
@@ -113,6 +124,17 @@ public class WhisperTranscriptionService : ITranscriptionService
                 json.Length > 500 ? json[..500] + "..." : json);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Extrai as últimas N palavras de um texto (para prompt de contexto do Whisper).
+    /// O Whisper aceita até ~224 tokens como prompt; 180 palavras é um limite seguro.
+    /// </summary>
+    private static string TrimToLastWords(string text, int maxWords)
+    {
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length <= maxWords) return text;
+        return string.Join(' ', words[^maxWords..]);
     }
 
     private static string ResolveFileExtension(string? fileName)

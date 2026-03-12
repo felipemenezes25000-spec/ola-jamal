@@ -224,6 +224,22 @@ public class CarePlanService(
         return await BuildCarePlanResponseAsync(carePlan, cancellationToken);
     }
 
+    public async Task<CarePlanResponseDto?> GetCarePlanByConsultationIdAsync(
+        Guid consultationId,
+        Guid requesterUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var medicalRequest = await requestRepository.GetByIdAsync(consultationId, cancellationToken);
+        if (medicalRequest == null) return null;
+        if (medicalRequest.PatientId != requesterUserId && medicalRequest.DoctorId != requesterUserId)
+            throw new UnauthorizedAccessException("Sem acesso a esta consulta");
+
+        var carePlan = await carePlanRepository.GetActiveByConsultationIdAsync(consultationId, cancellationToken);
+        if (carePlan == null) return null;
+
+        return await BuildCarePlanResponseAsync(carePlan, cancellationToken);
+    }
+
     public async Task<CarePlanResponseDto> GetCarePlanByIdAsync(
         Guid carePlanId,
         Guid requesterUserId,

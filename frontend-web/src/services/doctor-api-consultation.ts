@@ -115,10 +115,16 @@ export async function getPreviewExamPdf(id: string): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
-export async function validatePrescription(id: string) {
+export async function validatePrescription(id: string): Promise<{
+  valid: boolean;
+  missingFields?: string[];
+  messages?: string[];
+}> {
   const res = await authFetch(`/api/requests/${id}/validate-prescription`, { method: 'POST' });
-  if (!res.ok) throw new Error('Erro ao validar');
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (res.ok) return { valid: true, ...data };
+  if (res.status === 400) return { valid: false, missingFields: data.missingFields ?? [], messages: data.messages ?? [] };
+  throw new Error('Erro ao validar');
 }
 
 // ── Transcription ──
@@ -146,13 +152,13 @@ export async function getAssistantNextAction(requestId?: string, status?: string
 // ── Care Plans ──
 
 export async function getExamSuggestions(consultationId: string) {
-  const res = await authFetch(`/api/care-plans/consultations/${consultationId}/ai/exam-suggestions`);
+  const res = await authFetch(`/api/consultations/${consultationId}/ai/exam-suggestions`);
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function generateExamSuggestions(consultationId: string) {
-  const res = await authFetch(`/api/care-plans/consultations/${consultationId}/ai/exam-suggestions`, { method: 'POST' });
+  const res = await authFetch(`/api/consultations/${consultationId}/ai/exam-suggestions`, { method: 'POST' });
   if (!res.ok) throw new Error('Erro ao gerar sugestões');
   return res.json();
 }

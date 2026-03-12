@@ -66,10 +66,16 @@ export function AIIndicators({
           <>
             <Text style={S.cidValue}>{cidSugerido}</Text>
             {cidDescricao ? <Text style={S.cidDescricao}>{cidDescricao}</Text> : null}
-            <TouchableOpacity style={S.cidCopy} onPress={() => copyToClipboard(cidSugerido + (cidDescricao ? ` — ${cidDescricao}` : ''), 'CID')}>
-              <Ionicons name="copy-outline" size={12} color={colors.primary} />
-              <Text style={S.cidCopyText}>Copiar CID</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <TouchableOpacity style={S.cidCopy} onPress={() => copyToClipboard(cidSugerido + (cidDescricao ? ` — ${cidDescricao}` : ''), 'CID')}>
+                <Ionicons name="copy-outline" size={12} color={colors.primary} />
+                <Text style={S.cidCopyText}>Copiar CID</Text>
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, opacity: 0.6 }}>
+                <Ionicons name="sync-outline" size={10} color={colors.textMuted} />
+                <Text style={{ fontSize: 9, color: colors.textMuted }}>Atualiza conforme a consulta</Text>
+              </View>
+            </View>
           </>
         ) : (
           <Text style={S.cidPlaceholder}>Aguardando dados da transcrição para sugerir CID</Text>

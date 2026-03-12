@@ -15,7 +15,7 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { transcribeAudioChunk } from '../lib/api';
 
-const CHUNK_DURATION_MS = 10_000; // 10 seconds per chunk
+const CHUNK_DURATION_MS = 15_000; // 15 seconds per chunk (menos fronteiras cortadas)
 
 const RECORDING_OPTIONS: Audio.RecordingOptions = {
   isMeteringEnabled: false,

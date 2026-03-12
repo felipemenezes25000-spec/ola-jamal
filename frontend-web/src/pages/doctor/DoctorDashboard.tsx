@@ -236,7 +236,7 @@ export default function DoctorDashboard() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Consulta Inteligente com IA</p>
                     <p className="text-xs text-muted-foreground">
-                      Transcrição em tempo real (Whisper) • Anamnese automática (GPT-4o) • Sugestões de conduta • Evidências científicas
+                      Transcrição em tempo real (Daily.co) • Anamnese automática (Gemini/GPT-4o) • Sugestões de conduta • Evidências científicas
                     </p>
                   </div>
                   <Badge variant="outline" className="text-[10px] gap-1 shrink-0">

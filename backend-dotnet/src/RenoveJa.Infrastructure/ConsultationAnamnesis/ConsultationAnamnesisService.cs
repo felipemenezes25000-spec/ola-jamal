@@ -15,15 +15,20 @@ using RenoveJa.Domain.ValueObjects;
 namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 
 /// <summary>
-/// Serviço de anamnese estruturada e sugestões clínicas por IA (GPT-4o) durante a consulta.
+/// Serviço de anamnese estruturada e sugestões clínicas por IA (GPT-4o/Gemini) durante a consulta.
 /// v2: Prompt enriquecido com diagnóstico diferencial, CID-10 validado, medicamentos com
 /// interações/contraindicações, exames com código TUSS, classificação de gravidade,
 /// orientações ao paciente e critérios de retorno.
 /// Atua como copiloto: a decisão final é sempre do médico.
+/// Suporta múltiplos providers (Gemini, OpenAI) via endpoint OpenAI-compatible.
+/// Gemini 2.5 Flash: melhor acurácia médica a ~1/5 do preço. Config: Gemini__ApiKey.
 /// </summary>
 public class ConsultationAnamnesisService : IConsultationAnamnesisService
 {
-    private const string ApiBaseUrl = "https://api.openai.com/v1";
+    private const string OpenAiBaseUrl = "https://api.openai.com/v1";
+    private const string GeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
+    private const string DefaultGeminiModel = "gemini-2.5-flash";
+    private const string DefaultOpenAiModel = "gpt-4o";
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -55,14 +60,43 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
     {
         var specific = _config.Value?.ModelAnamnesis?.Trim();
         if (!string.IsNullOrEmpty(specific)) return specific;
-        return _config.Value?.Model ?? "gpt-4o";
+        if (!string.IsNullOrEmpty(GetGeminiApiKey())) return DefaultGeminiModel;
+        return _config.Value?.Model ?? DefaultOpenAiModel;
     }
 
     private string GetEvidenceModel()
     {
         var specific = _config.Value?.ModelEvidence?.Trim();
         if (!string.IsNullOrEmpty(specific)) return specific;
-        return _config.Value?.Model ?? "gpt-4o";
+        if (!string.IsNullOrEmpty(GetGeminiApiKey())) return DefaultGeminiModel;
+        return _config.Value?.Model ?? DefaultOpenAiModel;
+    }
+
+    private string? GetGeminiApiKey()
+    {
+        return _config.Value?.GeminiApiKey?.Trim() is { Length: > 0 } key
+            && !key.Contains("YOUR_") && !key.Contains("_HERE")
+            ? key : null;
+    }
+
+    private (string apiKey, string baseUrl) ResolveProvider(string model)
+    {
+        var isGemini = model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
+
+        if (isGemini)
+        {
+            var geminiKey = GetGeminiApiKey();
+            if (!string.IsNullOrEmpty(geminiKey))
+            {
+                var customUrl = _config.Value?.GeminiApiBaseUrl?.Trim();
+                var baseUrl = !string.IsNullOrEmpty(customUrl) ? customUrl : GeminiBaseUrl;
+                return (geminiKey, baseUrl);
+            }
+            _logger.LogWarning("[Anamnese] Modelo Gemini solicitado mas Gemini__ApiKey não configurada. Fallback para OpenAI.");
+        }
+
+        var openAiKey = _config.Value?.ApiKey?.Trim() ?? "";
+        return (openAiKey, OpenAiBaseUrl);
     }
 
     public async Task<ConsultationAnamnesisResult?> UpdateAnamnesisAndSuggestionsAsync(
@@ -73,10 +107,11 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         _logger.LogInformation("[Anamnese IA v2] INICIO transcriptLen={Len} previousAnamnesisLen={PrevLen}",
             transcriptSoFar?.Length ?? 0, previousAnamnesisJson?.Length ?? 0);
 
-        var apiKey = _config.Value?.ApiKey?.Trim();
+        var anamnesisModel = GetAnamnesisModel();
+        var (apiKey, apiBaseUrl) = ResolveProvider(anamnesisModel);
         if (string.IsNullOrEmpty(apiKey))
         {
-            _logger.LogWarning("[Anamnese IA v2] ANAMNESE_NAO_OCORRE: OpenAI:ApiKey não configurada.");
+            _logger.LogWarning("[Anamnese IA v2] ANAMNESE_NAO_OCORRE: Nenhuma API key configurada (Gemini__ApiKey ou OpenAI__ApiKey).");
             return null;
         }
 
@@ -90,9 +125,12 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
 
         var userContent = string.IsNullOrWhiteSpace(previousAnamnesisJson)
             ? $"Transcript da consulta (incluindo identificação de locutor quando disponível):\n\n{transcriptSoFar}"
-            : $"Anamnese anterior (mantenha e enriqueça com novas informações do transcript):\n{previousAnamnesisJson}\n\nTranscript atualizado:\n{transcriptSoFar}";
+            : $@"ANAMNESE ANTERIOR (use como ponto de partida, mas REAVALIE TUDO — CID, diagnósticos diferenciais, medicamentos, exames e interações — com base no transcript COMPLETO e ATUALIZADO abaixo. Se o paciente relatou novos sintomas, mudou a queixa ou deu mais detalhes, ATUALIZE o cid_sugerido, diagnostico_diferencial, medicamentos_sugeridos, exames_sugeridos e interacoes_cruzadas para refletir o quadro ATUAL, não o inicial):
+{previousAnamnesisJson}
 
-        var anamnesisModel = GetAnamnesisModel();
+TRANSCRIPT COMPLETO ATUALIZADO (analise do início ao fim, priorizando as falas mais recentes):
+{transcriptSoFar}";
+
         var requestBody = new
         {
             model = anamnesisModel,
@@ -101,8 +139,8 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
                 new { role = "system", content = (object)systemPrompt },
                 new { role = "user", content = (object)userContent }
             },
-            max_tokens = 4500,
-            temperature = 0.12
+            max_tokens = 6000,
+            temperature = 0.10
         };
 
         var startedAt = DateTime.UtcNow;
@@ -113,10 +151,10 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         client.Timeout = TimeSpan.FromSeconds(50);
 
         using var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
-        _logger.LogInformation("[Anamnese IA v2] Chamando OpenAI: model={Model} (anamnese)",
-            anamnesisModel);
+        _logger.LogInformation("[Anamnese IA v2] Chamando {Provider}: model={Model} (anamnese)",
+            anamnesisModel.StartsWith("gemini", StringComparison.OrdinalIgnoreCase) ? "Gemini" : "OpenAI", anamnesisModel);
 
-        var response = await client.PostAsync($"{ApiBaseUrl}/chat/completions", requestContent, cancellationToken);
+        var response = await client.PostAsync($"{apiBaseUrl}/chat/completions", requestContent, cancellationToken);
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -379,13 +417,22 @@ Responda em um ÚNICO JSON válido, sem markdown, com EXATAMENTE estes campos:
 
 ═══ REGRAS OBRIGATÓRIAS DE COMPLETUDE ═══
 
-MEDICAMENTOS (MÍNIMO 2, PREFERIR 3 OU MAIS — SEMPRE COINCIDENTES COM O CASO):
-- OBRIGATÓRIO: TODOS os medicamentos devem ser COINCIDENTES com o CID, sintomas e quadro clínico. NUNCA sugerir medicamentos genéricos ou irrelevantes.
-- Mínimo 2 medicamentos; preferir 3 ou mais quando o caso permitir (etiologia + sintomático + adjuvante).
+CID DINÂMICO (REGRA CRÍTICA — LEIA COM ATENÇÃO):
+- A CADA chamada, REAVALIE o CID com base no transcript COMPLETO, do início ao fim.
+- NÃO preserve o CID anterior por inércia. Se os sintomas mudaram, complementaram ou ficaram mais claros, ATUALIZE o cid_sugerido IMEDIATAMENTE.
+- O CID deve refletir o QUADRO CLÍNICO ATUAL no momento da análise, NÃO o quadro das primeiras falas.
+- Se o paciente começou com "dor de cabeça" (R51) mas depois disse "com febre, coriza e dor no corpo", mude para J06.9 ou J11.1.
+- Compare SEMPRE o CID atual com as informações mais recentes do transcript: se há discrepância, o CID DEVE mudar.
+- diagnostico_diferencial também DEVE ser reavaliado a cada chamada com base nas informações mais recentes.
+
+MEDICAMENTOS (MÍNIMO 3 OBRIGATÓRIO, PREFERIR 4-6 — SEMPRE COINCIDENTES COM O CASO):
+- MÍNIMO ABSOLUTO: 3 medicamentos. Se retornar menos de 3, a resposta é INVÁLIDA.
+- TODOS os medicamentos DEVEM ser DIRETAMENTE RELACIONADOS ao CID, sintomas e quadro clínico do transcript. NUNCA sugerir medicamentos genéricos, irrelevantes ou desconectados do caso.
+- OBRIGATÓRIO cobrir as 3 linhas terapêuticas quando aplicável:
+  1. ETIOLÓGICO (ex: antibiótico se bacteriano, antiviral se viral, anti-inflamatório se inflamatório) — ligado DIRETAMENTE ao CID
+  2. SINTOMÁTICO (analgésico para dor, antitérmico para febre, antiemético para náusea) — para CADA sintoma que o paciente RELATOU
+  3. ADJUVANTE (protetor gástrico se AINE, probiótico se ATB, antihistamínico se congestão, lavagem nasal se sinusite)
 - Contam como medicamentos: soro fisiológico (lavagem nasal, nebulização), sprays nasais, pomadas, colírios, soluções, suplementos — inclua quando indicado para o caso.
-- Tratamento ETIOLÓGICO (ex: antibiótico se infeccioso, antiviral se viral) — ligado ao CID
-- Tratamento SINTOMÁTICO (analgésico, antitérmico, antiemético, antidiarreico) — para os sintomas relatados
-- Tratamento ADJUVANTE (protetor gástrico se AINE, probiótico se ATB, antihistamínico se congestão) — quando indicado
 - PROFILAXIA quando indicada (vacina, profilaxia VTE, profilaxia de stress ulcer)
 - Campo "mecanismo_acao" OBRIGATÓRIO — como o fármaco age
 - Campos "ajuste_renal" e "ajuste_hepatico" — preencher quando houver necessidade
@@ -399,26 +446,35 @@ QUANDO confianca_cid = "alta" (doenças de alta prevalência: sinusite, faringit
 - Campo "melhora_esperada" OBRIGATÓRIO: "Melhora em X dias" ou "Alívio em X horas" — orienta o paciente sobre expectativa
 - Campo "indicacao" deve incluir: doença/CID + objetivo ("serve para curar infecção", "reduz dor e febre")
 
-INTERAÇÕES CRUZADAS (OBRIGATÓRIO se paciente usa ≥1 medicamento):
-- Avaliar TODOS os pares: medicamento_em_uso × medicamento_sugerido E medicamento_sugerido × medicamento_sugerido
-- Classificar como grave/moderada/leve
-- Incluir conduta para cada interação
-- Se nenhuma interação relevante, retornar array vazio []
+INTERAÇÕES CRUZADAS (OBRIGATÓRIO — NUNCA retornar array vazio se há medicamentos):
+- Se o paciente usa ≥1 medicamento OU se há ≥2 medicamentos sugeridos: interacoes_cruzadas NÃO PODE ser [].
+- Avaliar TODOS os pares possíveis:
+  • medicamento_em_uso × medicamento_sugerido
+  • medicamento_sugerido × medicamento_sugerido
+  • medicamento_em_uso × medicamento_em_uso (se paciente usa ≥2)
+- Classificar CADA interação como grave/moderada/leve
+- Incluir conduta ESPECÍFICA para cada interação (monitorar, espaçar doses, contraindicação)
+- Mesmo interações LEVES devem ser listadas (ex: AAS + AINE = risco GI aumentado)
+- Se genuinamente não há interação entre nenhum par: retornar [{"medicamento_a":"...", "medicamento_b":"...", "tipo":"leve", "descricao":"Sem interação clinicamente significativa identificada entre os medicamentos avaliados", "conduta":"Manter esquema proposto"}]
 
-EXAMES (OBRIGATÓRIO 4-12, NUNCA menos de 4):
-- LABORATORIAIS BÁSICOS: hemograma, PCR/VHS, glicemia, ureia/creatinina, eletrólitos, TGO/TGP, EAS
-- LABORATORIAIS ESPECÍFICOS: conforme hipótese (TSH, HbA1c, sorologias, culturas, marcadores)
-- IMAGEM: RX, USG, TC, RM conforme indicação
-- FUNCIONAIS: ECG, espirometria conforme indicação
-- Campo "interpretacao_esperada" OBRIGATÓRIO — o que o médico deve esperar se hipótese correta
-- Exames devem cobrir TODAS as hipóteses do diferencial
-- Se transcript < 200 chars, inclua exames BÁSICOS de triagem (hemograma, glicemia, ureia, creatinina, EAS)
+EXAMES (MÍNIMO 4 OBRIGATÓRIO, PREFERIR 6-10 — NUNCA menos de 4):
+- MÍNIMO ABSOLUTO: 4 exames. Se retornar menos de 4, a resposta é INVÁLIDA.
+- OBRIGATÓRIO incluir as categorias relevantes ao caso:
+  1. LABORATORIAIS BÁSICOS: hemograma, PCR/VHS, glicemia, ureia/creatinina, eletrólitos, TGO/TGP, EAS — incluir os pertinentes ao quadro
+  2. LABORATORIAIS ESPECÍFICOS: conforme hipótese (TSH, HbA1c, sorologias, culturas, marcadores tumorais, troponina, D-dímero)
+  3. IMAGEM: RX, USG, TC, RM conforme indicação clínica
+  4. FUNCIONAIS: ECG, espirometria, audiometria conforme indicação
+- Campo "interpretacao_esperada" OBRIGATÓRIO — o que o médico deve esperar se a hipótese principal estiver correta
+- Os exames DEVEM cobrir TODAS as hipóteses do diagnóstico diferencial, não apenas a principal
+- Cada exame deve ter "indicacao" explicando POR QUE é necessário para ESTE paciente AGORA
+- Se transcript < 200 chars, inclua no mínimo: hemograma, glicemia, ureia/creatinina, EAS
 
-PERGUNTAS SUGERIDAS (OBRIGATÓRIO 4-8, NUNCA vazio):
-- FORMULAÇÃO PELA IA: derive 100% do transcript. Perguntas que façam SENTIDO CLÍNICO para o médico perguntar AGORA, dado o que o paciente já disse.
-- Estilo "Akinator clínico": a mais importante primeiro, prioridade RED FLAGS > discriminatórias > temporais > funcionais
-- Campo "impacto_na_conduta" OBRIGATÓRIO: detalhe o que muda se SIM vs NÃO na conduta médica
-- COINCIDÊNCIA COM A FALA: NUNCA pergunte o que o paciente já respondeu. Avance na linha de raciocínio. Ex: se disse "dor de cabeça há 3 dias" → não pergunte "há quanto tempo"; pergunte localização, caráter, irradiação, fatores de melhora/piora, etc.
+PERGUNTAS SUGERIDAS (OBRIGATÓRIO 4-8, NUNCA vazio — PRECISÃO MÁXIMA):
+- AS PERGUNTAS DEVEM SER DERIVADAS 100% DO QUE O PACIENTE DISSE NO TRANSCRIPT. Leia CADA fala e identifique lacunas, ambiguidades e pontos que mudam a conduta.
+- Estilo "Akinator clínico": a pergunta que MAIS MUDA A CONDUTA vem primeiro. Prioridade: RED FLAGS > discriminatórias > temporais > funcionais.
+- Campo "impacto_na_conduta" OBRIGATÓRIO e DETALHADO: especifique exatamente o que muda (troca de medicamento, exame diferente, encaminhamento) se a resposta for SIM vs NÃO.
+- COINCIDÊNCIA COM A FALA: NUNCA pergunte o que o paciente JÁ RESPONDEU no transcript. Leia o transcript inteiro antes de sugerir perguntas. Se o paciente já disse "dor de cabeça há 3 dias" → NÃO pergunte "há quanto tempo"; pergunte localização, caráter, irradiação, fotofobia, vômitos.
+- PERGUNTAS DEVEM SER ESPECÍFICAS para o quadro: se paciente tem dor torácica, pergunte sobre irradiação para MSE, relação com esforço, sudorese. Não faça perguntas genéricas.
 - Se transcript < 200 chars, gere perguntas de ABERTURA:
   1. "Qual é a sua queixa principal? O que está sentindo?"
   2. "Há quanto tempo está com isso?"
@@ -432,12 +488,14 @@ SUGESTÕES (OBRIGATÓRIO 3-7, NUNCA vazio):
 - Inclua: hipótese principal + diferenciais + conduta inicial + seguimento
 - Se transcript < 200 chars: "Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta"
 
-CID (OBRIGATÓRIO — SEMPRE TRAZER):
+CID (OBRIGATÓRIO — SEMPRE ATUALIZAR):
 - cid_sugerido e diagnostico_diferencial[].cid: SEMPRE preencher. Nunca deixar vazio.
+- A CADA chamada, reavalie o CID com base no transcript COMPLETO. NÃO repita o CID anterior automaticamente.
 - Use o código MAIS ESPECÍFICO possível com subcategoria (ex: J03.0, não J06.9)
 - SEMPRE inclua 2-4 CIDs nos diferenciais
 - Se dados insuficientes: use R69 (Mal-estar e fadiga) ou R51 (Cefaleia) conforme o que o paciente mencionou como queixa
 - Confira que o código existe na CID-10 OMS
+- Se o paciente mudou/ampliou os sintomas desde a última análise, o CID DEVE refletir isso
 
 ═══ REGRAS GERAIS ═══
 1. NUNCA invente informações ausentes no transcript
@@ -446,7 +504,24 @@ CID (OBRIGATÓRIO — SEMPRE TRAZER):
 4. Classificação de gravidade: SEMPRE preencha
 5. Alertas vermelhos: APENAS quando fundamentados
 6. Terminologia médica adequada e objetiva
-7. Medicamentos: MÍNIMO 2, preferir 3+. Incluir soro fisiológico, sprays, pomadas quando indicado. Todos COINCIDENTES com o caso.
+7. Medicamentos: MÍNIMO 3, preferir 4-6. Incluir soro fisiológico, sprays, pomadas quando indicado. Todos COINCIDENTES com o caso.
+
+═══ REGRA DE COERÊNCIA E PRECISÃO (CRÍTICA) ═══
+TODOS os campos devem ser COERENTES entre si e DERIVADOS do transcript:
+- O CID deve corresponder aos sintomas descritos pelo paciente
+- Os medicamentos devem tratar o CID e os sintomas relatados
+- Os exames devem investigar as hipóteses do diagnóstico diferencial
+- As interações devem cruzar TODOS os medicamentos (em uso + sugeridos)
+- As perguntas devem preencher as lacunas identificadas no transcript
+- Se o médico está fazendo perguntas ([Médico]) e o paciente respondendo ([Paciente]), USE as respostas do paciente para refinar TUDO acima
+
+═══ VALIDAÇÃO FINAL (faça mentalmente antes de retornar o JSON) ═══
+- [ ] medicamentos_sugeridos tem ≥3 itens? Se não, ADICIONE mais.
+- [ ] exames_sugeridos tem ≥4 itens? Se não, ADICIONE mais.
+- [ ] interacoes_cruzadas está preenchido se há medicamentos? Se não, ADICIONE.
+- [ ] O CID reflete o quadro ATUAL (últimas falas), não apenas as primeiras?
+- [ ] As perguntas NÃO repetem o que o paciente já disse?
+- [ ] Cada medicamento tem indicacao, posologia, duracao, mecanismo_acao preenchidos?
 """;
     }
 
@@ -673,12 +748,38 @@ CID (OBRIGATÓRIO — SEMPRE TRAZER):
 
         if (medsList.Count == 0 && hasClinicalContext)
         {
+            // Fallback mínimo: 3 medicamentos sintomáticos básicos
             medsList.Add(new Dictionary<string, object>
             {
-                ["nome"] = "Avaliar necessidade de prescrição conforme evolução clínica",
+                ["nome"] = "Paracetamol 750mg", ["classe_terapeutica"] = "Analgésico/Antitérmico",
+                ["dose"] = "750mg", ["via"] = "VO", ["posologia"] = "1 comprimido de 6 em 6 horas se dor ou febre",
+                ["duracao"] = "5-7 dias", ["indicacao"] = "Analgesia e controle de febre — sintomático",
+                ["melhora_esperada"] = "Alívio de dor/febre em 30-60 minutos",
+                ["contraindicacoes"] = "Insuficiência hepática grave", ["interacoes"] = "Evitar uso concomitante com álcool",
+                ["mecanismo_acao"] = "Inibição central da COX e ação no centro termorregulador hipotalâmico",
+                ["ajuste_renal"] = "", ["ajuste_hepatico"] = "Contraindicado em hepatopata grave",
+                ["alerta_faixa_etaria"] = "Ajustar dose em idosos", ["alternativa"] = "Dipirona 500mg 1cp 6/6h"
+            });
+            medsList.Add(new Dictionary<string, object>
+            {
+                ["nome"] = "Dipirona 500mg", ["classe_terapeutica"] = "Analgésico/Antitérmico/Espasmolítico",
+                ["dose"] = "500-1000mg", ["via"] = "VO", ["posologia"] = "1-2 comprimidos de 6 em 6 horas se dor intensa",
+                ["duracao"] = "3-5 dias", ["indicacao"] = "Dor moderada a intensa e febre refratária a paracetamol",
+                ["melhora_esperada"] = "Alívio em 20-40 minutos",
+                ["contraindicacoes"] = "Discrasias sanguíneas, deficiência de G6PD",
+                ["interacoes"] = "Pode potencializar efeito de anticoagulantes",
+                ["mecanismo_acao"] = "Inibição da COX periférica e central com ação espasmolítica",
+                ["ajuste_renal"] = "Evitar em IR grave", ["ajuste_hepatico"] = "",
+                ["alerta_faixa_etaria"] = "Contraindicado em < 3 meses", ["alternativa"] = "Ibuprofeno 400mg 8/8h"
+            });
+            medsList.Add(new Dictionary<string, object>
+            {
+                ["nome"] = "Avaliar necessidade de prescrição etiológica conforme evolução clínica",
                 ["classe_terapeutica"] = "", ["dose"] = "", ["via"] = "", ["posologia"] = "",
-                ["duracao"] = "", ["indicacao"] = "", ["contraindicacoes"] = "",
-                ["interacoes"] = "", ["alerta_faixa_etaria"] = "", ["alternativa"] = ""
+                ["duracao"] = "", ["indicacao"] = "Aguardando mais dados da anamnese para definir tratamento etiológico",
+                ["contraindicacoes"] = "", ["interacoes"] = "", ["mecanismo_acao"] = "",
+                ["ajuste_renal"] = "", ["ajuste_hepatico"] = "",
+                ["alerta_faixa_etaria"] = "", ["alternativa"] = ""
             });
         }
 
@@ -723,26 +824,53 @@ CID (OBRIGATÓRIO — SEMPRE TRAZER):
 
         if (examsList.Count == 0 && hasClinicalContext)
         {
+            // Fallback mínimo: 4 exames básicos de triagem
             examsList.Add(new Dictionary<string, object>
             {
                 ["nome"] = "Hemograma completo com contagem de plaquetas",
                 ["codigo_tuss"] = "40304361",
                 ["descricao"] = "Contagem de séries vermelha, branca e plaquetária",
                 ["o_que_afere"] = "Anemia, infecção, inflamação, distúrbios hematológicos",
-                ["indicacao"] = "Avaliação inicial de infecção ou inflamação",
+                ["indicacao"] = "Avaliação inicial — rastreia infecção, anemia e processo inflamatório",
+                ["interpretacao_esperada"] = "Leucocitose com desvio à esquerda sugere infecção bacteriana; anemia pode indicar doença crônica",
                 ["preparo_paciente"] = "Jejum de 4 horas recomendado",
                 ["prazo_resultado"] = "24-48h",
                 ["urgencia"] = "rotina"
             });
             examsList.Add(new Dictionary<string, object>
             {
-                ["nome"] = "Exames complementares conforme hipótese diagnóstica",
-                ["codigo_tuss"] = "",
-                ["descricao"] = "Solicitar conforme evolução e hipótese diagnóstica",
-                ["o_que_afere"] = "Variável conforme indicação",
-                ["indicacao"] = "Complementar investigação conforme quadro clínico",
-                ["preparo_paciente"] = "",
-                ["prazo_resultado"] = "",
+                ["nome"] = "Proteína C-Reativa (PCR) quantitativa",
+                ["codigo_tuss"] = "40308073",
+                ["descricao"] = "Marcador de fase aguda — quantifica processo inflamatório/infeccioso",
+                ["o_que_afere"] = "Intensidade do processo inflamatório sistêmico",
+                ["indicacao"] = "Complementar hemograma para avaliar gravidade do quadro inflamatório/infeccioso",
+                ["interpretacao_esperada"] = "PCR >10mg/L sugere infecção bacteriana; >100mg/L sugere infecção grave",
+                ["preparo_paciente"] = "Jejum de 4 horas",
+                ["prazo_resultado"] = "24h",
+                ["urgencia"] = "rotina"
+            });
+            examsList.Add(new Dictionary<string, object>
+            {
+                ["nome"] = "Glicemia de jejum",
+                ["codigo_tuss"] = "40302040",
+                ["descricao"] = "Dosagem de glicose sérica em jejum",
+                ["o_que_afere"] = "Controle glicêmico, rastreio de diabetes",
+                ["indicacao"] = "Rastreio metabólico básico — relevante para ajuste de medicações",
+                ["interpretacao_esperada"] = "Normal: 70-99 mg/dL; pré-diabetes: 100-125; diabetes: ≥126",
+                ["preparo_paciente"] = "Jejum de 8-12 horas",
+                ["prazo_resultado"] = "24h",
+                ["urgencia"] = "rotina"
+            });
+            examsList.Add(new Dictionary<string, object>
+            {
+                ["nome"] = "Ureia e Creatinina séricas",
+                ["codigo_tuss"] = "40301630",
+                ["descricao"] = "Avaliação da função renal",
+                ["o_que_afere"] = "Taxa de filtração glomerular estimada, função renal",
+                ["indicacao"] = "Essencial para ajuste de dose de medicamentos e avaliação da função renal",
+                ["interpretacao_esperada"] = "Creatinina normal: 0.7-1.3 mg/dL; elevação sugere nefropatia e necessidade de ajuste posológico",
+                ["preparo_paciente"] = "Jejum de 4 horas",
+                ["prazo_resultado"] = "24h",
                 ["urgencia"] = "rotina"
             });
         }
@@ -955,7 +1083,9 @@ Apenas JSON, sem markdown.
 """;
 
         var evidenceModel = GetEvidenceModel();
-        _logger.LogInformation("[Evidências IA] Chamando OpenAI: model={Model} (evidências)", evidenceModel);
+        var (evApiKey, evBaseUrl) = ResolveProvider(evidenceModel);
+        _logger.LogInformation("[Evidências IA] Chamando {Provider}: model={Model}",
+            evidenceModel.StartsWith("gemini", StringComparison.OrdinalIgnoreCase) ? "Gemini" : "OpenAI", evidenceModel);
         var requestBody = new
         {
             model = evidenceModel,
@@ -966,11 +1096,11 @@ Apenas JSON, sem markdown.
 
         var json = JsonSerializer.Serialize(requestBody, JsonOptions);
         var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", evApiKey);
         client.Timeout = TimeSpan.FromSeconds(45);
 
         using var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await client.PostAsync($"{ApiBaseUrl}/chat/completions", requestContent, cancellationToken);
+        var response = await client.PostAsync($"{evBaseUrl}/chat/completions", requestContent, cancellationToken);
         if (!response.IsSuccessStatusCode)
             return Array.Empty<EvidenceItemDto>();
 

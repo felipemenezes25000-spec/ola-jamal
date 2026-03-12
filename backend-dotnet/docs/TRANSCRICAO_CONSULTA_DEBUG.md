@@ -1,63 +1,67 @@
 # Transcrição na consulta — Diagnóstico e logs
 
-## O que verificar ANTES de testar no app
+## Fluxo principal: Daily.co (transcrição nativa)
 
-### 1. Logs do backend (terminal onde a API está rodando)
+**Consulta em vídeo (mobile e web)**: transcrição é feita pelo **Daily.co** (Deepgram)
+no cliente. O app envia texto via `POST /api/consultation/transcribe-text`.
+**Não usa Whisper** em consulta ativa.
 
-Ao iniciar a consulta e o paciente falar, procure por:
+- **transcribe-text**: recebe texto já transcrito (Daily.co) — fluxo principal
+- **transcribe**: recebe áudio e usa Whisper — legado/fallback (useAudioRecorder)
+- **transcribe-test**: teste isolado — usa Whisper
+
+### 1. Logs do backend (transcribe-text — Daily.co)
 
 | Log | Significado |
-|-----|-------------|
-| `[Transcribe] Chunk recebido: RequestId=..., Size=..., Stream=...` | Chunk de áudio chegou ao backend |
-| `[Transcribe] Chunk de áudio ausente ou vazio` | Frontend enviou arquivo vazio |
-| `[Transcribe] Transcrição retornou vazio` | Whisper não detectou fala ou retornou vazio |
-| `[Transcribe] Transcrição OK: RequestId=..., TextLength=...` | Transcrição funcionou |
-| `[Whisper] OpenAI:ApiKey não configurada` | **Chave OpenAI ausente** — transcrição não funciona |
-| `[Whisper] API erro: StatusCode=401` | Chave OpenAI inválida ou expirada |
-| `[Whisper] API erro: StatusCode=4xx/5xx` | Erro na API Whisper |
-| `[Whisper] Nenhuma fala detectada no áudio` | Áudio sem voz ou muito curto |
-| `BadRequest("Consultation must be in progress to transcribe")` | Status da consulta não é `in_consultation` |
-| `BadRequest("Audio file is required")` | Arquivo não chegou corretamente |
+| --- | --- |
+| `[TranscribeText] INICIO RequestId=...` | Texto Daily.co chegou ao backend |
+| `[TranscribeText] Texto ausente ou vazio` | Frontend enviou texto vazio |
+| `BadRequest("Consultation must be in progress")` | Status != in_consultation |
 
-### 2. Variáveis de ambiente
+### 2. Logs do backend (transcribe — Whisper, legado)
 
-- **OpenAI__ApiKey** deve estar configurada no `.env` ou nas variáveis do Render (transcrição usa mesma chave que GPT-4o)
-- Sem a chave, o backend loga `[Whisper] OpenAI:ApiKey não configurada` e retorna transcrição vazia
+| Log | Significado |
+| --- | --- |
+| `[Transcribe] Chunk recebido: RequestId=...` | Chunk de áudio chegou |
+| `[Transcribe] TRANSCRICAO_NAO_OCORRE: Whisper vazio` | Sem fala detectada |
+| `[Whisper] OpenAI:ApiKey não configurada` | Chave OpenAI ausente |
 
-### 3. Fluxo esperado
+### 3. Variáveis de ambiente
+
+- **Daily.co**: transcrição usa sala Daily; não depende de OpenAI
+- **OpenAI__ApiKey**: para `transcribe` e `transcribe-test`; anamnese usa Gemini
+
+### 4. Fluxo esperado (Daily.co)
 
 1. **Médico** entra na chamada → vê botão "Iniciar Consulta"
-2. **Médico** clica em "Iniciar Consulta" → chama `startConsultation` → status vira `in_consultation`
-3. **Paciente** recebe atualização (RequestUpdated via SignalR ou polling) → `canStartRecording` = true
-4. **Paciente** com `callState === 'joined'` → inicia gravação automaticamente
-5. A cada **10 segundos** o paciente envia um chunk de áudio para o backend
-6. Backend transcreve via Whisper (OpenAI) → envia TranscriptUpdate via SignalR para o médico
+2. **Médico** clica em "Iniciar Consulta" → chama `startConsultation`
+3. **App** com `callState === 'joined'` → `useDailyTranscription` inicia transcrição
+4. Chunks via `transcribe-text` → backend acumula e propaga TranscriptUpdate
 
 ---
 
 ## Pontos de falha comuns
 
-### A) Gravação nunca inicia (paciente)
+### A) Transcrição Daily.co nunca inicia
 
-- **Médico não apertou "Iniciar Consulta"** — o status fica `paid` e a gravação não começa
-- **Paciente entrou antes do médico** — `consultationStartedAt` e `requestStatus` ainda não atualizados
-- **RequestUpdated não chega** — SignalR de requests pode estar desconectado; o paciente faz polling a cada 2s como fallback
+- **Médico não apertou "Iniciar Consulta"** — status fica `paid`; não permite iniciar
+- **Paciente entrou antes do médico** — `consultationStartedAt` ainda não atualizado
+- **DAILY_API_KEY ausente** — sala Daily não é criada; verifique `.env`
 
-### B) Chunks não chegam ao backend
+### B) Chunks de texto não chegam ao backend
 
-- **Arquivo < 500 bytes** — ignorado no frontend (silêncio ou fala muito curta)
-- **Primeiro chunk demora 10 segundos** — o paciente precisa falar por ~10s antes do primeiro envio
-- **Erro de rede** — dispositivo físico precisa de `EXPO_PUBLIC_API_URL` com IP da LAN (não localhost)
+- **Erro de rede** — use `EXPO_PUBLIC_API_URL` com IP da LAN (não localhost)
+- **Daily.co transcription não iniciou** — verifique log Transcrição iniciada
 
-### C) Backend recebe mas não transcreve
+### C) Transcrição OK mas médico não vê
 
-- **OpenAI__ApiKey ausente** — verifique `.env` e variáveis do Render (mesma chave que GPT-4o)
-- **Formato de áudio** — m4a (mobile) e webm (web) são suportados; Whisper pode falhar com alguns codecs
+- **SignalR do hub de vídeo** — médico conectado ao hub `video` para TranscriptUpdate
+- **Médico não abriu o painel** — transcrição no painel lateral (deslize para abrir)
 
-### D) Transcrição OK mas médico não vê
+### D) transcribe / transcribe-test (Whisper)
 
-- **SignalR do hub de vídeo** — médico precisa estar conectado ao hub `video` para receber TranscriptUpdate
-- **Médico não abriu o painel** — a transcrição aparece no painel lateral (deslize para abrir)
+- **OpenAI__ApiKey ausente** — necessária para Whisper; não afeta Daily.co
+- **Formato de áudio** — m4a (mobile) e webm (web); Whisper pode falhar
 
 ---
 
@@ -66,19 +70,21 @@ Ao iniciar a consulta e o paciente falar, procure por:
 Com `__DEV__` ativo, procure no console:
 
 | Log | Significado |
-|-----|-------------|
-| `[AudioRecorder] Started recording, chunk interval: 10000` | Gravação iniciou |
-| `[AudioRecorder] Chunk ignorado: arquivo muito pequeno` | Chunk < 500 bytes descartado |
-| `[AudioRecorder] Chunk send failed: ...` | Erro ao enviar para API |
-| `[Patient] Transcrição: falha ao iniciar gravação` | Permissão de microfone ou erro ao criar gravação |
+| --- | --- |
+| `[DailyTranscription] Transcrição iniciada` | Daily.co transcription OK |
+| `[DailyTranscription] Erro ao enviar:` | Falha ao enviar chunk |
+| `[DailyTranscription] stop failed:` | Erro ao parar transcrição |
 
 ---
 
-## Teste isolado (sem consulta)
+## Teste isolado
 
-1. Backend em **Development**: `ASPNETCORE_ENVIRONMENT=Development`
-2. App → Perfil médico → "Testar transcrição IA"
-3. Grava ~8–10 segundos falando claramente
-4. Verifique os logs do backend
+**App (Perfil médico → "Testar transcrição IA")**: usa Daily.co + transcrição
+nativa Daily.co — não usa Whisper.
 
-Se o teste isolado funcionar mas a consulta não, o problema está no fluxo (gravação não inicia, status, SignalR, etc.).
+**Script PowerShell** (`run-transcription-test.ps1`): envia áudio para
+`transcribe-test`
+— usa Whisper (OpenAI). Requer `OpenAI__ApiKey`.
+
+Se o teste do app funcionar mas a consulta não, o problema está no fluxo
+(status, SignalR, etc.).

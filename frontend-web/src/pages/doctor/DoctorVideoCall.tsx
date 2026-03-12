@@ -5,8 +5,8 @@
  * - Esquerda: iframe Daily.co com vídeo
  * - Direita: Painel clínico com IA em tempo real
  *   - Timer da consulta
- *   - Transcrição ao vivo (Whisper)
- *   - Anamnese estruturada (GPT-4o)
+ *   - Transcrição ao vivo (Daily.co)
+ *   - Anamnese estruturada (Gemini/GPT-4o)
  *   - Sugestões de conduta
  *   - Evidências científicas
  *   - Notas do médico
@@ -27,7 +27,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -40,42 +39,15 @@ import {
 } from '@/services/doctorApi';
 import { useVideoSignaling } from '@/hooks/useSignalR';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
 import {
-  Loader2, ArrowLeft, User, ExternalLink, FileText,
-  Brain, Mic, Sparkles, AlertTriangle,
-  CheckCircle2, Save, PhoneOff, Heart, Activity,
-  Stethoscope, Shield,
-  MessageSquare, Lightbulb, GraduationCap,
+  Loader2, ArrowLeft, Brain, Mic, AlertTriangle,
+  Save, PhoneOff, Shield,
+  MessageSquare,
 } from 'lucide-react';
 import { VideoTopBar, VideoFrame } from '@/components/doctor/video/VideoControls';
 import { TranscriptionPanel } from '@/components/doctor/video/TranscriptionPanel';
 import { ConsultationStats } from '@/components/doctor/video/ConsultationStats';
-
-interface AnamnesisData {
-  queixa_principal?: string;
-  historia_doenca_atual?: string;
-  antecedentes_pessoais?: string;
-  medicamentos_em_uso?: string;
-  alergias?: string;
-  habitos?: string;
-  exame_fisico_observacional?: string;
-  hipoteses_diagnosticas?: string;
-  conduta_sugerida?: string;
-  [key: string]: string | undefined;
-}
-
-const ANAMNESIS_LABELS: Record<string, { label: string; icon: typeof Heart }> = {
-  queixa_principal: { label: 'Queixa Principal', icon: AlertTriangle },
-  historia_doenca_atual: { label: 'HDA', icon: FileText },
-  antecedentes_pessoais: { label: 'Antecedentes', icon: Heart },
-  medicamentos_em_uso: { label: 'Medicamentos', icon: Activity },
-  alergias: { label: 'Alergias', icon: AlertTriangle },
-  habitos: { label: 'Hábitos', icon: User },
-  exame_fisico_observacional: { label: 'Exame Observacional', icon: Stethoscope },
-  hipoteses_diagnosticas: { label: 'Hipóteses', icon: Brain },
-  conduta_sugerida: { label: 'Conduta Sugerida', icon: Lightbulb },
-};
+import { DoctorAIPanel } from '@/components/doctor/video/DoctorAIPanel';
 
 export default function DoctorVideoCall() {
   const { requestId } = useParams<{ requestId: string }>();
@@ -93,7 +65,7 @@ export default function DoctorVideoCall() {
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const [contractedMinutes, setContractedMinutes] = useState<number | null>(null);
 
-  // AI panel
+  // AI panel: transcript | consulta (full DoctorAIPanel) | notes
   const [activeTab, setActiveTab] = useState('transcript');
   const [doctorNotes, setDoctorNotes] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
@@ -106,17 +78,40 @@ export default function DoctorVideoCall() {
   // SignalR real-time
   const { connected: signalConnected, transcript, anamnesis, suggestions, evidence } = useVideoSignaling(requestId);
 
-  // Parse anamnesis JSON
-  const parsedAnamnesis: AnamnesisData | null = (() => {
+  // Parse anamnesis JSON (full object for DoctorAIPanel)
+  const parsedAnamnesis: Record<string, unknown> | null = (() => {
     if (!anamnesis) return null;
-    try { return JSON.parse(anamnesis); }
+    try { return JSON.parse(anamnesis) as Record<string, unknown>; }
     catch { return null; }
   })();
 
-  // Count filled anamnesis fields
+  // Count filled anamnesis fields (for stats)
   const filledFields = parsedAnamnesis
-    ? Object.entries(parsedAnamnesis).filter(([, v]) => v && String(v).trim().length > 0).length
+    ? Object.entries(parsedAnamnesis).filter(([, v]) => {
+        if (v == null) return false;
+        if (Array.isArray(v)) return v.some((x) => x && String(x).trim().length > 0);
+        return String(v).trim().length > 0;
+      }).length
     : 0;
+
+  // Normalize evidence for DoctorAIPanel (backend may send PascalCase)
+  const normalizedEvidence = (evidence as { title?: string; Title?: string; [k: string]: unknown }[]).map((e) => ({
+    title: String(e.title ?? e.Title ?? ''),
+    abstract: String(e.abstract ?? e.Abstract ?? ''),
+    source: String(e.source ?? e.Source ?? ''),
+    translatedAbstract: (e.translatedAbstract ?? e.TranslatedAbstract) as string | undefined,
+    relevantExcerpts: (e.relevantExcerpts ?? e.RelevantExcerpts) as string[] | undefined,
+    clinicalRelevance: (e.clinicalRelevance ?? e.ClinicalRelevance) as string | undefined,
+    provider: String(e.provider ?? e.Provider ?? 'PubMed'),
+    url: (e.url ?? e.Url) as string | undefined,
+    conexaoComPaciente: (e.conexaoComPaciente ?? e.ConexaoComPaciente) as string | undefined,
+    nivelEvidencia: (e.nivelEvidencia ?? e.NivelEvidencia) as string | undefined,
+    motivoSelecao: (e.motivoSelecao ?? e.MotivoSelecao) as string | undefined,
+  }));
+
+  const normalizedSuggestions = (suggestions as unknown[]).map((s) =>
+    typeof s === 'string' ? s : { text: (s as { text?: string }).text, suggestion: (s as { suggestion?: string }).suggestion }
+  );
 
   // Timer
   useEffect(() => {
@@ -195,7 +190,7 @@ export default function DoctorVideoCall() {
     setSavingNotes(true);
     try {
       await saveConsultationSummary(requestId, {
-        anamnesis: parsedAnamnesis ? JSON.stringify(parsedAnamnesis) : undefined,
+        anamnesis: parsedAnamnesis ? JSON.stringify(parsedAnamnesis as Record<string, unknown>) : undefined,
         plan: doctorNotes || undefined,
       });
       toast.success('Notas salvas');
@@ -214,7 +209,7 @@ export default function DoctorVideoCall() {
       // Save notes first
       if (doctorNotes) {
         await saveConsultationSummary(requestId, {
-          anamnesis: parsedAnamnesis ? JSON.stringify(parsedAnamnesis) : undefined,
+          anamnesis: parsedAnamnesis ? JSON.stringify(parsedAnamnesis as Record<string, unknown>) : undefined,
           plan: doctorNotes,
         });
       }
@@ -309,7 +304,7 @@ export default function DoctorVideoCall() {
           )}
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
             <TabsList className="bg-gray-800/50 border-b border-gray-800 rounded-none px-2 shrink-0">
               <TabsTrigger value="transcript" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
                 <Mic className="h-3 w-3" /> Transcrição
@@ -319,19 +314,11 @@ export default function DoctorVideoCall() {
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="anamnesis" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
-                <Brain className="h-3 w-3" /> Anamnese
+              <TabsTrigger value="consulta" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
+                <Brain className="h-3 w-3" /> Consulta
                 {filledFields > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[9px]">
                     {filledFields}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="suggestions" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
-                <Lightbulb className="h-3 w-3" /> Sugestões
-                {suggestions.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-900/50 text-amber-400 text-[9px]">
-                    {suggestions.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -341,133 +328,17 @@ export default function DoctorVideoCall() {
             </TabsList>
 
             {/* ── Transcript Tab ── */}
-            <TabsContent value="transcript" className="flex-1 overflow-auto p-4 m-0">
+            <TabsContent value="transcript" className="flex-1 overflow-auto p-4 m-0 min-h-0">
               <TranscriptionPanel transcript={transcript} />
             </TabsContent>
 
-            {/* ── Anamnesis Tab ── */}
-            <TabsContent value="anamnesis" className="flex-1 overflow-auto p-4 m-0">
-              {!parsedAnamnesis ? (
-                <div className="h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4">
-                    <Brain className="h-8 w-8 text-gray-600" />
-                  </div>
-                  <p className="text-sm text-gray-400 font-medium">Anamnese será gerada automaticamente</p>
-                  <p className="text-xs text-gray-600 mt-1 max-w-xs">
-                    Após 200 caracteres de transcrição, a IA começa a estruturar
-                    a anamnese em tempo real com GPT-4o.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-                      Anamnese Estruturada por IA
-                    </p>
-                    <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-800 gap-1">
-                      <Sparkles className="h-2.5 w-2.5" /> Auto-atualizada
-                    </Badge>
-                  </div>
-                  {Object.entries(ANAMNESIS_LABELS).map(([key, { label, icon: Icon }]) => {
-                    const value = parsedAnamnesis[key];
-                    if (!value) return null;
-                    return (
-                      <motion.div
-                        key={key}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-3 rounded-xl bg-gray-800/50 border border-gray-800"
-                      >
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Icon className="h-3.5 w-3.5 text-primary" />
-                          <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wider">
-                            {label}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-300 leading-relaxed">{value}</p>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* ── Suggestions Tab ── */}
-            <TabsContent value="suggestions" className="flex-1 overflow-auto p-4 m-0">
-              {suggestions.length === 0 && evidence.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4">
-                    <Lightbulb className="h-8 w-8 text-gray-600" />
-                  </div>
-                  <p className="text-sm text-gray-400 font-medium">Sugestões aparecerão aqui</p>
-                  <p className="text-xs text-gray-600 mt-1 max-w-xs">
-                    A IA analisa a consulta e sugere perguntas, exames e condutas baseadas em evidências.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {suggestions.length > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3">
-                        Sugestões da IA
-                      </p>
-                      <div className="space-y-2">
-                        {(suggestions as (string | { text?: string; suggestion?: string })[]).map((s, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="p-3 rounded-xl bg-amber-950/30 border border-amber-900/30"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Lightbulb className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                              <p className="text-sm text-gray-300">{typeof s === 'string' ? s : s.text || s.suggestion || JSON.stringify(s)}</p>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {evidence.length > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <GraduationCap className="h-3.5 w-3.5" /> Evidências Científicas
-                      </p>
-                      <div className="space-y-2">
-                        {(evidence as { title?: string; source?: string; provider?: string; translatedAbstract?: string; clinicalRelevance?: string; url?: string }[]).map((e, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="p-3 rounded-xl bg-blue-950/30 border border-blue-900/30"
-                          >
-                            <p className="text-sm font-medium text-blue-300 mb-1">{e.title}</p>
-                            {e.source && (
-                              <p className="text-[10px] text-blue-500 mb-1.5">{e.source} • {e.provider}</p>
-                            )}
-                            {e.translatedAbstract && (
-                              <p className="text-xs text-gray-400 line-clamp-3">{e.translatedAbstract}</p>
-                            )}
-                            {e.clinicalRelevance && (
-                              <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3" /> {e.clinicalRelevance}
-                              </p>
-                            )}
-                            {e.url && (
-                              <a href={e.url} target="_blank" rel="noreferrer"
-                                className="text-[10px] text-blue-400 hover:underline mt-1 inline-flex items-center gap-1">
-                                Ver fonte <ExternalLink className="h-2.5 w-2.5" />
-                              </a>
-                            )}
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+            {/* ── Consulta Tab (full DoctorAIPanel: gravidade, CID, alertas, diferencial, anamnese, meds, exames, orientações, perguntas, evidências) ── */}
+            <TabsContent value="consulta" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
+              <DoctorAIPanel
+                anamnesis={parsedAnamnesis}
+                suggestions={normalizedSuggestions}
+                evidence={normalizedEvidence}
+              />
             </TabsContent>
 
             {/* ── Notes Tab ── */}

@@ -21,6 +21,11 @@ public interface ICarePlanService
         CreateCarePlanFromSuggestionRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<CarePlanResponseDto?> GetCarePlanByConsultationIdAsync(
+        Guid consultationId,
+        Guid requesterUserId,
+        CancellationToken cancellationToken = default);
+
     Task<CarePlanResponseDto> GetCarePlanByIdAsync(
         Guid carePlanId,
         Guid requesterUserId,

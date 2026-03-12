@@ -24,6 +24,7 @@ using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.CrmValidation;
 using RenoveJa.Infrastructure.Auth;
 using RenoveJa.Infrastructure.Video;
+using RenoveJa.Api.Extensions;
 using RenoveJa.Api.Middleware;
 using RenoveJa.Api.Authentication;
 using RenoveJa.Api.Hubs;
@@ -199,66 +200,13 @@ builder.Services.AddSwaggerGen(options =>
 // Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
-// Configure Supabase: usar _envVars lido do .env (garante que a ServiceKey venha do arquivo)
-builder.Services.Configure<SupabaseConfig>(options =>
-{
-    var section = builder.Configuration.GetSection("Supabase");
-    options.Url = (_envVars.GetValueOrDefault("Supabase__Url") ?? Environment.GetEnvironmentVariable("Supabase__Url") ?? section["Url"])?.Trim() ?? string.Empty;
-    options.ServiceKey = (_envVars.GetValueOrDefault("Supabase__ServiceKey") ?? Environment.GetEnvironmentVariable("Supabase__ServiceKey") ?? section["ServiceKey"])?.Trim() ?? string.Empty;
-    options.DatabaseUrl = (_envVars.GetValueOrDefault("Supabase__DatabaseUrl") ?? Environment.GetEnvironmentVariable("Supabase__DatabaseUrl") ?? section["DatabaseUrl"])?.Trim();
-});
-
-// Configure Google Auth (login com Google)
-builder.Services.Configure<GoogleAuthConfig>(
-    builder.Configuration.GetSection("Google"));
+// Configuração centralizada (Supabase, Google, MercadoPago, OpenAI, Daily, etc.)
+builder.Services.AddRenoveJaConfiguration(builder.Configuration, _envVars);
 {
     var googleClientId = builder.Configuration.GetSection("Google")["ClientId"];
     if (string.IsNullOrWhiteSpace(googleClientId))
         Console.WriteLine("⚠️  [WARN] Google:ClientId não configurado. Login com Google não funcionará. Defina a env var Google__ClientId.");
 }
-
-// Configure Mercado Pago
-builder.Services.Configure<MercadoPagoConfig>(
-    builder.Configuration.GetSection(MercadoPagoConfig.SectionName));
-
-// Configure OpenAI (GPT-4o) para leitura de receitas e pedidos de exame
-builder.Services.Configure<OpenAIConfig>(
-    builder.Configuration.GetSection(OpenAIConfig.SectionName));
-
-// Transcrição usa OpenAI Whisper (mesma chave OpenAI:ApiKey)
-
-// Configure SMTP para e-mails (recuperação de senha)
-builder.Services.Configure<SmtpConfig>(
-    builder.Configuration.GetSection(SmtpConfig.SectionName));
-
-// Configure InfoSimples (CRM validation)
-builder.Services.Configure<InfoSimplesConfig>(
-    builder.Configuration.GetSection(InfoSimplesConfig.SectionName));
-
-// Configure Certificate Encryption
-builder.Services.Configure<CertificateEncryptionConfig>(
-    builder.Configuration.GetSection(CertificateEncryptionConfig.SectionName));
-
-// Configure Verification (URL base do QR Code para validar.iti.gov.br)
-builder.Services.Configure<VerificationConfig>(
-    builder.Configuration.GetSection(VerificationConfig.SectionName));
-
-// Configure Api (URL base e secret para links de documentos — domínio próprio em vez de Supabase)
-builder.Services.Configure<ApiConfig>(options =>
-{
-    options.BaseUrl = (_envVars.GetValueOrDefault("Api__BaseUrl") ?? Environment.GetEnvironmentVariable("Api__BaseUrl") ?? builder.Configuration["Api:BaseUrl"])?.Trim() ?? "";
-    options.DocumentTokenSecret = (_envVars.GetValueOrDefault("Api__DocumentTokenSecret") ?? Environment.GetEnvironmentVariable("Api__DocumentTokenSecret") ?? builder.Configuration["Api:DocumentTokenSecret"])?.Trim() ?? "";
-});
-
-// Configure Daily.co (videochamada nativa)
-builder.Services.Configure<DailyConfig>(options =>
-{
-    options.ApiKey = (_envVars.GetValueOrDefault("DAILY_API_KEY") ?? Environment.GetEnvironmentVariable("DAILY_API_KEY") ?? "").Trim();
-    options.Domain = (_envVars.GetValueOrDefault("DAILY_DOMAIN") ?? Environment.GetEnvironmentVariable("DAILY_DOMAIN") ?? "renove").Trim();
-    options.RoomPrefix = (_envVars.GetValueOrDefault("DAILY_ROOM_PREFIX") ?? Environment.GetEnvironmentVariable("DAILY_ROOM_PREFIX") ?? "consult").Trim();
-    options.DefaultRoomExpiryMinutes = int.TryParse(
-        _envVars.GetValueOrDefault("DAILY_ROOM_EXPIRY_MINUTES") ?? Environment.GetEnvironmentVariable("DAILY_ROOM_EXPIRY_MINUTES"), out var exp) ? exp : 120;
-});
 
 // In-memory cache
 builder.Services.AddMemoryCache();
@@ -273,71 +221,10 @@ builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
 // HttpContextAccessor for CurrentUserService
 builder.Services.AddHttpContextAccessor();
 
-// Register Repositories
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
-builder.Services.AddScoped<IRequestRepository, RequestRepository>();
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
-builder.Services.AddScoped<ISavedCardRepository, SavedCardRepository>();
-builder.Services.AddScoped<IAuthTokenRepository, AuthTokenRepository>();
-builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
-builder.Services.AddScoped<IEmailService, RenoveJa.Infrastructure.Email.SmtpEmailService>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<IVideoRoomRepository, VideoRoomRepository>();
-builder.Services.AddScoped<IConsultationAnamnesisRepository, ConsultationAnamnesisRepository>();
-builder.Services.AddScoped<IPushTokenRepository, PushTokenRepository>();
-builder.Services.AddScoped<IUserPushPreferencesRepository, UserPushPreferencesRepository>();
-builder.Services.AddScoped<IProductPriceRepository, ProductPriceRepository>();
-builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
-builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-builder.Services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
-builder.Services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
-builder.Services.AddScoped<IConsultationTimeBankRepository, ConsultationTimeBankRepository>();
-builder.Services.AddScoped<IPatientRepository, PatientRepository>();
-builder.Services.AddScoped<IEncounterRepository, EncounterRepository>();
-builder.Services.AddScoped<IMedicalDocumentRepository, MedicalDocumentRepository>();
-builder.Services.AddScoped<IConsentRepository, ConsentRepository>();
-builder.Services.AddScoped<IAuditEventRepository, AuditEventRepository>();
-builder.Services.AddScoped<IAiSuggestionRepository, AiSuggestionRepository>();
-builder.Services.AddScoped<IAiInteractionLogRepository, AiInteractionLogRepository>();
-builder.Services.AddScoped<IDoctorPatientNotesRepository, DoctorPatientNotesRepository>();
-builder.Services.AddScoped<ICarePlanRepository, CarePlanRepository>();
-builder.Services.AddScoped<ICarePlanTaskRepository, CarePlanTaskRepository>();
-builder.Services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
-
-// Register Application Services
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IAssistantNavigatorService, AssistantNavigatorService>();
-builder.Services.AddScoped<IDocumentTokenService, RenoveJa.Application.Services.DocumentTokenService>();
-builder.Services.AddScoped<IRequestEventsPublisher, RequestEventsPublisher>();
-builder.Services.AddScoped<IRequestService, RequestService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<IVideoService, VideoService>();
-builder.Services.AddScoped<IDoctorService, DoctorService>();
-builder.Services.AddScoped<IAuditService, AuditService>();
-builder.Services.AddScoped<IAuditEventService, AuditEventService>();
-builder.Services.AddScoped<IClinicalRecordService, ClinicalRecordService>();
-builder.Services.AddScoped<IConsultationEncounterService, ConsultationEncounterService>();
-builder.Services.AddScoped<ICarePlanService, CarePlanService>();
-builder.Services.AddScoped<ISignedRequestClinicalSyncService, SignedRequestClinicalSyncService>();
-builder.Services.AddScoped<IVerificationService, RenoveJa.Application.Services.Verification.VerificationService>();
-
-// Register Infrastructure Services
-builder.Services.AddScoped<IStorageService, SupabaseStorageService>();
-builder.Services.AddScoped<IMercadoPagoService, MercadoPagoService>();
-builder.Services.AddScoped<IDigitalCertificateService, DigitalCertificateService>();
-builder.Services.AddScoped<IPrescriptionPdfService, PrescriptionPdfService>();
-builder.Services.AddScoped<ICrmValidationService, InfoSimplesCrmService>();
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddScoped<IPushNotificationSender, RenoveJa.Infrastructure.Notifications.ExpoPushService>();
-builder.Services.AddScoped<IPushNotificationDispatcher, RenoveJa.Application.Services.Notifications.PushNotificationDispatcher>();
-builder.Services.AddSingleton<RenoveJa.Application.Services.Notifications.NewRequestBatchService>();
-builder.Services.AddSingleton<RenoveJa.Application.Interfaces.INewRequestBatchService>(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());
-builder.Services.AddHostedService(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());
-builder.Services.AddHostedService<RenoveJa.Application.Services.Notifications.StaleRequestReminderService>();
-builder.Services.AddSingleton<RenoveJa.Infrastructure.Notifications.ExpoPushReceiptChecker>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<RenoveJa.Infrastructure.Notifications.ExpoPushReceiptChecker>());
+// Registros modularizados via extension methods
+builder.Services.AddRepositories();
+builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices();
 
 builder.Services.AddHttpClient();
 
@@ -348,21 +235,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
 });
-builder.Services.AddScoped<IAiReadingService, RenoveJa.Infrastructure.AiReading.OpenAiReadingService>();
-builder.Services.AddScoped<IAiPrescriptionGeneratorService, RenoveJa.Infrastructure.AiReading.OpenAiPrescriptionGeneratorService>();
-builder.Services.AddScoped<IAiConductSuggestionService, RenoveJa.Infrastructure.AiReading.OpenAiConductSuggestionService>();
-builder.Services.AddScoped<IClinicalSummaryService, RenoveJa.Infrastructure.AiReading.OpenAiClinicalSummaryService>();
-builder.Services.AddScoped<ITriageEnrichmentService, RenoveJa.Infrastructure.AiReading.OpenAiTriageEnrichmentService>();
-builder.Services.AddScoped<IPrescriptionVerifyRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerifyRepository>();
-builder.Services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();
-builder.Services.AddScoped<ITranscriptionService, RenoveJa.Infrastructure.Transcription.WhisperTranscriptionService>();
-builder.Services.AddScoped<IPubMedService, RenoveJa.Infrastructure.PubMed.PubMedService>();
-builder.Services.AddScoped<IRxNormService, RenoveJa.Infrastructure.RxNorm.RxNormService>();
-builder.Services.AddScoped<RenoveJa.Infrastructure.Evidence.EuropePmcEvidenceService>();
-builder.Services.AddScoped<RenoveJa.Infrastructure.Evidence.SemanticScholarEvidenceService>();
-builder.Services.AddScoped<RenoveJa.Infrastructure.Evidence.ClinicalTrialsEvidenceService>();
-builder.Services.AddScoped<IEvidenceSearchService, RenoveJa.Infrastructure.Evidence.UnifiedEvidenceSearchService>();
-builder.Services.AddScoped<IConsultationAnamnesisService, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisService>();
 
 // Configure Authentication
 builder.Services.AddAuthentication("Bearer")

@@ -139,6 +139,7 @@ export function AISuggestionView({
                   )}
                 </View>
                 {med.indicacao ? <Text style={S.medIndicacao}>{'\u21B3'} {med.indicacao}</Text> : null}
+                {med.melhora_esperada ? <Text style={[S.medIndicacao, { color: colors.success, fontWeight: '600' }]}>{'\u2728'} {med.melhora_esperada}</Text> : null}
                 {isExpanded && (
                   <View style={S.medDetails}>
                     {med.classe_terapeutica ? (
@@ -206,7 +207,7 @@ export function AISuggestionView({
               </TouchableOpacity>
             );
           })}
-          <Text style={S.disclaimer}>* Sugestões da IA — decisão final do médico</Text>
+          <Text style={S.disclaimer}>Sugestões baseadas em protocolos clínicos • Interações verificadas • Decisão final do médico prescritor</Text>
         </View>
       )}
 
@@ -282,7 +283,7 @@ export function AISuggestionView({
               </View>
             );
           })}
-          <Text style={S.disclaimer}>* Sugestões da IA — decisão final do médico</Text>
+          <Text style={S.disclaimer}>Exames priorizados por hipótese diagnóstica • Código TUSS quando disponível • Decisão final do médico</Text>
         </View>
       )}
 

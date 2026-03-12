@@ -9,10 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { getRequestById, saveConsultationSummary } from '@/services/doctorApi';
+import {
+  createAiSuggestion,
+  createCarePlanFromSuggestion,
+  getCarePlanByConsultation,
+} from '@/services/doctor-api-care-plans';
+import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
 import { toast } from 'sonner';
 import {
   Loader2, ArrowLeft, FileText, Lightbulb, Mic, Copy, CheckCircle2,
-  Sparkles, AlertTriangle,
+  Sparkles, AlertTriangle, ClipboardList,
 } from 'lucide-react';
 
 function parseAnamnesis(json: string | null | undefined): Record<string, unknown> | null {
@@ -43,7 +49,10 @@ export default function DoctorConsultationSummary() {
   const [clinicalNote, setClinicalNote] = useState('');
   const [expandedTranscript, setExpandedTranscript] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [carePlanId, setCarePlanId] = useState<string | null>(null);
+  const [creatingCarePlan, setCreatingCarePlan] = useState(false);
   const initialSaveDone = useRef(false);
+  const { user } = useDoctorAuth();
 
   const anamnesis = parseAnamnesis(request?.consultationAnamnesis);
   const suggestions = parseSuggestions(request?.consultationAiSuggestions);
@@ -79,6 +88,11 @@ export default function DoctorConsultationSummary() {
   }, [requestId, navigate]);
 
   useEffect(() => {
+    if (!requestId || !request?.type || request.type !== 'consultation') return;
+    getCarePlanByConsultation(requestId).then((cp) => cp && setCarePlanId(cp.id)).catch(() => {});
+  }, [requestId, request?.type]);
+
+  useEffect(() => {
     if (!request || !requestId || initialSaveDone.current) return;
     initialSaveDone.current = true;
     saveToRecord(request.consultationAnamnesis ?? null, request.notes ?? '');
@@ -103,6 +117,43 @@ export default function DoctorConsultationSummary() {
       toast.success('Nota salva');
     } catch {
       toast.error('Erro ao salvar');
+    }
+  };
+
+  const handleCreateCarePlan = async () => {
+    if (!requestId || !request || !user?.id || !request.patientId) return;
+    const exams = (() => {
+      const a = parseAnamnesis(request.consultationAnamnesis);
+      const arr = (a?.exames_sugeridos as Array<{ nome?: string } | string> | undefined) ?? [];
+      return arr.map((e) => (typeof e === 'string' ? e : e?.nome ?? '')).filter(Boolean);
+    })();
+    if (exams.length === 0) {
+      toast.error('Não há exames sugeridos na anamnese para criar o plano');
+      return;
+    }
+    setCreatingCarePlan(true);
+    try {
+      const correlationId = `web-${Date.now()}`;
+      const suggestion = await createAiSuggestion(requestId, {
+        patientId: request.patientId,
+        doctorId: user.id,
+        payloadJson: JSON.stringify({ exames_sugeridos: exams }),
+        model: 'web-summary',
+        correlationId,
+      });
+      const { carePlanId: newId } = await createCarePlanFromSuggestion(requestId, {
+        aiSuggestionId: suggestion.id,
+        responsibleDoctorId: user.id,
+        acceptedExams: exams.map((name) => ({ name, priority: 'recommended' as const })),
+        createTasks: true,
+        correlationId,
+      });
+      setCarePlanId(newId);
+      toast.success('Plano de cuidados criado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar plano');
+    } finally {
+      setCreatingCarePlan(false);
     }
   };
 
@@ -234,6 +285,38 @@ export default function DoctorConsultationSummary() {
               <Sparkles className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
               <p className="font-medium text-muted-foreground">Sem dados da IA</p>
               <p className="text-xs text-muted-foreground mt-1">A transcrição e anamnese não foram geradas. Verifique se a gravação foi iniciada.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Care Plan — criar ou link */}
+        {request.type === 'consultation' && hasAnamnesis && anamnesis && (
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" /> Plano de cuidados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-3">
+              {carePlanId ? (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => navigate(`/care-plans/${carePlanId}`)}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  Ver plano de cuidados
+                </Button>
+              ) : (
+                <Button
+                  className="w-full gap-2"
+                  onClick={handleCreateCarePlan}
+                  disabled={creatingCarePlan}
+                >
+                  {creatingCarePlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+                  Criar plano de cuidados a partir dos exames sugeridos
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}

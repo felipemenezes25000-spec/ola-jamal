@@ -5,7 +5,10 @@
     "RenoveJá",
     "renovejasaude",
     "Formspree",
-    "meds"
+    "meds",
+    "Deepgram",
+    "detectou",
+    "anamnese"
   ],
   "ignorePaths": [
     "node_modules",

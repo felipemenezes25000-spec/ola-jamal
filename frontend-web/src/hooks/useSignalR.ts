@@ -143,20 +143,20 @@ export function useVideoSignaling(requestId: string | undefined) {
         .configureLogging(sr.LogLevel.Warning)
         .build();
 
-      connection.on('TranscriptUpdate', (data: { fullTranscript: string }) => {
-        setTranscript(data.fullTranscript);
+      connection.on('TranscriptUpdate', (data: { fullText?: string; fullTranscript?: string }) => {
+        setTranscript(data.fullText ?? data.fullTranscript ?? '');
       });
 
       connection.on('AnamnesisUpdate', (data: { anamnesisJson: string }) => {
         setAnamnesis(data.anamnesisJson);
       });
 
-      connection.on('SuggestionUpdate', (data: { suggestions: unknown[] }) => {
-        setSuggestions(data.suggestions || []);
+      connection.on('SuggestionUpdate', (data: { suggestions?: unknown[]; items?: unknown[] }) => {
+        setSuggestions(data.suggestions ?? data.items ?? []);
       });
 
-      connection.on('EvidenceUpdate', (data: { evidence: unknown[] }) => {
-        setEvidence(data.evidence || []);
+      connection.on('EvidenceUpdate', (data: { evidence?: unknown[]; items?: unknown[] }) => {
+        setEvidence(data.evidence ?? data.items ?? []);
       });
 
       try {

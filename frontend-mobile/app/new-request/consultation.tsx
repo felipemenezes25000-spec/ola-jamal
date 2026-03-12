@@ -185,7 +185,11 @@ export default function ConsultationScreen() {
         router.replace(`/payment/${result.payment.id}`);
       } else {
         invalidateRequests();
-        showToast({ message: 'Consulta solicitada! Aguarde um profissional aceitar.', type: 'success' });
+        const msg =
+          totalPrice === 0
+            ? 'Consulta solicitada usando seu banco de horas! Aguarde um profissional aceitar.'
+            : 'Consulta solicitada! Aguarde um profissional aceitar.';
+        showToast({ message: msg, type: 'success' });
         router.replace('/(patient)/requests');
       }
     } catch (error: unknown) {

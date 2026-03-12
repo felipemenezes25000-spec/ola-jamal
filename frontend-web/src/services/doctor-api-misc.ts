@@ -19,8 +19,9 @@ export async function fetchSpecialties(): Promise<Specialty[]> {
 
 // ── CID ──
 
-export async function searchCid(query: string) {
-  const res = await authFetch(`/api/cid10?q=${encodeURIComponent(query)}`);
+export async function searchCid(query: string, limit = 10): Promise<{ code: string; description: string }[]> {
+  if (!query?.trim() || query.trim().length < 2) return [];
+  const res = await authFetch(`/api/cid10/search?q=${encodeURIComponent(query.trim())}&limit=${limit}`);
   if (!res.ok) return [];
   return res.json();
 }

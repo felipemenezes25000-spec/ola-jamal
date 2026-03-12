@@ -109,6 +109,15 @@ export default function DoctorLayout() {
           }}
         />
         <Tabs.Screen
+          name="consultations"
+          options={{
+            title: 'Consultas',
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'videocam' : 'videocam-outline'} color={color} focused={focused} activeColor={colors.primary} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="notifications"
           options={{
             title: 'Alertas',

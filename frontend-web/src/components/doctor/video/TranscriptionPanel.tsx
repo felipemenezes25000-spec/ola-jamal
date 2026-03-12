@@ -2,7 +2,7 @@
  * TranscriptionPanel — Real-time transcription display for video consultations.
  *
  * Shows live transcript with [Médico]/[Paciente] labels, chat-like bubbles,
- * and empty state with Whisper info + CFM compliance notice.
+ * and empty state with Daily.co transcription info + CFM compliance notice.
  */
 
 import { motion } from 'framer-motion';
@@ -22,7 +22,7 @@ export function TranscriptionPanel({ transcript }: TranscriptionPanelProps) {
         <p className="text-sm text-gray-400 font-medium">Aguardando transcrição</p>
         <p className="text-xs text-gray-600 mt-1 max-w-xs">
           A transcrição em tempo real aparecerá aqui conforme a conversa acontece.
-          Powered by OpenAI Whisper.
+          Powered by Daily.co (transcrição nativa).
         </p>
         <div className="flex items-center gap-2 mt-4 px-3 py-1.5 rounded-full bg-gray-800 text-[10px] text-gray-500">
           <Shield className="h-3 w-3" />

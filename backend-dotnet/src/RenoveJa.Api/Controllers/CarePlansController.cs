@@ -56,6 +56,18 @@ public class CarePlansController(ICarePlanService carePlanService) : ControllerB
         return Ok(new { carePlanId = carePlan.Id, status = carePlan.Status, carePlan });
     }
 
+    [HttpGet("consultations/{consultationId:guid}/care-plan")]
+    [Authorize(Roles = "doctor,patient")]
+    public async Task<IActionResult> GetCarePlanByConsultation(
+        Guid consultationId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await carePlanService.GetCarePlanByConsultationIdAsync(consultationId, userId, cancellationToken);
+        if (result == null) return NotFound();
+        return Ok(result);
+    }
+
     [HttpGet("care-plans/{carePlanId:guid}")]
     [Authorize(Roles = "doctor,patient")]
     public async Task<IActionResult> GetCarePlan(

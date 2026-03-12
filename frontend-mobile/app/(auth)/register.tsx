@@ -6,14 +6,11 @@ import {
   TouchableOpacity,
   Alert,
   Keyboard,
-  ScrollView,
-  TextInput,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { spacing } from '../../lib/designSystem';
@@ -27,6 +24,8 @@ import { fetchAddressByCep } from '../../lib/viacep';
 import { isValidCpf } from '../../lib/validation/cpf';
 import { fetchSpecialties, uploadCertificate } from '../../lib/api';
 import { SPECIALTIES_FALLBACK } from '../../lib/constants/specialties';
+import { RegisterAddressFields } from '../../components/register/RegisterAddressFields';
+import { RegisterDoctorForm } from '../../components/register/RegisterDoctorForm';
 
 const s = spacing;
 
@@ -471,369 +470,75 @@ export default function Register() {
         />
 
         {/* ── Endereço pessoal (obrigatório para paciente e médico) ── */}
-        <>
-          <SectionHeader icon="location-outline" title={role === 'doctor' ? 'Endereço pessoal' : 'Endereço'} variant="form" />
-          <AppInput
-            label="CEP"
-            placeholder="00000-000"
-            value={cep}
-            onChangeText={handleCepChange}
-            onBlur={lookupCep}
-            keyboardType="numeric"
-            leftIcon="location-outline"
-            hint="Digite o CEP para preencher automaticamente"
-          />
-          <AppInput
-            label="Rua"
-            required
-            placeholder="Nome da rua"
-            value={street}
-            onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
-            leftIcon="home-outline"
-            error={fieldErrors.street}
-          />
-          <View style={styles.row}>
-            <AppInput
-              label="Número"
-              required
-              placeholder="Nº"
-              value={number}
-              onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
-              keyboardType="numeric"
-              containerStyle={{ width: 100 }}
-              error={fieldErrors.number}
-            />
-            <AppInput
-              label="Complemento"
-              placeholder="Apto, bloco..."
-              value={complement}
-              onChangeText={setComplement}
-              containerStyle={styles.flex1}
-            />
-          </View>
-          <AppInput
-            label="Bairro"
-            required
-            placeholder="Bairro"
-            value={neighborhood}
-            onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
-            leftIcon="business-outline"
-            error={fieldErrors.neighborhood}
-          />
-          <View style={styles.row}>
-            <AppInput
-              label="Cidade"
-              required
-              placeholder="Cidade"
-              value={city}
-              onChangeText={(t: string) => { setCity(t); clearError('city'); }}
-              containerStyle={styles.flex1}
-              error={fieldErrors.city}
-            />
-            <AppInput
-              label="UF"
-              required
-              placeholder="UF"
-              value={state}
-              onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
-              maxLength={2}
-              containerStyle={{ width: 96 }}
-              error={fieldErrors.state}
-            />
-          </View>
-        </>
+        <RegisterAddressFields
+          title={role === 'doctor' ? 'Endereço pessoal' : 'Endereço'}
+          cep={cep}
+          onCepChange={handleCepChange}
+          onCepBlur={lookupCep}
+          street={street}
+          onStreetChange={(t) => { setStreet(t); clearError('street'); }}
+          number={number}
+          onNumberChange={(t) => { setNumber(t); clearError('number'); }}
+          neighborhood={neighborhood}
+          onNeighborhoodChange={(t) => { setNeighborhood(t); clearError('neighborhood'); }}
+          complement={complement}
+          onComplementChange={setComplement}
+          city={city}
+          onCityChange={(t) => { setCity(t); clearError('city'); }}
+          state={state}
+          onStateChange={(t) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
+          fieldErrors={fieldErrors}
+          clearError={clearError}
+          required
+          colors={colors}
+        />
 
         {/* ── Dados médicos (Médico) ── */}
         {role === 'doctor' && (
-          <>
-            <SectionHeader icon="medkit-outline" title="Dados profissionais" variant="form" />
-            <View style={styles.row}>
-              <AppInput
-                label="CRM"
-                required
-                leftIcon="shield-checkmark-outline"
-                placeholder="Ex.: 123456"
-                value={crm}
-                onChangeText={(t: string) => { setCrm(t); clearError('crm'); }}
-                error={fieldErrors.crm}
-                containerStyle={styles.flex1}
-                hint="4 a 7 dígitos"
-              />
-              <AppInput
-                label="UF do CRM"
-                required
-                leftIcon="location-outline"
-                placeholder="SP"
-                value={crmState}
-                onChangeText={(t: string) => { setCrmState(t); clearError('crmState'); }}
-                error={fieldErrors.crmState}
-                containerStyle={{ width: 120 }}
-              />
-            </View>
-            {specialtiesDisplayList.length > 0 ? (
-              <View style={styles.specialtyBlock}>
-                  <Text style={styles.specialtyLabel}>
-                  Especialidade <Text style={{ color: colors.error }}>*</Text>
-                </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.specialtyTrigger,
-                    fieldErrors.specialty && styles.specialtyTriggerError,
-                  ]}
-                  onPress={() => setSpecialtyOpen((o) => !o)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="medkit-outline" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
-                  <Text
-                    style={[
-                      styles.specialtyTriggerText,
-                      !specialty.trim() && styles.specialtyTriggerPlaceholder,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {specialty.trim() || 'Selecionar especialidade...'}
-                  </Text>
-                  <Ionicons
-                    name={specialtyOpen ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={colors.textMuted}
-                  />
-                </TouchableOpacity>
-                {specialtyOpen && (
-                  <View style={styles.specialtyDropdown}>
-                    <View style={styles.specialtySearchWrap}>
-                      <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-                      <TextInput
-                        style={styles.specialtySearchInput}
-                        placeholder="Pesquisar especialidade..."
-                        placeholderTextColor={colors.textMuted}
-                        value={specialtySearch}
-                        onChangeText={setSpecialtySearch}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      {specialtySearch.length > 0 ? (
-                        <TouchableOpacity
-                          onPress={() => setSpecialtySearch('')}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    <ScrollView
-                      style={styles.specialtyOptionsScroll}
-                      keyboardShouldPersistTaps="handled"
-                      nestedScrollEnabled
-                    >
-                      {(() => {
-                        const filtered = specialtiesDisplayList.filter((s) =>
-                          s.toLowerCase().includes(specialtySearch.trim().toLowerCase())
-                        );
-                        if (filtered.length === 0) {
-                          return (
-                            <View style={styles.specialtyOption}>
-                              <Text style={styles.specialtyOptionEmpty}>
-                                Nenhuma especialidade encontrada
-                              </Text>
-                            </View>
-                          );
-                        }
-                        return filtered.map((s) => {
-                          const isSelected = specialty.trim() === s;
-                          return (
-                            <TouchableOpacity
-                              key={s}
-                              style={[
-                                styles.specialtyOption,
-                                isSelected && styles.specialtyOptionSelected,
-                              ]}
-                              onPress={() => {
-                                setSpecialty(s);
-                                setSpecialtySearch('');
-                                setSpecialtyOpen(false);
-                                clearError('specialty');
-                              }}
-                              activeOpacity={0.7}
-                            >
-                              <Text
-                                style={[
-                                  styles.specialtyOptionText,
-                                  isSelected && styles.specialtyOptionTextSelected,
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {s}
-                              </Text>
-                              {isSelected ? (
-                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                              ) : null}
-                            </TouchableOpacity>
-                          );
-                        });
-                      })()}
-                    </ScrollView>
-                  </View>
-                )}
-                {fieldErrors.specialty ? (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.specialty}</Text>
-                ) : null}
-              </View>
-            ) : (
-              <AppInput
-                label="Especialidade"
-                required
-                leftIcon="medkit-outline"
-                placeholder="Carregando..."
-                value={specialty}
-                onChangeText={(t: string) => { setSpecialty(t); clearError('specialty'); }}
-                error={fieldErrors.specialty}
-                editable={false}
-              />
-            )}
-
-            {/* Endereço profissional (opcional) */}
-            <SectionHeader icon="business-outline" title="Endereço profissional (opcional)" variant="form" />
-            <AppInput
-              label="CEP"
-              placeholder="00000-000"
-              value={professionalCep}
-              onChangeText={handleProfessionalCepChange}
-              onBlur={lookupProfessionalCep}
-              keyboardType="numeric"
-              leftIcon="location-outline"
-            />
-            <AppInput
-              label="Rua"
-              placeholder="Nome da rua"
-              value={professionalStreet}
-              onChangeText={setProfessionalStreet}
-              leftIcon="home-outline"
-            />
-            <View style={styles.row}>
-              <AppInput
-                label="Número"
-                placeholder="Nº"
-                value={professionalNumber}
-                onChangeText={setProfessionalNumber}
-                keyboardType="numeric"
-                containerStyle={{ width: 100 }}
-              />
-              <AppInput
-                label="Complemento"
-                placeholder="Apto, bloco..."
-                value={professionalComplement}
-                onChangeText={setProfessionalComplement}
-                containerStyle={styles.flex1}
-              />
-            </View>
-            <AppInput
-              label="Bairro"
-              placeholder="Bairro"
-              value={professionalNeighborhood}
-              onChangeText={setProfessionalNeighborhood}
-              leftIcon="business-outline"
-            />
-            <View style={styles.row}>
-              <AppInput
-                label="Cidade"
-                placeholder="Cidade"
-                value={professionalCity}
-                onChangeText={setProfessionalCity}
-                containerStyle={styles.flex1}
-              />
-              <AppInput
-                label="UF"
-                placeholder="UF"
-                value={professionalState}
-                onChangeText={(t: string) => setProfessionalState(t.trim().toUpperCase().slice(0, 2))}
-                maxLength={2}
-                containerStyle={{ width: 96 }}
-              />
-            </View>
-            <AppInput
-              label="Telefone profissional"
-              placeholder="(11) 3333-4444"
-              value={professionalPhone}
-              onChangeText={setProfessionalPhone}
-              leftIcon="call-outline"
-              keyboardType="phone-pad"
-            />
-
-            {/* Formação e experiência (opcional) */}
-            <SectionHeader icon="school-outline" title="Formação e experiência (opcional)" variant="form" />
-            <AppInput
-              label="Instituição de formação"
-              placeholder="Ex.: USP, Unifesp..."
-              value={university}
-              onChangeText={setUniversity}
-              leftIcon="school-outline"
-            />
-            <AppInput
-              label="Cursos e especializações"
-              placeholder="Ex.: RQE, residências..."
-              value={courses}
-              onChangeText={setCourses}
-              leftIcon="ribbon-outline"
-            />
-            <AppInput
-              label="Locais de atuação"
-              placeholder="Ex.: hospitais, clínicas..."
-              value={hospitalsServices}
-              onChangeText={setHospitalsServices}
-              leftIcon="medkit-outline"
-            />
-
-            {/* Certificado digital */}
-            <View style={styles.certSection}>
-              <View style={styles.certHeader}>
-                <View style={styles.certIconWrap}>
-                  <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
-                </View>
-                <View style={styles.flex1}>
-                  <Text style={styles.certSectionTitle}>Certificado digital</Text>
-                  <Text style={styles.certSectionDesc}>
-                    Opcional agora — você pode adicionar depois.
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.certFileBtn}
-                onPress={async () => {
-                  try {
-                    const result = await DocumentPicker.getDocumentAsync({
-                      type: ['application/x-pkcs12', 'application/octet-stream'],
-                      copyToCacheDirectory: true,
-                    });
-                    if (!result.canceled && result.assets?.[0]) setCertFile(result.assets[0]);
-                  } catch {
-                    Alert.alert('Erro', 'Não foi possível selecionar o arquivo.');
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.certUploadIcon}>
-                  <Ionicons
-                    name={certFile ? 'document-attach' : 'cloud-upload-outline'}
-                    size={22}
-                    color={colors.primary}
-                  />
-                </View>
-                <Text style={styles.certFileBtnText}>
-                  {certFile ? certFile.name : 'Selecionar arquivo .PFX'}
-                </Text>
-              </TouchableOpacity>
-              {certFile ? (
-                <AppInput
-                  label="Senha do certificado"
-                  placeholder="Senha do PFX"
-                  value={certPassword}
-                  onChangeText={setCertPassword}
-                  secureTextEntry
-                />
-              ) : null}
-            </View>
-          </>
+          <RegisterDoctorForm
+            crm={crm}
+            setCrm={setCrm}
+            crmState={crmState}
+            setCrmState={setCrmState}
+            specialty={specialty}
+            setSpecialty={setSpecialty}
+            specialtyOpen={specialtyOpen}
+            setSpecialtyOpen={setSpecialtyOpen}
+            specialtySearch={specialtySearch}
+            setSpecialtySearch={setSpecialtySearch}
+            specialtiesDisplayList={specialtiesDisplayList}
+            professionalCep={professionalCep}
+            setProfessionalCep={setProfessionalCep}
+            handleProfessionalCepChange={handleProfessionalCepChange}
+            lookupProfessionalCep={lookupProfessionalCep}
+            professionalStreet={professionalStreet}
+            setProfessionalStreet={setProfessionalStreet}
+            professionalNumber={professionalNumber}
+            setProfessionalNumber={setProfessionalNumber}
+            professionalNeighborhood={professionalNeighborhood}
+            setProfessionalNeighborhood={setProfessionalNeighborhood}
+            professionalComplement={professionalComplement}
+            setProfessionalComplement={setProfessionalComplement}
+            professionalCity={professionalCity}
+            setProfessionalCity={setProfessionalCity}
+            professionalState={professionalState}
+            setProfessionalState={setProfessionalState}
+            professionalPhone={professionalPhone}
+            setProfessionalPhone={setProfessionalPhone}
+            university={university}
+            setUniversity={setUniversity}
+            courses={courses}
+            setCourses={setCourses}
+            hospitalsServices={hospitalsServices}
+            setHospitalsServices={setHospitalsServices}
+            certFile={certFile}
+            setCertFile={setCertFile}
+            certPassword={certPassword}
+            setCertPassword={setCertPassword}
+            fieldErrors={fieldErrors}
+            clearError={clearError}
+            colors={colors}
+          />
         )}
 
         {/* ── IA Notice ── */}
@@ -1087,163 +792,11 @@ function makeStyles(colors: DesignColors) {
     fontWeight: '500',
   },
 
-  /* ── Specialty ── */
-  specialtyBlock: {
-    marginBottom: s.md,
-  },
-  specialtyLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  specialtyTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    minHeight: 52,
-  },
-  specialtyTriggerError: {
-    borderColor: colors.error,
-  },
-  specialtyTriggerText: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
-    marginRight: s.sm,
-  },
-  specialtyTriggerPlaceholder: {
-    color: colors.textMuted,
-  },
-  specialtyDropdown: {
-    marginTop: 6,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    maxHeight: 240,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
-      android: { elevation: 4 },
-      default: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
-    }),
-  },
-  specialtySearchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    gap: 8,
-  },
-  specialtySearchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
-    paddingVertical: 8,
-  },
-  specialtyOptionsScroll: {
-    maxHeight: 190,
-  },
-  specialtyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  specialtyOptionSelected: {
-    backgroundColor: colors.primarySoft,
-  },
-  specialtyOptionText: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
-    marginRight: s.sm,
-  },
-  specialtyOptionTextSelected: {
-    fontWeight: '600',
-    color: colors.primaryDark,
-  },
-  specialtyOptionEmpty: {
-    fontSize: 14,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-  },
   fieldErrorText: {
     fontSize: 12,
     color: colors.error,
     marginTop: 4,
     marginLeft: 4,
-  },
-
-  /* ── Certificate ── */
-  certSection: {
-    marginTop: s.md,
-    padding: s.md,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceSecondary,
-    gap: 12,
-  },
-  certHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  certIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  certSectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  certSectionDesc: {
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  certFileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.primaryLight,
-    borderStyle: 'dashed',
-    backgroundColor: colors.surface,
-  },
-  certUploadIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  certFileBtnText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.primaryDark,
   },
 
   /* ── AI Notice ── */

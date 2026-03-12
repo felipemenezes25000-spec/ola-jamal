@@ -34,6 +34,12 @@ const DoctorProfile = lazy(() => import('@/pages/doctor/DoctorProfile'));
 const DoctorVideoCall = lazy(() => import('@/pages/doctor/DoctorVideoCall'));
 const DoctorConsultationSummary = lazy(() => import('@/pages/doctor/DoctorConsultationSummary'));
 const DoctorCompleteDoctor = lazy(() => import('@/pages/doctor/DoctorCompleteDoctor'));
+const DoctorCarePlan = lazy(() => import('@/pages/doctor/DoctorCarePlan'));
+const DoctorSettings = lazy(() => import('@/pages/doctor/DoctorSettings'));
+const DoctorAbout = lazy(() => import('@/pages/doctor/DoctorAbout'));
+const DoctorHelp = lazy(() => import('@/pages/doctor/DoctorHelp'));
+const DoctorTerms = lazy(() => import('@/pages/doctor/DoctorTerms'));
+const DoctorPrivacy = lazy(() => import('@/pages/doctor/DoctorPrivacy'));
 
 function FullPageLoader() {
   return <SkeletonPage />;
@@ -116,6 +122,12 @@ function DoctorShell() {
             <Route path="/perfil" element={<DoctorProtectedRoute><DoctorProfile /></DoctorProtectedRoute>} />
             <Route path="/video/:requestId" element={<DoctorProtectedRoute><DoctorVideoCall /></DoctorProtectedRoute>} />
             <Route path="/resumo-consulta/:requestId" element={<DoctorProtectedRoute><DoctorConsultationSummary /></DoctorProtectedRoute>} />
+            <Route path="/care-plans/:id" element={<DoctorProtectedRoute><DoctorCarePlan /></DoctorProtectedRoute>} />
+            <Route path="/configuracoes" element={<DoctorProtectedRoute><DoctorSettings /></DoctorProtectedRoute>} />
+            <Route path="/sobre" element={<DoctorProtectedRoute><DoctorAbout /></DoctorProtectedRoute>} />
+            <Route path="/ajuda" element={<DoctorProtectedRoute><DoctorHelp /></DoctorProtectedRoute>} />
+            <Route path="/termos" element={<DoctorProtectedRoute><DoctorTerms /></DoctorProtectedRoute>} />
+            <Route path="/privacidade" element={<DoctorProtectedRoute><DoctorPrivacy /></DoctorProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

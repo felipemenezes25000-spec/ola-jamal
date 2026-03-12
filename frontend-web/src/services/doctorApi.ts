@@ -58,6 +58,7 @@ export interface MedicalRequest {
   examImages?: string[];
   notes?: string;
   doctorConductNotes?: string;
+  includeConductInPdf?: boolean;
   prescriptionKind?: string;
   autoObservation?: string;
   anamnesisData?: Record<string, unknown>;
@@ -88,6 +89,7 @@ export interface MedicalRequest {
   consultationTranscript?: string | null;
   consultationAnamnesis?: string | null;
   consultationAiSuggestions?: string | null;
+  consultationEvidence?: string | null;
 }
 
 export interface Medication {

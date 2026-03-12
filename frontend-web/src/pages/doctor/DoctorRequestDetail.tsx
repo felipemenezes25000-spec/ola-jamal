@@ -19,8 +19,23 @@ import { motion } from 'framer-motion';
 import {
   Loader2, ArrowLeft, User, Calendar, CheckCircle2, XCircle, Pen, Video,
   Phone, Mail, AlertTriangle, Clock, Pill, ClipboardList, Brain, Shield, ChevronRight,
-  Stethoscope,
+  Stethoscope, Mic, Copy, BookOpen,
 } from 'lucide-react';
+import { AiCopilotSection } from '@/components/doctor/request/AiCopilotSection';
+import { PrescriptionImageGallery } from '@/components/doctor/request/PrescriptionImageGallery';
+import { ConductForm } from '@/components/doctor/request/ConductForm';
+import { AnamnesisCard } from '@/components/doctor/request/AnamnesisCard';
+import { getCarePlanByConsultation } from '@/services/doctor-api-care-plans';
+
+function parseEvidence(json: string | null | undefined): Array<{ title?: string; source?: string; provider?: string; clinicalRelevance?: string; url?: string }> {
+  if (!json?.trim()) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 /** Normaliza symptoms para array (backend pode retornar string ou string[]). */
 function normalizeSymptoms(symptoms: unknown): string[] {
@@ -39,6 +54,7 @@ export default function DoctorRequestDetail() {
   const [actionLoading, setActionLoading] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [carePlanId, setCarePlanId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -51,6 +67,9 @@ export default function DoctorRequestDetail() {
             const p = await getPatientProfile(data.patientId);
             setPatient(p);
           } catch { /* no patient data */ }
+        }
+        if (data.type === 'consultation') {
+          getCarePlanByConsultation(id).then((cp) => cp && setCarePlanId(cp.id)).catch(() => {});
         }
       })
       .catch(() => toast.error('Erro ao carregar pedido'))
@@ -234,6 +253,57 @@ export default function DoctorRequestDetail() {
               </Card>
             </motion.div>
 
+            {/* Anamnese estruturada (consultas) */}
+            {request.type === 'consultation' && request.consultationAnamnesis && (
+              <AnamnesisCard
+                consultationAnamnesis={request.consultationAnamnesis}
+                requestId={request.id}
+                requestType={request.type}
+                status={request.status}
+                onNavigateToEditor={(prefillMeds) => {
+                  try {
+                    const arr = JSON.parse(prefillMeds) as string[];
+                    const meds = arr.map((name) => ({ name: name || '', dosage: '', frequency: '', duration: '' }));
+                    navigate(`/pedidos/${id}/editor`, { state: { prefillMeds: meds } });
+                  } catch {
+                    navigate(`/pedidos/${id}/editor`);
+                  }
+                }}
+                onNavigateToExam={() => toast.info('Criar pedido de exame disponível no app mobile')}
+              />
+            )}
+
+            {/* Link para Care Plan */}
+            {carePlanId && (
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => navigate(`/care-plans/${carePlanId}`)}
+              >
+                <ClipboardList className="h-4 w-4" />
+                Ver Plano de Cuidados
+              </Button>
+            )}
+
+            {/* AiCopilotSection — resumo IA, risco, urgência */}
+            <AiCopilotSection request={request} />
+
+            {/* Imagens receita/exame */}
+            {(request.prescriptionImages?.length ?? 0) > 0 && (
+              <PrescriptionImageGallery
+                images={request.prescriptionImages!}
+                label="Imagens da receita"
+                iconBgColor="bg-primary/10"
+              />
+            )}
+            {(request.examImages?.length ?? 0) > 0 && (
+              <PrescriptionImageGallery
+                images={request.examImages!}
+                label="Imagens do exame"
+                iconBgColor="bg-amber-100"
+              />
+            )}
+
             {/* Description / symptoms */}
             {(request.description || symptomsList.length > 0) && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -295,8 +365,96 @@ export default function DoctorRequestDetail() {
               </motion.div>
             )}
 
-            {/* AI Suggestion */}
-            {request.aiConductSuggestion && (
+            {/* ConductForm — apenas para consultas */}
+            {request.type === 'consultation' && (
+              <ConductForm
+                requestId={request.id}
+                initialNotes={request.doctorConductNotes ?? ''}
+                initialIncludeInPdf={request.includeConductInPdf ?? false}
+                aiSuggestion={request.aiConductSuggestion}
+                onSaved={async () => {
+                  const updated = await getRequestById(request.id);
+                  setRequest(updated);
+                }}
+              />
+            )}
+
+            {/* Transcrição da consulta */}
+            {request.consultationTranscript?.trim() && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Mic className="h-4 w-4 text-primary" aria-hidden />
+                        Transcrição da Consulta
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(request.consultationTranscript ?? '');
+                          toast.success('Transcrição copiada');
+                        }}
+                        className="gap-1.5"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copiar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic">Transcrição automática — pode conter imprecisões.</p>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
+                      {request.consultationTranscript}
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Evidências científicas (consultationEvidence) */}
+            {(() => {
+              const evidence = parseEvidence(request.consultationEvidence);
+              if (evidence.length === 0) return null;
+              return (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }}>
+                  <Card className="shadow-sm border-primary/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-primary" aria-hidden />
+                        Artigos Científicos (apoio ao CID)
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">Fontes: PubMed, Europe PMC, Semantic Scholar.</p>
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-3">
+                      {evidence.map((item, i) => (
+                        <div key={i} className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                          <p className="text-xs font-medium text-primary">{item.provider ?? 'Fonte'}</p>
+                          <p className="text-sm font-medium">{item.title ?? item.source ?? '—'}</p>
+                          {item.clinicalRelevance && (
+                            <p className="text-xs text-muted-foreground mt-1">{item.clinicalRelevance}</p>
+                          )}
+                          {item.url && (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-primary hover:underline mt-2 inline-flex items-center gap-1"
+                            >
+                              Abrir artigo
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })()}
+
+            {/* AI Suggestion (legado — quando não é consulta) */}
+            {request.aiConductSuggestion && request.type !== 'consultation' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                 <Card className="shadow-sm border-primary/20 bg-primary/[0.02]">
                   <CardHeader className="pb-3">

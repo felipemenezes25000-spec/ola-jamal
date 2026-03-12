@@ -19,4 +19,7 @@ public interface IConsultationTimeBankRepository
     /// Registra movimentação na tabela de transações.
     /// </summary>
     Task<int> DebitAsync(Guid patientId, string consultationType, int seconds, Guid? requestId, CancellationToken ct = default);
+
+    /// <summary>Retorna os segundos já debitados para esta solicitação (banco de horas usado na criação).</summary>
+    Task<int> GetDebitedSecondsForRequestAsync(Guid requestId, CancellationToken ct = default);
 }

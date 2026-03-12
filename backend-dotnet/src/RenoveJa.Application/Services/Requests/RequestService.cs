@@ -941,20 +941,21 @@ public class RequestService(
         if (doctor == null || !doctor.IsDoctor())
             throw new InvalidOperationException("Doctor not found");
 
-        decimal effectivePrice;
-        if (request.ContractedMinutes.HasValue && request.PricePerMinute.HasValue)
-        {
-            // Preço por minuto: usa o preço já calculado (armazenado no Price) ou recalcula
-            effectivePrice = request.Price?.Amount ?? (request.ContractedMinutes.Value * request.PricePerMinute.Value);
-        }
-        else
-        {
-            var (_, subtype) = GetProductTypeAndSubtype(request);
-            var priceFromDb = await productPriceRepository.GetPriceAsync("consultation", subtype, cancellationToken);
-            if (!priceFromDb.HasValue || priceFromDb.Value <= 0)
-                throw new InvalidOperationException("Preço de consulta não configurado. Verifique a tabela product_prices (product_type=consultation, subtype=default).");
-            effectivePrice = priceFromDb.Value;
-        }
+        var consultationType = request.ConsultationType ?? "medico_clinico";
+        var contractedMinutes = request.ContractedMinutes ?? 15;
+        var pricePerMinute = request.PricePerMinute
+            ?? await productPriceRepository.GetPriceAsync("consultation", consultationType, cancellationToken)
+            ?? 6.99m;
+
+        // Recalcular com banco de horas: se já debitamos na criação, usar isso para obter effectivePrice correto
+        var debitedSeconds = await consultationTimeBankRepository.GetDebitedSecondsForRequestAsync(id, cancellationToken);
+        var freeMinutes = debitedSeconds / 60;
+        var paidMinutes = Math.Max(0, contractedMinutes - freeMinutes);
+        var effectivePrice = paidMinutes * pricePerMinute;
+
+        // Se Price foi persistido como 0 na criação (banco de horas), preferir
+        if (request.Price != null && request.Price.Amount <= 0 && effectivePrice > 0)
+            effectivePrice = 0;
 
         request.AssignDoctor(doctorId, doctor.Name);
         request.Approve(effectivePrice);

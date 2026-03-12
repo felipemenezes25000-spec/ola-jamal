@@ -273,8 +273,8 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
 
       {/* Footer */}
       <View style={S.footer}>
-        <Ionicons name="information-circle-outline" size={12} color={colors.textMuted} />
-        <Text style={S.footerText}>IA como apoio — revisão médica obrigatória</Text>
+        <Ionicons name="shield-checkmark-outline" size={12} color={colors.textMuted} />
+        <Text style={S.footerText}>Copiloto clínico IA • Protocolos baseados em evidência • Decisão final exclusiva do médico</Text>
       </View>
     </View>
   );

@@ -89,6 +89,16 @@ public class ConsultationTimeBankRepository(SupabaseClient supabase) : IConsulta
         return debited;
     }
 
+    public async Task<int> GetDebitedSecondsForRequestAsync(Guid requestId, CancellationToken ct = default)
+    {
+        var rows = await supabase.GetAllAsync<TimeBankTransactionModel>(
+            TxTable,
+            select: "delta_seconds",
+            filter: $"request_id=eq.{requestId}",
+            cancellationToken: ct);
+        return rows.Where(t => t.DeltaSeconds < 0).Sum(t => Math.Abs(t.DeltaSeconds));
+    }
+
     private async Task RecordTransactionAsync(Guid patientId, string consultationType, int deltaSeconds, Guid? requestId, string reason, CancellationToken ct)
     {
         var tx = new TimeBankTransactionModel

@@ -10,7 +10,7 @@
  * - Timer sincronizado com servidor + countdown
  * - Quality indicator, mute/camera/flip controls
  * - Notas clínicas ao encerrar (modal)
- * - Transcrição via Whisper (useAudioRecorder grava áudio, backend transcreve)
+ * - Transcrição nativa via Daily.co (Deepgram) — latência <300ms, diarização automática
  * - SignalR para receber TranscriptUpdate + AnamnesisUpdate + SuggestionUpdate
  * - Criação de sala Daily.co antes do join
  */
@@ -49,7 +49,7 @@ import {
 import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyCall } from '../../hooks/useDailyCall';
-import { useAudioRecorder } from '../../hooks/useAudioRecorder';
+import { useDailyTranscription } from '../../hooks/useDailyTranscription';
 import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 import { useVideoCallEvents } from '../../hooks/useVideoCallEvents';
 import { useConsultationTimer } from '../../hooks/useConsultationTimer';
@@ -124,7 +124,7 @@ export default function VideoCallScreenInner() {
   const [bankBalance, setBankBalance] = useState<{ minutes: number; seconds: number } | null>(null);
   const [, setConsultationType] = useState<string>('medico_clinico');
 
-  // Transcrição: Whisper via useAudioRecorder (ambos gravam microfone, backend transcreve)
+  // Transcrição nativa Daily.co (Deepgram) — substitui useAudioRecorder/Whisper
   const canStartRecording = consultationStartedAt || requestStatus === 'in_consultation' || requestStatus === 'paid';
 
   // Anamnesis & Transcript (doctor) — SignalR real-time via extracted hook
@@ -145,6 +145,7 @@ export default function VideoCallScreenInner() {
   // ── Daily.co hook ──
 
   const {
+    callRef,
     callState, localParticipant, remoteParticipant,
     isMuted, isCameraOff, isFrontCamera, quality, errorMessage,
     join, leave, toggleMute, toggleCamera, flipCamera,
@@ -170,18 +171,16 @@ export default function VideoCallScreenInner() {
     onError: (msg) => setError(msg),
   });
 
-  const audioRecorder = useAudioRecorder(rid, isDoctor ? 'local' : 'remote');
-  const audioRecorderRef = useRef(audioRecorder);
-  audioRecorderRef.current = audioRecorder;
-
-  // Whisper: inicia gravação automaticamente quando consulta iniciada e na sala
-  useEffect(() => {
-    if (!canStartRecording || callState !== 'joined' || !rid) return;
-    audioRecorderRef.current.start().catch((e) => { if (__DEV__) console.warn('[VideoCall] audioRecorder start failed:', e); });
-    return () => {
-      audioRecorderRef.current.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] audioRecorder stop failed:', e); });
-    };
-  }, [canStartRecording, callState, rid]);
+  const dailyTranscription = useDailyTranscription({
+    callRef,
+    requestId: rid,
+    isDoctor,
+    localSessionId: localParticipant?.participantId ?? null,
+    callJoined: callState === 'joined',
+    consultationActive: !!canStartRecording,
+    onSendError: (msg) => { if (__DEV__) console.warn('[DailyTranscription] Send error:', msg); },
+    onSendSuccess: () => {},
+  });
 
   // ── Panel animation ──
 
@@ -268,7 +267,7 @@ export default function VideoCallScreenInner() {
       // Also report doctor as connected to help trigger server-side timer
       reportCallConnected(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] reportCallConnected failed:', e); });
       connectSignalR();
-      // Transcrição via Whisper — useAudioRecorder inicia automaticamente; ambos veem ao vivo via SignalR.
+      // Transcrição nativa Daily.co (Deepgram) — useDailyTranscription envia texto via transcribe-text; ambos veem ao vivo via SignalR.
     } catch (e: unknown) {
       if (__DEV__) console.warn('Failed to start consultation:', e instanceof Error ? e.message : e);
       // Still set local timer so UI isn't stuck
@@ -395,9 +394,9 @@ export default function VideoCallScreenInner() {
     if (Platform.OS === 'android' && ExpoPip.setPictureInPictureParams) {
       ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
     }
-    audioRecorderRef.current.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] audioRecorder stop failed:', e); });
+    dailyTranscription.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] dailyTranscription stop failed:', e); });
     disconnectSignalR();
-  }, [disconnectSignalR]);
+  }, [disconnectSignalR, dailyTranscription]);
 
   // End call
   const doEnd = useCallback(async (autoFinish = false) => {
@@ -577,10 +576,10 @@ export default function VideoCallScreenInner() {
       )}
 
       {/* Doctor: aviso quando transcrição falha (SignalR ou erro de envio Whisper) */}
-      {!isInPipMode && isDoctor && (transcriptionError || audioRecorder.lastChunkError) && (
+      {!isInPipMode && isDoctor && (transcriptionError || dailyTranscription.error) && (
         <View style={[S.recIndicator, { top: insets.top + 60 + 140, backgroundColor: colors.warning + '40' }]}>
           <Ionicons name="warning" size={14} color={colors.warning} />
-          <Text style={[S.recText, { color: colors.warning }]}>{transcriptionError || audioRecorder.lastChunkError}</Text>
+          <Text style={[S.recText, { color: colors.warning }]}>{transcriptionError || dailyTranscription.error}</Text>
         </View>
       )}
 
@@ -592,10 +591,10 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Patient: indicador de transcrição Whisper — oculto em PiP */}
+      {/* Patient: indicador de transcrição Daily.co — oculto em PiP */}
       {!isInPipMode && !isDoctor && callState === 'joined' && (
-        <View style={[audioRecorder.isRecording ? S.recIndicatorActive : S.recIndicatorMuted, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
-          {audioRecorder.isRecording ? (
+        <View style={[dailyTranscription.isTranscribing ? S.recIndicatorActive : S.recIndicatorMuted, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
+          {dailyTranscription.isTranscribing ? (
             <>
               <View style={S.recDot} />
               <Text style={S.recText}>Transcrição ativa</Text>

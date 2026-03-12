@@ -72,12 +72,15 @@ public class ConsultationSessionStore : IConsultationSessionStore
         }
         lock (state.Lock)
         {
-            state.TranscriptBuilder.Append(' ').Append(trimmed);
+            // Deduplicar overlap: Whisper pode repetir as últimas palavras do chunk anterior
+            var existingText = state.TranscriptBuilder.ToString();
+            var deduped = DeduplicateOverlap(existingText, trimmed);
+            state.TranscriptBuilder.Append(' ').Append(deduped);
             if (!string.IsNullOrWhiteSpace(segmentText))
             {
                 state.TranscriptSegments.Add(new TranscriptSegment(speaker, segmentText, receivedAt, startTimeSeconds));
             }
-            _logger.LogDebug("[ConsultationSession] Transcript append RequestId={RequestId} totalLen={Len} segments={Count} startTime={StartTime}", requestId, state.TranscriptBuilder.Length, state.TranscriptSegments.Count, startTimeSeconds);
+            _logger.LogDebug("[ConsultationSession] Transcript append RequestId={RequestId} totalLen={Len} segments={Count} startTime={StartTime} deduped={Deduped}", requestId, state.TranscriptBuilder.Length, state.TranscriptSegments.Count, startTimeSeconds, deduped != trimmed);
         }
     }
 
@@ -132,6 +135,85 @@ public class ConsultationSessionStore : IConsultationSessionStore
         }
         _cache.Remove(key);
         return new ConsultationSessionData(requestId, state.PatientId, transcript, segments, anamnesisJson, suggestionsJson, evidenceJson);
+    }
+
+    /// <summary>
+    /// Remove overlap entre o final do texto existente e o início do novo texto.
+    /// Whisper frequentemente repete as últimas 2-8 palavras do chunk anterior no início do próximo.
+    /// Compara sufixo do existente com prefixo do novo, case-insensitive com tolerância.
+    /// </summary>
+    private static string DeduplicateOverlap(string existing, string newText)
+    {
+        if (string.IsNullOrWhiteSpace(existing) || string.IsNullOrWhiteSpace(newText))
+            return newText;
+
+        // Remove speaker labels para comparação ([Médico], [Paciente], [Transcrição])
+        var existingClean = StripSpeakerLabel(existing);
+        var newClean = StripSpeakerLabel(newText);
+
+        var existingWords = existingClean.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var newWords = newClean.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (existingWords.Length < 2 || newWords.Length < 2)
+            return newText;
+
+        // Tenta encontrar overlap de 2 a 10 palavras (do maior para o menor)
+        var maxOverlap = Math.Min(10, Math.Min(existingWords.Length, newWords.Length));
+        for (int overlapLen = maxOverlap; overlapLen >= 2; overlapLen--)
+        {
+            var existingSuffix = existingWords[^overlapLen..];
+            var newPrefix = newWords[..overlapLen];
+
+            // Comparação case-insensitive com tolerância de pontuação
+            var match = true;
+            for (int i = 0; i < overlapLen; i++)
+            {
+                var a = NormalizeForComparison(existingSuffix[i]);
+                var b = NormalizeForComparison(newPrefix[i]);
+                if (!string.Equals(a, b, StringComparison.OrdinalIgnoreCase))
+                {
+                    match = false;
+                    break;
+                }
+            }
+
+            if (match)
+            {
+                // Preservar speaker label do newText + parte não-repetida
+                var speakerLabel = ExtractSpeakerLabel(newText);
+                var remainingWords = newWords[overlapLen..];
+                if (remainingWords.Length == 0) return string.Empty;
+                return string.IsNullOrEmpty(speakerLabel)
+                    ? string.Join(' ', remainingWords)
+                    : $"{speakerLabel} {string.Join(' ', remainingWords)}";
+            }
+        }
+
+        return newText;
+    }
+
+    private static string StripSpeakerLabel(string text)
+    {
+        var t = text.TrimStart();
+        if (t.StartsWith("[Médico]", StringComparison.OrdinalIgnoreCase)) return t[8..].TrimStart();
+        if (t.StartsWith("[Paciente]", StringComparison.OrdinalIgnoreCase)) return t[10..].TrimStart();
+        if (t.StartsWith("[Transcrição]", StringComparison.OrdinalIgnoreCase)) return t[13..].TrimStart();
+        return t;
+    }
+
+    private static string ExtractSpeakerLabel(string text)
+    {
+        var t = text.TrimStart();
+        if (t.StartsWith("[Médico]", StringComparison.OrdinalIgnoreCase)) return "[Médico]";
+        if (t.StartsWith("[Paciente]", StringComparison.OrdinalIgnoreCase)) return "[Paciente]";
+        if (t.StartsWith("[Transcrição]", StringComparison.OrdinalIgnoreCase)) return "[Transcrição]";
+        return string.Empty;
+    }
+
+    private static string NormalizeForComparison(string word)
+    {
+        // Remove pontuação final para tolerância (ex: "dor," vs "dor")
+        return word.TrimEnd('.', ',', ';', ':', '!', '?', '"', '\'');
     }
 
     private sealed class SessionState
