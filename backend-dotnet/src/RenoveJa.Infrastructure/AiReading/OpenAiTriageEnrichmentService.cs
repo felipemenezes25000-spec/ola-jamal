@@ -75,13 +75,15 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
         var result = await CallProviderAsync(input, apiKey, baseUrl, model, cts.Token);
         if (result != null) return result;
 
-        // Fallback: Gemini falhou e OpenAI configurada → tenta gpt-4o
+        // Fallback: Gemini falhou e OpenAI configurada → tenta gpt-4o (timeout novo para não cancelar após 5s do Gemini)
         var usedGemini = model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
         var openAiKey = _config.Value?.ApiKey?.Trim();
         if (usedGemini && !string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
         {
             _logger.LogInformation("Triage IA: Fallback para OpenAI gpt-4o após falha Gemini.");
-            return await CallProviderAsync(input, openAiKey!, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o", cts.Token);
+            using var fallbackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            fallbackCts.CancelAfter(Timeout);
+            return await CallProviderAsync(input, openAiKey!, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o", fallbackCts.Token);
         }
         return null;
     }
@@ -98,18 +100,12 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             var systemPrompt = BuildSystemPrompt();
             var userPrompt = BuildUserPrompt(input);
 
-            var requestBody = new
-            {
-                model,
-                temperature = 0.4,
-                max_tokens = 150,
-                response_format = new { type = "json_object" },
-                messages = new[]
-                {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = userPrompt }
-                }
-            };
+            var isGemini = baseUrl.Contains("generativelanguage", StringComparison.OrdinalIgnoreCase);
+            // Gemini: 2048 tokens para evitar truncamento intermitente
+            var maxTokens = isGemini ? 2048 : 150;
+            object requestBody = isGemini
+                ? new { model, temperature = 0.4, max_tokens = maxTokens, response_format = new { type = "json_object" }, messages = new[] { new { role = "system", content = systemPrompt }, new { role = "user", content = userPrompt } } }
+                : new { model, temperature = 0.4, max_tokens = maxTokens, response_format = new { type = "json_object" }, messages = new[] { new { role = "system", content = systemPrompt }, new { role = "user", content = userPrompt } } };
 
             var startedAt = DateTime.UtcNow;
             var json = JsonSerializer.Serialize(requestBody, JsonOptions);
@@ -146,6 +142,8 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
                 return null;
 
             var result = ParseAndValidate(message, input.RuleText);
+            if (result == null)
+                _logger.LogWarning("Triage IA: ParseAndValidate retornou null. Raw (preview): {Preview}", message.Length > 300 ? message[..300] + "..." : message);
             await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
                 serviceName: nameof(OpenAiTriageEnrichmentService),
                 modelName: model,
@@ -257,12 +255,17 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
         return sb.ToString();
     }
 
-    private TriageEnrichmentResult? ParseAndValidate(string json, string fallback)
+    private TriageEnrichmentResult? ParseAndValidate(string raw, string fallback)
     {
+        var json = CleanJson(raw);
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("text", out var textEl) || textEl.ValueKind != JsonValueKind.String)
+            var root = doc.RootElement;
+            // Gemini às vezes retorna "message" em vez de "text"
+            if (!root.TryGetProperty("text", out var textEl) && !root.TryGetProperty("message", out textEl))
+                return null;
+            if (textEl.ValueKind != JsonValueKind.String)
                 return null;
 
             var text = textEl.GetString()?.Trim();
@@ -270,6 +273,7 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
                 return null;
 
             // Validação: rejeitar se contiver termos que indicam decisão médica (inclui variações sem acento)
+            // "tome" removido: bloqueava "tome os medicamentos conforme orientado" (orientação genérica OK)
             var forbidden = new[]
             {
                 "diagnóstico", "diagnostico",
@@ -277,12 +281,14 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
                 "indico", "indicação", "indicacao",
                 "você tem", "voce tem",
                 "recomendo tratamento", "tratamento recomendado",
-                "tome", "inicie", "ajuste de dose", "dose recomendada"
+                "inicie o tratamento", "ajuste de dose", "dose recomendada",
+                "tome 1 comprimido", "tome 2 comprimidos", "tome 500mg", "tome 2x ao dia"
             };
             var lower = text.ToLowerInvariant();
-            if (forbidden.Any(f => lower.Contains(f)))
+            var blocked = forbidden.FirstOrDefault(f => lower.Contains(f));
+            if (blocked != null)
             {
-                _logger.LogDebug("Triage IA: output rejeitado por termo proibido");
+                _logger.LogWarning("Triage IA: output rejeitado por termo proibido '{Term}'. Text (preview): {Preview}", blocked, text.Length > 100 ? text[..100] + "..." : text);
                 return null;
             }
 
@@ -293,8 +299,37 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Triage IA: falha ao parsear JSON");
+            _logger.LogWarning(ex, "Triage IA: falha ao parsear JSON. Cleaned (preview): {Preview}", json.Length > 300 ? json[..300] + "..." : json);
             return null;
         }
+    }
+
+    private static string CleanJson(string raw)
+    {
+        var s = raw.Trim();
+        if (s.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            s = s["```json".Length..].TrimStart();
+        else if (s.StartsWith("```"))
+            s = s["```".Length..].TrimStart();
+        if (s.EndsWith("```"))
+            s = s[..^3].TrimEnd();
+        var start = s.IndexOf('{');
+        if (start > 0)
+        {
+            var depth = 0;
+            var inString = false;
+            var escape = false;
+            for (var i = start; i < s.Length; i++)
+            {
+                var c = s[i];
+                if (escape) { escape = false; continue; }
+                if (c == '\\' && inString) { escape = true; continue; }
+                if (inString) { if (c == '"') inString = false; continue; }
+                if (c == '"') { inString = true; continue; }
+                if (c == '{') depth++;
+                else if (c == '}') { depth--; if (depth == 0) return s[start..(i + 1)]; }
+            }
+        }
+        return s;
     }
 }

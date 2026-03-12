@@ -81,7 +81,7 @@ public class OpenAiPrescriptionGeneratorService : IAiPrescriptionGeneratorServic
             {
                 model,
                 temperature = 0.2,
-                max_tokens = 1500,
+                max_tokens = 2500,
                 response_format = new { type = "json_object" },
                 messages = new[]
                 {
@@ -112,7 +112,8 @@ public class OpenAiPrescriptionGeneratorService : IAiPrescriptionGeneratorServic
             if (string.IsNullOrWhiteSpace(messageContent))
                 return null;
 
-            return ParseMedicationItems(messageContent);
+            var cleaned = CleanJsonResponse(messageContent);
+            return ParseMedicationItems(cleaned);
         }
         catch (Exception ex)
         {
@@ -223,6 +224,35 @@ FORMATO DE RESPOSTA (JSON obrigatório):
         }
         var openAiKey = _config.Value?.ApiKey?.Trim() ?? "";
         return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
+    }
+
+    private static string CleanJsonResponse(string raw)
+    {
+        var s = raw.Trim();
+        if (s.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            s = s["```json".Length..].TrimStart();
+        else if (s.StartsWith("```"))
+            s = s["```".Length..].TrimStart();
+        if (s.EndsWith("```"))
+            s = s[..^3].TrimEnd();
+        var start = s.IndexOf('{');
+        if (start > 0)
+        {
+            var depth = 0;
+            var inString = false;
+            var escape = false;
+            for (var i = start; i < s.Length; i++)
+            {
+                var c = s[i];
+                if (escape) { escape = false; continue; }
+                if (c == '\\' && inString) { escape = true; continue; }
+                if (inString) { if (c == '"') inString = false; continue; }
+                if (c == '"') { inString = true; continue; }
+                if (c == '{') depth++;
+                else if (c == '}') { depth--; if (depth == 0) return s[start..(i + 1)]; }
+            }
+        }
+        return s;
     }
 
     private List<PrescriptionMedicationItem>? ParseMedicationItems(string json)

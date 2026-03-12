@@ -123,11 +123,14 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
 
             var userContent = BuildUserContent(input);
 
+            var isGemini = baseUrl.Contains("generativelanguage", StringComparison.OrdinalIgnoreCase);
+            var maxTokens = isGemini ? 4096 : 1600;
+
             var requestBody = new
             {
                 model,
                 temperature = 0.2,
-                max_tokens = 1600,
+                max_tokens = maxTokens,
                 response_format = new { type = "json_object" },
                 messages = new[]
                 {
@@ -185,7 +188,11 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
                 responseSummary: message.Length > 500 ? message[..500] : message,
                 durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds), cancellationToken);
 
-            return ParseStructuredSummary(message);
+            var cleaned = CleanJsonResponse(message);
+            var result = ParseStructuredSummary(cleaned, _logger);
+            if (result == null)
+                _logger.LogWarning("Clinical summary: ParseStructuredSummary retornou null. Raw (preview): {Preview}", message.Length > 400 ? message[..400] + "..." : message);
+            return result;
         }
         catch (Exception ex)
         {
@@ -194,7 +201,36 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
         }
     }
 
-    private static ClinicalSummaryStructured? ParseStructuredSummary(string json)
+    private static string CleanJsonResponse(string raw)
+    {
+        var s = raw.Trim();
+        if (s.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            s = s["```json".Length..].TrimStart();
+        else if (s.StartsWith("```"))
+            s = s["```".Length..].TrimStart();
+        if (s.EndsWith("```"))
+            s = s[..^3].TrimEnd();
+        var start = s.IndexOf('{');
+        if (start > 0)
+        {
+            var depth = 0;
+            var inString = false;
+            var escape = false;
+            for (var i = start; i < s.Length; i++)
+            {
+                var c = s[i];
+                if (escape) { escape = false; continue; }
+                if (c == '\\' && inString) { escape = true; continue; }
+                if (inString) { if (c == '"') inString = false; continue; }
+                if (c == '"') { inString = true; continue; }
+                if (c == '{') depth++;
+                else if (c == '}') { depth--; if (depth == 0) return s[start..(i + 1)]; }
+            }
+        }
+        return s;
+    }
+
+    private static ClinicalSummaryStructured? ParseStructuredSummary(string json, ILogger? logger = null)
     {
         try
         {
@@ -313,8 +349,9 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
                 carePlan,
                 alerts);
         }
-        catch
+        catch (Exception ex)
         {
+            logger?.LogWarning(ex, "Clinical summary: falha ao parsear JSON. Cleaned (preview): {Preview}", json.Length > 300 ? json[..300] + "..." : json);
             return null;
         }
     }

@@ -78,7 +78,7 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
             {
                 model,
                 temperature = 0.25,
-                max_tokens = 1200,
+                max_tokens = 4000,
                 response_format = new { type = "json_object" },
                 messages = new[]
                 {
@@ -112,7 +112,8 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
             if (string.IsNullOrWhiteSpace(message))
                 return null;
 
-            return ParseResultV2(message);
+            var cleaned = CleanJsonResponse(message);
+            return ParseResultV2(cleaned);
         }
         catch (Exception ex)
         {
@@ -214,6 +215,35 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
         sb.AppendLine("Gere a conduta estruturada com template SOAP, exames (com TUSS), orientações ao paciente, critérios de retorno e CID sugerido.");
 
         return sb.ToString();
+    }
+
+    private static string CleanJsonResponse(string raw)
+    {
+        var s = raw.Trim();
+        if (s.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            s = s["```json".Length..].TrimStart();
+        else if (s.StartsWith("```"))
+            s = s["```".Length..].TrimStart();
+        if (s.EndsWith("```"))
+            s = s[..^3].TrimEnd();
+        var start = s.IndexOf('{');
+        if (start > 0)
+        {
+            var depth = 0;
+            var inString = false;
+            var escape = false;
+            for (var i = start; i < s.Length; i++)
+            {
+                var c = s[i];
+                if (escape) { escape = false; continue; }
+                if (c == '\\' && inString) { escape = true; continue; }
+                if (inString) { if (c == '"') inString = false; continue; }
+                if (c == '"') { inString = true; continue; }
+                if (c == '{') depth++;
+                else if (c == '}') { depth--; if (depth == 0) return s[start..(i + 1)]; }
+            }
+        }
+        return s;
     }
 
     private AiConductSuggestionResult? ParseResultV2(string json)

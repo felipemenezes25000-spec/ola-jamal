@@ -163,6 +163,12 @@ public static class ServiceCollectionExtensions
         {
             options.GeminiApiKey = EnvOrConfig(envVars, config, "Gemini__ApiKey", "Gemini:ApiKey");
             options.GeminiApiBaseUrl = EnvOrConfig(envVars, config, "Gemini__ApiBaseUrl", "Gemini:ApiBaseUrl");
+            // FORCE_OPENAI_PROVIDER=1: força uso de OpenAI (para testar fallback GPT sem Gemini)
+            if (string.Equals(Environment.GetEnvironmentVariable("FORCE_OPENAI_PROVIDER"), "1", StringComparison.OrdinalIgnoreCase))
+                options.GeminiApiKey = "";
+            // FORCE_GEMINI_ONLY=1: desabilita fallback GPT (para testar Gemini puro)
+            if (string.Equals(Environment.GetEnvironmentVariable("FORCE_GEMINI_ONLY"), "1", StringComparison.OrdinalIgnoreCase))
+                options.ApiKey = "";
         });
         services.Configure<SmtpConfig>(config.GetSection(SmtpConfig.SectionName));
         services.Configure<InfoSimplesConfig>(config.GetSection(InfoSimplesConfig.SectionName));

@@ -88,6 +88,23 @@ public class ExceptionHandlingMiddleware(
             return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
         }
 
+        // 502/503/504 do upstream (Supabase): retornar 503 para o cliente poder exibir "tente novamente"
+        if (exception is HttpRequestException && (
+            exception.Message.Contains("502", StringComparison.OrdinalIgnoreCase) ||
+            exception.Message.Contains("503", StringComparison.OrdinalIgnoreCase) ||
+            exception.Message.Contains("504", StringComparison.OrdinalIgnoreCase)))
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            var response = new
+            {
+                status = 503,
+                message = "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
+                requestId
+            };
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
+        }
+
         var (statusCode, message) = exception switch
         {
             AuthConflictException => (HttpStatusCode.Conflict, exception.Message),
