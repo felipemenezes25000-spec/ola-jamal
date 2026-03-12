@@ -45,7 +45,10 @@ public class ApiRequestLoggingMiddleware(RequestDelegate next, ILogger<ApiReques
 
             if (isError || isSlow)
             {
-                var logLevel = status >= 500 ? LogLevel.Error : status >= 400 ? LogLevel.Warning : LogLevel.Information;
+                // Warning+ vai ao Sentry; Info fica só em Console/File
+                var logLevel = status >= 500 ? LogLevel.Error
+                    : (status >= 400 || isSlow) ? LogLevel.Warning
+                    : LogLevel.Information;
                 var reason = isError ? $"Status={status}" : $"Lento={durationMs}ms";
                 logger.Log(logLevel,
                     "[API] {Method} {Path} | {Reason} | {Duration}ms | UserId={UserId} | CorrelationId={CorrelationId}",

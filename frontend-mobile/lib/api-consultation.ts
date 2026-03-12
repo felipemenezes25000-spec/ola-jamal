@@ -47,12 +47,38 @@ export async function transcribeTextChunk(
   });
 }
 
+/** Regex para validar UUID v4. */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Tamanho mínimo do chunk de áudio em bytes (evita 400 do backend). */
+const MIN_AUDIO_CHUNK_BYTES = 500;
+
+/** Opções para validação antes do POST. */
+export interface TranscribeAudioChunkOptions {
+  /** Tamanho em bytes (RN: de FileSystem.getInfoAsync). Usado para validar antes do POST. */
+  fileSize?: number;
+}
+
 /** Envia chunk de áudio para transcrição em tempo real. Paciente envia (stream=remote); médico só visualiza. */
 export async function transcribeAudioChunk(
   requestId: string,
   audioBlob: Blob | { uri: string; name: string; type: string },
-  stream: 'local' | 'remote' = 'remote'
+  stream: 'local' | 'remote' = 'remote',
+  options?: TranscribeAudioChunkOptions
 ): Promise<{ transcribed: boolean; text?: string; fullLength?: number }> {
+  if (!requestId || typeof requestId !== 'string') {
+    throw { message: 'RequestId é obrigatório', status: 400 };
+  }
+  if (!UUID_REGEX.test(requestId.trim())) {
+    throw { message: 'RequestId deve ser um UUID válido', status: 400 };
+  }
+  const size = options?.fileSize ?? (audioBlob instanceof Blob ? audioBlob.size : undefined);
+  if (size != null && size < MIN_AUDIO_CHUNK_BYTES) {
+    throw {
+      message: `Arquivo de áudio muito pequeno (mínimo ${MIN_AUDIO_CHUNK_BYTES} bytes)`,
+      status: 400,
+    };
+  }
   const formData = new FormData();
   formData.append('requestId', requestId);
   formData.append('stream', stream);

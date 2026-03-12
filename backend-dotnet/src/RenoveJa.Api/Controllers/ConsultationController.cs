@@ -40,47 +40,60 @@ public class ConsultationController(
     [HttpPost("transcribe")]
     [RequestSizeLimit(5 * 1024 * 1024)]
     public async Task<IActionResult> Transcribe(
-        [FromForm] Guid requestId,
+        [FromForm] string? requestIdRaw,
         [FromForm] IFormFile? file,
         [FromForm] string? stream,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation("[Transcribe] INICIO RequestId={RequestId} | file={FileLen} | stream={Stream}",
-            requestId, file?.Length ?? 0, stream ?? "(null)");
+        logger.LogInformation("[Transcribe] INICIO requestIdRaw={RequestIdRaw} | fileLen={FileLen} fileName={FileName} stream={Stream}",
+            requestIdRaw ?? "(null)", file?.Length ?? 0, file?.FileName ?? "(null)", stream ?? "(null)");
+
+        if (string.IsNullOrWhiteSpace(requestIdRaw))
+        {
+            logger.LogWarning("[Transcribe] 400: requestId ausente ou vazio. requestIdRaw={RequestIdRaw}", requestIdRaw ?? "(null)");
+            return BadRequest(new { message = "RequestId is required", code = "invalid_request_id" });
+        }
+
+        if (!Guid.TryParse(requestIdRaw, out var requestId))
+        {
+            logger.LogWarning("[Transcribe] 400: requestId com formato inválido (exige UUID). requestIdRaw={RequestIdRaw}", requestIdRaw);
+            return BadRequest(new { message = "RequestId must be a valid UUID", code = "invalid_request_id_format" });
+        }
 
         var userId = GetUserId();
         var request = await requestRepository.GetByIdAsync(requestId, cancellationToken);
         if (request == null)
         {
-            logger.LogWarning("[Transcribe] Request não encontrado. RequestId={RequestId}", requestId);
-            return NotFound("Request not found");
+            logger.LogWarning("[Transcribe] 404: Request não encontrado. RequestId={RequestId}", requestId);
+            return NotFound(new { message = "Request not found", code = "request_not_found" });
         }
         var isDoctor = request.DoctorId == userId;
         var isPatient = request.PatientId == userId;
         if (!isDoctor && !isPatient)
         {
-            logger.LogWarning("[Transcribe] Usuário não autorizado. RequestId={RequestId} UserId={UserId}", requestId, userId);
+            logger.LogWarning("[Transcribe] 403: Usuário não autorizado. RequestId={RequestId} UserId={UserId}", requestId, userId);
             return Forbid();
         }
 
         if (request.RequestType != RequestType.Consultation)
         {
-            logger.LogWarning("[Transcribe] Tipo de request inválido. RequestId={RequestId} Type={Type}", requestId, request.RequestType);
-            return BadRequest("Only consultation requests support transcription");
+            logger.LogWarning("[Transcribe] 400: Tipo de request inválido. RequestId={RequestId} Type={Type} (exige Consultation)", requestId, request.RequestType);
+            return BadRequest(new { message = "Only consultation requests support transcription", code = "invalid_request_type" });
         }
 
         var canTranscribe = request.Status == RequestStatus.InConsultation || request.Status == RequestStatus.Paid;
         if (!canTranscribe)
         {
-            logger.LogWarning("[Transcribe] TRANSCRICAO_NAO_OCORRE: Status da consulta inválido. RequestId={RequestId} Status={Status} (exige InConsultation ou Paid)",
+            logger.LogWarning("[Transcribe] 400 TRANSCRICAO_NAO_OCORRE: Status inválido. RequestId={RequestId} Status={Status} (exige InConsultation ou Paid)",
                 requestId, request.Status);
-            return BadRequest("Consultation must be paid or in progress to transcribe");
+            return BadRequest(new { message = "Consultation must be paid or in progress to transcribe", code = "invalid_consultation_status" });
         }
 
         if (file == null || file.Length == 0)
         {
-            logger.LogWarning("[Transcribe] TRANSCRICAO_NAO_OCORRE: Chunk de áudio ausente ou vazio. RequestId={RequestId}", requestId);
-            return BadRequest("Audio file is required");
+            logger.LogWarning("[Transcribe] 400 TRANSCRICAO_NAO_OCORRE: Chunk de áudio ausente ou vazio. RequestId={RequestId} fileNull={FileNull} fileLen={FileLen}",
+                requestId, file == null, file?.Length ?? 0);
+            return BadRequest(new { message = "Audio file is required", code = "audio_file_required" });
         }
 
         logger.LogInformation("[Transcribe] Processando áudio: RequestId={RequestId} Size={Size} FileName={FileName}",

@@ -94,7 +94,7 @@ export function useAudioChunking(requestId: string): AudioChunkingReturn {
           type: mimeType,
         };
 
-        await transcribeAudioChunk(requestId, fileObject as any, stream);
+        await transcribeAudioChunk(requestId, fileObject as any, stream, { fileSize });
         setChunksSent((c) => c + 1);
         setLastChunkError(null);
         setSecondsUntilNextChunk(CHUNK_DURATION_MS / 1000);

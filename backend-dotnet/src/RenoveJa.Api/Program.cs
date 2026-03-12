@@ -35,6 +35,7 @@ using Microsoft.OpenApi.Models;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 using System.Threading.RateLimiting;
 using Serilog;
 using Microsoft.AspNetCore.Rewrite;
@@ -127,8 +128,39 @@ if (!string.IsNullOrWhiteSpace(sentryDsn))
         o.Dsn = sentryDsn.Trim();
         o.Environment = builder.Environment.EnvironmentName;
         o.TracesSampleRate = 0.1;
+        o.EnableLogs = true; // Logs estruturados: ILogger/Serilog → Sentry
         o.SendDefaultPii = false;
         o.Debug = !builder.Environment.IsProduction(); // Ver logs do SDK em dev
+        // Só envia Warning+ ao Sentry: reduz ruído, foca em erros e latência
+        o.SetBeforeSendLog(static log =>
+        {
+            if (log.Level is Sentry.SentryLogLevel.Trace or Sentry.SentryLogLevel.Debug or Sentry.SentryLogLevel.Info)
+                return null;
+            // Extrai categoria de [TAG] na mensagem: [API], [WEBHOOK-EVENT], [PAYMENT-ATTEMPT], etc.
+            var msg = log.Message ?? "";
+            if (msg.Length >= 3 && msg[0] == '[')
+            {
+                var end = msg.IndexOf(']');
+                if (end > 1) log.SetAttribute("log.category", msg[1..end]);
+            }
+            return log;
+        });
+        // Descarta 503/502 de APIs de IA (transitórios; já temos retry + fallback)
+        o.SetBeforeSend((evt, hint) =>
+        {
+            if (hint.Items.TryGetValue(Sentry.HintTypes.HttpResponseMessage, out var responseHint)
+                && responseHint is HttpResponseMessage resp
+                && resp.RequestMessage?.RequestUri != null)
+            {
+                var url = resp.RequestMessage.RequestUri.ToString();
+                var status = (int)resp.StatusCode;
+                var isAiApi = url.Contains("generativelanguage.googleapis.com", StringComparison.OrdinalIgnoreCase)
+                    || url.Contains("api.openai.com", StringComparison.OrdinalIgnoreCase);
+                if (isAiApi && (status == 502 || status == 503))
+                    return null; // Não reportar ao Sentry
+            }
+            return evt;
+        });
     });
 }
 

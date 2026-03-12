@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -28,6 +29,8 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
     private const string DefaultGeminiModel = "gemini-2.5-flash";
     private const int MaxOutputChars = 140;
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
+    /// <summary>Status codes transitórios que merecem retry (503, 502, 429).</summary>
+    private static readonly HashSet<int> RetryableStatusCodes = [502, 503, 429];
 
     /// <summary>Chaves que NUNCA devem ser alteradas pela IA (alertas críticos, conduta médica).</summary>
     private static readonly HashSet<string> NoEnrichKeys = new(StringComparer.OrdinalIgnoreCase)
@@ -114,8 +117,7 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             client.Timeout = Timeout;
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-            using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync($"{baseUrl}/chat/completions", content, cancellationToken);
+            var response = await PostWithRetryAsync(client, baseUrl, json, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -163,6 +165,30 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             _logger.LogWarning(ex, "Triage IA: erro ao enriquecer");
             return null;
         }
+    }
+
+    /// <summary>POST com retry para erros transitórios (502, 503, 429).</summary>
+    private async Task<HttpResponseMessage> PostWithRetryAsync(
+        HttpClient client,
+        string baseUrl,
+        string json,
+        CancellationToken cancellationToken,
+        int maxAttempts = 2)
+    {
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync($"{baseUrl}/chat/completions", content, cancellationToken);
+
+            var status = (int)response.StatusCode;
+            if (response.IsSuccessStatusCode || !RetryableStatusCodes.Contains(status) || attempt >= maxAttempts)
+                return response;
+
+            _logger.LogDebug("Triage IA: {StatusCode} na tentativa {Attempt}/{Max}, aguardando retry", response.StatusCode, attempt, maxAttempts);
+            await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), cancellationToken);
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
     }
 
     /// <summary>Prioriza Gemini quando configurado. Fallback para OpenAI.</summary>

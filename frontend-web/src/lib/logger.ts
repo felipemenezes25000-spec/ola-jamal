@@ -47,7 +47,7 @@ function log(
     }
   }
 
-  if (__DEV__) {
+  if (import.meta.env.DEV) {
     const prefix = `[${category}]`;
     const args = [prefix, message, ...(Object.keys(safeAttrs).length ? [safeAttrs] : [])];
     if (level === 'error' || level === 'fatal') console.error(...args);
@@ -78,14 +78,3 @@ export const logger = {
     }
   },
 };
-
-/** Erro de API: status, path, mensagem. Vai ao Sentry (warn+). */
-export function logApiError(
-  status: number,
-  path: string,
-  message: string,
-  extra?: LogAttrs
-): void {
-  const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
-  log(level, 'api', `[${status}] ${path}: ${message}`, { status, path, ...extra });
-}
