@@ -4,6 +4,7 @@ import { Tabs, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { useResponsive } from '../../lib/ui/responsive';
 import { haptics } from '../../lib/haptics';
 import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -21,6 +22,7 @@ export default function DoctorLayout() {
   const { unreadCount } = useNotifications();
   const hasUnread = unreadCount > 0;
   const { colors, scheme } = useAppTheme({ role: 'doctor' });
+  const { isCompact } = useResponsive();
   const isDark = scheme === 'dark';
 
   const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
@@ -73,9 +75,9 @@ export default function DoctorLayout() {
             marginBottom: 2,
           },
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: isCompact ? 10 : 11,
             fontWeight: '700',
-            letterSpacing: 0.3,
+            letterSpacing: isCompact ? 0 : 0.3,
             textAlign: 'center',
             marginTop: 2,
           },

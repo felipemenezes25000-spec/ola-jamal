@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView, ViewStyle } from 'react-
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { AppRole } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
+import { useResponsive } from '../../lib/ui/responsive';
 
 const MIN_TOUCH = 44;
 
@@ -39,18 +40,21 @@ export function AppSegmentedControl({
   role,
 }: AppSegmentedControlProps) {
   const { colors, typography, shadows } = useAppTheme(role ? { role } : undefined);
+  const { isCompact, screenPad } = useResponsive();
   const muted = (colors as any).muted ?? colors.surfaceSecondary;
 
   const conf = useMemo(() => {
     const isSm = size === 'sm';
     return {
       height: isSm ? 40 : 46,
-      padV: isSm ? 8 : 10,
+      padV: isSm ? 8 : (isCompact ? 8 : 10),
+      padH: isCompact ? 8 : 10,
       fontSize: isSm ? 12 : 13,
       badgeFontSize: isSm ? 10 : 11,
       borderRadius: isSm ? 12 : 14,
+      minWidth: isCompact ? 64 : 72,
     };
-  }, [size]);
+  }, [size, isCompact]);
 
   const content = (
     <View style={[s.container, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }, style]}>
@@ -69,6 +73,8 @@ export function AppSegmentedControl({
                 minHeight: Math.max(MIN_TOUCH, conf.height),
                 borderRadius: conf.borderRadius - 2,
                 paddingVertical: conf.padV,
+                paddingHorizontal: conf.padH,
+                minWidth: conf.minWidth,
               },
               isSelected && [
                 s.segmentActive,
@@ -126,13 +132,13 @@ export function AppSegmentedControl({
     </View>
   );
 
-  const shouldScroll = !!scrollable || items.length > 4;
+  const shouldScroll = !!scrollable || items.length > 4 || (isCompact && items.length >= 3);
   if (!shouldScroll) {
-    return <View style={s.wrapper}>{content}</View>;
+    return <View style={[s.wrapper, { paddingHorizontal: screenPad }]}>{content}</View>;
   }
 
   return (
-    <View style={s.wrapper}>
+    <View style={[s.wrapper, { paddingHorizontal: screenPad }]}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.scrollContent, { flexGrow: 0 }]}>
         <View style={[s.container, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
           {items.map((item) => {
@@ -176,7 +182,6 @@ export function AppSegmentedControl({
 
 const s = StyleSheet.create({
   wrapper: {
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingTop: uiTokens.spacing.sm,
     paddingBottom: uiTokens.spacing.sm,
   },

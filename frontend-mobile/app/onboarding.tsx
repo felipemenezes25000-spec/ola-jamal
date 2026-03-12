@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { gradients, spacing, borderRadius } from '../lib/theme';
 import { useAppTheme } from '../lib/ui/useAppTheme';
+import { useResponsive } from '../lib/ui/responsive';
 import type { DesignColors } from '../lib/designSystem';
 import { markOnboardingDone } from '../lib/onboarding';
 import { haptics } from '../lib/haptics';
@@ -65,7 +66,8 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { rs } = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, rs), [colors, rs]);
   const STEPS = useMemo(() => makeSteps(colors), [colors]);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -175,7 +177,7 @@ export default function OnboardingScreen() {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, rs: (v: number) => number) {
   return StyleSheet.create({
   root: {
     flex: 1,
@@ -218,7 +220,7 @@ function makeStyles(colors: DesignColors) {
   },
   content: {
     alignItems: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: rs(20),
     paddingTop: 36,
     paddingBottom: 32,
     gap: spacing.lg,

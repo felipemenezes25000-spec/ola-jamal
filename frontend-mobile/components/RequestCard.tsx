@@ -2,8 +2,9 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../lib/ui/useAppTheme';
+import { useResponsive } from '../lib/ui/responsive';
 import type { DesignColors, DesignTokens } from '../lib/designSystem';
-import { layout as dsLayout, borderRadius as dsBorderRadius } from '../lib/designSystem';
+import { borderRadius as dsBorderRadius } from '../lib/designSystem';
 import { StatusBadge } from './StatusBadge';
 import { getDisplayPrice } from '../lib/config/pricing';
 import { formatBRL, formatDateBR } from '../lib/utils/format';
@@ -73,6 +74,7 @@ function RequestCardInner({
   accessibilityLabel,
 }: Props) {
   const { colors, shadows } = useAppTheme();
+  const { rs, screenPad } = useResponsive();
   const riskConfig = useMemo(() => getRiskConfig(colors), [colors]);
   const typeConfig = useMemo(() => getTypeConfig(colors), [colors]);
   const fallbackType = useMemo(() => ({ icon: 'document' as keyof typeof Ionicons.glyphMap, color: colors.info, bg: colors.infoLight, label: 'Solicitação' }), [colors]);
@@ -81,22 +83,22 @@ function RequestCardInner({
   const price = getDisplayPrice(request.price, request.requestType, request.prescriptionType ?? undefined);
   const riskConf = showRisk && request.aiRiskLevel ? riskConfig[request.aiRiskLevel] : null;
   const defaultLabel = `${typeConf.label}${request.patientName ? ` de ${request.patientName}` : ''}`;
+  const iconSize = rs(42);
   const styles = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
 
   return (
     <Pressable
       style={({ pressed }) => [
         styles.container,
-        suppressHorizontalMargin && styles.containerNoHorizontalMargin,
+        { marginHorizontal: suppressHorizontalMargin ? 0 : screenPad, padding: rs(14) },
         pressed && styles.pressed,
       ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? defaultLabel}
     >
-      {/* Ícone de tipo com fundo colorido */}
-      <View style={[styles.iconContainer, { backgroundColor: typeConf.bg }]}>
-        <Ionicons name={typeConf.icon} size={20} color={typeConf.color} />
+      <View style={[styles.iconContainer, { backgroundColor: typeConf.bg, width: iconSize, height: iconSize, marginRight: rs(12) }]}>
+        <Ionicons name={typeConf.icon} size={rs(20)} color={typeConf.color} />
       </View>
 
       <View style={styles.content}>
@@ -156,25 +158,17 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
       borderRadius: dsBorderRadius.card,
       borderWidth: 1,
       borderColor: colors.borderLight,
-      marginHorizontal: dsLayout.screenPaddingHorizontal,
       marginBottom: 10,
-      padding: 14,
       ...shadows.card,
-    },
-    containerNoHorizontalMargin: {
-      marginHorizontal: 0,
     },
     pressed: {
       transform: [{ scale: 0.985 }],
       opacity: 0.92,
     },
     iconContainer: {
-      width: 42,
-      height: 42,
       borderRadius: 12,
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: 12,
       flexShrink: 0,
     },
     content: {

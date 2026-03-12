@@ -24,7 +24,7 @@ import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
 import { createConsultationSchema, CONSULTATION_MIN_MINUTES, CONSULTATION_MAX_MINUTES } from '../../lib/validation/schemas';
-import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
+import { useStickyCtaScrollPadding, useResponsive } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
@@ -69,6 +69,7 @@ export default function ConsultationScreen() {
   const [bankMinutes, setBankMinutes] = useState<number>(0);
   const [loadingBank, setLoadingBank] = useState(false);
   const { colors } = useAppTheme({ role: 'patient' });
+  const { rs } = useResponsive();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateConsultationCompleteness({
@@ -267,7 +268,7 @@ export default function ConsultationScreen() {
         {currentStep === 1 && (
           <Text style={styles.stepHint}>Passo 1 — Escolha com quem você quer falar. Toque em Psicólogo ou Médico Clínico.</Text>
         )}
-        <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
+        <View style={[styles.typeRow, { gap: rs(12) }, oneColumn && styles.typeRowOneCol]}>
           {CONSULTATION_TYPES.map(type => (
             <AppCard
               key={type.key}

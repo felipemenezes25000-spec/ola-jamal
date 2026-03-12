@@ -21,7 +21,7 @@ import { PRESCRIPTION_TYPE_PRICES } from '../../lib/config/pricing';
 import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { isDuplicateRequestError } from '../../lib/hooks/useCreateRequest';
-import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
+import { useStickyCtaScrollPadding, useResponsive } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
 import { CompatibleImage } from '../../components/CompatibleImage';
@@ -71,6 +71,7 @@ export default function NewPrescription() {
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { colors } = useAppTheme();
+  const { rs, isCompact } = useResponsive();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currentStep = images.length > 0 ? 3 : 2;
   const listPadding = useStickyCtaScrollPadding();
@@ -285,7 +286,7 @@ export default function NewPrescription() {
                 style={StyleSheet.flatten(isComingSoon ? [styles.typeCard, styles.typeCardDisabled] : styles.typeCard)}
               >
                 <View style={styles.typeContent}>
-                  <View style={styles.typeTextContainer}>
+                  <View style={[styles.typeTextContainer, { marginRight: rs(16) }]}>
                     <View style={styles.typeTitleRow}>
                       <Text
                         style={[
@@ -365,7 +366,7 @@ export default function NewPrescription() {
 
           <View style={styles.photoRow}>
             <Pressable
-              style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]}
+              style={({ pressed }) => [styles.photoButton, isCompact && { minHeight: rs(90) }, pressed && styles.photoButtonPressed]}
               onPress={pickImage}
               accessibilityRole="button"
               accessibilityLabel="Tirar foto da receita com a câmera"
@@ -376,7 +377,7 @@ export default function NewPrescription() {
               <Text style={styles.photoButtonText}>Câmera</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]}
+              style={({ pressed }) => [styles.photoButton, isCompact && { minHeight: rs(90) }, pressed && styles.photoButtonPressed]}
               onPress={pickFromGallery}
               accessibilityRole="button"
               accessibilityLabel="Escolher foto da receita na galeria"
@@ -530,7 +531,6 @@ function makeStyles(colors: DesignColors) {
     },
     typeTextContainer: {
       flex: 1,
-      marginRight: 36,
       minWidth: 0,
     },
     typeTitleRow: {

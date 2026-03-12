@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // shadows now from useAppTheme
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors, DesignTokens } from '../../lib/designSystem';
-import { uiTokens } from '../../lib/ui/tokens';
+import { useResponsive } from '../../lib/ui/responsive';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
 import { useTriageEval } from '../../hooks/useTriageEval';
@@ -47,7 +47,8 @@ export default function PatientProfile() {
   const insets = useSafeAreaInsets();
   const { user, signOut, refreshUser } = useAuth();
   const { colors, gradients, shadows } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
+  const { screenPad, rs } = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, shadows, screenPad, rs), [colors, shadows, screenPad, rs]);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
@@ -371,7 +372,7 @@ function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
   );
 }
 
-function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
+function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], screenPad: number, rs: (v: number) => number) {
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -381,7 +382,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   // Header
   header: {
     alignItems: 'center',
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     paddingBottom: 30,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -394,9 +395,9 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     opacity: 0.9,
   },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: rs(72),
+    height: rs(72),
+    borderRadius: rs(36),
     backgroundColor: colors.headerOverlaySurface,
     borderWidth: 3,
     borderColor: colors.headerOverlayBorder,
@@ -447,8 +448,8 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   // Info Card
   infoCard: {
     backgroundColor: colors.surface,
-    marginHorizontal: uiTokens.screenPaddingHorizontal,
-    marginTop: -18,
+    marginHorizontal: screenPad,
+    marginTop: rs(-14),
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderBottomLeftRadius: 14,
@@ -480,7 +481,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   // Menu
   menuSection: {
     marginTop: 24,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
   },
   sectionTitle: {
     fontSize: 12,
@@ -510,8 +511,8 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     transform: [{ scale: 0.99 }],
   },
   menuIconWrap: {
-    width: 40,
-    height: 40,
+    width: rs(36),
+    height: rs(36),
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -536,7 +537,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginHorizontal: uiTokens.screenPaddingHorizontal,
+    marginHorizontal: screenPad,
     marginTop: 22,
     paddingVertical: 14,
     borderRadius: 14,

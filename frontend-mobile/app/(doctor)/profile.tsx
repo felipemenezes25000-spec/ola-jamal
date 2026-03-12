@@ -22,8 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
-import { doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { useResponsive } from '../../lib/ui/responsive';
 import type { DesignColors } from '../../lib/designSystem';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateAvatar } from '../../lib/api';
@@ -36,8 +36,6 @@ const isNewArch = typeof (global as unknown as { __turboModuleRegistry?: unknown
 if (Platform.OS === 'android' && !isNewArch && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const pad = doctorDS.screenPaddingHorizontal;
 
 // ── Configuração de menu com cor por categoria ─────────────────
 interface MenuItemDef {
@@ -140,8 +138,9 @@ export default function DoctorProfile() {
   const insets = useSafeAreaInsets();
   const { user, doctorProfile: doctor, signOut, refreshUser } = useAuth();
   const { colors, gradients, scheme } = useAppTheme({ role: 'doctor' });
+  const { screenPad } = useResponsive();
   const isDark = scheme === 'dark';
-  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => makeStyles(colors, isDark, screenPad), [colors, isDark, screenPad]);
 
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
@@ -433,7 +432,7 @@ export default function DoctorProfile() {
   );
 }
 
-function makeStyles(colors: DesignColors, _isDark: boolean) {
+function makeStyles(colors: DesignColors, _isDark: boolean, pad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
@@ -449,9 +448,9 @@ function makeStyles(colors: DesignColors, _isDark: boolean) {
     // Avatar
     avatarWrap: { position: 'relative', marginBottom: 14 },
     avatarRing: {
-      width: 92,
-      height: 92,
-      borderRadius: 46,
+      width: 84,
+      height: 84,
+      borderRadius: 42,
       padding: 3,
       backgroundColor: 'rgba(255,255,255,0.22)',
     },
@@ -559,9 +558,9 @@ function makeStyles(colors: DesignColors, _isDark: boolean) {
       backgroundColor: 'rgba(0,0,0,0.03)',
     },
     menuIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
+      width: 36,
+      height: 36,
+      borderRadius: 11,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 13,
@@ -574,7 +573,7 @@ function makeStyles(colors: DesignColors, _isDark: boolean) {
     },
     menuValue: {
       fontSize: 13,
-      maxWidth: '45%',
+      maxWidth: '50%',
       textAlign: 'right',
       flexShrink: 1,
     },

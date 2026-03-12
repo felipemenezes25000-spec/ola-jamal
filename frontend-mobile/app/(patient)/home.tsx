@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useListBottomPadding } from '../../lib/ui/responsive';
+import { useListBottomPadding, useResponsive } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -49,7 +49,8 @@ export default function PatientHome() {
   const { user } = useAuth();
   const { data: requests = [], isLoading: loading, refetch } = useRequestsQuery();
   const { colors, gradients } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { rs, screenPad } = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, screenPad, rs), [colors, screenPad, rs]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoCard, setShowInfoCard] = useState(true);
@@ -493,7 +494,7 @@ export default function PatientHome() {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => number) {
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -502,14 +503,14 @@ function makeStyles(colors: DesignColors) {
   content: {},
   loadingContainer: {
     flex: 1,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     paddingTop: 80,
     backgroundColor: colors.background,
   },
 
   // ─── Header v2: mais compacto e limpo ───
   header: {
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     paddingBottom: 56,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -555,24 +556,24 @@ function makeStyles(colors: DesignColors) {
   // ─── Stats v2 ───
   statsRow: {
     flexDirection: 'row',
-    gap: 14,
-    marginTop: -48,
+    gap: rs(12),
+    marginTop: -36,
     marginBottom: 8,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     zIndex: 10,
     position: 'relative',
   },
 
   // ─── AI Banner ───
   aiBannerWrap: {
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     marginTop: 28,
   },
 
   // ─── Sections ───
   section: {
     marginTop: 28,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -610,15 +611,15 @@ function makeStyles(colors: DesignColors) {
   // ─── Actions v2 ───
   actionsSection: {
     marginTop: 32,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
   },
   actionsColumn: {
     flexDirection: 'column',
-    gap: 12,
+    gap: rs(10),
   },
   actionIconBox: {
-    width: 48,
-    height: 48,
+    width: rs(48),
+    height: rs(48),
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -630,14 +631,14 @@ function makeStyles(colors: DesignColors) {
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: dsBorderRadius.card,
-    padding: 16,
+    padding: rs(16),
     borderWidth: 1,
     borderColor: colors.borderLight,
     ...dsShadows.card,
   },
   recordIconWrap: {
-    width: 44,
-    height: 44,
+    width: rs(44),
+    height: rs(44),
     borderRadius: 14,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
@@ -658,8 +659,8 @@ function makeStyles(colors: DesignColors) {
     marginTop: 2,
   },
   recordChevron: {
-    width: 32,
-    height: 32,
+    width: rs(32),
+    height: rs(32),
     borderRadius: 10,
     backgroundColor: colors.surfaceSecondary,
     alignItems: 'center',
@@ -671,7 +672,7 @@ function makeStyles(colors: DesignColors) {
   followUpCard: {
     backgroundColor: colors.surface,
     borderRadius: dsBorderRadius.card,
-    padding: 16,
+    padding: rs(16),
     borderWidth: 1,
     borderColor: colors.primary + '20',
     ...dsShadows.card,

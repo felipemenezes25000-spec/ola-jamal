@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, type AppThemeRole } from '../../lib/ui/useAppTheme';
+import { useResponsive } from '../../lib/ui/responsive';
 
 export type LargeActionCardVariant = 'primary' | 'exam' | 'consultation';
 
@@ -33,17 +34,28 @@ export function LargeActionCard({
   role,
 }: LargeActionCardProps) {
   const { colors, radius, shadows } = useAppTheme({ role });
+  const { rs } = useResponsive();
   const cardShadow =
     Platform.OS === 'web'
       ? { boxShadow: '0px 2px 12px rgba(0,0,0,0.05)' }
       : shadows.card;
   const vc = getVariantColors(colors)[variant];
 
+  const iconSize = rs(48);
+  const chevronSize = rs(36);
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: vc.bg, borderColor: vc.border, borderLeftColor: vc.accent, borderRadius: radius.card },
+        {
+          backgroundColor: vc.bg,
+          borderColor: vc.border,
+          borderLeftColor: vc.accent,
+          borderRadius: radius.card,
+          paddingVertical: rs(18),
+          paddingHorizontal: rs(16),
+        },
         cardShadow,
         pressed && styles.pressed,
       ]}
@@ -51,7 +63,7 @@ export function LargeActionCard({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
     >
-      <View style={styles.iconWrap}>{icon}</View>
+      <View style={[styles.iconWrap, { width: iconSize, height: iconSize, marginRight: rs(14) }]}>{icon}</View>
       <View style={styles.textWrap}>
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
           {title}
@@ -60,8 +72,8 @@ export function LargeActionCard({
           {description}
         </Text>
       </View>
-      <View style={[styles.chevronCircle, { backgroundColor: vc.chevronBg }]}>
-        <Ionicons name="chevron-forward" size={18} color={vc.accent} />
+      <View style={[styles.chevronCircle, { backgroundColor: vc.chevronBg, width: chevronSize, height: chevronSize, borderRadius: chevronSize / 2 }]}>
+        <Ionicons name="chevron-forward" size={rs(18)} color={vc.accent} />
       </View>
     </Pressable>
   );
@@ -74,8 +86,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderLeftWidth: 4,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
     minHeight: 80,
   },
   pressed: {
@@ -83,12 +93,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   iconWrap: {
-    width: 48,
-    height: 48,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
   },
   textWrap: {
     flex: 1,
@@ -109,9 +116,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   chevronCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 4,

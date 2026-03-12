@@ -11,9 +11,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useListBottomPadding } from '../../lib/ui/responsive';
+import { useListBottomPadding, useResponsive } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
-import { doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/api';
@@ -87,10 +86,11 @@ export default function DoctorNotifications() {
 
   const { colors, gradients, scheme } = useAppTheme({ role: 'doctor' });
   const isDark = scheme === 'dark';
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { screenPad } = useResponsive();
+  const styles = useMemo(() => makeStyles(colors, screenPad), [colors, screenPad]);
 
   const headerPaddingTop = insets.top + 16;
-  const horizontalPad = doctorDS.screenPaddingHorizontal;
+  const horizontalPad = screenPad;
 
   const notifications = useMemo(() => {
     return allNotifications.filter((n) => {
@@ -269,7 +269,7 @@ export default function DoctorNotifications() {
                 visible
                 duration={200}
                 fromY={6}
-                delay={index * 35}
+                delay={index * 20}
                 fill={false}
               >
                 <NotificationCard
@@ -314,7 +314,7 @@ export default function DoctorNotifications() {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, pad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
@@ -372,20 +372,20 @@ function makeStyles(colors: DesignColors) {
       paddingBottom: 4,
     },
     listContent: {
-      paddingHorizontal: doctorDS.screenPaddingHorizontal,
+      paddingHorizontal: pad,
       paddingTop: 12,
     },
     groupLabel: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '700',
-      letterSpacing: 0.8,
+      letterSpacing: 0.4,
       textTransform: 'uppercase',
       marginTop: 20,
       marginBottom: 8,
     },
     loadingWrap: {
       flex: 1,
-      paddingHorizontal: doctorDS.screenPaddingHorizontal,
+      paddingHorizontal: pad,
       paddingTop: 16,
     },
   });

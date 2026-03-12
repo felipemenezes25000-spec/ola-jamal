@@ -12,6 +12,7 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { theme } from '../../lib/theme';
 import { AppButton, AppButtonVariant } from './AppButton';
+import { useResponsive } from '../../lib/ui/responsive';
 
 type Action = {
   label: string;
@@ -42,6 +43,7 @@ export function StickyCTA({
 }: StickyCTAProps) {
   const insets = useSafeAreaInsets();
   const { colors, shadows, typography, role } = useAppTheme();
+  const { isCompact, screenPad } = useResponsive();
 
   const padBottom = Math.max(insets.bottom, uiTokens.spacing.md) + extraBottomInset;
 
@@ -59,6 +61,7 @@ export function StickyCTA({
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           paddingBottom: padBottom,
+          paddingHorizontal: screenPad,
           zIndex: theme.zIndex.sticky,
         },
         ((shadows as any)?.sm ?? undefined) as any,
@@ -87,7 +90,7 @@ export function StickyCTA({
         </View>
       )}
 
-      <View style={s.buttonsRow}>
+      <View style={[s.buttonsRow, isCompact && s.buttonsCol]}>
         {secondary && (
           <View style={s.secondaryCol}>
             <AppButton
@@ -122,7 +125,6 @@ const s = StyleSheet.create({
   container: {
     borderTopWidth: 1,
     paddingTop: uiTokens.spacing.md,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     gap: uiTokens.spacing.md,
   },
   summaryRow: {
@@ -136,6 +138,7 @@ const s = StyleSheet.create({
   summaryHint: { marginTop: 2, fontSize: 12, lineHeight: 16 },
   summaryValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
   buttonsRow: { flexDirection: 'row', gap: 12 },
+  buttonsCol: { flexDirection: 'column' },
   secondaryCol: { flex: 1 },
   primaryCol: { flex: 1.4 },
 });

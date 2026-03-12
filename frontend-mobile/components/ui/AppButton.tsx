@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { useResponsive } from '../../lib/ui/responsive';
 
 export type AppButtonVariant =
   | 'primary'
@@ -64,8 +65,10 @@ export function AppButton({
   pulse = false,
 }: AppButtonProps) {
   const { colors, shadows: themeShadows } = useAppTheme();
+  const { rs } = useResponsive();
   const isDisabled = disabled || loading;
-  const sizeConf = SIZE_CONFIG[size];
+  const baseSizeConf = SIZE_CONFIG[size];
+  const sizeConf = { ...baseSizeConf, padding: rs(baseSizeConf.padding) };
 
   const getVariantStyles = () => {
     switch (variant) {

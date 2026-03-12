@@ -30,7 +30,7 @@ export function StatsGrid({ stats, responsive }: StatsGridProps) {
         title="Pendentes"
         value={stats.pendentes}
         valueColor={colors.danger}
-        icon={<Octicons name="clock" size={22} color="#FF666A" />}
+        icon={<Octicons name="clock" size={18} color="#FF666A" />}
       />
 
       <StatCard
@@ -39,7 +39,7 @@ export function StatsGrid({ stats, responsive }: StatsGridProps) {
         title="Atendidos"
         value={stats.done}
         valueColor={colors.success}
-        icon={<Ionicons name="checkmark-circle" size={24} color={colors.success} />}
+        icon={<Ionicons name="checkmark-circle" size={18} color={colors.success} />}
       />
 
       <StatCard
@@ -48,7 +48,7 @@ export function StatsGrid({ stats, responsive }: StatsGridProps) {
         title="Receitas"
         value={stats.prescriptions}
         valueColor="#455B71"
-        icon={<Feather name="file-text" size={22} color="#1DA0F2" />}
+        icon={<Feather name="file-text" size={18} color="#1DA0F2" />}
       />
 
       <StatCard
@@ -57,7 +57,7 @@ export function StatsGrid({ stats, responsive }: StatsGridProps) {
         title={'Consultas\ndo dia'}
         value={stats.consultations}
         valueColor="#1DA0F2"
-        icon={<Ionicons name="videocam" size={24} color="#1DA0F2" />}
+        icon={<Ionicons name="videocam" size={18} color="#1DA0F2" />}
       />
     </View>
   );
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 14,
-    marginBottom: 26,
+    gap: 10,
+    marginBottom: 18,
   },
 });

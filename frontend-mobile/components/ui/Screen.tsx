@@ -12,8 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
 import { createTokens } from '../../lib/designSystem';
-
-const SCREEN_PAD = 20;
+import { useResponsive } from '../../lib/ui/responsive';
 
 interface ScreenProps extends ScrollViewProps {
   children: React.ReactNode;
@@ -37,12 +36,13 @@ export function Screen({
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorSchemeContext();
+  const { screenPad } = useResponsive();
   const isDoctor = variant === 'doctor' || variant === 'doctor-gradient';
   const tokens = createTokens(isDoctor ? 'doctor' : 'patient', colorScheme);
 
   const paddingTopContent = insets.top;
   const paddingStyle = padding
-    ? { paddingHorizontal: SCREEN_PAD }
+    ? { paddingHorizontal: screenPad }
     : undefined;
   const contentPaddingStyle = { paddingTop: paddingTopContent };
 

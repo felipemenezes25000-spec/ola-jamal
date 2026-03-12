@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { useResponsive } from '../../lib/ui/responsive';
 import { haptics } from '../../lib/haptics';
 import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -18,6 +19,7 @@ export default function PatientLayout() {
   const { user, loading } = useAuth();
   const { unreadCount } = useNotifications();
   const { colors, scheme } = useAppTheme();
+  const { isCompact } = useResponsive();
   const isDark = scheme === 'dark';
 
   const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
@@ -70,9 +72,9 @@ export default function PatientLayout() {
           marginBottom: 2,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: isCompact ? 10 : 12,
           fontWeight: '700',
-          letterSpacing: 0.2,
+          letterSpacing: isCompact ? 0 : 0.2,
           textAlign: 'center',
         },
         tabBarBadgeStyle: {

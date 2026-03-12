@@ -16,8 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 // shadows now from useAppTheme
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors, DesignTokens } from '../../lib/designSystem';
-import { uiTokens } from '../../lib/ui/tokens';
-import { useListBottomPadding } from '../../lib/ui/responsive';
+import { useListBottomPadding, useResponsive } from '../../lib/ui/responsive';
 import {
   fetchMyPatientSummary,
   fetchMyEncounters,
@@ -137,7 +136,8 @@ export default function PatientRecordScreen() {
   const [error, setError] = useState(false);
 
   const { colors, gradients, shadows } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
+  const { screenPad, rs } = useResponsive();
+  const s = useMemo(() => makeStyles(colors, shadows, screenPad, rs), [colors, shadows, screenPad, rs]);
 
   const cancelledRef = useRef(false);
 
@@ -483,7 +483,8 @@ function SummaryTab({
   router: ReturnType<typeof useRouter>;
 }) {
   const { colors, shadows } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
+  const { screenPad, rs } = useResponsive();
+  const s = useMemo(() => makeStyles(colors, shadows, screenPad, rs), [colors, shadows, screenPad, rs]);
 
   return (
     <>
@@ -617,7 +618,8 @@ function SummaryTab({
 
 const TimelineItem = React.memo(function TimelineItem({ encounter: enc, index: idx, total }: { encounter: EncounterSummaryDto; index: number; total: number }) {
   const { colors, shadows } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
+  const { screenPad, rs } = useResponsive();
+  const s = useMemo(() => makeStyles(colors, shadows, screenPad, rs), [colors, shadows, screenPad, rs]);
   const ENCOUNTER_META = useMemo(() => getEncounterMeta(colors), [colors]);
 
   const typeKey = String(enc?.type ?? '').toLowerCase();
@@ -630,7 +632,7 @@ const TimelineItem = React.memo(function TimelineItem({ encounter: enc, index: i
   const isLast = idx === total - 1;
 
   return (
-    <View style={[s.timelineRow, { paddingHorizontal: uiTokens.screenPaddingHorizontal }]}>
+    <View style={[s.timelineRow, { paddingHorizontal: screenPad }]}>
       <View style={s.timelineLineCol}>
         <View style={[s.timelineDot, { backgroundColor: meta.color }]}>
           <Ionicons name={meta.icon} size={14} color={colors.white} />
@@ -669,7 +671,8 @@ const TimelineItem = React.memo(function TimelineItem({ encounter: enc, index: i
 
 const DocumentItem = React.memo(function DocumentItem({ document: doc, index: idx, router }: { document: MedicalDocumentSummaryDto; index: number; router: ReturnType<typeof useRouter> }) {
   const { colors, shadows } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
+  const { screenPad, rs } = useResponsive();
+  const s = useMemo(() => makeStyles(colors, shadows, screenPad, rs), [colors, shadows, screenPad, rs]);
   const DOC_TYPE_META = useMemo(() => getDocTypeMeta(colors), [colors]);
   const DOC_STATUS_META = useMemo(() => getDocStatusMeta(colors), [colors]);
 
@@ -688,7 +691,7 @@ const DocumentItem = React.memo(function DocumentItem({ document: doc, index: id
   };
 
   return (
-    <View style={[s.docCard, { marginHorizontal: uiTokens.screenPaddingHorizontal, marginBottom: 10 }]}>
+    <View style={[s.docCard, { marginHorizontal: screenPad, marginBottom: 10 }]}>
       <View style={[s.docIconWrap, { backgroundColor: typeMeta.bg }]}>
         <Ionicons name={typeMeta.icon} size={20} color={typeMeta.color} />
       </View>
@@ -726,7 +729,8 @@ function StatCard(props: {
   bgColor: string;
 }) {
   const { colors, shadows } = useAppTheme();
-  const s = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
+  const { screenPad, rs } = useResponsive();
+  const s = useMemo(() => makeStyles(colors, shadows, screenPad, rs), [colors, shadows, screenPad, rs]);
 
   return (
     <View style={s.statCard}>
@@ -739,19 +743,19 @@ function StatCard(props: {
   );
 }
 
-function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
+function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], screenPad: number, rs: (v: number) => number) {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loadingWrap: {
     flex: 1,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     paddingTop: 100,
   },
   errorWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
   },
   retryBtn: {
     marginTop: 16,
@@ -763,7 +767,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   retryText: { fontSize: 15, fontWeight: '600', color: colors.white },
 
   header: {
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     paddingBottom: 28,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -804,7 +808,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
 
   segmentBar: {
     flexDirection: 'row',
-    marginHorizontal: uiTokens.screenPaddingHorizontal,
+    marginHorizontal: screenPad,
     marginTop: 16,
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -835,7 +839,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     paddingVertical: 12,
   },
   filterChip: {
@@ -862,8 +866,8 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   statsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 12,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    marginTop: rs(12),
+    paddingHorizontal: screenPad,
   },
   statCard: {
     flex: 1,
@@ -881,7 +885,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     marginBottom: 8,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: rs(20),
     fontWeight: '800',
     color: colors.text,
     letterSpacing: -0.5,
@@ -897,7 +901,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     marginTop: 12,
     marginBottom: 4,
   },
@@ -907,8 +911,8 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
-    marginHorizontal: uiTokens.screenPaddingHorizontal,
-    marginTop: 16,
+    marginHorizontal: screenPad,
+    marginTop: rs(16),
     ...shadows.card,
   },
   sectionHeader: {
@@ -973,8 +977,8 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
-    marginHorizontal: uiTokens.screenPaddingHorizontal,
-    marginTop: 16,
+    marginHorizontal: screenPad,
+    marginTop: rs(16),
     ...shadows.card,
   },
   actionIconWrap: {
@@ -994,7 +998,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal + 4,
+    paddingHorizontal: screenPad + 4,
     paddingVertical: 20,
   },
   legalText: {
@@ -1006,11 +1010,11 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
 
   tabEmptyWrap: {
     paddingTop: 40,
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
   },
 
   timelineContainer: {
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     paddingTop: 4,
   },
   timelineRow: {
@@ -1088,7 +1092,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   },
 
   docsContainer: {
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
+    paddingHorizontal: screenPad,
     gap: 10,
     paddingTop: 4,
   },

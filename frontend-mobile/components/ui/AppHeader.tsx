@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
-import { uiTokens } from '../../lib/ui/tokens';
+import { useResponsive } from '../../lib/ui/responsive';
 
 interface AppHeaderProps {
   title: string;
@@ -31,7 +31,8 @@ export function AppHeader({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, spacing } = useAppTheme();
-  
+  const { screenPad, isCompact } = useResponsive();
+
   const handleBack = onBack || (() => router.back());
 
   const isGradient = !!gradient;
@@ -39,11 +40,13 @@ export function AppHeader({
   const backBgColor = isGradient ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)';
   const topPadding = skipSafeAreaTop ? 8 : insets.top + 8;
 
+  const btnSize = isCompact ? 38 : 44;
+
   const content = (
     <View
       style={[
         styles.container,
-        { paddingTop: topPadding },
+        { paddingTop: topPadding, paddingHorizontal: screenPad },
         transparent && styles.transparent,
         !isGradient && !transparent && { backgroundColor: colors.background },
       ]}
@@ -51,15 +54,15 @@ export function AppHeader({
       {left || (
         <TouchableOpacity
           onPress={handleBack}
-          style={[styles.backButton, { backgroundColor: backBgColor }]}
+          style={[styles.backButton, { width: btnSize, height: btnSize, backgroundColor: backBgColor }]}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="chevron-back" size={24} color={textColor} />
+          <Ionicons name="chevron-back" size={isCompact ? 22 : 24} color={textColor} />
         </TouchableOpacity>
       )}
       <View style={[styles.titleWrap, { marginHorizontal: spacing.sm }]}>
-        <Text style={[styles.title, { color: textColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        <Text style={[styles.title, { color: textColor }]} numberOfLines={1} ellipsizeMode="tail">
           {title}
         </Text>
         {subtitle && (
@@ -71,7 +74,9 @@ export function AppHeader({
           </Text>
         )}
       </View>
-      <View style={styles.rightSlot}>{right || <View style={styles.placeholder} />}</View>
+      <View style={[styles.rightSlot, { minWidth: btnSize }]}>
+        {right || <View style={{ width: btnSize }} />}
+      </View>
     </View>
   );
 
@@ -94,15 +99,12 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: 12,
   },
   transparent: {
     backgroundColor: 'transparent',
   },
   backButton: {
-    width: 44,
-    height: 44,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -122,10 +124,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   rightSlot: {
-    minWidth: 44,
     alignItems: 'flex-end',
-  },
-  placeholder: {
-    width: 44,
   },
 });
