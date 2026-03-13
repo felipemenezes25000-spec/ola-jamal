@@ -60,16 +60,22 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
     {
         var specific = _config.Value?.ModelAnamnesis?.Trim();
         if (!string.IsNullOrEmpty(specific)) return specific;
-        if (!string.IsNullOrEmpty(GetGeminiApiKey())) return DefaultGeminiModel;
-        return _config.Value?.Model ?? DefaultOpenAiModel;
+        if (!string.IsNullOrEmpty(GetOpenAiApiKey())) return _config.Value?.Model ?? DefaultOpenAiModel;
+        return GetGeminiApiKey() != null ? DefaultGeminiModel : (_config.Value?.Model ?? DefaultOpenAiModel);
     }
 
     private string GetEvidenceModel()
     {
         var specific = _config.Value?.ModelEvidence?.Trim();
         if (!string.IsNullOrEmpty(specific)) return specific;
-        if (!string.IsNullOrEmpty(GetGeminiApiKey())) return DefaultGeminiModel;
-        return _config.Value?.Model ?? DefaultOpenAiModel;
+        if (!string.IsNullOrEmpty(GetOpenAiApiKey())) return _config.Value?.Model ?? DefaultOpenAiModel;
+        return GetGeminiApiKey() != null ? DefaultGeminiModel : (_config.Value?.Model ?? DefaultOpenAiModel);
+    }
+
+    private string? GetOpenAiApiKey()
+    {
+        var key = _config.Value?.ApiKey?.Trim();
+        return !string.IsNullOrEmpty(key) && !key.Contains("YOUR_") && !key.Contains("_HERE") ? key : null;
     }
 
     private string? GetGeminiApiKey()
@@ -79,6 +85,7 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             ? key : null;
     }
 
+    /// <summary>Prioriza OpenAI (GPT). Fallback para Gemini quando OpenAI ausente.</summary>
     private (string apiKey, string baseUrl) ResolveProvider(string model)
     {
         var isGemini = model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
@@ -95,7 +102,7 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             _logger.LogWarning("[Anamnese] Modelo Gemini solicitado mas Gemini__ApiKey não configurada. Fallback para OpenAI.");
         }
 
-        var openAiKey = _config.Value?.ApiKey?.Trim() ?? "";
+        var openAiKey = GetOpenAiApiKey() ?? _config.Value?.ApiKey?.Trim() ?? "";
         return (openAiKey, OpenAiBaseUrl);
     }
 
@@ -224,18 +231,21 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
             {
                 _logger.LogWarning(logEx, "[Anamnese IA v2] Falha ao gravar log de erro.");
             }
-            // Fallback: se Gemini falhou e OpenAI está configurada, tenta com gpt-4o
-            var usedGemini = anamnesisModel.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
-            var openAiKey = _config.Value?.ApiKey?.Trim();
-            if (usedGemini && !string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
+            // Fallback: se OpenAI (GPT) falhou e Gemini está configurada, tenta com gemini-2.5-flash
+            var usedOpenAi = anamnesisModel.StartsWith("gpt", StringComparison.OrdinalIgnoreCase);
+            var geminiKey = GetGeminiApiKey();
+            if (usedOpenAi && !string.IsNullOrEmpty(geminiKey))
             {
-                _logger.LogInformation("[Anamnese IA v2] Fallback para OpenAI gpt-4o após falha Gemini.");
-                var fallbackModel = "gpt-4o";
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", openAiKey);
+                _logger.LogInformation("[Anamnese IA v2] Fallback para Gemini após falha OpenAI.");
+                var fallbackModel = DefaultGeminiModel;
+                var geminiUrl = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl)
+                    ? _config.Value!.GeminiApiBaseUrl!.Trim()
+                    : GeminiBaseUrl;
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", geminiKey);
                 using var fallbackContent = new StringContent(
                     JsonSerializer.Serialize(new { model = fallbackModel, messages = requestBody.messages, max_tokens = 16000, temperature = 0.10 }, JsonOptions),
                     Encoding.UTF8, "application/json");
-                var fallbackResponse = await client.PostAsync($"{OpenAiBaseUrl}/chat/completions", fallbackContent, cancellationToken);
+                var fallbackResponse = await client.PostAsync($"{geminiUrl}/chat/completions", fallbackContent, cancellationToken);
                 var fallbackJson = await fallbackResponse.Content.ReadAsStringAsync(cancellationToken);
                 if (fallbackResponse.IsSuccessStatusCode)
                 {
@@ -244,7 +254,7 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
                 }
                 else
                 {
-                    _logger.LogWarning("[Anamnese IA v2] Fallback OpenAI também falhou: {StatusCode}", fallbackResponse.StatusCode);
+                    _logger.LogWarning("[Anamnese IA v2] Fallback Gemini também falhou: {StatusCode}", fallbackResponse.StatusCode);
                     return null;
                 }
             }

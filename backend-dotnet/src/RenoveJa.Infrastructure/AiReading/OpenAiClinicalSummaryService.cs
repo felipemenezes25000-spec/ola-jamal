@@ -43,16 +43,17 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
         CancellationToken cancellationToken = default)
     {
         var (apiKey, baseUrl, model) = ResolveProvider();
-        var result = await CallStructuredAsync(input, apiKey, baseUrl, model, cancellationToken);
+        var result = await CallStructuredAsync(input, apiKey ?? "", baseUrl, model, cancellationToken);
         if (result != null) return result;
 
-        // Fallback: Gemini falhou e OpenAI configurada → tenta gpt-4o
-        var usedGemini = model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
-        var openAiKey = _config.Value?.ApiKey?.Trim();
-        if (usedGemini && !string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
+        // Fallback: OpenAI falhou e Gemini configurada → tenta gemini-2.5-flash
+        var usedOpenAi = model.StartsWith("gpt", StringComparison.OrdinalIgnoreCase);
+        var geminiKey = _config.Value?.GeminiApiKey?.Trim();
+        if (usedOpenAi && !string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
         {
-            _logger.LogInformation("IA resumo clínico: Fallback para OpenAI gpt-4o após falha Gemini.");
-            return await CallStructuredAsync(input, openAiKey!, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o", cancellationToken);
+            _logger.LogInformation("IA resumo clínico: Fallback para Gemini após falha OpenAI.");
+            var url = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl) ? _config.Value!.GeminiApiBaseUrl!.Trim() : GeminiBaseUrl;
+            return await CallStructuredAsync(input, geminiKey ?? "", url, "gemini-2.5-flash", cancellationToken);
         }
         return null;
     }
@@ -159,14 +160,15 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
                     success: false,
                     durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds,
                     errorMessage: $"HTTP {(int)response.StatusCode}"), cancellationToken);
-                // Fallback: Gemini falhou e OpenAI configurada → tenta gpt-4o
-                var usedGemini = model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
-                var openAiKey = _config.Value?.ApiKey?.Trim();
-                if (usedGemini && !string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
-                {
-                    _logger.LogInformation("IA resumo clínico: Fallback para OpenAI gpt-4o após falha Gemini.");
-                    return await CallStructuredAsync(input, openAiKey!, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o", cancellationToken);
-                }
+                // Fallback: OpenAI falhou e Gemini configurada → tenta gemini-2.5-flash
+                var usedOpenAi = model.StartsWith("gpt", StringComparison.OrdinalIgnoreCase);
+                var geminiKey = _config.Value?.GeminiApiKey?.Trim();
+        if (usedOpenAi && !string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
+        {
+            _logger.LogInformation("IA resumo clínico: Fallback para Gemini após falha OpenAI.");
+            var url = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl) ? _config.Value!.GeminiApiBaseUrl!.Trim() : GeminiBaseUrl;
+            return await CallStructuredAsync(input, geminiKey ?? "", url, "gemini-2.5-flash", cancellationToken);
+        }
                 return null;
             }
 
@@ -450,8 +452,12 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
         }
     }
 
+    /// <summary>Prioriza OpenAI (GPT). Fallback para Gemini quando OpenAI ausente.</summary>
     private (string? apiKey, string baseUrl, string model) ResolveProvider()
     {
+        var openAiKey = _config.Value?.ApiKey?.Trim();
+        if (!string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
+            return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
         var geminiKey = _config.Value?.GeminiApiKey?.Trim();
         if (!string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
         {
@@ -460,8 +466,7 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
                 : GeminiBaseUrl;
             return (geminiKey, url, "gemini-2.5-flash");
         }
-        var openAiKey = _config.Value?.ApiKey?.Trim() ?? "";
-        return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
+        return ("", OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
     }
 
     private static string BuildUserContent(ClinicalSummaryInput input)

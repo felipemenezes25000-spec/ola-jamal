@@ -149,7 +149,7 @@ public class HealthController : ControllerBase
         // AI service (Gemini ou OpenAI configurado)
         aiOk = !string.IsNullOrWhiteSpace(_openAiConfig.GeminiApiKey) || !string.IsNullOrWhiteSpace(_openAiConfig.ApiKey);
         checks["ai"] = detailed
-            ? new { status = aiOk ? "ok" : "degraded", message = aiOk ? "Configured" : "Gemini__ApiKey ou OpenAI__ApiKey not configured" }
+            ? new { status = aiOk ? "ok" : "degraded", message = aiOk ? "Configured" : "OpenAI__ApiKey ou Gemini__ApiKey not configured" }
             : (object)new { status = aiOk ? "ok" : "degraded" };
 
         string overall;

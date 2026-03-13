@@ -186,8 +186,12 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
         return ParseExamResult(result);
     }
 
+    /// <summary>Prioriza OpenAI (GPT). Fallback para Gemini quando OpenAI ausente.</summary>
     private (string? apiKey, string baseUrl, string model) ResolveProvider()
     {
+        var openAiKey = _config.Value?.ApiKey?.Trim();
+        if (!string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
+            return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
         var geminiKey = _config.Value?.GeminiApiKey?.Trim();
         if (!string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
         {
@@ -196,8 +200,7 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
                 : GeminiBaseUrl;
             return (geminiKey, url, "gemini-2.5-flash");
         }
-        var openAiKey = _config.Value?.ApiKey?.Trim() ?? "";
-        return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
+        return ("", OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
     }
 
     private async Task<string> CallChatAsync(string systemPrompt, List<object> userContent, string apiKey, string baseUrl, string model, CancellationToken cancellationToken)
@@ -240,13 +243,14 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
                     durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds,
                     errorMessage: err?.Length > 500 ? err[..500] : err), cancellationToken);
 
-                // Fallback: Gemini falhou e OpenAI configurada → tenta gpt-4o
-                var usedGemini = model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
-                var openAiKey = _config.Value?.ApiKey?.Trim();
-                if (usedGemini && !string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
+                // Fallback: OpenAI falhou e Gemini configurada → tenta gemini-2.5-flash
+                var usedOpenAi = model.StartsWith("gpt", StringComparison.OrdinalIgnoreCase);
+                var geminiKey = _config.Value?.GeminiApiKey?.Trim();
+                if (usedOpenAi && !string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
                 {
-                    _logger.LogInformation("IA receita: Fallback para OpenAI gpt-4o após falha Gemini.");
-                    return await CallChatAsync(systemPrompt, userContent, openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o", cancellationToken);
+                    _logger.LogInformation("IA receita: Fallback para Gemini após falha OpenAI.");
+                    var url = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl) ? _config.Value!.GeminiApiBaseUrl!.Trim() : GeminiBaseUrl;
+                    return await CallChatAsync(systemPrompt, userContent, geminiKey, url, "gemini-2.5-flash", cancellationToken);
                 }
                 throw new InvalidOperationException($"IA API error: {response.StatusCode}. {err}");
             }

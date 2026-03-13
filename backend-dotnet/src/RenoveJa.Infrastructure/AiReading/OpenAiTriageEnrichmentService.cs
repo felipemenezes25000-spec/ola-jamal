@@ -78,15 +78,16 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
         var result = await CallProviderAsync(input, apiKey, baseUrl, model, cts.Token);
         if (result != null) return result;
 
-        // Fallback: Gemini falhou e OpenAI configurada → tenta gpt-4o (timeout novo para não cancelar após 5s do Gemini)
-        var usedGemini = model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
-        var openAiKey = _config.Value?.ApiKey?.Trim();
-        if (usedGemini && !string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
+        // Fallback: OpenAI falhou e Gemini configurada → tenta gemini-2.5-flash
+        var usedOpenAi = model.StartsWith("gpt", StringComparison.OrdinalIgnoreCase);
+        var geminiKey = _config.Value?.GeminiApiKey?.Trim();
+        if (usedOpenAi && !string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
         {
-            _logger.LogInformation("Triage IA: Fallback para OpenAI gpt-4o após falha Gemini.");
+            _logger.LogInformation("Triage IA: Fallback para Gemini após falha OpenAI.");
             using var fallbackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             fallbackCts.CancelAfter(Timeout);
-            return await CallProviderAsync(input, openAiKey!, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o", fallbackCts.Token);
+            var url = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl) ? _config.Value.GeminiApiBaseUrl.Trim() : GeminiBaseUrl;
+            return await CallProviderAsync(input, geminiKey!, url, DefaultGeminiModel, fallbackCts.Token);
         }
         return null;
     }
@@ -191,9 +192,12 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
         return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
     }
 
-    /// <summary>Prioriza Gemini quando configurado. Fallback para OpenAI.</summary>
+    /// <summary>Prioriza OpenAI (GPT). Fallback para Gemini quando OpenAI ausente.</summary>
     private (string apiKey, string baseUrl, string model) ResolveProvider()
     {
+        var openAiKey = _config.Value?.ApiKey?.Trim();
+        if (!string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_") && !openAiKey.Contains("_HERE"))
+            return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
         var geminiKey = _config.Value?.GeminiApiKey?.Trim();
         if (!string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
         {
@@ -201,11 +205,6 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
                 ? _config.Value.GeminiApiBaseUrl.Trim()
                 : GeminiBaseUrl;
             return (geminiKey, url, DefaultGeminiModel);
-        }
-        var openAiKey = _config.Value?.ApiKey?.Trim();
-        if (!string.IsNullOrEmpty(openAiKey))
-        {
-            return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
         }
         return (string.Empty, string.Empty, string.Empty);
     }

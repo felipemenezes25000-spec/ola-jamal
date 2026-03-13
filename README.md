@@ -14,7 +14,7 @@ Plataforma de telemedicina para **renovação de receitas**, **pedidos de exame*
 | **Banco** | Supabase (PostgreSQL, Storage, Edge Functions) |
 | **Pagamentos** | Mercado Pago |
 | **Vídeo** | Daily.co |
-| **IA** | Gemini 2.5 Flash (padrão), OpenAI GPT-4o (fallback), Deepgram (transcrição) |
+| **IA** | OpenAI GPT-4o (padrão), Gemini 2.5 Flash (fallback), Deepgram (transcrição) |
 | **Assinatura** | ICP-Brasil (PAdES) |
 | **Monitoramento** | Sentry (erros + logs estruturados) |
 
@@ -86,7 +86,7 @@ docker-compose up --build
 
 | Módulo | Principais variáveis |
 |--------|----------------------|
-| **Backend** | `Supabase__Url`, `Supabase__ServiceKey`, `Gemini__ApiKey`, `OpenAI__ApiKey`, `MercadoPago__AccessToken`, `SENTRY_DSN` |
+| **Backend** | `Supabase__Url`, `Supabase__ServiceKey`, `OpenAI__ApiKey`, `Gemini__ApiKey`, `MercadoPago__AccessToken`, `SENTRY_DSN` |
 | **Mobile** | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_SENTRY_DSN` |
 | **Web** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL`, `VITE_SENTRY_DSN` |
 
@@ -170,4 +170,4 @@ GitHub Actions em `main` e `fix/frontend-performance-responsive`:
 
 ---
 
-**RenoveJá+** — .NET 8 · Expo · Supabase · Mercado Pago · Daily.co · Gemini · OpenAI · ICP-Brasil · Sentry
+**RenoveJá+** — .NET 8 · Expo · Supabase · Mercado Pago · Daily.co · OpenAI · Gemini · ICP-Brasil · Sentry
