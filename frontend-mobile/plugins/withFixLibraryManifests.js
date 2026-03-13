@@ -61,11 +61,10 @@ function patchManifests(projectRoot) {
 }
 
 // ─── Gradle task injetado no app/build.gradle ────────────────────────────────
-// Lista de caminhos relativos ao rootProject (../.. = raiz do repo)
 const GRADLE_TASK = `
 // ── stripManifestPackageAttrs ─────────────────────────────────────────────────
 // Remove atributo package= de manifestos de libs não migradas para AGP 8/SDK 36.
-// Fallback garantido para quando o EAS restaura node_modules do cache.
+// Tenta múltiplos caminhos para funcionar tanto local quanto no EAS Build.
 def manifestsToStrip = [
   "node_modules/@react-native-google-signin/google-signin/android/src/main/AndroidManifest.xml",
   "node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml",
@@ -79,15 +78,21 @@ def manifestsToStrip = [
 
 task stripManifestPackageAttrs {
   doLast {
-    def projectRoot = rootProject.projectDir.parentFile
+    def candidates = [
+      rootProject.projectDir.parentFile,
+      rootProject.projectDir,
+    ]
     manifestsToStrip.each { rel ->
-      def f = new File(projectRoot, rel)
-      if (f.exists()) {
-        def txt = f.text
-        def updated = txt.replaceAll(/(<manifest\\b[^>]*?)\\s+package="[^"]*"/, '$1')
-        if (updated != txt) {
-          f.text = updated
-          println "[stripManifestPackageAttrs] ✓ Removido package= de \${rel}"
+      for (base in candidates) {
+        def f = new File(base, rel)
+        if (f.exists()) {
+          def txt = f.text
+          def updated = txt.replaceAll('(?s)(\\\\s+)package\\\\s*=\\\\s*"[^"]*"', '')
+          if (updated != txt) {
+            f.text = updated
+            println "[stripManifestPackageAttrs] ✓ Removido package= de \${f.absolutePath}"
+          }
+          break
         }
       }
     }
