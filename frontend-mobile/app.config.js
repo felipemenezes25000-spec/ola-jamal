@@ -23,13 +23,15 @@ export default {
       backgroundColor: "#0EA5E9"
     },
     updates: {
-      url: "https://u.expo.dev/beb0f102-cc22-45a9-80a6-7e735968e6d2",
-      // Desabilita OTA no preview para evitar "Invalid manifest" no EAS build
-      // (meta-data com JSON no AndroidManifest pode falhar em validações)
-      enabled: !isPreviewBuild,
-      requestHeaders: {
-        "expo-runtime-version": "1.0.0"
-      }
+      // No preview: sem url para a fase CONFIGURE_EXPO_UPDATES do EAS não rodar
+      // (ela injeta expo-channel-name com JSON que gera XML inválido)
+      ...(isPreviewBuild
+        ? { enabled: false }
+        : {
+            url: "https://u.expo.dev/beb0f102-cc22-45a9-80a6-7e735968e6d2",
+            enabled: true,
+            requestHeaders: { "expo-runtime-version": "1.0.0" }
+          })
     },
     ios: {
       supportsTablet: true,

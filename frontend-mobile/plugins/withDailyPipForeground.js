@@ -16,11 +16,13 @@ function withDailyPipForeground(config) {
 
   config = withAndroidManifest(config, (config) => {
     const manifest = config.modResults;
-    // Garante namespace tools para tools:node="replace"
-    if (!manifest.$?.['xmlns:tools']) {
-      manifest.$ = manifest.$ || {};
+    manifest.$ = manifest.$ || {};
+    // Garante namespace tools para tools:node e tools:replace
+    if (!manifest.$['xmlns:tools']) {
       manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
     }
+    // Resolve conflito package: @react-native-google-signin declara package no manifest
+    manifest.$['tools:replace'] = 'package';
     const application = AndroidConfig.Manifest.getMainApplication(manifest);
     if (!application?.service) return config;
 
