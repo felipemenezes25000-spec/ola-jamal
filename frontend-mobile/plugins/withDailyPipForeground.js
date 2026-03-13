@@ -16,6 +16,11 @@ function withDailyPipForeground(config) {
 
   config = withAndroidManifest(config, (config) => {
     const manifest = config.modResults;
+    // Garante namespace tools para tools:node="replace"
+    if (!manifest.$?.['xmlns:tools']) {
+      manifest.$ = manifest.$ || {};
+      manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+    }
     const application = AndroidConfig.Manifest.getMainApplication(manifest);
     if (!application?.service) return config;
 
@@ -34,6 +39,8 @@ function withDailyPipForeground(config) {
       (s) => (s?.$?.['android:name'] ?? '') === DAILY_SERVICE_NAME,
     );
     if (service?.$) {
+      // Substitui declaração da lib no merge (evita erro "duplicated with element declared at...")
+      service.$['tools:node'] = 'replace';
       const current = service.$['android:foregroundServiceType'] || '';
       if (!current.includes('phoneCall')) {
         const types = current ? current.split('|').filter(Boolean) : ['camera', 'microphone'];
