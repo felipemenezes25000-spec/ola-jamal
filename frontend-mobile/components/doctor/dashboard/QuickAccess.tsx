@@ -10,12 +10,13 @@ const { colors, radius, shadow } = clinicalSoftTokens;
 interface QuickAccessProps {
   onPedidos: () => void;
   onAlertas: () => void;
-  onCertificados: () => void;
+  onProntuarios: () => void;
   responsive: DashboardResponsive;
 }
 
-export function QuickAccess({ onPedidos, onAlertas, onCertificados, responsive }: QuickAccessProps) {
-  const { typography, heights } = responsive;
+export function QuickAccess({ onPedidos, onAlertas, onProntuarios, responsive }: QuickAccessProps) {
+  const { typography, heights, iconSizes } = responsive;
+  const iconSize = iconSizes?.quickIcon ?? 22;
   return (
     <View style={styles.quickSection}>
       <Text
@@ -27,7 +28,7 @@ export function QuickAccess({ onPedidos, onAlertas, onCertificados, responsive }
       <View style={styles.quickRow}>
         <TouchableOpacity
           activeOpacity={0.9}
-          style={[styles.quickButton, { height: heights.quickButton }]}
+          style={[styles.quickButton, { minHeight: heights.quickButton }]}
           onPress={() => {
             haptics.selection();
             onPedidos();
@@ -36,7 +37,7 @@ export function QuickAccess({ onPedidos, onAlertas, onCertificados, responsive }
           accessibilityLabel="Pedidos"
         >
           <View style={styles.quickIconBox}>
-            <Feather name="file-text" size={22} color="#28A7F0" />
+            <Feather name="file-text" size={iconSize} color="#28A7F0" />
           </View>
           <Text style={[styles.quickLabel, { fontSize: typography.quickLabel }]} numberOfLines={1}>
             Pedidos
@@ -45,7 +46,7 @@ export function QuickAccess({ onPedidos, onAlertas, onCertificados, responsive }
 
         <TouchableOpacity
           activeOpacity={0.9}
-          style={[styles.quickButton, { height: heights.quickButton }]}
+          style={[styles.quickButton, { minHeight: heights.quickButton }]}
           onPress={() => {
             haptics.selection();
             onAlertas();
@@ -54,7 +55,7 @@ export function QuickAccess({ onPedidos, onAlertas, onCertificados, responsive }
           accessibilityLabel="Alertas"
         >
           <View style={styles.quickIconBox}>
-            <Feather name="bell" size={22} color="#28A7F0" />
+            <Feather name="bell" size={iconSize} color="#28A7F0" />
           </View>
           <Text style={[styles.quickLabel, { fontSize: typography.quickLabel }]} numberOfLines={1}>
             Alertas
@@ -63,19 +64,19 @@ export function QuickAccess({ onPedidos, onAlertas, onCertificados, responsive }
 
         <TouchableOpacity
           activeOpacity={0.9}
-          style={[styles.quickButton, { height: heights.quickButton }]}
+          style={[styles.quickButton, { minHeight: heights.quickButton }]}
           onPress={() => {
             haptics.selection();
-            onCertificados();
+            onProntuarios();
           }}
           accessibilityRole="button"
-          accessibilityLabel="Certificados"
+          accessibilityLabel="Prontuários"
         >
           <View style={styles.quickIconBox}>
-            <Feather name="shield" size={22} color="#28A7F0" />
+            <Feather name="clipboard" size={iconSize} color="#28A7F0" />
           </View>
           <Text style={[styles.quickLabel, { fontSize: typography.quickLabel }]} numberOfLines={1}>
-            Certificados
+            Prontuários
           </Text>
         </TouchableOpacity>
       </View>
@@ -96,14 +97,17 @@ const styles = StyleSheet.create({
   quickRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
   },
   quickButton: {
-    width: '31.2%',
+    flex: 1,
     borderRadius: 22,
     backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    flexDirection: 'column',
     alignItems: 'center',
+    justifyContent: 'center',
     ...shadow.quickButton,
   },
   quickIconBox: {
@@ -113,11 +117,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF8FE',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginBottom: 8,
   },
   quickLabel: {
-    flex: 1,
     color: colors.primaryDark,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });

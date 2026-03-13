@@ -509,6 +509,15 @@ public class ExtendedRequestServiceTests
         var pushDispatcherMock = new Mock<IPushNotificationDispatcher>();
         pushDispatcherMock.Setup(x => x.SendAsync(It.IsAny<RenoveJa.Application.DTOs.Notifications.PushNotificationRequest>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        var requestApprovalLoggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<RenoveJa.Application.Services.Requests.RequestApprovalService>>();
+        var requestApprovalService = new RenoveJa.Application.Services.Requests.RequestApprovalService(
+            _requestRepoMock.Object,
+            _userRepoMock.Object,
+            _productPriceRepoMock.Object,
+            pushDispatcherMock.Object,
+            _requestEventsPublisherMock.Object,
+            _aiConductSuggestionServiceMock.Object,
+            requestApprovalLoggerMock.Object);
         _sut = new global::RenoveJa.Application.Services.Requests.RequestService(
             _requestRepoMock.Object, _productPriceRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
@@ -526,6 +535,7 @@ public class ExtendedRequestServiceTests
             _consultationEncounterServiceMock.Object,
             new Mock<IPaymentRepository>().Object,
             new Mock<IAuditService>().Object,
+            requestApprovalService,
             _loggerMock.Object);
     }
 

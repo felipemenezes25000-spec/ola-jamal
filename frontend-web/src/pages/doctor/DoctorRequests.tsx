@@ -5,8 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { getRequests, type MedicalRequest } from '@/services/doctorApi';
-import { parseApiList, getTypeIcon, getTypeLabel, getStatusInfo } from '@/lib/doctor-helpers';
+import { useDoctorRequestsQuery } from '@/hooks/useDoctorRequestsQuery';
+import { getTypeIcon, getTypeLabel, getStatusInfo } from '@/lib/doctor-helpers';
 import { motion } from 'framer-motion';
 import {
   Loader2, Search, Filter, ArrowRight, User, Calendar, SortDesc,
@@ -57,19 +57,11 @@ export default function DoctorRequests() {
     return () => { document.title = 'RenoveJá+'; };
   }, []);
   const navigate = useNavigate();
-  const [requests, setRequests] = useState<MedicalRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: requests = [], isLoading: loading } = useDoctorRequestsQuery();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [showFilters, setShowFilters] = useState(false);
-
-  useEffect(() => {
-    getRequests({ page: 1, pageSize: 500 })
-      .then(data => setRequests(parseApiList<MedicalRequest>(data)))
-      .catch(() => setRequests([]))
-      .finally(() => setLoading(false));
-  }, []);
 
   const filtered = useMemo(() => {
     let result = [...requests];

@@ -11,9 +11,13 @@ import { isExpoGo } from '../lib/expo-go';
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- conditional native module
 const Notifications = isExpoGo ? null : require('expo-notifications');
 
+interface NotificationContent {
+  request?: { content?: { data?: Record<string, unknown> } };
+}
+
 if (Notifications) {
   Notifications.setNotificationHandler({
-    handleNotification: async (notification: any) => {
+    handleNotification: async (notification: NotificationContent) => {
       // ── FILTRO POR ROLE ──
       // Se a notificação tem targetRole, só mostra se bater com o role ativo.
       // Isso evita que o médico receba heads-up de notificações de paciente e vice-versa.
@@ -103,7 +107,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
         const path = effectiveRole === 'doctor'
           ? `/doctor-request/${requestId}`
           : `/request-detail/${requestId}`;
-        router.push(path as any);
+        router.push(path as import('../lib/navigation').AppRoute);
       }
     },
     [router]
@@ -114,7 +118,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     if (!Notifications || !user?.role || coldStartHandled.current) return;
     coldStartHandled.current = true;
     Notifications.getLastNotificationResponseAsync()
-      .then((response: any) => {
+      .then((response: { notification?: { request?: { content?: { data?: Record<string, unknown> } } } } | null) => {
         if (!response) return;
         const data = response?.notification?.request?.content?.data ?? {};
         handleNotificationNavigation(data);
@@ -127,7 +131,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     const sub = Notifications.addNotificationReceivedListener(() => {
       setLastNotificationAt(Date.now());
     });
-    const responseSub = Notifications.addNotificationResponseReceivedListener((response: any) => {
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response: { notification?: { request?: { content?: { data?: Record<string, unknown> } } } }) => {
       const data = response?.notification?.request?.content?.data ?? {};
       handleNotificationNavigation(data);
     });

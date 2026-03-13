@@ -11,6 +11,7 @@
  */
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { DoctorAuthProvider, useDoctorAuth } from '@/contexts/DoctorAuthContext';
 import { NotificationProvider, useNotifications } from '@/contexts/NotificationContext';
@@ -153,8 +154,18 @@ function DoctorShell() {
   );
 }
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+    },
+  },
+});
+
 export default function DoctorApp() {
   return (
+    <QueryClientProvider client={queryClient}>
     <DoctorAuthProvider>
       <NotificationProvider>
         <Toaster
@@ -169,5 +180,6 @@ export default function DoctorApp() {
         <DoctorShell />
       </NotificationProvider>
     </DoctorAuthProvider>
+    </QueryClientProvider>
   );
 }

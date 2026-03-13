@@ -304,7 +304,10 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
                 type: ['application/x-pkcs12', 'application/octet-stream'],
                 copyToCacheDirectory: true,
               });
-              if (!result.canceled && result.assets?.[0]) setCertFile(result.assets[0]);
+              if (!result.canceled && result.assets?.[0]) {
+                const asset = result.assets[0];
+                setCertFile({ uri: asset.uri, name: asset.name ?? 'document' });
+              }
             } catch {
               Alert.alert('Erro', 'Não foi possível selecionar o arquivo.');
             }

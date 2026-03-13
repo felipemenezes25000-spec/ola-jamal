@@ -485,6 +485,15 @@ public class RequestServiceFullTests
         var pushDispatcherMock = new Mock<IPushNotificationDispatcher>();
         pushDispatcherMock.Setup(x => x.SendAsync(It.IsAny<RenoveJa.Application.DTOs.Notifications.PushNotificationRequest>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        var requestApprovalLoggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<RequestApprovalService>>();
+        var requestApprovalService = new RequestApprovalService(
+            _requestRepoMock.Object,
+            _userRepoMock.Object,
+            _productPriceRepoMock.Object,
+            pushDispatcherMock.Object,
+            _requestEventsPublisherMock.Object,
+            _aiConductSuggestionServiceMock.Object,
+            requestApprovalLoggerMock.Object);
         _sut = new RequestService(
             _requestRepoMock.Object, _productPriceRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
@@ -502,6 +511,7 @@ public class RequestServiceFullTests
             _consultationEncounterServiceMock.Object,
             _paymentRepoMock.Object,
             new Mock<IAuditService>().Object,
+            requestApprovalService,
             _loggerMock.Object);
     }
 

@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,17 +39,11 @@ function getAlertCategory(item: NotificationResponseDto): AlertCategory {
   const t = (item.title || '').toLowerCase();
 
   if (type.includes('consultation') || type.includes('doctor_ready') || type.includes('no_show') ||
-      t.includes('consulta') || status.includes('consultation')) {
-    return 'consultation';
-  }
+      t.includes('consulta') || status.includes('consultation')) return 'consultation';
   if (type.includes('payment') || type.includes('paid') || status === 'paid' ||
-      t.includes('pagamento') || t.includes('pago')) {
-    return 'payment';
-  }
+      t.includes('pagamento') || t.includes('pago')) return 'payment';
   if (type.includes('new_request') || type.includes('request_assigned') || type.includes('request_status') ||
-      t.includes('solicitação') || t.includes('pedido') || t.includes('nova')) {
-    return 'new_request';
-  }
+      t.includes('solicitação') || t.includes('pedido') || t.includes('nova')) return 'new_request';
   return 'system';
 }
 
@@ -74,6 +67,8 @@ function getDoctorVisual(item: NotificationResponseDto, colors: DesignColors): N
 const ListSeparator = () => <View style={{ height: 8 }} />;
 const SectionGap = () => <View style={{ height: 4 }} />;
 
+const pad = doctorDS.screenPaddingHorizontal;
+
 export default function DoctorNotifications() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -85,18 +80,14 @@ export default function DoctorNotifications() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | AlertCategory>('all');
 
-  const { colors, gradients, scheme } = useAppTheme({ role: 'doctor' });
+  const { colors, scheme } = useAppTheme({ role: 'doctor' });
   const isDark = scheme === 'dark';
   const styles = useMemo(() => makeStyles(colors), [colors]);
-
-  const headerPaddingTop = insets.top + 16;
-  const horizontalPad = doctorDS.screenPaddingHorizontal;
 
   const notifications = useMemo(() => {
     return allNotifications.filter((n) => {
       const targetRole = n.data?.targetRole as string | undefined;
       if (targetRole && targetRole !== 'doctor') return false;
-      // Oculta notificações de teste de push (ex.: "Teste RenoveJá")
       const type = (n.data?.type as string) || '';
       if (type.toLowerCase() === 'test') return false;
       const title = (n.title || '').toLowerCase();
@@ -125,12 +116,10 @@ export default function DoctorNotifications() {
     else setLoading(false);
   }, [loadData, user?.id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      refreshUnreadCount();
-    }, [loadData, refreshUnreadCount])
-  );
+  useFocusEffect(useCallback(() => {
+    loadData();
+    refreshUnreadCount();
+  }, [loadData, refreshUnreadCount]));
 
   const onRefresh = () => {
     haptics.light();
@@ -144,10 +133,8 @@ export default function DoctorNotifications() {
       setAllNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
       refreshUnreadCount();
       haptics.selection();
-
       const deepLink = item?.data?.deepLink as string | undefined;
       const requestId = item?.data?.requestId as string | undefined;
-
       if (typeof deepLink === 'string' && deepLink.includes('/')) {
         router.push(deepLink.replace('renoveja://', '/') as Parameters<typeof router.push>[0]);
       } else if (requestId) {
@@ -200,59 +187,42 @@ export default function DoctorNotifications() {
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
       {/* ── HEADER ── */}
-      <LinearGradient
-        colors={gradients.doctorHeader as [string, string, ...string[]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: headerPaddingTop, paddingHorizontal: horizontalPad }]}
-      >
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <View style={styles.headerTitleRow}>
-              <Text style={[styles.title, { color: colors.headerOverlayText }]}>Alertas</Text>
-              {unreadCount > 0 && (
-                <View style={[styles.unreadBadge, { backgroundColor: colors.error }]}>
-                  <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.subtitle, { color: colors.headerOverlayTextMuted }]}>
-              {unreadCount > 0 ? `${unreadCount} não lido${unreadCount > 1 ? 's' : ''}` : 'Tudo em dia'}
-            </Text>
+            <Text style={styles.title}>Alertas</Text>
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </View>
-
           {unreadCount > 0 && (
-            <TouchableOpacity
-              onPress={handleMarkAllRead}
-              style={[styles.markAllBtn, { backgroundColor: colors.headerOverlaySurface, borderColor: colors.headerOverlayBorder }]}
-              accessibilityRole="button"
-              accessibilityLabel="Marcar todas como lidas"
-            >
-              <Ionicons name="checkmark-done" size={18} color={colors.headerOverlayText} />
+            <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn} accessibilityLabel="Marcar todas como lidas">
+              <Ionicons name="checkmark-done" size={18} color={colors.primary} />
+              <Text style={styles.markAllText}>Ler todas</Text>
             </TouchableOpacity>
           )}
         </View>
-      </LinearGradient>
+      </View>
 
       {/* ── FILTROS ── */}
-      <View style={styles.filterSection}>
-        <AppSegmentedControl
-          items={[
-            { key: 'all', label: 'Todos', count: notifications.length },
-            { key: 'new_request', label: 'Pedidos', count: categoryCounts.new_request },
-            { key: 'payment', label: 'Pagamentos', count: categoryCounts.payment },
-            { key: 'consultation', label: 'Consultas', count: categoryCounts.consultation },
-          ]}
-          value={activeFilter}
-          onValueChange={(value) => {
-            haptics.selection();
-            setActiveFilter(value as 'all' | AlertCategory);
-          }}
-          size="sm"
-          scrollable
-          role="doctor"
-        />
-      </View>
+      <AppSegmentedControl
+        items={[
+          { key: 'all', label: 'Todos', count: notifications.length },
+          { key: 'new_request', label: 'Pedidos', count: categoryCounts.new_request },
+          { key: 'payment', label: 'Pagamentos', count: categoryCounts.payment },
+          { key: 'consultation', label: 'Consultas', count: categoryCounts.consultation },
+        ]}
+        value={activeFilter}
+        onValueChange={(value) => {
+          haptics.selection();
+          setActiveFilter(value as 'all' | AlertCategory);
+        }}
+        size="sm"
+        scrollable
+        role="doctor"
+      />
 
       {/* ── LISTA ── */}
       {loading ? (
@@ -265,13 +235,7 @@ export default function DoctorNotifications() {
             sections={sections}
             keyExtractor={(item) => item.id}
             renderItem={({ item, index }) => (
-              <FadeIn
-                visible
-                duration={200}
-                fromY={6}
-                delay={index * 35}
-                fill={false}
-              >
+              <FadeIn visible duration={200} fromY={6} delay={index * 35} fill={false}>
                 <NotificationCard
                   item={item}
                   visual={getDoctorVisual(item, colors)}
@@ -283,28 +247,20 @@ export default function DoctorNotifications() {
               </FadeIn>
             )}
             renderSectionHeader={({ section: { title } }) => (
-              <Text style={[styles.groupLabel, { color: colors.textMuted }]}>{title}</Text>
+              <Text style={styles.groupLabel}>{title}</Text>
             )}
             contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
             ItemSeparatorComponent={ListSeparator}
             SectionSeparatorComponent={SectionGap}
             refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[colors.primary]}
-              />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
             }
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <AppEmptyState
                 icon="notifications-off-outline"
                 title={activeFilter === 'all' ? 'Você está em dia' : 'Nenhum alerta'}
-                subtitle={
-                  activeFilter === 'all'
-                    ? 'Nenhuma novidade no momento.'
-                    : 'Tente outro filtro para ver mais alertas.'
-                }
+                subtitle={activeFilter === 'all' ? 'Nenhuma novidade no momento.' : 'Tente outro filtro para ver mais alertas.'}
               />
             }
           />
@@ -318,30 +274,33 @@ function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
-      paddingBottom: 20,
-      borderBottomLeftRadius: 28,
-      borderBottomRightRadius: 28,
+      backgroundColor: colors.surface,
+      paddingHorizontal: pad,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
     },
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    headerLeft: { flex: 1, minWidth: 0 },
-    headerTitleRow: {
+    headerLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 8,
     },
     title: {
-      fontSize: 22,
-      fontWeight: '700',
-      letterSpacing: 0.1,
+      fontSize: 24,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: -0.3,
     },
     unreadBadge: {
       minWidth: 22,
       height: 22,
       borderRadius: 11,
+      backgroundColor: colors.error,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 6,
@@ -349,44 +308,39 @@ function makeStyles(colors: DesignColors) {
     unreadBadgeText: {
       fontSize: 12,
       fontWeight: '800',
-      color: colors.white,
-      letterSpacing: 0.2,
-    },
-    subtitle: {
-      fontSize: 13,
-      fontWeight: '500',
-      marginTop: 3,
+      color: '#FFFFFF',
     },
     markAllBtn: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      marginLeft: 12,
-      flexShrink: 0,
+      gap: 4,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      backgroundColor: (colors as { primaryGhost?: string; infoLight: string }).primaryGhost ?? (colors as { infoLight: string }).infoLight,
     },
-    filterSection: {
-      paddingTop: 14,
-      paddingBottom: 4,
+    markAllText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    loadingWrap: {
+      flex: 1,
+      paddingHorizontal: pad,
+      paddingTop: 16,
     },
     listContent: {
-      paddingHorizontal: doctorDS.screenPaddingHorizontal,
-      paddingTop: 12,
+      paddingHorizontal: pad,
+      paddingTop: 8,
     },
     groupLabel: {
       fontSize: 11,
       fontWeight: '700',
       letterSpacing: 0.8,
       textTransform: 'uppercase',
-      marginTop: 20,
+      color: colors.textMuted,
+      marginTop: 18,
       marginBottom: 8,
-    },
-    loadingWrap: {
-      flex: 1,
-      paddingHorizontal: doctorDS.screenPaddingHorizontal,
-      paddingTop: 16,
     },
   });
 }

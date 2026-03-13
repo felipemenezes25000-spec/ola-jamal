@@ -132,8 +132,8 @@ export default function DoctorDashboard() {
     router.push('/(doctor)/notifications');
   }, [router]);
 
-  const handleCertificados = useCallback(() => {
-    router.push('/certificate/upload');
+  const handleProntuarios = useCallback(() => {
+    router.push('/(doctor)/requests');
   }, [router]);
 
   const handleProfile = useCallback(() => {
@@ -191,7 +191,7 @@ export default function DoctorDashboard() {
             styles.content,
             {
               paddingTop: insets.top + 10,
-              paddingBottom: 130 + insets.bottom,
+              paddingBottom: 20 + insets.bottom,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -230,17 +230,22 @@ export default function DoctorDashboard() {
               responsive={responsive}
             />
 
-            <StatsGrid stats={stats} responsive={responsive} />
+            <StatsGrid
+              stats={stats}
+              responsive={responsive}
+              onPressPedidos={handlePedidos}
+              onPressConsultas={() => router.push('/(doctor)/consultations')}
+            />
 
             <QuickAccess
               onPedidos={handlePedidos}
               onAlertas={handleAlertas}
-              onCertificados={handleCertificados}
+              onProntuarios={handleProntuarios}
               responsive={responsive}
             />
 
             {hasCertificate === false && (
-              <CertificateAlert onPress={handleCertificados} />
+              <CertificateAlert onPress={() => router.push('/certificate/upload')} />
             )}
           </View>
         </ScrollView>

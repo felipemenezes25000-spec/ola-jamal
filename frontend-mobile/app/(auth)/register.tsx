@@ -19,7 +19,7 @@ import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { Logo } from '../../components/Logo';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, type SignUpData, type DoctorSignUpData } from '../../contexts/AuthContext';
 import { fetchAddressByCep } from '../../lib/viacep';
 import { isValidCpf } from '../../lib/validation/cpf';
 import { fetchSpecialties, uploadCertificate } from '../../lib/api';
@@ -67,7 +67,7 @@ export default function Register() {
   const [specialtiesList, setSpecialtiesList] = useState<string[]>([]);
   const [specialtyOpen, setSpecialtyOpen] = useState(false);
   const [specialtySearch, setSpecialtySearch] = useState('');
-  const [certFile, setCertFile] = useState<any>(null);
+  const [certFile, setCertFile] = useState<{ uri: string; name: string } | null>(null);
   const [certPassword, setCertPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
@@ -119,8 +119,9 @@ export default function Register() {
       setNeighborhood((prev) => result.neighborhood || prev);
       setCity((prev) => result.city || prev);
       setState((prev) => result.state || prev);
-    } catch (e: any) {
-      Alert.alert('CEP', e?.message || 'Não foi possível buscar o CEP.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+      Alert.alert('CEP', msg || 'Não foi possível buscar o CEP.');
     }
   }, [cep]);
 
@@ -146,8 +147,9 @@ export default function Register() {
       setProfessionalNeighborhood((prev) => result.neighborhood || prev);
       setProfessionalCity((prev) => result.city || prev);
       setProfessionalState((prev) => result.state || prev);
-    } catch (e: any) {
-      Alert.alert('CEP profissional', e?.message || 'Não foi possível buscar o CEP.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+      Alert.alert('CEP profissional', msg || 'Não foi possível buscar o CEP.');
     }
   }, [professionalCep]);
 
@@ -264,7 +266,7 @@ export default function Register() {
       const birthDateIso = bdTrim.length === 8
         ? `${bdTrim.slice(4, 8)}-${bdTrim.slice(2, 4)}-${bdTrim.slice(0, 2)}`
         : undefined;
-      const data: Record<string, unknown> = {
+      const baseData: SignUpData = {
         name: n,
         email: e,
         password: p,
@@ -282,7 +284,7 @@ export default function Register() {
       };
       const result = role === 'doctor'
         ? await signUpDoctor({
-            ...data,
+            ...baseData,
             crm: crm.trim().replace(/\D/g, ''),
             crmState: crmState.trim().toUpperCase().slice(0, 2),
             specialty: specialty.trim(),
@@ -297,8 +299,8 @@ export default function Register() {
             university: university.trim() || undefined,
             courses: courses.trim() || undefined,
             hospitalsServices: hospitalsServices.trim() || undefined,
-          } as any)
-        : { user: await signUp(data as any), requiresApproval: false };
+          } as DoctorSignUpData)
+        : { user: await signUp(baseData), requiresApproval: false };
 
       const user = result.user;
 
@@ -329,13 +331,14 @@ export default function Register() {
         }
       }
 
-      const dest = user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(patient)/home';
-      setTimeout(() => nav.replace(router, dest as any), 0);
-    } catch (error: any) {
+      const dest = (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(patient)/home') as import('../../lib/navigation').AppRoute;
+      setTimeout(() => nav.replace(router, dest), 0);
+    } catch (error: unknown) {
+      const err = error as { message?: string; errors?: string[]; messages?: string[] };
       const msg =
-        error?.message ||
-        (Array.isArray(error?.errors) ? error.errors[0] : null) ||
-        (error?.messages?.[0]) ||
+        err?.message ||
+        (Array.isArray(err?.errors) ? err.errors[0] : null) ||
+        err?.messages?.[0] ||
         String(error) ||
         'Não foi possível criar a conta.';
       Alert.alert('Erro', msg);

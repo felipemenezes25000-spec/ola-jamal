@@ -136,11 +136,12 @@ class ApiClient {
       clearTimeout(timeoutId);
       trackApiLatency(endpoint, Date.now() - start, res.status);
       return res;
-    } catch (e: any) {
+    } catch (e: unknown) {
       clearTimeout(timeoutId);
       trackApiLatency(endpoint, Date.now() - start, 0);
 
-      if (e?.name === 'AbortError') {
+      const err = e as { name?: string; message?: string };
+      if (err?.name === 'AbortError') {
         // Se foi o caller que abortou (navegação), re-throw sem mensagem amigável
         if (callerSignal?.aborted) throw e;
         throw {
@@ -149,7 +150,7 @@ class ApiClient {
           status: 0,
         } as ApiError;
       }
-      const msg = e?.message ?? String(e);
+      const msg = err?.message ?? String(e);
       if (typeof msg === 'string' && (msg.includes('Network request failed') || msg.includes('network'))) {
         throw {
           message:
@@ -219,9 +220,10 @@ class ApiClient {
         } else {
           errorMessage = `${response.status} ${response.statusText}`;
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         // Re-throw structured ApiErrors (already parsed from response body)
-        if (e?.status !== undefined) {
+        const parsed = e as { status?: number };
+        if (parsed?.status !== undefined) {
           throw e;
         }
         // 400 com corpo vazio/não-JSON: comum com AllowedHosts, Supabase inválido ou backend acordando (Render)
@@ -281,7 +283,7 @@ class ApiClient {
     return (await response.text()) as unknown as T;
   }
 
-  async get<T>(path: string, params?: Record<string, any>, options?: { signal?: AbortSignal }): Promise<T> {
+  async get<T>(path: string, params?: Record<string, string | number | boolean | undefined | null>, options?: { signal?: AbortSignal }): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
     // Build query string
@@ -326,7 +328,7 @@ class ApiClient {
     return response.blob();
   }
 
-  async post<T>(path: string, body?: any, isMultipart: boolean = false): Promise<T> {
+  async post<T>(path: string, body?: unknown, isMultipart: boolean = false): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
     const headers: Record<string, string> = {
@@ -334,11 +336,11 @@ class ApiClient {
       ...authHeaders,
     };
 
-    let bodyData: any;
+    let bodyData: string | FormData;
 
     if (isMultipart) {
       // FormData handles its own content-type with boundary
-      bodyData = body;
+      bodyData = body as FormData;
     } else {
       headers['Content-Type'] = 'application/json';
       bodyData = JSON.stringify(body ?? {});
@@ -353,7 +355,7 @@ class ApiClient {
     return this.handleResponse<T>(response);
   }
 
-  async put<T>(path: string, body?: any): Promise<T> {
+  async put<T>(path: string, body?: unknown): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
     const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
@@ -363,13 +365,13 @@ class ApiClient {
         'Content-Type': 'application/json',
         ...authHeaders,
       },
-      body: JSON.stringify(body),
+      body: body != null ? JSON.stringify(body) : undefined,
     });
 
     return this.handleResponse<T>(response);
   }
 
-  async patch<T>(path: string, body?: any): Promise<T> {
+  async patch<T>(path: string, body?: unknown): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
     const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
@@ -379,7 +381,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         ...authHeaders,
       },
-      body: JSON.stringify(body),
+      body: body != null ? JSON.stringify(body) : undefined,
     });
 
     return this.handleResponse<T>(response);

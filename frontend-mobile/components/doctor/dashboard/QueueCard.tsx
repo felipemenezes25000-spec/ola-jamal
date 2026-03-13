@@ -15,9 +15,10 @@ interface QueueCardProps {
 }
 
 export function QueueCard({ message, onPress, responsive }: QueueCardProps) {
-  const { typography, heights } = responsive;
+  const { typography, heights, iconSizes } = responsive;
+  const queueIconSize = iconSizes?.queueIcon ?? 24;
   return (
-    <View style={[styles.queueCard, { minHeight: heights.queueCardMin }]}>
+    <View style={styles.queueCard}>
       <LinearGradient
         colors={colors.queueGradient}
         start={{ x: 0, y: 0 }}
@@ -29,11 +30,11 @@ export function QueueCard({ message, onPress, responsive }: QueueCardProps) {
       <View style={styles.queueShapeTwo} />
 
       <View style={styles.queueRow}>
-        <View style={styles.queueIconOuter}>
-          <View style={styles.queueIconInner}>
+        <View style={[styles.queueIconOuter, { width: queueIconSize * 2.75, height: queueIconSize * 2.75, borderRadius: queueIconSize * 1.375 }]}>
+          <View style={[styles.queueIconInner, { width: queueIconSize * 1.92, height: queueIconSize * 1.92, borderRadius: queueIconSize * 0.96 }]}>
             <MaterialCommunityIcons
               name="check-all"
-              size={24}
+              size={queueIconSize}
               color="#FFFFFF"
             />
           </View>
@@ -106,18 +107,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   queueIconOuter: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
     backgroundColor: colors.queueIconOuter,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
   queueIconInner: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
     backgroundColor: colors.queueIconInner,
     alignItems: 'center',
     justifyContent: 'center',

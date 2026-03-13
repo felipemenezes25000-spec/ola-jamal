@@ -46,7 +46,7 @@ export function useVideoCallEvents(
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [isAiActive, setIsAiActive] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
-  const signalRRef = useRef<any>(null);
+  const signalRRef = useRef<{ stop: () => Promise<void> } | null>(null);
 
   const connectSignalR = useCallback(async () => {
     if (!requestId || !isDoctor) return;
@@ -79,8 +79,8 @@ export function useVideoCallEvents(
       }
       const conn = builder.build();
 
-      conn.on('TranscriptUpdate', (data: any) => {
-        const text = data?.fullText ?? data?.FullText ?? data?.fullTranscript ?? '';
+      conn.on('TranscriptUpdate', (data: Record<string, unknown>) => {
+        const text = String(data?.fullText ?? data?.FullText ?? data?.fullTranscript ?? '');
         if (text) {
           setTranscript(text);
           setIsAiActive(true);
@@ -88,33 +88,33 @@ export function useVideoCallEvents(
         }
       });
 
-      conn.on('AnamnesisUpdate', (data: any) => {
-        const json = data?.anamnesisJson ?? data?.AnamnesisJson ?? '';
-        try { if (json) setAnamnesis(JSON.parse(json)); } catch {}
+      conn.on('AnamnesisUpdate', (data: Record<string, unknown>) => {
+        const json = String(data?.anamnesisJson ?? data?.AnamnesisJson ?? '');
+        try { if (json) setAnamnesis(JSON.parse(json) as Record<string, unknown>); } catch {}
       });
 
-      conn.on('SuggestionUpdate', (data: any) => {
+      conn.on('SuggestionUpdate', (data: Record<string, unknown>) => {
         // Backend envia SuggestionUpdateDto(Items) — JSON camelCase: items
         const items = data?.items ?? data?.Items ?? data?.suggestions ?? data?.Suggestions ?? [];
         if (Array.isArray(items)) setSuggestions(items);
       });
 
-      conn.on('TranscriptionError', (data: any) => {
-        const msg = data?.message ?? data?.Message ?? 'Erro na transcrição';
+      conn.on('TranscriptionError', (data: Record<string, unknown>) => {
+        const msg = String(data?.message ?? data?.Message ?? 'Erro na transcrição');
         setTranscriptionError(msg);
       });
 
-      conn.on('EvidenceUpdate', (data: any) => {
-        const items = data?.items ?? data?.Items ?? [];
+      conn.on('EvidenceUpdate', (data: Record<string, unknown>) => {
+        const items = (data?.items ?? data?.Items ?? []) as Record<string, unknown>[];
         if (Array.isArray(items)) {
-          setEvidence(items.map((e: any) => ({
-            title: e?.title ?? e?.Title ?? '',
-            abstract: e?.abstract ?? e?.Abstract ?? '',
-            source: e?.source ?? e?.Source ?? '',
-            translatedAbstract: e?.translatedAbstract ?? e?.TranslatedAbstract,
-            relevantExcerpts: e?.relevantExcerpts ?? e?.RelevantExcerpts ?? undefined,
-            clinicalRelevance: e?.clinicalRelevance ?? e?.ClinicalRelevance ?? undefined,
-            provider: e?.provider ?? e?.Provider ?? 'PubMed',
+          setEvidence(items.map((e): EvidenceItem => ({
+            title: String(e?.title ?? e?.Title ?? ''),
+            abstract: String(e?.abstract ?? e?.Abstract ?? ''),
+            source: String(e?.source ?? e?.Source ?? ''),
+            translatedAbstract: e?.translatedAbstract != null ? String(e.translatedAbstract) : undefined,
+            relevantExcerpts: Array.isArray(e?.relevantExcerpts) ? (e.relevantExcerpts as string[]) : (Array.isArray(e?.RelevantExcerpts) ? (e.RelevantExcerpts as string[]) : undefined),
+            clinicalRelevance: e?.clinicalRelevance != null ? String(e.clinicalRelevance) : (e?.ClinicalRelevance != null ? String(e.ClinicalRelevance) : undefined),
+            provider: String(e?.provider ?? e?.Provider ?? 'PubMed'),
           })));
         }
       });

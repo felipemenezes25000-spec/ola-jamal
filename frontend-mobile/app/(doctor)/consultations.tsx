@@ -1,6 +1,5 @@
 /**
  * Tab Consultas — visão dedicada de consultas (ativas e histórico).
- * Alinha com DoctorConsultations.tsx do web.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -14,18 +13,23 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
+import { doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import type { DesignColors } from '../../lib/designSystem';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { useDoctorRequestsQuery, useInvalidateDoctorRequests } from '../../lib/hooks/useDoctorRequestsQuery';
 import { cacheRequest } from '../doctor-request/[id]';
 import RequestCard from '../../components/RequestCard';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { AppEmptyState } from '../../components/ui';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
 import type { RequestResponseDto } from '../../types/database';
+
+const pad = doctorDS.screenPaddingHorizontal;
 
 const ACTIVE_STATUSES = [
   'submitted', 'pending', 'searching_doctor', 'approved_pending_payment',
@@ -45,7 +49,9 @@ type TabValue = 'active' | 'history';
 export default function DoctorConsultations() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, gradients } = useAppTheme({ role: 'doctor' });
+  const listPadding = useListBottomPadding();
+  const { colors } = useAppTheme({ role: 'doctor' });
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<TabValue>('active');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -95,162 +101,165 @@ export default function DoctorConsultations() {
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: RequestResponseDto; index: number }) => (
-      <FadeIn key={item.id} visible duration={200} fromY={8} delay={index * 30} fill={false}>
-        <RequestCard
-          request={item}
-          onPress={() => handleItemPress(item)}
-          showPatientName
-          showPrice={false}
-          showRisk={false}
-          suppressHorizontalMargin
-        />
-      </FadeIn>
+    ({ item }: { item: RequestResponseDto }) => (
+      <RequestCard
+        request={item}
+        onPress={() => handleItemPress(item)}
+        showPatientName
+        showPrice={false}
+        showRisk={false}
+        suppressHorizontalMargin
+      />
     ),
     [handleItemPress]
   );
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
-  const headerPaddingTop = insets.top + 16;
   const empty = !isLoading && list.length === 0;
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
-      <LinearGradient
-        colors={gradients.doctorHeader as unknown as [string, string, ...string[]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: headerPaddingTop }]}
-      >
-        <View style={styles.headerRow}>
-          <View style={styles.headerIconWrap}>
-            <Ionicons name="videocam" size={22} color={colors.headerOverlayText} />
-          </View>
-          <View style={styles.headerText}>
-            <Text style={[styles.title, { color: colors.headerOverlayText }]}>Consultas</Text>
-            <Text style={[styles.subtitle, { color: colors.headerOverlayTextMuted }]}>
-              {active.length} {active.length === 1 ? 'consulta ativa' : 'consultas ativas'}
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
 
-      {/* Tabs */}
-      <View style={[styles.tabRow, { backgroundColor: colors.surface }]}>
-        <Pressable
-          onPress={() => { haptics.selection(); setTab('active'); }}
-          style={[
-            styles.tab,
-            tab === 'active' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceSecondary },
-          ]}
-        >
-          <Text style={[styles.tabLabel, { color: tab === 'active' ? '#fff' : colors.textMuted }]}>
-            Ativas ({active.length})
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => { haptics.selection(); setTab('history'); }}
-          style={[
-            styles.tab,
-            tab === 'history' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceSecondary },
-          ]}
-        >
-          <Text style={[styles.tabLabel, { color: tab === 'history' ? '#fff' : colors.textMuted }]}>
-            Histórico ({history.length})
-          </Text>
-        </Pressable>
+      {/* ── HEADER ── */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Consultas</Text>
+          {active.length > 0 && (
+            <View style={styles.activeBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.activeBadgeText}>
+                {active.length} {active.length === 1 ? 'ativa' : 'ativas'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Tabs Ativas / Histórico */}
+        <View style={styles.tabRow}>
+          <Pressable
+            onPress={() => { haptics.selection(); setTab('active'); }}
+            style={[styles.tab, tab === 'active' && styles.tabActive]}
+          >
+            <Text style={[styles.tabLabel, tab === 'active' && styles.tabLabelActive]}>
+              Ativas ({active.length})
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => { haptics.selection(); setTab('history'); }}
+            style={[styles.tab, tab === 'history' && styles.tabActive]}
+          >
+            <Text style={[styles.tabLabel, tab === 'history' && styles.tabLabelActive]}>
+              Histórico ({history.length})
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
+      {/* ── LISTA ── */}
       {isLoading ? (
-        <SkeletonList count={6} />
-      ) : empty ? (
-        <View style={[styles.empty, { backgroundColor: colors.surface }]}>
-          <Ionicons name="videocam-outline" size={48} color={colors.textMuted} />
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            {tab === 'active' ? 'Nenhuma consulta ativa' : 'Nenhuma consulta no histórico'}
-          </Text>
+        <View style={styles.loadingWrap}>
+          <SkeletonList count={6} />
         </View>
-      ) : (
-        <FlatList
-          data={list.sort((a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          )}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-          }
+      ) : empty ? (
+        <AppEmptyState
+          icon="videocam-outline"
+          title={tab === 'active' ? 'Nenhuma consulta ativa' : 'Nenhuma consulta no histórico'}
+          subtitle={tab === 'active' ? 'Consultas agendadas aparecerão aqui.' : 'Consultas finalizadas aparecerão aqui.'}
         />
+      ) : (
+        <FadeIn visible duration={200} fromY={8} delay={30}>
+          <FlatList
+            data={list.sort((a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            }
+            showsVerticalScrollIndicator={false}
+          />
+        </FadeIn>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerText: { flex: 1 },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    fontFamily: 'PlusJakartaSans_700Bold',
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    fontFamily: 'PlusJakartaSans_500Medium',
-    marginTop: 2,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 16,
-    paddingBottom: 8,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  tabLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginTop: 12,
-  },
-});
+function makeStyles(colors: DesignColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: pad,
+      paddingBottom: 0,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: -0.3,
+    },
+    activeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.successLight,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      gap: 6,
+    },
+    liveDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.success,
+    },
+    activeBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.success,
+    },
+    tabRow: {
+      flexDirection: 'row',
+      gap: 0,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: {
+      borderBottomColor: colors.primary,
+    },
+    tabLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textMuted,
+    },
+    tabLabelActive: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    loadingWrap: {
+      flex: 1,
+      paddingHorizontal: pad,
+      paddingTop: 16,
+    },
+    listContent: {
+      paddingTop: 8,
+      paddingHorizontal: pad,
+    },
+  });
+}

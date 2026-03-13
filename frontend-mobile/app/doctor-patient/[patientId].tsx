@@ -1,25 +1,25 @@
 /**
- * Prontuário Unificado do Paciente — Tela com abas + contadores.
+ * Prontuário Unificado do Paciente — Header flat + tabs com contadores.
  *
  * Visão Geral | Consultas (n) | Documentos (n) | Notas (n)
- *
- * Refatorado: FlatList para virtualização, CompactHeader extraído,
- * contadores nas tabs, espaçamentos unificados via designSystem.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   FlatList,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
-import { spacing } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { useListBottomPadding } from '../../lib/ui/responsive';
@@ -33,13 +33,12 @@ import {
 } from '../../lib/api';
 import type { RequestResponseDto, PatientProfileForDoctorDto } from '../../types/database';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
-import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
+import { AppEmptyState } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
 import { extractAllergiesFromJson } from '../../lib/domain/anamnesis';
 
-import { CompactHeader } from '../../components/prontuario/shared';
 import { PatientIdentityCard } from '../../components/prontuario/PatientIdentityCard';
 import { AlertsBanner } from '../../components/prontuario/AlertsBanner';
 import { ClinicalOverviewTab } from '../../components/prontuario/ClinicalOverviewTab';
@@ -49,13 +48,20 @@ import { ClinicalNotesTab } from '../../components/prontuario/ClinicalNotesTab';
 
 type TabKey = 'overview' | 'consultations' | 'documents' | 'notes';
 
+const TAB_CONFIG: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'overview', label: 'Visão Geral', icon: 'pulse' },
+  { key: 'consultations', label: 'Consultas', icon: 'videocam' },
+  { key: 'documents', label: 'Documentos', icon: 'document-text' },
+  { key: 'notes', label: 'Notas', icon: 'journal' },
+];
+
 export default function DoctorPatientProntuario() {
   const { patientId } = useLocalSearchParams<{ patientId: string }>();
   const id = Array.isArray(patientId) ? patientId[0] : patientId ?? '';
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
-  const { colors, gradients } = useAppTheme({ role: 'doctor' });
+  const { colors } = useAppTheme({ role: 'doctor' });
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [requests, setRequests] = useState<RequestResponseDto[]>([]);
@@ -107,9 +113,7 @@ export default function DoctorPatientProntuario() {
           setDoctorNotes(res.doctorNotes ?? []);
         }
       })
-      .catch(() => {
-        if (!cancelled) { setSummary(null); setStructured(null); }
-      })
+      .catch(() => { if (!cancelled) { setSummary(null); setStructured(null); } })
       .finally(() => { if (!cancelled) setSummaryLoading(false); });
     return () => { cancelled = true; };
   }, [id, summaryRefreshKey]);
@@ -155,13 +159,12 @@ export default function DoctorPatientProntuario() {
     );
   }, [consultations]);
 
-  // Tabs com contadores — médico vê de imediato onde há dados
-  const tabItems = useMemo(() => [
-    { key: 'overview', label: 'Visão Geral' },
-    { key: 'consultations', label: 'Consultas', count: consultations.length || undefined },
-    { key: 'documents', label: 'Documentos', count: (prescriptions.length + exams.length) || undefined },
-    { key: 'notes', label: 'Notas', count: doctorNotes.length || undefined },
-  ], [consultations.length, prescriptions.length, exams.length, doctorNotes.length]);
+  const tabCounts: Record<TabKey, number | undefined> = {
+    overview: undefined,
+    consultations: consultations.length || undefined,
+    documents: (prescriptions.length + exams.length) || undefined,
+    notes: doctorNotes.length || undefined,
+  };
 
   useTriageEval({
     context: 'doctor_prontuario',
@@ -181,10 +184,17 @@ export default function DoctorPatientProntuario() {
     lastConsultationDays,
   });
 
+  // ── Loading ──
   if (loading) {
     return (
-      <View style={styles.loadingWrap}>
-        <CompactHeader title="Prontuário" subtitle={patientName} topInset={insets.top} onBack={() => router.back()} colors={colors} gradientColors={gradients.doctorHeader} />
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Prontuário</Text>
+          <View style={{ width: 40 }} />
+        </View>
         <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
           <SkeletonList count={5} />
         </View>
@@ -192,10 +202,17 @@ export default function DoctorPatientProntuario() {
     );
   }
 
+  // ── Error ──
   if (loadError && requests.length === 0) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <CompactHeader title="Prontuário" subtitle={patientName} topInset={insets.top} onBack={() => router.back()} colors={colors} gradientColors={gradients.doctorHeader} />
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Prontuário</Text>
+          <View style={{ width: 40 }} />
+        </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
           <AppEmptyState
             icon="alert-circle-outline"
@@ -247,29 +264,48 @@ export default function DoctorPatientProntuario() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <CompactHeader
-        title="Prontuário"
-        subtitle={patientName}
-        topInset={insets.top}
-        onBack={() => router.back()}
-        colors={colors}
-        gradientColors={gradients.doctorHeader}
-        hasAlerts={allAllergies.length > 0 || (structured?.alerts?.length ?? 0) > 0}
-      />
-
-      <View style={styles.tabsWrap}>
-        <AppSegmentedControl
-          items={tabItems}
-          value={activeTab}
-          onValueChange={(v) => {
-            haptics.selection();
-            setActiveTab(v as TabKey);
-          }}
-          size="sm"
-          scrollable
-        />
+      {/* ── HEADER FLAT ── */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle} numberOfLines={1}>Prontuário</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>{patientName}</Text>
+        </View>
+        {allAllergies.length > 0 && (
+          <View style={styles.alertIndicator}>
+            <Ionicons name="warning" size={16} color={colors.error} />
+          </View>
+        )}
       </View>
 
+      {/* ── TABS UNDERLINE ── */}
+      <View style={styles.tabBar}>
+        {TAB_CONFIG.map((tab) => {
+          const isActive = activeTab === tab.key;
+          const count = tabCounts[tab.key];
+          return (
+            <Pressable
+              key={tab.key}
+              style={[styles.tab, isActive && styles.tabActive]}
+              onPress={() => { haptics.selection(); setActiveTab(tab.key); }}
+            >
+              <Ionicons
+                name={tab.icon}
+                size={16}
+                color={isActive ? colors.primary : colors.textMuted}
+              />
+              <Text style={[styles.tabLabel, isActive && { color: colors.primary, fontWeight: '700' }]}>
+                {tab.label}
+                {count != null ? ` (${count})` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* ── CONTEÚDO ── */}
       <FlatList
         data={CONTENT_KEY}
         keyExtractor={(item) => item.key}
@@ -278,11 +314,7 @@ export default function DoctorPatientProntuario() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: listPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
         renderItem={() => (
           <View style={styles.contentWrap}>
@@ -311,24 +343,83 @@ export default function DoctorPatientProntuario() {
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    loadingWrap: { flex: 1, backgroundColor: colors.background },
-    tabsWrap: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+    header: {
       backgroundColor: colors.surface,
+      paddingHorizontal: 16,
+      paddingBottom: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
     },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    headerCenter: {
+      flex: 1,
+      minWidth: 0,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: -0.2,
+    },
+    headerSubtitle: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 1,
+    },
+    alertIndicator: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.errorLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 8,
+    },
+    tabBar: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      paddingHorizontal: 8,
+    },
+    tab: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      paddingVertical: 12,
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: {
+      borderBottomColor: colors.primary,
+    },
+    tabLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textMuted,
+    },
     scroll: { flex: 1 },
     scrollContent: {
-      paddingHorizontal: spacing.md,
-      paddingTop: spacing.md,
+      paddingHorizontal: 16,
+      paddingTop: 14,
     },
     contentWrap: {
-      gap: spacing.md,
+      gap: 12,
     },
     tabContent: {
-      gap: spacing.md,
+      gap: 12,
     },
   });
 }

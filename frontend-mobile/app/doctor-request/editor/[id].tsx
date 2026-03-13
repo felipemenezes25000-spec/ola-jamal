@@ -21,26 +21,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, borderRadius, shadows, typography, doctorDS } from '../../../lib/themeDoctor';
 import { useAppTheme } from '../../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../../lib/designSystem';
-import {
-  getRequestById,
-  signRequest,
-  getPreviewPdf,
-  getPreviewExamPdf,
-  updatePrescriptionContent,
-  updateExamContent,
-  updateConduct,
-  parseAiSuggestedExams,
-  validatePrescription,
-} from '../../../lib/api';
+import { parseAiSuggestedExams } from '../../../lib/api';
+import { useRequestEditor } from '../../../hooks/useRequestEditor';
 import { RequestResponseDto, PrescriptionKind } from '../../../types/database';
-import { searchCid } from '../../../lib/cid-medications';
 import { DoctorHeader } from '../../../components/ui/DoctorHeader';
 import { DoctorCard } from '../../../components/ui/DoctorCard';
 import { AppButton } from '../../../components/ui/AppButton';
 import { SkeletonList, SkeletonLoader } from '../../../components/ui/SkeletonLoader';
 import { AppEmptyState } from '../../../components/ui';
 import { showToast } from '../../../components/ui/Toast';
-import { getApiErrorMessage } from '../../../lib/api-client';
 import { FormattedAiSummary } from '../../../components/FormattedAiSummary';
 import { ConductSection } from '../../../components/triage';
 import { SignFormCard } from '../../../components/doctor-request/editor/SignFormCard';
@@ -68,64 +57,6 @@ function getRiskLabelPt(level: string | null | undefined): string {
 function getUrgencyLabelPt(level: string | null | undefined): string {
   if (!level) return 'Não informado';
   return URGENCY_LABELS_PT[level.toLowerCase()] ?? 'Não informado';
-}
-
-function parseAiMedications(aiExtractedJson: string | null): string[] {
-  if (!aiExtractedJson) return [];
-  try {
-    const obj = JSON.parse(aiExtractedJson);
-    const arr = obj?.medications;
-    if (Array.isArray(arr)) {
-      return arr.map((m: any) => String(m || '').trim()).filter(Boolean);
-    }
-  } catch (e) {
-    if (__DEV__) console.warn('[parseAiMedications] JSON parse failed:', e);
-  }
-  return [];
-}
-
-/**
- * Converte Blob → base64 de forma compatível com Web e React Native.
- *
- * Em React Native, FileReader.readAsDataURL() não funciona de forma confiável
- * com Blobs retornados por fetch().blob(). A abordagem segura é:
- *   1. Converter o Blob para ArrayBuffer (funciona em todas as plataformas)
- *   2. Converter os bytes para base64 manualmente
- *
- * No Web, FileReader funciona, mas usamos arrayBuffer por consistência.
- *
- * React Native (Hermes): blob.arrayBuffer() does NOT exist.
- * Use FileReader which works on both web and native.
- */
-async function blobToBase64(blob: Blob): Promise<string> {
-  // React Native (Hermes): blob.arrayBuffer() does NOT exist.
-  // Use FileReader which works on both web and native.
-  if (Platform.OS !== 'web') {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result as string;
-        // dataUrl = "data:application/pdf;base64,XXXX..."
-        const base64 = dataUrl?.split(',')[1] ?? '';
-        resolve(base64);
-      };
-      reader.onerror = () => reject(new Error('FileReader failed'));
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  // Web: arrayBuffer is available
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    for (let j = 0; j < chunk.length; j++) {
-      binary += String.fromCharCode(chunk[j]);
-    }
-  }
-  return btoa(binary);
 }
 
 /**
@@ -251,325 +182,74 @@ export default function PrescriptionEditorScreen() {
     medium: { bg: colors.warningLight, text: colors.warning },
     high: { bg: colors.errorLight, text: colors.destructive },
   }), [colors]);
-  const [request, setRequest] = useState<RequestResponseDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [medications, setMedications] = useState<string[]>([]);
-  const [exams, setExams] = useState<string[]>([]);
-  const [prescriptionKind, setPrescriptionKind] = useState<PrescriptionKind>('simple');
-  const [rejectedSuggestions, setRejectedSuggestions] = useState<Set<string>>(new Set());
-  const [editingSuggestionIndex, setEditingSuggestionIndex] = useState<number | null>(null);
-  const [editingSuggestionValue, setEditingSuggestionValue] = useState('');
-  const [cidQuery, setCidQuery] = useState('');
-  const [notes, setNotes] = useState('');
-  const [conductNotes, setConductNotes] = useState('');
-  const [includeInPdf, setIncludeInPdf] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [signing, setSigning] = useState(false);
-  const [certPassword, setCertPassword] = useState('');
-  const [showSignForm, setShowSignForm] = useState(false);
-  const [signFormDoctorProfileBlocked, setSignFormDoctorProfileBlocked] = useState(false);
-  const [pdfUri, setPdfUri] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [complianceValidation, setComplianceValidation] = useState<{ valid: boolean; messages?: string[]; missingFields?: string[] } | null>(null);
-  const pdfBlobUrlRef = useRef<string | null>(null);
   const webViewRef = useRef<WebView | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const editor = useRequestEditor({ requestId, router });
+  const {
+    request,
+    loading,
+    loadError,
+    medications,
+    setMedications,
+    exams,
+    setExams,
+    prescriptionKind,
+    setPrescriptionKind,
+    rejectedSuggestions,
+    editingSuggestionIndex,
+    setEditingSuggestionIndex,
+    editingSuggestionValue,
+    setEditingSuggestionValue,
+    cidQuery,
+    setCidQuery,
+    notes,
+    setNotes,
+    conductNotes,
+    setConductNotes,
+    includeInPdf,
+    setIncludeInPdf,
+    saving,
+    signing,
+    certPassword,
+    setCertPassword,
+    showSignForm,
+    setShowSignForm,
+    signFormDoctorProfileBlocked,
+    setSignFormDoctorProfileBlocked,
+    pdfUri,
+    pdfLoading,
+    complianceValidation,
+    loadRequest,
+    loadPdfPreview,
+    handleSave,
+    handleSign,
+    suggestedFromAi,
+    cidResults,
+    acceptSuggestion,
+    acceptAllSuggestions,
+    rejectSuggestion,
+    startEditSuggestion,
+    confirmEditSuggestion,
+    cancelEditSuggestion,
+    addFromCid,
+    addCustom,
+    removeMedication,
+    updateMedication,
+    setLoadError,
+    retryLoad,
+    pdfBlobUrlRef,
+  } = editor;
 
   /** Ao abrir o formulário de assinatura, rola até o final para que o TextInput da senha fique visível. */
   useEffect(() => {
     if (showSignForm && scrollViewRef.current) {
-      // Pequeno delay para o layout do form renderizar antes de rolar
       const timer = setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 350);
       return () => clearTimeout(timer);
     }
   }, [showSignForm]);
-
-  /** Validação de compliance em tempo real (ao carregar e após salvar). */
-  const refreshCompliance = useCallback(async () => {
-    if (!requestId) return;
-    try {
-      const v = await validatePrescription(requestId);
-      setComplianceValidation(v);
-    } catch {
-      setComplianceValidation(null);
-    }
-  }, [requestId]);
-
-  useEffect(() => {
-    if ((request?.requestType === 'prescription' || request?.requestType === 'exam') && requestId) {
-      refreshCompliance();
-    }
-  }, [request?.id, request?.requestType, requestId, refreshCompliance]);
-
-  /** Ao abrir o formulário de assinatura, verifica se o perfil do médico está completo para evitar tentativa inútil. */
-  useEffect(() => {
-    if (!showSignForm || !requestId) return;
-    let cancelled = false;
-    validatePrescription(requestId)
-      .then((v) => {
-        if (cancelled) return;
-        const needs = !v.valid && (v.missingFields ?? []).some(
-          (f: string) => f.includes('médico.endereço') || f.includes('médico.telefone')
-        );
-        setSignFormDoctorProfileBlocked(!v.valid && needs);
-      })
-      .catch(() => {
-        if (!cancelled) setSignFormDoctorProfileBlocked(false);
-      });
-    return () => { cancelled = true; };
-  }, [showSignForm, requestId]);
-
-  const loadRequest = useCallback(async () => {
-    if (!requestId) return;
-    try {
-      const data = await getRequestById(requestId);
-      setRequest(data);
-      const meds = data.medications?.filter(Boolean) ?? [];
-      setMedications(meds.length > 0 ? meds : []);
-      const examList = data.exams?.filter(Boolean) ?? [];
-      setExams(examList.length > 0 ? examList : ['']);
-      setNotes(data.notes ?? '');
-      setConductNotes(data.doctorConductNotes ?? '');
-      setIncludeInPdf(data.includeConductInPdf !== false);
-      setPrescriptionKind((data.prescriptionKind as PrescriptionKind) || 'simple');
-    } catch (e) {
-      console.error(e);
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [requestId]);
-
-  const loadPdfPreview = useCallback(async () => {
-    if (!requestId || !request) return;
-    setPdfLoading(true);
-    try {
-      const getPreview = request.requestType === 'exam' ? getPreviewExamPdf : getPreviewPdf;
-      const blob = await getPreview(requestId);
-      if (!blob || blob.size === 0) {
-        setPdfUri(null);
-        showToast({ message: request.requestType === 'exam' ? 'Preview não disponível para o pedido de exame.' : 'Preview não disponível. Verifique se há medicamentos na receita.', type: 'warning' });
-        return;
-      }
-      if (__DEV__) console.warn('[PDF_PREVIEW] Blob recebido:', { size: blob.size, type: blob.type });
-      if (Platform.OS === 'web') {
-        if (pdfBlobUrlRef.current) {
-          URL.revokeObjectURL(pdfBlobUrlRef.current);
-          pdfBlobUrlRef.current = null;
-        }
-        const url = URL.createObjectURL(blob);
-        pdfBlobUrlRef.current = url;
-        setPdfUri(url);
-      } else {
-        const base64 = await blobToBase64(blob);
-        if (!base64 || base64.length < 100) {
-          if (__DEV__) console.warn('[PDF_PREVIEW] base64 vazio ou muito pequeno:', base64?.length);
-          setPdfUri(null);
-          showToast({ message: 'Erro ao processar o PDF. Tente novamente.', type: 'error' });
-          return;
-        }
-        if (__DEV__) console.warn('[PDF_PREVIEW] base64 gerado com sucesso:', { length: base64.length });
-        setPdfUri(`data:application/pdf;base64,${base64}`);
-      }
-    } catch (e: any) {
-      setPdfUri(null);
-      console.warn('Erro ao carregar preview PDF:', e?.message);
-      showToast({ message: e?.message || 'Não foi possível carregar o preview da receita.', type: 'error' });
-    } finally {
-      setPdfLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- request?.requestType is the actual dependency
-  }, [requestId, request?.requestType]);
-
-  useEffect(() => {
-    loadRequest();
-  }, [loadRequest]);
-
-  useEffect(() => {
-    if (request?.requestType === 'prescription' || request?.requestType === 'exam') {
-      loadPdfPreview();
-    }
-    return () => {
-      if (Platform.OS === 'web' && pdfBlobUrlRef.current) {
-        URL.revokeObjectURL(pdfBlobUrlRef.current);
-        pdfBlobUrlRef.current = null;
-      }
-    };
-  }, [request?.id, request?.requestType, loadPdfPreview]);
-
-  const handleSave = async () => {
-    if (isExam) {
-      const examList = exams.map((e) => e.trim()).filter(Boolean);
-      setSaving(true);
-      try {
-        await updateExamContent(requestId, { exams: examList.length > 0 ? examList : undefined, notes: notes.trim() || undefined });
-        await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
-        await loadRequest();
-        await loadPdfPreview();
-        await refreshCompliance();
-        showToast({ message: 'Alterações salvas. Preview atualizado.', type: 'success' });
-      } catch (e: any) {
-        showToast({ message: e?.message || 'Falha ao salvar.', type: 'error' });
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-    const meds = medications.map((m) => m.trim()).filter(Boolean);
-    if (meds.length === 0) {
-      showToast({ message: 'Adicione ao menos um medicamento à receita.', type: 'warning' });
-      return;
-    }
-    setSaving(true);
-    try {
-      await updatePrescriptionContent(requestId, {
-        medications: meds,
-        notes: notes.trim() || undefined,
-        prescriptionKind,
-      });
-      await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
-      await loadRequest();
-      await loadPdfPreview();
-      await refreshCompliance();
-      showToast({ message: 'Alterações salvas. Preview atualizado.', type: 'success' });
-    } catch (e: any) {
-      showToast({ message: e?.message || 'Falha ao salvar.', type: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSign = async () => {
-    if (!certPassword.trim()) {
-      showToast({ message: 'Digite a senha do certificado.', type: 'warning' });
-      return;
-    }
-    setSigning(true);
-    try {
-      if (isExam) {
-        const examList = exams.map((e) => e.trim()).filter(Boolean);
-        await updateExamContent(requestId, { exams: examList.length > 0 ? examList : undefined, notes: notes.trim() || undefined });
-      } else {
-        await updatePrescriptionContent(requestId, {
-          medications: medications.map((m) => m.trim()).filter(Boolean),
-          notes: notes.trim() || undefined,
-          prescriptionKind,
-        });
-      }
-      await updateConduct(requestId, { conductNotes: conductNotes.trim() || undefined, includeConductInPdf: includeInPdf });
-      const validation = await validatePrescription(requestId);
-      if (!validation.valid) {
-        const needsPatientProfile = (validation.missingFields ?? []).some(
-          (f) => f.includes('paciente.sexo') || f.includes('paciente.data_nascimento') || f.includes('paciente.endereço')
-        );
-        const needsDoctorProfile = (validation.missingFields ?? []).some(
-          (f) => f.includes('médico.endereço') || f.includes('médico.telefone')
-        );
-        const checklist = (validation.messages ?? []).join('\n• ');
-        const action = needsPatientProfile
-          ? 'O paciente precisa completar sexo, data de nascimento ou endereço no perfil.'
-          : needsDoctorProfile
-            ? 'Para assinar receita simples, é obrigatório preencher endereço e telefone profissional no seu perfil de médico.'
-            : 'Corrija os campos indicados antes de assinar.';
-        Alert.alert(
-          'Receita incompleta',
-          `${action}\n\n• ${checklist}`,
-          needsDoctorProfile
-            ? [
-                { text: 'IR AO MEU PERFIL', onPress: () => nav.push(router, '/(doctor)/profile') },
-                { text: 'OK', style: 'cancel' },
-              ]
-            : [{ text: 'OK' }]
-        );
-        setSigning(false);
-        return;
-      }
-      await signRequest(requestId, { pfxPassword: certPassword });
-      setShowSignForm(false);
-      setCertPassword('');
-      showToast({ message: 'Documento assinado digitalmente!', type: 'success' });
-      router.back();
-    } catch (e: any) {
-      if (e?.missingFields?.length || e?.messages?.length) {
-        const checklist = (e.messages ?? [e.message]).join('\n• ');
-        const needsDoctorProfile = (e.missingFields ?? []).some(
-          (f: string) => f.includes('médico.endereço') || f.includes('médico.telefone')
-        );
-        Alert.alert(
-          'Receita incompleta',
-          needsDoctorProfile
-            ? `Para assinar, preencha endereço e telefone profissional no seu perfil de médico.\n\n• ${checklist}`
-            : `Verifique os campos obrigatórios:\n\n• ${checklist}`,
-          needsDoctorProfile
-            ? [
-                { text: 'IR AO MEU PERFIL', onPress: () => nav.push(router, '/(doctor)/profile') },
-                { text: 'OK', style: 'cancel' },
-              ]
-            : [{ text: 'OK' }]
-        );
-      } else {
-        showToast({ message: getApiErrorMessage(e) || 'Senha incorreta ou erro na assinatura.', type: 'error' });
-      }
-    } finally {
-      setSigning(false);
-    }
-  };
-
-  const suggestedFromAi = useMemo(() => {
-    const fromAi = parseAiMedications(request?.aiExtractedJson ?? null);
-    const accepted = new Set(medications);
-    return fromAi.filter((m) => !accepted.has(m) && !rejectedSuggestions.has(m));
-  }, [request?.aiExtractedJson, medications, rejectedSuggestions]);
-
-  const cidResults = useMemo(() => searchCid(cidQuery), [cidQuery]);
-
-  const acceptSuggestion = (med: string) => {
-    const trimmed = med.trim();
-    if (!trimmed) return;
-    setMedications((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
-  };
-  const acceptAllSuggestions = () => {
-    const toAdd = suggestedFromAi.filter((m) => m.trim());
-    setMedications((prev) => {
-      const set = new Set(prev);
-      toAdd.forEach((m) => set.add(m.trim()));
-      return Array.from(set);
-    });
-    setRejectedSuggestions(new Set());
-  };
-  const rejectSuggestion = (med: string) => {
-    setRejectedSuggestions((prev) => new Set(prev).add(med));
-  };
-  const startEditSuggestion = (med: string, index: number) => {
-    setEditingSuggestionIndex(index);
-    setEditingSuggestionValue(med);
-  };
-  const confirmEditSuggestion = () => {
-    if (editingSuggestionIndex !== null && editingSuggestionValue.trim()) {
-      acceptSuggestion(editingSuggestionValue.trim());
-      setEditingSuggestionIndex(null);
-      setEditingSuggestionValue('');
-    }
-  };
-  const cancelEditSuggestion = () => {
-    setEditingSuggestionIndex(null);
-    setEditingSuggestionValue('');
-  };
-  const addFromCid = (med: string) => {
-    setMedications((prev) => (prev.includes(med) ? prev : [...prev, med]));
-  };
-  const addCustom = () => setMedications((prev) => [...prev, '']);
-  const removeMedication = (i: number) =>
-    setMedications((prev) => prev.filter((_, idx) => idx !== i));
-  const updateMedication = (i: number, value: string) =>
-    setMedications((prev) => {
-      const next = [...prev];
-      next[i] = value;
-      return next;
-    });
 
   if (!loading && loadError && !request) {
     return (
@@ -580,7 +260,7 @@ export default function PrescriptionEditorScreen() {
           title="Erro ao carregar pedido"
           subtitle="Verifique sua conexão e tente novamente."
           actionLabel="Tentar novamente"
-          onAction={() => { setLoadError(false); setLoading(true); loadRequest(); }}
+          onAction={retryLoad}
         />
       </SafeAreaView>
     );

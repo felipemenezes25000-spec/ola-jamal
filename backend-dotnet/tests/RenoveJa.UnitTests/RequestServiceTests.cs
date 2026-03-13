@@ -67,6 +67,15 @@ public class RequestServiceTests
         var consultationEncounterServiceMock = new Mock<IConsultationEncounterService>();
         var paymentRepositoryMock = new Mock<IPaymentRepository>();
         var auditServiceMock = new Mock<IAuditService>();
+        var requestApprovalLoggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<RequestApprovalService>>();
+        var requestApprovalService = new RequestApprovalService(
+            _requestRepoMock.Object,
+            _userRepoMock.Object,
+            _productPriceRepoMock.Object,
+            _pushDispatcherMock.Object,
+            requestEventsPublisherMock.Object,
+            _aiConductSuggestionServiceMock.Object,
+            requestApprovalLoggerMock.Object);
 
         _sut = new RequestService(
             _requestRepoMock.Object,
@@ -96,6 +105,7 @@ public class RequestServiceTests
             consultationEncounterServiceMock.Object,
             paymentRepositoryMock.Object,
             auditServiceMock.Object,
+            requestApprovalService,
             _loggerMock.Object);
     }
 

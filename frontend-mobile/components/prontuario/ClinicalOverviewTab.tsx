@@ -1,7 +1,7 @@
 /**
  * ClinicalOverviewTab — Visão geral do prontuário.
  *
- * Lista de problemas, medicamentos ativos, plano de cuidado,
+ * Condições clínicas, medicamentos ativos, plano de cuidado,
  * resumo narrativo IA e insights da Dra. Renoveja.
  */
 
@@ -43,7 +43,7 @@ export function ClinicalOverviewTab({
           icon="list"
           iconBg={colors.infoLight}
           iconColor={colors.info}
-          title="Lista de problemas"
+          title="Condições clínicas"
           borderColor={colors.info}
           
         >

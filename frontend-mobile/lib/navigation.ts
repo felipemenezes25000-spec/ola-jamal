@@ -18,7 +18,7 @@ type AnyRouter = Pick<Router, 'push' | 'replace' | 'back'>;
  * Known app routes — extend as new routes are added.
  * This allows type-safe navigation without `as any`.
  */
-type AppRoute =
+export type AppRoute =
   // Auth
   | '/(auth)/login'
   | '/(auth)/register'

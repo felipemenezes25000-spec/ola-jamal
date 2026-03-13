@@ -53,6 +53,7 @@ public class RequestService(
     IConsultationEncounterService consultationEncounterService,
     IPaymentRepository paymentRepository,
     IAuditService auditService,
+    IRequestApprovalService requestApprovalService,
     ILogger<RequestService> logger) : IRequestService
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
@@ -797,8 +798,7 @@ public class RequestService(
     }
 
     /// <summary>
-    /// Aprova uma solicitação (médico). O valor é consultado na tabela product_prices — não é informado pelo médico.
-    /// O pagamento é criado pelo paciente ao chamar POST /api/payments (PIX ou outro método via Mercado Pago).
+    /// Aprova uma solicitação (médico). Delega ao RequestApprovalService.
     /// </summary>
     public async Task<RequestResponseDto> ApproveAsync(
         Guid id,
@@ -808,36 +808,7 @@ public class RequestService(
     {
         try
         {
-            var request = await requestRepository.GetByIdAsync(id, cancellationToken);
-            if (request == null)
-                throw new KeyNotFoundException("Request not found");
-
-            var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
-            if (doctor == null || !doctor.IsDoctor())
-                throw new InvalidOperationException("Doctor not found");
-
-            if (request.DoctorId == null)
-                request.AssignDoctor(doctorId, doctor.Name);
-
-            var (productType, subtype) = GetProductTypeAndSubtype(request);
-            var priceFromDb = await productPriceRepository.GetPriceAsync(productType, subtype, cancellationToken);
-            if (!priceFromDb.HasValue || priceFromDb.Value <= 0)
-                throw new InvalidOperationException(
-                    $"Preço não encontrado para {productType}/{subtype}. Verifique a tabela product_prices.");
-
-            var price = priceFromDb.Value;
-            request.Approve(price, dto.Notes, dto.Medications, dto.Exams);
-            request = await requestRepository.UpdateAsync(request, cancellationToken);
-
-            _ = Task.Run(async () =>
-            {
-                try { await GenerateAndSetConductSuggestionAsync(request.Id, cancellationToken); }
-                catch (Exception ex) { logger.LogWarning(ex, "AI conduct suggestion failed for {RequestId}", request.Id); }
-            }, cancellationToken);
-
-            await PublishRequestUpdatedAsync(request, "Solicitação aprovada", cancellationToken);
-            await pushDispatcher.SendAsync(PushNotificationRules.ApprovedPendingPayment(request.PatientId, request.Id, request.RequestType), cancellationToken);
-
+            var request = await requestApprovalService.ApproveAsync(id, dto, doctorId, cancellationToken);
             return MapRequestToDto(request);
         }
         catch (Exception e)
@@ -847,35 +818,15 @@ public class RequestService(
         }
     }
 
-    private static (string productType, string subtype) GetProductTypeAndSubtype(MedicalRequest request)
-    {
-        var productType = request.RequestType.ToString().ToLowerInvariant();
-        var subtype = "default";
-
-        if (request.RequestType == RequestType.Prescription && request.PrescriptionType.HasValue)
-            subtype = PrescriptionTypeToDisplay(request.PrescriptionType.Value) ?? "simples";
-        // Para exame e consulta usamos "default" (preço fixo na tabela product_prices)
-
-        return (productType, subtype);
-    }
-
     /// <summary>
-    /// Rejeita uma solicitação com motivo.
+    /// Rejeita uma solicitação com motivo. Delega ao RequestApprovalService.
     /// </summary>
     public async Task<RequestResponseDto> RejectAsync(
         Guid id,
         RejectRequestDto dto,
         CancellationToken cancellationToken = default)
     {
-        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
-        if (request == null)
-            throw new KeyNotFoundException("Request not found");
-
-        request.Reject(dto.RejectionReason);
-        request = await requestRepository.UpdateAsync(request, cancellationToken);
-
-        await pushDispatcher.SendAsync(PushNotificationRules.Rejected(request.PatientId, request.Id, request.RequestType, dto.RejectionReason), cancellationToken);
-
+        var request = await requestApprovalService.RejectAsync(id, dto, cancellationToken);
         return MapRequestToDto(request);
     }
 
