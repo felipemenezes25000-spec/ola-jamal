@@ -62,35 +62,22 @@ function patchManifests(projectRoot) {
 // ─── Gradle task injetado no app/build.gradle ────────────────────────────────
 const GRADLE_TASK = `
 // ── stripManifestPackageAttrs ─────────────────────────────────────────────────
-// Remove atributo package= de manifestos de libs não migradas para AGP 8/SDK 36.
-// Tenta múltiplos caminhos para funcionar tanto local quanto no EAS Build.
-def manifestsToStrip = [
-  "node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml",
-  "node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml",
-  "node_modules/react-native-background-timer/android/src/main/AndroidManifest.xml",
-  "node_modules/@react-native-community/netinfo/android/src/main/AndroidManifest.xml",
-  "node_modules/react-native-get-random-values/android/src/main/AndroidManifest.xml",
-  "node_modules/@sentry/react-native/android/src/main/AndroidManifest.xml",
-  "node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml",
-]
-
+// Remove atributo package= de TODOS os AndroidManifest.xml de subprojetos
+// (node_modules + codegen gerados). Solução genérica para AGP 8/SDK 36.
 task stripManifestPackageAttrs {
   doLast {
-    def candidates = [
-      rootProject.projectDir.parentFile,
-      rootProject.projectDir,
-    ]
-    manifestsToStrip.each { rel ->
-      for (base in candidates) {
-        def f = new File(base, rel)
-        if (f.exists()) {
+    def appPkg = android.namespace ?: 'com.renoveja.app'
+    rootProject.subprojects.each { sub ->
+      sub.projectDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+        if (f.name == 'AndroidManifest.xml') {
           def txt = f.text
-          def updated = txt.replaceAll('(?s)(\\\\s+)package\\\\s*=\\\\s*"[^"]*"', '')
-          if (updated != txt) {
-            f.text = updated
-            println "[stripManifestPackageAttrs] ✓ Removido package= de \${f.absolutePath}"
+          if (txt.contains('package=') && !txt.contains("package=\\"\${appPkg}\\"")) {
+            def updated = txt.replaceAll('(?s)(\\\\s+)package\\\\s*=\\\\s*"[^"]*"', '')
+            if (updated != txt) {
+              f.text = updated
+              println "[stripManifestPackageAttrs] ✓ \${sub.name}: \${f.absolutePath}"
+            }
           }
-          break
         }
       }
     }
