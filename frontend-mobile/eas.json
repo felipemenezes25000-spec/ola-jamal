@@ -16,6 +16,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "prebuildCommand": "npx expo prebuild --platform android --clean --no-install",
       "android": {
         "buildType": "apk"
       },
