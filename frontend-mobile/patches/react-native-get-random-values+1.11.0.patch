@@ -1,9 +1,0 @@
-diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
---- a/android/src/main/AndroidManifest.xml
-+++ b/android/src/main/AndroidManifest.xml
-@@ -1,4 +1,3 @@
--<manifest xmlns:android="http://schemas.android.com/apk/res/android"
--          package="org.linusu">
-+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
- 
- </manifest>
