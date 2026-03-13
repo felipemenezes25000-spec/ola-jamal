@@ -25,12 +25,9 @@ export function ConnectionBanner({ responsive }: ConnectionBannerProps) {
 const styles = StyleSheet.create({
   banner: {
     borderRadius: radius.banner,
-    backgroundColor: '#FFF4E7',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warningAccent,
+    backgroundColor: colors.warningBg,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 14,
   },
   bannerText: {
     marginLeft: 10,

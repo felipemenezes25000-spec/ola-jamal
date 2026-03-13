@@ -109,13 +109,11 @@ export default function DoctorDashboard() {
     [user?.name]
   );
 
-  const dateStr = (() => {
-    const d = new Date();
-    const w = d.toLocaleDateString('pt-BR', { weekday: 'long' });
-    const short = w.includes('-') ? w.split('-')[0] : w;
-    const day = short.charAt(0).toUpperCase() + short.slice(1);
-    return `${day}, ${d.getDate()} de ${d.toLocaleDateString('pt-BR', { month: 'long' })}`;
-  })();
+  const dateStr = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 
   const queueMessage = stats.pendentes > 0
     ? `${stats.pendentes} paciente(s) aguardando.`

@@ -37,6 +37,7 @@ export function DashboardHeader({
             { fontSize: typography.greeting, lineHeight: typography.greeting * 1.2 },
           ]}
           numberOfLines={1}
+          adjustsFontSizeToFit
         >
           {greeting},
         </Text>
@@ -46,6 +47,7 @@ export function DashboardHeader({
             { fontSize: typography.name, lineHeight: typography.name * 1.2 },
           ]}
           numberOfLines={1}
+          adjustsFontSizeToFit
         >
           {name}
         </Text>
@@ -66,7 +68,7 @@ export function DashboardHeader({
             width: avatarSize,
             height: avatarSize,
             borderRadius: radius,
-            marginLeft: responsive.isCompact ? 8 : 12,
+            marginLeft: 16,
           },
           shadow.avatar,
         ]}
@@ -97,7 +99,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   headerLeft: { flex: 1, minWidth: 0 },
   greeting: {
@@ -112,7 +114,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.7,
   },
   date: {
-    marginTop: 6,
+    marginTop: 12,
     color: colors.secondary,
     fontWeight: '400',
   },

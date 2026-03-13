@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useListBottomPadding, useResponsive } from '../../lib/ui/responsive';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -49,8 +49,7 @@ export default function PatientHome() {
   const { user } = useAuth();
   const { data: requests = [], isLoading: loading, refetch } = useRequestsQuery();
   const { colors, gradients } = useAppTheme();
-  const { rs, screenPad } = useResponsive();
-  const styles = useMemo(() => makeStyles(colors, screenPad, rs), [colors, screenPad, rs]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoCard, setShowInfoCard] = useState(true);
@@ -494,7 +493,7 @@ export default function PatientHome() {
   );
 }
 
-function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => number) {
+function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -503,14 +502,14 @@ function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => 
   content: {},
   loadingContainer: {
     flex: 1,
-    paddingHorizontal: screenPad,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     paddingTop: 80,
     backgroundColor: colors.background,
   },
 
   // ─── Header v2: mais compacto e limpo ───
   header: {
-    paddingHorizontal: screenPad,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     paddingBottom: 56,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -556,24 +555,24 @@ function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => 
   // ─── Stats v2 ───
   statsRow: {
     flexDirection: 'row',
-    gap: rs(12),
-    marginTop: -36,
+    gap: 14,
+    marginTop: -48,
     marginBottom: 8,
-    paddingHorizontal: screenPad,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     zIndex: 10,
     position: 'relative',
   },
 
   // ─── AI Banner ───
   aiBannerWrap: {
-    paddingHorizontal: screenPad,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
     marginTop: 28,
   },
 
   // ─── Sections ───
   section: {
     marginTop: 28,
-    paddingHorizontal: screenPad,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -611,15 +610,15 @@ function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => 
   // ─── Actions v2 ───
   actionsSection: {
     marginTop: 32,
-    paddingHorizontal: screenPad,
+    paddingHorizontal: dsLayout.screenPaddingHorizontal,
   },
   actionsColumn: {
     flexDirection: 'column',
-    gap: rs(10),
+    gap: 12,
   },
   actionIconBox: {
-    width: rs(48),
-    height: rs(48),
+    width: 48,
+    height: 48,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -631,14 +630,14 @@ function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => 
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: dsBorderRadius.card,
-    padding: rs(16),
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.borderLight,
     ...dsShadows.card,
   },
   recordIconWrap: {
-    width: rs(44),
-    height: rs(44),
+    width: 44,
+    height: 44,
     borderRadius: 14,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
@@ -659,8 +658,8 @@ function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => 
     marginTop: 2,
   },
   recordChevron: {
-    width: rs(32),
-    height: rs(32),
+    width: 32,
+    height: 32,
     borderRadius: 10,
     backgroundColor: colors.surfaceSecondary,
     alignItems: 'center',
@@ -672,7 +671,7 @@ function makeStyles(colors: DesignColors, screenPad: number, rs: (v: number) => 
   followUpCard: {
     backgroundColor: colors.surface,
     borderRadius: dsBorderRadius.card,
-    padding: rs(16),
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.primary + '20',
     ...dsShadows.card,

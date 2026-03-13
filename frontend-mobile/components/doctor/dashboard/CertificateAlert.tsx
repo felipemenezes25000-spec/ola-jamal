@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { clinicalSoftTokens } from './clinicalSoftTokens';
-import { useResponsive } from '../../../lib/ui/responsive';
 import { haptics } from '../../../lib/haptics';
 
 const { colors, radius } = clinicalSoftTokens;
@@ -12,11 +11,9 @@ interface CertificateAlertProps {
 }
 
 export function CertificateAlert({ onPress }: CertificateAlertProps) {
-  const { rs } = useResponsive();
-  const iconSize = rs(36);
   return (
     <TouchableOpacity
-      style={[styles.certAlert, { padding: rs(14), gap: rs(12) }]}
+      style={styles.certAlert}
       onPress={() => {
         haptics.selection();
         onPress();
@@ -25,8 +22,8 @@ export function CertificateAlert({ onPress }: CertificateAlertProps) {
       accessibilityRole="button"
       accessibilityLabel="Configurar certificado digital"
     >
-      <View style={[styles.certIconWrap, { width: iconSize, height: iconSize }]}>
-        <Feather name="shield" size={rs(20)} color={colors.warningAccent} />
+      <View style={styles.certIconWrap}>
+        <Feather name="shield" size={20} color={colors.warningAccent} />
       </View>
       <View style={styles.certText}>
         <Text style={styles.certTitle}>Certificado Digital pendente</Text>
@@ -43,13 +40,17 @@ const styles = StyleSheet.create({
   certAlert: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 14,
     borderRadius: radius.banner,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: 'rgba(242, 161, 0, 0.3)',
     backgroundColor: colors.warningBg,
+    gap: 12,
   },
   certIconWrap: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: 'rgba(242, 161, 0, 0.15)',
     alignItems: 'center',

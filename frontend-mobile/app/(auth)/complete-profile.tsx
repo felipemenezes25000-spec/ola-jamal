@@ -286,7 +286,7 @@ function makeStyles(colors: DesignColors) {
     gap: spacing.sm,
   },
   numberInput: {
-    flex: 2,
+    width: 100,
   },
   complementInput: {
     flex: 1,
@@ -295,7 +295,7 @@ function makeStyles(colors: DesignColors) {
     flex: 1,
   },
   stateInput: {
-    flex: 1,
+    width: 80,
   },
   cancelBtn: {
     alignItems: 'center',

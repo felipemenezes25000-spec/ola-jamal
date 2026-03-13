@@ -26,7 +26,7 @@ import { getApiErrorMessage } from '../../lib/api-client';
 import { isDuplicateRequestError } from '../../lib/hooks/useCreateRequest';
 import { validate } from '../../lib/validation';
 import { createExamSchema } from '../../lib/validation/schemas';
-import { useStickyCtaScrollPadding, useResponsive } from '../../lib/ui/responsive';
+import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, AppInput, StepIndicator, StickyCTA } from '../../components/ui';
 import { CompatibleImage } from '../../components/CompatibleImage';
@@ -57,7 +57,6 @@ export default function NewExam() {
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { colors } = useAppTheme();
-  const { rs, isCompact } = useResponsive();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateExamCompleteness({
@@ -301,7 +300,7 @@ export default function NewExam() {
         {currentStep === 1 && (
           <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
         )}
-        <View style={[styles.typeRow, { gap: rs(12) }, oneColumn && styles.typeRowOneCol]}>
+        <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
           {EXAM_TYPES.map(type => {
             const price = EXAM_TYPE_PRICES[type.key];
             return (
@@ -386,11 +385,11 @@ export default function NewExam() {
           Envie apenas fotos do documento (pedido de exame ou laudo). Fotos de pessoas, animais ou outros objetos serão rejeitadas.
         </Text>
         <View style={styles.photoRow}>
-          <TouchableOpacity style={[styles.photoButton, isCompact && { minHeight: rs(90) }]} onPress={pickImage}>
+          <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
             <Ionicons name="camera" size={28} color={colors.primary} />
             <Text style={styles.photoText}>Câmera</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.photoButton, isCompact && { minHeight: rs(90) }]} onPress={pickFromGallery}>
+          <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
             <Ionicons name="image" size={28} color={colors.primary} />
             <Text style={styles.photoText}>Galeria</Text>
           </TouchableOpacity>

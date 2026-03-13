@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
-import { useResponsive } from '../../lib/ui/responsive';
 
 type CardVariant = 'default' | 'elevated' | 'outlined';
 
@@ -24,8 +23,7 @@ export function AppCard({
   onPress,
   accessibilityLabel,
 }: AppCardProps) {
-  const { colors, borderRadius, shadows } = useAppTheme();
-  const { rs } = useResponsive();
+  const { colors, borderRadius, shadows, spacing } = useAppTheme();
 
   const cardStyles: ViewStyle = {
     backgroundColor: colors.surface,
@@ -39,7 +37,7 @@ export function AppCard({
     ...(variant === 'elevated' ? shadows.elevated : {}),
   } as ViewStyle;
 
-  const paddingStyle = !noPadding ? { padding: rs(16) } : undefined;
+  const paddingStyle = !noPadding ? { padding: spacing.md } : undefined;
 
   const combinedStyles: StyleProp<ViewStyle> = [
     cardStyles,

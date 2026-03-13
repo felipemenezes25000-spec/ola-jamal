@@ -15,11 +15,9 @@ interface QueueCardProps {
 }
 
 export function QueueCard({ message, onPress, responsive }: QueueCardProps) {
-  const { typography, heights, iconSizes } = responsive;
-  const iconOuter = Math.round(iconSizes.queueIcon * 2.2);
-  const iconInner = Math.round(iconSizes.queueIcon * 1.6);
+  const { typography, heights } = responsive;
   return (
-    <View style={[styles.queueCard, { minHeight: heights.queueCardMin, padding: responsive.isCompact ? 14 : 16 }]}>
+    <View style={[styles.queueCard, { minHeight: heights.queueCardMin }]}>
       <LinearGradient
         colors={colors.queueGradient}
         start={{ x: 0, y: 0 }}
@@ -27,12 +25,15 @@ export function QueueCard({ message, onPress, responsive }: QueueCardProps) {
         style={StyleSheet.absoluteFill}
       />
 
+      <View style={styles.queueShapeOne} />
+      <View style={styles.queueShapeTwo} />
+
       <View style={styles.queueRow}>
-        <View style={[styles.queueIconOuter, { width: iconOuter, height: iconOuter, borderRadius: iconOuter / 2, marginRight: responsive.isCompact ? 10 : 12 }]}>
-          <View style={[styles.queueIconInner, { width: iconInner, height: iconInner, borderRadius: iconInner / 2 }]}>
+        <View style={styles.queueIconOuter}>
+          <View style={styles.queueIconInner}>
             <MaterialCommunityIcons
               name="check-all"
-              size={iconSizes.queueIcon}
+              size={24}
               color="#FFFFFF"
             />
           </View>
@@ -65,7 +66,7 @@ export function QueueCard({ message, onPress, responsive }: QueueCardProps) {
             <Text style={[styles.queueButtonText, { fontSize: typography.queueButton }]} numberOfLines={1}>
               Ver consultas agendadas
             </Text>
-            <Feather name="chevron-right" size={18} color={colors.queueButtonText} />
+            <Feather name="chevron-right" size={22} color={colors.queueButtonText} />
           </TouchableOpacity>
         </View>
       </View>
@@ -78,18 +79,45 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: radius.hero,
-    marginBottom: 16,
+    padding: 22,
+    marginBottom: 20,
+  },
+  queueShapeOne: {
+    position: 'absolute',
+    right: -40,
+    top: 35,
+    width: 230,
+    height: 230,
+    borderRadius: 120,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    transform: [{ rotate: '-20deg' }],
+  },
+  queueShapeTwo: {
+    position: 'absolute',
+    left: -35,
+    top: -30,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   queueRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   queueIconOuter: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     backgroundColor: colors.queueIconOuter,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 16,
   },
   queueIconInner: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: colors.queueIconInner,
     alignItems: 'center',
     justifyContent: 'center',
@@ -104,12 +132,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   queueText: {
-    marginTop: 6,
+    marginTop: 10,
     color: '#4D6279',
     fontWeight: '400',
   },
   queueButton: {
-    marginTop: 12,
+    marginTop: 22,
     borderRadius: radius.button,
     backgroundColor: colors.queueButtonBg,
     borderWidth: 1,

@@ -13,9 +13,10 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useListBottomPadding, useResponsive } from '../../lib/ui/responsive';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { RequestResponseDto } from '../../types/database';
@@ -30,6 +31,8 @@ import { FadeIn } from '../../components/ui/FadeIn';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
 import { motionTokens } from '../../lib/ui/motion';
+
+const pad = doctorDS.screenPaddingHorizontal;
 
 const ListSeparator = () => null;
 
@@ -119,8 +122,7 @@ export default function DoctorQueue() {
   const [searchFocused, setSearchFocused] = useState(false);
 
   const { colors, gradients } = useAppTheme({ role: 'doctor' });
-  const { screenPad } = useResponsive();
-  const styles = useMemo(() => makeStyles(colors, screenPad), [colors, screenPad]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { subscribe, isConnected } = useRequestsEvents();
   const invalidateDoctorRequests = useInvalidateDoctorRequests();
@@ -371,7 +373,7 @@ export default function DoctorQueue() {
   );
 }
 
-function makeStyles(colors: DesignColors, pad: number) {
+function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {

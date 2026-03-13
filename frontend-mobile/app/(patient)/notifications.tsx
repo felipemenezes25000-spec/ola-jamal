@@ -11,11 +11,12 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { nav } from '../../lib/navigation';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useListBottomPadding, useResponsive } from '../../lib/ui/responsive';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
+import { uiTokens } from '../../lib/ui/tokens';
 import { getNotifications, markNotificationAsRead } from '../../lib/api';
 import { NotificationResponseDto } from '../../types/database';
 import { useAuth } from '../../contexts/AuthContext';
@@ -128,8 +129,7 @@ export default function PatientNotifications() {
 
   const { colors, gradients, scheme } = useAppTheme();
   const isDark = scheme === 'dark';
-  const { screenPad, rs } = useResponsive();
-  const styles = useMemo(() => makeStyles(colors, isDark, screenPad, rs), [colors, isDark, screenPad, rs]);
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
 
   // ── FILTRO POR ROLE: só mostra notificações destinadas ao paciente ──
   const notifications = useMemo(() => {
@@ -368,14 +368,14 @@ export default function PatientNotifications() {
   );
 }
 
-function makeStyles(colors: DesignColors, isDark: boolean, screenPad: number, rs: (v: number) => number) {
+function makeStyles(colors: DesignColors, isDark: boolean) {
   return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
   headerWrap: {
-    paddingHorizontal: screenPad,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: 8,
   },
   headerClip: {
@@ -391,7 +391,7 @@ function makeStyles(colors: DesignColors, isDark: boolean, screenPad: number, rs
     justifyContent: 'center',
   },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: screenPad, paddingTop: 6 },
+  listContent: { paddingHorizontal: uiTokens.screenPaddingHorizontal, paddingTop: 6 },
   groupLabel: {
     fontSize: 12,
     fontWeight: '700',
@@ -421,8 +421,8 @@ function makeStyles(colors: DesignColors, isDark: boolean, screenPad: number, rs
     borderLeftColor: colors.primary,
   },
   iconContainer: {
-    width: rs(38),
-    height: rs(38),
+    width: 42,
+    height: 42,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',

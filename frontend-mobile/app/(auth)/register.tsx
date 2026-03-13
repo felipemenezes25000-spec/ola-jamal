@@ -13,7 +13,6 @@ import { nav } from '../../lib/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { useResponsive } from '../../lib/ui/responsive';
 import { spacing } from '../../lib/designSystem';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
@@ -44,8 +43,7 @@ export default function Register() {
   const router = useRouter();
   const { signUp, signUpDoctor, refreshUser } = useAuth();
   const { colors } = useAppTheme();
-  const { rs } = useResponsive();
-  const styles = useMemo(() => makeStyles(colors, rs), [colors, rs]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -629,7 +627,7 @@ export default function Register() {
    ══════════════════════════════════════════ */
 const CARD_RADIUS = 24;
 
-function makeStyles(colors: DesignColors, rs: (v: number) => number) {
+function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
   /* ── Header ── */
   header: {
@@ -660,7 +658,7 @@ function makeStyles(colors: DesignColors, rs: (v: number) => number) {
     flexDirection: 'row',
     gap: 10,
     marginBottom: s.lg,
-    paddingHorizontal: rs(8),
+    paddingHorizontal: 2,
   },
   roleBtn: {
     flex: 1,

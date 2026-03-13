@@ -20,7 +20,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
 import type { DesignColors, DesignTokens } from '../../lib/designSystem';
-import { useResponsive } from '../../lib/ui/responsive';
 import { AppInput, AppButton } from '../../components/ui';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { Logo } from '../../components/Logo';
@@ -40,8 +39,7 @@ export default function Login() {
   const scrollRef = useRef<ScrollView>(null);
   const { colors, shadows } = useAppTheme();
   const { isDark } = useColorSchemeContext();
-  const { rs } = useResponsive();
-  const styles = useMemo(() => makeStyles(colors, shadows, rs), [colors, shadows, rs]);
+  const styles = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
 
   const AUTH_GRADIENT: [string, string, ...string[]] = isDark
     ? [colors.background, colors.surfaceSecondary, colors.primaryDark]
@@ -255,7 +253,7 @@ export default function Login() {
   );
 }
 
-function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], rs: (v: number) => number) {
+function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
   return StyleSheet.create({
   gradient: { flex: 1 },
   safeArea: { flex: 1 },
@@ -264,7 +262,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], rs: 
 
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: rs(20),
+    paddingHorizontal: 20,
     paddingTop: 20,
     justifyContent: 'center',
   },
@@ -273,13 +271,13 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], rs: 
   card: {
     backgroundColor: colors.surface,
     borderRadius: 24,
-    paddingHorizontal: rs(20),
+    paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 24,
     ...shadows.elevated,
   },
   cardSmall: {
-    paddingHorizontal: rs(16),
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 18,
   },

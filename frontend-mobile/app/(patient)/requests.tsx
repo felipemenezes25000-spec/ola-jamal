@@ -12,11 +12,12 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useListBottomPadding, useResponsive } from '../../lib/ui/responsive';
+import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
+import { uiTokens } from '../../lib/ui/tokens';
 import { sortRequestsByNewestFirst } from '../../lib/api';
 import { RequestResponseDto, RequestType } from '../../types/database';
 import RequestCard from '../../components/RequestCard';
@@ -50,8 +51,7 @@ export default function PatientRequests() {
   const debouncedSearch = useDebounce(search, 300);
 
   const { colors, gradients } = useAppTheme();
-  const { screenPad } = useResponsive();
-  const styles = useMemo(() => makeStyles(colors, screenPad), [colors, screenPad]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const {
     data: requests = [],
@@ -235,11 +235,11 @@ export default function PatientRequests() {
   );
 }
 
-function makeStyles(colors: DesignColors, screenPad: number) {
+function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   headerWrap: {
-    paddingHorizontal: screenPad,
+    paddingHorizontal: uiTokens.screenPaddingHorizontal,
     paddingBottom: 8,
   },
   headerClip: {
@@ -251,7 +251,7 @@ function makeStyles(colors: DesignColors, screenPad: number) {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    marginHorizontal: screenPad,
+    marginHorizontal: uiTokens.screenPaddingHorizontal,
     marginTop: 6,
     borderRadius: borderRadius.pill,
     paddingHorizontal: spacing.md,
@@ -265,7 +265,7 @@ function makeStyles(colors: DesignColors, screenPad: number) {
   errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   retryBtn: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: borderRadius.md },
   retryText: { fontSize: 15, fontWeight: '600', color: colors.white },
-  listContent: { paddingTop: 14, paddingHorizontal: screenPad },
+  listContent: { paddingTop: 14, paddingHorizontal: uiTokens.screenPaddingHorizontal },
   listContentEmpty: { flexGrow: 1 },
   });
 }
