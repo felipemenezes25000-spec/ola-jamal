@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,21 +5,16 @@ import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { layout as dsLayout } from '../../lib/designSystem';
 import { FadeIn } from '../../components/ui/FadeIn';
-import { AppCard } from '../../components/ui/AppCard';
-import { AppButton } from '../../components/ui/AppButton';
-import { SectionHeader } from '../../components/ui/SectionHeader';
-import { FormField } from '../../components/ui/FormField';
-import { FormSection } from '../../components/ui/FormSection';
-import { AppInput } from '../../components/ui/AppInput';
-import { haptics } from '../../lib/haptics';
+import { searchCatmat, type CatmatMedicamento } from '../../lib/sus-references';
+
 const SUS_GREEN = '#16A34A';
 
 type Tab = 'soap' | 'vitais' | 'prescricao' | 'historico';
 
 export default function AtendimentoScreen() {
   const insets = useSafeAreaInsets();
+  const listPadding = useListBottomPadding();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<Tab>('soap');
@@ -44,7 +38,18 @@ export default function AtendimentoScreen() {
   // Prescrição
   const [medicamento, setMedicamento] = useState('');
   const [posologia, setPosologia] = useState('');
-  const [prescricoes, setPrescricoes] = useState<{ med: string; pos: string }[]>([]);
+  const [prescricoes, setPrescricoes] = useState<{ med: string; pos: string; codigo?: string }[]>([]);
+  const [catmatResults, setCatmatResults] = useState<CatmatMedicamento[]>([]);
+
+  const handleMedChange = (text: string) => {
+    setMedicamento(text);
+    setCatmatResults(searchCatmat(text));
+  };
+
+  const selectCatmat = (item: CatmatMedicamento) => {
+    setMedicamento(`${item.nome} ${item.concentracao} (${item.forma})`);
+    setCatmatResults([]);
+  };
 
   const addPrescricao = () => {
     if (!medicamento.trim()) return;
@@ -118,7 +123,7 @@ export default function AtendimentoScreen() {
         ))}
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
         {tab === 'soap' && (
           <FadeIn visible>
             <SoapField label="Subjetivo (Queixa)" value={subjetivo} onChangeText={setSubjetivo} lines={4} />
@@ -174,8 +179,21 @@ export default function AtendimentoScreen() {
         {tab === 'prescricao' && (
           <FadeIn visible>
             <View style={styles.fieldGroup}>
-              <FieldLabel text="Medicamento" />
-              <TextInput style={styles.input} value={medicamento} onChangeText={setMedicamento} placeholder="Ex: Dipirona 500mg" placeholderTextColor={colors.textMuted} />
+              <FieldLabel text="Medicamento (CATMAT/RENAME)" />
+              <TextInput style={styles.input} value={medicamento} onChangeText={handleMedChange} placeholder="Digite para buscar na tabela RENAME..." placeholderTextColor={colors.textMuted} />
+              {catmatResults.length > 0 && (
+                <View style={styles.autocompleteList}>
+                  {catmatResults.map((item, idx) => (
+                    <Pressable key={idx} style={styles.autocompleteItem} onPress={() => selectCatmat(item)}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.autocompleteName}>{item.nome} {item.concentracao}</Text>
+                        <Text style={styles.autocompleteDetail}>{item.forma} • CATMAT: {item.codigo} • {item.grupo}</Text>
+                      </View>
+                      <Ionicons name="add-circle-outline" size={18} color={SUS_GREEN} />
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
             <View style={styles.fieldGroup}>
               <FieldLabel text="Posologia" />
@@ -276,6 +294,10 @@ const makeStyles = (colors: DesignColors) => StyleSheet.create({
   prescItemDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: SUS_GREEN },
   prescMed: { fontSize: 14, fontWeight: '600', color: colors.text },
   prescPos: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  autocompleteList: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight, borderRadius: 10, marginTop: 4, marginBottom: 8, overflow: 'hidden' },
+  autocompleteItem: { flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8, borderBottomWidth: 0.5, borderBottomColor: colors.borderLight },
+  autocompleteName: { fontSize: 13, fontWeight: '600', color: colors.text },
+  autocompleteDetail: { fontSize: 10, color: colors.textSecondary, marginTop: 1 },
   histCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.borderLight },
   histHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   histDate: { fontSize: 13, fontWeight: '700', color: SUS_GREEN },
