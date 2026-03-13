@@ -2,22 +2,25 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "backend-dotnet",
-      "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "dotnet run --project backend-dotnet/src/RenoveJa.Api"],
-      "port": 5000
-    },
-    {
       "name": "frontend-web",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["frontend-web/node_modules/vite/bin/vite.js", "--config", "frontend-web/vite.config.ts", "--host"],
-      "port": 5173
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "cwd": "frontend-web"
     },
     {
       "name": "frontend-mobile",
-      "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "cd frontend-mobile && npm run start"],
-      "port": 8081
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["run", "start"],
+      "port": 8081,
+      "cwd": "frontend-mobile"
+    },
+    {
+      "name": "backend-dotnet",
+      "runtimeExecutable": "dotnet.exe",
+      "runtimeArgs": ["run"],
+      "port": 8080,
+      "cwd": "backend-dotnet/src/RenoveJa.Api"
     }
   ]
 }
