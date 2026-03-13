@@ -17,11 +17,12 @@ function withDailyPipForeground(config) {
   config = withAndroidManifest(config, (config) => {
     const manifest = config.modResults;
     manifest.$ = manifest.$ || {};
-    // Garante namespace tools para tools:node e tools:replace
     if (!manifest.$['xmlns:tools']) {
       manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
     }
-    // Resolve conflito package: @react-native-google-signin declara package no manifest
+    // Resolve conflito package: tools:replace exige valor declarado no manifest principal
+    const pkg = config.expo?.android?.package ?? config.android?.package ?? 'com.renoveja.app';
+    manifest.$['package'] = pkg;
     manifest.$['tools:replace'] = 'package';
     const application = AndroidConfig.Manifest.getMainApplication(manifest);
     if (!application?.service) return config;
