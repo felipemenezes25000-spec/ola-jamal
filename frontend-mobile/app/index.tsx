@@ -26,7 +26,7 @@ export default function SplashScreen() {
         if (user) {
           if (user.role === 'patient') {
             router.replace('/(patient)/home');
-          } else if (user.role === 'sus') {
+          } else if (user.role === 'sus' || user.role === 'admin') {
             router.replace('/(sus)/dashboard');
           } else if (user.role === 'doctor' && !user.profileComplete) {
             router.replace('/(auth)/complete-doctor');

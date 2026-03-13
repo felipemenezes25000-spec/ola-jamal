@@ -118,6 +118,8 @@ export default function Login() {
         ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
         : user.role === 'doctor'
         ? '/(doctor)/dashboard'
+        : user.role === 'admin' || user.role === 'sus'
+        ? '/(sus)/dashboard'
         : '/(patient)/home';
       setTimeout(() => nav.replace(router, dest as any), 0);
     } catch (error: unknown) {
