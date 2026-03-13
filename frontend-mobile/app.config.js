@@ -88,6 +88,7 @@ export default {
           "enableScreenShare": false
         }
       ],
+      "./plugins/withFixLibraryManifests.js",
       "./plugins/withDailyPipForeground.js",
       [
         "expo-build-properties",
