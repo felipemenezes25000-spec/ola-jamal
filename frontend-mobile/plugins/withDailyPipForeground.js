@@ -2,9 +2,12 @@
  * Config plugin para manter câmera/microfone ativos em PiP (Picture-in-Picture).
  * Adiciona phoneCall ao foregroundServiceType do Daily e permissão FOREGROUND_SERVICE_PHONE_CALL.
  * Necessário para chamadas continuarem em background/PiP no Android.
+ * Remove duplicatas do DailyOngoingMeetingForegroundService (config plugin + lib podem adicionar).
  * @see https://docs.daily.co/reference/android/installation
  */
 const { withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
+
+const DAILY_SERVICE_NAME = 'com.daily.reactlibrary.DailyOngoingMeetingForegroundService';
 
 function withDailyPipForeground(config) {
   config = AndroidConfig.Permissions.withPermissions(config, [
@@ -16,8 +19,19 @@ function withDailyPipForeground(config) {
     const application = AndroidConfig.Manifest.getMainApplication(manifest);
     if (!application?.service) return config;
 
+    // Remove duplicatas do DailyOngoingMeetingForegroundService (evita manifest merger failure)
+    let seen = false;
+    application.service = application.service.filter((s) => {
+      const name = s?.$?.['android:name'] ?? '';
+      if (name === DAILY_SERVICE_NAME) {
+        if (seen) return false;
+        seen = true;
+      }
+      return true;
+    });
+
     const service = application.service.find(
-      (s) => (s?.$?.['android:name'] ?? '') === 'com.daily.reactlibrary.DailyOngoingMeetingForegroundService'
+      (s) => (s?.$?.['android:name'] ?? '') === DAILY_SERVICE_NAME
     );
     if (service?.$) {
       const current = service.$['android:foregroundServiceType'] || '';
