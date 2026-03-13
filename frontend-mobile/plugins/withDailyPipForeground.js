@@ -31,7 +31,7 @@ function withDailyPipForeground(config) {
     });
 
     const service = application.service.find(
-      (s) => (s?.$?.['android:name'] ?? '') === DAILY_SERVICE_NAME
+      (s) => (s?.$?.['android:name'] ?? '') === DAILY_SERVICE_NAME,
     );
     if (service?.$) {
       const current = service.$['android:foregroundServiceType'] || '';

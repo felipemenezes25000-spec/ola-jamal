@@ -41,18 +41,24 @@ function log(
   ) as Record<string, string | number | boolean>;
 
   if (typeof Sentry !== 'undefined' && Sentry.logger && shouldSendToSentry(level)) {
-    const fn = Sentry.logger[level];
+    const logger = Sentry.logger;
+    const fn = logger[level as keyof typeof logger];
     if (typeof fn === 'function') {
-      fn.call(Sentry.logger, message, safeAttrs);
+      fn.call(logger, message, safeAttrs);
     }
   }
 
   if (__DEV__) {
     const prefix = `[${category}]`;
     const args = [prefix, message, ...(Object.keys(safeAttrs).length ? [safeAttrs] : [])];
-    if (level === 'error' || level === 'fatal') console.error(...args);
-    else if (level === 'warn') console.warn(...args);
-    else console.log(...args);
+    if (level === 'error' || level === 'fatal') {
+      console.error(...args);
+    } else if (level === 'warn') {
+      console.warn(...args);
+    } else {
+      // eslint-disable-next-line no-console -- log intencional em __DEV__
+      console.log(...args);
+    }
   }
 }
 
