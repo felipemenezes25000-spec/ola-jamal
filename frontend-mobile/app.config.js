@@ -4,6 +4,9 @@ import { join } from "path";
 
 const googleServicesPath = join(__dirname, "google-services.json");
 
+// EAS_BUILD_PROFILE: development | preview | production
+const isPreviewBuild = process.env.EAS_BUILD_PROFILE === "preview";
+
 export default {
   expo: {
     name: "RenoveJá",
@@ -20,7 +23,13 @@ export default {
       backgroundColor: "#0EA5E9"
     },
     updates: {
-      url: "https://u.expo.dev/beb0f102-cc22-45a9-80a6-7e735968e6d2"
+      url: "https://u.expo.dev/beb0f102-cc22-45a9-80a6-7e735968e6d2",
+      // Desabilita OTA no preview para evitar "Invalid manifest" no EAS build
+      // (meta-data com JSON no AndroidManifest pode falhar em validações)
+      enabled: !isPreviewBuild,
+      requestHeaders: {
+        "expo-runtime-version": "1.0.0"
+      }
     },
     ios: {
       supportsTablet: true,
