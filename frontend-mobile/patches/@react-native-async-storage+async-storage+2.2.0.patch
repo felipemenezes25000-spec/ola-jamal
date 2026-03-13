@@ -1,7 +1,6 @@
-diff --git a/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml b/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml
-index 1111111..2222222 100644
---- a/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml
-+++ b/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml
+diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
+--- a/android/src/main/AndroidManifest.xml
++++ b/android/src/main/AndroidManifest.xml
 @@ -1,5 +1,4 @@
  
  <manifest xmlns:android="http://schemas.android.com/apk/res/android"

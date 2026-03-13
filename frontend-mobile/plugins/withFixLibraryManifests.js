@@ -23,7 +23,6 @@ const fs = require('fs');
 
 // ─── Lista de manifestos de bibliotecas com package= hardcoded ───────────────
 const LIBRARY_MANIFESTS_RELATIVE = [
-  'node_modules/@react-native-google-signin/google-signin/android/src/main/AndroidManifest.xml',
   'node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml',
   'node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml',
   'node_modules/react-native-background-timer/android/src/main/AndroidManifest.xml',
@@ -66,7 +65,6 @@ const GRADLE_TASK = `
 // Remove atributo package= de manifestos de libs não migradas para AGP 8/SDK 36.
 // Tenta múltiplos caminhos para funcionar tanto local quanto no EAS Build.
 def manifestsToStrip = [
-  "node_modules/@react-native-google-signin/google-signin/android/src/main/AndroidManifest.xml",
   "node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml",
   "node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml",
   "node_modules/react-native-background-timer/android/src/main/AndroidManifest.xml",

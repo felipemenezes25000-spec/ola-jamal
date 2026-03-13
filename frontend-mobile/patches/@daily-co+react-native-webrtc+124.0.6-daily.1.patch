@@ -1,8 +1,7 @@
-diff --git a/node_modules/@daily-co/react-native-webrtc/android/build.gradle b/node_modules/@daily-co/react-native-webrtc/android/build.gradle
-index 033a226..7114ab3 100644
---- a/node_modules/@daily-co/react-native-webrtc/android/build.gradle
-+++ b/node_modules/@daily-co/react-native-webrtc/android/build.gradle
-@@ -31,6 +31,6 @@ android {
+diff --git a/android/build.gradle b/android/build.gradle
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -31,6 +31,6 @@
  
  dependencies {
      implementation "com.facebook.react:react-android:+"
@@ -10,10 +9,9 @@ index 033a226..7114ab3 100644
 +    api 'org.jitsi:webrtc:124.0.0'
      implementation "androidx.core:core:1.7.0"
  }
-diff --git a/node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml b/node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml
-index 1111111..2222222 100644
---- a/node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml
-+++ b/node_modules/@daily-co/react-native-webrtc/android/src/main/AndroidManifest.xml
+diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
+--- a/android/src/main/AndroidManifest.xml
++++ b/android/src/main/AndroidManifest.xml
 @@ -1,5 +1,4 @@
  <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 -          package="com.oney.WebRTCModule"

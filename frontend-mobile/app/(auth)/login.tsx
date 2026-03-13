@@ -15,8 +15,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
-import Constants from 'expo-constants';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
@@ -35,16 +33,9 @@ const LOG_RENDER = __DEV__ && false;
 const WHATSAPP_NUMBER = '5511986318000';
 const SMALL_SCREEN_HEIGHT = 700;
 
-// Fallback Google OAuth — garante botão ativo mesmo quando extra/env não carrega (APK antigo, cache)
-const GOOGLE_FALLBACK = {
-  web: '598286841038-j095u3iopiqltpgbvu0f5od924etobk7.apps.googleusercontent.com',
-  android: '598286841038-780e9kksjoscthg0g611virnchlb7kcr.apps.googleusercontent.com',
-  ios: '598286841038-28ili7c5stg5524sicropmm7s7nkq936.apps.googleusercontent.com',
-};
-
 export default function Login() {
   const router = useRouter();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn } = useAuth();
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
   const { colors, shadows } = useAppTheme();
@@ -59,22 +50,6 @@ export default function Login() {
   const { height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowHeight < SMALL_SCREEN_HEIGHT;
 
-  const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
-  const googleWebClientId =
-    (extra?.googleWebClientId || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim() || GOOGLE_FALLBACK.web;
-  const googleAndroidClientId =
-    (extra?.googleAndroidClientId || process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '').trim() || GOOGLE_FALLBACK.android;
-  const googleIosClientId =
-    (extra?.googleIosClientId || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || GOOGLE_FALLBACK.ios;
-
-  const hasGoogleConfig = !!(googleWebClientId || googleAndroidClientId || googleIosClientId);
-
-  useEffect(() => {
-    if (googleWebClientId) {
-      GoogleSignin.configure({ webClientId: googleWebClientId, offlineAccess: false });
-    }
-  }, [googleWebClientId]);
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -87,7 +62,6 @@ export default function Login() {
       }
     });
   }, []);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const renderCount = useRef(0);
@@ -153,49 +127,6 @@ export default function Login() {
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
   }, []);
-
-  const handleGooglePress = useCallback(async () => {
-    if (!hasGoogleConfig || !googleWebClientId?.trim()) {
-      if (__DEV__) {
-        console.warn('[Login] Google OAuth não configurado.', {
-          googleWebClientId, googleAndroidClientId, googleIosClientId,
-        });
-      }
-      Alert.alert(
-        'Login com Google indisponível',
-        'No momento o login com Google não está disponível neste dispositivo. Tente entrar com email e senha.'
-      );
-      return;
-    }
-    setGoogleLoading(true);
-    try {
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-      if ((response as { type?: string })?.type === 'cancelled') return;
-      const idToken = (response as { data?: { idToken?: string }; idToken?: string })?.data?.idToken
-        ?? (response as { idToken?: string })?.idToken;
-      if (!idToken) throw new Error('Google não retornou o ID Token.');
-      const user = await signInWithGoogle(idToken);
-      const dest = !user.profileComplete
-        ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
-        : user.role === 'doctor'
-        ? '/(doctor)/dashboard'
-        : '/(patient)/home';
-      setTimeout(() => nav.replace(router, dest as any), 0);
-    } catch (error: unknown) {
-      const err = error as { code?: string; message?: string };
-      if (err?.code === statusCodes.SIGN_IN_CANCELLED) return;
-      if (err?.code === statusCodes.IN_PROGRESS) return;
-      if (err?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        Alert.alert('Erro', 'Google Play Services não disponível neste dispositivo.');
-        return;
-      }
-      const msg = err?.message || String(error) || 'Erro ao fazer login com Google.';
-      Alert.alert('Erro no login', msg);
-    } finally {
-      setGoogleLoading(false);
-    }
-  }, [hasGoogleConfig, googleWebClientId, googleAndroidClientId, googleIosClientId, signInWithGoogle, router]);
 
   const openWhatsApp = useCallback(() => {
     const url = `https://wa.me/${WHATSAPP_NUMBER}`;
@@ -269,36 +200,6 @@ export default function Login() {
         size="lg"
         style={styles.loginButtonWrap}
       />
-
-      {/* Separador OU */}
-      <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>ou continue com</Text>
-        <View style={styles.dividerLine} />
-      </View>
-
-      {/* Botões sociais lado a lado */}
-      <View style={styles.socialRow}>
-        <AppButton
-          title="Google"
-          onPress={handleGooglePress}
-          loading={googleLoading}
-          disabled={!hasGoogleConfig || googleLoading}
-          variant="outline"
-          fullWidth
-          icon="logo-google"
-          style={styles.socialButton}
-        />
-        <AppButton
-          title="Apple (em breve)"
-          onPress={() => {}}
-          disabled
-          variant="outline"
-          fullWidth
-          icon="logo-apple"
-          style={styles.socialButton}
-        />
-      </View>
 
       {/* Rodapé */}
       <View style={styles.footerSection}>
@@ -437,36 +338,6 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], rs: 
   loginButtonWrap: {
     marginTop: 8,
     marginBottom: 4,
-  },
-
-  // Separador v2
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 18,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.borderLight,
-  },
-  dividerText: {
-    fontSize: 12,
-    fontWeight: '500',
-    fontFamily: 'PlusJakartaSans_500Medium',
-    color: colors.textMuted,
-  },
-
-  // Social v2: botões lado a lado
-  socialRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  socialButton: {
-    flex: 1,
-    height: 48,
-    marginBottom: 12,
   },
 
   // Footer v2: mais espaço

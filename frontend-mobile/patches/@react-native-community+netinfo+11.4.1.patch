@@ -1,8 +1,7 @@
-diff --git a/node_modules/@react-native-community/netinfo/android/src/main/AndroidManifest.xml b/node_modules/@react-native-community/netinfo/android/src/main/AndroidManifest.xml
-index 1111111..2222222 100644
---- a/node_modules/@react-native-community/netinfo/android/src/main/AndroidManifest.xml
-+++ b/node_modules/@react-native-community/netinfo/android/src/main/AndroidManifest.xml
-@@ -1,8 +1,7 @@
+diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
+--- a/android/src/main/AndroidManifest.xml
++++ b/android/src/main/AndroidManifest.xml
+@@ -1,7 +1,6 @@
  
  <manifest
  	xmlns:android="http://schemas.android.com/apk/res/android"
@@ -10,4 +9,3 @@ index 1111111..2222222 100644
 +	>
  
  	<uses-permission
- 		android:name="android.permission.ACCESS_NETWORK_STATE" />

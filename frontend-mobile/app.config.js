@@ -64,12 +64,6 @@ export default {
       favicon: "./assets/favicon.png"
     },
     plugins: [
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          iosUrlScheme: "com.googleusercontent.apps.598286841038-28ili7c5stg5524sicropmm7s7nkq936"
-        }
-      ],
       "expo-router",
       "expo-font",
       "expo-pip",
@@ -105,10 +99,6 @@ export default {
     extra: {
       // No dispositivo físico use o IP da sua máquina: EXPO_PUBLIC_API_URL=http://192.168.15.69:5000
       apiBaseUrl: process.env.EXPO_PUBLIC_API_URL || "",
-      // Google OAuth — fallback para quando .env não carrega (Expo Go, builds antigos)
-      googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "598286841038-j095u3iopiqltpgbvu0f5od924etobk7.apps.googleusercontent.com",
-      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "598286841038-780e9kksjoscthg0g611virnchlb7kcr.apps.googleusercontent.com",
-      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "598286841038-28ili7c5stg5524sicropmm7s7nkq936.apps.googleusercontent.com",
       eas: {
         projectId: "beb0f102-cc22-45a9-80a6-7e735968e6d2"
       }
