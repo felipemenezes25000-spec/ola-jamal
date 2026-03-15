@@ -1,11 +1,11 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class CarePlanTaskRepository(SupabaseClient supabase) : ICarePlanTaskRepository
+public class CarePlanTaskRepository(PostgresClient supabase) : ICarePlanTaskRepository
 {
     private const string TasksTable = "care_plan_tasks";
     private const string FilesTable = "care_plan_task_files";

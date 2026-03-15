@@ -1,10 +1,10 @@
-using RenoveJa.Domain.Interfaces;
+﻿using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class OutboxEventRepository(SupabaseClient supabase) : IOutboxEventRepository
+public class OutboxEventRepository(PostgresClient supabase) : IOutboxEventRepository
 {
     private const string TableName = "outbox_events";
 

@@ -1,11 +1,11 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class CarePlanRepository(SupabaseClient supabase) : ICarePlanRepository
+public class CarePlanRepository(PostgresClient supabase) : ICarePlanRepository
 {
     private const string TableName = "care_plans";
 

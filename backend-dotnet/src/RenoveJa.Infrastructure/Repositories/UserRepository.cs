@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de usuários (pacientes e médicos) via Supabase.
 /// </summary>
-public class UserRepository(SupabaseClient supabase) : IUserRepository
+public class UserRepository(PostgresClient supabase) : IUserRepository
 {
     private const string TableName = "users";
 

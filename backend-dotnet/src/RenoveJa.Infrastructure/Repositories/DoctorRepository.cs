@@ -1,15 +1,15 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de perfis de médicos via Supabase.
 /// </summary>
-public class DoctorRepository(SupabaseClient supabase) : IDoctorRepository
+public class DoctorRepository(PostgresClient supabase) : IDoctorRepository
 {
     private const string TableName = "doctor_profiles";
 

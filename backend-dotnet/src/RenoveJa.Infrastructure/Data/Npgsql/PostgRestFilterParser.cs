@@ -1,9 +1,9 @@
-using Dapper;
+﻿using Dapper;
 
 namespace RenoveJa.Infrastructure.Data.Npgsql;
 
 /// <summary>
-/// Converte filtros PostgREST (usados pelo SupabaseClient) em cláusulas SQL WHERE.
+/// Converte filtros PostgREST (usados pelo PostgresClient) em cláusulas SQL WHERE.
 /// Suporta os operadores mais comuns: eq, neq, gt, gte, lt, lte, like, ilike, in, is, not.
 /// </summary>
 public static class PostgRestFilterParser

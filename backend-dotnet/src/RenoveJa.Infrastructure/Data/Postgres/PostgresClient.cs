@@ -1,26 +1,29 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using RenoveJa.Infrastructure.Data.Npgsql;
 
-namespace RenoveJa.Infrastructure.Data.Supabase;
+namespace RenoveJa.Infrastructure.Data.Postgres;
 
 /// <summary>
 /// Cliente de acesso a dados PostgreSQL via Npgsql/Dapper.
 /// Substituiu o Supabase REST API — mesma interface pública, zero mudanças nos repositórios.
 /// </summary>
-public class SupabaseClient
+public class PostgresClient
 {
     private readonly string _connectionString;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public SupabaseClient(IOptions<SupabaseConfig> config)
+    public PostgresClient(IOptions<DatabaseConfig> config)
     {
-        _connectionString = config.Value.DatabaseUrl ?? "";
-        if (string.IsNullOrWhiteSpace(_connectionString))
-            _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") ?? "";
+        _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") ?? config.Value.DatabaseUrl ?? "";
+        // ConnectionStrings__DefaultConnection ja lido acima
+        // Connection pooling: garante limites saudaveis para RDS db.t3.micro (max_connections ~80)
+        if (!_connectionString.Contains("Max Pool Size", StringComparison.OrdinalIgnoreCase))
+            _connectionString += ";Max Pool Size=20;Min Pool Size=2;Connection Idle Lifetime=300;Timeout=15";
+
         if (string.IsNullOrWhiteSpace(_connectionString))
             throw new InvalidOperationException("Database connection string not configured.");
 
@@ -33,7 +36,7 @@ public class SupabaseClient
         DefaultTypeMap.MatchNamesWithUnderscores = true;
     }
 
-    public SupabaseClient(HttpClient httpClient, IOptions<SupabaseConfig> config) : this(config) { }
+    public PostgresClient(HttpClient httpClient, IOptions<DatabaseConfig> config) : this(config) { }
 
     private NpgsqlConnection CreateConnection() => new(_connectionString);
 

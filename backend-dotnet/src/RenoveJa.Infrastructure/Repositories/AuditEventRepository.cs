@@ -1,13 +1,13 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Utils;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class AuditEventRepository(SupabaseClient supabase) : IAuditEventRepository
+public class AuditEventRepository(PostgresClient supabase) : IAuditEventRepository
 {
     private const string TableName = "audit_events";
 

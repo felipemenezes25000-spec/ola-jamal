@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 using Microsoft.Extensions.Options;
@@ -7,7 +7,7 @@ using Npgsql;
 namespace RenoveJa.Infrastructure.Data.Npgsql;
 
 /// <summary>
-/// Drop-in replacement for SupabaseClient that uses Npgsql/Dapper directly.
+/// Drop-in replacement for PostgresClient that uses Npgsql/Dapper directly.
 /// Translates PostgREST-style filters to SQL WHERE clauses.
 /// </summary>
 public class NpgsqlDataClient
@@ -35,7 +35,7 @@ public class NpgsqlDataClient
 
     /// <summary>
     /// Obtém todos os registros de uma tabela com select, filtro, ordenação e limite opcionais.
-    /// Compatible with SupabaseClient.GetAllAsync signature.
+    /// Compatible with PostgresClient.GetAllAsync signature.
     /// </summary>
     public async Task<List<T>> GetAllAsync<T>(
         string table,

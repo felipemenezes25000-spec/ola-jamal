@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Enums;
@@ -9,6 +9,7 @@ namespace RenoveJa.Api.Controllers;
 /// Endpoints de teste dos fluxos Gemini (apenas Development).
 /// Valida que todos os serviços de IA estão funcionando com Gemini.
 /// </summary>
+#if DEBUG
 [ApiController]
 [Route("api/gemini-test")]
 public class GeminiTestController(
@@ -180,3 +181,4 @@ public class GeminiTestController(
     private static bool IsDevelopment() =>
         string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
 }
+#endif

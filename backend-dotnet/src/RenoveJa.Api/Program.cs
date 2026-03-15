@@ -1,4 +1,4 @@
-using DotNetEnv;
+﻿using DotNetEnv;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Assistant;
 using RenoveJa.Application.Services.Auth;
@@ -15,9 +15,8 @@ using RenoveJa.Application.Services.Verification;
 using RenoveJa.Application.Validators;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Application.Configuration;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Repositories;
-using RenoveJa.Infrastructure.Storage;
 using RenoveJa.Infrastructure.Payments;
 using RenoveJa.Infrastructure.Certificates;
 using RenoveJa.Infrastructure.Pdf;
@@ -72,7 +71,7 @@ static string? FindEnvPath()
     return null;
 }
 
-// Dicionário preenchido ao ler .env; usado para SupabaseConfig (evita depender de Environment)
+// Dicionário preenchido ao ler .env; usado para DatabaseConfig (evita depender de Environment)
 var _envVars = new Dictionary<string, string>();
 
 void ApplyEnvFile(string envPath)
@@ -242,9 +241,8 @@ builder.Services.AddRenoveJaConfiguration(builder.Configuration, _envVars);
 // In-memory cache
 builder.Services.AddMemoryCache();
 
-// SupabaseClient usa Npgsql direto (sem HTTP)
-builder.Services.AddScoped<SupabaseClient>();
-builder.Services.AddHttpClient(SupabaseStorageService.HttpClientName);
+// PostgresClient usa Npgsql direto (sem HTTP)
+builder.Services.AddScoped<PostgresClient>();
 builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
@@ -469,15 +467,15 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-// Executar migrations do Supabase na inicialização
+// Executar database migrations na inicialização
 try
 {
-    await RenoveJa.Infrastructure.Data.Supabase.SupabaseMigrationRunner.RunAsync(app.Services);
-    Log.Information("Supabase migrations executadas com sucesso");
+    await RenoveJa.Infrastructure.Data.Postgres.MigrationRunner.RunAsync(app.Services);
+    Log.Information("Database migrations executadas com sucesso");
 }
 catch (Exception ex)
 {
-    Log.Warning(ex, "Falha ao executar migrations do Supabase (pode ser normal se DatabaseUrl não estiver configurada)");
+    Log.Warning(ex, "Falha ao executar database migrations (pode ser normal se DatabaseUrl não estiver configurada)");
 }
 
 // CORS primeiro: preflight OPTIONS precisa receber 200 com headers antes de qualquer outro middleware

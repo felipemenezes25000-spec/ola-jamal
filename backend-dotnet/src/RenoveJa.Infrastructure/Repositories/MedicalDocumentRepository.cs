@@ -4,12 +4,12 @@ using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Domain.ValueObjects;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Utils;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class MedicalDocumentRepository(SupabaseClient supabase) : IMedicalDocumentRepository
+public class MedicalDocumentRepository(PostgresClient supabase) : IMedicalDocumentRepository
 {
     private const string TableName = "medical_documents";
 

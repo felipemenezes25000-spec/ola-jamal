@@ -3,7 +3,7 @@ using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Utils;
 
 namespace RenoveJa.Infrastructure.Repositories;
@@ -11,7 +11,7 @@ namespace RenoveJa.Infrastructure.Repositories;
 /// <summary>
 /// RepositÃ³rio de solicitaÃ§Ãµes mÃ©dicas via Supabase.
 /// </summary>
-public class RequestRepository(SupabaseClient supabase) : IRequestRepository
+public class RequestRepository(PostgresClient supabase) : IRequestRepository
 {
     private const string TableName = "requests";
 
@@ -222,11 +222,11 @@ public class RequestRepository(SupabaseClient supabase) : IRequestRepository
             Status = model.Status,
             PrescriptionType = model.PrescriptionType,
             PrescriptionKind = model.PrescriptionKind,
-            Medications = JsonToList(model.Medications),
-            PrescriptionImages = JsonToList(model.PrescriptionImages),
+            Medications = model.Medications,
+            PrescriptionImages = model.PrescriptionImages,
             ExamType = model.ExamType,
-            Exams = JsonToList(model.Exams),
-            ExamImages = JsonToList(model.ExamImages),
+            Exams = model.Exams,
+            ExamImages = model.ExamImages,
             Symptoms = model.Symptoms,
             // Envia null em vez de 0: constraint requests_price_positive rejeita 0 (consultas gratuitas via banco de horas)
             Price = model.Price == 0m ? null : model.Price,

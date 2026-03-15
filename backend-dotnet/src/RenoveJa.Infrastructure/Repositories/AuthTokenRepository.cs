@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de tokens de autenticação via PostgreSQL (Npgsql/Dapper).
 /// </summary>
-public class AuthTokenRepository(SupabaseClient supabase) : IAuthTokenRepository
+public class AuthTokenRepository(PostgresClient supabase) : IAuthTokenRepository
 {
     private const string TableName = "auth_tokens";
 

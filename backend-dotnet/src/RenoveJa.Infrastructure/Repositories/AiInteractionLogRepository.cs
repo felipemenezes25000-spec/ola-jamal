@@ -1,11 +1,11 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class AiInteractionLogRepository(SupabaseClient supabase) : IAiInteractionLogRepository
+public class AiInteractionLogRepository(PostgresClient supabase) : IAiInteractionLogRepository
 {
     private const string TableName = "ai_interaction_logs";
 

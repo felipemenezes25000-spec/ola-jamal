@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Amazon.S3;
 using RenoveJa.Application.Configuration;
@@ -19,7 +19,7 @@ using RenoveJa.Infrastructure.AiReading;
 using RenoveJa.Infrastructure.Auth;
 using RenoveJa.Infrastructure.Certificates;
 using RenoveJa.Infrastructure.CrmValidation;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Payments;
 using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.Repositories;
@@ -112,32 +112,25 @@ public static class ServiceCollectionExtensions
     /// <summary>Registra os serviços de infraestrutura.</summary>
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
-        // Storage: S3 na AWS, Supabase como fallback local
-        var useS3 = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_REGION"))
-                 || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_DEFAULT_REGION"))
-                 || Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
-
-        if (useS3)
+        // Storage: AWS S3 sempre (todos os ambientes).
+        // Buckets configuráveis via env vars; defaults apontam para os buckets de produção.
+        // Em dev local, configure AWS credentials via `aws configure` ou env vars
+        // (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION).
+        services.AddDefaultAWSOptions(new Amazon.Extensions.NETCore.Setup.AWSOptions
         {
-            services.AddDefaultAWSOptions(new Amazon.Extensions.NETCore.Setup.AWSOptions
-            {
-                Region = Amazon.RegionEndpoint.SAEast1
-            });
-            services.AddAWSService<IAmazonS3>();
-            services.Configure<S3StorageConfig>(options =>
-            {
-                options.Region = "sa-east-1";
-                options.PrescriptionsBucket = "renoveja-prescriptions";
-                options.CertificatesBucket = "renoveja-certificates";
-                options.AvatarsBucket = "renoveja-avatars";
-                options.TranscriptsBucket = "renoveja-transcripts";
-            });
-            services.AddScoped<IStorageService, S3StorageService>();
-        }
-        else
+            Region = Amazon.RegionEndpoint.SAEast1
+        });
+        services.AddAWSService<IAmazonS3>();
+        services.Configure<S3StorageConfig>(options =>
         {
-            services.AddScoped<IStorageService, SupabaseStorageService>();
-        }
+            options.Region = Environment.GetEnvironmentVariable("AWS_S3_REGION") ?? "sa-east-1";
+            options.PrescriptionsBucket = Environment.GetEnvironmentVariable("AWS_S3_PRESCRIPTIONS_BUCKET") ?? "renoveja-prescriptions";
+            options.CertificatesBucket = Environment.GetEnvironmentVariable("AWS_S3_CERTIFICATES_BUCKET") ?? "renoveja-certificates";
+            options.AvatarsBucket = Environment.GetEnvironmentVariable("AWS_S3_AVATARS_BUCKET") ?? "renoveja-avatars";
+            options.TranscriptsBucket = Environment.GetEnvironmentVariable("AWS_S3_TRANSCRIPTS_BUCKET") ?? "renoveja-transcripts";
+            options.PublicBaseUrl = Environment.GetEnvironmentVariable("AWS_S3_PUBLIC_BASE_URL") ?? "";
+        });
+        services.AddScoped<IStorageService, S3StorageService>();
 
         services.AddScoped<IMercadoPagoService, MercadoPagoService>();
         services.AddScoped<IDigitalCertificateService, DigitalCertificateService>();
@@ -181,7 +174,7 @@ public static class ServiceCollectionExtensions
         IConfiguration config,
         IReadOnlyDictionary<string, string> envVars)
     {
-        services.Configure<SupabaseConfig>(options =>
+        services.Configure<DatabaseConfig>(options =>
         {
             options.Url = EnvOrConfig(envVars, config, "Supabase__Url", "Supabase:Url");
             options.ServiceKey = EnvOrConfig(envVars, config, "Supabase__ServiceKey", "Supabase:ServiceKey");

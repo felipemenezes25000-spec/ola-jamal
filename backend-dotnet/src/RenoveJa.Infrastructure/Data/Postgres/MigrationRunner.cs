@@ -1,9 +1,9 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
-namespace RenoveJa.Infrastructure.Data.Supabase;
+namespace RenoveJa.Infrastructure.Data.Postgres;
 
 /// <summary>
 /// Marker class for logger (static classes can't be used as type arguments).
@@ -13,7 +13,7 @@ internal class MigrationRunnerLogger { }
 /// <summary>
 /// Executa migrations SQL no Postgres do Supabase quando DatabaseUrl está configurada.
 /// </summary>
-public static class SupabaseMigrationRunner
+public static class MigrationRunner
 {
     private static readonly string[] PasswordResetTokensMigrations =
     {
@@ -811,7 +811,7 @@ public static class SupabaseMigrationRunner
     /// </summary>
     public static async Task RunAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
     {
-        var config = serviceProvider.GetService<IOptions<SupabaseConfig>>()?.Value;
+        var config = serviceProvider.GetService<IOptions<DatabaseConfig>>()?.Value;
         var logger = serviceProvider.GetService<ILogger<MigrationRunnerLogger>>();
 
         if (config == null || string.IsNullOrWhiteSpace(config.DatabaseUrl))
@@ -824,7 +824,7 @@ public static class SupabaseMigrationRunner
         await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync(cancellationToken);
 
-        logger?.LogInformation("Running Supabase migrations...");
+        logger?.LogInformation("Running Database migrations...");
 
         var allMigrations = new (string Name, string[] Sqls)[]
         {
@@ -865,6 +865,6 @@ public static class SupabaseMigrationRunner
             logger?.LogInformation("Migration {Name} completed", name);
         }
 
-        logger?.LogInformation("All Supabase migrations completed successfully");
+        logger?.LogInformation("All Database migrations completed successfully");
     }
 }

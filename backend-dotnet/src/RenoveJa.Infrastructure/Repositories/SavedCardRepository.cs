@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de cartões salvos via Supabase.
 /// </summary>
-public class SavedCardRepository(SupabaseClient supabase) : ISavedCardRepository
+public class SavedCardRepository(PostgresClient supabase) : ISavedCardRepository
 {
     private const string TableName = "saved_cards";
 

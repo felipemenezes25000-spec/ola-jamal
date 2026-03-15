@@ -1,13 +1,13 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using RenoveJa.Domain.Interfaces;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de banco de horas de consulta via Supabase.
 /// </summary>
-public class ConsultationTimeBankRepository(SupabaseClient supabase) : IConsultationTimeBankRepository
+public class ConsultationTimeBankRepository(PostgresClient supabase) : IConsultationTimeBankRepository
 {
     private const string BankTable = "consultation_time_bank";
     private const string TxTable = "consultation_time_bank_transactions";

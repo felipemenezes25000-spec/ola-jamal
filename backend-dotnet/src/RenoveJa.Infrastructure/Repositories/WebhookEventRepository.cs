@@ -1,11 +1,11 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class WebhookEventRepository(SupabaseClient supabase) : IWebhookEventRepository
+public class WebhookEventRepository(PostgresClient supabase) : IWebhookEventRepository
 {
     private const string TableName = "webhook_events";
 

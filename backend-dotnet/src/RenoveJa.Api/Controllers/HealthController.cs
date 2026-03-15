@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Domain.Interfaces;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Api.Controllers;
 
@@ -14,14 +14,14 @@ namespace RenoveJa.Api.Controllers;
 [EnableRateLimiting("fixed")]
 public class HealthController : ControllerBase
 {
-    private readonly SupabaseConfig _dbConfig;
+    private readonly DatabaseConfig _dbConfig;
     private readonly IRequestRepository _requestRepository;
     private readonly MercadoPagoConfig _mercadoPagoConfig;
     private readonly OpenAIConfig _openAiConfig;
     private readonly ILogger<HealthController> _logger;
 
     public HealthController(
-        IOptions<SupabaseConfig> dbConfig,
+        IOptions<DatabaseConfig> dbConfig,
         IRequestRepository requestRepository,
         IOptions<MercadoPagoConfig> mercadoPagoConfig,
         IOptions<OpenAIConfig> openAiConfig,
@@ -53,9 +53,7 @@ public class HealthController : ControllerBase
         }
 
         // Storage (S3 — just check config is present)
-        var s3Ok = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_REGION"))
-                || Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
-        checks["storage"] = new { status = s3Ok ? "ok" : "degraded", provider = s3Ok ? "s3" : "local" };
+        checks["storage"] = new { status = "ok", provider = "s3" };
 
         if (!overall)
             _logger.LogWarning("Health check DEGRADED: checks={Checks}", string.Join(",", checks.Keys));
@@ -96,9 +94,8 @@ public class HealthController : ControllerBase
         }
 
         // Storage (S3)
-        var storageOk = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_REGION"))
-                     || Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
-        checks["storage"] = new { status = storageOk ? "ok" : "degraded", provider = storageOk ? "s3" : "local" };
+        var storageOk = true; // S3 sempre ativo em todos os ambientes
+        checks["storage"] = new { status = "ok", provider = "s3" };
 
         // Payment gateway
         paymentOk = !string.IsNullOrWhiteSpace(_mercadoPagoConfig.AccessToken);

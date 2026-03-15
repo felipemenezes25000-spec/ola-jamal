@@ -1,13 +1,13 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using RenoveJa.Domain.Interfaces;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório para consulta de preços fixos na tabela product_prices.
 /// </summary>
-public class ProductPriceRepository(SupabaseClient supabase) : IProductPriceRepository
+public class ProductPriceRepository(PostgresClient supabase) : IProductPriceRepository
 {
     private const string TableName = "product_prices";
 

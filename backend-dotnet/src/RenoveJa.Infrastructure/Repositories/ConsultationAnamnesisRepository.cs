@@ -1,7 +1,7 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using ConsultationAnamnesisEntity = RenoveJa.Domain.Entities.ConsultationAnamnesis;
 
 namespace RenoveJa.Infrastructure.Repositories;
@@ -9,7 +9,7 @@ namespace RenoveJa.Infrastructure.Repositories;
 /// <summary>
 /// Repositório de anamnese de consulta via Supabase.
 /// </summary>
-public class ConsultationAnamnesisRepository(SupabaseClient supabase) : IConsultationAnamnesisRepository
+public class ConsultationAnamnesisRepository(PostgresClient supabase) : IConsultationAnamnesisRepository
 {
     private const string TableName = "consultation_anamnesis";
 

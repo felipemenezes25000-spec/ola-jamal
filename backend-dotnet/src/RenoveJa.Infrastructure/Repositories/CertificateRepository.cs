@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório para certificados digitais de médicos via Supabase REST API.
 /// </summary>
-public class CertificateRepository(SupabaseClient supabase) : ICertificateRepository
+public class CertificateRepository(PostgresClient supabase) : ICertificateRepository
 {
     private const string TableName = "doctor_certificates";
 

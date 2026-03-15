@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de preferências de push via Supabase.
 /// </summary>
-public class UserPushPreferencesRepository(SupabaseClient supabase) : IUserPushPreferencesRepository
+public class UserPushPreferencesRepository(PostgresClient supabase) : IUserPushPreferencesRepository
 {
     private const string TableName = "user_push_preferences";
 

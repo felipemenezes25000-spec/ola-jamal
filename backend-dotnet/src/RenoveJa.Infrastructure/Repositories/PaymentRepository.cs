@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de pagamentos via Supabase.
 /// </summary>
-public class PaymentRepository(SupabaseClient supabase) : IPaymentRepository
+public class PaymentRepository(PostgresClient supabase) : IPaymentRepository
 {
     private const string TableName = "payments";
 

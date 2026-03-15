@@ -1,13 +1,13 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Utils;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class EncounterRepository(SupabaseClient supabase) : IEncounterRepository
+public class EncounterRepository(PostgresClient supabase) : IEncounterRepository
 {
     private const string TableName = "encounters";
 

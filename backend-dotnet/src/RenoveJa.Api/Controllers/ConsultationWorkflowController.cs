@@ -1,9 +1,9 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using System.Security.Claims;
 
 namespace RenoveJa.Api.Controllers;
@@ -15,7 +15,7 @@ public class ConsultationWorkflowController(
     IRequestService requestService,
     IConsultationEncounterService consultationEncounterService,
     IRequestRepository requestRepository,
-    SupabaseClient supabaseClient,
+    PostgresClient supabaseClient,
     ILogger<ConsultationWorkflowController> logger) : ControllerBase
 {
     private Guid GetUserId()

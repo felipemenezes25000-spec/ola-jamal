@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de salas de vídeo via Supabase.
 /// </summary>
-public class VideoRoomRepository(SupabaseClient supabase) : IVideoRoomRepository
+public class VideoRoomRepository(PostgresClient supabase) : IVideoRoomRepository
 {
     private const string TableName = "video_rooms";
 

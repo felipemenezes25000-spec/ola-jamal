@@ -1,11 +1,11 @@
 ﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class PushTokenRepository(SupabaseClient supabase) : IPushTokenRepository
+public class PushTokenRepository(PostgresClient supabase) : IPushTokenRepository
 {
     private const string TableName = "push_tokens";
 

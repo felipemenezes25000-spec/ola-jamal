@@ -1,13 +1,13 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Utils;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class ConsentRepository(SupabaseClient supabase) : IConsentRepository
+public class ConsentRepository(PostgresClient supabase) : IConsentRepository
 {
     private const string TableName = "consent_records";
 

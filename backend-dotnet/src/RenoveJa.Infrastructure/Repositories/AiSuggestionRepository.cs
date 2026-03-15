@@ -1,11 +1,11 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class AiSuggestionRepository(SupabaseClient supabase) : IAiSuggestionRepository
+public class AiSuggestionRepository(PostgresClient supabase) : IAiSuggestionRepository
 {
     private const string TableName = "ai_suggestions";
 

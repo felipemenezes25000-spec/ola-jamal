@@ -1,10 +1,10 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
@@ -13,7 +13,7 @@ namespace RenoveJa.Infrastructure.Repositories;
 /// Usa upsert (merge-duplicates) para ser idempotente em caso de retry.
 /// </summary>
 public class PrescriptionVerifyRepository(
-    SupabaseClient supabase,
+    PostgresClient supabase,
     ILogger<PrescriptionVerifyRepository> logger) : IPrescriptionVerifyRepository
 {
     private const string TableName = "prescriptions";

@@ -1,13 +1,13 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using RenoveJa.Domain.Interfaces;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de notas clínicas do médico sobre o paciente.
 /// </summary>
-public class DoctorPatientNotesRepository(SupabaseClient supabase) : IDoctorPatientNotesRepository
+public class DoctorPatientNotesRepository(PostgresClient supabase) : IDoctorPatientNotesRepository
 {
     private const string TableName = "doctor_patient_notes";
 

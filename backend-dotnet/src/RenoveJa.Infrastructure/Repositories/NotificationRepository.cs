@@ -2,14 +2,14 @@
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// RepositÃ³rio de notificaÃ§Ãµes via Supabase.
 /// </summary>
-public class NotificationRepository(SupabaseClient supabase) : INotificationRepository
+public class NotificationRepository(PostgresClient supabase) : INotificationRepository
 {
     private const string TableName = "notifications";
 

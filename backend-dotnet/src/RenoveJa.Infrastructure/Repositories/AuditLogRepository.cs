@@ -1,14 +1,14 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
 /// Repositório de logs de auditoria via Supabase REST API.
 /// </summary>
-public class AuditLogRepository(SupabaseClient supabase) : IAuditLogRepository
+public class AuditLogRepository(PostgresClient supabase) : IAuditLogRepository
 {
     private const string TableName = "audit_logs";
 

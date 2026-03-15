@@ -1,4 +1,4 @@
-using Amazon.S3;
+﻿using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Interfaces;
@@ -21,7 +21,6 @@ public class S3StorageConfig
 
 /// <summary>
 /// Implementação de IStorageService usando AWS S3.
-/// Drop-in replacement para SupabaseStorageService.
 /// </summary>
 public class S3StorageService : IStorageService
 {

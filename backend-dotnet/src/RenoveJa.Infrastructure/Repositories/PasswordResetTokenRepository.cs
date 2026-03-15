@@ -1,11 +1,11 @@
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
-using RenoveJa.Infrastructure.Data.Supabase;
+using RenoveJa.Infrastructure.Data.Postgres;
 
 namespace RenoveJa.Infrastructure.Repositories;
 
-public class PasswordResetTokenRepository(SupabaseClient supabase) : IPasswordResetTokenRepository
+public class PasswordResetTokenRepository(PostgresClient supabase) : IPasswordResetTokenRepository
 {
     private const string TableName = "password_reset_tokens";
 
