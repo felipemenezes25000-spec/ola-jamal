@@ -313,6 +313,58 @@ public class MedicalRequest : AggregateRoot
         return request;
     }
 
+    /// <summary>
+    /// Reconstitutes a <see cref="MedicalRequest"/> from a <see cref="MedicalRequestSnapshot"/>.
+    /// Preferred over the positional-parameter overload for readability.
+    /// </summary>
+    public static MedicalRequest Reconstitute(MedicalRequestSnapshot snapshot)
+    {
+        return Reconstitute(
+            snapshot.Id,
+            snapshot.PatientId,
+            snapshot.PatientName,
+            snapshot.DoctorId,
+            snapshot.DoctorName,
+            snapshot.RequestType,
+            snapshot.Status,
+            snapshot.PrescriptionType,
+            snapshot.Medications,
+            snapshot.PrescriptionImages,
+            snapshot.ExamType,
+            snapshot.Exams,
+            snapshot.ExamImages,
+            snapshot.Symptoms,
+            snapshot.Price,
+            snapshot.Notes,
+            snapshot.RejectionReason,
+            snapshot.SignedAt,
+            snapshot.SignedDocumentUrl,
+            snapshot.SignatureId,
+            snapshot.CreatedAt,
+            snapshot.UpdatedAt,
+            snapshot.AiSummaryForDoctor,
+            snapshot.AiExtractedJson,
+            snapshot.AiRiskLevel,
+            snapshot.AiUrgency,
+            snapshot.AiReadabilityOk,
+            snapshot.AiMessageToUser,
+            snapshot.AccessCode,
+            snapshot.PrescriptionKind,
+            snapshot.ConsultationType,
+            snapshot.ContractedMinutes,
+            snapshot.PricePerMinute,
+            snapshot.ConsultationStartedAt,
+            snapshot.DoctorCallConnectedAt,
+            snapshot.PatientCallConnectedAt,
+            snapshot.AutoObservation,
+            snapshot.DoctorConductNotes,
+            snapshot.IncludeConductInPdf,
+            snapshot.AiConductSuggestion,
+            snapshot.AiSuggestedExams,
+            snapshot.ConductUpdatedAt,
+            snapshot.ConductUpdatedBy);
+    }
+
     public void SetAiAnalysis(string? summaryForDoctor, string? extractedJson, string? riskLevel, string? urgency, bool? readabilityOk, string? messageToUser)
     {
         AiSummaryForDoctor = summaryForDoctor;
