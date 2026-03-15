@@ -102,7 +102,7 @@ public static class MigrationRunner
         """
         CREATE TABLE IF NOT EXISTS public.audit_logs (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+            user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
             user_email TEXT,
             user_role TEXT,
             action TEXT NOT NULL,
@@ -497,13 +497,13 @@ public static class MigrationRunner
         """
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='patients' AND policyname='patients_select_own') THEN
-                CREATE POLICY patients_select_own ON public.patients FOR SELECT USING (user_id = auth.uid());
+                CREATE POLICY patients_select_own ON public.patients FOR SELECT USING (user_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='patients' AND policyname='patients_insert_own') THEN
-                CREATE POLICY patients_insert_own ON public.patients FOR INSERT WITH CHECK (user_id = auth.uid());
+                CREATE POLICY patients_insert_own ON public.patients FOR INSERT WITH CHECK (user_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='patients' AND policyname='patients_update_own') THEN
-                CREATE POLICY patients_update_own ON public.patients FOR UPDATE USING (user_id = auth.uid());
+                CREATE POLICY patients_update_own ON public.patients FOR UPDATE USING (user_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
         END $$
         """,
@@ -511,14 +511,14 @@ public static class MigrationRunner
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='encounters' AND policyname='encounters_select_patient') THEN
                 CREATE POLICY encounters_select_patient ON public.encounters FOR SELECT USING (
-                    patient_id IN (SELECT id FROM public.patients WHERE user_id = auth.uid()) OR practitioner_id = auth.uid()
+                    patient_id IN (SELECT id FROM public.patients WHERE user_id = current_setting('app.current_user_id', true)::uuid) OR practitioner_id = current_setting('app.current_user_id', true)::uuid
                 );
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='encounters' AND policyname='encounters_insert_practitioner') THEN
-                CREATE POLICY encounters_insert_practitioner ON public.encounters FOR INSERT WITH CHECK (practitioner_id = auth.uid());
+                CREATE POLICY encounters_insert_practitioner ON public.encounters FOR INSERT WITH CHECK (practitioner_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='encounters' AND policyname='encounters_update_practitioner') THEN
-                CREATE POLICY encounters_update_practitioner ON public.encounters FOR UPDATE USING (practitioner_id = auth.uid());
+                CREATE POLICY encounters_update_practitioner ON public.encounters FOR UPDATE USING (practitioner_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
         END $$
         """,
@@ -526,14 +526,14 @@ public static class MigrationRunner
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='medical_documents' AND policyname='medical_documents_select') THEN
                 CREATE POLICY medical_documents_select ON public.medical_documents FOR SELECT USING (
-                    patient_id IN (SELECT id FROM public.patients WHERE user_id = auth.uid()) OR practitioner_id = auth.uid()
+                    patient_id IN (SELECT id FROM public.patients WHERE user_id = current_setting('app.current_user_id', true)::uuid) OR practitioner_id = current_setting('app.current_user_id', true)::uuid
                 );
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='medical_documents' AND policyname='medical_documents_insert') THEN
-                CREATE POLICY medical_documents_insert ON public.medical_documents FOR INSERT WITH CHECK (practitioner_id = auth.uid());
+                CREATE POLICY medical_documents_insert ON public.medical_documents FOR INSERT WITH CHECK (practitioner_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='medical_documents' AND policyname='medical_documents_update') THEN
-                CREATE POLICY medical_documents_update ON public.medical_documents FOR UPDATE USING (practitioner_id = auth.uid());
+                CREATE POLICY medical_documents_update ON public.medical_documents FOR UPDATE USING (practitioner_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
         END $$
         """,
@@ -541,12 +541,12 @@ public static class MigrationRunner
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='consent_records' AND policyname='consent_records_select_own') THEN
                 CREATE POLICY consent_records_select_own ON public.consent_records FOR SELECT USING (
-                    patient_id IN (SELECT id FROM public.patients WHERE user_id = auth.uid())
+                    patient_id IN (SELECT id FROM public.patients WHERE user_id = current_setting('app.current_user_id', true)::uuid)
                 );
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='consent_records' AND policyname='consent_records_insert') THEN
                 CREATE POLICY consent_records_insert ON public.consent_records FOR INSERT WITH CHECK (
-                    patient_id IN (SELECT id FROM public.patients WHERE user_id = auth.uid())
+                    patient_id IN (SELECT id FROM public.patients WHERE user_id = current_setting('app.current_user_id', true)::uuid)
                 );
             END IF;
         END $$
@@ -554,7 +554,7 @@ public static class MigrationRunner
         """
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='audit_events' AND policyname='audit_events_select_own') THEN
-                CREATE POLICY audit_events_select_own ON public.audit_events FOR SELECT USING (user_id = auth.uid());
+                CREATE POLICY audit_events_select_own ON public.audit_events FOR SELECT USING (user_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='audit_events' AND policyname='audit_events_insert_system') THEN
                 CREATE POLICY audit_events_insert_system ON public.audit_events FOR INSERT WITH CHECK (true);
@@ -749,10 +749,10 @@ public static class MigrationRunner
         """
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='care_plans' AND policyname='care_plans_patient_select') THEN
-                CREATE POLICY care_plans_patient_select ON public.care_plans FOR SELECT USING (patient_id = auth.uid());
+                CREATE POLICY care_plans_patient_select ON public.care_plans FOR SELECT USING (patient_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='care_plans' AND policyname='care_plans_doctor_select') THEN
-                CREATE POLICY care_plans_doctor_select ON public.care_plans FOR SELECT USING (responsible_doctor_id = auth.uid());
+                CREATE POLICY care_plans_doctor_select ON public.care_plans FOR SELECT USING (responsible_doctor_id = current_setting('app.current_user_id', true)::uuid);
             END IF;
         END $$;
         """,
@@ -763,7 +763,7 @@ public static class MigrationRunner
                     EXISTS (
                         SELECT 1 FROM public.care_plans cp
                         WHERE cp.id = care_plan_tasks.care_plan_id
-                        AND cp.patient_id = auth.uid()
+                        AND cp.patient_id = current_setting('app.current_user_id', true)::uuid
                     )
                 );
             END IF;
@@ -772,7 +772,7 @@ public static class MigrationRunner
                     EXISTS (
                         SELECT 1 FROM public.care_plans cp
                         WHERE cp.id = care_plan_tasks.care_plan_id
-                        AND cp.responsible_doctor_id = auth.uid()
+                        AND cp.responsible_doctor_id = current_setting('app.current_user_id', true)::uuid
                     )
                 );
             END IF;
@@ -787,7 +787,7 @@ public static class MigrationRunner
                         FROM public.care_plan_tasks t
                         JOIN public.care_plans cp ON cp.id = t.care_plan_id
                         WHERE t.id = care_plan_task_files.task_id
-                        AND cp.patient_id = auth.uid()
+                        AND cp.patient_id = current_setting('app.current_user_id', true)::uuid
                     )
                 );
             END IF;
@@ -798,7 +798,7 @@ public static class MigrationRunner
                         FROM public.care_plan_tasks t
                         JOIN public.care_plans cp ON cp.id = t.care_plan_id
                         WHERE t.id = care_plan_task_files.task_id
-                        AND cp.responsible_doctor_id = auth.uid()
+                        AND cp.responsible_doctor_id = current_setting('app.current_user_id', true)::uuid
                     )
                 );
             END IF;
