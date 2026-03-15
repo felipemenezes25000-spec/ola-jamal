@@ -9,7 +9,7 @@ public class NotificationModel
     public string Message { get; set; } = string.Empty;
     public string NotificationType { get; set; } = "info";
     public bool Read { get; set; }
-    public Dictionary<string, object?>? Data { get; set; }
+    public string? Data { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 

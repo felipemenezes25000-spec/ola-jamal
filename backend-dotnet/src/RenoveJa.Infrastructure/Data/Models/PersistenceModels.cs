@@ -1,8 +1,8 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace RenoveJa.Infrastructure.Data.Models;
 
-/// <summary>Modelo de persistência de usuário (tabela users).</summary>
+/// <summary>Modelo de persistÃªncia de usuÃ¡rio (tabela users).</summary>
 public class UserModel
 {
     public Guid Id { get; set; }
@@ -27,7 +27,7 @@ public class UserModel
     public string Role { get; set; } = "patient";
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    /// <summary>Cadastro concluído (phone, CPF preenchidos). Usuários Google iniciam com false.</summary>
+    /// <summary>Cadastro concluÃ­do (phone, CPF preenchidos). UsuÃ¡rios Google iniciam com false.</summary>
     public bool ProfileComplete { get; set; } = true;
 }
 
@@ -125,7 +125,7 @@ public class DoctorProfileModel
     }
 }
 
-/// <summary>Modelo de persistência de token de autenticação (tabela auth_tokens).</summary>
+/// <summary>Modelo de persistÃªncia de token de autenticaÃ§Ã£o (tabela auth_tokens).</summary>
 public class AuthTokenModel
 {
     public Guid Id { get; set; }
@@ -135,7 +135,7 @@ public class AuthTokenModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de token de recuperação de senha (tabela password_reset_tokens).</summary>
+/// <summary>Modelo de persistÃªncia de token de recuperaÃ§Ã£o de senha (tabela password_reset_tokens).</summary>
 public class PasswordResetTokenModel
 {
     public Guid Id { get; set; }
@@ -146,7 +146,7 @@ public class PasswordResetTokenModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de solicitação médica (tabela requests).</summary>
+/// <summary>Modelo de persistÃªncia de solicitaÃ§Ã£o mÃ©dica (tabela requests).</summary>
 public class RequestModel
 {
     public Guid Id { get; set; }
@@ -161,11 +161,11 @@ public class RequestModel
     public string? PrescriptionType { get; set; }
     [JsonPropertyName("prescription_kind")]
     public string? PrescriptionKind { get; set; }
-    public List<string> Medications { get; set; } = new();
-    public List<string> PrescriptionImages { get; set; } = new();
+    public string? Medications { get; set; }
+    public string? PrescriptionImages { get; set; }
     public string? ExamType { get; set; }
-    public List<string> Exams { get; set; } = new();
-    public List<string> ExamImages { get; set; } = new();
+    public string? Exams { get; set; }
+    public string? ExamImages { get; set; }
     public string? Symptoms { get; set; }
     public decimal? Price { get; set; }
     public string? Notes { get; set; }
@@ -212,13 +212,13 @@ public class RequestModel
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>Projeção mínima para soma de preços (requests).</summary>
+/// <summary>ProjeÃ§Ã£o mÃ­nima para soma de preÃ§os (requests).</summary>
 public class RequestPriceModel
 {
     public decimal? Price { get; set; }
 }
 
-/// <summary>Modelo de persistência de cartão salvo (tabela saved_cards).</summary>
+/// <summary>Modelo de persistÃªncia de cartÃ£o salvo (tabela saved_cards).</summary>
 public class SavedCardModel
 {
     public Guid Id { get; set; }
@@ -235,7 +235,7 @@ public class SavedCardModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de pagamento (tabela payments).</summary>
+/// <summary>Modelo de persistÃªncia de pagamento (tabela payments).</summary>
 public class PaymentModel
 {
     public Guid Id { get; set; }
@@ -253,7 +253,7 @@ public class PaymentModel
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de tentativa de pagamento (tabela payment_attempts).</summary>
+/// <summary>Modelo de persistÃªncia de tentativa de pagamento (tabela payment_attempts).</summary>
 public class PaymentAttemptModel
 {
     public Guid Id { get; set; }
@@ -331,13 +331,13 @@ public class PaymentAttemptModel
             RequestUrl,
             RequestPayload);
         
-        // Usar reflection para setar propriedades privadas ou criar método público
-        // Por enquanto, vamos criar um método de reconstituição na entidade
+        // Usar reflection para setar propriedades privadas ou criar mÃ©todo pÃºblico
+        // Por enquanto, vamos criar um mÃ©todo de reconstituiÃ§Ã£o na entidade
         return attempt;
     }
 }
 
-/// <summary>Modelo de persistência de evento de webhook (tabela webhook_events).</summary>
+/// <summary>Modelo de persistÃªncia de evento de webhook (tabela webhook_events).</summary>
 public class WebhookEventModel
 {
     public Guid Id { get; set; }
@@ -436,7 +436,7 @@ public class WebhookEventModel
     {
         return RenoveJa.Domain.Entities.WebhookEvent.Reconstitute(
             Id,
-            CorrelationId, // CorrelationId é o campo principal
+            CorrelationId, // CorrelationId Ã© o campo principal
             MercadoPagoPaymentId,
             MercadoPagoRequestId,
             WebhookType,
@@ -459,7 +459,7 @@ public class WebhookEventModel
     }
 }
 
-/// <summary>Modelo de persistência de certificado digital (tabela doctor_certificates).</summary>
+/// <summary>Modelo de persistÃªncia de certificado digital (tabela doctor_certificates).</summary>
 public class CertificateModel
 {
     public Guid Id { get; set; }
@@ -523,7 +523,7 @@ public class CertificateModel
     }
 }
 
-/// <summary>Modelo de persistência de paciente clínico (tabela patients).</summary>
+/// <summary>Modelo de persistÃªncia de paciente clÃ­nico (tabela patients).</summary>
 public class PatientModel
 {
     public Guid Id { get; set; }
@@ -542,7 +542,7 @@ public class PatientModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de encontro clínico (tabela encounters).</summary>
+/// <summary>Modelo de persistÃªncia de encontro clÃ­nico (tabela encounters).</summary>
 public class EncounterModel
 {
     public Guid Id { get; set; }
@@ -563,7 +563,7 @@ public class EncounterModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de documento médico (tabela medical_documents).</summary>
+/// <summary>Modelo de persistÃªncia de documento mÃ©dico (tabela medical_documents).</summary>
 public class MedicalDocumentModel
 {
     public Guid Id { get; set; }
@@ -579,8 +579,8 @@ public class MedicalDocumentModel
     public string DocumentType { get; set; } = string.Empty;
     public string Status { get; set; } = "draft";
     public Guid? PreviousDocumentId { get; set; }
-    public List<string> Medications { get; set; } = new();
-    public List<string> Exams { get; set; } = new();
+    public string? Medications { get; set; }
+    public string? Exams { get; set; }
     public string? ReportBody { get; set; }
     public string? ClinicalJustification { get; set; }
     public string? Priority { get; set; }
@@ -597,7 +597,7 @@ public class MedicalDocumentModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de registro de consentimento (tabela consent_records).</summary>
+/// <summary>Modelo de persistÃªncia de registro de consentimento (tabela consent_records).</summary>
 public class ConsentRecordModel
 {
     public Guid Id { get; set; }
@@ -611,7 +611,7 @@ public class ConsentRecordModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de evento de auditoria clínica (tabela audit_events).</summary>
+/// <summary>Modelo de persistÃªncia de evento de auditoria clÃ­nica (tabela audit_events).</summary>
 public class AuditEventModel
 {
     public Guid Id { get; set; }
