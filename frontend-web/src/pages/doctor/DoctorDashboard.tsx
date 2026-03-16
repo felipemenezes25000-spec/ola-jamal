@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, Clock, FileText, ArrowRight,
-  CheckCircle2, AlertTriangle, DollarSign, Sparkles, Wifi, WifiOff, Brain, Video, Shield,
+  CheckCircle2, AlertTriangle, Sparkles, Wifi, WifiOff, Brain, Video, Shield,
   RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -109,17 +109,6 @@ export default function DoctorDashboard() {
       color: 'text-emerald-500',
       bg: 'bg-emerald-500/10',
     },
-    {
-      label: 'Ganhos totais',
-      value: stats?.totalEarnings != null && stats.totalEarnings > 0
-        ? `R$ ${stats.totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-        : 'R$ 0,00',
-      icon: DollarSign,
-      color: 'text-primary',
-      bg: 'bg-primary/10',
-      isText: true,
-      subtext: stats?.totalEarnings != null && stats.totalEarnings > 0 ? 'este mês' : undefined,
-    },
   ];
 
   const queue = pendentes
@@ -203,7 +192,7 @@ export default function DoctorDashboard() {
         ) : (
           <>
             {/* Stats */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {statsCards.map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -216,12 +205,7 @@ export default function DoctorDashboard() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
-                          <p className="text-3xl font-bold mt-1 tracking-tight">
-                            {stat.isText ? stat.value : stat.value}
-                          </p>
-                          {'subtext' in stat && stat.subtext && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{stat.subtext}</p>
-                          )}
+                          <p className="text-3xl font-bold mt-1 tracking-tight">{stat.value}</p>
                         </div>
                         <div className={`p-3 rounded-xl ${stat.bg}`}>
                           <stat.icon className={`h-5 w-5 ${stat.color}`} aria-hidden />
