@@ -41,29 +41,16 @@ public static class PostgRestFilterParser
             var column = part[..eqIndex];
             var operatorAndValue = part[(eqIndex + 1)..];
 
-            // PostgREST or=(cond1,cond2): gera (cond1 OR cond2)
-            if (column == "or" && operatorAndValue.StartsWith("(") && operatorAndValue.EndsWith(")"))
+            // PostgREST or=(cond1,cond2) ou and=(cond1,cond2): suporta aninhamento recursivo
+            if ((column == "or" || column == "and") && operatorAndValue.StartsWith("(") && operatorAndValue.EndsWith(")"))
             {
                 var inner = operatorAndValue.Trim('(', ')');
-                var orConditions = new List<string>();
-                foreach (var segment in SplitByCommaRespectParens(inner))
+                var (groupSql, newParamIndex) = ParseConditionGroup(inner, paramIndex, parameters, column == "or");
+                if (!string.IsNullOrEmpty(groupSql))
                 {
-                    var seg = segment.Trim();
-                    var dotIdx = seg.IndexOf('.');
-                    if (dotIdx <= 0) continue;
-                    var segCol = seg[..dotIdx];
-                    var segOpVal = seg[(dotIdx + 1)..];
-                    var (sqlCond, segParam) = ParseOperator(segCol, segOpVal, paramIndex, false);
-                    if (string.IsNullOrEmpty(sqlCond)) continue;
-                    orConditions.Add(sqlCond);
-                    if (segParam.HasValue)
-                    {
-                        parameters[$"p{paramIndex}"] = segParam.Value.value;
-                        paramIndex++;
-                    }
+                    conditions.Add($"({groupSql})");
+                    paramIndex = newParamIndex;
                 }
-                if (orConditions.Count > 0)
-                    conditions.Add($"({string.Join(" OR ", orConditions)})");
                 continue;
             }
 
@@ -130,6 +117,72 @@ public static class PostgRestFilterParser
         }
 
         return sqlParts.Count > 0 ? $" ORDER BY {string.Join(", ", sqlParts)}" : "";
+    }
+
+    /// <summary>
+    /// Parseia um grupo de condições (conteúdo interno de or=(...) ou and=(...)).
+    /// Suporta segmentos simples (col.op.val) e aninhados (or=(...), and=(...)).
+    /// </summary>
+    private static (string sql, int newParamIndex) ParseConditionGroup(
+        string inner,
+        int paramIndex,
+        Dictionary<string, object?> parameters,
+        bool isOr)
+    {
+        var conditions = new List<string>();
+        foreach (var segment in SplitByCommaRespectParens(inner))
+        {
+            var seg = segment.Trim();
+            if (string.IsNullOrEmpty(seg)) continue;
+
+            // Nested or=(...) or and=(...) — também aceita or(...) e and(...)
+            if (seg.StartsWith("or(") || seg.StartsWith("and(") || seg.StartsWith("or=(") || seg.StartsWith("and=("))
+            {
+                var op = seg.StartsWith("or") ? "or" : "and";
+                var start = op.Length + (seg[op.Length] == '=' ? 1 : 0);
+                var val = seg[start..];
+                if (val.StartsWith("(") && val.EndsWith(")"))
+                {
+                    var nestedInner = val.Trim('(', ')');
+                    var (nestedSql, newIdx) = ParseConditionGroup(nestedInner, paramIndex, parameters, op == "or");
+                    if (!string.IsNullOrEmpty(nestedSql))
+                    {
+                        conditions.Add($"({nestedSql})");
+                        paramIndex = newIdx;
+                    }
+                }
+                continue;
+            }
+
+            // Simple: column.operator.value OU column=operator.value (ex: status=in.(a,b))
+            string segCol;
+            string segOpVal;
+            var eqIdx = seg.IndexOf('=');
+            var dotIdx = seg.IndexOf('.');
+            if (eqIdx > 0 && (dotIdx < 0 || eqIdx < dotIdx))
+            {
+                segCol = seg[..eqIdx];
+                segOpVal = seg[(eqIdx + 1)..];
+            }
+            else if (dotIdx > 0)
+            {
+                segCol = seg[..dotIdx];
+                segOpVal = seg[(dotIdx + 1)..];
+            }
+            else
+                continue;
+            var (sqlCond, segParam) = ParseOperator(segCol, segOpVal, paramIndex, false);
+            if (string.IsNullOrEmpty(sqlCond)) continue;
+            conditions.Add(sqlCond);
+            if (segParam.HasValue)
+            {
+                parameters[$"p{paramIndex}"] = segParam.Value.value;
+                paramIndex++;
+            }
+        }
+
+        var joinOp = isOr ? " OR " : " AND ";
+        return (conditions.Count > 0 ? string.Join(joinOp, conditions) : "", paramIndex);
     }
 
     private static (string condition, (string key, object? value)? param) ParseOperator(
