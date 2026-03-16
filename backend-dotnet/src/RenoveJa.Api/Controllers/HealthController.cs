@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -126,4 +127,43 @@ public class HealthController : ControllerBase
         timestamp = DateTime.UtcNow,
         service = "RenoveJa API"
     });
+
+    /// <summary>
+    /// Diagnóstico: valida token do médico e conexão com o banco.
+    /// Requer Bearer token. Use para validar antes de testar /api/requests.
+    /// </summary>
+    [HttpGet("diagnose")]
+    [Authorize]
+    public async Task<IActionResult> Diagnose(CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var roleClaim = User.FindFirstValue(ClaimTypes.Role);
+        var tokenValid = Guid.TryParse(userIdClaim, out var userId);
+
+        object tokenCheck;
+        if (tokenValid)
+            tokenCheck = new { valid = true, userId = userId.ToString(), role = roleClaim ?? "unknown" };
+        else
+            tokenCheck = new { valid = false, error = "UserId inválido no token" };
+
+        object dbCheck;
+        try
+        {
+            _ = await _requestRepository.GetByIdAsync(Guid.Empty, ct);
+            dbCheck = new { status = "ok", message = "Conexão com PostgreSQL OK" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Diagnose: database check failed");
+            dbCheck = new { status = "error", message = ex.Message };
+        }
+
+        return Ok(new
+        {
+            token = tokenCheck,
+            database = dbCheck,
+            timestamp = DateTime.UtcNow,
+            service = "RenoveJa API"
+        });
+    }
 }

@@ -1,8 +1,13 @@
-﻿﻿import React, { useEffect, useCallback, useState } from 'react';
+﻿﻿// Inicializa Sentry o mais cedo possível — antes de qualquer outro import
+import '../lib/sentry';
+import React, { useEffect, useCallback, useState } from 'react';
 import { Platform, View, StyleSheet, LogBox } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
+import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary';
+import { logger } from '../lib/logger';
+import { trackError } from '../lib/analytics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from '@expo-google-fonts/plus-jakarta-sans';
 import {
@@ -34,6 +39,20 @@ const queryClient = new QueryClient({
       refetchOnReconnect: false,
     },
   },
+  // Erros de queries/mutations -> Sentry + analytics (captura silenciosa global)
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      const path = String(query.queryKey[0] ?? 'unknown');
+      logger.exception('api', error, [QueryCache] query error: + path);
+      try { trackError('query_error', error instanceof Error ? error.message : String(error), path); } catch { /* noop */ }
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      logger.exception('api', error, '[MutationCache] mutation error');
+      try { trackError('mutation_error', error instanceof Error ? error.message : String(error)); } catch { /* noop */ }
+    },
+  }),
 });
 
 // Push notifications foram removidas do Expo Go no SDK 53 - carregar provider só em development build
@@ -101,6 +120,7 @@ export default function RootLayout() {
   }
 
   return (
+    <GlobalErrorBoundary>
     <QueryClientProvider client={queryClient}>
     <ColorSchemeProvider>
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
@@ -160,6 +180,7 @@ export default function RootLayout() {
     </GestureHandlerRootView>
     </ColorSchemeProvider>
     </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }
 

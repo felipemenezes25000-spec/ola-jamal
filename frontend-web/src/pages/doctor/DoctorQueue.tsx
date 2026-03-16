@@ -9,10 +9,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  getDoctorQueue, assignToQueue, type MedicalRequest,
+  getRequests, assignToQueue, type MedicalRequest,
 } from '@/services/doctorApi';
 import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
-import { parseApiList, getTypeIcon, getTypeLabel } from '@/lib/doctor-helpers';
+import { parseApiList, getTypeIcon, getTypeLabel, formatDateSafe } from '@/lib/doctor-helpers';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
@@ -21,7 +21,7 @@ import {
 
 export default function DoctorQueue() {
   const navigate = useNavigate();
-  const { doctorProfile } = useDoctorAuth();
+  useDoctorAuth(); // ensure doctor is logged in
   const [items, setItems] = useState<MedicalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -34,15 +34,19 @@ export default function DoctorQueue() {
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getDoctorQueue(doctorProfile?.specialty);
+      const data = await getRequests({ page: 1, pageSize: 100 });
       const list = parseApiList<MedicalRequest>(data);
-      setItems(list);
+      // Fila = pedidos sem médico atribuído (disponíveis para assumir)
+      const available = list.filter(
+        (r) => !r.doctorId || r.doctorId === '00000000-0000-0000-0000-000000000000'
+      );
+      setItems(available);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [doctorProfile?.specialty]);
+  }, []);
 
   useEffect(() => { loadQueue(); }, [loadQueue]);
 
@@ -115,7 +119,7 @@ export default function DoctorQueue() {
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                            {formatDateSafe(item.createdAt)}
                           </span>
                           {item.description && (
                             <span className="truncate max-w-[200px]">{item.description}</span>

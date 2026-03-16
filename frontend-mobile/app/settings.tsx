@@ -9,6 +9,7 @@ import type { DesignColors } from '../lib/designSystem';
 import { uiTokens } from '../lib/ui/tokens';
 import { getMutedKeys, unmuteAll } from '../lib/triage/triagePersistence';
 import { showToast } from '../components/ui/Toast';
+import { humanizeError } from '../lib/errors/humanizeError';
 import { useColorSchemeContext } from '../contexts/ColorSchemeContext';
 import { haptics } from '../lib/haptics';
 import { isExpoGo } from '../lib/expo-go';
@@ -91,7 +92,9 @@ export default function SettingsScreen() {
       await sendTestPush();
       showToast({ message: 'Push de teste enviado. Verifique seu dispositivo.', type: 'success' });
     } catch (e: unknown) {
-      const msg = (e as { message?: string })?.message ?? 'Falha ao enviar. Verifique se há token registrado.';
+      const rawMsg = (e as { message?: string })?.message ?? 'Falha ao enviar. Verifique se há token registrado.';
+      const isGeneric500 = (e as { status?: number })?.status === 500 || rawMsg.includes('Ocorreu um erro ao processar sua solicitação');
+      const msg = isGeneric500 ? humanizeError(e, 'generic') : rawMsg;
       showToast({ message: msg, type: 'error' });
     }
   };

@@ -45,6 +45,7 @@ export interface MedicalRequest {
   patientName: string;
   patientEmail?: string;
   patientId?: string;
+  doctorId?: string | null;
   type: 'prescription' | 'exam' | 'consultation';
   status: string;
   createdAt: string;

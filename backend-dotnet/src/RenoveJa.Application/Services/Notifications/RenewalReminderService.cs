@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
+using Sentry;
 
 namespace RenoveJa.Application.Services.Notifications;
 
@@ -42,7 +43,10 @@ public class RenewalReminderService : BackgroundService
                 if (IsDatabaseNotConfigured(ex))
                     _logger.LogDebug("Database não configurado, ignorando lembretes de renovação de receita");
                 else
+                {
                     _logger.LogError(ex, "Erro ao enviar lembretes de renovação de receita");
+                    SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "RenewalReminderService"));
+                }
             }
 
             await Task.Delay(RunInterval, stoppingToken);

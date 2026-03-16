@@ -7,6 +7,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../lib/theme';
+import { Sentry } from '../../lib/sentry';
 
 interface Props {
   children: ReactNode;
@@ -31,6 +32,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.props.onError?.(error, errorInfo);
+    // Reporta ao Sentry com a stack de componentes (granular por tela)
+    (Sentry as typeof Sentry | undefined)?.captureException?.(error, {
+      extra: { componentStack: errorInfo.componentStack },
+      tags: { 'crash.level': 'screen', 'crash.source': 'ErrorBoundary' },
+    });
     if (__DEV__) {
       console.error('[ErrorBoundary]', error, errorInfo.componentStack);
     }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Notifications;
+using Sentry;
 
 namespace RenoveJa.Application.Services.Notifications;
 
@@ -53,6 +54,7 @@ public class NewRequestBatchService : BackgroundService, INewRequestBatchService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao flushar batches de nova solicitação");
+                SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "NewRequestBatchService"));
             }
 
             await Task.Delay(FlushInterval, stoppingToken);

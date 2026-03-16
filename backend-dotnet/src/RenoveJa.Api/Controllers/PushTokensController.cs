@@ -133,8 +133,17 @@ public class PushTokensController(
             $"test_{Guid.NewGuid():N}",
             DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         var request = new PushNotificationRequest(userId, "Teste RenoveJá", "Se você recebeu isso, o push está funcionando.", payload);
-        await pushDispatcher.SendAsync(request, cancellationToken);
-        return Ok(new { message = "Push de teste enviado. Verifique seu dispositivo." });
+
+        try
+        {
+            await pushDispatcher.SendAsync(request, cancellationToken);
+            return Ok(new { message = "Push de teste enviado. Verifique seu dispositivo." });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Falha ao enviar push de teste para userId={UserId}", userId);
+            return BadRequest(new { message = "Não foi possível enviar o push de teste. Tente novamente em alguns instantes." });
+        }
     }
 
     /// <summary>

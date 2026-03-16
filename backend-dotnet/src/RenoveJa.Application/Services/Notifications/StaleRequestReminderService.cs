@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
+using Sentry;
 
 namespace RenoveJa.Application.Services.Notifications;
 
@@ -43,7 +44,10 @@ public class StaleRequestReminderService : BackgroundService
                 if (IsDatabaseNotConfigured(ex))
                     _logger.LogDebug("Database não configurado, ignorando lembretes de pedidos parados");
                 else
+                {
                     _logger.LogError(ex, "Erro ao enviar lembretes de pedidos parados");
+                    SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "StaleRequestReminderService"));
+                }
             }
 
             await Task.Delay(RunInterval, stoppingToken);

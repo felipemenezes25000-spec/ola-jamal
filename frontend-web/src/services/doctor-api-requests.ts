@@ -20,6 +20,9 @@ function normalizeRequest(data: Record<string, unknown>): Record<string, unknown
   if (!data.patientName) {
     data.patientName = data.patientName ?? data.PatientName ?? '';
   }
+  if (!data.createdAt && data.created_at) {
+    data.createdAt = data.created_at;
+  }
   return data;
 }
 

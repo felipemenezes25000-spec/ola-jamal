@@ -82,14 +82,17 @@ public class RequestApprovalController(
 
     /// <summary>
     /// Atribui a solicitação à fila (próximo médico disponível).
+    /// Aceita UUID ou short_code.
     /// </summary>
     [HttpPost("{id}/assign-queue")]
     [Authorize(Roles = "doctor")]
     public async Task<IActionResult> AssignQueue(
-        Guid id,
+        string id,
         CancellationToken cancellationToken)
     {
-        var request = await requestService.AssignToQueueAsync(id, cancellationToken);
+        var resolvedId = await ResolveRequestIdAsync(id, cancellationToken);
+        if (resolvedId == null) return NotFound(new { message = "Solicitação não encontrada", code = "request_not_found" });
+        var request = await requestService.AssignToQueueAsync(resolvedId.Value, cancellationToken);
         return Ok(request);
     }
 

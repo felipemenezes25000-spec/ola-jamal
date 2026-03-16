@@ -11,8 +11,11 @@ const TYPE_LABELS: Record<string, { label: string; icon: keyof typeof Ionicons.g
   consultation: { label: 'Consulta', icon: 'videocam' },
 };
 
-function timeWaiting(createdAt: string): string {
-  const diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
+function timeWaiting(createdAt: string | null | undefined): string {
+  if (createdAt == null || String(createdAt).trim() === '') return '—';
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return '—';
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
   if (diff < 60) return 'Agora';
   if (diff < 3600) return `${Math.floor(diff / 60)} min`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;

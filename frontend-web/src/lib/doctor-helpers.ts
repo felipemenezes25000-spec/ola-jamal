@@ -161,9 +161,23 @@ export function formatShortDate(dateStr: string): string {
 }
 
 export function formatDateOnly(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
+    year: 'numeric',
+  });
+}
+
+/** Formata data para exibição curta (dd/MM/yyyy). Retorna '—' se inválida. */
+export function formatDateSafe(dateStr: string | null | undefined): string {
+  if (dateStr == null || String(dateStr).trim() === '') return '—';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
   });
 }
