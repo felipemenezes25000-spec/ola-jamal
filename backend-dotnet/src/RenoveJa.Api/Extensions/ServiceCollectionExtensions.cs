@@ -214,6 +214,8 @@ public static class ServiceCollectionExtensions
             options.DefaultRoomExpiryMinutes = int.TryParse(
                 envVars.GetValueOrDefault("DAILY_ROOM_EXPIRY_MINUTES") ?? Environment.GetEnvironmentVariable("DAILY_ROOM_EXPIRY_MINUTES"),
                 out var exp) ? exp : 120;
+            // Secret para validação de webhooks do Daily.co (configurar no Dashboard Daily: Developers → Webhooks)
+            options.WebhookSecret = (envVars.GetValueOrDefault("DAILY_WEBHOOK_SECRET") ?? Environment.GetEnvironmentVariable("DAILY_WEBHOOK_SECRET") ?? "").Trim();
         });
 
         return services;

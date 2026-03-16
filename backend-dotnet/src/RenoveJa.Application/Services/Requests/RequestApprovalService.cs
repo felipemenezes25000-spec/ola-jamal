@@ -41,11 +41,15 @@ public class RequestApprovalService(
         request.Approve(0, dto.Notes, dto.Medications, dto.Exams);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
+        // BUG FIX: usar CancellationToken.None para evitar cancelamento da task quando
+        // o HTTP request termina (ASP.NET cancela o token original ao enviar a response).
+        // Capturar requestId antes do closure para evitar problemas de ciclo de vida.
+        var requestIdForBackground = request.Id;
         _ = Task.Run(async () =>
         {
-            try { await GenerateAndSetConductSuggestionAsync(request.Id, cancellationToken); }
-            catch (Exception ex) { logger.LogWarning(ex, "AI conduct suggestion failed for {RequestId}", request.Id); }
-        }, cancellationToken);
+            try { await GenerateAndSetConductSuggestionAsync(requestIdForBackground, CancellationToken.None); }
+            catch (Exception ex) { logger.LogWarning(ex, "AI conduct suggestion failed for {RequestId}", requestIdForBackground); }
+        });
 
         await requestEventsPublisher.NotifyRequestUpdatedAsync(
             request.Id,
@@ -62,11 +66,16 @@ public class RequestApprovalService(
     public async Task<MedicalRequest> RejectAsync(
         Guid id,
         RejectRequestDto dto,
+        Guid doctorId,
         CancellationToken cancellationToken = default)
     {
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");
+
+        // BUG FIX: validar que o médico autenticado é o médico atribuído (ou não há médico atribuído)
+        if (request.DoctorId.HasValue && request.DoctorId.Value != doctorId)
+            throw new UnauthorizedAccessException("Somente o médico atribuído pode rejeitar esta solicitação.");
 
         request.Reject(dto.RejectionReason);
         request = await requestRepository.UpdateAsync(request, cancellationToken);

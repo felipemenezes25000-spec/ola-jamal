@@ -37,6 +37,13 @@ public class PaymentService(
     private static SemaphoreSlim GetPixLock(Guid requestId) =>
         PixLocks.GetOrAdd(requestId, _ => new SemaphoreSlim(1, 1));
 
+    /// <summary>Remove o lock após uso para evitar memory leak em produção.</summary>
+    private static void ReleasePixLock(Guid requestId)
+    {
+        if (PixLocks.TryRemove(requestId, out var sem))
+            sem.Dispose();
+    }
+
     private Task PublishRequestPaidAsync(Domain.Entities.MedicalRequest request, CancellationToken cancellationToken)
     {
         var message = request.RequestType == RequestType.Consultation
@@ -115,6 +122,8 @@ public class PaymentService(
         finally
         {
             sem.Release();
+            // BUG FIX: limpar o lock após uso para evitar memory leak de SemaphoreSlim acumulados
+            ReleasePixLock(requestId);
         }
     }
 

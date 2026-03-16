@@ -646,6 +646,7 @@ public class RequestServiceFullTests
     public async Task UpdateStatusAsync_ShouldUpdateAndNotify()
     {
         SetupNotifications();
+        var doctorId = Guid.NewGuid();
         var request = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
@@ -653,7 +654,7 @@ public class RequestServiceFullTests
             .ReturnsAsync((MedicalRequest req, CancellationToken _) => req);
 
         var dto = new UpdateRequestStatusDto("in_review");
-        var result = await _sut.UpdateStatusAsync(request.Id, dto);
+        var result = await _sut.UpdateStatusAsync(request.Id, dto, doctorId);
 
         result.Status.Should().Be("in_review");
     }
@@ -664,7 +665,7 @@ public class RequestServiceFullTests
         _requestRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MedicalRequest?)null);
 
-        Func<Task> act = () => _sut.UpdateStatusAsync(Guid.NewGuid(), new UpdateRequestStatusDto("paid"));
+        Func<Task> act = () => _sut.UpdateStatusAsync(Guid.NewGuid(), new UpdateRequestStatusDto("paid"), Guid.NewGuid());
         await act.Should().ThrowAsync<KeyNotFoundException>();
     }
 

@@ -18,5 +18,6 @@ public interface IRequestApprovalService
     Task<MedicalRequest> RejectAsync(
         Guid id,
         RejectRequestDto dto,
+        Guid doctorId,
         CancellationToken cancellationToken = default);
 }

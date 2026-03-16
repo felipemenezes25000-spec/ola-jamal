@@ -20,6 +20,13 @@ public class DailyConfig
     public int DefaultRoomExpiryMinutes { get; set; } = 120;
 
     /// <summary>
+    /// Secret compartilhado para validação do webhook Daily.co.
+    /// Configurar no Dashboard Daily (Developers → Webhooks → Secret) e na env var DAILY_WEBHOOK_SECRET.
+    /// Quando não vazio, o controller valida o header x-webhook-secret ou query param ?secret=.
+    /// </summary>
+    public string WebhookSecret { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gera o nome da sala dado o requestId.
     /// Convenção: room_name = "consult-{requestId:N}" (ex: consult-550e8400e29b41d4a716446655440000).
     /// Para obter request_id a partir de room_name: remover prefixo "consult-", inserir hífens nas posições 8,12,16,20 e Guid.Parse.

@@ -113,6 +113,7 @@ Ver `docs/VARIAVEIS_AMBIENTE.md` para lista completa. As principais:
 | `MercadoPago__WebhookSecret` | Secret para validar webhooks | ✅ |
 | `DAILY_API_KEY` | Chave Daily.co | ✅ |
 | `DAILY_DOMAIN` | Domínio Daily.co | ✅ |
+| `DAILY_WEBHOOK_SECRET` | Secret para validar webhooks do Daily.co | Recomendada |
 | `CertificateEncryption__Key` | AES-256 key (base64) para PFX | ✅ |
 | `Google__ClientId` | Google OAuth client ID | Para login Google |
 | `Smtp__*` | Config SMTP (recuperação de senha) | Para e-mail |

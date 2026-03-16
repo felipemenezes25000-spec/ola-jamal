@@ -32,7 +32,7 @@ public class RequestApprovalController(
     }
 
     /// <summary>
-    /// Atualiza o status de uma solicitação (médico).
+    /// Atualiza o status de uma solicitação (médico). Somente o médico atribuído.
     /// </summary>
     [HttpPut("{id}/status")]
     [Authorize(Roles = "doctor")]
@@ -41,7 +41,8 @@ public class RequestApprovalController(
         [FromBody] UpdateRequestStatusDto dto,
         CancellationToken cancellationToken)
     {
-        var request = await requestService.UpdateStatusAsync(id, dto, cancellationToken);
+        var doctorId = GetUserId();
+        var request = await requestService.UpdateStatusAsync(id, dto, doctorId, cancellationToken);
         return Ok(request);
     }
 
@@ -65,7 +66,7 @@ public class RequestApprovalController(
     }
 
     /// <summary>
-    /// Rejeita uma solicitação com motivo (médico).
+    /// Rejeita uma solicitação com motivo (médico). Somente o médico atribuído.
     /// </summary>
     [HttpPost("{id}/reject")]
     [Authorize(Roles = "doctor")]
@@ -76,7 +77,8 @@ public class RequestApprovalController(
     {
         var resolvedId = await ResolveRequestIdAsync(id, cancellationToken);
         if (resolvedId == null) return NotFound();
-        var request = await requestService.RejectAsync(resolvedId.Value, dto, cancellationToken);
+        var doctorId = GetUserId();
+        var request = await requestService.RejectAsync(resolvedId.Value, dto, doctorId, cancellationToken);
         return Ok(request);
     }
 

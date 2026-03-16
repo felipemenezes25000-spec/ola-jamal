@@ -104,6 +104,34 @@ public class S3StorageService : IStorageService
         }
     }
 
+    /// <summary>
+    /// Upload via Stream — evita carregar o arquivo inteiro na memória (ideal para vídeos grandes).
+    /// </summary>
+    public async Task<StorageUploadResult> UploadStreamAsync(string path, Stream data, string contentType, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var bucket = GetBucket(path);
+            var key = CleanPath(path);
+
+            var request = new PutObjectRequest
+            {
+                BucketName = bucket,
+                Key = key,
+                InputStream = data,
+                ContentType = contentType
+            };
+
+            await _s3.PutObjectAsync(request, cancellationToken);
+            var url = GetPublicUrl(path);
+            return new StorageUploadResult(true, url, null);
+        }
+        catch (Exception ex)
+        {
+            return new StorageUploadResult(false, null, ex.Message);
+        }
+    }
+
     public async Task<byte[]?> DownloadAsync(string path, CancellationToken cancellationToken = default)
     {
         try

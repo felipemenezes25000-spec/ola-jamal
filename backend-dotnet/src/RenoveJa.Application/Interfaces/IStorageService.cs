@@ -23,6 +23,15 @@ public interface IStorageService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Faz upload de um arquivo via Stream (evita carregar tudo na memória — ideal para vídeos grandes).
+    /// </summary>
+    Task<StorageUploadResult> UploadStreamAsync(
+        string path,
+        Stream data,
+        string contentType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Faz download de um arquivo.
     /// </summary>
     Task<byte[]?> DownloadAsync(

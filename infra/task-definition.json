@@ -23,6 +23,7 @@
       {"name": "DAILY_DOMAIN", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/DAILY_DOMAIN"},
       {"name": "DAILY_ROOM_PREFIX", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/DAILY_ROOM_PREFIX"},
       {"name": "DAILY_ROOM_EXPIRY_MINUTES", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/DAILY_ROOM_EXPIRY_MINUTES"},
+      {"name": "DAILY_WEBHOOK_SECRET", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/DAILY_WEBHOOK_SECRET"},
       {"name": "OpenAI__ApiKey", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/OpenAI__ApiKey"},
       {"name": "CertificateEncryption__Key", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/CertificateEncryption__Key"},
       {"name": "MercadoPago__AccessToken", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/MercadoPago__AccessToken"},

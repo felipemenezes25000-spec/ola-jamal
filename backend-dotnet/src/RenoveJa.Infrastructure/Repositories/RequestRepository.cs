@@ -62,6 +62,22 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         return models.Select(MapToDomain).ToList();
     }
 
+    /// <summary>
+    /// PERF FIX: busca requests ativos (não rejeitados/cancelados) do paciente filtrados por tipo.
+    /// Usado pelos cooldowns para evitar carregar TODOS os requests do paciente.
+    /// </summary>
+    public async Task<List<MedicalRequest>> GetActiveByPatientAndTypeAsync(Guid patientId, RequestType type, CancellationToken cancellationToken = default)
+    {
+        var typeStr = SnakeCaseHelper.ToSnakeCase(type.ToString());
+        var models = await db.GetAllAsync<RequestModel>(
+            TableName,
+            filter: $"patient_id=eq.{patientId}&request_type=eq.{typeStr}&status=not.in.(rejected,cancelled)",
+            orderBy: "created_at.desc",
+            cancellationToken: cancellationToken);
+
+        return models.Select(MapToDomain).ToList();
+    }
+
     public async Task<List<MedicalRequest>> GetByDoctorIdAsync(Guid doctorId, CancellationToken cancellationToken = default)
     {
         var models = await db.GetAllAsync<RequestModel>(

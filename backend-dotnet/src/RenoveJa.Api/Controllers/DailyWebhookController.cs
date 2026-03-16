@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
@@ -31,6 +33,33 @@ public class DailyWebhookController(
     [HttpPost]
     public async Task<IActionResult> Handle([FromBody] DailyWebhookPayload? payload, CancellationToken cancellationToken)
     {
+        // Validar HMAC-SHA256 do Daily.co (o Daily assina o body e envia no header x-webhook-signature)
+        var configuredSecret = dailyConfig.Value.WebhookSecret;
+        if (!string.IsNullOrWhiteSpace(configuredSecret))
+        {
+            var signature = Request.Headers["x-webhook-signature"].ToString();
+            if (string.IsNullOrEmpty(signature))
+            {
+                logger.LogWarning("[DailyWebhook] Header x-webhook-signature ausente. Rejeitando.");
+                return Unauthorized();
+            }
+
+            // Ler raw body do stream buffered (EnableBuffering() no Program.cs)
+            Request.Body.Position = 0;
+            var rawBody = await new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true).ReadToEndAsync(cancellationToken);
+            Request.Body.Position = 0;
+
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(configuredSecret));
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawBody));
+            var computed = Convert.ToBase64String(hash);
+
+            if (!string.Equals(computed, signature, StringComparison.Ordinal))
+            {
+                logger.LogWarning("[DailyWebhook] HMAC inválido. Esperado={Expected}, Recebido={Received}", computed[..8] + "...", signature[..Math.Min(8, signature.Length)] + "...");
+                return Unauthorized();
+            }
+        }
+
         if (payload?.Type == null)
         {
             logger.LogDebug("[DailyWebhook] Payload vazio ou sem type.");
@@ -79,37 +108,48 @@ public class DailyWebhookController(
             return Ok();
         }
 
-        byte[]? videoBytes;
+        // PERF FIX: streaming — baixa o vídeo como stream e envia para S3 sem carregar tudo na memória
+        var path = $"consultas/{requestId:N}/gravacao/consulta-{requestId:N}-{recordingId}.mp4";
+        StorageUploadResult uploadResult;
+        long streamSize = 0;
         try
         {
             var client = httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RenoveJaBackend", "1.0"));
-            var response = await client.GetAsync(downloadLink, cancellationToken);
+            var response = await client.GetAsync(downloadLink, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
-            videoBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+            streamSize = response.Content.Headers.ContentLength ?? 0;
+            if (streamSize == 0)
+            {
+                // Fallback: checar se stream realmente tem dados
+                await using var checkStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                if (checkStream == null || !checkStream.CanRead)
+                {
+                    logger.LogWarning("[DailyWebhook] Gravação vazia (stream): {RecordingId}.", recordingId);
+                    return Ok();
+                }
+                uploadResult = await storageService.UploadStreamAsync(path, checkStream, "video/mp4", cancellationToken);
+            }
+            else
+            {
+                await using var videoStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                uploadResult = await storageService.UploadStreamAsync(path, videoStream, "video/mp4", cancellationToken);
+            }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "[DailyWebhook] Falha ao baixar gravação {RecordingId}.", recordingId);
+            logger.LogError(ex, "[DailyWebhook] Falha ao baixar/enviar gravação {RecordingId}.", recordingId);
             return Ok();
         }
 
-        if (videoBytes == null || videoBytes.Length == 0)
-        {
-            logger.LogWarning("[DailyWebhook] Gravação vazia: {RecordingId}.", recordingId);
-            return Ok();
-        }
-
-        // Estrutura clara (docs/STORAGE_S3_ESTRUTURA.md): consultas/{requestId}/gravacao/consulta-{requestId}-{recordingId}.mp4
-        var path = $"consultas/{requestId:N}/gravacao/consulta-{requestId:N}-{recordingId}.mp4";
-        var uploadResult = await storageService.UploadAsync(path, videoBytes, "video/mp4", cancellationToken);
         if (!uploadResult.Success || string.IsNullOrEmpty(uploadResult.Url))
         {
             logger.LogError("[DailyWebhook] Falha ao enviar gravação para S3: {RequestId} Error={Error}", requestId, uploadResult.ErrorMessage);
             return Ok();
         }
 
-        logger.LogInformation("[DailyWebhook] Gravação enviada à AWS: RequestId={RequestId} Path={Path} Size={Size}", requestId, path, videoBytes.Length);
+        logger.LogInformation("[DailyWebhook] Gravação enviada à AWS (stream): RequestId={RequestId} Path={Path} ContentLength={Size}", requestId, path, streamSize);
 
         var existing = await consultationAnamnesisRepository.GetByRequestIdAsync(requestId, cancellationToken);
         if (existing != null)

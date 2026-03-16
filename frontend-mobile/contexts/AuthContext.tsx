@@ -158,12 +158,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
         apiClient.get<UserDto>('/api/auth/me', undefined, { signal: controller.signal })
-          .then((currentUser) => {
+          .then(async (currentUser) => {
             clearTimeout(timeoutId);
             // Atualiza silenciosamente com dados frescos do servidor
             setUser(currentUser);
-            if (currentUser.role === 'doctor' && parsedDoctorProfile) {
-              setDoctorProfile(parsedDoctorProfile);
+            await setItemSafe(USER_KEY, currentUser ? JSON.stringify(currentUser) : undefined);
+            // BUG FIX: buscar doctor profile fresco do servidor em vez de reutilizar cache velho
+            if (currentUser.role === 'doctor') {
+              try {
+                const freshProfile = await apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
+                if (freshProfile) {
+                  setDoctorProfile(freshProfile);
+                  await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(freshProfile));
+                }
+              } catch {
+                // Falha ao buscar profile: manter o cache existente
+                if (parsedDoctorProfile) setDoctorProfile(parsedDoctorProfile);
+              }
             }
           })
           .catch((err: unknown) => {
@@ -257,8 +268,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         neighborhood: data.neighborhood, complement: data.complement, city: data.city, state: data.state, postalCode: data.postalCode,
       });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
-      await setItemSafe(AUTH_TOKEN_KEY, response.token ?? undefined);
-      apiClient.setTokenCache(response.token ?? null);
+      // BUG FIX: validar que o token não é nulo/vazio (mesma verificação que signIn)
+      if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
+      await setItemSafe(AUTH_TOKEN_KEY, response.token);
+      apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       setUser(response.user);
       return response.user;

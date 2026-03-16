@@ -316,7 +316,8 @@ public class RequestServiceTests
         var rejectDto = new RejectRequestDto("Receita ilegível");
 
         // Act
-        var result = await _sut.RejectAsync(medicalRequest.Id, rejectDto);
+        var doctorId = Guid.NewGuid();
+        var result = await _sut.RejectAsync(medicalRequest.Id, rejectDto, doctorId);
 
         // Assert
         result.Should().NotBeNull();
@@ -338,7 +339,7 @@ public class RequestServiceTests
             .ReturnsAsync((MedicalRequest?)null);
 
         // Act
-        Func<Task> act = () => _sut.RejectAsync(id, new RejectRequestDto("motivo"));
+        Func<Task> act = () => _sut.RejectAsync(id, new RejectRequestDto("motivo"), Guid.NewGuid());
 
         // Assert
         await act.Should().ThrowAsync<KeyNotFoundException>()

@@ -17,6 +17,7 @@ Referência completa das variáveis necessárias para o backend RenoveJá+.
 | `DAILY_DOMAIN` | — | Domínio Daily.co (ex: `renove`) | ✅ |
 | `DAILY_ROOM_PREFIX` | — | Prefixo das salas Daily.co (ex: `consult`) | Opcional |
 | `DAILY_ROOM_EXPIRY_MINUTES` | — | Expiração das salas em minutos (default: 120) | Opcional |
+| `DAILY_WEBHOOK_SECRET` | — | Secret para validar webhooks do Daily.co (Dashboard → Developers → Webhooks) | Recomendada |
 | `CertificateEncryption__Key` | `CertificateEncryption:Key` | Chave AES-256 em base64 para criptografar PFX dos médicos | ✅ |
 | `Google__ClientId` | `Google:ClientId` | Client ID Google OAuth | Login Google |
 | `Smtp__Host` | `Smtp:Host` | Host SMTP (ex: `smtp.gmail.com`) | Recuperação de senha |

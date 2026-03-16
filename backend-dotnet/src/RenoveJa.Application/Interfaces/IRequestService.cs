@@ -62,6 +62,7 @@ public interface IRequestService
     Task<RequestResponseDto> UpdateStatusAsync(
         Guid id,
         UpdateRequestStatusDto dto,
+        Guid doctorId,
         CancellationToken cancellationToken = default);
 
     /// <summary>Aprova a solicitação e define o valor (da tabela product_prices). Pagamento é criado pelo paciente ao chamar POST /api/payments.</summary>
@@ -74,6 +75,7 @@ public interface IRequestService
     Task<RequestResponseDto> RejectAsync(
         Guid id,
         RejectRequestDto dto,
+        Guid doctorId,
         CancellationToken cancellationToken = default);
 
     Task<RequestResponseDto> AssignToQueueAsync(

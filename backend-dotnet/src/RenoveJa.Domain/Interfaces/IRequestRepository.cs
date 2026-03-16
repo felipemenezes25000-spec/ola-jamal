@@ -10,6 +10,12 @@ public interface IRequestRepository
     Task<MedicalRequest?> GetByShortCodeAsync(string shortCode, CancellationToken cancellationToken = default);
     Task<List<MedicalRequest>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<List<MedicalRequest>> GetByPatientIdAsync(Guid patientId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Busca requests ativos (não rejeitados/cancelados) do paciente por tipo.
+    /// Otimização: usado pelos cooldowns para evitar carregar TODOS os requests do paciente.
+    /// </summary>
+    Task<List<MedicalRequest>> GetActiveByPatientAndTypeAsync(Guid patientId, RequestType type, CancellationToken cancellationToken = default);
     Task<List<MedicalRequest>> GetByDoctorIdAsync(Guid doctorId, CancellationToken cancellationToken = default);
     Task<List<MedicalRequest>> GetByStatusAsync(RequestStatus status, CancellationToken cancellationToken = default);
     /// <summary>Fila: requests sem médico em status que exigem ação. Uma query em vez de 6 GetByStatusAsync.</summary>
