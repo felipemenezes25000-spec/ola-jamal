@@ -1,16 +1,11 @@
 /**
  * Único ponto de verdade para mapear request (backend) → estado de UI.
  * Design system: Azul = ação, Verde = sucesso, Amarelo = aguardando, Cinza = histórico.
- * Nenhuma tela deve filtrar status diretamente; usar apenas este helper.
  *
- * State machine canônica (backend):
- *   prescription/exam: submitted → in_review → paid → signed → delivered
- *   consultation:      submitted → searching_doctor → paid → in_consultation → consultation_finished
+ * State machine canônica (backend) — serviço gratuito (sem pagamento):
+ *   prescription/exam: submitted → in_review → approved → signed → delivered
+ *   consultation:      submitted → searching_doctor → approved → in_consultation → consultation_finished
  *   Qualquer estado:   → rejected | cancelled
- *
- * Status legados (retrocompatibilidade com dados históricos):
- *   pending → needs_action, analyzing → needs_action, approved → needs_action,
- *   pending_payment → waiting_payment, completed → historical
  */
 
 import type { RequestResponseDto } from '../../types/database';
@@ -20,7 +15,6 @@ import type { DesignColors } from '../designSystem';
 
 export type RequestUiState =
   | 'needs_action'
-  | 'waiting_payment'
   | 'in_consultation'
   | 'ready'
   | 'historical';
@@ -29,38 +23,33 @@ export type RequestUiColorKey = 'action' | 'success' | 'waiting' | 'historical';
 
 export interface RequestUiStateResult {
   uiState: RequestUiState;
-  /** Label para exibição (ex: "Consulta pronta", "Aguardando pagamento") */
   label: string;
   colorKey: RequestUiColorKey;
 }
 
 const STATUS_TO_UI: Record<string, RequestUiState> = {
-  // ── Canônicos: prescription / exam ──────────────────────────
   submitted:                'needs_action',
   in_review:                'needs_action',
-  approved_pending_payment: 'waiting_payment',
-  paid:                     'needs_action', // aguardando assinatura do médico
+  approved:                 'needs_action',
   signed:                   'historical',
   delivered:                'historical',
-  // ── Canônicos: consultation ──────────────────────────────────
   searching_doctor:         'needs_action',
   consultation_ready:       'ready',
   in_consultation:          'in_consultation',
   consultation_finished:    'historical',
-  // ── Canônicos: common ────────────────────────────────────────
   rejected:                 'historical',
   cancelled:                'historical',
-  // ── Legados (retrocompatibilidade) ──────────────────────────
+  // Legados
   pending:                  'needs_action',
   analyzing:                'needs_action',
-  pending_payment:          'waiting_payment',
-  approved:                 'needs_action',
+  pending_payment:          'needs_action',
+  approved_pending_payment: 'needs_action',
+  paid:                     'needs_action',
   completed:                'historical',
 };
 
 const STATE_LABELS: Record<RequestUiState, string> = {
   needs_action:    'Pendente',
-  waiting_payment: 'Aguardando assinatura',
   in_consultation: 'Em consulta',
   ready:           'Consulta pronta',
   historical:      'Finalizado',
@@ -68,28 +57,20 @@ const STATE_LABELS: Record<RequestUiState, string> = {
 
 const STATE_COLORS: Record<RequestUiState, RequestUiColorKey> = {
   needs_action:    'waiting',
-  waiting_payment: 'waiting',
   in_consultation: 'action',
   ready:           'action',
   historical:      'historical',
 };
 
-/** Labels por status do backend (centralizado em statusLabels.ts) */
 const STATUS_DISPLAY_LABELS = STATUS_DISPLAY_LABELS_PT;
 
-/**
- * Retorna estado de UI, label e cor para um request (ou apenas status).
- * Todas as telas devem usar esta função para exibir status.
- * Diferencia `paid` por requestType: consulta = pronto para entrar; receita/exame = aguardando assinatura.
- */
 export function getRequestUiState(
   request: RequestResponseDto | { status?: string | null; requestType?: string | null }
 ): RequestUiStateResult {
   const status = request?.status ?? '';
   const requestType = (request as { requestType?: string | null })?.requestType ?? null;
 
-  // paid tem significado diferente por tipo de solicitação
-  if (status === 'paid' && requestType === 'consultation') {
+  if (requestType === 'consultation' && ['approved', 'approved_pending_payment', 'paid'].includes(status)) {
     return { uiState: 'ready', label: 'Consulta pronta', colorKey: 'action' };
   }
 
@@ -99,71 +80,55 @@ export function getRequestUiState(
   return { uiState, label, colorKey };
 }
 
-/** Request exige ação do médico agora (painel "Atendimentos pendentes"). */
 export function isPendingForPanel(request: RequestResponseDto | null | undefined): boolean {
   const s = request?.status;
   if (!s) return false;
   return [
-    'searching_doctor',
-    'in_consultation',
-    'submitted',
-    'in_review',
-    'pending',
-    'analyzing',
-    'approved_pending_payment',
-    'pending_payment',
-    'paid',
-    'approved',
+    'searching_doctor', 'in_consultation', 'submitted', 'in_review',
+    'pending', 'analyzing', 'approved', 'approved_pending_payment', 'paid',
   ].includes(s);
 }
 
-/** Conta para card "Na fila" (amarelo): submitted, in_review, pending_payment, approved_pending_payment, searching_doctor */
 export function countNaFila(requests: RequestResponseDto[]): number {
+  return requests.filter((r) => {
+    if (!r?.status) return false;
+    const s = r.status;
+    if (['submitted', 'in_review', 'approved', 'approved_pending_payment', 'searching_doctor'].includes(s)) return true;
+    if (s === 'paid' && (r as { requestType?: string })?.requestType !== 'consultation') return true;
+    return false;
+  }).length;
+}
+
+export function countConsultaPronta(requests: RequestResponseDto[]): number {
+  const consultationReady = ['approved', 'approved_pending_payment', 'paid'];
   return requests.filter((r) =>
-    !!r?.status && ['submitted', 'in_review', 'pending_payment', 'approved_pending_payment', 'searching_doctor'].includes(r.status)
+    r?.status === 'consultation_ready' ||
+    (consultationReady.includes(r?.status ?? '') && r?.requestType === 'consultation')
   ).length;
 }
 
-/** Conta para card "Consulta pronta" (azul) */
-export function countConsultaPronta(requests: RequestResponseDto[]): number {
-  return requests.filter((r) => r?.status === 'paid').length;
-}
-
-/** Conta para card "Em consulta" (verde) */
 export function countEmConsulta(requests: RequestResponseDto[]): number {
   return requests.filter((r) => r?.status === 'in_consultation').length;
 }
 
-/** Total de atendimentos que exigem ação (para o header "Você tem X atendimentos pendentes") */
 export function countPendentes(requests: RequestResponseDto[]): number {
   return requests.filter(isPendingForPanel).length;
 }
 
-/** Lista de requests para a seção "Atendimentos pendentes" do painel (máx. 3) */
 export function getPendingForPanel(requests: RequestResponseDto[], limit = 3): RequestResponseDto[] {
   return requests.filter(isPendingForPanel).slice(0, limit);
 }
 
-/** Request já finalizado (não aparece no painel de pendentes) */
 export function isHistorical(request: RequestResponseDto): boolean {
   return (STATUS_TO_UI[request?.status ?? ''] ?? 'historical') === 'historical';
 }
 
-/** Agrupa atendimentos realizados por dia para o painel (resumo por dia, sem listar todos). */
-export interface DayGroup {
-  dayLabel: string;
-  dateKey: string;
-  count: number;
-}
+export interface DayGroup { dayLabel: string; dateKey: string; count: number; }
 
-export function getHistoricalGroupedByDay(
-  requests: RequestResponseDto[],
-  maxDays = 7
-): DayGroup[] {
+export function getHistoricalGroupedByDay(requests: RequestResponseDto[], maxDays = 7): DayGroup[] {
   const historical = requests.filter(isHistorical);
   const byDateKey: Record<string, number> = {};
   const now = new Date();
-
   for (const r of historical) {
     const dateStr = r.updatedAt || r.signedAt || r.createdAt;
     const d = new Date(dateStr);
@@ -171,7 +136,6 @@ export function getHistoricalGroupedByDay(
     const key = d.toISOString().slice(0, 10);
     byDateKey[key] = (byDateKey[key] ?? 0) + 1;
   }
-
   const keys = Object.keys(byDateKey).sort((a, b) => b.localeCompare(a)).slice(0, maxDays);
   return keys.map((dateKey) => {
     const d = new Date(dateKey + 'T12:00:00');
@@ -184,34 +148,23 @@ export function getHistoricalGroupedByDay(
   });
 }
 
-/** Período para resumo de realizados (semana, mês, 3 meses, 6 meses) */
-export interface PeriodGroup {
-  label: string;
-  count: number;
-}
+export interface PeriodGroup { label: string; count: number; }
 
 export function getHistoricalGroupedByPeriod(requests: RequestResponseDto[]): PeriodGroup[] {
   const historical = requests.filter(isHistorical);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
   const getRequestDate = (r: RequestResponseDto): Date | null => {
     const dateStr = r.updatedAt || r.signedAt || r.createdAt;
     const d = new Date(dateStr);
     return Number.isNaN(d.getTime()) ? null : d;
   };
-
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const msDay = 86400000;
   const start7 = new Date(today.getTime() - 7 * msDay);
   const start90 = new Date(today.getTime() - 90 * msDay);
   const start180 = new Date(today.getTime() - 180 * msDay);
-
-  let countWeek = 0;
-  let countMonth = 0;
-  let count3Months = 0;
-  let count6Months = 0;
-
+  let countWeek = 0, countMonth = 0, count3Months = 0, count6Months = 0;
   for (const r of historical) {
     const d = getRequestDate(r);
     if (!d) continue;
@@ -221,7 +174,6 @@ export function getHistoricalGroupedByPeriod(requests: RequestResponseDto[]): Pe
     if (t >= start90.getTime()) count3Months++;
     if (t >= start180.getTime()) count6Months++;
   }
-
   return [
     { label: 'Semana', count: countWeek },
     { label: 'Mês', count: countMonth },
@@ -230,18 +182,11 @@ export function getHistoricalGroupedByPeriod(requests: RequestResponseDto[]): Pe
   ];
 }
 
-/** Aguardando pagamento (paciente) */
-export function needsPayment(request: RequestResponseDto | { status: string }): boolean {
-  return getRequestUiState(request).uiState === 'waiting_payment';
-}
-
-/** Já assinado/entregue/concluído (sucesso final) */
 export function isSignedOrDelivered(request: RequestResponseDto | { status: string }): boolean {
   const s = request.status;
   return ['signed', 'delivered', 'completed', 'consultation_finished'].includes(s);
 }
 
-/** Design system: Azul = ação, Verde = sucesso, Amarelo = aguardando, Cinza = histórico (sem roxo/cyan) */
 export const UI_STATUS_COLORS: Record<RequestUiColorKey, { color: string; bg: string }> = {
   action: { color: colors.info, bg: colors.infoLight },
   success: { color: colors.success, bg: colors.successLight },
@@ -249,7 +194,6 @@ export const UI_STATUS_COLORS: Record<RequestUiColorKey, { color: string; bg: st
   historical: { color: colors.textMuted, bg: colors.surfaceSecondary },
 };
 
-/** Cores do badge por tema (dark mode) */
 export function getUIStatusColorsForTheme(c: DesignColors): Record<RequestUiColorKey, { color: string; bg: string }> {
   return {
     action: { color: c.info, bg: c.infoLight },

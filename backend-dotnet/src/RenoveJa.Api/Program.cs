@@ -1,4 +1,4 @@
-﻿using DotNetEnv;
+using DotNetEnv;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Assistant;
 using RenoveJa.Application.Services.Auth;
@@ -6,7 +6,6 @@ using RenoveJa.Application.Services.Clinical;
 using RenoveJa.Infrastructure.AiReading;
 using RenoveJa.Application.Services.Audit;
 using RenoveJa.Application.Services.Requests;
-using RenoveJa.Application.Services.Payments;
 using RenoveJa.Application.Services.Notifications;
 using RenoveJa.Application.Services.Video;
 using RenoveJa.Application.Services.CarePlans;
@@ -17,7 +16,6 @@ using RenoveJa.Domain.Interfaces;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Infrastructure.Data.Postgres;
 using RenoveJa.Infrastructure.Repositories;
-using RenoveJa.Infrastructure.Payments;
 using RenoveJa.Infrastructure.Certificates;
 using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.CrmValidation;
@@ -135,7 +133,7 @@ if (!string.IsNullOrWhiteSpace(sentryDsn))
         {
             if (log.Level is Sentry.SentryLogLevel.Trace or Sentry.SentryLogLevel.Debug or Sentry.SentryLogLevel.Info)
                 return null;
-            // Extrai categoria de [TAG] na mensagem: [API], [WEBHOOK-EVENT], [PAYMENT-ATTEMPT], etc.
+            // Extrai categoria de [TAG] na mensagem: [API], [WEBHOOK-EVENT], etc.
             var msg = log.Message ?? "";
             if (msg.Length >= 3 && msg[0] == '[')
             {
@@ -235,7 +233,7 @@ builder.Services.AddSwaggerGen(options =>
 // Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
-// Configuracao centralizada (Google, MercadoPago, OpenAI, Daily, etc.)
+// Configuracao centralizada (Google, OpenAI, Daily, etc.)
 builder.Services.AddRenoveJaConfiguration(builder.Configuration, _envVars);
 
 // In-memory cache
@@ -501,7 +499,6 @@ app.Use(async (ctx, next) =>
 });
 
 // Remove trailing slash internamente (sem redirect) para evitar 405 em webhooks.
-// POST /api/payments/webhook/ -> reescrito para POST /api/payments/webhook
 var rewriteOptions = new RewriteOptions()
     .AddRewrite(@"^(.+)/$", "$1", skipRemainingRules: true);
 app.UseRewriter(rewriteOptions);

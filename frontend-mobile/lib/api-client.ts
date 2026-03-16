@@ -199,10 +199,12 @@ class ApiClient {
             unauthorizedHandled = true;
             this.onUnauthorized();
           }
-          if (response.status === 403 && this.onForbidden) {
+          const path = getPathFromResponse(response);
+          // 403 em avatar/senha: não deslogar — pode ser validação (ex.: médico pendente, tipo de arquivo)
+          const skipForbiddenLogout = /\/api\/auth\/(avatar|change-password)/.test(path);
+          if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
             this.onForbidden(errorMessage);
           }
-          const path = getPathFromResponse(response);
           if (response.status === 401) {
             const now = Date.now();
             if (now - last401LogAt > LOG_401_DEBOUNCE_MS) {
@@ -249,7 +251,8 @@ class ApiClient {
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
         this.onUnauthorized();
       }
-      if (response.status === 403 && this.onForbidden) {
+      const skipForbiddenLogout = /\/api\/auth\/(avatar|change-password)/.test(path);
+      if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
         this.onForbidden(errorMessage);
       }
 

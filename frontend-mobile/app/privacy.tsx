@@ -31,7 +31,7 @@ export default function PrivacyScreen() {
           </Section>
 
           <Section title="2. Controlador, DPO e finalidade">
-            O controlador dos dados é {COMPANY.name}, CNPJ {COMPANY.cnpj}, com sede em {COMPANY.address}, responsável pelo aplicativo RenoveJá+. O Encarregado de Proteção de Dados (DPO) pode ser contatado por {COMPANY.fullContact} para exercício de direitos e esclarecimentos sobre tratamento de dados. Os dados são tratados para: prestação dos serviços de telemedicina (consultas, receitas, exames), processamento de pagamentos, comunicação sobre atendimento, cumprimento de obrigações legais e regulatórias (incluindo prontuário e normas do CFM), e melhoria dos serviços. Não utilizamos seus dados para finalidades incompatíveis com essas finalidades. A infraestrutura de armazenamento e processamento pode envolver provedores de computação em nuvem localizados no Brasil e no exterior, sempre com salvaguardas adequadas e contratos que asseguram proteção compatível com a LGPD.
+            O controlador dos dados é {COMPANY.name}, CNPJ {COMPANY.cnpj}, com sede em {COMPANY.address}, responsável pelo aplicativo RenoveJá+. O Encarregado de Proteção de Dados (DPO) pode ser contatado por {COMPANY.fullContact} para exercício de direitos e esclarecimentos sobre tratamento de dados. Os dados são tratados para: prestação dos serviços gratuitos de telemedicina (consultas, receitas, exames), comunicação sobre atendimento, cumprimento de obrigações legais e regulatórias (incluindo prontuário e normas do CFM), e melhoria dos serviços. Não utilizamos seus dados para finalidades incompatíveis com essas finalidades. A infraestrutura de armazenamento e processamento pode envolver provedores de computação em nuvem localizados no Brasil e no exterior, sempre com salvaguardas adequadas e contratos que asseguram proteção compatível com a LGPD.
           </Section>
 
           <Section title="3. Dados que coletamos">
@@ -47,7 +47,7 @@ export default function PrivacyScreen() {
           </Section>
 
           <Section title="4. Compartilhamento e não comercialização">
-            Seus dados não são vendidos nem cedidos a terceiros para fins de marketing. O compartilhamento ocorre apenas quando necessário à prestação do serviço (por exemplo, com o profissional de saúde que realiza o atendimento, com processadores de pagamento dentro dos limites contratuais) ou para cumprimento de obrigação legal ou determinação de autoridade competente. Podemos utilizar processadores que assumem obrigações de confidencialidade e segurança.
+            Seus dados não são vendidos nem cedidos a terceiros para fins de marketing. O compartilhamento ocorre apenas quando necessário à prestação do serviço (por exemplo, com o profissional de saúde que realiza o atendimento) ou para cumprimento de obrigação legal ou determinação de autoridade competente. Podemos utilizar processadores que assumem obrigações de confidencialidade e segurança.
           </Section>
 
           <Section title="5. Retenção e segurança">

@@ -82,14 +82,7 @@ export function GlobalAssistantBanner() {
     if (action === 'acompanhar_pedido') {
       router.push('/(patient)/requests');
     }
-    if (action === 'abrir_pagamento') {
-      if (message?.requestId) {
-        nav.push(router, `/request-detail/${message.requestId}`);
-      } else {
-        router.push('/(patient)/requests');
-      }
-    }
-    if (action === 'abrir_documento') {
+    if (action === 'abrir_pagamento' || action === 'abrir_documento') {
       if (message?.requestId) {
         nav.push(router, `/request-detail/${message.requestId}`);
       } else {

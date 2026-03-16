@@ -52,8 +52,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IDoctorRepository, DoctorRepository>();
         services.AddScoped<IRequestRepository, RequestRepository>();
-        services.AddScoped<IPaymentRepository, PaymentRepository>();
-        services.AddScoped<ISavedCardRepository, SavedCardRepository>();
         services.AddScoped<IAuthTokenRepository, AuthTokenRepository>();
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
@@ -61,11 +59,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConsultationAnamnesisRepository, ConsultationAnamnesisRepository>();
         services.AddScoped<IPushTokenRepository, PushTokenRepository>();
         services.AddScoped<IUserPushPreferencesRepository, UserPushPreferencesRepository>();
-        services.AddScoped<IProductPriceRepository, ProductPriceRepository>();
         services.AddScoped<ICertificateRepository, CertificateRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-        services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
-        services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
         services.AddScoped<IConsultationTimeBankRepository, ConsultationTimeBankRepository>();
         services.AddScoped<IPatientRepository, PatientRepository>();
         services.AddScoped<IEncounterRepository, EncounterRepository>();
@@ -182,7 +177,6 @@ public static class ServiceCollectionExtensions
 
         services.Configure<GoogleAuthConfig>(config.GetSection("Google"));
 
-        services.Configure<MercadoPagoConfig>(config.GetSection(MercadoPagoConfig.SectionName));
         services.Configure<OpenAIConfig>(config.GetSection(OpenAIConfig.SectionName));
         services.PostConfigure<OpenAIConfig>(options =>
         {

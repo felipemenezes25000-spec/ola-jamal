@@ -1,6 +1,6 @@
 # RenoveJá+
 
-Plataforma de **telemedicina** para renovação de receitas, pedidos de exame e consultas por vídeo. Fluxo completo: solicitação do paciente → triagem com IA → aprovação e assinatura digital ICP-Brasil pelo médico → pagamento PIX/cartão → verificação pública via QR Code.
+Plataforma de **telemedicina** para renovação de receitas, pedidos de exame e consultas por vídeo. Fluxo completo: solicitação do paciente → triagem com IA → aprovação e assinatura digital ICP-Brasil pelo médico → verificação pública via QR Code. Serviço 100% gratuito para a população.
 
 ---
 
@@ -13,7 +13,6 @@ Plataforma de **telemedicina** para renovação de receitas, pedidos de exame e 
 | Web        | Vite + React, TypeScript |
 | Banco      | PostgreSQL (AWS RDS, Npgsql + Dapper) |
 | Storage    | AWS S3 (receitas, certificados, avatares, transcrições) |
-| Pagamentos | Mercado Pago (PIX + cartão) |
 | Vídeo      | Daily.co (WebRTC + transcrição Deepgram) |
 | IA         | OpenAI GPT-4o · fallback Gemini 2.5 Flash |
 | Assinatura | ICP-Brasil PAdES (iText7 + BouncyCastle) |
@@ -116,4 +115,4 @@ Nunca commitar `.env` ou chaves; usar `.env.example` como modelo.
 
 ---
 
-**RenoveJá+** — .NET 8 · Expo 54 · PostgreSQL/RDS · AWS S3 · Mercado Pago · Daily.co · OpenAI · Gemini · ICP-Brasil · Sentry
+**RenoveJá+** — .NET 8 · Expo 54 · PostgreSQL/RDS · AWS S3 · Daily.co · OpenAI · Gemini · ICP-Brasil · Sentry

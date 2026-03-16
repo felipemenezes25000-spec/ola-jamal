@@ -11,10 +11,6 @@ import type { RequestResponseDto } from '../types/database';
 // ── Funções extraídas do useMemo `derived` em home.tsx ───────────────────────
 // (Testar aqui evita dependência de render e permite cobertura isolada)
 
-function needsPayment(r: RequestResponseDto): boolean {
-  return r.status === 'approved_pending_payment' || r.status === 'pending_payment';
-}
-
 function isSignedOrDelivered(r: RequestResponseDto): boolean {
   return r.status === 'signed' || r.status === 'delivered';
 }
@@ -22,9 +18,7 @@ function isSignedOrDelivered(r: RequestResponseDto): boolean {
 const TERMINAL_STATUSES = ['delivered', 'consultation_finished', 'rejected', 'cancelled'];
 
 const PRIORITY_MAP: Record<string, number> = {
-  approved_pending_payment: 100,
-  pending_payment: 100,
-  paid: 95,
+  approved: 100,
   signed: 90,
   in_review: 80,
   submitted: 70,
@@ -33,7 +27,7 @@ const PRIORITY_MAP: Record<string, number> = {
 };
 
 function deriveStats(requests: RequestResponseDto[]) {
-  let pending = 0, toPay = 0, ready = 0;
+  let pending = 0, ready = 0;
   let prescriptionCount = 0, examCount = 0;
   let lastConsultation: RequestResponseDto | null = null;
   let lastSignedPrescription: RequestResponseDto | null = null;
@@ -44,7 +38,6 @@ function deriveStats(requests: RequestResponseDto[]) {
 
   for (const r of requests) {
     if (r.status === 'in_review' || r.status === 'submitted') pending++;
-    if (needsPayment(r)) toPay++;
     if (isSignedOrDelivered(r)) ready++;
 
     if (r.requestType === 'prescription') {
@@ -80,7 +73,7 @@ function deriveStats(requests: RequestResponseDto[]) {
   };
 
   return {
-    stats: { pending, toPay, ready },
+    stats: { pending, ready },
     recentPrescriptionCount: prescriptionCount,
     recentExamCount: examCount,
     lastConsultation,
@@ -113,7 +106,6 @@ describe('homeStats — derivação de stats', () => {
     it('lista vazia retorna todos os contadores zerados', () => {
       const { stats } = deriveStats([]);
       expect(stats.pending).toBe(0);
-      expect(stats.toPay).toBe(0);
       expect(stats.ready).toBe(0);
     });
 
@@ -124,22 +116,6 @@ describe('homeStats — derivação de stats', () => {
       ];
       const { stats } = deriveStats(requests);
       expect(stats.pending).toBe(2);
-    });
-
-    it('conta pedidos aprovados aguardando pagamento em toPay', () => {
-      const requests = [
-        makeReq({ status: 'approved_pending_payment' }),
-        makeReq({ status: 'approved_pending_payment' }),
-        makeReq({ status: 'submitted' }),
-      ];
-      const { stats } = deriveStats(requests);
-      expect(stats.toPay).toBe(2);
-    });
-
-    it('conta pending_payment (legado) em toPay também', () => {
-      const requests = [makeReq({ status: 'pending_payment' })];
-      const { stats } = deriveStats(requests);
-      expect(stats.toPay).toBe(1);
     });
 
     it('conta pedidos assinados e entregues em ready', () => {
@@ -159,7 +135,6 @@ describe('homeStats — derivação de stats', () => {
       ];
       const { stats } = deriveStats(requests);
       expect(stats.pending).toBe(0);
-      expect(stats.toPay).toBe(0);
       expect(stats.ready).toBe(0);
     });
   });
@@ -170,18 +145,18 @@ describe('homeStats — derivação de stats', () => {
       expect(followUpRequest).toBeNull();
     });
 
-    it('prioriza approved_pending_payment (100) sobre submitted (70)', () => {
-      const high = makeReq({ id: 'high', status: 'approved_pending_payment' });
+    it('prioriza approved (100) sobre submitted (70)', () => {
+      const high = makeReq({ id: 'high', status: 'approved' });
       const low = makeReq({ id: 'low', status: 'submitted' });
       const { followUpRequest } = deriveStats([low, high]);
       expect(followUpRequest?.id).toBe('high');
     });
 
-    it('prioriza paid (95) sobre in_review (80)', () => {
-      const paid = makeReq({ id: 'paid', status: 'paid' });
+    it('prioriza signed (90) sobre in_review (80)', () => {
+      const signed = makeReq({ id: 'signed', status: 'signed' });
       const inReview = makeReq({ id: 'review', status: 'in_review' });
-      const { followUpRequest } = deriveStats([inReview, paid]);
-      expect(followUpRequest?.id).toBe('paid');
+      const { followUpRequest } = deriveStats([inReview, signed]);
+      expect(followUpRequest?.id).toBe('signed');
     });
 
     it('ignora pedidos com status terminal (delivered, rejected, cancelled)', () => {

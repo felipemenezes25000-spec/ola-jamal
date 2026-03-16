@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -12,8 +13,18 @@ namespace RenoveJa.Api.Authorization;
 /// </summary>
 public class DoctorApprovalFilter : IAsyncActionFilter
 {
+    /// <summary>Endpoints que médicos pendentes podem acessar (perfil, avatar, senha).</summary>
+    private static readonly string[] AllowedPathsForPendingDoctor = ["/api/auth/avatar", "/api/auth/change-password", "/api/auth/me"];
+
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
+        var path = context.HttpContext.Request.Path.Value ?? "";
+        if (AllowedPathsForPendingDoctor.Any(p => path.Contains(p, StringComparison.OrdinalIgnoreCase)))
+        {
+            await next();
+            return;
+        }
+
         var user = context.HttpContext.User;
         if (user?.Identity?.IsAuthenticated == true && user.IsInRole("Doctor"))
         {

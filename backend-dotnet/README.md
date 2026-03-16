@@ -1,6 +1,6 @@
 # RenoveJá+ — Backend .NET 8
 
-API do RenoveJá+ em C#/.NET 8 com Clean Architecture. PostgreSQL (AWS RDS), storage AWS S3, IA (OpenAI/Gemini), videochamadas (Daily.co), assinatura digital ICP-Brasil.
+API do RenoveJá+ em C#/.NET 8 com Clean Architecture. PostgreSQL (AWS RDS), storage AWS S3, IA (OpenAI/Gemini), videochamadas (Daily.co), assinatura digital ICP-Brasil. Serviço 100% gratuito.
 
 Documentação geral do monorepo: [README principal](../README.md) · [docs/](../docs/README.md)
 
@@ -30,7 +30,7 @@ backend-dotnet/
 - .NET 8 SDK
 - PostgreSQL acessível (AWS RDS em prod, local em dev)
 - AWS credentials com acesso ao S3 (dev local: `aws configure` ou variáveis de ambiente)
-- Chaves: OpenAI, Mercado Pago, Daily.co, Google OAuth
+- Chaves: OpenAI, Daily.co, Google OAuth
 
 ---
 
@@ -45,9 +45,6 @@ Crie `src/RenoveJa.Api/appsettings.Development.json` (não commitar — está no
   },
   "OpenAI": {
     "ApiKey": "sk-proj-SUA_CHAVE"
-  },
-  "MercadoPago": {
-    "AccessToken": "APP_USR-..."
   },
   "Api": {
     "BaseUrl": "http://localhost:5000",
@@ -109,8 +106,6 @@ Ver `docs/VARIAVEIS_AMBIENTE.md` para lista completa. As principais:
 | `Gemini__ApiKey` | Chave Gemini 2.5 Flash (fallback da OpenAI) | Recomendada |
 | `Api__BaseUrl` | URL pública da API (proxy de documentos e imagens) | ✅ |
 | `Api__DocumentTokenSecret` | Secret 32+ chars para tokens de documento | ✅ |
-| `MercadoPago__AccessToken` | Token Mercado Pago | ✅ |
-| `MercadoPago__WebhookSecret` | Secret para validar webhooks | ✅ |
 | `DAILY_API_KEY` | Chave Daily.co | ✅ |
 | `DAILY_DOMAIN` | Domínio Daily.co | ✅ |
 | `DAILY_WEBHOOK_SECRET` | Secret para validar webhooks do Daily.co | Recomendada |
@@ -129,7 +124,7 @@ PostgreSQL via **AWS RDS**. Acesso via Npgsql + Dapper através do `PostgresClie
 
 Migrations são executadas automaticamente no startup via `MigrationRunner` quando `ConnectionStrings__DefaultConnection` está configurada.
 
-**Tabelas principais:** `users`, `doctor_profiles`, `requests`, `payments`, `notifications`, `video_rooms`, `consultation_anamnesis`, `medical_documents`, `encounters`, `care_plans`, `push_tokens`, `audit_logs`, `certificates`.
+**Tabelas principais:** `users`, `doctor_profiles`, `requests`, `notifications`, `video_rooms`, `consultation_anamnesis`, `medical_documents`, `encounters`, `care_plans`, `push_tokens`, `audit_logs`, `certificates`.
 
 ---
 
@@ -158,9 +153,9 @@ URLs públicas via CloudFront (`AWS_S3_PUBLIC_BASE_URL`) ou diretamente pelo S3.
 
 ---
 
-## Controllers (44 endpoints)
+## Controllers (42 endpoints)
 
-Organizados em: Auth, Requests, RequestApproval, Prescriptions, Consultation, ConsultationWorkflow, Payments, Doctors, Patients, Video, Notifications, PushTokens, Certificates, ClinicalRecords, CarePlans, AuditLogs, Analytics, Assistant, Triage, Verification, Sus, Integrations, Rnds, FhirLite, Specialties, Cid10, Contact, ShortUrl, Health, AdminDoctors, AdminClinicalBackfill, GeminiTest, DevSample.
+Organizados em: Auth, Requests, RequestApproval, Prescriptions, Consultation, ConsultationWorkflow, Doctors, Patients, Video, Notifications, PushTokens, Certificates, ClinicalRecords, CarePlans, AuditLogs, Analytics, Assistant, Triage, Verification, Sus, Integrations, Rnds, FhirLite, Specialties, Cid10, Contact, ShortUrl, Health, AdminDoctors, AdminClinicalBackfill, GeminiTest, DevSample.
 
 ---
 

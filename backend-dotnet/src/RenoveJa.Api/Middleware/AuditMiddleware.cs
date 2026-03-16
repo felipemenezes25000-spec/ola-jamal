@@ -23,8 +23,7 @@ public class AuditMiddleware(
     [
         "/api/requests",
         "/api/certificates",
-        "/api/verify",
-        "/api/payments"
+        "/api/verify"
     ];
 
     public async Task InvokeAsync(HttpContext context)
@@ -107,7 +106,6 @@ public class AuditMiddleware(
                 "/api/requests" => "Request",
                 "/api/certificates" => "Certificate",
                 "/api/verify" => "Verification",
-                "/api/payments" => "Payment",
                 _ => "Unknown"
             };
 

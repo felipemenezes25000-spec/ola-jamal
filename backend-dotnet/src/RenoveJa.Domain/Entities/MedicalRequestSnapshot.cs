@@ -20,7 +20,6 @@ public record MedicalRequestSnapshot
     public List<string>? Exams { get; init; }
     public List<string>? ExamImages { get; init; }
     public string? Symptoms { get; init; }
-    public decimal? Price { get; init; }
     public string? Notes { get; init; }
     public string? RejectionReason { get; init; }
     public DateTime? SignedAt { get; init; }
@@ -38,7 +37,6 @@ public record MedicalRequestSnapshot
     public string? PrescriptionKind { get; init; }
     public string? ConsultationType { get; init; }
     public int? ContractedMinutes { get; init; }
-    public decimal? PricePerMinute { get; init; }
     public DateTime? ConsultationStartedAt { get; init; }
     public DateTime? DoctorCallConnectedAt { get; init; }
     public DateTime? PatientCallConnectedAt { get; init; }

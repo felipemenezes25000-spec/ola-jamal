@@ -5,7 +5,7 @@
  * Nenhuma chamada de API. Nenhum side-effect. 100% testável.
  *
  * Regras:
- *  - NUNCA mostrar em steps: payment, signing (momento crítico)
+ *  - NUNCA mostrar em steps: signing (momento crítico)
  *  - NUNCA diagnosticar ou prescrever
  *  - Max 2 linhas (~120 chars) por mensagem
  *  - CTA somente quando realmente acionável
@@ -34,7 +34,7 @@ function getStepCooldown(totalRequests?: number): number {
 
 // ── Blocked steps (momento crítico) ─────────────────────────
 
-const BLOCKED_STEPS: Set<TriageStep> = new Set(['payment', 'signing']);
+const BLOCKED_STEPS: Set<TriageStep> = new Set(['signing']);
 
 // ── Companion fallbacks (evita tela passiva — Dra. Renoveja sempre interagindo) ─
 
@@ -589,7 +589,7 @@ function rulesDetail(i: TriageInput): TriageMessage | null {
   if (
     i.step === 'entry' &&
     i.status &&
-    ['approved_pending_payment', 'pending_payment', 'paid'].includes(i.status)
+    ['approved', 'approved_pending_payment', 'pending_payment', 'paid'].includes(i.status)
   ) {
     const kind = i.requestType ?? 'generic';
     if (kind === 'consultation') {

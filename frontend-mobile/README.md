@@ -60,7 +60,6 @@ frontend-mobile/
 │   ├── new-request/          # Criação de solicitações
 │   ├── request-detail/       # Detalhe (paciente)
 │   ├── doctor-request/       # Revisão (médico)
-│   ├── payment/              # Pagamento PIX/cartão
 │   ├── video/                # Consulta por vídeo
 │   ├── care-plans/           # Planos de cuidado
 │   ├── consultation-summary/ # Resumo pós-consulta

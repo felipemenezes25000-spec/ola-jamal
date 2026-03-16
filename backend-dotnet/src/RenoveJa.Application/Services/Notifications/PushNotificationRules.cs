@@ -48,9 +48,8 @@ public static class PushNotificationRules
 
         var cat = category ?? (status switch
         {
-            RequestStatus.ApprovedPendingPayment or RequestStatus.Paid => PushCategory.Payments,
             RequestStatus.InConsultation or RequestStatus.SearchingDoctor => PushCategory.Consultations,
-            _ => PushCategory.Requests
+            _ => PushCategory.Requests  // Fluxo de pagamento removido — Paid/ApprovedPendingPayment → Requests
         });
 
         var payload = new PushNotificationPayload(
@@ -110,10 +109,11 @@ public static class PushNotificationRules
 
     public static PushNotificationRequest Paid(Guid userId, Guid requestId, RequestType requestType) =>
         BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.Paid,
-            "Pagamento confirmado ✅",
+            "Solicitação aprovada ✅",
             "Agora vamos gerar e assinar seu documento.",
             targetRole: "patient",
-            category: PushCategory.Payments, bypassQuietHours: true);
+            deepLinkSuffix: $"request-detail/{requestId}",
+            bypassQuietHours: true);
 
     public static PushNotificationRequest Signed(Guid userId, Guid requestId, RequestType requestType) =>
         BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.Signed,

@@ -1,6 +1,5 @@
 using RenoveJa.Application.DTOs;
 using RenoveJa.Application.DTOs.Requests;
-using RenoveJa.Application.DTOs.Payments;
 using RenoveJa.Application.DTOs.Video;
 
 namespace RenoveJa.Application.Interfaces;
@@ -10,20 +9,20 @@ namespace RenoveJa.Application.Interfaces;
 /// </summary>
 public interface IRequestService
 {
-    /// <summary>Cria solicitação de receita (foto + medicamentos). Status Submitted; pagamento é criado quando o médico aprovar.</summary>
-    Task<(RequestResponseDto Request, PaymentResponseDto? Payment)> CreatePrescriptionAsync(
+    /// <summary>Cria solicitação de receita (foto + medicamentos). Status Submitted. Serviço gratuito.</summary>
+    Task<RequestResponseDto> CreatePrescriptionAsync(
         CreatePrescriptionRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Cria solicitação de exame. Status Submitted; pagamento criado na aprovação.</summary>
-    Task<(RequestResponseDto Request, PaymentResponseDto? Payment)> CreateExamAsync(
+    /// <summary>Cria solicitação de exame. Status Submitted. Serviço gratuito.</summary>
+    Task<RequestResponseDto> CreateExamAsync(
         CreateExamRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Cria solicitação de consulta. Status SearchingDoctor.</summary>
-    Task<(RequestResponseDto Request, PaymentResponseDto? Payment)> CreateConsultationAsync(
+    /// <summary>Cria solicitação de consulta. Status SearchingDoctor. Serviço gratuito.</summary>
+    Task<RequestResponseDto> CreateConsultationAsync(
         CreateConsultationRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default);
@@ -65,7 +64,7 @@ public interface IRequestService
         Guid doctorId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Aprova a solicitação e define o valor (da tabela product_prices). Pagamento é criado pelo paciente ao chamar POST /api/payments.</summary>
+    /// <summary>Aprova a solicitação e define o valor (da tabela product_prices). Serviço gratuito — sem fluxo de pagamento.</summary>
     Task<RequestResponseDto> ApproveAsync(
         Guid id,
         ApproveRequestDto dto,

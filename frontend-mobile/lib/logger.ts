@@ -2,14 +2,13 @@
  * Logger estruturado: categorias, níveis e atributos.
  * Em produção só envia warn+ ao Sentry. Info/debug ficam no console.
  *
- * Categorias sugeridas: auth | api | payment | video | request | verify | ui
+ * Categorias sugeridas: auth | api | video | request | verify | ui
  */
 import { Sentry } from './sentry';
 
 export type LogCategory =
   | 'auth'
   | 'api'
-  | 'payment'
   | 'video'
   | 'request'
   | 'verify'

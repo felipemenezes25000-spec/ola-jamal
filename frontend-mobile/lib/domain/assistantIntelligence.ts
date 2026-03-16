@@ -176,7 +176,8 @@ export function detectRedFlags(symptoms?: string | null): RedFlagResult {
 export function getNextBestActionForRequest(
   request: Pick<RequestResponseDto, 'status' | 'requestType' | 'signedDocumentUrl'>
 ): NextBestAction {
-  const status = normalizeRequestStatus(request.status);
+  const rawStatus = request.status;
+  const status = normalizeRequestStatus(rawStatus);
 
   if (status === 'submitted') {
     return {
@@ -198,7 +199,7 @@ export function getNextBestActionForRequest(
     };
   }
 
-  if (status === 'approved_pending_payment') {
+  if (rawStatus === 'approved_pending_payment') {
     return {
       title: 'Solicitação aprovada',
       statusSummary: 'Seu pedido foi aprovado e está aguardando assinatura do médico.',
@@ -208,7 +209,7 @@ export function getNextBestActionForRequest(
     };
   }
 
-  if (status === 'paid') {
+  if (rawStatus === 'paid') {
     if (request.requestType === 'consultation') {
       return {
         title: 'Consulta liberada',

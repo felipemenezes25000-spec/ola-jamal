@@ -30,7 +30,6 @@ export type TriageStep =
   | 'symptoms_entered'
   | 'analyzing'
   | 'result'
-  | 'payment'      // NUNCA mostrar mensagem aqui
   | 'signing'      // NUNCA mostrar mensagem aqui
   | 'completed';
 
@@ -49,9 +48,9 @@ export type CTAAction =
   | 'renovar_receita'
   | 'pedir_exames'
   | 'tire_duvidas'
-  | 'abrir_pagamento'
   | 'abrir_documento'
   | 'acompanhar_pedido'
+  | 'abrir_pagamento'  // legado; tratado como abrir_documento
   | 'dismiss'
   | null;
 
@@ -112,7 +111,6 @@ export interface TriageInput {
 
   // Patient history stats
   totalRequests?: number;
-  toPayCount?: number;
   recentPrescriptionCount?: number;
   recentExamCount?: number;
   lastConsultationDays?: number;

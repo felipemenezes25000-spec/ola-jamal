@@ -6,8 +6,6 @@
 import {
   validateLogin,
   validateRegister,
-  validateRegisterDoctor,
-  validateCompleteProfile,
   validateForgotPassword,
   validateChangePassword,
   validateCreatePrescription,

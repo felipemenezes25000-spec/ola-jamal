@@ -157,14 +157,8 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(completed,delivered,consultation_finished)";
         var completedCount = await db.CountAsync(TableName, completedFilter, cancellationToken);
 
-        // totalEarnings: soma de price dos completed
-        var priceModels = await db.GetAllAsync<RequestPriceModel>(
-            TableName,
-            select: "price",
-            filter: completedFilter,
-            limit: 10000,
-            cancellationToken: cancellationToken);
-        var totalEarnings = priceModels.Sum(p => p.Price ?? 0);
+        // Serviço gratuito — sem faturamento
+        var totalEarnings = 0m;
 
         return (pendingCount, inReviewCount, completedCount, totalEarnings);
     }
@@ -244,8 +238,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             Exams = model.Exams,
             ExamImages = model.ExamImages,
             Symptoms = model.Symptoms,
-            // Envia null em vez de 0: constraint requests_price_positive rejeita 0 (consultas gratuitas via banco de horas)
-            Price = model.Price == 0m ? null : model.Price,
             Notes = model.Notes,
             RejectionReason = model.RejectionReason,
             AccessCode = model.AccessCode,
@@ -260,7 +252,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             AiMessageToUser = model.AiMessageToUser,
             ConsultationType = model.ConsultationType,
             ContractedMinutes = model.ContractedMinutes,
-            PricePerMinute = model.PricePerMinute,
             ConsultationStartedAt = model.ConsultationStartedAt,
             DoctorCallConnectedAt = model.DoctorCallConnectedAt,
             PatientCallConnectedAt = model.PatientCallConnectedAt,
@@ -291,7 +282,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         public string? Exams { get; set; }
         public string? ExamImages { get; set; }
         public string? Symptoms { get; set; }
-        public decimal? Price { get; set; }
         public string? Notes { get; set; }
         public string? RejectionReason { get; set; }
         public string? AccessCode { get; set; }
@@ -308,8 +298,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         public string? ConsultationType { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("contracted_minutes")]
         public int? ContractedMinutes { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("price_per_minute")]
-        public decimal? PricePerMinute { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("consultation_started_at")]
         public DateTime? ConsultationStartedAt { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("doctor_call_connected_at")]
@@ -418,7 +406,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             Exams = JsonToList(model.Exams),
             ExamImages = JsonToList(model.ExamImages),
             Symptoms = model.Symptoms,
-            Price = model.Price,
             Notes = model.Notes,
             RejectionReason = model.RejectionReason,
             SignedAt = model.SignedAt,
@@ -436,7 +423,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             PrescriptionKind = !string.IsNullOrWhiteSpace(model.PrescriptionKind) ? SnakeCaseHelper.ToPascalCase(model.PrescriptionKind) : null,
             ConsultationType = model.ConsultationType,
             ContractedMinutes = model.ContractedMinutes,
-            PricePerMinute = model.PricePerMinute,
             ConsultationStartedAt = model.ConsultationStartedAt,
             DoctorCallConnectedAt = model.DoctorCallConnectedAt,
             PatientCallConnectedAt = model.PatientCallConnectedAt,
@@ -475,7 +461,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             Exams = ListToJson(request.Exams),
             ExamImages = ListToJson(request.ExamImages),
             Symptoms = request.Symptoms,
-            Price = request.Price?.Amount,
             Notes = request.Notes,
             RejectionReason = request.RejectionReason,
             AccessCode = request.AccessCode,
@@ -497,7 +482,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             ConductUpdatedBy = request.ConductUpdatedBy,
             ConsultationType = request.ConsultationType,
             ContractedMinutes = request.ContractedMinutes,
-            PricePerMinute = request.PricePerMinute,
             ConsultationStartedAt = request.ConsultationStartedAt,
             DoctorCallConnectedAt = request.DoctorCallConnectedAt,
             PatientCallConnectedAt = request.PatientCallConnectedAt,

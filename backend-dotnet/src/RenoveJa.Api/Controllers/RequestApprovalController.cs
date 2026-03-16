@@ -48,7 +48,7 @@ public class RequestApprovalController(
 
     /// <summary>
     /// Aprova a renovação. Somente médicos (role doctor). Body vazio.
-    /// O valor vem da tabela product_prices. O paciente inicia o pagamento via POST /api/payments.
+    /// Serviço gratuito — sem fluxo de pagamento.
     /// Para rejeitar: POST /api/requests/{id}/reject com { "rejectionReason": "motivo" }.
     /// </summary>
     [HttpPost("{id}/approve")]

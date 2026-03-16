@@ -301,7 +301,6 @@ public class AuditServiceTests
 public class ExtendedRequestServiceTests
 {
     private readonly Mock<IRequestRepository> _requestRepoMock = new();
-    private readonly Mock<IProductPriceRepository> _productPriceRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IDoctorRepository> _doctorRepoMock = new();
     private readonly Mock<IVideoRoomRepository> _videoRoomRepoMock = new();
@@ -341,7 +340,7 @@ public class ExtendedRequestServiceTests
             _aiConductSuggestionServiceMock.Object,
             requestApprovalLoggerMock.Object);
         _sut = new global::RenoveJa.Application.Services.Requests.RequestService(
-            _requestRepoMock.Object, _productPriceRepoMock.Object,
+            _requestRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
             _notificationRepoMock.Object, _pushSenderMock.Object, pushDispatcherMock.Object, _aiReadingMock.Object,
             _apiConfigMock.Object,
@@ -406,12 +405,11 @@ public class ExtendedRequestServiceTests
             .ReturnsAsync((MedicalRequest req, CancellationToken _) => req);
 
         var dto = new RenoveJa.Application.DTOs.Requests.CreateConsultationRequestDto("Dor de cabeça forte");
-        var (result, payment) = await _sut.CreateConsultationAsync(dto, userId);
+        var result = await _sut.CreateConsultationAsync(dto, userId);
 
         result.Status.Should().Be("searching_doctor");
         result.RequestType.Should().Be("consultation");
         result.Symptoms.Should().Be("Dor de cabeça forte");
-        payment.Should().BeNull();
     }
 
     [Fact]
@@ -429,7 +427,7 @@ public class ExtendedRequestServiceTests
 
         var dto = new RenoveJa.Application.DTOs.Requests.CreateExamRequestDto(
             "sangue", new List<string> { "Hemograma", "Glicemia" }, "Febre");
-        var (result, _) = await _sut.CreateExamAsync(dto, userId);
+        var result = await _sut.CreateExamAsync(dto, userId);
 
         result.Status.Should().Be("submitted");
         result.RequestType.Should().Be("exam");
@@ -514,8 +512,6 @@ public class ExtendedRequestServiceTests
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
         _userRepoMock.Setup(r => r.GetByIdAsync(doctorId, It.IsAny<CancellationToken>())).ReturnsAsync(doctor);
-        _productPriceRepoMock.Setup(r => r.GetPriceAsync("consultation", "default", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(149.90m);
         _requestRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MedicalRequest req, CancellationToken _) => req);
         _videoRoomRepoMock.Setup(r => r.CreateAsync(It.IsAny<VideoRoom>(), It.IsAny<CancellationToken>()))

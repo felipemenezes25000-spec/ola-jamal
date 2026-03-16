@@ -9,7 +9,6 @@ import {
   isHistorical,
   getHistoricalGroupedByDay,
   getHistoricalGroupedByPeriod,
-  needsPayment,
   isSignedOrDelivered,
   getRequestUiState as mapUi,
 } from '../getRequestUiState';
@@ -27,7 +26,7 @@ const req = (status: string, extra: Partial<Req> = {}): Req => ({
 describe('getRequestUiState', () => {
   it('mapeia status canônicos corretamente', () => {
     expect(mapUi(req('submitted')).uiState).toBe('needs_action');
-    expect(mapUi(req('approved_pending_payment')).uiState).toBe('waiting_payment');
+    expect(mapUi(req('approved_pending_payment')).uiState).toBe('needs_action');
     expect(mapUi(req('in_consultation')).uiState).toBe('in_consultation');
     expect(mapUi(req('consultation_ready')).uiState).toBe('ready');
     expect(mapUi(req('consultation_finished')).uiState).toBe('historical');
@@ -35,7 +34,7 @@ describe('getRequestUiState', () => {
 
   it('mapeia legados corretamente', () => {
     expect(mapUi(req('pending')).uiState).toBe('needs_action');
-    expect(mapUi(req('pending_payment')).uiState).toBe('waiting_payment');
+    expect(mapUi(req('pending_payment')).uiState).toBe('needs_action');
     expect(mapUi(req('completed')).uiState).toBe('historical');
   });
 
@@ -156,12 +155,6 @@ describe('histórico e agrupamentos', () => {
 });
 
 describe('helpers finais', () => {
-  it('needsPayment identifica waiting_payment', () => {
-    expect(needsPayment(req('approved_pending_payment'))).toBe(true);
-    expect(needsPayment(req('pending_payment'))).toBe(true);
-    expect(needsPayment(req('paid'))).toBe(false);
-  });
-
   it('isSignedOrDelivered reconhece finalização', () => {
     expect(isSignedOrDelivered(req('signed'))).toBe(true);
     expect(isSignedOrDelivered(req('delivered'))).toBe(true);

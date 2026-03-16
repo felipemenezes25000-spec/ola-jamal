@@ -93,7 +93,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       // 1. Deep link completo → preferido (já contém a rota correta). Valida contra whitelist.
       if (typeof deepLink === 'string' && deepLink.startsWith('renoveja://')) {
         const path = deepLink.replace('renoveja://', '/') || '/';
-        const allowed = ['/request-detail/', '/doctor-request/', '/payment/', '/consultation-summary/'];
+        const allowed = ['/request-detail/', '/doctor-request/', '/consultation-summary/'];
         const isAllowed = allowed.some((p) => path.startsWith(p) || path === p.slice(0, -1));
         if (isAllowed && !path.includes('..')) {
           Linking.openURL(deepLink).catch((e) => { if (__DEV__) console.warn('[Push] openURL failed:', e); });
@@ -182,7 +182,10 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
         await registerPushToken(token, Platform.OS);
         lastRegisteredToken.current = token;
         setLastRegisteredPushToken(token);
-        if (__DEV__) console.log('[Push] Token registrado:', token.slice(0, 24) + '...');
+        if (__DEV__) {
+          // eslint-disable-next-line no-console -- debug em __DEV__
+          console.log('[Push] Token registrado:', token.slice(0, 24) + '...');
+        }
       } catch (error) {
         console.warn('Push token registration failed:', error);
       }

@@ -4,9 +4,7 @@
  * Single source of truth para ações, timeline, contadores e badges.
  *
  * Regras principais:
- * - Paciente NUNCA tem ação em status `paid` (deve ser "aguardando médico").
- * - Fluxo sem pagamento: aprovação vai direto para `paid`.
- * - Para consulta: status canônico de entrada é `paid`.
+ * - Fluxo gratuito: aprovação vai direto para assinatura.
  * - Médico pode aprovar/rejeitar em `submitted`, `in_review`, legados `pending`, `analyzing`.
  */
 
@@ -24,7 +22,7 @@ export type UiPhase =
   | 'sent'
   | 'ai'
   | 'review'
-  | 'awaiting_payment'
+  | 'approved'
   | 'waiting_doctor'
   | 'ready_to_sign'
   | 'signed'
@@ -39,8 +37,7 @@ export type UiPhase =
 export type NormalizedStatus =
   | 'submitted'
   | 'in_review'
-  | 'approved_pending_payment'
-  | 'paid'
+  | 'approved'
   | 'signed'
   | 'delivered'
   | 'rejected'
@@ -51,7 +48,6 @@ export type NormalizedStatus =
   | 'consultation_finished';
 
 export interface UiActions {
-  canPay: boolean;
   canApprove: boolean;
   canReject: boolean;
   canSign: boolean;
@@ -71,7 +67,6 @@ export interface UiTimelineStep {
 
 export type CountersBucket =
   | 'pending'
-  | 'to_pay'
   | 'ready'
   | 'in_consultation'
   | 'historical'
@@ -94,12 +89,14 @@ export interface RequestUiModel {
 const LEGACY_TO_NORMALIZED: Record<string, NormalizedStatus> = {
   pending: 'submitted',
   analyzing: 'in_review',
-  pending_payment: 'approved_pending_payment',
-  payment_pending: 'approved_pending_payment',
+  pending_payment: 'approved',
+  payment_pending: 'approved',
   in_queue: 'searching_doctor',
-  consultation_ready: 'approved_pending_payment',
-  approved: 'paid',
-  awaiting_signature: 'paid',
+  consultation_ready: 'approved',
+  approved: 'approved',
+  paid: 'approved',
+  approved_pending_payment: 'approved',
+  awaiting_signature: 'approved',
   completed: 'delivered',
 };
 
@@ -109,8 +106,7 @@ export function normalizeRequestStatus(status: string): NormalizedStatus {
   const valid: NormalizedStatus[] = [
     'submitted',
     'in_review',
-    'approved_pending_payment',
-    'paid',
+    'approved',
     'signed',
     'delivered',
     'rejected',
@@ -127,7 +123,7 @@ export function normalizeRequestStatus(status: string): NormalizedStatus {
 
 function getColorKeyForPhase(phase: UiPhase): RequestUiColorKey {
   switch (phase) {
-    case 'awaiting_payment':
+    case 'approved':
     case 'consult_ready':
       return 'waiting';
     case 'signed':
@@ -194,16 +190,9 @@ function getPrescriptionExamPhaseConfig(role: Role, status: NormalizedStatus): P
         return { phase: 'sent', title: 'Enviado', actions: { canCancel: true }, countersBucket: 'pending' };
       case 'in_review':
         return { phase: 'review', title: STATUS_LABELS_PT.in_review, actions: { canCancel: true }, countersBucket: 'pending' };
-      case 'approved_pending_payment':
+      case 'approved':
         return {
-          phase: 'awaiting_payment',
-          title: 'Aguardando assinatura',
-          actions: { canCancel: true },
-          countersBucket: 'pending',
-        };
-      case 'paid':
-        return {
-          phase: 'waiting_doctor',
+          phase: 'approved',
           title: 'Aguardando médico preparar e assinar',
           actions: {},
           countersBucket: 'pending',
@@ -243,15 +232,7 @@ function getPrescriptionExamPhaseConfig(role: Role, status: NormalizedStatus): P
         actions: { canApprove: true, canReject: true },
         countersBucket: 'pending',
       };
-    case 'approved_pending_payment':
-      return {
-        phase: 'awaiting_payment',
-        title: 'Aguardando assinatura',
-        actions: {},
-        countersBucket: 'pending',
-        disabledReason: 'Aguardando assinatura',
-      };
-    case 'paid':
+    case 'approved':
       return {
         phase: 'ready_to_sign',
         title: 'Pronto para assinar',
@@ -286,24 +267,11 @@ function getConsultationPhaseConfig(role: Role, status: NormalizedStatus): Phase
       case 'searching_doctor':
         return { phase: 'sent', title: 'Buscando médico', actions: { canCancel: true }, countersBucket: 'pending' };
       case 'consultation_ready':
+      case 'approved':
         return {
           phase: 'consult_ready',
           title: 'Consulta pronta para iniciar',
           actions: { canJoinCall: true, canCancel: true },
-          countersBucket: 'pending',
-        };
-      case 'approved_pending_payment':
-        return {
-          phase: 'awaiting_payment',
-          title: 'Consulta pronta para iniciar',
-          actions: { canJoinCall: true, canCancel: true },
-          countersBucket: 'pending',
-        };
-      case 'paid':
-        return {
-          phase: 'consult_ready',
-          title: 'Pronto para entrar na consulta',
-          actions: { canJoinCall: true },
           countersBucket: 'pending',
         };
       case 'in_consultation':
@@ -336,22 +304,7 @@ function getConsultationPhaseConfig(role: Role, status: NormalizedStatus): Phase
         countersBucket: 'pending',
       };
     case 'consultation_ready':
-      return {
-        phase: 'consult_ready',
-        title: 'Aguardando paciente',
-        actions: {},
-        countersBucket: 'pending',
-        disabledReason: 'Aguardando paciente',
-      };
-    case 'approved_pending_payment':
-      return {
-        phase: 'awaiting_payment',
-        title: 'Aguardando paciente',
-        actions: {},
-        countersBucket: 'pending',
-        disabledReason: 'Aguardando paciente',
-      };
-    case 'paid':
+    case 'approved':
       return {
         phase: 'consult_ready',
         title: 'Pode iniciar',
@@ -390,15 +343,14 @@ function buildTimelineForPrescriptionExam(
     { id: 'sent', label: 'Enviado', phases: ['sent'] as UiPhase[] },
     ...(hasAiStep ? [{ id: 'ai', label: 'Análise IA', phases: ['ai'] as UiPhase[] }] : []),
     { id: 'review', label: STATUS_LABELS_PT.in_review, phases: ['review'] as UiPhase[] },
-    { id: 'payment', label: 'Aguardando assinatura', phases: ['awaiting_payment'] as UiPhase[] },
-    { id: 'signed', label: 'Assinado', phases: ['waiting_doctor', 'signed'] as UiPhase[] },
+    { id: 'approved', label: 'Aprovado', phases: ['approved'] as UiPhase[] },
+    { id: 'signed', label: 'Assinado', phases: ['waiting_doctor', 'ready_to_sign', 'signed'] as UiPhase[] },
     { id: 'delivered', label: 'Entregue', phases: ['delivered'] as UiPhase[] },
   ];
   const doctorSteps = [
     { id: 'new', label: 'Novo', phases: ['sent'] as UiPhase[] },
     { id: 'review', label: STATUS_LABELS_PT.in_review, phases: ['review'] as UiPhase[] },
-    { id: 'payment', label: 'Aguardando assinatura', phases: ['awaiting_payment'] as UiPhase[] },
-    { id: 'sign', label: 'Assinar', phases: ['ready_to_sign'] as UiPhase[] },
+    { id: 'sign', label: 'Assinar', phases: ['approved', 'ready_to_sign'] as UiPhase[] },
     { id: 'delivered', label: 'Entregue', phases: ['signed', 'delivered'] as UiPhase[] },
   ];
 
@@ -422,14 +374,13 @@ function buildTimelineForPrescriptionExam(
 function buildTimelineForConsultation(role: Role, phase: UiPhase): UiTimelineStep[] {
   const patientSteps = [
     { id: 'searching', label: 'Buscando', phases: ['sent'] as UiPhase[] },
-    { id: 'payment', label: 'Pronta', phases: ['awaiting_payment'] as UiPhase[] },
-    { id: 'ready', label: 'Pronta', phases: ['consult_ready'] as UiPhase[] },
+    { id: 'ready', label: 'Pronta', phases: ['approved', 'consult_ready'] as UiPhase[] },
     { id: 'consultation', label: 'Em Consulta', phases: ['in_consultation'] as UiPhase[] },
     { id: 'finished', label: 'Finalizada', phases: ['finished'] as UiPhase[] },
   ];
   const doctorSteps = [
     { id: 'new', label: 'Nova', phases: ['sent'] as UiPhase[] },
-    { id: 'payment', label: 'Pronta', phases: ['consult_ready', 'awaiting_payment'] as UiPhase[] },
+    { id: 'ready', label: 'Pronta', phases: ['consult_ready', 'approved'] as UiPhase[] },
     { id: 'consultation', label: 'Em atendimento', phases: ['in_consultation'] as UiPhase[] },
     { id: 'finished', label: 'Finalizada', phases: ['finished'] as UiPhase[] },
   ];
@@ -466,7 +417,6 @@ export function getUiModel(request: RequestResponseDto | { status: string; reque
   const config = getPhaseConfig(role, kind, status, rawStatus);
 
   const defaultActions: UiActions = {
-    canPay: false,
     canApprove: false,
     canReject: false,
     canSign: false,
@@ -502,7 +452,7 @@ export function getUiModel(request: RequestResponseDto | { status: string; reque
 function getBadgeLabel(title: string, status: NormalizedStatus, role: Role, kind: RequestKind): string {
   const base = STATUS_LABELS_PT[status];
   if (status === 'submitted') return role === 'patient' ? 'Enviado' : 'Novo pedido';
-  if (status === 'paid') return role === 'patient' ? 'Aguardando médico' : 'Pronto para assinar';
+  if (status === 'approved') return role === 'patient' ? 'Aguardando médico' : 'Pronto para assinar';
   if (status === 'consultation_ready') return kind === 'consultation' ? 'Consulta pronta' : title;
   return base ?? title;
 }
@@ -511,16 +461,13 @@ function getBadgeLabel(title: string, status: NormalizedStatus, role: Role, kind
 
 export function getCountersForPatient(requests: RequestResponseDto[]) {
   let pending = 0;
-  let toPay = 0;
   let ready = 0;
   for (const r of requests) {
     const ui = getUiModel(r, 'patient');
-    // "Em análise médica" deve refletir somente fases de análise (review/ai).
     if (ui.phase === 'review' || ui.phase === 'ai') pending++;
-    if (ui.actions.canPay) toPay++;
     if (ui.phase === 'signed' || ui.phase === 'delivered') ready++;
   }
-  return { pending, toPay, ready };
+  return { pending, ready };
 }
 
 export function getCountersForDoctor(requests: RequestResponseDto[]) {
@@ -531,10 +478,10 @@ export function getCountersForDoctor(requests: RequestResponseDto[]) {
   for (const r of requests) {
     const ui = getUiModel(r, 'doctor');
     const norm = normalizeRequestStatus(r.status);
-    if (['submitted', 'in_review', 'approved_pending_payment', 'searching_doctor'].includes(norm)) {
+    if (['submitted', 'in_review', 'approved', 'searching_doctor'].includes(norm)) {
       naFila++;
     }
-    if (norm === 'paid') consultaPronta++;
+    if (norm === 'approved') consultaPronta++;
     if (norm === 'in_consultation') emConsulta++;
     if (ui.countersBucket !== 'historical' && ui.phase !== 'finished') pendentesCount++;
   }

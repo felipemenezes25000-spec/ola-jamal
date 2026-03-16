@@ -26,7 +26,7 @@ describe('logger', () => {
 
   it('chama sem lançar', () => {
     expect(() => logger.info('api', 'test')).not.toThrow();
-    expect(() => logger.warn('payment', 'warn')).not.toThrow();
+    expect(() => logger.warn('api', 'warn')).not.toThrow();
     expect(() => logger.error('auth', 'err')).not.toThrow();
   });
 

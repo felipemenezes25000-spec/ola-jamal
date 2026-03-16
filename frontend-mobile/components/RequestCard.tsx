@@ -5,8 +5,7 @@ import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors, DesignTokens } from '../lib/designSystem';
 import { layout as dsLayout, borderRadius as dsBorderRadius } from '../lib/designSystem';
 import { StatusBadge } from './StatusBadge';
-import { getDisplayPrice } from '../lib/config/pricing';
-import { formatBRL, formatDateBR } from '../lib/utils/format';
+import { formatDateBR } from '../lib/utils/format';
 import { RequestResponseDto } from '../types/database';
 
 function getRiskConfig(colors: DesignColors): Record<string, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> {
@@ -57,7 +56,6 @@ interface Props {
   request: RequestResponseDto;
   onPress: () => void;
   showPatientName?: boolean;
-  showPrice?: boolean;
   showRisk?: boolean;
   suppressHorizontalMargin?: boolean;
   accessibilityLabel?: string;
@@ -67,7 +65,6 @@ function RequestCardInner({
   request,
   onPress,
   showPatientName,
-  showPrice = false,
   showRisk = false,
   suppressHorizontalMargin = false,
   accessibilityLabel,
@@ -78,7 +75,6 @@ function RequestCardInner({
   const fallbackType = useMemo(() => ({ icon: 'document' as keyof typeof Ionicons.glyphMap, color: colors.info, bg: colors.infoLight, label: 'Solicitação' }), [colors]);
   const typeConf = typeConfig[request.requestType] || fallbackType;
   const preview = getMedicationPreview(request);
-  const price = getDisplayPrice(request.price, request.requestType, request.prescriptionType ?? undefined);
   const riskConf = showRisk && request.aiRiskLevel ? riskConfig[request.aiRiskLevel] : null;
   const defaultLabel = `${typeConf.label}${request.patientName ? ` de ${request.patientName}` : ''}`;
   const styles = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
@@ -111,17 +107,13 @@ function RequestCardInner({
           <Text style={styles.preview} numberOfLines={1}>{preview}</Text>
         )}
 
-        {(riskConf || (showPrice && price > 0)) && (
+        {riskConf && (
           <View style={styles.bottomRow}>
             {riskConf && (
               <View style={[styles.riskBadge, { backgroundColor: riskConf.bg }]}>
                 <Ionicons name={riskConf.icon} size={10} color={riskConf.color} />
                 <Text style={[styles.riskText, { color: riskConf.color }]}>{riskConf.label}</Text>
               </View>
-            )}
-            <View style={styles.spacer} />
-            {showPrice && price > 0 && (
-              <Text style={styles.price}>{formatBRL(price)}</Text>
             )}
           </View>
         )}
@@ -139,7 +131,6 @@ const RequestCard = React.memo(RequestCardInner, (prev, next) =>
   prev.request.status === next.request.status &&
   prev.request.updatedAt === next.request.updatedAt &&
   prev.showPatientName === next.showPatientName &&
-  prev.showPrice === next.showPrice &&
   prev.showRisk === next.showRisk &&
   prev.suppressHorizontalMargin === next.suppressHorizontalMargin &&
   prev.accessibilityLabel === next.accessibilityLabel

@@ -20,7 +20,7 @@ import { layout as dsLayout, shadows as dsShadows, borderRadius as dsBorderRadiu
 import { DASHBOARD_STATS_LABELS } from '../../lib/domain/statusLabels';
 import { RequestResponseDto } from '../../types/database';
 import { useRequestsQuery } from '../../lib/hooks/useRequestsQuery';
-import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
+import { getRequestUiState, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
 import { LargeActionCard } from '../../components/ui/LargeActionCard';
@@ -75,7 +75,7 @@ export default function PatientHome() {
   }, [refetch]);
 
   const derived = useMemo(() => {
-    let pending = 0, toPay = 0, ready = 0;
+    let pending = 0, ready = 0;
     let prescriptionCount = 0, examCount = 0;
     let lastConsultation: RequestResponseDto | null = null;
     let lastSignedPrescription: RequestResponseDto | null = null;
@@ -83,7 +83,7 @@ export default function PatientHome() {
     const medsSet = new Set<string>();
 
     const priorityMap: Record<string, number> = {
-      approved_pending_payment: 100, pending_payment: 100, paid: 95,
+      approved: 100,
       signed: 90, in_review: 80, submitted: 70, searching_doctor: 65, in_consultation: 50,
     };
     const terminalStatuses = ['delivered', 'consultation_finished', 'rejected', 'cancelled'];
@@ -93,7 +93,6 @@ export default function PatientHome() {
     for (const r of requests) {
       const ui = getRequestUiState(r);
       if (ui.uiState === 'needs_action') pending++;
-      if (needsPayment(r)) toPay++;
       if (isSignedOrDelivered(r)) ready++;
 
       if (r.requestType === 'prescription') {
@@ -142,7 +141,7 @@ export default function PatientHome() {
       : requests.slice(0, 2);
 
     return {
-      stats: { pending, toPay, ready },
+      stats: { pending, ready },
       recentPrescriptionCount: prescriptionCount,
       recentExamCount: examCount,
       lastConsultation,
@@ -304,7 +303,7 @@ export default function PatientHome() {
         </View>
       </LinearGradient>
 
-      {/* ─── STATS: 3 cards flutuantes ─── */}
+      {/* ─── STATS: cards flutuantes (sem fluxo de pagamento) ─── */}
             <View style={styles.statsRow}>
         <StatsCard
           icon="analytics"
@@ -312,14 +311,6 @@ export default function PatientHome() {
           value={stats.pending}
           iconColor={colors.warning}
           iconBgColor={colors.warningLight}
-          onPress={() => router.push('/(patient)/requests')}
-        />
-        <StatsCard
-          icon="wallet"
-          label={DASHBOARD_STATS_LABELS.toPay}
-          value={stats.toPay}
-          iconColor={colors.error}
-          iconBgColor={colors.errorLight}
           onPress={() => router.push('/(patient)/requests')}
         />
         <StatsCard

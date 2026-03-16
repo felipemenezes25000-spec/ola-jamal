@@ -9,7 +9,6 @@ using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs;
 using RenoveJa.Application.DTOs.Requests;
-using RenoveJa.Application.DTOs.Payments;
 using RenoveJa.Application.DTOs.Video;
 using RenoveJa.Application.Exceptions;
 using RenoveJa.Application.Helpers;
@@ -27,7 +26,6 @@ namespace RenoveJa.Application.Services.Requests;
 /// </summary>
 public class RequestService(
     IRequestRepository requestRepository,
-    IProductPriceRepository productPriceRepository,
     IUserRepository userRepository,
     IDoctorRepository doctorRepository,
     INotificationRepository notificationRepository,
@@ -61,9 +59,9 @@ public class RequestService(
 
     /// <summary>
     /// Cria uma solicitação de receita médica (tipo + foto + medicamentos). Status Submitted.
-    /// O pagamento só é criado quando o médico aprovar (POST /approve); então o paciente paga e o médico assina.
+    /// Serviço gratuito — sem fluxo de pagamento.
     /// </summary>
-    public async Task<(RequestResponseDto Request, PaymentResponseDto? Payment)> CreatePrescriptionAsync(
+    public async Task<RequestResponseDto> CreatePrescriptionAsync(
         CreatePrescriptionRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -127,13 +125,13 @@ public class RequestService(
             await requestEventsPublisher.NotifyNewRequestToDoctorsAsync(req.Id, "submitted", "Nova receita na fila", cancellationToken);
         }
 
-        return (RequestHelpers.MapRequestToDto(req!, _apiBaseUrl, documentTokenService), null);
+        return RequestHelpers.MapRequestToDto(req!, _apiBaseUrl, documentTokenService);
     }
 
     /// <summary>
-    /// Cria uma solicitação de exame. Status Submitted. Pagamento criado na aprovação pelo médico.
+    /// Cria uma solicitação de exame. Status Submitted. Serviço gratuito.
     /// </summary>
-    public async Task<(RequestResponseDto Request, PaymentResponseDto? Payment)> CreateExamAsync(
+    public async Task<RequestResponseDto> CreateExamAsync(
         CreateExamRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -187,13 +185,13 @@ public class RequestService(
             await requestEventsPublisher.NotifyNewRequestToDoctorsAsync(req.Id, "submitted", "Novo exame na fila", cancellationToken);
         }
 
-        return (RequestHelpers.MapRequestToDto(req!, _apiBaseUrl, documentTokenService), null);
+        return RequestHelpers.MapRequestToDto(req!, _apiBaseUrl, documentTokenService);
     }
 
     /// <summary>
-    /// Cria uma solicitação de consulta. Status SearchingDoctor. Pagamento/valor conforme fluxo de consulta.
+    /// Cria uma solicitação de consulta. Status SearchingDoctor. Serviço gratuito.
     /// </summary>
-    public async Task<(RequestResponseDto Request, PaymentResponseDto? Payment)> CreateConsultationAsync(
+    public async Task<RequestResponseDto> CreateConsultationAsync(
         CreateConsultationRequestDto request,
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -207,44 +205,14 @@ public class RequestService(
             : request.ConsultationType;
         var durationMinutes = request.DurationMinutes > 0 ? request.DurationMinutes : 15;
 
-        // Busca preço por minuto da tabela product_prices
-        var pricePerMinute = await productPriceRepository.GetPriceAsync("consultation", consultationType, cancellationToken)
-                             ?? 6.99m;
-
-        // Verifica saldo no banco de horas
-        var balanceSeconds = await consultationTimeBankRepository.GetBalanceSecondsAsync(userId, consultationType, cancellationToken);
-        var balanceMinutes = balanceSeconds / 60;
-
-        decimal totalPrice;
-        int freeMinutes = 0;
-        int paidMinutes = durationMinutes;
-
-        if (balanceMinutes >= durationMinutes)
-        {
-            // Consulta completamente gratuita pelo banco de horas
-            freeMinutes = durationMinutes;
-            paidMinutes = 0;
-            totalPrice = 0m;
-        }
-        else if (balanceMinutes > 0)
-        {
-            // Desconto parcial
-            freeMinutes = balanceMinutes;
-            paidMinutes = durationMinutes - freeMinutes;
-            totalPrice = paidMinutes * pricePerMinute;
-        }
-        else
-        {
-            totalPrice = durationMinutes * pricePerMinute;
-        }
+        // Serviço gratuito — sem cobrança
 
         var medicalRequest = MedicalRequest.CreateConsultation(
             userId,
             user.Name,
             request.Symptoms,
             consultationType,
-            durationMinutes,
-            pricePerMinute);
+            durationMinutes);
 
         medicalRequest = await requestRepository.CreateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
 
@@ -261,12 +229,9 @@ public class RequestService(
         }
 
         // Banco de horas: débito só ao finalizar a consulta (não na criação). Se cancelar, nada foi debitado.
+        // Serviço gratuito — preço efetivo 0
 
-        // Persistir o preço efetivo para ser usado na aceitação pelo médico
-        if (totalPrice >= 0)
-        {
-            medicalRequest.SetEffectivePrice(totalPrice);
-        }
+        medicalRequest.SetEffectivePrice(0);
 
         // Salvar AutoObservation + preço efetivo em uma única operação
         medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
@@ -277,7 +242,7 @@ public class RequestService(
         await NotifyAvailableDoctorsOfNewRequestAsync("consulta", medicalRequest, cancellationToken);
         await requestEventsPublisher.NotifyNewRequestToDoctorsAsync(medicalRequest.Id, "submitted", "Nova consulta na fila", cancellationToken);
 
-        return (RequestHelpers.MapRequestToDto(medicalRequest, _apiBaseUrl, documentTokenService), null);
+        return RequestHelpers.MapRequestToDto(medicalRequest, _apiBaseUrl, documentTokenService);
     }
 
     public Task<List<RequestResponseDto>> GetUserRequestsAsync(
@@ -740,7 +705,7 @@ public class RequestService(
 
 
     /// <summary>
-    /// Paciente cancela o pedido. Só é permitido antes do pagamento (submitted, in_review, approved_pending_payment, searching_doctor).
+    /// Paciente cancela o pedido. Só é permitido antes da assinatura (submitted, in_review, approved, searching_doctor).
     /// </summary>
     public async Task<RequestResponseDto> CancelAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
     {

@@ -13,7 +13,7 @@ interface UseAppThemeOptions {
   scheme?: ColorScheme;
 }
 
-function resolveRole(pathname: string, userRole?: string | null, forcedRole?: AppThemeRole): AppThemeRole {
+function _resolveRole(pathname: string, userRole?: string | null, forcedRole?: AppThemeRole): AppThemeRole {
   if (forcedRole) return forcedRole;
   if (userRole === 'doctor') return 'doctor';
   if (userRole === 'sus') return 'patient';

@@ -3,7 +3,7 @@
  *
  * All data-fetching hooks centralized here.
  * Screens should import from this file:
- *   import { useRequestDetailQuery, usePaymentQuery } from '../lib/hooks';
+ *   import { useRequestDetailQuery } from '../lib/hooks';
  */
 
 // ── Request Lists ───────────────────────────────────────────────

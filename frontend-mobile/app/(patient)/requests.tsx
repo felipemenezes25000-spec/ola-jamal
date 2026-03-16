@@ -26,7 +26,6 @@ import { FadeIn } from '../../components/ui/FadeIn';
 import { AppHeader, AppSegmentedControl, AppEmptyState, TopSummaryStrip } from '../../components/ui';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useTriageEval } from '../../hooks/useTriageEval';
-import { needsPayment } from '../../lib/domain/getRequestUiState';
 import { haptics } from '../../lib/haptics';
 import { showToast } from '../../components/ui/Toast';
 import { motionTokens } from '../../lib/ui/motion';
@@ -85,13 +84,11 @@ export default function PatientRequests() {
     }
   }, [queryClient, refetch]));
 
-  const toPayCount = useMemo(() => requests.filter(r => needsPayment(r)).length, [requests]);
   useTriageEval({
     context: 'requests',
     step: 'entry',
     role: 'patient',
     totalRequests: requests.length,
-    toPayCount,
   });
 
   const filteredRequests = useMemo(() => {
@@ -162,7 +159,6 @@ export default function PatientRequests() {
       <TopSummaryStrip
         items={[
           { label: 'Total', value: counts.all },
-          { label: 'Pend. pagamento', value: toPayCount },
           { label: 'No filtro', value: filteredRequests.length },
         ]}
       />

@@ -183,7 +183,7 @@ public class MedicalRequestTests
     }
 
     [Fact]
-    public void Approve_ShouldUpdateStatusAndPrice()
+    public void Approve_ShouldUpdateStatusAndNotes()
     {
         var request = MedicalRequest.CreatePrescription(
             Guid.NewGuid(),
@@ -191,11 +191,9 @@ public class MedicalRequestTests
             PrescriptionType.Simple,
             new List<string> { "Med1" });
 
-        request.Approve(50.00m, "Approved by Dr. Smith");
+        request.Approve(0, "Approved by Dr. Smith");
 
         request.Status.Should().Be(RequestStatus.Paid);
-        request.Price.Should().NotBeNull();
-        request.Price!.Amount.Should().Be(50.00m);
         request.Notes.Should().Be("Approved by Dr. Smith");
     }
 

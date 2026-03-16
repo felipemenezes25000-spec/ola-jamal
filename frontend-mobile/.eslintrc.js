@@ -18,6 +18,10 @@ module.exports = {
         'import/first': 'off',
       },
     },
+    {
+      files: ['**/register.tsx', '**/video/**/*.tsx', '**/AuthContext.tsx'],
+      rules: { 'unicode-bom': 'off' },
+    },
   ],
   ignorePatterns: [
     'node_modules/',

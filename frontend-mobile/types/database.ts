@@ -71,12 +71,10 @@ export type PrescriptionKind = 'simple' | 'antimicrobial' | 'controlled_special'
 export type RequestStatus =
   | 'submitted'
   | 'in_review'
-  | 'approved_pending_payment'
-  | 'paid'
+  | 'approved'
   | 'signed'
   | 'delivered'
   | 'rejected'
-  | 'pending_payment'
   | 'searching_doctor'
   | 'consultation_ready'
   | 'in_consultation'
@@ -84,8 +82,11 @@ export type RequestStatus =
   | 'cancelled'
   | 'pending'
   | 'analyzing'
-  | 'approved'
-  | 'completed';
+  | 'completed'
+  // Legados (backend pode retornar; fluxo de pagamento removido — tratados como approved)
+  | 'approved_pending_payment'
+  | 'pending_payment'
+  | 'paid';
 
 export interface RequestResponseDto {
   id: string;
@@ -103,7 +104,6 @@ export interface RequestResponseDto {
   exams: string[] | null;
   examImages: string[] | null;
   symptoms: string | null;
-  price: number | null;
   notes: string | null;
   rejectionReason: string | null;
   accessCode: string | null;
@@ -118,6 +118,8 @@ export interface RequestResponseDto {
   aiUrgency: string | null;
   aiReadabilityOk: boolean | null;
   aiMessageToUser: string | null;
+  /** Preço (legado; fluxo de pagamento removido). */
+  price?: number | null;
   /** Transcrição da consulta por vídeo (apenas solicitações tipo consultation). */
   consultationTranscript?: string | null;
   /** Anamnese estruturada da consulta (JSON). */
@@ -134,8 +136,6 @@ export interface RequestResponseDto {
   consultationType?: string | null;
   /** Minutos contratados na criação da consulta */
   contractedMinutes?: number | null;
-  /** Preço por minuto no momento da compra */
-  pricePerMinute?: number | null;
   /** Quando o médico iniciou a consulta (sincroniza o timer entre médico e paciente) */
   consultationStartedAt?: string | null;
   /** Observação orientativa gerada pela plataforma na criação */
@@ -152,33 +152,6 @@ export interface RequestResponseDto {
   conductUpdatedAt?: string | null;
   /** Médico que atualizou a conduta (audit) */
   conductUpdatedBy?: string | null;
-}
-
-// ============================================
-// PAYMENT TYPES (matches Payments/PaymentDtos.cs)
-// ============================================
-
-/** Status de pagamento. Deve espelhar PaymentStatus enum do backend.
- *  Backend serializa via .ToString().ToLowerInvariant().
- *  Valores canônicos: pending, approved, rejected, refunded.
- *  NOTA: 'paid', 'failed', 'cancelled' NÃO existem no backend e foram removidos.
- */
-export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'refunded';
-
-export interface PaymentResponseDto {
-  id: string;
-  requestId: string;
-  userId: string;
-  amount: number;
-  status: PaymentStatus;
-  paymentMethod: string;
-  externalId: string | null;
-  pixQrCode: string | null;
-  pixQrCodeBase64: string | null;
-  pixCopyPaste: string | null;
-  paidAt: string | null;
-  createdAt: string;
-  updatedAt: string;
 }
 
 // ============================================
@@ -394,5 +367,4 @@ export interface PatientProfileForDoctorDto {
 export type User = UserDto;
 export type DoctorProfile = DoctorProfileDto;
 export type Request = RequestResponseDto;
-export type Payment = PaymentResponseDto;
 export type Notification = NotificationResponseDto;

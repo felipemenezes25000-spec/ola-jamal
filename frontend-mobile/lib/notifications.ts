@@ -57,10 +57,10 @@ export async function registerForPushNotifications(
     // ── Android Notification Channels ──
     // Canais separados permitem que o usuário configure granularmente no sistema Android.
     if (Platform.OS === 'android') {
-      // Canal principal: pagamentos, documentos prontos, consultas prontas
+      // Canal principal: documentos prontos, consultas prontas
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Importantes',
-        description: 'Pagamentos confirmados, documentos prontos, consultas prontas',
+        description: 'Documentos prontos, consultas prontas',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: colors.info,

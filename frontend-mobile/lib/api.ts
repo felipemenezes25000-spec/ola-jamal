@@ -3,19 +3,15 @@
  *
  * All API functions are defined in domain-specific modules:
  *   api-requests.ts      — Request CRUD, approval, signing, PDF, content
- *   api-payments.ts      — Mercado Pago payments, PIX, saved cards
  *   api-doctors.ts       — Doctor profiles, specialties, certificates, stats
  *   api-clinical.ts      — FHIR-Lite prontuário, patient data, doctor notes
  *   api-consultation.ts  — Transcription, conduct management
  *   api-auth-extended.ts — Password change, avatar upload
  *   api-notifications.ts — Push tokens, notification CRUD
  *   api-video.ts         — Video rooms (Daily.co)
- *   api-integrations.ts  — Mercado Pago public key, integration status
+ *   api-integrations.ts  — Integration status
  *
  * This file re-exports everything so existing imports continue to work:
- *   import { fetchRequests, createPayment } from '../lib/api';
- *
- * New code should prefer importing from the specific module:
  *   import { fetchRequests } from '../lib/api-requests';
  */
 
@@ -48,7 +44,7 @@ export {
 
 export { createVideoRoom, fetchVideoRoom, fetchVideoRoomByRequest } from './api-video';
 
-export { getMercadoPagoPublicKey, getIntegrationStatus } from './api-integrations';
+export { getIntegrationStatus } from './api-integrations';
 
 // ── Aliases (backward compat for screens) ───────────────────────
 export function getRequests(

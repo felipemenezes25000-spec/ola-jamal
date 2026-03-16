@@ -292,8 +292,8 @@ export default function PrescriptionEditorScreen() {
 
   const bottomBarPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
 
-  /** Botão "Assinar Digitalmente" só aparece após aprovação e pagamento (status paid). */
-  const canSign = request?.status === 'paid';
+  /** Botão "Assinar Digitalmente" só aparece após aprovação (status paid/approved). */
+  const canSign = request?.status === 'paid' || request?.status === 'approved';
 
   return (
     <SafeAreaView style={st.container} edges={['top']}>

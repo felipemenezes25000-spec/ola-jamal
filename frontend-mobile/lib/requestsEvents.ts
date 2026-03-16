@@ -1,6 +1,6 @@
 /**
  * Cliente SignalR para o hub /hubs/requests.
- * Recebe evento "RequestUpdated" quando o status de uma solicitação muda (pagamento, assinatura, etc.)
+ * Recebe evento "RequestUpdated" quando o status de uma solicitação muda (assinatura, etc.)
  * para atualizar a UI em tempo real sem refresh manual.
  */
 

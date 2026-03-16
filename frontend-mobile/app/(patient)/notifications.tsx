@@ -29,12 +29,11 @@ import { getDateGroupForSection, timeAgoShort } from '../../lib/utils/format';
 
 // ── Helpers ────────────────────────────────────────────────────
 
-type NotificationFilterKey = 'all' | 'payment' | 'request' | 'consultation';
+type NotificationFilterKey = 'all' | 'request' | 'consultation';
 
-/** Categoriza notificação para filtros do paciente */
+/** Categoriza notificação para filtros do paciente (fluxo de pagamento removido) */
 function categorizeNotification(item: NotificationResponseDto): Exclude<NotificationFilterKey, 'all'> {
   const t = (item.title || '').toLowerCase();
-  const m = (item.message || '').toLowerCase();
   const data = item.data || {};
   const status = (data.status as string || '').toLowerCase();
   const type = (data.type as string || '').toLowerCase();
@@ -43,13 +42,6 @@ function categorizeNotification(item: NotificationResponseDto): Exclude<Notifica
   if (type.includes('consultation') || type.includes('doctor_ready') || type.includes('no_show') ||
       t.includes('consulta') || t.includes('médico') || t.includes('videochamada') || status.includes('consultation')) {
     return 'consultation';
-  }
-
-  // Pagamentos
-  if (data.paymentId != null || type.includes('payment') ||
-      t.includes('pagamento') || m.includes('pagamento') || t.includes('pago') || m.includes('pago') ||
-      status === 'approvedpendingpayment' || status === 'paid') {
-    return 'payment';
   }
 
   return 'request';
@@ -73,16 +65,8 @@ function getNotificationVisual(item: NotificationResponseDto, colors: DesignColo
   if (type.includes('consultation') || type.includes('doctor_ready')) {
     return { icon: 'videocam', color: colors.accent, bgColor: colors.accentSoft, label: 'Consulta' };
   }
-  // Pagamento confirmado
-  if (status === 'paid') {
-    return { icon: 'checkmark-circle', color: colors.success, bgColor: colors.successLight, label: 'Pago' };
-  }
-  // Pagamento pendente / falha
-  if (type.includes('payment') || status === 'approvedpendingpayment') {
-    return { icon: 'card', color: colors.warning, bgColor: colors.warningLight, label: 'Pagamento' };
-  }
   // Aprovado
-  if (status === 'approvedpendingpayment') {
+  if (status === 'paid' || status === 'approved' || status === 'approvedpendingpayment') {
     return { icon: 'thumbs-up', color: colors.info, bgColor: colors.infoLight, label: 'Aprovado' };
   }
   // Em análise
@@ -109,7 +93,6 @@ function getNotificationVisual(item: NotificationResponseDto, colors: DesignColo
 const FILTER_ITEMS: { key: NotificationFilterKey; label: string }[] = [
   { key: 'all', label: 'Todos' },
   { key: 'request', label: 'Pedidos' },
-  { key: 'payment', label: 'Pagamentos' },
   { key: 'consultation', label: 'Consultas' },
 ];
 
@@ -256,10 +239,9 @@ export default function PatientNotifications() {
 
   const counts = useMemo(() => {
     const all = notifications.length;
-    const payment = notifications.filter((n) => categorizeNotification(n) === 'payment').length;
     const request = notifications.filter((n) => categorizeNotification(n) === 'request').length;
     const consultation = notifications.filter((n) => categorizeNotification(n) === 'consultation').length;
-    return { all, payment, request, consultation };
+    return { all, request, consultation };
   }, [notifications]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);

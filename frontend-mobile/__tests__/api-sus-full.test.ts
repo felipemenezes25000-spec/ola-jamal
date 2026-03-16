@@ -99,16 +99,16 @@ describe('sus — cidadãos', () => {
 
   it('createCidadao faz POST', async () => {
     mockPost.mockResolvedValueOnce(CIDADAO);
-    await sus.createCidadao({ nome: 'Ana', cpf: '000.000.000-00' });
+    await sus.createCidadao({ nomeCompleto: 'Ana', cpf: '000.000.000-00' });
     expect(mockPost).toHaveBeenCalledWith('/api/sus/cidadaos', expect.any(Object));
   });
 
   it('updateCidadao faz PUT com ID e dados', async () => {
     mockPut.mockResolvedValueOnce(CIDADAO);
-    await sus.updateCidadao('c1', { nome: 'Ana Silva' });
+    await sus.updateCidadao('c1', { nomeCompleto: 'Ana Silva' });
     expect(mockPut).toHaveBeenCalledWith(
       '/api/sus/cidadaos/c1',
-      expect.objectContaining({ nome: 'Ana Silva' })
+      expect.objectContaining({ nomeCompleto: 'Ana Silva' })
     );
   });
 
@@ -143,7 +143,7 @@ describe('sus — profissionais', () => {
 
   it('createProfissional faz POST', async () => {
     mockPost.mockResolvedValueOnce(PROFISSIONAL);
-    await sus.createProfissional({ nome: 'Dra. Ana', crm: '654321', cbo: '225125' });
+    await sus.createProfissional({ nomeCompleto: 'Dra. Ana', conselhoNumero: '654321', cbo: '225125' });
     expect(mockPost).toHaveBeenCalledWith('/api/sus/profissionais', expect.any(Object));
   });
 });

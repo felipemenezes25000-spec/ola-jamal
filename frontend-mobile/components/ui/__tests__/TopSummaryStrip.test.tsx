@@ -18,14 +18,14 @@ describe('TopSummaryStrip', () => {
       <TopSummaryStrip
         items={[
           { label: 'Pedidos', value: 3 },
-          { label: 'A pagar', value: 1 },
+          { label: 'Total', value: 1 },
         ]}
       />
     );
     expect(getByText('3')).toBeTruthy();
     expect(getByText('Pedidos')).toBeTruthy();
     expect(getByText('1')).toBeTruthy();
-    expect(getByText('A pagar')).toBeTruthy();
+    expect(getByText('Total')).toBeTruthy();
   });
 
   it('aceita compact', () => {

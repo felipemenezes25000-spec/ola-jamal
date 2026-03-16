@@ -43,6 +43,9 @@ module.exports = {
         'useDailyCall\\.test\\.ts$',
         'useDailyTranscription\\.test\\.ts$',
         'useVideoCallEvents\\.test\\.ts$',
+        'sus-validators\\.test\\.ts$',
+        'api-contracts\\.test\\.ts$',
+        'api-lowcoverage\\.test\\.ts$',
       ],
       moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
       transform: {

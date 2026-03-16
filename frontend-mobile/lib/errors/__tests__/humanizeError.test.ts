@@ -5,18 +5,8 @@ describe('humanizeError', () => {
     expect(humanizeError({ userMessagePtBr: ' Mensagem custom ' })).toContain('Mensagem custom');
   });
 
-  it('retorna mensagem por code quando code está presente', () => {
-    expect(humanizeError({ code: 'payment_already_completed' })).toBe('Pagamento já foi realizado.');
-    expect(humanizeError({ code: 'request_not_payable' })).toBe('Este pedido não está disponível para pagamento.');
-    expect(humanizeError({ code: 'request_without_amount' })).toBe('Solicitação sem valor definido para pagamento.');
-  });
-
-  it('context payment: mapeia padrões de pagamento', () => {
-    expect(humanizeError(new Error('pending payment'), 'payment')).toBe(
-      'Este pedido não está disponível para pagamento. Verifique o status do pedido.'
-    );
-    expect(humanizeError(new Error('already paid'), 'payment')).toBe('Pagamento já foi realizado.');
-    expect(humanizeError(new Error('request not found'), 'payment')).toBe('Pedido não encontrado.');
+  it('retorna mensagem por pattern quando message contém padrão', () => {
+    expect(humanizeError(new Error('request not found'), 'request')).toBe('Pedido não encontrado.');
   });
 
   it('context request: mapeia padrões de pedido', () => {
@@ -64,9 +54,7 @@ describe('humanizeError', () => {
   });
 
   it('aceita string como erro', () => {
-    expect(humanizeError('pending payment', 'payment')).toBe(
-      'Este pedido não está disponível para pagamento. Verifique o status do pedido.'
-    );
+    expect(humanizeError('pedido não encontrado')).toBe('Pedido não encontrado.');
   });
 
   it('generic context usa todos os padrões', () => {

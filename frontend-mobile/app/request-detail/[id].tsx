@@ -392,8 +392,8 @@ export default function RequestDetailScreen() {
   if (!request) return null;
 
   const canDownload = !!request.signedDocumentUrl;
-  const canJoinVideo = ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
-  const canCancel = ['submitted', 'in_review', 'approved_pending_payment', 'pending_payment', 'searching_doctor'].includes(request.status);
+  const canJoinVideo = ['approved', 'paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
+  const canCancel = ['submitted', 'in_review', 'approved', 'searching_doctor'].includes(request.status);
   const stickyBottomOffset = 0;
   const nextAction = getNextBestActionForRequest(request);
   const nextActionQuickCta =

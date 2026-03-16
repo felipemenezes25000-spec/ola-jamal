@@ -17,20 +17,17 @@ public class HealthController : ControllerBase
 {
     private readonly DatabaseConfig _dbConfig;
     private readonly IRequestRepository _requestRepository;
-    private readonly MercadoPagoConfig _mercadoPagoConfig;
     private readonly OpenAIConfig _openAiConfig;
     private readonly ILogger<HealthController> _logger;
 
     public HealthController(
         IOptions<DatabaseConfig> dbConfig,
         IRequestRepository requestRepository,
-        IOptions<MercadoPagoConfig> mercadoPagoConfig,
         IOptions<OpenAIConfig> openAiConfig,
         ILogger<HealthController> logger)
     {
         _dbConfig = dbConfig.Value;
         _requestRepository = requestRepository;
-        _mercadoPagoConfig = mercadoPagoConfig.Value;
         _openAiConfig = openAiConfig.Value;
         _logger = logger;
     }
@@ -80,7 +77,6 @@ public class HealthController : ControllerBase
         var detailed = User.Identity?.IsAuthenticated == true;
         var checks = new Dictionary<string, object>();
         var dbOk = false;
-        var paymentOk = false;
         var aiOk = false;
 
         // Database
@@ -99,22 +95,18 @@ public class HealthController : ControllerBase
         }
 
         // Storage (S3)
-        var storageOk = true; // S3 sempre ativo em todos os ambientes
+        var storageOk = true;
         checks["storage"] = new { status = "ok", provider = "s3" };
-
-        // Payment gateway
-        paymentOk = !string.IsNullOrWhiteSpace(_mercadoPagoConfig.AccessToken);
-        checks["payment"] = new { status = paymentOk ? "ok" : "degraded" };
 
         // AI service
         aiOk = !string.IsNullOrWhiteSpace(_openAiConfig.GeminiApiKey) || !string.IsNullOrWhiteSpace(_openAiConfig.ApiKey);
         checks["ai"] = new { status = aiOk ? "ok" : "degraded" };
 
-        var overall = dbOk ? (storageOk && paymentOk && aiOk ? "healthy" : "degraded") : "unhealthy";
+        var overall = dbOk ? (storageOk && aiOk ? "healthy" : "degraded") : "unhealthy";
 
         if (overall != "healthy")
-            _logger.LogWarning("Readiness {Status}: db={Db}, storage={Storage}, payment={Payment}, ai={Ai}",
-                overall, dbOk, storageOk, paymentOk, aiOk);
+            _logger.LogWarning("Readiness {Status}: db={Db}, storage={Storage}, ai={Ai}",
+                overall, dbOk, storageOk, aiOk);
 
         return Ok(new { status = overall, timestamp = DateTime.UtcNow, service = "RenoveJa API", checks });
     }
@@ -122,7 +114,7 @@ public class HealthController : ControllerBase
     [HttpGet("slo")]
     public IActionResult Slo() => Ok(new
     {
-        targets = new { availabilityPercent = 99.8, p95LatencyMs = 450, paymentErrorRatePercent = 0.8 },
+        targets = new { availabilityPercent = 99.8, p95LatencyMs = 450 },
         currentStatus = "monitoring",
         timestamp = DateTime.UtcNow,
         service = "RenoveJa API"

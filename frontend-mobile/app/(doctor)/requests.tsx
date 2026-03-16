@@ -127,7 +127,6 @@ export default function DoctorQueue() {
         router.push(`/doctor-request/${item.id}`);
       }}
       showPatientName
-      showPrice={false}
       showRisk={false}
       suppressHorizontalMargin
     />

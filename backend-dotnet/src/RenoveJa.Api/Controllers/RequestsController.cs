@@ -157,14 +157,12 @@ public class RequestsController(
 
             var result = await requestService.CreatePrescriptionAsync(request, userId, cancellationToken);
             logger.LogInformation("Requests CreatePrescription: userId={UserId}, requestId={RequestId}, type={Type}",
-                userId, result.Request.Id, request.PrescriptionType);
-        return result.Payment != null
-            ? Ok(new { request = result.Request, payment = result.Payment })
-            : Ok(new { request = result.Request });
+                userId, result.Id, request.PrescriptionType);
+        return Ok(new { request = result });
     }
 
     /// <summary>
-    /// Cria uma solicitação de exame. Pagamento gerado na aprovação.
+    /// Cria uma solicitação de exame.
     /// Suporta JSON (examType, exams, symptoms) ou multipart (examType, exams, symptoms, images).
     /// Pode anexar imagens do pedido antigo e/ou escrever o que deseja; a IA analisa e resume.
     /// </summary>
@@ -238,7 +236,7 @@ public class RequestsController(
         }
 
         var result = await requestService.CreateExamAsync(request, userId, cancellationToken);
-        return result.Payment != null ? Ok(new { request = result.Request, payment = result.Payment }) : Ok(new { request = result.Request });
+        return Ok(new { request = result });
     }
 
     /// <summary>
@@ -251,7 +249,7 @@ public class RequestsController(
     {
         var userId = GetUserId();
         var result = await requestService.CreateConsultationAsync(request, userId, cancellationToken);
-        return result.Payment != null ? Ok(new { request = result.Request, payment = result.Payment }) : Ok(new { request = result.Request });
+        return Ok(new { request = result });
     }
 
     // ── Read endpoints ────────────────────────────────────────────

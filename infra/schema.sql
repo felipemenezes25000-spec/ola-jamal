@@ -116,7 +116,6 @@ CREATE TABLE IF NOT EXISTS public.requests (
     exams JSONB NOT NULL DEFAULT '[]',
     exam_images JSONB NOT NULL DEFAULT '[]',
     symptoms TEXT,
-    price DECIMAL(10,2),
     notes TEXT,
     rejection_reason TEXT,
     access_code TEXT,
@@ -131,7 +130,6 @@ CREATE TABLE IF NOT EXISTS public.requests (
     ai_message_to_user TEXT,
     consultation_type TEXT,
     contracted_minutes INTEGER,
-    price_per_minute DECIMAL(10,4),
     consultation_started_at TIMESTAMPTZ,
     triage_conduct TEXT,
     triage_observation TEXT,
@@ -157,25 +155,6 @@ CREATE INDEX IF NOT EXISTS idx_requests_created_at ON public.requests(created_at
 CREATE INDEX IF NOT EXISTS idx_requests_short_code ON public.requests(short_code) WHERE short_code IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_requests_has_conduct ON public.requests(doctor_conduct_notes) WHERE doctor_conduct_notes IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_requests_conduct_audit ON public.requests(conduct_updated_by, conduct_updated_at) WHERE conduct_updated_at IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.payments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE RESTRICT,
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
-    amount DECIMAL(10,2) NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'refunded', 'cancelled')),
-    payment_method TEXT NOT NULL DEFAULT 'pix' CHECK (payment_method IN ('pix', 'credit_card', 'debit_card')),
-    external_id TEXT,
-    pix_qr_code TEXT,
-    pix_qr_code_base64 TEXT,
-    pix_copy_paste TEXT,
-    paid_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_payments_request_id ON public.payments(request_id);
-CREATE INDEX IF NOT EXISTS idx_payments_user_id ON public.payments(user_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status ON public.payments(status);
 
 CREATE TABLE IF NOT EXISTS public.chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -304,115 +283,6 @@ CREATE TABLE IF NOT EXISTS public.user_push_preferences (
     timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.product_prices (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    product_type TEXT NOT NULL,
-    subtype TEXT NOT NULL DEFAULT 'default',
-    price_brl DECIMAL(10,2) NOT NULL,
-    name TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_product_prices_unique ON public.product_prices(product_type, subtype);
-
-INSERT INTO public.product_prices (product_type, subtype, price_brl, name, is_active) VALUES
-    ('prescription', 'simples', 49.90, 'Receita simples', TRUE),
-    ('prescription', 'controlado', 79.90, 'Receita controlada', TRUE),
-    ('prescription', 'azul', 69.90, 'Receita azul', TRUE),
-    ('exam', 'default', 99.90, 'Pedido de exame', TRUE),
-    ('consultation', 'default', 149.90, 'Teleconsulta', TRUE),
-    ('consultation', 'psicologo', 3.99, 'Consulta Psicólogo (por minuto)', TRUE),
-    ('consultation', 'medico_clinico', 6.99, 'Consulta Médico Clínico (por minuto)', TRUE)
-ON CONFLICT (product_type, subtype) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS public.payment_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payment_id UUID NOT NULL REFERENCES public.payments(id) ON DELETE CASCADE,
-    request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    correlation_id TEXT NOT NULL,
-    payment_method TEXT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    mercado_pago_payment_id TEXT,
-    mercado_pago_preference_id TEXT,
-    request_url TEXT,
-    request_payload TEXT,
-    response_payload TEXT,
-    response_status_code INTEGER,
-    response_status_detail TEXT,
-    response_headers TEXT,
-    error_message TEXT,
-    is_success BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.webhook_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    event_id TEXT,
-    event_type TEXT DEFAULT 'payment',
-    source VARCHAR DEFAULT 'mercadopago',
-    payload JSONB,
-    status VARCHAR DEFAULT 'processed',
-    error_message TEXT,
-    correlation_id TEXT,
-    mercado_pago_payment_id TEXT,
-    mercado_pago_request_id TEXT,
-    webhook_type TEXT,
-    webhook_action TEXT,
-    raw_payload TEXT,
-    processed_payload TEXT,
-    query_string TEXT,
-    request_headers TEXT,
-    content_type TEXT,
-    content_length INTEGER,
-    source_ip TEXT,
-    is_duplicate BOOLEAN NOT NULL DEFAULT FALSE,
-    is_processed BOOLEAN NOT NULL DEFAULT FALSE,
-    processing_error TEXT,
-    payment_status TEXT,
-    payment_status_detail TEXT,
-    processed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.saved_cards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    mp_customer_id TEXT NOT NULL,
-    mp_card_id TEXT NOT NULL,
-    last_four TEXT NOT NULL,
-    brand TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_cards_unique ON public.saved_cards(user_id, mp_card_id);
-
--- ============================================================
--- CONSULTATION TIME BANK
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS public.consultation_time_bank (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    consultation_type TEXT NOT NULL,
-    balance_seconds INTEGER NOT NULL DEFAULT 0,
-    last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (patient_id, consultation_type)
-);
-
-CREATE TABLE IF NOT EXISTS public.consultation_time_bank_transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_id UUID NOT NULL REFERENCES public.users(id),
-    request_id UUID REFERENCES public.requests(id),
-    consultation_type TEXT NOT NULL,
-    delta_seconds INTEGER NOT NULL,
-    reason TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================

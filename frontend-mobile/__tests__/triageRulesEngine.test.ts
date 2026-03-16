@@ -30,11 +30,6 @@ describe('triageRulesEngine', () => {
 
   // ── Blocked steps (momento crítico) ───────────────────────
   describe('blocked steps', () => {
-    it('returns null during payment', () => {
-      const result = evaluateTriageRules(input({ context: 'prescription', step: 'payment' }));
-      expect(result).toBeNull();
-    });
-
     it('returns null during signing', () => {
       const result = evaluateTriageRules(input({ context: 'prescription', step: 'signing' }));
       expect(result).toBeNull();
@@ -263,8 +258,8 @@ describe('triageRulesEngine', () => {
         { context: 'exam', step: 'result', exams: ['Hemograma'] },
         { context: 'consultation', step: 'entry' },
         { context: 'consultation', step: 'symptoms_entered', symptoms: 'Dor' },
-        { context: 'detail', step: 'entry', status: 'approved_pending_payment', requestType: 'consultation' },
-        { context: 'detail', step: 'entry', status: 'pending_payment', requestType: 'exam' },
+        { context: 'detail', step: 'entry', status: 'approved', requestType: 'consultation' },
+        { context: 'detail', step: 'entry', status: 'approved', requestType: 'exam' },
         { context: 'detail', step: 'idle', doctorConductNotes: 'ok' },
         { context: 'detail', step: 'idle', status: 'signed' },
       ];

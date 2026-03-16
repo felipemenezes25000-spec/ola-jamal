@@ -5,7 +5,7 @@
 
 import { validate } from '../lib/validation/validate';
 import { loginSchema, resetPasswordSchema } from '../lib/validation/schemas';
-import { getRequestUiState, needsPayment, isSignedOrDelivered } from '../lib/domain/getRequestUiState';
+import { getRequestUiState, isSignedOrDelivered } from '../lib/domain/getRequestUiState';
 import { isOnboardingDone, markOnboardingDone } from '../lib/onboarding';
 
 // ─── Mock AsyncStorage ───────────────────────────────────────
@@ -89,8 +89,8 @@ describe('Fluxo de Pedido — regras de negócio críticas', () => {
     expect(getRequestUiState(req('pending')).uiState).toBe('needs_action');
   });
 
-  it('pedido approved_pending_payment → waiting_payment', () => {
-    expect(getRequestUiState(req('approved_pending_payment')).uiState).toBe('waiting_payment');
+  it('pedido approved_pending_payment → needs_action (fluxo sem pagamento)', () => {
+    expect(getRequestUiState(req('approved_pending_payment')).uiState).toBe('needs_action');
   });
 
   it('pedido paid → retorna uiState com colorKey válido', () => {
@@ -106,12 +106,6 @@ describe('Fluxo de Pedido — regras de negócio críticas', () => {
 
   it('status desconhecido → historical (safe default)', () => {
     expect(getRequestUiState(req('status_inexistente')).uiState).toBe('historical');
-  });
-
-  it('needsPayment: true apenas para approved_pending_payment', () => {
-    expect(needsPayment(req('approved_pending_payment'))).toBe(true);
-    expect(needsPayment(req('submitted'))).toBe(false);
-    expect(needsPayment(req('paid'))).toBe(false);
   });
 
   it('isSignedOrDelivered: true para signed e delivered', () => {

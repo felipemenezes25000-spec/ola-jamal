@@ -49,7 +49,6 @@ function adaptCtaLabel(variant: AbVariant, original?: string): string | undefine
   if (!original) return original;
   if (variant === 'A') return original;
   if (original.toLowerCase().includes('pedido')) return 'Ver pedido';
-  if (original.toLowerCase().includes('pagamento')) return 'Pagar agora';
   if (original.toLowerCase().includes('documento')) return 'Ver documento';
   return original;
 }

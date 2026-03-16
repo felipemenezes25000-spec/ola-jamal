@@ -31,7 +31,7 @@ import { timeAgoShort, getDateGroupForSection } from '../../lib/utils/format';
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-type AlertCategory = 'new_request' | 'payment' | 'consultation' | 'system';
+type AlertCategory = 'new_request' | 'consultation' | 'system';
 
 function getAlertCategory(item: NotificationResponseDto): AlertCategory {
   const type = ((item.data?.type as string) || '').toLowerCase();
@@ -40,9 +40,8 @@ function getAlertCategory(item: NotificationResponseDto): AlertCategory {
 
   if (type.includes('consultation') || type.includes('doctor_ready') || type.includes('no_show') ||
       t.includes('consulta') || status.includes('consultation')) return 'consultation';
-  if (type.includes('payment') || type.includes('paid') || status === 'paid' ||
-      t.includes('pagamento') || t.includes('pago')) return 'payment';
   if (type.includes('new_request') || type.includes('request_assigned') || type.includes('request_status') ||
+      type.includes('payment') || type.includes('paid') || status === 'paid' ||
       t.includes('solicitação') || t.includes('pedido') || t.includes('nova')) return 'new_request';
   return 'system';
 }
@@ -161,7 +160,6 @@ export default function DoctorNotifications() {
 
   const categoryCounts = useMemo(() => ({
     new_request: notifications.filter((n) => getAlertCategory(n) === 'new_request').length,
-    payment: notifications.filter((n) => getAlertCategory(n) === 'payment').length,
     consultation: notifications.filter((n) => getAlertCategory(n) === 'consultation').length,
     system: notifications.filter((n) => getAlertCategory(n) === 'system').length,
   }), [notifications]);
@@ -211,7 +209,6 @@ export default function DoctorNotifications() {
         items={[
           { key: 'all', label: 'Todos', count: notifications.length },
           { key: 'new_request', label: 'Pedidos', count: categoryCounts.new_request },
-          { key: 'payment', label: 'Pagamentos', count: categoryCounts.payment },
           { key: 'consultation', label: 'Consultas', count: categoryCounts.consultation },
         ]}
         value={activeFilter}

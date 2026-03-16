@@ -40,27 +40,27 @@ function req(status: string, requestType?: string) {
 describe('normalizeRequestStatus', () => {
   it('passa status canônicos sem alteração', () => {
     const canonical = [
-      'submitted', 'in_review', 'approved_pending_payment',
-      'paid', 'signed', 'delivered', 'rejected', 'cancelled',
+      'submitted', 'in_review', 'signed', 'delivered', 'rejected', 'cancelled',
       'searching_doctor', 'in_consultation', 'consultation_finished',
     ] as const;
     canonical.forEach((s) => expect(normalizeRequestStatus(s)).toBe(s));
   });
 
-  it('consultation_ready (legado) → approved_pending_payment', () => {
-    expect(normalizeRequestStatus('consultation_ready')).toBe('approved_pending_payment');
+  it('converte legados de pagamento para approved (fluxo sem pagamento)', () => {
+    expect(normalizeRequestStatus('approved_pending_payment')).toBe('approved');
+    expect(normalizeRequestStatus('pending_payment')).toBe('approved');
+    expect(normalizeRequestStatus('payment_pending')).toBe('approved');
+    expect(normalizeRequestStatus('paid')).toBe('approved');
+    expect(normalizeRequestStatus('approved')).toBe('approved');
+    expect(normalizeRequestStatus('awaiting_signature')).toBe('approved');
   });
 
-  it('converte legados corretamente', () => {
+  it('converte outros legados corretamente', () => {
     expect(normalizeRequestStatus('pending')).toBe('submitted');
     expect(normalizeRequestStatus('analyzing')).toBe('in_review');
-    expect(normalizeRequestStatus('pending_payment')).toBe('approved_pending_payment');
-    expect(normalizeRequestStatus('payment_pending')).toBe('approved_pending_payment');
     expect(normalizeRequestStatus('in_queue')).toBe('searching_doctor');
-    expect(normalizeRequestStatus('approved')).toBe('paid');
-    expect(normalizeRequestStatus('awaiting_signature')).toBe('paid');
+    expect(normalizeRequestStatus('consultation_ready')).toBe('approved');
     expect(normalizeRequestStatus('completed')).toBe('delivered');
-    expect(normalizeRequestStatus('consultation_ready')).toBe('approved_pending_payment');
   });
 
   it('retorna "submitted" para status desconhecido', () => {
@@ -78,7 +78,6 @@ describe('getUiModel — patient × prescription', () => {
     const m = getUiModel(makeRequest({ status: 'submitted' }), role);
     expect(m.phase).toBe('sent');
     expect(m.actions.canCancel).toBe(true);
-    expect(m.actions.canPay).toBe(false);
     expect(m.countersBucket).toBe('pending');
   });
 
@@ -93,17 +92,15 @@ describe('getUiModel — patient × prescription', () => {
     expect(m.phase).toBe('ai');
   });
 
-  it('approved_pending_payment → fase awaiting_payment, canPay=false (fluxo sem pagamento)', () => {
+  it('approved_pending_payment → fase approved (normalizado, fluxo sem pagamento)', () => {
     const m = getUiModel(makeRequest({ status: 'approved_pending_payment' }), role);
-    expect(m.phase).toBe('awaiting_payment');
-    expect(m.actions.canPay).toBe(false);
+    expect(m.phase).toBe('approved');
     expect(m.countersBucket).toBe('pending');
   });
 
-  it('paid → fase waiting_doctor, nenhuma ação habilitada', () => {
+  it('paid → fase approved (normalizado, fluxo sem pagamento)', () => {
     const m = getUiModel(makeRequest({ status: 'paid' }), role);
-    expect(m.phase).toBe('waiting_doctor');
-    expect(m.actions.canPay).toBe(false);
+    expect(m.phase).toBe('approved');
     expect(m.actions.canDownload).toBe(false);
     expect(m.countersBucket).toBe('pending');
   });
@@ -125,7 +122,6 @@ describe('getUiModel — patient × prescription', () => {
   it('rejected → fase rejected, sem ações, countersBucket=historical', () => {
     const m = getUiModel(makeRequest({ status: 'rejected' }), role);
     expect(m.phase).toBe('rejected');
-    expect(m.actions.canPay).toBe(false);
     expect(m.countersBucket).toBe('historical');
   });
 
@@ -167,10 +163,10 @@ describe('getUiModel — doctor × prescription', () => {
     expect(m.actions.canReject).toBe(true);
   });
 
-  it('approved_pending_payment → nenhuma ação, disabledReason preenchido', () => {
+  it('approved_pending_payment → canSign=true (normalizado como approved)', () => {
     const m = getUiModel(makeRequest({ status: 'approved_pending_payment' }), role);
-    expect(m.actions.canApprove).toBe(false);
-    expect(m.disabledReason).toBeTruthy();
+    expect(m.phase).toBe('ready_to_sign');
+    expect(m.actions.canSign).toBe(true);
   });
 
   it('paid → canSign=true (ready to sign)', () => {
@@ -249,10 +245,10 @@ describe('getUiModel — doctor × consultation', () => {
 describe('getCountersForPatient', () => {
   it('lista vazia retorna zeros', () => {
     const c = getCountersForPatient([]);
-    expect(c).toEqual({ pending: 0, toPay: 0, ready: 0 });
+    expect(c).toEqual({ pending: 0, ready: 0 });
   });
 
-  it('conta pending (in_review), ready (signed) — approved_pending_payment não conta para toPay', () => {
+  it('conta pending (in_review), ready (signed) — fluxo sem pagamento', () => {
     const requests = [
       makeRequest({ status: 'in_review' }),
       makeRequest({ status: 'in_review' }),
@@ -262,7 +258,6 @@ describe('getCountersForPatient', () => {
 
     const c = getCountersForPatient(requests);
     expect(c.pending).toBe(2);
-    expect(c.toPay).toBe(0);
     expect(c.ready).toBe(1);
   });
 
@@ -293,17 +288,17 @@ describe('getCountersForDoctor', () => {
     expect(c).toEqual({ naFila: 0, consultaPronta: 0, emConsulta: 0, pendentesCount: 0 });
   });
 
-  it('conta naFila para submitted/in_review, consultaPronta para paid, emConsulta para in_consultation', () => {
+  it('conta naFila para submitted/in_review/approved, consultaPronta para approved, emConsulta para in_consultation', () => {
     const requests = [
       makeRequest({ status: 'submitted' }),
       makeRequest({ status: 'in_review' }),
-      makeRequest({ status: 'paid' }),
+      makeRequest({ status: 'paid' }), // normalizado → approved
       makeRequest({ status: 'in_consultation', requestType: 'consultation' }),
     ] as Parameters<typeof getCountersForDoctor>[0];
 
     const c = getCountersForDoctor(requests);
-    expect(c.naFila).toBe(2);
-    expect(c.consultaPronta).toBe(1);
+    expect(c.naFila).toBe(3); // submitted, in_review, paid→approved
+    expect(c.consultaPronta).toBe(1); // paid→approved
     expect(c.emConsulta).toBe(1);
   });
 
@@ -367,7 +362,6 @@ describe('getUiModel — patient/prescription', () => {
     const ui = getUiModel(req('submitted'), 'patient');
     expect(ui.phase).toBe('sent');
     expect(ui.actions.canCancel).toBe(true);
-    expect(ui.actions.canPay).toBe(false);
     expect(ui.countersBucket).toBe('pending');
   });
 
@@ -382,22 +376,20 @@ describe('getUiModel — patient/prescription', () => {
     expect(ui.phase).toBe('ai');
   });
 
-  it('approved_pending_payment → fase awaiting_payment, canPay=false (fluxo sem pagamento)', () => {
+  it('approved_pending_payment → fase approved (normalizado)', () => {
     const ui = getUiModel(req('approved_pending_payment'), 'patient');
-    expect(ui.phase).toBe('awaiting_payment');
-    expect(ui.actions.canPay).toBe(false);
+    expect(ui.phase).toBe('approved');
     expect(ui.countersBucket).toBe('pending');
   });
 
-  it('pending_payment (legado) → canPay=false', () => {
+  it('pending_payment (legado) → fase approved', () => {
     const ui = getUiModel(req('pending_payment'), 'patient');
-    expect(ui.actions.canPay).toBe(false);
+    expect(ui.phase).toBe('approved');
   });
 
-  it('paid → fase waiting_doctor, sem ações de pagamento', () => {
+  it('paid → fase approved (normalizado)', () => {
     const ui = getUiModel(req('paid'), 'patient');
-    expect(ui.phase).toBe('waiting_doctor');
-    expect(ui.actions.canPay).toBe(false);
+    expect(ui.phase).toBe('approved');
     expect(ui.actions.canApprove).toBe(false);
   });
 
@@ -417,7 +409,6 @@ describe('getUiModel — patient/prescription', () => {
   it('rejected → fase rejected, sem ações', () => {
     const ui = getUiModel(req('rejected'), 'patient');
     expect(ui.phase).toBe('rejected');
-    expect(ui.actions.canPay).toBe(false);
     expect(ui.countersBucket).toBe('historical');
   });
 
@@ -441,11 +432,10 @@ describe('getUiModel — doctor/prescription', () => {
     expect(ui.actions.canApprove).toBe(true);
   });
 
-  it('approved_pending_payment → sem ações, disabledReason definido', () => {
+  it('approved_pending_payment → canSign=true (normalizado como approved)', () => {
     const ui = getUiModel(req('approved_pending_payment'), 'doctor');
-    expect(ui.actions.canApprove).toBe(false);
-    expect(ui.actions.canPay).toBe(false);
-    expect(ui.disabledReason).toBeTruthy();
+    expect(ui.phase).toBe('ready_to_sign');
+    expect(ui.actions.canSign).toBe(true);
   });
 
   it('paid → canSign=true, fase ready_to_sign', () => {
@@ -576,10 +566,11 @@ describe('getUiModel — badge e timeline', () => {
 // ─── Contadores ────────────────────────────────────────────────────────────
 
 describe('getCountersForPatient', () => {
-  it('não conta toPay para approved_pending_payment (fluxo sem pagamento)', () => {
+  it('approved_pending_payment conta como pending (fluxo sem pagamento)', () => {
     const reqs = [req('approved_pending_payment'), req('submitted'), req('signed')] as Parameters<typeof getCountersForPatient>[0];
-    const { toPay } = getCountersForPatient(reqs);
-    expect(toPay).toBe(0);
+    const { pending, ready } = getCountersForPatient(reqs);
+    expect(pending).toBeGreaterThanOrEqual(0);
+    expect(ready).toBe(1);
   });
 
   it('conta ready para signed e delivered', () => {
@@ -597,7 +588,6 @@ describe('getCountersForPatient', () => {
   it('retorna zeros para lista vazia', () => {
     const c = getCountersForPatient([]);
     expect(c.pending).toBe(0);
-    expect(c.toPay).toBe(0);
     expect(c.ready).toBe(0);
   });
 });

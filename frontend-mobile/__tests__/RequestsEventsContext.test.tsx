@@ -12,7 +12,7 @@
  * @jest-environment jsdom
  */
 
-import React, { useRef } from 'react';
+import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 
 // ── Mocks de módulos nativos ──────────────────────────────────────────────────
@@ -65,11 +65,13 @@ import { AuthProvider } from '../contexts/AuthContext';
 // ── Wrapper com providers ─────────────────────────────────────────────────────
 
 function makeWrapper() {
-  return ({ children }: { children: React.ReactNode }) => (
+  const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <AuthProvider>
       <RequestsEventsProvider>{children}</RequestsEventsProvider>
     </AuthProvider>
   );
+  Wrapper.displayName = 'TestWrapper';
+  return Wrapper;
 }
 
 // ── Testes ────────────────────────────────────────────────────────────────────
@@ -150,7 +152,7 @@ describe('RequestsEventsContext — split de renders', () => {
       let stableRenders = 0;
       let unifiedRenders = 0;
 
-      const { result: stableResult } = renderHook(
+      const { result: _stableResult } = renderHook(
         () => {
           stableRenders++;
           return useRequestsEventsStable();

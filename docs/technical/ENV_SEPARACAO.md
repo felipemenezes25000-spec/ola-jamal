@@ -22,8 +22,9 @@ Cada parte do projeto tem seu próprio `.env` e `.env.example`. **Não misture**
 - SMTP: `Smtp__Host`, `Smtp__Port`, `Smtp__EnableSsl`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromEmail`, `Smtp__FromName`, `Smtp__ResetPasswordBaseUrl`, `Smtp__ContactToEmail` (formulário de contato)
 - InfoSimples: `InfoSimples__ApiToken`
 - Daily.co: `DAILY_API_KEY`, `DAILY_DOMAIN`, `DAILY_ROOM_PREFIX`, `DAILY_ROOM_EXPIRY_MINUTES`
+- CORS: `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, etc. (array via env; ver `.env.example`)
 
-CORS é definido em `appsettings.json` (`Cors:AllowedOrigins`), não em `.env`.
+CORS pode ser definido em `appsettings.json` (`Cors:AllowedOrigins`), em variáveis de ambiente ou no SSM Parameter Store.
 
 Na **API (AWS)**, configure as mesmas chaves na Task Definition ou no Parameter Store.
 

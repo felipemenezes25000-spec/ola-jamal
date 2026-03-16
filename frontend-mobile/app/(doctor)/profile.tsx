@@ -1,38 +1,41 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Alert,
-  Platform,
-  TouchableOpacity,
-  InteractionManager,
-  ActivityIndicator,
-  Modal,
-  Image,
-  LayoutAnimation,
-  UIManager,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  InteractionManager,
+  LayoutAnimation,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
-import Constants from 'expo-constants';
-import { doctorDS } from '../../lib/themeDoctor';
-import { useAppTheme } from '../../lib/ui/useAppTheme';
-import type { DesignColors } from '../../lib/designSystem';
+import { FadeIn } from '../../components/ui/FadeIn';
+import { showToast } from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateAvatar } from '../../lib/api';
-import { showToast } from '../../components/ui/Toast';
+import { getApiErrorMessage } from '../../lib/api-client';
+import type { DesignColors } from '../../lib/designSystem';
 import { haptics } from '../../lib/haptics';
-import { FadeIn } from '../../components/ui/FadeIn';
+import { doctorDS } from '../../lib/themeDoctor';
 import { motionTokens } from '../../lib/ui/motion';
+import { useAppTheme } from '../../lib/ui/useAppTheme';
 
-const isNewArch = typeof (global as unknown as { __turboModuleRegistry?: unknown }).__turboModuleRegistry !== 'undefined';
+const isNewArch =
+  typeof (global as unknown as { __turboModuleRegistry?: unknown }).__turboModuleRegistry !==
+  'undefined';
 if (Platform.OS === 'android' && !isNewArch && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -56,7 +59,7 @@ interface MenuSectionDef {
 
 function buildMenuSections(
   colors: DesignColors,
-  doctor: { crm?: string; crmState?: string; specialty?: string } | null
+  doctor: { crm?: string; crmState?: string; specialty?: string } | null,
 ): MenuSectionDef[] {
   return [
     {
@@ -122,13 +125,15 @@ function buildMenuSections(
           iconBg: colors.surfaceSecondary,
         },
         ...(__DEV__
-          ? [{
-              icon: 'mic' as const,
-              label: 'Testar transcrição IA',
-              route: '/(doctor)/transcription-test',
-              iconColor: colors.accent,
-              iconBg: colors.accentSoft,
-            }]
+          ? [
+              {
+                icon: 'mic' as const,
+                label: 'Testar transcrição IA',
+                route: '/(doctor)/transcription-test',
+                iconColor: colors.accent,
+                iconBg: colors.accentSoft,
+              },
+            ]
           : []),
       ],
     },
@@ -176,7 +181,11 @@ export default function DoctorProfile() {
 
   const firstName = user?.name?.split(' ')[0] || 'Médico';
   const initials = user?.name
-    ? user.name.split(' ').slice(0, 2).map((n) => n[0]?.toUpperCase()).join('')
+    ? user.name
+        .split(' ')
+        .slice(0, 2)
+        .map((n) => n[0]?.toUpperCase())
+        .join('')
     : '?';
 
   const pickAvatarFromGallery = async () => {
@@ -214,8 +223,18 @@ export default function DoctorProfile() {
   const pickAvatar = async () => {
     Alert.alert('Foto de perfil', 'Como você quer atualizar sua foto?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Câmera', onPress: () => { void takeAvatarPhoto(); } },
-      { text: 'Galeria', onPress: () => { void pickAvatarFromGallery(); } },
+      {
+        text: 'Câmera',
+        onPress: () => {
+          void takeAvatarPhoto();
+        },
+      },
+      {
+        text: 'Galeria',
+        onPress: () => {
+          void pickAvatarFromGallery();
+        },
+      },
     ]);
   };
 
@@ -231,7 +250,7 @@ export default function DoctorProfile() {
       setAvatarImageError(false);
       showToast({ message: 'Foto atualizada!', type: 'success' });
     } catch (e: unknown) {
-      showToast({ message: (e as Error)?.message ?? 'Erro ao atualizar foto.', type: 'error' });
+      showToast({ message: getApiErrorMessage(e) || 'Erro ao atualizar foto.', type: 'error' });
     } finally {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setAvatarLoading(false);
@@ -239,10 +258,7 @@ export default function DoctorProfile() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container]}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={[styles.container]} showsVerticalScrollIndicator={false}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
       {/* ── HEADER GRADIENTE ── */}
@@ -255,7 +271,10 @@ export default function DoctorProfile() {
         {/* Avatar */}
         <Pressable
           style={({ pressed }) => [styles.avatarWrap, pressed && { opacity: 0.85 }]}
-          onPress={() => { haptics.selection(); void pickAvatar(); }}
+          onPress={() => {
+            haptics.selection();
+            void pickAvatar();
+          }}
           disabled={avatarLoading}
           accessibilityRole="button"
           accessibilityLabel="Alterar foto de perfil"
@@ -270,7 +289,9 @@ export default function DoctorProfile() {
                   onError={() => setAvatarImageError(true)}
                 />
               ) : (
-                <Text style={[styles.avatarText, { color: colors.headerOverlayText }]}>{initials}</Text>
+                <Text style={[styles.avatarText, { color: colors.headerOverlayText }]}>
+                  {initials}
+                </Text>
               )}
             </View>
           </View>
@@ -279,7 +300,12 @@ export default function DoctorProfile() {
               <ActivityIndicator size="small" color={colors.headerOverlayText} />
             </View>
           ) : (
-            <View style={[styles.cameraBtn, { backgroundColor: colors.primary, borderColor: colors.headerOverlayText }]}>
+            <View
+              style={[
+                styles.cameraBtn,
+                { backgroundColor: colors.primary, borderColor: colors.headerOverlayText },
+              ]}
+            >
               <Ionicons name="camera" size={14} color={colors.headerOverlayText} />
             </View>
           )}
@@ -289,25 +315,45 @@ export default function DoctorProfile() {
         <Text style={[styles.headerName, { color: colors.headerOverlayText }]} numberOfLines={1}>
           Dr(a). {firstName}
         </Text>
-        <Text style={[styles.headerEmail, { color: colors.headerOverlayTextMuted }]} numberOfLines={1}>
+        <Text
+          style={[styles.headerEmail, { color: colors.headerOverlayTextMuted }]}
+          numberOfLines={1}
+        >
           {user?.email || ''}
         </Text>
 
         {/* Card de identidade profissional */}
         {doctor && (
-          <View style={[styles.identityCard, { backgroundColor: colors.headerOverlaySurface, borderColor: colors.headerOverlayBorder }]}>
+          <View
+            style={[
+              styles.identityCard,
+              {
+                backgroundColor: colors.headerOverlaySurface,
+                borderColor: colors.headerOverlayBorder,
+              },
+            ]}
+          >
             <View style={styles.identityItem}>
               <Ionicons name="card-outline" size={14} color={colors.headerOverlayTextMuted} />
-              <Text style={[styles.identityLabel, { color: colors.headerOverlayTextMuted }]}>CRM</Text>
+              <Text style={[styles.identityLabel, { color: colors.headerOverlayTextMuted }]}>
+                CRM
+              </Text>
               <Text style={[styles.identityValue, { color: colors.headerOverlayText }]}>
                 {doctor.crm}/{doctor.crmState}
               </Text>
             </View>
-            <View style={[styles.identityDivider, { backgroundColor: colors.headerOverlayDivider }]} />
+            <View
+              style={[styles.identityDivider, { backgroundColor: colors.headerOverlayDivider }]}
+            />
             <View style={styles.identityItem}>
               <Ionicons name="medical-outline" size={14} color={colors.headerOverlayTextMuted} />
-              <Text style={[styles.identityLabel, { color: colors.headerOverlayTextMuted }]}>Especialidade</Text>
-              <Text style={[styles.identityValue, { color: colors.headerOverlayText }]} numberOfLines={1}>
+              <Text style={[styles.identityLabel, { color: colors.headerOverlayTextMuted }]}>
+                Especialidade
+              </Text>
+              <Text
+                style={[styles.identityValue, { color: colors.headerOverlayText }]}
+                numberOfLines={1}
+              >
                 {doctor.specialty}
               </Text>
             </View>
@@ -320,10 +366,17 @@ export default function DoctorProfile() {
         {menuSections.map((section) => (
           <View key={section.title} style={styles.menuSection}>
             <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{section.title}</Text>
-            <View style={[styles.menuGroup, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
+            <View
+              style={[
+                styles.menuGroup,
+                { backgroundColor: colors.surface, borderColor: colors.borderLight },
+              ]}
+            >
               {section.items.map((item, idx) => (
                 <React.Fragment key={item.label}>
-                  {idx > 0 && <View style={[styles.itemDivider, { backgroundColor: colors.borderLight }]} />}
+                  {idx > 0 && (
+                    <View style={[styles.itemDivider, { backgroundColor: colors.borderLight }]} />
+                  )}
                   {item.route != null ? (
                     <Pressable
                       style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
@@ -346,7 +399,11 @@ export default function DoctorProfile() {
                         <Ionicons name={item.icon} size={19} color={item.iconColor} />
                       </View>
                       <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
-                      <Text style={[styles.menuValue, { color: colors.textMuted }]} numberOfLines={1} ellipsizeMode="tail">
+                      <Text
+                        style={[styles.menuValue, { color: colors.textMuted }]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
                         {item.value ?? '—'}
                       </Text>
                     </View>
@@ -360,8 +417,14 @@ export default function DoctorProfile() {
         {/* Logout */}
         <View style={styles.logoutSection}>
           <TouchableOpacity
-            style={[styles.logoutBtn, { backgroundColor: colors.errorLight, borderColor: colors.error + '30' }]}
-            onPress={() => { haptics.selection(); handleLogout(); }}
+            style={[
+              styles.logoutBtn,
+              { backgroundColor: colors.errorLight, borderColor: colors.error + '30' },
+            ]}
+            onPress={() => {
+              haptics.selection();
+              handleLogout();
+            }}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Sair da conta"
@@ -391,40 +454,70 @@ export default function DoctorProfile() {
               Confira como sua foto ficará no perfil.
             </Text>
 
-            <View style={[styles.previewAvatarCircle, { borderColor: colors.primarySoft, backgroundColor: colors.background }]}>
+            <View
+              style={[
+                styles.previewAvatarCircle,
+                { borderColor: colors.primarySoft, backgroundColor: colors.background },
+              ]}
+            >
               {avatarPreviewUri ? (
-                <Image source={{ uri: avatarPreviewUri }} style={styles.previewAvatarImage} resizeMode="cover" />
+                <Image
+                  source={{ uri: avatarPreviewUri }}
+                  style={styles.previewAvatarImage}
+                  resizeMode="cover"
+                />
               ) : null}
             </View>
 
             <View style={styles.previewActions}>
               <TouchableOpacity
-                style={[styles.previewBtn, styles.previewBtnGhost, { borderColor: colors.borderLight, backgroundColor: colors.background }]}
-                onPress={() => { setAvatarPreviewUri(null); void pickAvatar(); }}
+                style={[
+                  styles.previewBtn,
+                  styles.previewBtnGhost,
+                  { borderColor: colors.borderLight, backgroundColor: colors.background },
+                ]}
+                onPress={() => {
+                  setAvatarPreviewUri(null);
+                  void pickAvatar();
+                }}
                 disabled={avatarLoading}
               >
-                <Text style={[styles.previewBtnText, { color: colors.textMuted }]}>Escolher outra</Text>
+                <Text style={[styles.previewBtnText, { color: colors.textMuted }]}>
+                  Escolher outra
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.previewBtn, { backgroundColor: colors.primary, opacity: avatarLoading ? 0.7 : 1 }]}
-                onPress={() => { void saveAvatar(); }}
+                style={[
+                  styles.previewBtn,
+                  { backgroundColor: colors.primary, opacity: avatarLoading ? 0.7 : 1 },
+                ]}
+                onPress={() => {
+                  void saveAvatar();
+                }}
                 disabled={avatarLoading}
               >
                 {avatarLoading ? (
                   <ActivityIndicator size="small" color={colors.headerOverlayText} />
                 ) : (
-                  <Text style={[styles.previewBtnText, { color: colors.headerOverlayText }]}>Salvar foto</Text>
+                  <Text style={[styles.previewBtnText, { color: colors.headerOverlayText }]}>
+                    Salvar foto
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
               style={styles.previewCameraLink}
-              onPress={() => { setAvatarPreviewUri(null); void takeAvatarPhoto(); }}
+              onPress={() => {
+                setAvatarPreviewUri(null);
+                void takeAvatarPhoto();
+              }}
               disabled={avatarLoading}
             >
               <Ionicons name="camera-outline" size={15} color={colors.primary} />
-              <Text style={[styles.previewCameraText, { color: colors.primary }]}>Tirar nova foto</Text>
+              <Text style={[styles.previewCameraText, { color: colors.primary }]}>
+                Tirar nova foto
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -191,22 +191,6 @@ describe('api module', () => {
     });
   });
 
-  describe('createPayment', () => {
-    it('sends POST /api/payments with requestId', async () => {
-      const paymentResp = { id: 'pay-1', status: 'pending' };
-      mockFetch.mockResolvedValueOnce(mockOkResponse(paymentResp));
-
-      const { createPayment } = require('../lib/api');
-      const result = await createPayment({ requestId: 'req-1' });
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/payments'),
-        expect.objectContaining({ method: 'POST' })
-      );
-      expect(result).toEqual(paymentResp);
-    });
-  });
-
   describe('createPrescriptionRequest', () => {
     it('sends JSON when no images', async () => {
       const mockResp = { request: { id: 'r-1' } };
@@ -411,11 +395,6 @@ describe('api module', () => {
     it('getRequestById is fetchRequestById', () => {
       const api = require('../lib/api');
       expect(api.getRequestById).toBe(api.fetchRequestById);
-    });
-
-    it('getPaymentByRequest is fetchPaymentByRequest', () => {
-      const api = require('../lib/api');
-      expect(api.getPaymentByRequest).toBe(api.fetchPaymentByRequest);
     });
   });
 });

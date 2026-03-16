@@ -19,7 +19,6 @@ public class StaleRequestReminderService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<StaleRequestReminderService> _logger;
-    private static readonly TimeSpan PaymentPendingThreshold = TimeSpan.FromHours(6);
     private static readonly TimeSpan InReviewThreshold = TimeSpan.FromMinutes(60);
     private static readonly TimeSpan RunInterval = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan ReminderCooldown = TimeSpan.FromHours(12);
@@ -62,24 +61,7 @@ public class StaleRequestReminderService : BackgroundService
 
         var now = DateTime.UtcNow;
 
-        // Pagamento pendente > 6h → paciente
-        var paymentCutoff = now - PaymentPendingThreshold;
-        var stalePayment = await requestRepo.GetStaleApprovedPendingPaymentAsync(paymentCutoff, ct);
-        foreach (var req in stalePayment)
-        {
-            var cooldownKey = $"reminder_payment:{req.Id}";
-            if (_cache.TryGetValue(cooldownKey, out _)) continue;
-            try
-            {
-                var pushReq = PushNotificationRules.ReminderPaymentPending(req.PatientId, req.Id, req.RequestType);
-                await dispatcher.SendAsync(pushReq, ct);
-                _cache.Set(cooldownKey, true, ReminderCooldown);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha ao enviar lembrete de pagamento para request {RequestId}", req.Id);
-            }
-        }
+        // Fluxo de pagamento removido — não enviamos lembretes de pagamento pendente
 
         // InReview > 30 min → médico
         var inReviewCutoff = now - InReviewThreshold;

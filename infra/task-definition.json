@@ -14,7 +14,12 @@
       {"name": "ASPNETCORE_ENVIRONMENT", "value": "Production"},
       {"name": "ASPNETCORE_URLS", "value": "http://+:8080"},
       {"name": "AllowedHosts", "value": "*"},
-      {"name": "AWS_REGION", "value": "sa-east-1"}
+      {"name": "AWS_REGION", "value": "sa-east-1"},
+      {"name": "Cors__AllowedOrigins__0", "value": "https://renovejasaude.com.br"},
+      {"name": "Cors__AllowedOrigins__1", "value": "https://www.renovejasaude.com.br"},
+      {"name": "Cors__AllowedOrigins__2", "value": "https://admin.renovejasaude.com.br"},
+      {"name": "Cors__AllowedOrigins__3", "value": "https://medico.renovejasaude.com.br"},
+      {"name": "Cors__AllowedOrigins__4", "value": "https://app.renovejasaude.com.br"}
     ],
     "secrets": [
       {"name": "ConnectionStrings__DefaultConnection", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/ConnectionStrings__DefaultConnection"},

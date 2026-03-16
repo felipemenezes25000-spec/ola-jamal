@@ -26,7 +26,6 @@ export default function SettingsScreen() {
   const [mutedCount, setMutedCount] = useState(0);
   const [categoryPrefs, setCategoryPrefs] = useState<PushPreferencesDto>({
     requestsEnabled: true,
-    paymentsEnabled: true,
     consultationsEnabled: true,
     remindersEnabled: true,
     timezone: 'America/Sao_Paulo',
@@ -250,19 +249,6 @@ export default function SettingsScreen() {
               <Switch
                 value={categoryPrefs.requestsEnabled}
                 onValueChange={(v) => handleCategoryToggle('requestsEnabled', v)}
-                trackColor={{ true: colors.success, false: colors.border }}
-                thumbColor={colors.white}
-              />
-            }
-          />
-          <View style={styles.divider} />
-          <SettingItem
-            icon="card-outline"
-            label="Pagamentos"
-            right={
-              <Switch
-                value={categoryPrefs.paymentsEnabled}
-                onValueChange={(v) => handleCategoryToggle('paymentsEnabled', v)}
                 trackColor={{ true: colors.success, false: colors.border }}
                 thumbColor={colors.white}
               />

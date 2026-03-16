@@ -70,7 +70,7 @@ public class PushTokensController(
     }
 
     /// <summary>
-    /// Obtém preferências por categoria (Pedidos, Pagamentos, Consultas, Lembretes) e timezone para quiet hours.
+    /// Obtém preferências por categoria (Pedidos, Consultas, Lembretes) e timezone para quiet hours.
     /// </summary>
     [HttpGet("preferences")]
     public async Task<IActionResult> GetPushPreferences(CancellationToken cancellationToken)
@@ -80,7 +80,6 @@ public class PushTokensController(
         return Ok(new
         {
             requestsEnabled = prefs.RequestsEnabled,
-            paymentsEnabled = prefs.PaymentsEnabled,
             consultationsEnabled = prefs.ConsultationsEnabled,
             remindersEnabled = prefs.RemindersEnabled,
             timezone = prefs.Timezone
@@ -100,7 +99,7 @@ public class PushTokensController(
         var updated = UserPushPreferences.Reconstitute(
             userId,
             request.RequestsEnabled ?? prefs.RequestsEnabled,
-            request.PaymentsEnabled ?? prefs.PaymentsEnabled,
+            prefs.PaymentsEnabled, // fluxo de pagamento removido — mantém valor existente
             request.ConsultationsEnabled ?? prefs.ConsultationsEnabled,
             request.RemindersEnabled ?? prefs.RemindersEnabled,
             request.Timezone ?? prefs.Timezone);
@@ -108,7 +107,6 @@ public class PushTokensController(
         return Ok(new
         {
             requestsEnabled = updated.RequestsEnabled,
-            paymentsEnabled = updated.PaymentsEnabled,
             consultationsEnabled = updated.ConsultationsEnabled,
             remindersEnabled = updated.RemindersEnabled,
             timezone = updated.Timezone

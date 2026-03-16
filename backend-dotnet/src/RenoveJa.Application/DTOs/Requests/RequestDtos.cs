@@ -30,7 +30,7 @@ public record UpdateRequestStatusDto(
 );
 
 /// <summary>
-/// Aprovação do médico. O valor vem da tabela product_prices.
+/// Aprovação do médico. Serviço gratuito.
 /// Medications/Exams/Notes: opcional — médico pode enviar medicamentos ou exames (ex.: copiados da análise IA).
 /// </summary>
 public record ApproveRequestDto(
@@ -69,7 +69,6 @@ public record RequestResponseDto(
     List<string>? Exams,
     List<string>? ExamImages,
     string? Symptoms,
-    decimal? Price,
     string? Notes,
     string? RejectionReason,
     string? AccessCode,
@@ -95,7 +94,6 @@ public record RequestResponseDto(
     bool ConsultationHasRecording = false,
     string? ConsultationType = null,
     int? ContractedMinutes = null,
-    decimal? PricePerMinute = null,
     /// <summary>Quando o médico iniciou a consulta (sincroniza o timer entre médico e paciente).</summary>
     DateTime? ConsultationStartedAt = null,
     string? AutoObservation = null,

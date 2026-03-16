@@ -34,7 +34,7 @@ const pad = doctorDS.screenPaddingHorizontal;
 const DOCTOR_REQUESTS_STALE_MS = 10_000;
 
 const ACTIVE_STATUSES = [
-  'submitted', 'pending', 'searching_doctor', 'approved_pending_payment',
+  'submitted', 'pending', 'searching_doctor', 'approved',
   'paid', 'consultation_ready', 'consultation_accepted', 'in_consultation',
 ];
 
@@ -113,7 +113,6 @@ export default function DoctorConsultations() {
         request={item}
         onPress={() => handleItemPress(item)}
         showPatientName
-        showPrice={false}
         showRisk={false}
         suppressHorizontalMargin
       />

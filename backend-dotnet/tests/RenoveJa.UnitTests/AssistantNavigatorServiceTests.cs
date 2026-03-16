@@ -23,7 +23,7 @@ public class AssistantNavigatorServiceTests
         var now = DateTime.UtcNow;
         return new RequestResponseDto(
             id, Guid.NewGuid(), "P", null, null, requestType, status,
-            null, null, null, null, null, null, null, null, null, null, null, null, null, signedDocumentUrl, null,
+            null, null, null, null, null, null, null, null, null, null, null, null, signedDocumentUrl, null,
             now, now);
     }
 

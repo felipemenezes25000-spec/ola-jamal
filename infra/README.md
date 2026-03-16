@@ -76,12 +76,28 @@ Lista RDS, S3, ECS e ECR na região `sa-east-1` e indica o que falta. Depois de 
   1. `20260316_requests_missing_columns.sql`
   2. `20260316_patients_consent_records.sql`
   3. `20260316_encounters_medical_ai_careplans.sql`
+  4. `20260316_fix_care_plans_outbox_schema.sql` (corrige erros 42703 nos logs do MigrationRunner)
+
+  Ou use o script: `cd infra/scripts; $env:DATABASE_URL="Host=...;Database=renoveja;Username=postgres;Password=..."; .\run-fix-schema-migration.ps1`
 
 Formas de rodar:
 - **RDS Query Editor (console AWS):** RDS → sua instância → Query Editor → colar o SQL e executar.
 - **psql:** `$env:PGPASSWORD="SENHA"; psql -h ENDPOINT_RDS -U postgres -d renoveja -f infra/schema.sql`
 
 Obter o endpoint do RDS: `aws rds describe-db-instances --region sa-east-1 --query "DBInstances[?DBInstanceIdentifier=='renoveja-postgres'].Endpoint.Address" --output text`
+
+## CORS (origens permitidas)
+
+A API usa `Cors:AllowedOrigins` para permitir requisições de `medico.renovejasaude.com.br`, `admin.renovejasaude.com.br`, etc. O `infra/task-definition.json` já inclui as env vars `Cors__AllowedOrigins__0` a `__4`.
+
+Para gerenciar CORS via AWS Parameter Store (alterar sem redeploy):
+
+```powershell
+cd infra/scripts
+.\ssm-set-cors.ps1
+```
+
+Depois, adicione os parâmetros em `secrets` na task-definition e remova as env vars de CORS do `environment` (ou mantenha as env vars — elas têm precedência sobre appsettings).
 
 ## Fases de deploy
 

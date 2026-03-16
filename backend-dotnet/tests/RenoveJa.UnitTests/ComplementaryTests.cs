@@ -451,7 +451,6 @@ public class AuthServiceExtendedTests
 public class RequestServiceFullTests
 {
     private readonly Mock<IRequestRepository> _requestRepoMock = new();
-    private readonly Mock<IProductPriceRepository> _productPriceRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IDoctorRepository> _doctorRepoMock = new();
     private readonly Mock<IVideoRoomRepository> _videoRoomRepoMock = new();
@@ -491,7 +490,7 @@ public class RequestServiceFullTests
             _aiConductSuggestionServiceMock.Object,
             requestApprovalLoggerMock.Object);
         _sut = new RequestService(
-            _requestRepoMock.Object, _productPriceRepoMock.Object,
+            _requestRepoMock.Object,
             _userRepoMock.Object, _doctorRepoMock.Object,
             _notificationRepoMock.Object, _pushSenderMock.Object, pushDispatcherMock.Object, _aiReadingMock.Object,
             _apiConfigMock.Object,

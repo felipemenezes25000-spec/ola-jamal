@@ -3,6 +3,7 @@
  * Backend enums, API e banco NÃO devem ser alterados — apenas o que o usuário vê.
  *
  * Use este mapa em: badges, timeline, cards, contadores, listas de pedidos.
+ * Serviço gratuito — sem fluxo de pagamento.
  */
 
 export const STATUS_LABELS_PT: Record<string, string> = {
@@ -10,8 +11,7 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   submitted: 'Enviado',
   analyzing: 'Em análise médica',
   in_review: 'Em análise médica',
-  approved_pending_payment: 'Aguardando assinatura',
-  paid: 'Aguardando assinatura',
+  approved: 'Aprovado',
   signed: 'Assinado',
   delivered: 'Entregue',
   // Consultation (canônicos)
@@ -24,8 +24,9 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   cancelled: 'Cancelado',
   // Legados (retrocompatibilidade)
   pending: 'Pendente',
-  pending_payment: 'Aguardando assinatura',
-  approved: 'Aprovado',
+  pending_payment: 'Aprovado',
+  approved_pending_payment: 'Aprovado',
+  paid: 'Aprovado',
   completed: 'Concluído',
 };
 
@@ -46,10 +47,8 @@ export function getStatusLabelPt(status: string | null | undefined): string {
 
 /**
  * Rótulos dos cards de estatísticas no dashboard (Home).
- * Decisão: "Prontos" = documentos assinados/entregues (resumo); "Documento pronto" = próximo passo em card de follow-up.
  */
 export const DASHBOARD_STATS_LABELS = {
   analyzing: 'Em análise médica',
-  toPay: 'A pagar',
   ready: 'Prontos',
 } as const;

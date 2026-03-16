@@ -7,7 +7,10 @@ declare module '@sentry/react-native' {
     beforeSendLog?: (log: { level: string } & Record<string, unknown>) => unknown;
   }
   export function init(options: InitOptions): void;
-  export function captureException(error: unknown, options?: { extra?: Record<string, unknown> }): string | undefined;
+  export function captureException(
+    error: unknown,
+    options?: { extra?: Record<string, unknown>; tags?: Record<string, string> }
+  ): string | undefined;
   export const logger: {
     trace: (message: string, attrs?: Record<string, unknown>) => void;
     debug: (message: string, attrs?: Record<string, unknown>) => void;

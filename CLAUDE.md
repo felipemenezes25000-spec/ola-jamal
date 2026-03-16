@@ -27,7 +27,6 @@ ola-jamal/
 | Storage   | AWS S3 |
 | IA        | OpenAI GPT-4o → fallback Gemini 2.5 Flash |
 | Transcrição | Daily.co (Deepgram) — não Whisper como principal |
-| Pagamentos | Mercado Pago (PIX + cartão) |
 | Vídeo     | Daily.co |
 | Assinatura | ICP-Brasil PAdES (iText7 + BouncyCastle) |
 | Monitoramento | Sentry (todos os módulos) |

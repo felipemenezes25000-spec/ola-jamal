@@ -2,7 +2,6 @@ import { apiClient } from './api-client';
 import type {
   RequestResponseDto,
   RequestStatus,
-  PaymentResponseDto,
   PagedResponse,
   VideoRoomResponseDto,
 } from '../types/database';
@@ -29,8 +28,7 @@ export interface CreatePrescriptionRequestData {
 
 export async function createPrescriptionRequest(
   data: CreatePrescriptionRequestData
-): Promise<{ request: RequestResponseDto; payment?: PaymentResponseDto }> {
-  // Always use multipart when images are provided
+): Promise<{ request: RequestResponseDto }> {
   if (data.images && data.images.length > 0) {
     const formData = new FormData();
     formData.append('prescriptionType', data.prescriptionType);
@@ -66,7 +64,7 @@ export interface CreateExamRequestData {
 
 export async function createExamRequest(
   data: CreateExamRequestData
-): Promise<{ request: RequestResponseDto; payment?: PaymentResponseDto }> {
+): Promise<{ request: RequestResponseDto }> {
   // Use multipart when images are provided
   if (data.images && data.images.length > 0) {
     const formData = new FormData();
@@ -117,7 +115,7 @@ export interface AssistantNextActionResponseData {
   whatToDo: string;
   eta: string;
   ctaLabel: string | null;
-  intent: 'pay' | 'download' | 'track' | 'wait' | 'support' | 'none' | string;
+  intent: 'download' | 'track' | 'wait' | 'support' | 'none' | string;
 }
 
 export interface AssistantCompleteRequestData {
@@ -151,7 +149,7 @@ export interface AssistantCompleteResponseData {
 
 export async function createConsultationRequest(
   data: CreateConsultationRequestData
-): Promise<{ request: RequestResponseDto; payment?: PaymentResponseDto }> {
+): Promise<{ request: RequestResponseDto }> {
   return apiClient.post('/api/requests/consultation', data);
 }
 

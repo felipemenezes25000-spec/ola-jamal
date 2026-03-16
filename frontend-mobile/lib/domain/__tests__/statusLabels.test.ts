@@ -10,7 +10,7 @@ describe('statusLabels', () => {
     it('contém labels para status canônicos', () => {
       expect(STATUS_LABELS_PT.submitted).toBe('Enviado');
       expect(STATUS_LABELS_PT.in_review).toBe('Em análise médica');
-      expect(STATUS_LABELS_PT.approved_pending_payment).toBe('Aguardando assinatura');
+      expect(STATUS_LABELS_PT.approved_pending_payment).toBe('Aprovado');
       expect(STATUS_LABELS_PT.delivered).toBe('Entregue');
       expect(STATUS_LABELS_PT.rejected).toBe('Rejeitado');
       expect(STATUS_LABELS_PT.cancelled).toBe('Cancelado');
@@ -42,9 +42,8 @@ describe('statusLabels', () => {
   });
 
   describe('DASHBOARD_STATS_LABELS', () => {
-    it('tem chaves esperadas', () => {
+    it('tem chaves esperadas (sem fluxo de pagamento)', () => {
       expect(DASHBOARD_STATS_LABELS.analyzing).toBe('Em análise médica');
-      expect(DASHBOARD_STATS_LABELS.toPay).toBe('A pagar');
       expect(DASHBOARD_STATS_LABELS.ready).toBe('Prontos');
     });
   });

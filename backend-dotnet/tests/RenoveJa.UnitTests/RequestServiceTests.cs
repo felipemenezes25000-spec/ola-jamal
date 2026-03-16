@@ -17,7 +17,6 @@ namespace RenoveJa.UnitTests.Services;
 public class RequestServiceTests
 {
     private readonly Mock<IRequestRepository> _requestRepoMock;
-    private readonly Mock<IProductPriceRepository> _productPriceRepoMock;
     private readonly Mock<IUserRepository> _userRepoMock;
     private readonly Mock<IDoctorRepository> _doctorRepoMock;
     private readonly Mock<IVideoRoomRepository> _videoRoomRepoMock;
@@ -37,7 +36,6 @@ public class RequestServiceTests
     public RequestServiceTests()
     {
         _requestRepoMock = new Mock<IRequestRepository>();
-        _productPriceRepoMock = new Mock<IProductPriceRepository>();
         _userRepoMock = new Mock<IUserRepository>();
         _doctorRepoMock = new Mock<IDoctorRepository>();
         _videoRoomRepoMock = new Mock<IVideoRoomRepository>();
@@ -65,7 +63,6 @@ public class RequestServiceTests
         var newRequestBatchServiceMock = new Mock<INewRequestBatchService>();
         var signedRequestClinicalSyncMock = new Mock<ISignedRequestClinicalSyncService>();
         var consultationEncounterServiceMock = new Mock<IConsultationEncounterService>();
-        var paymentRepositoryMock = new Mock<IPaymentRepository>();
         var auditServiceMock = new Mock<IAuditService>();
         var requestApprovalLoggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<RequestApprovalService>>();
         var requestApprovalService = new RequestApprovalService(
@@ -78,7 +75,6 @@ public class RequestServiceTests
 
         _sut = new RequestService(
             _requestRepoMock.Object,
-            _productPriceRepoMock.Object,
             _userRepoMock.Object,
             _doctorRepoMock.Object,
             _notificationRepoMock.Object,
@@ -160,7 +156,7 @@ public class RequestServiceTests
             .ReturnsAsync((Notification n, CancellationToken _) => n);
 
         // Act
-        var (result, payment) = await _sut.CreatePrescriptionAsync(dto, userId);
+        var result = await _sut.CreatePrescriptionAsync(dto, userId);
 
         // Assert
         result.Should().NotBeNull();
@@ -168,7 +164,6 @@ public class RequestServiceTests
         result.RequestType.Should().Be("prescription");
         result.Status.Should().Be("submitted");
         result.PrescriptionType.Should().Be("simples");
-        payment.Should().BeNull();
 
         _requestRepoMock.Verify(r => r.CreateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()), Times.Once);
         // SendAsync comentado no RequestService.CreatePrescriptionAsync (push "Pedido enviado" desnecessário)
@@ -216,10 +211,6 @@ public class RequestServiceTests
             .Setup(r => r.GetByIdAsync(doctorId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(doctorUser);
 
-        _productPriceRepoMock
-            .Setup(r => r.GetPriceAsync("prescription", "simples", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(50.00m);
-
         _requestRepoMock
             .Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MedicalRequest req, CancellationToken _) => req);
@@ -234,7 +225,6 @@ public class RequestServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Status.Should().Be("paid");
-        result.Price.Should().Be(0m);
         result.DoctorId.Should().Be(doctorId);
         result.DoctorName.Should().Be("Dr. Médico Teste");
 

@@ -37,7 +37,6 @@ This document maps all frontend inputs, forms, HTTP payloads, and UI edge cases.
 | `doctor-request/editor/[id]` | notes | text | trim | - | PATCH prescription-content |
 | `doctor-request/editor/[id]` | certPassword | password | - | signRequestSchema | POST /api/requests/:id/sign |
 | `certificate/upload` | password | password | - | uploadCertificateSchema | POST /api/certificates/upload |
-| `payment/card` | token | token | - | - | POST /api/payments/saved-card |
 
 ---
 

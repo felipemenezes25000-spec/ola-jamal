@@ -4,7 +4,6 @@
  *
  * Cobre em conjunto:
  *   - api-notifications.ts  (60% → ~95%)
- *   - api-payments.ts       (54% → ~90%)
  *   - api-integrations.ts   (60% → ~90%)
  *   - api-daily.ts          (0%  → ~85%)
  *   - api-contracts.ts      (0%  → ~80%)
@@ -101,86 +100,7 @@ describe('api-notifications', () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// api-payments.ts
-// ═══════════════════════════════════════════════════════════════════════════
-
-const payments = require('../lib/api-payments');
-
-const MOCK_PIX = {
-  id: 'pay-1', requestId: 'req-1', status: 'pending',
-  pixCopyPaste: '00020126...', pixQrCode: 'QR', pixQrCodeBase64: 'QRB64',
-};
-
-describe('api-payments', () => {
-  describe('createPayment', () => {
-    it('faz POST com requestId e método pix', async () => {
-      if (!payments.createPayment) return;
-      mockPost.mockResolvedValueOnce(MOCK_PIX);
-      await payments.createPayment({ requestId: 'req-1', paymentMethod: 'pix' });
-      expect(mockPost).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ requestId: 'req-1' })
-      );
-    });
-
-    it('faz POST com método credit_card e token', async () => {
-      if (!payments.createPayment) return;
-      mockPost.mockResolvedValueOnce({ id: 'pay-2', status: 'approved' });
-      await payments.createPayment({
-        requestId: 'req-1', paymentMethod: 'credit_card',
-        token: 'tok123', paymentMethodId: 'master',
-      });
-      expect(mockPost).toHaveBeenCalled();
-    });
-  });
-
-  describe('getPayment', () => {
-    it('faz GET com requestId', async () => {
-      if (!payments.getPayment) return;
-      mockGet.mockResolvedValueOnce(MOCK_PIX);
-      await payments.getPayment('req-1');
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('req-1'));
-    });
-
-    it('retorna null quando não há pagamento', async () => {
-      if (!payments.getPayment) return;
-      mockGet.mockResolvedValueOnce(null);
-      const result = await payments.getPayment('req-inexistente');
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('syncPaymentStatus', () => {
-    it('faz POST/GET para sincronizar status', async () => {
-      if (!payments.syncPaymentStatus) return;
-      mockPost.mockResolvedValueOnce({ status: 'approved' });
-      mockGet.mockResolvedValueOnce({ status: 'approved' });
-      await payments.syncPaymentStatus('req-1');
-      const called = mockPost.mock.calls.length + mockGet.mock.calls.length;
-      expect(called).toBeGreaterThan(0);
-    });
-  });
-
-  describe('getSavedCards', () => {
-    it('retorna array de cartões salvos', async () => {
-      if (!payments.getSavedCards) return;
-      mockGet.mockResolvedValueOnce([{ id: 'card-1', lastFour: '4242', brand: 'visa' }]);
-      const result = await payments.getSavedCards();
-      expect(Array.isArray(result)).toBe(true);
-    });
-  });
-
-  describe('getCheckoutProUrl', () => {
-    it('faz POST para obter URL de checkout', async () => {
-      if (!payments.getCheckoutProUrl) return;
-      mockPost.mockResolvedValueOnce({ initPoint: 'https://mp.com/checkout', paymentId: 'pay-3' });
-      const result = await payments.getCheckoutProUrl('req-1');
-      expect(mockPost).toHaveBeenCalled();
-      if (result) expect(result.initPoint ?? result).toBeDefined();
-    });
-  });
-});
+// api-payments.ts removido — fluxo de pagamento excluído
 
 // ═══════════════════════════════════════════════════════════════════════════
 // api-integrations.ts

@@ -1068,9 +1068,9 @@ public class ExtendedMedicalRequestTests
 
         var r = MedicalRequest.Reconstitute(
             id, patientId, "Patient", doctorId, "Doctor",
-            "Prescription", "Paid", "Simple",
+            "prescription", "paid", "simple",
             new List<string> { "Med1" }, new List<string> { "img.jpg" },
-            null, null, null, "Headache", 100.00m, "Notes", null,
+            null, null, null, "Headache", "Notes", null,
             now, "https://signed.pdf", "sig-id", now, now,
             "AI Summary", "{}", "low", null, true, "OK", "1234");
 

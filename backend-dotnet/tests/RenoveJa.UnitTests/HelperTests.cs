@@ -37,15 +37,7 @@ public class EnumHelperTests
         EnumHelper.ToSnakeCase(type).Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData(PaymentStatus.Pending, "pending")]
-    [InlineData(PaymentStatus.Approved, "approved")]
-    [InlineData(PaymentStatus.Rejected, "rejected")]
-    [InlineData(PaymentStatus.Refunded, "refunded")]
-    public void ToSnakeCase_ShouldConvertPaymentStatus(PaymentStatus status, string expected)
-    {
-        EnumHelper.ToSnakeCase(status).Should().Be(expected);
-    }
+    // PaymentStatus removido — fluxo de pagamento excluído
 
     [Theory]
     [InlineData("in_review", RequestStatus.InReview)]

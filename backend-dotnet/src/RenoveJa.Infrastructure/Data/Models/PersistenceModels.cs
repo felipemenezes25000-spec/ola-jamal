@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace RenoveJa.Infrastructure.Data.Models;
 
@@ -212,46 +212,11 @@ public class RequestModel
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>ProjeÃ§Ã£o mÃ­nima para soma de preÃ§os (requests).</summary>
-public class RequestPriceModel
-{
-    public decimal? Price { get; set; }
-}
+/// <summary>Modelo de persistência de certificado digital (tabela doctor_certificates).</summary>
+/// <summary>Modelo de persistÃªncia de certificado digital (tabela doctor_certificates).</summary>
 
-/// <summary>Modelo de persistÃªncia de cartÃ£o salvo (tabela saved_cards).</summary>
-public class SavedCardModel
-{
-    public Guid Id { get; set; }
-    [JsonPropertyName("user_id")]
-    public Guid UserId { get; set; }
-    [JsonPropertyName("mp_customer_id")]
-    public string MpCustomerId { get; set; } = string.Empty;
-    [JsonPropertyName("mp_card_id")]
-    public string MpCardId { get; set; } = string.Empty;
-    [JsonPropertyName("last_four")]
-    public string LastFour { get; set; } = string.Empty;
-    public string Brand { get; set; } = string.Empty;
-    [JsonPropertyName("created_at")]
-    public DateTime CreatedAt { get; set; }
-}
-
-/// <summary>Modelo de persistÃªncia de pagamento (tabela payments).</summary>
-public class PaymentModel
-{
-    public Guid Id { get; set; }
-    public Guid RequestId { get; set; }
-    public Guid UserId { get; set; }
-    public decimal Amount { get; set; }
-    public string Status { get; set; } = "pending";
-    public string PaymentMethod { get; set; } = "pix";
-    public string? ExternalId { get; set; }
-    public string? PixQrCode { get; set; }
-    public string? PixQrCodeBase64 { get; set; }
-    public string? PixCopyPaste { get; set; }
-    public DateTime? PaidAt { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-}
+/// <summary>Modelo de persistÃªncia de certificado digital (tabela doctor_certificates).</summary>
+public class CertificateModel
 
 /// <summary>Modelo de persistÃªncia de tentativa de pagamento (tabela payment_attempts).</summary>
 public class PaymentAttemptModel
@@ -293,48 +258,7 @@ public class PaymentAttemptModel
     [JsonPropertyName("updated_at")]
     public DateTime UpdatedAt { get; set; }
 
-    public static PaymentAttemptModel FromDomain(RenoveJa.Domain.Entities.PaymentAttempt attempt)
-    {
-        return new PaymentAttemptModel
-        {
-            Id = attempt.Id,
-            PaymentId = attempt.PaymentId,
-            RequestId = attempt.RequestId,
-            UserId = attempt.UserId,
-            CorrelationId = attempt.CorrelationId,
-            PaymentMethod = attempt.PaymentMethod,
-            Amount = attempt.Amount,
-            MercadoPagoPaymentId = attempt.MercadoPagoPaymentId,
-            MercadoPagoPreferenceId = attempt.MercadoPagoPreferenceId,
-            RequestUrl = attempt.RequestUrl,
-            RequestPayload = attempt.RequestPayload,
-            ResponsePayload = attempt.ResponsePayload,
-            ResponseStatusCode = attempt.ResponseStatusCode,
-            ResponseStatusDetail = attempt.ResponseStatusDetail,
-            ResponseHeaders = attempt.ResponseHeaders,
-            ErrorMessage = attempt.ErrorMessage,
-            IsSuccess = attempt.IsSuccess,
-            CreatedAt = attempt.CreatedAt,
-            UpdatedAt = attempt.UpdatedAt
-        };
-    }
-
-    public RenoveJa.Domain.Entities.PaymentAttempt ToDomain()
-    {
-        var attempt = new RenoveJa.Domain.Entities.PaymentAttempt(
-            PaymentId,
-            RequestId,
-            UserId,
-            CorrelationId,
-            PaymentMethod,
-            Amount,
-            RequestUrl,
-            RequestPayload);
-        
-        // Usar reflection para setar propriedades privadas ou criar mÃ©todo pÃºblico
-        // Por enquanto, vamos criar um mÃ©todo de reconstituiÃ§Ã£o na entidade
-        return attempt;
-    }
+    // FromDomain/ToDomain removidos — fluxo de pagamento excluído
 }
 
 /// <summary>Modelo de persistÃªncia de evento de webhook (tabela webhook_events).</summary>
@@ -396,67 +320,7 @@ public class WebhookEventModel
     [JsonPropertyName("updated_at")]
     public DateTime UpdatedAt { get; set; }
 
-    public static WebhookEventModel FromDomain(RenoveJa.Domain.Entities.WebhookEvent webhook)
-    {
-        return new WebhookEventModel
-        {
-            Id = webhook.Id,
-            // Campos legados - preencher para compatibilidade com tabela existente
-            EventId = webhook.MercadoPagoRequestId ?? webhook.Id.ToString(),
-            EventType = webhook.WebhookType ?? "payment",
-            Source = "mercadopago",
-            Payload = webhook.RawPayload,
-            Status = webhook.IsProcessed ? "processed" : (webhook.ProcessingError != null ? "failed" : "pending"),
-            ErrorMessage = webhook.ProcessingError,
-            // Campos do nosso modelo
-            CorrelationId = webhook.CorrelationId,
-            MercadoPagoPaymentId = webhook.MercadoPagoPaymentId,
-            MercadoPagoRequestId = webhook.MercadoPagoRequestId,
-            WebhookType = webhook.WebhookType,
-            WebhookAction = webhook.WebhookAction,
-            RawPayload = webhook.RawPayload,
-            ProcessedPayload = webhook.ProcessedPayload,
-            QueryString = webhook.QueryString,
-            RequestHeaders = webhook.RequestHeaders,
-            ContentType = webhook.ContentType,
-            ContentLength = webhook.ContentLength,
-            SourceIp = webhook.SourceIp,
-            IsDuplicate = webhook.IsDuplicate,
-            IsProcessed = webhook.IsProcessed,
-            ProcessingError = webhook.ProcessingError,
-            PaymentStatus = webhook.PaymentStatus,
-            PaymentStatusDetail = webhook.PaymentStatusDetail,
-            ProcessedAt = webhook.ProcessedAt,
-            CreatedAt = webhook.CreatedAt,
-            UpdatedAt = webhook.UpdatedAt
-        };
-    }
-
-    public RenoveJa.Domain.Entities.WebhookEvent ToDomain()
-    {
-        return RenoveJa.Domain.Entities.WebhookEvent.Reconstitute(
-            Id,
-            CorrelationId, // CorrelationId Ã© o campo principal
-            MercadoPagoPaymentId,
-            MercadoPagoRequestId,
-            WebhookType,
-            WebhookAction,
-            RawPayload,
-            ProcessedPayload,
-            QueryString,
-            RequestHeaders,
-            ContentType,
-            ContentLength,
-            SourceIp,
-            IsDuplicate,
-            IsProcessed,
-            ProcessingError,
-            PaymentStatus,
-            PaymentStatusDetail,
-            ProcessedAt,
-            CreatedAt,
-            UpdatedAt);
-    }
+    // FromDomain/ToDomain removidos — fluxo de pagamento excluído
 }
 
 /// <summary>Modelo de persistÃªncia de certificado digital (tabela doctor_certificates).</summary>

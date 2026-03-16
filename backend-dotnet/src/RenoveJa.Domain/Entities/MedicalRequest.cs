@@ -31,14 +31,15 @@ public class MedicalRequest : AggregateRoot
     
     // Consultation/General fields
     public string? Symptoms { get; private set; }
-    public Money? Price { get; private set; }
     public string? Notes { get; private set; }
     public string? RejectionReason { get; private set; }
 
     // Consultation time-based billing
     public string? ConsultationType { get; private set; }
     public int? ContractedMinutes { get; private set; }
-    public decimal? PricePerMinute { get; private set; }
+    public decimal? PricePerMinute => null; // Campo removido — serviço gratuito
+    /// <summary>Preço efetivo (0 para serviço gratuito). Persistido para compatibilidade.</summary>
+    public Money? Price { get; private set; }
     /// <summary>Momento em que médico e paciente estão conectados na chamada (timer começa).</summary>
     public DateTime? ConsultationStartedAt { get; private set; }
     /// <summary>Quando o médico reportou WebRTC conectado.</summary>
@@ -179,8 +180,7 @@ public class MedicalRequest : AggregateRoot
         string patientName,
         string symptoms,
         string? consultationType = null,
-        int? contractedMinutes = null,
-        decimal? pricePerMinute = null)
+        int? contractedMinutes = null)
     {
         if (patientId == Guid.Empty)
             throw new DomainException("Patient ID is required");
@@ -199,7 +199,6 @@ public class MedicalRequest : AggregateRoot
         request.AccessCode = GenerateAccessCode();
         request.ConsultationType = consultationType;
         request.ContractedMinutes = contractedMinutes;
-        request.PricePerMinute = pricePerMinute;
 
         return request;
     }
@@ -225,7 +224,6 @@ public class MedicalRequest : AggregateRoot
         List<string>? exams,
         List<string>? examImages,
         string? symptoms,
-        decimal? price,
         string? notes,
         string? rejectionReason,
         DateTime? signedAt,
@@ -243,7 +241,6 @@ public class MedicalRequest : AggregateRoot
         string? prescriptionKind = null,
         string? consultationType = null,
         int? contractedMinutes = null,
-        decimal? pricePerMinute = null,
         DateTime? consultationStartedAt = null,
         DateTime? doctorCallConnectedAt = null,
         DateTime? patientCallConnectedAt = null,
@@ -280,9 +277,6 @@ public class MedicalRequest : AggregateRoot
         request.Exams = exams ?? new List<string>();
         request.ExamImages = examImages ?? new List<string>();
         request.Symptoms = symptoms;
-
-        if (price.HasValue)
-            request.Price = Money.Create(price.Value);
         
         request.Notes = notes;
         request.RejectionReason = rejectionReason;
@@ -298,7 +292,6 @@ public class MedicalRequest : AggregateRoot
         request.AiMessageToUser = aiMessageToUser;
         request.ConsultationType = consultationType;
         request.ContractedMinutes = contractedMinutes;
-        request.PricePerMinute = pricePerMinute;
         request.ConsultationStartedAt = consultationStartedAt;
         request.DoctorCallConnectedAt = doctorCallConnectedAt;
         request.PatientCallConnectedAt = patientCallConnectedAt;
@@ -334,7 +327,6 @@ public class MedicalRequest : AggregateRoot
             snapshot.Exams,
             snapshot.ExamImages,
             snapshot.Symptoms,
-            snapshot.Price,
             snapshot.Notes,
             snapshot.RejectionReason,
             snapshot.SignedAt,
@@ -352,7 +344,6 @@ public class MedicalRequest : AggregateRoot
             snapshot.PrescriptionKind,
             snapshot.ConsultationType,
             snapshot.ContractedMinutes,
-            snapshot.PricePerMinute,
             snapshot.ConsultationStartedAt,
             snapshot.DoctorCallConnectedAt,
             snapshot.PatientCallConnectedAt,
@@ -425,11 +416,8 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void Approve(decimal price, string? notes = null, List<string>? medications = null, List<string>? exams = null)
+    public void Approve(decimal price = 0, string? notes = null, List<string>? medications = null, List<string>? exams = null)
     {
-        if (price < 0)
-            throw new DomainException("Price cannot be negative");
-
         if (RequestType == Enums.RequestType.Consultation)
         {
             if (Status != RequestStatus.SearchingDoctor && Status != RequestStatus.InReview && Status != RequestStatus.ConsultationReady)
@@ -444,13 +432,12 @@ public class MedicalRequest : AggregateRoot
 #pragma warning restore CS0618
         }
 
-        Price = price == 0 ? Money.Zero : Money.Create(price);
         Notes = notes;
         if (medications != null)
             Medications = medications;
         if (exams != null)
             Exams = exams;
-        // Sem fluxo de pagamento: aprovação vai direto para Paid
+        // Serviço gratuito: aprovação vai direto para Paid (pronto para assinatura)
         Status = RequestStatus.Paid;
         UpdatedAt = DateTime.UtcNow;
     }

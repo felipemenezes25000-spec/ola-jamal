@@ -30,7 +30,6 @@ public class RequestDtosTests
             null,                 // Exams
             null,                 // ExamImages
             null,                 // Symptoms
-            null,                 // Price
             null,                 // Notes
             null,                 // RejectionReason
             null,                 // AccessCode

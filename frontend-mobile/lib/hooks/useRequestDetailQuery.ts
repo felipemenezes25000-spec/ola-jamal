@@ -9,7 +9,7 @@ import {
 import type { RequestResponseDto } from '../../types/database';
 import { REQUESTS_QUERY_KEY } from './useRequestsQuery';
 
-const AWAITING_STATUSES = ['approved_pending_payment', 'pending_payment', 'paid'] as const;
+const AWAITING_STATUSES = ['approved', 'searching_doctor'] as const;
 
 // ── Query Key Factory ───────────────────────────────────────────
 
@@ -27,7 +27,7 @@ export const requestDetailKeys = {
  * - Automatic loading/error state
  * - Cache with instant back-navigation
  * - Background refetch on focus
- * - Polling when awaiting payment/consultation
+ * - Polling when awaiting consultation
  * - Deduplication (multiple components can use same requestId)
  * - Retry with 401/403 bailout
  *
@@ -42,7 +42,7 @@ export function useRequestDetailQuery(requestIdOverride?: string) {
     queryKey: requestDetailKeys.detail(requestId),
     queryFn: ({ signal }) => fetchRequestById(requestId, { signal }),
     enabled: !!requestId,
-    staleTime: 15_000, // 15s — detail can change fast (payment webhook, sign)
+    staleTime: 15_000, // 15s — detail can change fast (sign, consultation)
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: true,
     refetchInterval: (query) => {
@@ -50,7 +50,7 @@ export function useRequestDetailQuery(requestIdOverride?: string) {
       if (!data) return false;
       const awaiting =
         (AWAITING_STATUSES as readonly string[]).includes(data.status) ||
-        (data.requestType === 'consultation' && data.status === 'paid');
+        (data.requestType === 'consultation' && data.status === 'approved');
       return awaiting ? 5000 : false;
     },
     retry: (failureCount, error) => {

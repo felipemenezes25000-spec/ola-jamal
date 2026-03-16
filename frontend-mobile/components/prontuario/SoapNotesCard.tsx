@@ -6,7 +6,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable,
-  ScrollView, Alert, Platform,
+  Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,7 +48,7 @@ const TABS: { key: keyof SoapData; label: string; short: string }[] = [
   { key: 'plan',       label: 'Plano',     short: 'P' },
 ];
 
-const CATEGORY_LABEL: Record<string, string> = {
+const _CATEGORY_LABEL: Record<string, string> = {
   condition: 'Condição',
   medication: 'Medicamento',
   procedure: 'Procedimento',
