@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -33,6 +33,10 @@ public class HealthController : ControllerBase
         _openAiConfig = openAiConfig.Value;
         _logger = logger;
     }
+
+    /// <summary>Liveness: responde 200 se o processo está rodando. Usado pelo ECS/load balancer.</summary>
+    [HttpGet("live")]
+    public IActionResult Live() => Ok(new { status = "ok", timestamp = DateTime.UtcNow });
 
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken ct)

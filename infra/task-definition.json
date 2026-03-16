@@ -37,7 +37,7 @@
       {"name": "Google__ClientId", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Google__ClientId"}
     ],
     "healthCheck": {
-      "command": ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/health || exit 1"],
+      "command": ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/health/live || exit 1"],
       "interval": 30,
       "timeout": 10,
       "retries": 5,

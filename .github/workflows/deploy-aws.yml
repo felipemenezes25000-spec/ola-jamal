@@ -57,12 +57,21 @@ jobs:
 
       - name: Wait for Deployment
         run: |
-          echo "Waiting for ECS service to stabilize..."
-          aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE \
-            --region $AWS_REGION
-          echo "Deployment complete!"
+          echo "Waiting for ECS service to stabilize (timeout ~15 min)..."
+          for i in $(seq 1 60); do
+            STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].deployments[0].rolloutState" --output text)
+            RUNNING=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].runningCount" --output text)
+            DESIRED=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].desiredCount" --output text)
+            echo "[$i/60] Status=$STATUS Running=$RUNNING Desired=$DESIRED"
+            if [ "$RUNNING" = "$DESIRED" ]; then
+              echo "Deployment complete!"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Timeout - showing recent events:"
+          aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].events[0:5]" --output table
+          exit 1
 
   deploy-frontend:
     name: Deploy Frontend (S3/CloudFront)
