@@ -8,12 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Lightbulb,
-  BookOpen,
   Mic,
   Copy,
   FileText,
   FlaskConical,
-  ExternalLink,
   Info,
   ClipboardCopy,
 } from 'lucide-react';
@@ -127,7 +125,7 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
                 variant="ghost" size="sm"
                 onClick={async () => {
                   const text = (['subjective','objective','assessment','plan'] as (keyof SoapNotes)[])
-                    .map(k => ${SOAP_LABELS[k]}\n)
+                    .map(k => `${SOAP_LABELS[k]}\n`)
                     .join('\n\n');
                   await navigator.clipboard.writeText(text);
                   toast.success('Notas SOAP copiadas');
@@ -155,7 +153,7 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
                 <div className="flex flex-wrap gap-2">
                   {soapNotes.medical_terms!.map((t, i) => (
                     <span key={i} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                      {t.term}{t.icd_code ?  () : ''}
+                      {t.term}{t.icd_code ? ` (${t.icd_code})` : ''}
                     </span>
                   ))}
                 </div>
@@ -190,23 +188,6 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
                 );
               })}
             </ul>
-          </CardContent>
-        </Card>
-      )}
-
-                {item.url && (
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-2 text-sm text-primary hover:underline"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Abrir artigo
-                  </a>
-                )}
-              </div>
-            ))}
           </CardContent>
         </Card>
       )}

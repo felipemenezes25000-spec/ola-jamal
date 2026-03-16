@@ -5,13 +5,11 @@ using Moq;
 using Xunit;
 using FluentAssertions;
 using RenoveJa.Application.Configuration;
-using RenoveJa.Application.DTOs.Payments;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.DTOs.Auth;
 using RenoveJa.Application.DTOs.Verification;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Auth;
-using RenoveJa.Application.Services.Payments;
 using RenoveJa.Application.Services.Requests;
 using RenoveJa.Application.Services.Verification;
 using RenoveJa.Domain.Entities;
@@ -474,7 +472,6 @@ public class RequestServiceFullTests
     private readonly Mock<IRequestEventsPublisher> _requestEventsPublisherMock = new();
     private readonly Mock<ISignedRequestClinicalSyncService> _signedRequestClinicalSyncMock = new();
     private readonly Mock<IConsultationEncounterService> _consultationEncounterServiceMock = new();
-    private readonly Mock<IPaymentRepository> _paymentRepoMock = new();
     private readonly Mock<ILogger<RequestService>> _loggerMock = new();
     private readonly RequestService _sut;
 
@@ -489,7 +486,6 @@ public class RequestServiceFullTests
         var requestApprovalService = new RequestApprovalService(
             _requestRepoMock.Object,
             _userRepoMock.Object,
-            _productPriceRepoMock.Object,
             pushDispatcherMock.Object,
             _requestEventsPublisherMock.Object,
             _aiConductSuggestionServiceMock.Object,
@@ -510,13 +506,14 @@ public class RequestServiceFullTests
                 _consultationAnamnesisRepoMock.Object, _documentTokenServiceMock.Object,
                 _apiConfigMock.Object, new Mock<ILogger<RequestQueryService>>().Object),
             new ConsultationLifecycleService(
-                _requestRepoMock.Object, _userRepoMock.Object, _productPriceRepoMock.Object,
+                _requestRepoMock.Object, _userRepoMock.Object,
                 _videoRoomRepoMock.Object, _consultationAnamnesisRepoMock.Object,
                 _consultationSessionStoreMock.Object, _consultationTimeBankRepoMock.Object,
                 _consultationEncounterServiceMock.Object, storageServiceMock.Object,
-                _paymentRepoMock.Object, new Mock<IAuditService>().Object,
+                new Mock<IAuditService>().Object,
                 _requestEventsPublisherMock.Object, pushDispatcherMock.Object,
                 _documentTokenServiceMock.Object, _apiConfigMock.Object,
+                new Mock<ISoapNotesService>().Object,
                 new Mock<ILogger<ConsultationLifecycleService>>().Object),
             new SignatureService(
                 _requestRepoMock.Object, _doctorRepoMock.Object, _userRepoMock.Object,
@@ -594,7 +591,7 @@ public class RequestServiceFullTests
         var patient = CreatePatient(patientId);
         var r1 = MedicalRequest.CreatePrescription(patientId, "P", PrescriptionType.Simple, new List<string> { "M" });
         var r2 = MedicalRequest.CreatePrescription(patientId, "P", PrescriptionType.Simple, new List<string> { "M2" });
-        r2.Approve(50); // becomes ApprovedPendingPayment
+        r2.Approve(0); // becomes Paid
 
         _userRepoMock.Setup(r => r.GetByIdAsync(patientId, It.IsAny<CancellationToken>())).ReturnsAsync(patient);
         _requestRepoMock.Setup(r => r.GetByPatientIdAsync(patientId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<MedicalRequest> { r1, r2 });
@@ -681,8 +678,7 @@ public class RequestServiceFullTests
         var request = MedicalRequest.CreateConsultation(Guid.NewGuid(), "P", "Symptoms");
         request.AssignDoctor(doctorId, "Dr. Test");
         request.MarkConsultationReady();
-        request.Approve(100);
-        request.MarkAsPaid();
+        request.Approve(0);
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
         _requestRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
@@ -714,29 +710,6 @@ public class RequestServiceFullTests
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
-    [Fact]
-    public async Task StartConsultationAsync_ShouldHealAndStart_WhenPaymentApprovedButRequestNotPaid()
-    {
-        SetupNotifications();
-        var doctorId = Guid.NewGuid();
-        var request = MedicalRequest.CreateConsultation(Guid.NewGuid(), "P", "Symptoms");
-        request.AssignDoctor(doctorId, "Dr. Test");
-        request.Approve(100);
-        // Request ainda ApprovedPendingPayment; pagamento já aprovado (ex.: webhook atrasado/falhou).
-        var payment = Payment.CreatePixPayment(request.Id, request.PatientId, 100);
-        payment.Approve();
-
-        _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
-        _requestRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((MedicalRequest req, CancellationToken _) => req);
-        _paymentRepoMock.Setup(p => p.GetByRequestIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(payment);
-
-        var result = await _sut.StartConsultationAsync(request.Id, doctorId);
-
-        result.Status.Should().Be("in_consultation");
-        _requestRepoMock.Verify(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
-    }
-
     // --- FinishConsultationAsync ---
 
     [Fact]
@@ -747,8 +720,7 @@ public class RequestServiceFullTests
         var request = MedicalRequest.CreateConsultation(Guid.NewGuid(), "P", "Symptoms");
         request.AssignDoctor(doctorId, "Dr.");
         request.MarkConsultationReady();
-        request.Approve(100);
-        request.MarkAsPaid();
+        request.Approve(0);
         request.StartConsultation();
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
@@ -863,8 +835,7 @@ public class RequestServiceFullTests
         var doctorId = Guid.NewGuid();
         var request = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "Old" });
         request.AssignDoctor(doctorId, "Dr.");
-        request.Approve(50);
-        request.MarkAsPaid();
+        request.Approve(0);
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
         _requestRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
@@ -880,8 +851,7 @@ public class RequestServiceFullTests
         var doctorId = Guid.NewGuid();
         var request = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
         request.AssignDoctor(doctorId, "Dr.");
-        request.Approve(50);
-        request.MarkAsPaid();
+        request.Approve(0);
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
 
@@ -911,8 +881,7 @@ public class RequestServiceFullTests
         var doctorId = Guid.NewGuid();
         var request = MedicalRequest.CreateExam(Guid.NewGuid(), "P", "sangue", new List<string> { "Old" }, "S");
         request.AssignDoctor(doctorId, "Dr.");
-        request.Approve(50);
-        request.MarkAsPaid();
+        request.Approve(0);
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
         _requestRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
@@ -928,8 +897,7 @@ public class RequestServiceFullTests
         var doctorId = Guid.NewGuid();
         var request = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
         request.AssignDoctor(doctorId, "Dr.");
-        request.Approve(50);
-        request.MarkAsPaid();
+        request.Approve(0);
 
         _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
 
@@ -1004,216 +972,3 @@ public class RequestServiceFullTests
         result.Status.Should().Be("in_review");
     }
 }
-
-// ============================================================
-// PaymentService - Remaining Methods
-// ============================================================
-public class PaymentServiceFullTests
-{
-    private readonly Mock<IPaymentRepository> _paymentRepoMock = new();
-    private readonly Mock<IRequestRepository> _requestRepoMock = new();
-    private readonly Mock<INotificationRepository> _notifRepoMock = new();
-    private readonly Mock<IPushNotificationSender> _pushSenderMock = new();
-    private readonly Mock<IPushNotificationDispatcher> _pushDispatcherMock = new();
-    private readonly Mock<IMercadoPagoService> _mercadoPagoMock = new();
-    private readonly Mock<IUserRepository> _userRepoMock = new();
-    private readonly Mock<IPaymentAttemptRepository> _paymentAttemptRepoMock = new();
-    private readonly Mock<ISavedCardRepository> _savedCardRepoMock = new();
-    private readonly Mock<IRequestEventsPublisher> _requestEventsPublisherMock = new();
-    private readonly Mock<ILogger<PaymentService>> _loggerMock = new();
-    private readonly PaymentService _sut;
-
-    public PaymentServiceFullTests()
-    {
-        var mpConfig = Options.Create(new MercadoPagoConfig { WebhookSecret = "test-secret" });
-        _sut = new PaymentService(
-            _paymentRepoMock.Object, _requestRepoMock.Object,
-            _notifRepoMock.Object, _pushSenderMock.Object, _pushDispatcherMock.Object,
-            _mercadoPagoMock.Object, _userRepoMock.Object,
-            _paymentAttemptRepoMock.Object, _savedCardRepoMock.Object,
-            mpConfig, _requestEventsPublisherMock.Object, _loggerMock.Object);
-    }
-
-    private void SetupNotifications()
-    {
-        _notifRepoMock.Setup(r => r.CreateAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Notification n, CancellationToken _) => n);
-    }
-
-    [Fact]
-    public async Task GetPaymentAsync_ShouldReturnPayment()
-    {
-        var userId = Guid.NewGuid();
-        var payment = Payment.CreatePixPayment(Guid.NewGuid(), userId, 100);
-
-        _paymentRepoMock.Setup(r => r.GetByIdAsync(payment.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(payment);
-
-        var result = await _sut.GetPaymentAsync(payment.Id, userId);
-        result.Should().NotBeNull();
-        result!.Amount.Should().Be(100);
-        result.UserId.Should().Be(userId);
-    }
-
-    [Fact]
-    public async Task GetPaymentAsync_ShouldReturnNull_WhenNotOwner()
-    {
-        var payment = Payment.CreatePixPayment(Guid.NewGuid(), Guid.NewGuid(), 100);
-        _paymentRepoMock.Setup(r => r.GetByIdAsync(payment.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(payment);
-
-        var result = await _sut.GetPaymentAsync(payment.Id, Guid.NewGuid());
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task GetPaymentAsync_ShouldReturnNull_WhenNotFound()
-    {
-        _paymentRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Payment?)null);
-
-        var result = await _sut.GetPaymentAsync(Guid.NewGuid(), Guid.NewGuid());
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task ConfirmPaymentAsync_ShouldApproveAndUpdateRequest()
-    {
-        SetupNotifications();
-        var patientId = Guid.NewGuid();
-        var request = MedicalRequest.CreatePrescription(patientId, "P", PrescriptionType.Simple, new List<string> { "M" });
-        request.Approve(50);
-        var payment = Payment.CreatePixPayment(request.Id, patientId, 50);
-
-        _paymentRepoMock.Setup(r => r.GetByIdAsync(payment.Id, It.IsAny<CancellationToken>())).ReturnsAsync(payment);
-        _paymentRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Payment>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Payment p, CancellationToken _) => p);
-        _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
-        _requestRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MedicalRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((MedicalRequest r, CancellationToken _) => r);
-
-        var result = await _sut.ConfirmPaymentAsync(payment.Id);
-        result.Status.Should().Be("approved");
-    }
-
-    [Fact]
-    public async Task ConfirmPaymentAsync_ShouldThrow_WhenNotFound()
-    {
-        _paymentRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Payment?)null);
-
-        Func<Task> act = () => _sut.ConfirmPaymentAsync(Guid.NewGuid());
-        await act.Should().ThrowAsync<KeyNotFoundException>();
-    }
-
-    [Fact]
-    public async Task ConfirmPaymentByRequestIdAsync_ShouldThrow_WhenNoPayment()
-    {
-        _paymentRepoMock.Setup(r => r.GetByRequestIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Payment?)null);
-
-        Func<Task> act = () => _sut.ConfirmPaymentByRequestIdAsync(Guid.NewGuid());
-        await act.Should().ThrowAsync<KeyNotFoundException>();
-    }
-
-    [Fact]
-    public async Task ConfirmPaymentByRequestIdAsync_ShouldThrow_WhenNotPending()
-    {
-        var payment = Payment.CreatePixPayment(Guid.NewGuid(), Guid.NewGuid(), 50);
-        payment.Approve();
-
-        _paymentRepoMock.Setup(r => r.GetByRequestIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(payment);
-
-        Func<Task> act = () => _sut.ConfirmPaymentByRequestIdAsync(Guid.NewGuid());
-        await act.Should().ThrowAsync<InvalidOperationException>();
-    }
-
-    [Fact]
-    public async Task ProcessWebhookAsync_ShouldIgnore_WhenActionNotPayment()
-    {
-        var webhook = new MercadoPagoWebhookDto("subscription.created", null, null);
-        await _sut.ProcessWebhookAsync(webhook);
-        _paymentRepoMock.Verify(r => r.GetByExternalIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task ProcessWebhookAsync_ShouldIgnore_WhenNoId()
-    {
-        var webhook = new MercadoPagoWebhookDto("payment.created", null, null);
-        await _sut.ProcessWebhookAsync(webhook);
-        _paymentRepoMock.Verify(r => r.GetByExternalIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task SyncPaymentStatusAsync_ShouldReturnNull_WhenNoPayment()
-    {
-        _paymentRepoMock.Setup(r => r.GetByRequestIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Payment?)null);
-
-        var result = await _sut.SyncPaymentStatusAsync(Guid.NewGuid());
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public void ValidateWebhookSignature_ShouldReturnFalse_WhenNoSecret()
-    {
-        var noSecretConfig = Options.Create(new MercadoPagoConfig());
-        var eventsPublisherMock = new Mock<IRequestEventsPublisher>();
-        var svc = new PaymentService(
-            _paymentRepoMock.Object, _requestRepoMock.Object,
-            _notifRepoMock.Object, _pushSenderMock.Object, _pushDispatcherMock.Object,
-            _mercadoPagoMock.Object, _userRepoMock.Object,
-            _paymentAttemptRepoMock.Object, _savedCardRepoMock.Object,
-            noSecretConfig, eventsPublisherMock.Object, _loggerMock.Object);
-
-        svc.ValidateWebhookSignature("ts=123,v1=abc", "req-1", "data-1").Should().BeFalse();
-    }
-
-    [Fact]
-    public void ValidateWebhookSignature_ShouldReturnFalse_WhenNoSignature()
-    {
-        _sut.ValidateWebhookSignature(null, "req-1", "data-1").Should().BeFalse();
-    }
-
-    [Fact]
-    public void ValidateWebhookSignature_ShouldReturnFalse_WhenMalformedSignature()
-    {
-        _sut.ValidateWebhookSignature("garbage", "req-1", "data-1").Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task GetCheckoutProUrlAsync_ShouldThrow_WhenNotFound()
-    {
-        _requestRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((MedicalRequest?)null);
-
-        Func<Task> act = () => _sut.GetCheckoutProUrlAsync(Guid.NewGuid(), Guid.NewGuid());
-        await act.Should().ThrowAsync<KeyNotFoundException>();
-    }
-
-    [Fact]
-    public async Task GetCheckoutProUrlAsync_ShouldThrow_WhenNotOwner()
-    {
-        var request = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
-        request.Approve(50);
-
-        _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
-
-        Func<Task> act = () => _sut.GetCheckoutProUrlAsync(request.Id, Guid.NewGuid());
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
-    }
-
-    [Fact]
-    public async Task GetCheckoutProUrlAsync_ShouldThrow_WhenNotApproved()
-    {
-        var patientId = Guid.NewGuid();
-        var request = MedicalRequest.CreatePrescription(patientId, "P", PrescriptionType.Simple, new List<string> { "M" });
-
-        _requestRepoMock.Setup(r => r.GetByIdAsync(request.Id, It.IsAny<CancellationToken>())).ReturnsAsync(request);
-
-        Func<Task> act = () => _sut.GetCheckoutProUrlAsync(request.Id, patientId);
-        await act.Should().ThrowAsync<InvalidOperationException>();
-    }
-}
-

@@ -93,41 +93,6 @@ public class PrescriptionFlowSmokeTests
     }
 
     [Fact]
-    public void Prescription_Approve_ShouldSetApprovedPendingPayment()
-    {
-        var request = MedicalRequest.CreatePrescription(
-            Guid.NewGuid(),
-            "Paciente Smoke",
-            PrescriptionType.Simple,
-            new List<string> { "Ibuprofeno 600mg" });
-
-        var doctorId = Guid.NewGuid();
-        request.AssignDoctor(doctorId, "Dr. Smoke");
-        request.Approve(49.90m);
-
-        request.Status.Should().Be(RequestStatus.ApprovedPendingPayment);
-        request.DoctorId.Should().Be(doctorId);
-        request.Price.Should().NotBeNull();
-        request.Price!.Amount.Should().Be(49.90m);
-    }
-
-    [Fact]
-    public void Prescription_MarkAsPaid_ShouldSetPaidStatus()
-    {
-        var request = MedicalRequest.CreatePrescription(
-            Guid.NewGuid(),
-            "Paciente Smoke",
-            PrescriptionType.Simple,
-            new List<string> { "Omeprazol 20mg" });
-
-        request.AssignDoctor(Guid.NewGuid(), "Dr. Smoke");
-        request.Approve(49.90m);
-        request.MarkAsPaid();
-
-        request.Status.Should().Be(RequestStatus.Paid);
-    }
-
-    [Fact]
     public void Prescription_Sign_ShouldSetSignedStatusAndAccessCode()
     {
         var request = MedicalRequest.CreatePrescription(
@@ -137,8 +102,7 @@ public class PrescriptionFlowSmokeTests
             new List<string> { "Amoxicilina 500mg" });
 
         request.AssignDoctor(Guid.NewGuid(), "Dr. Smoke");
-        request.Approve(49.90m);
-        request.MarkAsPaid();
+        request.Approve(0);
 
         var signedUrl = "https://storage.example.com/prescription.pdf";
         var signatureId = "sig-abc-123";
@@ -198,8 +162,7 @@ public class PrescriptionFlowSmokeTests
             new List<string> { "Paracetamol 500mg" });
 
         request.AssignDoctor(doctorId, "Dr. Ana Lima");
-        request.Approve(49.90m);
-        request.MarkAsPaid();
+        request.Approve(0);
         request.Sign("https://storage.example.com/rx.pdf", "sig-xyz");
 
         var requestRepoMock = new Mock<IRequestRepository>();
@@ -247,8 +210,7 @@ public class PrescriptionFlowSmokeTests
             new List<string> { "Dipirona 500mg" });
 
         request.AssignDoctor(doctorId, "Dr. Ana Lima");
-        request.Approve(49.90m);
-        request.MarkAsPaid();
+        request.Approve(0);
         request.Sign("https://storage.example.com/rx.pdf", "sig-abc");
 
         var storedCode = request.AccessCode!;
@@ -295,8 +257,7 @@ public class PrescriptionFlowSmokeTests
             new List<string> { "Aspirina 100mg" });
 
         request.AssignDoctor(Guid.NewGuid(), "Dr. Smoke");
-        request.Approve(49.90m);
-        request.MarkAsPaid();
+        request.Approve(0);
         request.Sign("https://storage.example.com/rx.pdf", "sig-err");
 
         var requestRepoMock = new Mock<IRequestRepository>();
@@ -387,7 +348,6 @@ public class PrescriptionFlowSmokeTests
     [Theory]
     [InlineData(RequestStatus.Submitted)]
     [InlineData(RequestStatus.InReview)]
-    [InlineData(RequestStatus.ApprovedPendingPayment)]
     [InlineData(RequestStatus.Paid)]
     [InlineData(RequestStatus.Signed)]
     [InlineData(RequestStatus.Delivered)]

@@ -123,7 +123,7 @@ export function useVideoSignaling(requestId: string | undefined) {
   const [transcript, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<unknown[]>([]);
-  const evidence: unknown[] = [];\n
+  const evidence: unknown[] = [];
   useEffect(() => {
     if (!requestId) return;
     let cancelled = false;

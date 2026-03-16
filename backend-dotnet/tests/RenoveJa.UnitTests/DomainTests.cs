@@ -193,7 +193,7 @@ public class MedicalRequestTests
 
         request.Approve(50.00m, "Approved by Dr. Smith");
 
-        request.Status.Should().Be(RequestStatus.ApprovedPendingPayment);
+        request.Status.Should().Be(RequestStatus.Paid);
         request.Price.Should().NotBeNull();
         request.Price!.Amount.Should().Be(50.00m);
         request.Notes.Should().Be("Approved by Dr. Smith");
@@ -214,61 +214,4 @@ public class MedicalRequestTests
         request.RejectionReason.Should().Be("Invalid prescription");
     }
 
-    [Fact]
-    public void MarkAsPaid_ShouldUpdateStatus()
-    {
-        var request = MedicalRequest.CreatePrescription(
-            Guid.NewGuid(),
-            "John Doe",
-            PrescriptionType.Simple,
-            new List<string> { "Med1" });
-
-        request.Approve(50.00m);
-
-        request.MarkAsPaid();
-
-        request.Status.Should().Be(RequestStatus.Paid);
-    }
-}
-
-public class PaymentTests
-{
-    [Fact]
-    public void CreatePixPayment_ShouldCreateValidPayment()
-    {
-        var requestId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-
-        var payment = Payment.CreatePixPayment(requestId, userId, 100.00m);
-
-        payment.Should().NotBeNull();
-        payment.RequestId.Should().Be(requestId);
-        payment.UserId.Should().Be(userId);
-        payment.Amount.Amount.Should().Be(100.00m);
-        payment.Status.Should().Be(PaymentStatus.Pending);
-        payment.PaymentMethod.Should().Be("pix");
-    }
-
-    [Fact]
-    public void Approve_ShouldUpdateStatus()
-    {
-        var payment = Payment.CreatePixPayment(Guid.NewGuid(), Guid.NewGuid(), 100.00m);
-
-        payment.Approve();
-
-        payment.Status.Should().Be(PaymentStatus.Approved);
-        payment.PaidAt.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void Approve_ShouldThrow_WhenNotPending()
-    {
-        var payment = Payment.CreatePixPayment(Guid.NewGuid(), Guid.NewGuid(), 100.00m);
-        payment.Approve();
-
-        Action act = () => payment.Approve();
-
-        act.Should().Throw<DomainException>()
-            .WithMessage("Only pending payments can be approved");
-    }
 }

@@ -908,28 +908,12 @@ public class ExtendedMedicalRequestTests
     }
 
     [Fact]
-    public void Approve_ShouldThrow_WhenPriceZero()
-    {
-        var r = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
-        Action act = () => r.Approve(0);
-        act.Should().Throw<DomainException>();
-    }
-
-    [Fact]
     public void Approve_ShouldUpdateMedicationsAndExams()
     {
         var r = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "Old" });
         r.Approve(50, medications: new List<string> { "New1", "New2" });
         r.Medications.Should().HaveCount(2);
         r.Medications.Should().Contain("New1");
-    }
-
-    [Fact]
-    public void MarkAsPaid_ShouldThrow_WhenNotPendingPayment()
-    {
-        var r = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
-        Action act = () => r.MarkAsPaid();
-        act.Should().Throw<DomainException>();
     }
 
     [Fact]
@@ -944,8 +928,7 @@ public class ExtendedMedicalRequestTests
     public void Sign_ShouldThrow_WhenUrlEmpty()
     {
         var r = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
-        r.Approve(50);
-        r.MarkAsPaid();
+        r.Approve(0);
         Action act = () => r.Sign("", "sig");
         act.Should().Throw<DomainException>();
     }
@@ -959,10 +942,7 @@ public class ExtendedMedicalRequestTests
         r.AssignDoctor(Guid.NewGuid(), "Dr.");
         r.Status.Should().Be(RequestStatus.InReview);
 
-        r.Approve(100);
-        r.Status.Should().Be(RequestStatus.ApprovedPendingPayment);
-
-        r.MarkAsPaid();
+        r.Approve(0);
         r.Status.Should().Be(RequestStatus.Paid);
 
         r.Sign("https://storage/signed.pdf", "sig-123");
@@ -1103,61 +1083,3 @@ public class ExtendedMedicalRequestTests
     }
 }
 
-// ============================================================
-// Extended Payment Tests
-// ============================================================
-public class ExtendedPaymentTests
-{
-    [Fact]
-    public void CreatePixPayment_ShouldThrow_WhenRequestIdEmpty()
-    {
-        Action act = () => Payment.CreatePixPayment(Guid.Empty, Guid.NewGuid(), 100);
-        act.Should().Throw<DomainException>();
-    }
-
-    [Fact]
-    public void CreatePixPayment_ShouldThrow_WhenUserIdEmpty()
-    {
-        Action act = () => Payment.CreatePixPayment(Guid.NewGuid(), Guid.Empty, 100);
-        act.Should().Throw<DomainException>();
-    }
-
-    [Fact]
-    public void CreateCardPayment_ShouldCreateCreditCard()
-    {
-        var p = Payment.CreateCardPayment(Guid.NewGuid(), Guid.NewGuid(), 50, "credit_card");
-        p.PaymentMethod.Should().Be("credit_card");
-        p.Status.Should().Be(PaymentStatus.Pending);
-    }
-
-    [Fact]
-    public void CreateCardPayment_ShouldCreateDebitCard()
-    {
-        var p = Payment.CreateCardPayment(Guid.NewGuid(), Guid.NewGuid(), 50, "debit_card");
-        p.PaymentMethod.Should().Be("debit_card");
-    }
-
-    [Fact]
-    public void CreateCardPayment_ShouldThrow_WhenInvalidMethod()
-    {
-        Action act = () => Payment.CreateCardPayment(Guid.NewGuid(), Guid.NewGuid(), 50, "boleto");
-        act.Should().Throw<DomainException>();
-    }
-
-    [Fact]
-    public void Reject_ShouldSetRejected()
-    {
-        var p = Payment.CreatePixPayment(Guid.NewGuid(), Guid.NewGuid(), 100);
-        p.Reject();
-        p.Status.Should().Be(PaymentStatus.Rejected);
-    }
-
-    [Fact]
-    public void IsPending_ShouldReturnCorrectly()
-    {
-        var p = Payment.CreatePixPayment(Guid.NewGuid(), Guid.NewGuid(), 100);
-        p.IsPending().Should().BeTrue();
-        p.Approve();
-        p.IsPending().Should().BeFalse();
-    }
-}

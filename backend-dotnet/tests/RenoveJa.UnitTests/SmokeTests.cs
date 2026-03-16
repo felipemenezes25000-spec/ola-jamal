@@ -14,7 +14,6 @@ using RenoveJa.Application.DTOs.Analytics;
 using RenoveJa.Application.DTOs.Clinical;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
-using RenoveJa.Application.Services.Payments;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -257,81 +256,6 @@ public class FhirLiteControllerSmokeTests
         okResult.StatusCode.Should().Be(200);
         var list = okResult.Value.Should().BeAssignableTo<IReadOnlyList<MedicalDocumentSummaryDto>>().Subject;
         list.Should().HaveCount(1);
-    }
-}
-
-// ============================================================
-// PaymentService Webhook Validation Smoke Tests
-// ============================================================
-public class PaymentServiceWebhookValidationSmokeTests
-{
-    private static string ComputeHmac(string secret, string manifest)
-    {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(manifest));
-        return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-    }
-
-    [Fact]
-    public void PaymentService_ValidateWebhookSignature_ShouldReturnTrue_WhenValidHmac()
-    {
-        var secret = "test-webhook-secret-key";
-        var ts = "1234567890";
-        var dataId = "12345";
-        var requestId = "req-xyz";
-
-        var manifest = $"id:{dataId};request-id:{requestId};ts:{ts};";
-        var validV1 = ComputeHmac(secret, manifest);
-        var xSignature = $"ts={ts},v1={validV1}";
-
-        var mpConfig = Options.Create(new MercadoPagoConfig { WebhookSecret = secret });
-        var sut = CreatePaymentService(mpConfig);
-
-        var result = sut.ValidateWebhookSignature(xSignature, requestId, dataId);
-
-        result.Should().BeTrue();
-    }
-
-    [Fact]
-    public void PaymentService_ValidateWebhookSignature_ShouldReturnFalse_WhenInvalidHmac()
-    {
-        var secret = "test-webhook-secret-key";
-        var mpConfig = Options.Create(new MercadoPagoConfig { WebhookSecret = secret });
-        var sut = CreatePaymentService(mpConfig);
-
-        var xSignature = "ts=1234567890,v1=invalid-hash-value";
-        var result = sut.ValidateWebhookSignature(xSignature, "req-1", "12345");
-
-        result.Should().BeFalse();
-    }
-
-    private static PaymentService CreatePaymentService(IOptions<MercadoPagoConfig> mpConfig)
-    {
-        var paymentRepoMock = new Mock<IPaymentRepository>();
-        var requestRepoMock = new Mock<IRequestRepository>();
-        var notificationRepoMock = new Mock<INotificationRepository>();
-        var pushSenderMock = new Mock<IPushNotificationSender>();
-        var pushDispatcherMock = new Mock<IPushNotificationDispatcher>();
-        var mercadoPagoMock = new Mock<IMercadoPagoService>();
-        var userRepoMock = new Mock<IUserRepository>();
-        var paymentAttemptRepoMock = new Mock<IPaymentAttemptRepository>();
-        var savedCardRepoMock = new Mock<ISavedCardRepository>();
-        var requestEventsPublisherMock = new Mock<IRequestEventsPublisher>();
-        var loggerMock = new Mock<ILogger<PaymentService>>();
-
-        return new PaymentService(
-            paymentRepoMock.Object,
-            requestRepoMock.Object,
-            notificationRepoMock.Object,
-            pushSenderMock.Object,
-            pushDispatcherMock.Object,
-            mercadoPagoMock.Object,
-            userRepoMock.Object,
-            paymentAttemptRepoMock.Object,
-            savedCardRepoMock.Object,
-            mpConfig,
-            requestEventsPublisherMock.Object,
-            loggerMock.Object);
     }
 }
 

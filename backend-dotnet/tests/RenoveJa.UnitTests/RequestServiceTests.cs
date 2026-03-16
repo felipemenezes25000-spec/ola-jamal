@@ -71,7 +71,6 @@ public class RequestServiceTests
         var requestApprovalService = new RequestApprovalService(
             _requestRepoMock.Object,
             _userRepoMock.Object,
-            _productPriceRepoMock.Object,
             _pushDispatcherMock.Object,
             requestEventsPublisherMock.Object,
             _aiConductSuggestionServiceMock.Object,
@@ -234,8 +233,8 @@ public class RequestServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Status.Should().Be("approved_pending_payment");
-        result.Price.Should().Be(50.00m);
+        result.Status.Should().Be("paid");
+        result.Price.Should().Be(0m);
         result.DoctorId.Should().Be(doctorId);
         result.DoctorName.Should().Be("Dr. Médico Teste");
 

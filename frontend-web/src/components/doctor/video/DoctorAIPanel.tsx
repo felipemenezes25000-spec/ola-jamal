@@ -1,10 +1,8 @@
 /**
  * DoctorAIPanel — Painel lateral do médico durante a videoconsulta (web).
- * Alinhado ao mobile: gravidade Manchester, CID, alertas, diferencial,
- * anamnese completa, medicamentos, exames, orientações, perguntas, evidências.
+ * Gravidade Manchester, CID, alertas, diferencial, anamnese, meds, exames, orientações, perguntas.
  */
 import { useState, useMemo, useCallback } from 'react';
-import { Clipboard, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
   TabKey,
@@ -14,12 +12,7 @@ import type {
   PerguntaSugerida,
   InteracaoCruzada,
 } from './ai-panel/types';
-import {
-  TABS,
-  ANA_FIELDS,
-  parseMed,
-  parseExam,
-} from './ai-panel/types';
+import { TABS } from './ai-panel/types';
 import { AIIndicators } from './ai-panel/AIIndicators';
 import { AISuggestionView } from './ai-panel/AISuggestionView';
 import { AIMetadataPanel } from './ai-panel/AIMetadataPanel';
@@ -29,7 +22,7 @@ interface DoctorAIPanelProps {
   suggestions: (string | { text?: string; suggestion?: string })[];
 }
 
-export function DoctorAIPanel({ anamnesis, suggestions }: DoctorAIPanelProps) {
+export function DoctorAIPanel({ anamnesis, suggestions: _suggestions }: DoctorAIPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('consulta');
   const [expandedMeds, setExpandedMeds] = useState<Set<number>>(new Set());
 
@@ -125,5 +118,69 @@ export function DoctorAIPanel({ anamnesis, suggestions }: DoctorAIPanelProps) {
     toast.success(`${label} copiado para a área de transferência`);
   }, []);
 
+  const toggleMedExpand = useCallback((idx: number) => {
+    setExpandedMeds((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }, []);
 
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex gap-1 p-2 border-b border-border/50 shrink-0">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveTab(t.key)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              activeTab === t.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-auto p-4 space-y-4">
+        {activeTab === 'consulta' && (
+          <>
+            <AIIndicators
+              gravidade={gravidade}
+              denominadorComum={denominadorComum}
+              cidSugerido={cidSugerido}
+              cidDescricao={cidDescricao}
+              confiancaCid={confiancaCid}
+              alertasVermelhos={alertasVermelhos}
+              diagDiferencial={diagDiferencial}
+              copyToClipboard={copyToClipboard}
+            />
+            <AISuggestionView
+              anamnesis={anamnesis}
+              hasAna={!!hasAna}
+              meds={meds}
+              exames={exames}
+              interacoesCruzadas={interacoesCruzadas}
+              expandedMeds={expandedMeds}
+              toggleMedExpand={toggleMedExpand}
+              lacunasAnamnese={lacunasAnamnese}
+              exameFisicoDirigido={exameFisicoDirigido}
+              orientacoesPaciente={orientacoesPaciente}
+              criteriosRetorno={criteriosRetorno}
+              copyToClipboard={copyToClipboard}
+            />
+          </>
+        )}
+        {activeTab === 'perguntas' && (
+          <AIMetadataPanel
+            activeTab="perguntas"
+            perguntasSugeridas={perguntasSugeridas}
+            lacunasAnamnese={lacunasAnamnese}
+            copyToClipboard={copyToClipboard}
+          />
+        )}
+      </div>
+    </div>
+  );
 }

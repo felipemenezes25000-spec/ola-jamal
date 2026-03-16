@@ -73,7 +73,6 @@ export type TabKey = 'consulta' | 'perguntas';
 export const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'consulta', label: 'Consulta', icon: 'document-text' },
   { key: 'perguntas', label: 'Perguntas', icon: 'help-circle' },
-  { key: 'evidencias', label: 'Evidências', icon: 'library' },
 ];
 
 export const ANA_FIELDS: { key: string; label: string; icon: string }[] = [

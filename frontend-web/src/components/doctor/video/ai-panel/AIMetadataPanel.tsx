@@ -4,20 +4,15 @@
 import {
   HelpCircle,
   AlertCircle,
-  Library,
   Flag,
   GitBranch,
   TrendingUp,
   Copy,
-  ChevronDown,
-  ChevronUp,
   CheckCircle2,
-  User,
-  FileText,
 } from 'lucide-react';
-import type { PerguntaSugerida } from './types';\n
+import type { PerguntaSugerida } from './types';
 interface AIMetadataPanelProps {
-  activeTab: 'perguntas' | 'evidencias';
+  activeTab: 'perguntas';
   perguntasSugeridas: PerguntaSugerida[];
   lacunasAnamnese: string[];
   copyToClipboard: (text: string, label: string) => void;
