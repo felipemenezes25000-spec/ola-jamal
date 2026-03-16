@@ -27,6 +27,7 @@ import { fetchRequestById, saveConsultationSummary } from '../../lib/api';
 import type { RequestResponseDto } from '../../types/database';
 import { parseAnamnesis } from '../../lib/domain/anamnesis';
 import { AnamnesisCard } from '../../components/prontuario/AnamnesisCard';
+import { SoapNotesCard } from '../../components/prontuario/SoapNotesCard';
 
 export default function ConsultationSummaryScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
@@ -198,6 +199,12 @@ export default function ConsultationSummaryScreen() {
           />
         )}
 
+        {/* SOAP Notes — geradas pela IA após a consulta */}
+        {request?.consultationSoapNotes && (
+          <View style={S.section}>
+            <SoapNotesCard soapJson={request.consultationSoapNotes} />
+          </View>
+        )}
 
         {/* AI Suggestions */}
         {hasSuggestions && (

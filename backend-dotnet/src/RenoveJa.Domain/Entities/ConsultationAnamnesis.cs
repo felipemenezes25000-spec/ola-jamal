@@ -14,6 +14,10 @@ public class ConsultationAnamnesis : Entity
     public string? AnamnesisJson { get; private set; }
     public string? AiSuggestionsJson { get; private set; }
     public string? EvidenceJson { get; private set; }
+    /// <summary>Notas SOAP geradas pela IA após o término da consulta.</summary>
+    public string? SoapNotesJson { get; private set; }
+    /// <summary>Timestamp da geração das notas SOAP.</summary>
+    public DateTime? SoapNotesGeneratedAt { get; private set; }
 
     private ConsultationAnamnesis() : base()
     { }
@@ -28,7 +32,9 @@ public class ConsultationAnamnesis : Entity
         string? anamnesisJson,
         string? aiSuggestionsJson,
         string? evidenceJson,
-        DateTime createdAt)
+        DateTime createdAt,
+        string? soapNotesJson = null,
+        DateTime? soapNotesGeneratedAt = null)
         : base(id, createdAt)
     {
         RequestId = requestId;
@@ -39,6 +45,8 @@ public class ConsultationAnamnesis : Entity
         AnamnesisJson = anamnesisJson;
         AiSuggestionsJson = aiSuggestionsJson;
         EvidenceJson = evidenceJson;
+        SoapNotesJson = soapNotesJson;
+        SoapNotesGeneratedAt = soapNotesGeneratedAt;
     }
 
     public static ConsultationAnamnesis Create(Guid requestId, Guid patientId, string? transcriptText, string? transcriptFileUrl, string? recordingFileUrl, string? anamnesisJson, string? aiSuggestionsJson, string? evidenceJson = null)
@@ -71,19 +79,15 @@ public class ConsultationAnamnesis : Entity
         string? anamnesisJson,
         string? aiSuggestionsJson,
         string? evidenceJson,
-        DateTime createdAt)
+        DateTime createdAt,
+        string? soapNotesJson = null,
+        DateTime? soapNotesGeneratedAt = null)
     {
         return new ConsultationAnamnesis(
-            id,
-            requestId,
-            patientId,
-            transcriptText,
-            transcriptFileUrl,
-            recordingFileUrl,
-            anamnesisJson,
-            aiSuggestionsJson,
-            evidenceJson,
-            createdAt);
+            id, requestId, patientId,
+            transcriptText, transcriptFileUrl, recordingFileUrl,
+            anamnesisJson, aiSuggestionsJson, evidenceJson,
+            createdAt, soapNotesJson, soapNotesGeneratedAt);
     }
 
     public void Update(string? transcriptText, string? transcriptFileUrl, string? recordingFileUrl, string? anamnesisJson, string? aiSuggestionsJson, string? evidenceJson = null)
@@ -100,5 +104,12 @@ public class ConsultationAnamnesis : Entity
     public void SetRecordingFileUrl(string? url)
     {
         RecordingFileUrl = url;
+    }
+
+    /// <summary>Persiste as notas SOAP geradas pela IA pós-consulta.</summary>
+    public void SetSoapNotes(string soapNotesJson, DateTime generatedAt)
+    {
+        SoapNotesJson = soapNotesJson;
+        SoapNotesGeneratedAt = generatedAt;
     }
 }

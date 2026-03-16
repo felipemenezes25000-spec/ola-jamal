@@ -185,8 +185,6 @@ export default function DoctorRequestDetail() {
         <ExamsCard exams={request.exams} />
         <SymptomsCard symptoms={request.symptoms} />
 
-        <ConsultationPostSection request={request} router={router} />
-
         <ConductSection
           request={request}
           conductNotes={conductNotes}
@@ -196,6 +194,8 @@ export default function DoctorRequestDetail() {
           savingConduct={savingConduct}
           handleSaveConduct={handleSaveConduct}
         />
+
+        <ConsultationPostSection request={request} router={router} />
 
         <SignedDocumentCard request={request} />
 
@@ -245,6 +245,27 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
 
   return (
     <>
+      {/* Transcrição completa primeiro — para o médico rever se quiser */}
+      {request.consultationTranscript && request.consultationTranscript.trim() && (
+        <DoctorCard style={s.cardMargin}>
+          <View style={s.aiHeader}>
+            <Ionicons name="mic" size={18} color={colors.textMuted} />
+            <Text style={s.aiTitle}>TRANSCRIÇÃO DA CONSULTA</Text>
+            <TouchableOpacity style={s.aiSummaryActionBtn} onPress={async () => { await Clipboard.setStringAsync(request.consultationTranscript || ''); showToast({ message: 'Transcrição copiada', type: 'success' }); }}>
+              <Ionicons name="copy-outline" size={14} color={colors.primary} />
+              <Text style={s.aiSummaryActionText}>Copiar</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={s.aiDisclaimer}>
+            <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+            <Text style={s.aiDisclaimerText}>Transcrição automática — pode conter imprecisões.</Text>
+          </View>
+          <Text style={[s.aiSummary, { fontSize: 13, lineHeight: 21, color: colors.textSecondary }]}>
+            {request.consultationTranscript}
+          </Text>
+        </DoctorCard>
+      )}
+
       {anamnesis && Object.keys(anamnesis).length > 0 && (
         <AnamnesisCard
           data={anamnesis}
@@ -308,24 +329,6 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
         </DoctorCard>
       )}
 
-      {request.consultationTranscript && request.consultationTranscript.trim() && (
-        <DoctorCard style={s.cardMargin}>
-          <View style={s.aiHeader}>
-            <Ionicons name="mic" size={18} color={colors.textMuted} />
-            <Text style={s.aiTitle}>TRANSCRIÇÃO DA CONSULTA</Text>
-            <TouchableOpacity style={s.aiSummaryActionBtn} onPress={async () => { await Clipboard.setStringAsync(request.consultationTranscript || ''); showToast({ message: 'Transcrição copiada', type: 'success' }); }}>
-              <Ionicons name="copy-outline" size={14} color={colors.primary} />
-              <Text style={s.aiSummaryActionText}>Copiar</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={s.aiDisclaimer}>
-            <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-            <Text style={s.aiDisclaimerText}>Transcrição automática — pode conter imprecisões.</Text>
-          </View>
-          <Text style={[s.aiSummary, { fontSize: 13, lineHeight: 21, color: colors.textSecondary }]}>{request.consultationTranscript}</Text>
-        </DoctorCard>
-      )}
-
       {(hasMeds || hasExams) && (() => {
         const medsForPrefill = (anamnesis?.medicamentos_sugeridos ?? []).map((m) => displayMedicamento(m));
         const examsForPrefill = (anamnesis?.exames_sugeridos ?? []).map((e) => displayExame(e));
@@ -369,11 +372,14 @@ function ConductSection({ request, conductNotes, setConductNotes, includeConduct
   const s = useMemo(() => makeStyles(colors), [colors]);
   if (request.requestType !== 'consultation') return null;
 
+  const suggestions = parseSuggestions(request.consultationAiSuggestions);
   return (
     <ConductForm
       legacyConductNotes={conductNotes}
       aiSuggestion={request.aiConductSuggestion}
       anamnesisJson={request.consultationAnamnesis}
+      consultationTranscript={request.consultationTranscript}
+      consultationSuggestions={suggestions.length > 0 ? suggestions : undefined}
       includeConductInPdf={includeConductInPdf}
       onIncludeConductInPdfChange={(v) => setIncludeConductInPdf(v)}
       saving={savingConduct}

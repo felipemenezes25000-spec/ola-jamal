@@ -123,8 +123,7 @@ export function useVideoSignaling(requestId: string | undefined) {
   const [transcript, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<unknown[]>([]);
-  const [evidence, setEvidence] = useState<unknown[]>([]);
-
+  const evidence: unknown[] = [];\n
   useEffect(() => {
     if (!requestId) return;
     let cancelled = false;
@@ -132,9 +131,7 @@ export function useVideoSignaling(requestId: string | undefined) {
     // FIX #23: Limpar estados ao trocar de requestId para não exibir dados do request anterior
     setTranscript('');
     setAnamnesis(null);
-    setSuggestions([]);
-    setEvidence([]);
-    setConnected(false);
+    setSuggestions([]);    setConnected(false);
 
     async function connect() {
       const sr = await getSignalR();
@@ -167,10 +164,7 @@ export function useVideoSignaling(requestId: string | undefined) {
         setSuggestions(Array.isArray(items) ? items : []);
       });
 
-      connection.on('EvidenceUpdate', (data: { items?: unknown[]; Items?: unknown[]; evidence?: unknown[] }) => {
-        const items = data.items ?? data.Items ?? data.evidence ?? [];
-        setEvidence(Array.isArray(items) ? items : []);
-      });
+
 
       try {
         await connection.start();

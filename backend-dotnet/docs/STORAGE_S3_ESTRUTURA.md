@@ -23,6 +23,7 @@ Paths são **case-sensitive** e usam `/` como separador. `{id:N}` = Guid sem hí
 | **Transcrição .txt** | `consultas/{requestId:N}/transcricao/transcricao-{requestId:N}.txt` | Transcripts |
 | **Gravação vídeo** (Daily.co) | `consultas/{requestId:N}/gravacao/consulta-{requestId:N}-{recordingId}.mp4` | Transcripts |
 | **Chunks de áudio** (fallback transcrição) | `consultas/{requestId:N}/gravacao-chunks/{yyyyMMddHHmmss}-{guid:N}.{ext}` | Transcripts |
+| **Notas SOAP** (IA pós-consulta) | `consultas/{requestId:N}/notas-soap/soap-notes-{requestId:N}.json` | Transcripts |
 
 ### Usuários
 

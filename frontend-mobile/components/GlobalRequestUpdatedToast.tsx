@@ -23,7 +23,7 @@ export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boo
     paid: 'Consulta pronta. Entre na sala de vídeo.',
     signed: 'Documento assinado. Baixe em Meus pedidos.',
     delivered: 'Documento recebido.',
-    approved_pending_payment: 'Solicitação aprovada. Realize o pagamento.',
+    approved_pending_payment: 'Solicitação aprovada.',
     in_consultation: 'Médico na sala. Entre na chamada.',
     consultation_finished: 'Consulta encerrada.',
     cancelled: 'Pedido cancelado.',
@@ -31,7 +31,7 @@ export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boo
   };
   const doctorMap: Record<string, string> = {
     submitted: 'Nova solicitação na fila. Toque para ver.',
-    paid: 'Pagamento confirmado.',
+    paid: 'Solicitação aprovada.',
     signed: 'Documento assinado.',
     delivered: 'Documento recebido.',
     approved_pending_payment: 'Solicitação aprovada.',

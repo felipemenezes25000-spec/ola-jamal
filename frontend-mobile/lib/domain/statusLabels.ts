@@ -10,8 +10,8 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   submitted: 'Enviado',
   analyzing: 'Em análise médica',
   in_review: 'Em análise médica',
-  approved_pending_payment: 'Aguardando pagamento',
-  paid: 'Pago',
+  approved_pending_payment: 'Aguardando assinatura',
+  paid: 'Aguardando assinatura',
   signed: 'Assinado',
   delivered: 'Entregue',
   // Consultation (canônicos)
@@ -24,7 +24,7 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   cancelled: 'Cancelado',
   // Legados (retrocompatibilidade)
   pending: 'Pendente',
-  pending_payment: 'Aguardando pagamento',
+  pending_payment: 'Aguardando assinatura',
   approved: 'Aprovado',
   completed: 'Concluído',
 };

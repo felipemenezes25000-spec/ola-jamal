@@ -27,7 +27,6 @@ import { AnamnesisCard } from '@/components/doctor/request/AnamnesisCard';
 import { MedicationsCard } from '@/components/doctor/request/MedicationsCard';
 import { ExamsCard } from '@/components/doctor/request/ExamsCard';
 import { TranscriptionCard } from '@/components/doctor/request/TranscriptionCard';
-import { EvidenceCard } from '@/components/doctor/request/EvidenceCard';
 import { RequestActionsCard } from '@/components/doctor/request/RequestActionsCard';
 import { AssistantBanner } from '@/components/doctor/AssistantBanner';
 import { getCarePlanByConsultation } from '@/services/doctor-api-care-plans';
@@ -411,9 +410,7 @@ export default function DoctorRequestDetail() {
                 </motion.div>
 
                 {/* Evidências científicas — componente extraído */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }}>
-                  <EvidenceCard evidenceJson={request.consultationEvidence} />
-                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }}>                </motion.div>
 
                 {/* Sugestão IA (receita/exame) */}
                 {request.aiConductSuggestion && reqType !== 'consultation' && (

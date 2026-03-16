@@ -70,8 +70,8 @@ export default function TermsScreen() {
             O usuário compromete-se a fornecer informações verdadeiras e a utilizar o RenoveJá+ apenas para fins legítimos de saúde. É vedado o uso fraudulento, a violação de legislação vigente ou de normas dos conselhos de classe. O descumprimento pode resultar em cancelamento da conta e medidas legais cabíveis.
           </Section>
 
-          <Section title="8. Pagamentos">
-            Os valores dos serviços estão disponíveis no aplicativo RenoveJá+. O pagamento é processado de forma segura. Políticas de reembolso e cancelamento estão disponíveis na seção de Ajuda. Em caso de dúvidas, o consumidor pode acionar os canais de atendimento ({COMPANY.fullContact}) e, se necessário, os órgãos de defesa do consumidor.
+          <Section title="8. Serviços e cancelamento">
+            Os serviços são oferecidos conforme disponibilização no aplicativo RenoveJá+. Políticas de cancelamento estão disponíveis na seção de Ajuda. Em caso de dúvidas, o consumidor pode acionar os canais de atendimento ({COMPANY.fullContact}) e, se necessário, os órgãos de defesa do consumidor.
           </Section>
 
           <Section title="9. Alterações e lei aplicável">

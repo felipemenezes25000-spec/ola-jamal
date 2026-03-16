@@ -63,27 +63,12 @@ export type InteracaoCruzada = {
   conduta?: string;
 };
 
-export type EvidenceItem = {
-  title?: string;
-  abstract?: string;
-  source?: string;
-  translatedAbstract?: string;
-  relevantExcerpts?: string[];
-  clinicalRelevance?: string;
-  provider?: string;
-  url?: string;
-  conexaoComPaciente?: string;
-  nivelEvidencia?: string;
-  motivoSelecao?: string;
-};
-
 export interface DoctorAIPanelProps {
   anamnesis: Record<string, unknown> | null;
   suggestions: (string | { text?: string; suggestion?: string })[];
-  evidence: EvidenceItem[];
 }
 
-export type TabKey = 'consulta' | 'perguntas' | 'evidencias';
+export type TabKey = 'consulta' | 'perguntas';
 
 export const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'consulta', label: 'Consulta', icon: 'document-text' },

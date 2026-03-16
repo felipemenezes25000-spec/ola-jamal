@@ -138,13 +138,6 @@ export default function DoctorSettings() {
                   disabled={pushSaving}
                 />
                 <ToggleRow
-                  label="Pagamentos"
-                  description="Confirmações de pagamento"
-                  checked={pushPrefs.paymentsEnabled}
-                  onChange={(v) => handlePushToggle('paymentsEnabled', v)}
-                  disabled={pushSaving}
-                />
-                <ToggleRow
                   label="Consultas"
                   description="Agendamentos e videochamadas"
                   checked={pushPrefs.consultationsEnabled}

@@ -126,6 +126,8 @@ export interface RequestResponseDto {
   consultationAiSuggestions?: string | null;
   /** Artigos científicos (provider, url, title, clinicalRelevance) que apoiam o CID sugerido. */
   consultationEvidence?: string | null;
+  /** Notas SOAP geradas pela IA após a consulta (JSON com subjective/objective/assessment/plan/medical_terms). */
+  consultationSoapNotes?: string | null;
   /** Indica se existe gravação de vídeo da consulta (obter URL via GET .../recording-download-url). */
   consultationHasRecording?: boolean;
   /** Tipo de consulta: 'psicologo' | 'medico_clinico' */

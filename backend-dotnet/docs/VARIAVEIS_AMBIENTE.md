@@ -13,10 +13,6 @@ Referência completa das variáveis necessárias para o backend RenoveJá+.
 | `Gemini__ApiKey` | `Gemini:ApiKey` | Chave Gemini 2.5 Flash (fallback da OpenAI) | Recomendada |
 | `Api__BaseUrl` | `Api:BaseUrl` | URL pública da API — usada para proxy de imagens e links de documentos | ✅ |
 | `Api__DocumentTokenSecret` | `Api:DocumentTokenSecret` | String 32+ chars para tokens temporários de acesso a documentos | ✅ |
-| `MercadoPago__AccessToken` | `MercadoPago:AccessToken` | Token de acesso Mercado Pago | ✅ |
-| `MercadoPago__PublicKey` | `MercadoPago:PublicKey` | Chave pública Mercado Pago | ✅ |
-| `MercadoPago__WebhookSecret` | `MercadoPago:WebhookSecret` | Secret para validar webhooks de pagamento | ✅ |
-| `MercadoPago__NotificationUrl` | `MercadoPago:NotificationUrl` | URL de notificação de webhook | ✅ |
 | `DAILY_API_KEY` | — | Chave API Daily.co (videochamadas) | ✅ |
 | `DAILY_DOMAIN` | — | Domínio Daily.co (ex: `renove`) | ✅ |
 | `DAILY_ROOM_PREFIX` | — | Prefixo das salas Daily.co (ex: `consult`) | Opcional |
@@ -68,9 +64,6 @@ Crie `src/RenoveJa.Api/appsettings.Development.json` (nunca commitar — está n
   },
   "CertificateEncryption": {
     "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-  },
-  "MercadoPago": {
-    "AccessToken": "APP_USR-..."
   }
 }
 ```
@@ -128,8 +121,7 @@ Mobile/Web
   │                                           └── OpenAI (leitura IA)
   ├── POST /api/requests/{id}/approve ───> PostgreSQL (update status)
   ├── POST /api/requests/{id}/sign ──────> S3 (PDF assinado) + PostgreSQL
-  ├── POST /api/video/rooms ─────────────> Daily.co (cria sala)
-  └── POST /api/payments ────────────────> Mercado Pago (cria pagamento PIX)
+  └── POST /api/video/rooms ─────────────> Daily.co (cria sala)
 ```
 
 ---

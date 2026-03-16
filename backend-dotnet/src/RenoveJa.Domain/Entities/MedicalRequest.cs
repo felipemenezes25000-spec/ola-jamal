@@ -429,12 +429,9 @@ public class MedicalRequest : AggregateRoot
     {
         if (price < 0)
             throw new DomainException("Price cannot be negative");
-        if (price <= 0 && RequestType != Enums.RequestType.Consultation)
-            throw new DomainException("Price must be greater than zero for non-consultation requests");
 
         if (RequestType == Enums.RequestType.Consultation)
         {
-            // Fluxo de consulta: SearchingDoctor | InReview | ConsultationReady -> ApprovedPendingPayment ou Paid (se gratuito)
             if (Status != RequestStatus.SearchingDoctor && Status != RequestStatus.InReview && Status != RequestStatus.ConsultationReady)
                 throw new DomainException("Consultation must be searching doctor before approval");
         }
@@ -453,10 +450,8 @@ public class MedicalRequest : AggregateRoot
             Medications = medications;
         if (exams != null)
             Exams = exams;
-        // Consulta gratuita (banco de horas): vai direto para Paid, sem fluxo de pagamento
-        Status = (RequestType == Enums.RequestType.Consultation && price == 0)
-            ? RequestStatus.Paid
-            : RequestStatus.ApprovedPendingPayment;
+        // Sem fluxo de pagamento: aprovação vai direto para Paid
+        Status = RequestStatus.Paid;
         UpdatedAt = DateTime.UtcNow;
     }
 

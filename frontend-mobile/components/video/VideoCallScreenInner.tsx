@@ -455,8 +455,8 @@ export default function VideoCallScreenInner() {
     } catch {}
     setEnding(false);
     cleanup();
-    // Navigate to consultation summary to show AI anamnesis results
-    nav.replace(router, `/consultation-summary/${rid}`);
+    // Médico vai direto para o pedido com prontuário preenchido (sem consultation-summary)
+    nav.replace(router, `/doctor-request/${rid}`);
   }, [leave, rid, clinicalNotes, cleanup, router]);
 
   const onEndPress = useCallback(() => {

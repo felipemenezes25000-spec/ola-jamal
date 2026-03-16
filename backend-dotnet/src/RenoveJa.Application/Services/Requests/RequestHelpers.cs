@@ -333,6 +333,7 @@ internal static class RequestHelpers
         string? consultationAnamnesis = null,
         string? consultationAiSuggestions = null,
         string? consultationEvidence = null,
+        string? consultationSoapNotes = null,
         bool consultationHasRecording = false)
     {
         var signedUrl = request.SignedDocumentUrl;
@@ -382,6 +383,7 @@ internal static class RequestHelpers
             consultationAnamnesis,
             consultationAiSuggestions,
             consultationEvidence,
+            consultationSoapNotes,
             consultationHasRecording,
             request.ConsultationType,
             request.ContractedMinutes,

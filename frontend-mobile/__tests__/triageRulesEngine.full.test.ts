@@ -309,19 +309,19 @@ describe('rulesDetail', () => {
   const ctx = (extra: Partial<TriageInput> = {}) =>
     base({ context: 'detail', step: 'entry', ...extra });
 
-  it('status=approved_pending_payment + prescription → detail:pay_prescription', () => {
+  it('status=approved_pending_payment + prescription → detail:awaiting_signature_prescription', () => {
     const r = evaluateTriageRules(ctx({ status: 'approved_pending_payment', requestType: 'prescription' }));
-    expect(r?.key).toBe('detail:pay_prescription');
+    expect(r?.key).toBe('detail:awaiting_signature_prescription');
   });
 
-  it('status=approved_pending_payment + exam → detail:pay_exam', () => {
+  it('status=approved_pending_payment + exam → detail:awaiting_signature_exam', () => {
     const r = evaluateTriageRules(ctx({ status: 'approved_pending_payment', requestType: 'exam' }));
-    expect(r?.key).toBe('detail:pay_exam');
+    expect(r?.key).toBe('detail:awaiting_signature_exam');
   });
 
-  it('status=approved_pending_payment + consultation → detail:pay_consultation', () => {
+  it('status=approved_pending_payment + consultation → detail:consultation_ready', () => {
     const r = evaluateTriageRules(ctx({ status: 'approved_pending_payment', requestType: 'consultation' }));
-    expect(r?.key).toBe('detail:pay_consultation');
+    expect(r?.key).toBe('detail:consultation_ready');
   });
 
   it('doctorConductNotes preenchido → detail:conduct_available', () => {
@@ -353,13 +353,12 @@ describe('rulesRequests', () => {
     expect(r?.key).toBe('requests:empty');
   });
 
-  it('step=entry + toPayCount>0 → requests:to_pay com count no texto', () => {
+  it('step=entry + toPayCount>0 → requests:companion (fluxo sem pagamento)', () => {
     const r = evaluateTriageRules(base({
       context: 'requests', step: 'entry',
       totalRequests: 3, toPayCount: 2,
     }));
-    expect(r?.key).toBe('requests:to_pay');
-    expect(r?.text).toContain('2');
+    expect(r?.key).toBe('requests:companion');
   });
 
   it('step=entry + requests sem toPay → companion requests', () => {

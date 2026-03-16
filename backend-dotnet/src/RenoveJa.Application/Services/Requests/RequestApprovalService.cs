@@ -15,7 +15,6 @@ namespace RenoveJa.Application.Services.Requests;
 public class RequestApprovalService(
     IRequestRepository requestRepository,
     IUserRepository userRepository,
-    IProductPriceRepository productPriceRepository,
     IPushNotificationDispatcher pushDispatcher,
     IRequestEventsPublisher requestEventsPublisher,
     IAiConductSuggestionService aiConductSuggestionService,
@@ -38,14 +37,8 @@ public class RequestApprovalService(
         if (request.DoctorId == null)
             request.AssignDoctor(doctorId, doctor.Name);
 
-        var (productType, subtype) = GetProductTypeAndSubtype(request);
-        var priceFromDb = await productPriceRepository.GetPriceAsync(productType, subtype, cancellationToken);
-        if (!priceFromDb.HasValue || priceFromDb.Value <= 0)
-            throw new InvalidOperationException(
-                $"Preço não encontrado para {productType}/{subtype}. Verifique a tabela product_prices.");
-
-        var price = priceFromDb.Value;
-        request.Approve(price, dto.Notes, dto.Medications, dto.Exams);
+        // Sem fluxo de pagamento: aprovação vai direto para Paid (price = 0)
+        request.Approve(0, dto.Notes, dto.Medications, dto.Exams);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         _ = Task.Run(async () =>
@@ -61,7 +54,7 @@ public class RequestApprovalService(
             EnumHelper.ToSnakeCase(request.Status),
             "Solicitação aprovada",
             cancellationToken);
-        await pushDispatcher.SendAsync(PushNotificationRules.ApprovedPendingPayment(request.PatientId, request.Id, request.RequestType), cancellationToken);
+        await pushDispatcher.SendAsync(PushNotificationRules.Paid(request.PatientId, request.Id, request.RequestType), cancellationToken);
 
         return request;
     }
@@ -82,25 +75,6 @@ public class RequestApprovalService(
 
         return request;
     }
-
-    private static (string productType, string subtype) GetProductTypeAndSubtype(MedicalRequest request)
-    {
-        var productType = request.RequestType.ToString().ToLowerInvariant();
-        var subtype = "default";
-
-        if (request.RequestType == RequestType.Prescription && request.PrescriptionType.HasValue)
-            subtype = PrescriptionTypeToDisplay(request.PrescriptionType.Value) ?? "simples";
-
-        return (productType, subtype);
-    }
-
-    private static string? PrescriptionTypeToDisplay(PrescriptionType type) => type switch
-    {
-        PrescriptionType.Simple => "simples",
-        PrescriptionType.Controlled => "controlado",
-        PrescriptionType.Blue => "azul",
-        _ => null
-    };
 
     private async Task GenerateAndSetConductSuggestionAsync(Guid requestId, CancellationToken cancellationToken)
     {

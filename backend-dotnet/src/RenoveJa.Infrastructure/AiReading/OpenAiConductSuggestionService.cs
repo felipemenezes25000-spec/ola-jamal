@@ -74,12 +74,13 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
         {
             var systemPrompt = BuildSystemPromptV2();
             var userPrompt = BuildUserPromptV2(input);
+            var isGemini = baseUrl.Contains("generativelanguage", StringComparison.OrdinalIgnoreCase);
 
             var requestBody = new
             {
                 model,
                 temperature = 0.25,
-                max_tokens = 4000,
+                max_tokens = isGemini ? 4096 : 4000,
                 response_format = new { type = "json_object" },
                 messages = new[]
                 {
@@ -91,7 +92,7 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
             var json = JsonSerializer.Serialize(requestBody, JsonOptions);
             var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = isGemini ? TimeSpan.FromSeconds(60) : TimeSpan.FromSeconds(30);
 
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await client.PostAsync($"{baseUrl}/chat/completions", content, cancellationToken);

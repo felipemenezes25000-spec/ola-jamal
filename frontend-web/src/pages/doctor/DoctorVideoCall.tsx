@@ -82,7 +82,7 @@ export default function DoctorVideoCall() {
   const [finishing, setFinishing] = useState(false);
 
   // SignalR real-time
-  const { connected: signalConnected, transcript, anamnesis, suggestions, evidence } = useVideoSignaling(requestId);
+  const { connected: signalConnected, transcript, anamnesis, suggestions } = useVideoSignaling(requestId);
 
   // Parse anamnesis JSON (full object for DoctorAIPanel)
   const parsedAnamnesis: Record<string, unknown> | null = (() => {
@@ -100,20 +100,7 @@ export default function DoctorVideoCall() {
       }).length
     : 0;
 
-  // Normalize evidence for DoctorAIPanel (backend may send PascalCase)
-  const normalizedEvidence = (evidence as { title?: string; Title?: string; [k: string]: unknown }[]).map((e) => ({
-    title: String(e.title ?? e.Title ?? ''),
-    abstract: String(e.abstract ?? e.Abstract ?? ''),
-    source: String(e.source ?? e.Source ?? ''),
-    translatedAbstract: (e.translatedAbstract ?? e.TranslatedAbstract) as string | undefined,
-    relevantExcerpts: (e.relevantExcerpts ?? e.RelevantExcerpts) as string[] | undefined,
-    clinicalRelevance: (e.clinicalRelevance ?? e.ClinicalRelevance) as string | undefined,
-    provider: String(e.provider ?? e.Provider ?? 'PubMed'),
-    url: (e.url ?? e.Url) as string | undefined,
-    conexaoComPaciente: (e.conexaoComPaciente ?? e.ConexaoComPaciente) as string | undefined,
-    nivelEvidencia: (e.nivelEvidencia ?? e.NivelEvidencia) as string | undefined,
-    motivoSelecao: (e.motivoSelecao ?? e.MotivoSelecao) as string | undefined,
-  }));
+
 
   const normalizedSuggestions = (suggestions as unknown[]).map((s) =>
     typeof s === 'string' ? s : { text: (s as { text?: string }).text, suggestion: (s as { suggestion?: string }).suggestion }
@@ -345,7 +332,6 @@ export default function DoctorVideoCall() {
               <DoctorAIPanel
                 anamnesis={parsedAnamnesis}
                 suggestions={normalizedSuggestions}
-                evidence={normalizedEvidence}
               />
             </TabsContent>
 

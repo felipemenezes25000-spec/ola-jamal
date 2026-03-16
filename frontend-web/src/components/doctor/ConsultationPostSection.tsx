@@ -1,3 +1,4 @@
+import React from 'react';
 /**
  * ConsultationPostSection — Seção pós-consulta: anamnese, sugestões IA, evidências, transcrição.
  * Aparece quando type === 'consultation' e status inclui consultation_finished.
@@ -14,6 +15,7 @@ import {
   FlaskConical,
   ExternalLink,
   Info,
+  ClipboardCopy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeStatus } from '@/lib/doctor-helpers';
@@ -39,23 +41,20 @@ function parseSuggestions(json: string | null | undefined): string[] {
   }
 }
 
-interface EvidenceItem {
-  provider?: string;
-  url?: string;
-  title?: string;
-  source?: string;
-  clinicalRelevance?: string;
+interface SoapNotes {
+  subjective?: string; objective?: string; assessment?: string; plan?: string;
+  medical_terms?: { term: string; category: string; icd_code?: string | null }[];
 }
 
-function parseEvidence(json: string | null | undefined): EvidenceItem[] {
-  if (!json?.trim()) return [];
-  try {
-    const arr = JSON.parse(json);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+function parseSoapNotes(json: string | null | undefined): SoapNotes | null {
+  if (!json?.trim()) return null;
+  try { return JSON.parse(json) as SoapNotes; } catch { return null; }
 }
+
+const SOAP_LABELS: Record<string, string> = {
+  subjective: 'S — Subjetivo', objective: 'O — Objetivo',
+  assessment: 'A — Avaliação', plan: 'P — Plano',
+};
 
 function renderAnamnesisField(obj: Record<string, unknown>): React.ReactNode[] {
   const keys = Object.keys(obj).filter((k) => !['medicamentos_sugeridos', 'exames_sugeridos'].includes(k));
@@ -87,10 +86,10 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
 
   const anamnesis = parseAnamnesis(request.consultationAnamnesis);
   const suggestions = parseSuggestions(request.consultationAiSuggestions);
-  const evidence = parseEvidence(request.consultationEvidence);
   const transcript = request.consultationTranscript?.trim() ?? '';
+  const soapNotes = parseSoapNotes(request.consultationSoapNotes);
 
-  const hasContent = anamnesis || suggestions.length > 0 || evidence.length > 0 || transcript;
+  const hasContent = anamnesis || suggestions.length > 0 || transcript || !!soapNotes;
   if (!hasContent) return null;
 
   const handleCopyTranscript = async () => {
@@ -111,6 +110,57 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
           </CardHeader>
           <CardContent className="pt-0 space-y-4">
             {renderAnamnesisField(anamnesis)}
+          </CardContent>
+        </Card>
+      )}
+
+      {soapNotes && (
+        <Card className="shadow-sm border-primary/20">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" aria-hidden />
+                Notas SOAP
+                <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-md">IA</span>
+              </CardTitle>
+              <Button
+                variant="ghost" size="sm"
+                onClick={async () => {
+                  const text = (['subjective','objective','assessment','plan'] as (keyof SoapNotes)[])
+                    .map(k => ${SOAP_LABELS[k]}\n)
+                    .join('\n\n');
+                  await navigator.clipboard.writeText(text);
+                  toast.success('Notas SOAP copiadas');
+                }}
+                className="gap-1.5"
+              >
+                <ClipboardCopy className="h-3.5 w-3.5" /> Copiar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-3">
+            {(['subjective','objective','assessment','plan'] as (keyof SoapNotes)[]).map(k => {
+              const val = soapNotes[k] as string | undefined;
+              if (!val) return null;
+              return (
+                <div key={k} className="p-3 rounded-lg bg-muted/40 border border-border/40">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">{SOAP_LABELS[k]}</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{val}</p>
+                </div>
+              );
+            })}
+            {(soapNotes.medical_terms ?? []).length > 0 && (
+              <div className="pt-2 border-t border-border/30">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Termos médicos</p>
+                <div className="flex flex-wrap gap-2">
+                  {soapNotes.medical_terms!.map((t, i) => (
+                    <span key={i} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                      {t.term}{t.icd_code ?  () : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -144,28 +194,6 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
         </Card>
       )}
 
-      {evidence.length > 0 && (
-        <Card className="shadow-sm border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-primary" aria-hidden />
-              Evidências científicas
-            </CardTitle>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Info className="h-3.5 w-3.5" />
-              Fontes: PubMed, Europe PMC, Semantic Scholar.
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-4">
-            {evidence.map((item, i) => (
-              <div key={i} className="p-3 rounded-lg bg-muted/50 border border-border/50">
-                <p className="text-xs font-semibold text-primary uppercase">
-                  {item.provider ?? 'Fonte'}
-                </p>
-                <p className="text-sm font-medium mt-1">{item.title ?? item.source ?? '—'}</p>
-                {item.clinicalRelevance && (
-                  <p className="text-xs text-muted-foreground mt-1">{item.clinicalRelevance}</p>
-                )}
                 {item.url && (
                   <a
                     href={item.url}

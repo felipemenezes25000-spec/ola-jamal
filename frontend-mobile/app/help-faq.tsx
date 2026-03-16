@@ -13,22 +13,17 @@ const FAQ_ITEMS = [
   {
     question: 'Como renovar uma receita?',
     answer:
-      'Escolha o tipo de receita (simples ou controlada), tire uma foto ou envie da galeria, e aguarde a análise. Após aprovação do médico, realize o pagamento e a receita assinada ficará disponível para download.',
+      'Escolha o tipo de receita (simples ou controlada), tire uma foto ou envie da galeria, e aguarde a análise. Após aprovação do médico, a receita assinada ficará disponível para download.',
   },
   {
     question: 'Como solicitar exames?',
     answer:
-      'Selecione o tipo (laboratorial ou imagem), liste os exames desejados (um por linha) e, se tiver, anexe o pedido anterior. O médico analisará e, após aprovação e pagamento, o pedido assinado estará disponível.',
+      'Selecione o tipo (laboratorial ou imagem), liste os exames desejados (um por linha) e, se tiver, anexe o pedido anterior. O médico analisará e, após aprovação, o pedido assinado estará disponível.',
   },
   {
     question: 'Como funciona a consulta online?',
     answer:
-      'Após informar seus sintomas e realizar o pagamento, um médico disponível aceitará a solicitação e a consulta por vídeo será iniciada. A consulta é um plantão tira-dúvidas e não gera receita ou pedido de exame.',
-  },
-  {
-    question: 'Formas de pagamento?',
-    answer:
-      'Aceitamos PIX e cartão de crédito através do Mercado Pago. O pagamento via PIX é processado de forma instantânea.',
+      'Após informar seus sintomas, um médico disponível aceitará a solicitação e a consulta por vídeo será iniciada. A consulta é um plantão tira-dúvidas e não gera receita ou pedido de exame.',
   },
   {
     question: 'Como cancelar uma solicitação?',
@@ -41,9 +36,8 @@ const POLICY_SECTIONS = [
   {
     title: 'Política de cancelamento e reembolso',
     content: [
-      'Receita/exame: Antes da aprovação do médico, cancelamento gratuito. Se rejeitada pelo médico, estorno integral. Após aprovação e pagamento, antes do médico assinar: entre em contato para avaliar estorno. Após assinatura do documento, não há reembolso.',
-      'Consulta: Antes do médico aceitar, cancelamento e estorno integral. Após aceite, antes de iniciar: entre em contato. Banco de minutos não utilizados: crédito pode ser utilizado em nova consulta ou estorno proporcional mediante solicitação.',
-      'Prazo de processamento do estorno: até 7 dias úteis (conforme operadora PIX/cartão).',
+      'Receita/exame: Antes da aprovação do médico, cancelamento gratuito. Se rejeitada pelo médico, entre em contato. Após aprovação, antes do médico assinar: entre em contato. Após assinatura do documento, não há reembolso.',
+      'Consulta: Antes do médico aceitar, cancelamento integral. Após aceite, antes de iniciar: entre em contato.',
     ],
   },
   {

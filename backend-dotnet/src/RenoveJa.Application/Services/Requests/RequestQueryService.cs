@@ -82,14 +82,14 @@ public class RequestQueryService(
         var result = new List<RequestResponseDto>();
         foreach (var r in requests)
         {
-            string? ct = null, ca = null, cs = null, ce = null;
+            string? ct = null, ca = null, cs = null, ce = null, csoap = null;
             var hasRecording = false;
             if (r.RequestType == RequestType.Consultation && r.DoctorId == userId && anamnesisByRequest.TryGetValue(r.Id, out var a))
             {
-                ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson;
+                ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson; csoap = a.SoapNotesJson;
                 hasRecording = !string.IsNullOrWhiteSpace(a.RecordingFileUrl);
             }
-            result.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, hasRecording));
+            result.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, csoap, hasRecording));
         }
         logger.LogDebug("[GetUserRequests] final count after filters: {Count}", result.Count);
         return result;
@@ -126,14 +126,14 @@ public class RequestQueryService(
             items = new List<RequestResponseDto>();
             foreach (var r in domainItems)
             {
-                string? ct = null, ca = null, cs = null, ce = null;
+                string? ct = null, ca = null, cs = null, ce = null, csoap = null;
                 var hasRecording = false;
                 if (r.RequestType == RequestType.Consultation && r.DoctorId == userId && anamnesisByRequest.TryGetValue(r.Id, out var a))
                 {
-                    ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson;
+                    ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson; csoap = a.SoapNotesJson;
                     hasRecording = !string.IsNullOrWhiteSpace(a.RecordingFileUrl);
                 }
-                items.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, hasRecording));
+                items.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, csoap, hasRecording));
             }
         }
         else
@@ -152,14 +152,14 @@ public class RequestQueryService(
             items = new List<RequestResponseDto>();
             foreach (var r in domainItems)
             {
-                string? ct = null, ca = null, cs = null, ce = null;
+                string? ct = null, ca = null, cs = null, ce = null, csoap = null;
                 var hasRecording = false;
                 if (r.RequestType == RequestType.Consultation && anamnesisByRequest.TryGetValue(r.Id, out var a))
                 {
-                    ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson;
+                    ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson; csoap = a.SoapNotesJson;
                     hasRecording = !string.IsNullOrWhiteSpace(a.RecordingFileUrl);
                 }
-                items.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, hasRecording));
+                items.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, csoap, hasRecording));
             }
         }
 
@@ -192,7 +192,7 @@ public class RequestQueryService(
         if (!canAccess)
             throw new KeyNotFoundException("Request not found");
 
-        string? ct = null, ca = null, cs = null, ce = null;
+        string? ct = null, ca = null, cs = null, ce = null, csoap = null;
         var hasRecording = false;
         if (isAssignedDoctor)
         {
@@ -201,9 +201,10 @@ public class RequestQueryService(
             ca = consultationData.AnamnesisJson;
             cs = consultationData.SuggestionsJson;
             ce = consultationData.EvidenceJson;
+            csoap = consultationData.SoapNotesJson;
             hasRecording = consultationData.HasRecording;
         }
-        return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, hasRecording);
+        return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, csoap, hasRecording);
     }
 
     public async Task<List<RequestResponseDto>> GetPatientRequestsAsync(
@@ -229,14 +230,14 @@ public class RequestQueryService(
         var dtos = new List<RequestResponseDto>();
         foreach (var r in requests)
         {
-            string? ct = null, ca = null, cs = null, ce = null;
+            string? ct = null, ca = null, cs = null, ce = null, csoap = null;
             var hasRecording = false;
             if (r.RequestType == RequestType.Consultation && anamnesisByRequest.TryGetValue(r.Id, out var a))
             {
-                ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson;
+                ct = a.TranscriptText; ca = a.AnamnesisJson; cs = a.AiSuggestionsJson; ce = a.EvidenceJson; csoap = a.SoapNotesJson;
                 hasRecording = !string.IsNullOrWhiteSpace(a.RecordingFileUrl);
             }
-            dtos.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, hasRecording));
+            dtos.Add(RequestHelpers.MapRequestToDto(r, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, csoap, hasRecording));
         }
         return dtos;
     }
@@ -288,15 +289,15 @@ public class RequestQueryService(
         return await requestRepository.GetDoctorStatsAsync(doctorId, cancellationToken);
     }
 
-    private async Task<(string? Transcript, string? AnamnesisJson, string? SuggestionsJson, string? EvidenceJson, bool HasRecording)> GetConsultationAnamnesisIfAnyAsync(
+    private async Task<(string? Transcript, string? AnamnesisJson, string? SuggestionsJson, string? EvidenceJson, string? SoapNotesJson, bool HasRecording)> GetConsultationAnamnesisIfAnyAsync(
         Guid requestId,
         RequestType requestType,
         CancellationToken cancellationToken)
     {
-        if (requestType != RequestType.Consultation) return (null, null, null, null, false);
+        if (requestType != RequestType.Consultation) return (null, null, null, null, null, false);
         var a = await consultationAnamnesisRepository.GetByRequestIdAsync(requestId, cancellationToken);
-        if (a == null) return (null, null, null, null, false);
+        if (a == null) return (null, null, null, null, null, false);
         var hasRecording = !string.IsNullOrWhiteSpace(a.RecordingFileUrl);
-        return (a.TranscriptText, a.AnamnesisJson, a.AiSuggestionsJson, a.EvidenceJson, hasRecording);
+        return (a.TranscriptText, a.AnamnesisJson, a.AiSuggestionsJson, a.EvidenceJson, a.SoapNotesJson, hasRecording);
     }
 }

@@ -31,6 +31,10 @@ function makeRequest(overrides: {
   } as Parameters<typeof getUiModel>[0];
 }
 
+function req(status: string, requestType?: string) {
+  return makeRequest({ status, requestType: requestType ?? 'prescription' });
+}
+
 // ── normalizeRequestStatus ────────────────────────────────────────────────
 
 describe('normalizeRequestStatus', () => {
@@ -38,9 +42,13 @@ describe('normalizeRequestStatus', () => {
     const canonical = [
       'submitted', 'in_review', 'approved_pending_payment',
       'paid', 'signed', 'delivered', 'rejected', 'cancelled',
-      'searching_doctor', 'consultation_ready', 'in_consultation', 'consultation_finished',
+      'searching_doctor', 'in_consultation', 'consultation_finished',
     ] as const;
     canonical.forEach((s) => expect(normalizeRequestStatus(s)).toBe(s));
+  });
+
+  it('consultation_ready (legado) → approved_pending_payment', () => {
+    expect(normalizeRequestStatus('consultation_ready')).toBe('approved_pending_payment');
   });
 
   it('converte legados corretamente', () => {
@@ -85,11 +93,11 @@ describe('getUiModel — patient × prescription', () => {
     expect(m.phase).toBe('ai');
   });
 
-  it('approved_pending_payment → fase awaiting_payment, canPay=true', () => {
+  it('approved_pending_payment → fase awaiting_payment, canPay=false (fluxo sem pagamento)', () => {
     const m = getUiModel(makeRequest({ status: 'approved_pending_payment' }), role);
     expect(m.phase).toBe('awaiting_payment');
-    expect(m.actions.canPay).toBe(true);
-    expect(m.countersBucket).toBe('to_pay');
+    expect(m.actions.canPay).toBe(false);
+    expect(m.countersBucket).toBe('pending');
   });
 
   it('paid → fase waiting_doctor, nenhuma ação habilitada', () => {
@@ -244,7 +252,7 @@ describe('getCountersForPatient', () => {
     expect(c).toEqual({ pending: 0, toPay: 0, ready: 0 });
   });
 
-  it('conta pending (in_review), toPay (approved_pending_payment), ready (signed)', () => {
+  it('conta pending (in_review), ready (signed) — approved_pending_payment não conta para toPay', () => {
     const requests = [
       makeRequest({ status: 'in_review' }),
       makeRequest({ status: 'in_review' }),
@@ -254,7 +262,7 @@ describe('getCountersForPatient', () => {
 
     const c = getCountersForPatient(requests);
     expect(c.pending).toBe(2);
-    expect(c.toPay).toBe(1);
+    expect(c.toPay).toBe(0);
     expect(c.ready).toBe(1);
   });
 
@@ -374,16 +382,16 @@ describe('getUiModel — patient/prescription', () => {
     expect(ui.phase).toBe('ai');
   });
 
-  it('approved_pending_payment → fase awaiting_payment, canPay=true', () => {
+  it('approved_pending_payment → fase awaiting_payment, canPay=false (fluxo sem pagamento)', () => {
     const ui = getUiModel(req('approved_pending_payment'), 'patient');
     expect(ui.phase).toBe('awaiting_payment');
-    expect(ui.actions.canPay).toBe(true);
-    expect(ui.countersBucket).toBe('to_pay');
+    expect(ui.actions.canPay).toBe(false);
+    expect(ui.countersBucket).toBe('pending');
   });
 
-  it('pending_payment (legado) → canPay=true', () => {
+  it('pending_payment (legado) → canPay=false', () => {
     const ui = getUiModel(req('pending_payment'), 'patient');
-    expect(ui.actions.canPay).toBe(true);
+    expect(ui.actions.canPay).toBe(false);
   });
 
   it('paid → fase waiting_doctor, sem ações de pagamento', () => {
@@ -568,20 +576,20 @@ describe('getUiModel — badge e timeline', () => {
 // ─── Contadores ────────────────────────────────────────────────────────────
 
 describe('getCountersForPatient', () => {
-  it('conta toPay para approved_pending_payment', () => {
-    const reqs = [req('approved_pending_payment'), req('submitted'), req('signed')];
+  it('não conta toPay para approved_pending_payment (fluxo sem pagamento)', () => {
+    const reqs = [req('approved_pending_payment'), req('submitted'), req('signed')] as Parameters<typeof getCountersForPatient>[0];
     const { toPay } = getCountersForPatient(reqs);
-    expect(toPay).toBe(1);
+    expect(toPay).toBe(0);
   });
 
   it('conta ready para signed e delivered', () => {
-    const reqs = [req('signed'), req('delivered'), req('submitted')];
+    const reqs = [req('signed'), req('delivered'), req('submitted')] as Parameters<typeof getCountersForPatient>[0];
     const { ready } = getCountersForPatient(reqs);
     expect(ready).toBe(2);
   });
 
   it('conta pending para in_review', () => {
-    const reqs = [req('in_review'), req('in_review'), req('delivered')];
+    const reqs = [req('in_review'), req('in_review'), req('delivered')] as Parameters<typeof getCountersForPatient>[0];
     const { pending } = getCountersForPatient(reqs);
     expect(pending).toBe(2);
   });
@@ -596,13 +604,13 @@ describe('getCountersForPatient', () => {
 
 describe('getCountersForDoctor', () => {
   it('conta naFila para submitted', () => {
-    const reqs = [req('submitted'), req('submitted'), req('delivered')];
+    const reqs = [req('submitted'), req('submitted'), req('delivered')] as Parameters<typeof getCountersForDoctor>[0];
     const { naFila } = getCountersForDoctor(reqs);
     expect(naFila).toBe(2);
   });
 
   it('conta emConsulta para in_consultation', () => {
-    const reqs = [req('in_consultation', 'consultation'), req('submitted')];
+    const reqs = [req('in_consultation', 'consultation'), req('submitted')] as Parameters<typeof getCountersForDoctor>[0];
     const { emConsulta } = getCountersForDoctor(reqs);
     expect(emConsulta).toBe(1);
   });
@@ -616,19 +624,19 @@ describe('getCountersForDoctor', () => {
 
 describe('getPendingForPanelFromModel', () => {
   it('exclui requests com bucket historical', () => {
-    const reqs = [req('submitted'), req('delivered'), req('submitted'), req('submitted')];
+    const reqs = [req('submitted'), req('delivered'), req('submitted'), req('submitted')] as Parameters<typeof getPendingForPanelFromModel>[0];
     const result = getPendingForPanelFromModel(reqs, 10);
     expect(result.every((r: any) => r.status !== 'delivered')).toBe(true);
   });
 
   it('respeita o limite', () => {
-    const reqs = Array.from({ length: 10 }, (_, i) => req('submitted'));
+    const reqs = Array.from({ length: 10 }, () => req('submitted')) as Parameters<typeof getPendingForPanelFromModel>[0];
     const result = getPendingForPanelFromModel(reqs, 3);
     expect(result.length).toBe(3);
   });
 
   it('retorna vazio quando todos são histórico', () => {
-    const reqs = [req('delivered'), req('rejected'), req('cancelled')];
+    const reqs = [req('delivered'), req('rejected'), req('cancelled')] as Parameters<typeof getPendingForPanelFromModel>[0];
     const result = getPendingForPanelFromModel(reqs, 10);
     expect(result.length).toBe(0);
   });

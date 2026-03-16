@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   Alert,
-  TouchableOpacity,
   useWindowDimensions,
   ScrollView,
   ActivityIndicator,
@@ -16,14 +15,12 @@ import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { createConsultationRequest, getTimeBankBalance } from '../../lib/api';
+import { createConsultationRequest } from '../../lib/api';
 import { showToast } from '../../components/ui/Toast';
 import { useInvalidateRequests } from '../../lib/hooks/useRequestsQuery';
-import { CONSULTATION_PRICE_PER_MINUTE } from '../../lib/config/pricing';
-import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { validate } from '../../lib/validation';
-import { createConsultationSchema, CONSULTATION_MIN_MINUTES, CONSULTATION_MAX_MINUTES } from '../../lib/validation/schemas';
+import { createConsultationSchema } from '../../lib/validation/schemas';
 import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
@@ -38,19 +35,11 @@ const t = theme.typography;
 const SALDO_DESC =
   'Saldo em banco de horas. O profissional está disponível para dúvidas e orientações pontuais. Não para acompanhamento.';
 
+const CONSULTATION_DURATION_MINUTES = 15;
+
 const CONSULTATION_TYPES = [
-  {
-    key: 'psicologo' as const,
-    label: 'Psicólogo',
-    pricePerMin: CONSULTATION_PRICE_PER_MINUTE.psicologo,
-    desc: SALDO_DESC,
-  },
-  {
-    key: 'medico_clinico' as const,
-    label: 'Médico Clínico',
-    pricePerMin: CONSULTATION_PRICE_PER_MINUTE.medico_clinico,
-    desc: SALDO_DESC,
-  },
+  { key: 'psicologo' as const, label: 'Psicólogo', desc: SALDO_DESC },
+  { key: 'medico_clinico' as const, label: 'Médico Clínico', desc: SALDO_DESC },
 ];
 
 const NARROW_BREAKPOINT = 400;
@@ -61,19 +50,14 @@ export default function ConsultationScreen() {
   const { width } = useWindowDimensions();
   const oneColumn = width < NARROW_BREAKPOINT;
   const [consultationType, setConsultationType] = useState<'psicologo' | 'medico_clinico'>('psicologo');
-  const [durationMinutes, setDurationMinutes] = useState(15);
-  const addMinutes = () => { setDurationMinutes((m) => Math.min(CONSULTATION_MAX_MINUTES, m + 1)); setUserAdjustedMinutes(true); };
-  const removeMinutes = () => { setDurationMinutes((m) => Math.max(CONSULTATION_MIN_MINUTES, m - 1)); setUserAdjustedMinutes(true); };
   const [symptoms, setSymptoms] = useState('');
   const [loading, setLoading] = useState(false);
-  const [bankMinutes, setBankMinutes] = useState<number>(0);
-  const [loadingBank, setLoadingBank] = useState(false);
   const { colors } = useAppTheme({ role: 'patient' });
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateConsultationCompleteness({
     consultationType,
-    durationMinutes,
+    durationMinutes: CONSULTATION_DURATION_MINUTES,
     symptoms,
   });
   const redFlagsLocal = detectRedFlags(symptoms);
@@ -96,7 +80,7 @@ export default function ConsultationScreen() {
       evaluateAssistantCompleteness({
         flow: 'consultation',
         consultationType,
-        durationMinutes,
+        durationMinutes: CONSULTATION_DURATION_MINUTES,
         symptoms,
       })
         .then((res) => {
@@ -118,7 +102,7 @@ export default function ConsultationScreen() {
         .finally(() => { if (!cancelled) setApiLoading(false); });
     }, 500);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [consultationType, durationMinutes, symptoms]);
+  }, [consultationType, symptoms]);
 
   const completeness = apiResult
     ? { score: apiResult.score, doneCount: apiResult.doneCount, totalCount: apiResult.totalCount, items: apiResult.items, missingRequired: apiResult.missingRequired }
@@ -130,31 +114,18 @@ export default function ConsultationScreen() {
         guidance: apiResult.urgencyMessage ?? 'Sinais de urgência detectados. Considere buscar atendimento presencial.',
       }
     : redFlagsLocal;
-  // Step tracking: baseado na interação real do usuário, não em valores default
   const [userPickedType, setUserPickedType] = useState(false);
-  const [userAdjustedMinutes, setUserAdjustedMinutes] = useState(false);
   let currentStep = 1;
   if (userPickedType) currentStep = 2;
-  if (userPickedType && userAdjustedMinutes) currentStep = 3;
-  if (userPickedType && userAdjustedMinutes && symptoms.trim().length > 0) currentStep = 4;
+  if (userPickedType && symptoms.trim().length > 0) currentStep = 3;
 
   const consultationValidation = validate(createConsultationSchema, {
     consultationType,
-    durationMinutes,
+    durationMinutes: CONSULTATION_DURATION_MINUTES,
     symptoms,
   });
   const isFormValid = completeness.missingRequired.length === 0 && consultationValidation.success;
   const symptomsRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingBank(true);
-    getTimeBankBalance(consultationType)
-      .then(res => { if (!cancelled) setBankMinutes(res.balanceMinutes); })
-      .catch(() => { if (!cancelled) setBankMinutes(0); })
-      .finally(() => { if (!cancelled) setLoadingBank(false); });
-    return () => { cancelled = true; };
-  }, [consultationType]);
 
   /** Dra. Renoveja: dicas (descreva sintomas, mais detalhes). */
   useTriageEval({
@@ -165,14 +136,6 @@ export default function ConsultationScreen() {
     symptoms: symptoms || undefined,
   });
 
-  const pricePerMin = CONSULTATION_PRICE_PER_MINUTE[consultationType];
-  const { freeMinutes, paidMinutes, totalPrice } = useMemo(() => {
-    const free = Math.min(bankMinutes, durationMinutes);
-    const paid = durationMinutes - free;
-    const total = Math.round(pricePerMin * paid * 100) / 100;
-    return { freeMinutes: free, paidMinutes: paid, totalPrice: total };
-  }, [pricePerMin, durationMinutes, bankMinutes]);
-
   const submitConsultation = async (payload: {
     consultationType: 'psicologo' | 'medico_clinico';
     durationMinutes: number;
@@ -180,18 +143,10 @@ export default function ConsultationScreen() {
   }) => {
     setLoading(true);
     try {
-      const result = await createConsultationRequest(payload);
-      if (result.payment) {
-        router.replace(`/payment/${result.payment.id}`);
-      } else {
-        invalidateRequests();
-        const msg =
-          totalPrice === 0
-            ? 'Consulta solicitada usando seu banco de horas! Aguarde um profissional aceitar.'
-            : 'Consulta solicitada! Aguarde um profissional aceitar.';
-        showToast({ message: msg, type: 'success' });
-        router.replace('/(patient)/requests');
-      }
+      await createConsultationRequest(payload);
+      invalidateRequests();
+      showToast({ message: 'Consulta solicitada! Aguarde um profissional aceitar.', type: 'success' });
+      router.replace('/(patient)/requests');
     } catch (error: unknown) {
       showToast({ message: getApiErrorMessage(error), type: 'error' });
     } finally {
@@ -208,7 +163,7 @@ export default function ConsultationScreen() {
 
     const validation = validate(createConsultationSchema, {
       consultationType,
-      durationMinutes,
+      durationMinutes: CONSULTATION_DURATION_MINUTES,
       symptoms,
     });
     if (!validation.success) {
@@ -238,7 +193,7 @@ export default function ConsultationScreen() {
       <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
         <AppHeader title="Consulta Breve" />
-        <StepIndicator current={currentStep} total={4} labels={['Profissional', 'Minutos', 'Sintomas', 'Revisão']} showConnectorLines={false} />
+        <StepIndicator current={currentStep} total={3} labels={['Profissional', 'Sintomas', 'Revisão']} showConnectorLines={false} />
         <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
           <View style={styles.assistantHeader}>
             <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
@@ -278,42 +233,20 @@ export default function ConsultationScreen() {
               <Text style={[styles.typeName, consultationType === type.key && styles.typeNameSelected]} numberOfLines={1}>
                 {type.label}
               </Text>
-              <Text style={styles.typePricePerMin} numberOfLines={1}>{formatBRL(type.pricePerMin)}/min</Text>
               <Text style={styles.typeDesc} numberOfLines={4} ellipsizeMode="tail">{type.desc}</Text>
             </AppCard>
           ))}
         </View>
 
-        {/* Minutos */}
-        <Text style={styles.overline}>MINUTOS CONTRATADOS</Text>
-        {currentStep === 2 && (
-          <Text style={styles.stepHint}>Passo 2 — Toque no − para diminuir ou no + para aumentar os minutos. O preço atualiza na hora.</Text>
-        )}
+        <Text style={styles.overline}>DURAÇÃO</Text>
         <Text style={styles.minutesHint}>
-          A chamada encerra automaticamente ao atingir o tempo. Minutos não usados viram saldo em{'\u00A0'}banco de horas.
+          A consulta terá duração de {CONSULTATION_DURATION_MINUTES} minutos. A chamada encerra automaticamente ao atingir o tempo.
         </Text>
-        <View style={styles.minutesStepperRow}>
-          <TouchableOpacity
-            style={[styles.stepperBtn, durationMinutes <= CONSULTATION_MIN_MINUTES && styles.stepperBtnDisabled]}
-            onPress={removeMinutes}
-            disabled={durationMinutes <= CONSULTATION_MIN_MINUTES}
-          >
-            <Ionicons name="remove" size={24} color={durationMinutes <= CONSULTATION_MIN_MINUTES ? colors.textMuted : colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.minutesStepperValue}>{durationMinutes} min</Text>
-          <TouchableOpacity
-            style={[styles.stepperBtn, durationMinutes >= CONSULTATION_MAX_MINUTES && styles.stepperBtnDisabled]}
-            onPress={addMinutes}
-            disabled={durationMinutes >= CONSULTATION_MAX_MINUTES}
-          >
-            <Ionicons name="add" size={24} color={durationMinutes >= CONSULTATION_MAX_MINUTES ? colors.textMuted : colors.primary} />
-          </TouchableOpacity>
-        </View>
 
         {/* Sintomas */}
         <Text style={styles.overline}>DESCREVA SEUS SINTOMAS / DÚVIDA</Text>
-        {currentStep === 3 && (
-          <Text style={styles.stepHint}>Passo 3 — Escreva o que você está sentindo ou a dúvida que tem. Isso ajuda o profissional a te atender melhor.</Text>
+        {currentStep === 2 && (
+          <Text style={styles.stepHint}>Passo 2 — Escreva o que você está sentindo ou a dúvida que tem. Isso ajuda o profissional a te atender melhor.</Text>
         )}
         <TextInput
           ref={symptomsRef}
@@ -330,44 +263,11 @@ export default function ConsultationScreen() {
           textAlignVertical="top"
         />
 
-        {/* Saldo banco de horas */}
-        {!loadingBank && bankMinutes > 0 && (
-          <AppCard style={styles.bankCard}>
-            <View style={styles.bankRow}>
-              <Ionicons name="time" size={18} color={colors.success} />
-              <Text style={styles.bankText}>
-                Você tem <Text style={styles.bankBold}>{bankMinutes} min</Text> gratuitos disponíveis no banco de horas
-              </Text>
-            </View>
-          </AppCard>
-        )}
-
-        {/* Total */}
-        <AppCard style={styles.totalCard}>
-          {freeMinutes > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>
-                {freeMinutes} min gratuitos (banco de horas)
-              </Text>
-              <Text style={styles.discountValue}>-{formatBRL(pricePerMin * freeMinutes)}</Text>
-            </View>
-          )}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>
-              {paidMinutes} min × {formatBRL(pricePerMin)}/min
-            </Text>
-            <Text style={styles.totalValue}>{formatBRL(totalPrice)}</Text>
-          </View>
-          {freeMinutes > 0 && paidMinutes === 0 && (
-            <Text style={styles.freeLabel}>Consulta gratuita pelo banco de horas!</Text>
-          )}
-        </AppCard>
-
       </ScrollView>
       <StickyCTA
-        summaryTitle="Total agora"
-        summaryValue={formatBRL(totalPrice)}
-        summaryHint={`${completeness.score}% pronto • ${freeMinutes > 0 ? `${freeMinutes} min gratuitos aplicados` : `${paidMinutes} min cobrados`}`}
+        summaryTitle="Resumo"
+        summaryValue={`${completeness.score}% pronto`}
+        summaryHint={`${CONSULTATION_DURATION_MINUTES} min de consulta`}
         primary={{
           label: 'Solicitar consulta',
           onPress: handleSubmit,

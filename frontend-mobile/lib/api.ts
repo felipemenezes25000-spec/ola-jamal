@@ -20,7 +20,6 @@
  */
 
 import { fetchRequests, fetchRequestById } from './api-requests';
-import { fetchPaymentByRequest, fetchPayment, fetchPixCode } from './api-payments';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from './api-notifications';
 import { fetchDoctorQueue } from './api-doctors';
 
@@ -29,7 +28,6 @@ export type { UserDto } from '../types/database';
 
 // ── Domain modules ──────────────────────────────────────────────
 export * from './api-requests';
-export * from './api-payments';
 export * from './api-doctors';
 export * from './api-clinical';
 export * from './api-consultation';
@@ -60,9 +58,6 @@ export function getRequests(
   return fetchRequests(params, options);
 }
 export const getRequestById = fetchRequestById;
-export const getPaymentByRequest = fetchPaymentByRequest;
-export const getPaymentById = fetchPayment;
-export const getPixCode = fetchPixCode;
 export const getNotifications = (params?: { page?: number; pageSize?: number }) =>
   fetchNotifications(params?.page, params?.pageSize);
 export const markNotificationAsRead = markNotificationRead;

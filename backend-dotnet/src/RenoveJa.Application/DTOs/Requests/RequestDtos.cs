@@ -89,6 +89,8 @@ public record RequestResponseDto(
     string? ConsultationAiSuggestions = null,
     /// <summary>JSON com artigos científicos (provider, url, title, clinicalRelevance) que apoiam o CID sugerido.</summary>
     string? ConsultationEvidence = null,
+    /// <summary>Notas SOAP geradas pela IA após a consulta (S/O/A/P + termos médicos).</summary>
+    string? ConsultationSoapNotes = null,
     /// <summary>Indica se existe gravação de vídeo da consulta (obter URL via GET .../recording-download-url).</summary>
     bool ConsultationHasRecording = false,
     string? ConsultationType = null,

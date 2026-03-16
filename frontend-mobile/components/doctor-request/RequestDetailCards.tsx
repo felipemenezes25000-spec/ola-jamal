@@ -14,8 +14,6 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import { DoctorCard } from '../ui/DoctorCard';
-import { getDisplayPrice } from '../../lib/config/pricing';
-import { formatBRL } from '../../lib/utils/format';
 import type { RequestResponseDto } from '../../types/database';
 
 const pad = doctorDS.screenPaddingHorizontal;
@@ -47,10 +45,6 @@ export function DetailsCard({ request }: { request: RequestResponseDto }) {
             </View>
           </View>
         )}
-        <View style={s.detailItem}>
-          <Text style={s.detailItemLabel}>VALOR</Text>
-          <Text style={s.detailPrice}>{formatBRL(getDisplayPrice(request.price, request.requestType, request.prescriptionType))}</Text>
-        </View>
       </View>
     </DoctorCard>
   );

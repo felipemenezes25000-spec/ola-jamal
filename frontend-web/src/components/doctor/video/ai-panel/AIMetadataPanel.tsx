@@ -15,15 +15,11 @@ import {
   User,
   FileText,
 } from 'lucide-react';
-import type { PerguntaSugerida, EvidenceItem } from './types';
-
+import type { PerguntaSugerida } from './types';\n
 interface AIMetadataPanelProps {
   activeTab: 'perguntas' | 'evidencias';
   perguntasSugeridas: PerguntaSugerida[];
   lacunasAnamnese: string[];
-  filteredEvidence: EvidenceItem[];
-  expandedEvidence: Set<number>;
-  toggleEvidenceExpand: (idx: number) => void;
   copyToClipboard: (text: string, label: string) => void;
 }
 
@@ -31,9 +27,6 @@ export function AIMetadataPanel({
   activeTab,
   perguntasSugeridas,
   lacunasAnamnese,
-  filteredEvidence,
-  expandedEvidence,
-  toggleEvidenceExpand,
   copyToClipboard,
 }: AIMetadataPanelProps) {
   if (activeTab === 'perguntas') {
@@ -139,112 +132,5 @@ export function AIMetadataPanel({
     );
   }
 
-  // activeTab === 'evidencias'
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Library className="h-3.5 w-3.5 text-primary" />
-        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Evidências Científicas</span>
-        <span className="px-2 py-0.5 rounded-md bg-primary/20 text-[9px] font-bold text-primary">IA</span>
-      </div>
-      <p className="text-xs text-gray-500">
-        Artigos de PubMed, Europe PMC e outras bases que apoiam hipótese diagnóstica e conduta para este caso.
-      </p>
-      {filteredEvidence.length > 0 ? (
-        <div className="space-y-2">
-          {filteredEvidence.map((e, i) => {
-            const isExpanded = expandedEvidence.has(i);
-            const nivelBadge = e.nivelEvidencia ? `Nível ${e.nivelEvidencia}` : '';
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => toggleEvidenceExpand(i)}
-                className="w-full text-left p-3 rounded-xl border border-gray-700/50 bg-gray-800/30 hover:bg-gray-800/50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className={`text-sm font-bold text-gray-200 flex-1 ${!isExpanded ? 'line-clamp-2' : ''}`}>
-                    {e.title}
-                  </p>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {nivelBadge && (
-                      <span className="px-2 py-0.5 rounded-md bg-primary/20 text-[9px] font-bold text-primary">
-                        {nivelBadge}
-                      </span>
-                    )}
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-gray-500" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                    )}
-                  </div>
-                </div>
-                {e.conexaoComPaciente && (
-                  <div className="mt-2 p-2 rounded-lg bg-primary/10 flex items-start gap-2">
-                    <User className="h-3 w-3 text-primary shrink-0 mt-0.5" />
-                    <p className="text-xs text-primary font-semibold">{e.conexaoComPaciente}</p>
-                  </div>
-                )}
-                {(e.clinicalRelevance ?? e.translatedAbstract ?? e.abstract) && (
-                  <div className="mt-2 p-2 rounded-lg bg-primary/10 flex items-start gap-2">
-                    <FileText className="h-3 w-3 text-primary shrink-0 mt-0.5" />
-                    <p className="text-xs text-gray-400 line-clamp-3">
-                      {e.clinicalRelevance ?? e.translatedAbstract ?? e.abstract}
-                    </p>
-                  </div>
-                )}
-                {isExpanded && e.relevantExcerpts?.map((excerpt, j) => (
-                  <div key={j} className="mt-2 pl-4 border-l-2 border-primary">
-                    <p className="text-xs text-gray-400 italic">&quot;{excerpt}&quot;</p>
-                  </div>
-                ))}
-                {isExpanded && e.motivoSelecao && (
-                  <div className="mt-2 flex items-start gap-2 pl-1">
-                    <CheckCircle2 className="h-3 w-3 text-gray-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-gray-500 italic">{e.motivoSelecao}</p>
-                  </div>
-                )}
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500">{e.source}</span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[9px] font-semibold text-white ${
-                      e.provider === 'Europe PMC'
-                        ? 'bg-blue-600'
-                        : e.provider === 'Semantic Scholar'
-                          ? 'bg-violet-600'
-                          : e.provider === 'ClinicalTrials.gov'
-                            ? 'bg-emerald-800'
-                            : 'bg-green-700'
-                    }`}
-                  >
-                    {e.provider ?? 'PubMed'}
-                  </span>
-                </div>
-                {e.url && (
-                  <a
-                    href={e.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-primary hover:underline mt-1 inline-flex items-center gap-1"
-                    onClick={(ev) => ev.stopPropagation()}
-                  >
-                    Ver fonte →
-                  </a>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="p-4 rounded-xl border border-gray-700/50 bg-gray-800/30 text-center">
-          <Library className="h-6 w-6 text-primary mx-auto mb-2" />
-          <p className="text-sm font-bold text-primary">Evidências em breve</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Artigos científicos serão buscados automaticamente quando houver hipótese diagnóstica (CID) e dados da
-            consulta. A IA seleciona trechos relevantes e explica a conexão com o caso do paciente.
-          </p>
-        </div>
-      )}
-    </div>
-  );
+  return null;
 }

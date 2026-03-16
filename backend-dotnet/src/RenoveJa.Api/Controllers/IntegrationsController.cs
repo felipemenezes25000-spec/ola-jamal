@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Options;
-using RenoveJa.Application.Configuration;
 
 namespace RenoveJa.Api.Controllers;
 
@@ -11,7 +9,7 @@ namespace RenoveJa.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/integrations")]
-public class IntegrationsController(IOptions<MercadoPagoConfig> mpConfig, IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<IntegrationsController> logger) : ControllerBase
+public class IntegrationsController(IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<IntegrationsController> logger) : ControllerBase
 {
     /// <summary>
     /// Retorna a chave pública do Mercado Pago para uso no frontend (Card Payment Brick, tokenização).
@@ -20,11 +18,7 @@ public class IntegrationsController(IOptions<MercadoPagoConfig> mpConfig, IHttpC
     [AllowAnonymous]
     public IActionResult GetMercadoPagoPublicKey()
     {
-        logger.LogInformation("Integrations GetMercadoPagoPublicKey");
-        var key = mpConfig.Value.PublicKey;
-        if (string.IsNullOrWhiteSpace(key))
-            return Ok(new { publicKey = (string?)null, message = "MercadoPago:PublicKey não configurada em appsettings." });
-        return Ok(new { publicKey = key });
+        return Ok(new { publicKey = (string?)null, message = "Fluxo de pagamento desativado." });
     }
 
     /// <summary>
@@ -51,26 +45,8 @@ public class IntegrationsController(IOptions<MercadoPagoConfig> mpConfig, IHttpC
         return Ok(cachedResult);
     }
 
-    private async Task<object> GetMercadoPagoStatusAsync(CancellationToken ct)
+    private Task<object> GetMercadoPagoStatusAsync(CancellationToken ct)
     {
-        var token = mpConfig.Value.AccessToken;
-        if (string.IsNullOrWhiteSpace(token) || token.Contains("YOUR_") || token.Contains("_HERE"))
-            return new { status = "not_configured", message = "MercadoPago:AccessToken não configurado em appsettings." };
-
-        try
-        {
-            var client = httpFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + token);
-            var res = await client.GetAsync("https://api.mercadopago.com/v1/payment_methods", ct);
-            if (res.IsSuccessStatusCode)
-                return new { status = "operational", message = "Token válido. PIX disponível." };
-            if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                return new { status = "token_invalid", message = "Access Token inválido ou expirado. Veja docs/OBTER_TOKEN_MERCADOPAGO.md" };
-            return new { status = "error", message = $"Mercado Pago retornou {(int)res.StatusCode}" };
-        }
-        catch (Exception ex)
-        {
-            return new { status = "error", message = ex.Message };
-        }
+        return Task.FromResult<object>(new { status = "disabled", message = "Fluxo de pagamento desativado." });
     }
 }

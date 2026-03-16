@@ -54,9 +54,6 @@ export type AppRoute =
   | `/request-detail/${string}`
   | `/doctor-request/${string}`
   | `/doctor-request/editor/${string}`
-  | `/payment/${string}`
-  | `/payment/request/${string}`
-  | `/payment/card`
   | `/video/${string}`
   | `/consultation-summary/${string}`
   | `/doctor-patient/${string}`

@@ -25,11 +25,10 @@ import type { DesignColors } from '../../lib/designSystem';
 import { uiTokens } from '../../lib/ui/tokens';
 import { getDocumentDownloadUrl } from '../../lib/api';
 import { useRequestDetailQuery, useCancelRequest, useMarkDelivered } from '../../lib/hooks/useRequestDetailQuery';
-import { getDisplayPrice } from '../../lib/config/pricing';
-import { formatBRL, formatDateTimeBR } from '../../lib/utils/format';
+import { formatDateTimeBR } from '../../lib/utils/format';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
-import { AppButton, StickyCTA, FormSection, AppEmptyState } from '../../components/ui';
+import { AppButton, FormSection, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
@@ -137,7 +136,6 @@ export default function RequestDetailScreen() {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const videoModalShownRef = useRef(false);
   const lastVideoModalRequestIdRef = useRef<string | null>(null);
-  const payInFlightRef = useRef(false);
   const { isConnected } = useNetworkStatus();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -190,29 +188,6 @@ export default function RequestDetailScreen() {
     requestId: request?.id ?? undefined,
     doctorConductNotes: request?.doctorConductNotes ?? undefined,
   });
-
-  const handlePay = () => {
-    if (payInFlightRef.current) return;
-    if (isConnected === false) {
-      Alert.alert('Sem conexão', 'Conecte-se à internet para continuar para o pagamento.');
-      return;
-    }
-    payInFlightRef.current = true;
-    try {
-      if (!request) return;
-      const allowedToPay = ['approved_pending_payment', 'pending_payment'].includes(request.status);
-      if (!allowedToPay) {
-        Alert.alert(
-          'Pagamento indisponível',
-          'Esta solicitação não está aguardando pagamento. O botão Pagar só aparece quando o pedido foi aprovado e está aguardando pagamento.'
-        );
-        return;
-      }
-      router.push(`/payment/request/${request.id}`);
-    } finally {
-      payInFlightRef.current = false;
-    }
-  };
 
   const markAsDeliveredIfSigned = async () => {
     if (!requestId || !request || request.status !== 'signed') return;
@@ -416,19 +391,13 @@ export default function RequestDetailScreen() {
 
   if (!request) return null;
 
-  // Backend aceita pagamento quando status está aguardando pagamento.
-  const canPay =
-    ['approved_pending_payment', 'pending_payment'].includes(request.status);
   const canDownload = !!request.signedDocumentUrl;
   const canJoinVideo = ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
   const canCancel = ['submitted', 'in_review', 'approved_pending_payment', 'pending_payment', 'searching_doctor'].includes(request.status);
-  const stickyBottomOffset = canPay ? 132 : 0;
-  // Sempre usar request atual — evita dessincronia (ex: polling atualiza para paid mas API retornava "falta pagamento")
+  const stickyBottomOffset = 0;
   const nextAction = getNextBestActionForRequest(request);
   const nextActionQuickCta =
-    nextAction.intent === 'pay' && canPay
-      ? { label: nextAction.ctaLabel ?? 'Pagar agora', onPress: handlePay }
-      : nextAction.intent === 'download' && canDownload
+    nextAction.intent === 'download' && canDownload
         ? { label: nextAction.ctaLabel ?? 'Baixar documento', onPress: handleDownload }
         : null;
 
@@ -563,12 +532,6 @@ export default function RequestDetailScreen() {
               </View>
             </View>
           )}
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Valor</Text>
-            <Text style={[styles.detailValue, { color: colors.success, fontWeight: '700' }]}>
-              {formatBRL(getDisplayPrice(request.price, request.requestType))}
-            </Text>
-          </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Criado em</Text>
             <Text style={styles.detailValue}>
@@ -739,16 +702,6 @@ export default function RequestDetailScreen() {
           )}
         </View>
       </ScrollView>
-
-      {canPay && (
-        <StickyCTA
-          summaryTitle="Total"
-          summaryValue={formatBRL(getDisplayPrice(request.price, request.requestType))}
-          summaryHint="Pagamento seguro. Você pode revisar antes."
-          secondary={{ label: 'Voltar', onPress: () => router.back() }}
-          primary={{ label: 'Pagar agora', onPress: handlePay, loading: actionLoading, disabled: actionLoading }}
-        />
-      )}
 
       {/* Modal popup de vídeo: "Entre na consulta" */}
       <Modal

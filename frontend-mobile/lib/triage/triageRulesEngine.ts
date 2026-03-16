@@ -504,16 +504,6 @@ function rulesRequests(i: TriageInput): TriageMessage | null {
       canMute: true,
     };
   }
-  if (i.toPayCount && i.toPayCount > 0) {
-    return {
-      key: 'requests:to_pay',
-      text: `Você tem ${i.toPayCount} pedido(s) aguardando pagamento. Após pagar, o documento fica disponível para download.`,
-      severity: 'info', avatarState: 'neutral',
-      cta: null,
-      cooldownMs: MS.INSIGHT,
-      canMute: true,
-    };
-  }
   return companionFallback('requests');
 }
 
@@ -595,25 +585,25 @@ function rulesHelp(i: TriageInput): TriageMessage | null {
 // ── REQUEST DETAIL ──────────────────────────────────────────
 
 function rulesDetail(i: TriageInput): TriageMessage | null {
-  // Antes do pagamento: pedido aprovado aguardando pagamento
+  // Pedido aprovado aguardando assinatura
   if (
     i.step === 'entry' &&
     i.status &&
-    ['approved_pending_payment', 'pending_payment'].includes(i.status)
+    ['approved_pending_payment', 'pending_payment', 'paid'].includes(i.status)
   ) {
     const kind = i.requestType ?? 'generic';
     if (kind === 'consultation') {
       return {
-        key: 'detail:pay_consultation',
-        text: 'Falta só o pagamento! Depois disso, você entra direto na videochamada com o médico.',
+        key: 'detail:consultation_ready',
+        text: 'Consulta pronta! Quando o médico iniciar, você entra direto na videochamada.',
         severity: 'info', avatarState: 'neutral', cta: null,
         cooldownMs: MS.STEP,
         canMute: true,
       };
     }
     return {
-      key: kind === 'exam' ? 'detail:pay_exam' : 'detail:pay_prescription',
-      text: 'Quase lá! Após o pagamento, seu documento fica disponível aqui mesmo para download.',
+      key: kind === 'exam' ? 'detail:awaiting_signature_exam' : 'detail:awaiting_signature_prescription',
+      text: 'Quase lá! O médico está preparando e assinando seu documento. Fica disponível aqui para download.',
       severity: 'info', avatarState: 'neutral', cta: null,
       cooldownMs: MS.STEP,
       canMute: true,
@@ -661,7 +651,7 @@ function rulesDoctorDashboard(i: TriageInput): TriageMessage | null {
   if (i.doctorToSignCount && i.doctorToSignCount > 0) {
     return {
       key: 'doctor:dashboard:to_sign',
-      text: `Há ${i.doctorToSignCount} documento(s) pagos aguardando assinatura digital. Abra a lista para concluir e liberar para os pacientes.`,
+      text: `Há ${i.doctorToSignCount} documento(s) aprovados aguardando assinatura digital. Abra a lista para concluir e liberar para os pacientes.`,
       severity: 'info',
       avatarState: 'neutral',
       cta: null,
@@ -701,11 +691,11 @@ function rulesDoctorDetail(i: TriageInput): TriageMessage | null {
     };
   }
 
-  // Pedido já pago, aguardando ação do médico
+  // Pedido aprovado, aguardando assinatura do médico
   if (i.status === 'paid' && i.requestType && i.requestType !== 'consultation') {
     return {
       key: `doctor:detail:paid:${i.requestType}`,
-      text: 'Este pedido já está pago. Revise as imagens e o resumo e, se estiver de acordo, assine o documento para liberar ao paciente.',
+      text: 'Este pedido está aprovado. Revise as imagens e o resumo e, se estiver de acordo, assine o documento para liberar ao paciente.',
       severity: 'info',
       avatarState: 'neutral',
       cta: null,

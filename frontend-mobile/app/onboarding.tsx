@@ -56,7 +56,7 @@ function makeSteps(colors: DesignColors): Step[] {
       iconColor: colors.warning,
       title: 'Acompanhe em tempo real',
       subtitle:
-        'Receba notificações a cada etapa: aprovação, pagamento e entrega do documento final.',
+        'Receba notificações a cada etapa: aprovação, assinatura e entrega do documento final.',
     },
   ];
 }

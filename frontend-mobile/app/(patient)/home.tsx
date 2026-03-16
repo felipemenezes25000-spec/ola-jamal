@@ -358,18 +358,6 @@ export default function PatientHome() {
                 <Text style={styles.followUpEta}>{followUpAction.eta}</Text>
               </View>
             ) : null}
-            {followUpAction.intent === 'pay' && needsPayment(followUpRequest) && (
-              <Pressable
-                style={({ pressed }) => [styles.followUpPayCta, pressed && { opacity: 0.85 }]}
-                onPress={() => { haptics.selection(); router.push(`/payment/request/${followUpRequest.id}`); }}
-                accessibilityRole="button"
-                accessibilityLabel="Pagar agora"
-              >
-                <Ionicons name="card" size={15} color={colors.headerOverlayText} />
-                <Text style={styles.followUpPayCtaText}>{followUpAction.ctaLabel ?? 'Pagar agora'}</Text>
-                <Ionicons name="arrow-forward" size={14} color={colors.headerOverlayTextMuted} importantForAccessibility="no" />
-              </Pressable>
-            )}
           </Pressable>
         </View>
       ) : null}

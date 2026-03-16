@@ -32,18 +32,6 @@ export {
   requestDetailKeys,
 } from './useRequestDetailQuery';
 
-// ── Payment ─────────────────────────────────────────────────────
-export {
-  usePaymentQuery,
-  usePixCodeQuery,
-  usePaymentByRequestQuery,
-  useSyncPaymentStatus,
-  useInvalidatePayment,
-  usePaymentQueryHelpers,
-  PaymentRedirectError,
-  paymentKeys,
-} from './usePaymentQuery';
-
 // ── Doctor Actions (mutations) ──────────────────────────────────
 export { useDoctorActions } from './useDoctorActions';
 

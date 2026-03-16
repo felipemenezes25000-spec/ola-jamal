@@ -69,7 +69,9 @@ public class ConsultationAnamnesisRepository(PostgresClient db) : IConsultationA
             model.AnamnesisJson,
             model.AiSuggestionsJson,
             model.EvidenceJson,
-            model.CreatedAt);
+            model.CreatedAt,
+            model.SoapNotesJson,
+            model.SoapNotesGeneratedAt);
     }
 
     private static ConsultationAnamnesisModel MapToModel(ConsultationAnamnesisEntity entity)
@@ -85,6 +87,8 @@ public class ConsultationAnamnesisRepository(PostgresClient db) : IConsultationA
             AnamnesisJson = entity.AnamnesisJson,
             AiSuggestionsJson = entity.AiSuggestionsJson,
             EvidenceJson = entity.EvidenceJson,
+            SoapNotesJson = entity.SoapNotesJson,
+            SoapNotesGeneratedAt = entity.SoapNotesGeneratedAt,
             CreatedAt = entity.CreatedAt
         };
     }

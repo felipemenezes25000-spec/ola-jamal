@@ -84,7 +84,7 @@ export function GlobalAssistantBanner() {
     }
     if (action === 'abrir_pagamento') {
       if (message?.requestId) {
-        nav.push(router, `/payment/request/${message.requestId}`);
+        nav.push(router, `/request-detail/${message.requestId}`);
       } else {
         router.push('/(patient)/requests');
       }

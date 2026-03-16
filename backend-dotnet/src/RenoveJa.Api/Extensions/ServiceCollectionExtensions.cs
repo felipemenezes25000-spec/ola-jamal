@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Amazon.S3;
 using RenoveJa.Application.Configuration;
@@ -10,7 +10,6 @@ using RenoveJa.Application.Services.CarePlans;
 using RenoveJa.Application.Services.Clinical;
 using RenoveJa.Application.Services.Doctors;
 using RenoveJa.Application.Services.Notifications;
-using RenoveJa.Application.Services.Payments;
 using RenoveJa.Application.Services.Requests;
 using RenoveJa.Application.Services.Video;
 using RenoveJa.Application.Services.Verification;
@@ -20,7 +19,6 @@ using RenoveJa.Infrastructure.Auth;
 using RenoveJa.Infrastructure.Certificates;
 using RenoveJa.Infrastructure.CrmValidation;
 using RenoveJa.Infrastructure.Data.Postgres;
-using RenoveJa.Infrastructure.Payments;
 using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.Repositories;
 using RenoveJa.Infrastructure.Storage;
@@ -95,8 +93,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConsultationLifecycleService, ConsultationLifecycleService>();
         services.AddScoped<ISignatureService, SignatureService>();
         services.AddScoped<IRequestService, RequestService>();
-        services.AddScoped<IPaymentService, PaymentService>();
-        services.AddScoped<IPaymentWebhookHandler, PaymentWebhookHandler>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IVideoService, VideoService>();
         services.AddScoped<IDoctorService, DoctorService>();
@@ -135,7 +131,6 @@ public static class ServiceCollectionExtensions
         });
         services.AddScoped<IStorageService, S3StorageService>();
 
-        services.AddScoped<IMercadoPagoService, MercadoPagoService>();
         services.AddScoped<IDigitalCertificateService, DigitalCertificateService>();
         services.AddScoped<IPrescriptionPdfService, PrescriptionPdfService>();
         services.AddScoped<ICrmValidationService, InfoSimplesCrmService>();
@@ -152,13 +147,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPrescriptionVerifyRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerifyRepository>();
         services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();
         services.AddScoped<ITranscriptionService, RenoveJa.Infrastructure.Transcription.WhisperTranscriptionService>();
-        services.AddScoped<IPubMedService, RenoveJa.Infrastructure.PubMed.PubMedService>();
+
         services.AddScoped<IRxNormService, RenoveJa.Infrastructure.RxNorm.RxNormService>();
-        services.AddScoped<RenoveJa.Infrastructure.Evidence.EuropePmcEvidenceService>();
-        services.AddScoped<RenoveJa.Infrastructure.Evidence.SemanticScholarEvidenceService>();
-        services.AddScoped<RenoveJa.Infrastructure.Evidence.ClinicalTrialsEvidenceService>();
-        services.AddScoped<IEvidenceSearchService, RenoveJa.Infrastructure.Evidence.UnifiedEvidenceSearchService>();
+
         services.AddScoped<IConsultationAnamnesisService, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisService>();
+        services.AddScoped<ISoapNotesService, RenoveJa.Infrastructure.SoapNotes.SoapNotesService>();
 
         services.AddSingleton<RenoveJa.Application.Services.Notifications.NewRequestBatchService>();
         services.AddSingleton<INewRequestBatchService>(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());

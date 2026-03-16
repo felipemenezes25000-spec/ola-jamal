@@ -20,8 +20,6 @@ import type { DesignColors } from '../../lib/designSystem';
 import { createExamRequest, evaluateAssistantCompleteness } from '../../lib/api';
 import { showToast } from '../../components/ui/Toast';
 import { useInvalidateRequests } from '../../lib/hooks/useRequestsQuery';
-import { EXAM_TYPE_PRICES } from '../../lib/config/pricing';
-import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { isDuplicateRequestError } from '../../lib/hooks/useCreateRequest';
 import { validate } from '../../lib/validation';
@@ -39,7 +37,7 @@ const ty = theme.typography;
 
 const EXAM_TYPES = [
   { key: 'laboratorial' as const, label: 'Laboratorial', desc: 'Peça exames e receba em poucos instantes.', icon: 'flask' as const },
-  { key: 'imagem' as const, label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia e outros.', icon: 'scan' as const, priceSuffix: 'POR PEDIDO' },
+  { key: 'imagem' as const, label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia e outros.', icon: 'scan' as const },
 ];
 
 const NARROW_BREAKPOINT = 360;
@@ -140,7 +138,6 @@ export default function NewExam() {
   const examValidation = validate(createExamSchema, { examType, exams, symptoms, images });
   const isFormValid = completeness.missingRequired.length === 0 && examValidation.success;
 
-  const selectedPrice = formatBRL(EXAM_TYPE_PRICES[examType as 'laboratorial' | 'imagem']);
   const symptomsRef = useRef<TextInput>(null);
 
   /** Dra. Renoveja: dicas por etapa (tipo imagem, exames). */
@@ -301,9 +298,7 @@ export default function NewExam() {
           <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
         )}
         <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
-          {EXAM_TYPES.map(type => {
-            const price = EXAM_TYPE_PRICES[type.key];
-            return (
+          {EXAM_TYPES.map(type => (
               <AppCard
                 key={type.key}
                 selected={examType === type.key}
@@ -318,14 +313,9 @@ export default function NewExam() {
                 <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]} numberOfLines={1}>
                   {type.label}
                 </Text>
-                <Text style={styles.typePrice} numberOfLines={1}>{formatBRL(price)}</Text>
-                {'priceSuffix' in type && type.priceSuffix && (
-                  <Text style={styles.typePriceSuffix} numberOfLines={1}>{type.priceSuffix}</Text>
-                )}
                 <Text style={styles.typeDesc} numberOfLines={3}>{type.desc}</Text>
               </AppCard>
-            );
-          })}
+          ))}
         </View>
 
         {/* Exams List */}
@@ -410,22 +400,11 @@ export default function NewExam() {
           </View>
         )}
 
-        {/* Price Info */}
-        <View style={styles.priceBox}>
-          <Ionicons name="pricetag" size={18} color={colors.secondary} />
-          <Text style={styles.priceText}>
-            Valor do pedido de exame:{' '}
-            <Text style={styles.priceValue}>{selectedPrice}</Text>
-            {examType === 'imagem' && (
-              <Text style={styles.priceSuffix}> (por pedido)</Text>
-            )}
-          </Text>
-        </View>
       </ScrollView>
       <StickyCTA
-        summaryTitle="Total"
-        summaryValue={selectedPrice}
-        summaryHint={`${completeness.score}% pronto • ${examType === 'imagem' ? 'cobrança por pedido de imagem' : 'pedido laboratorial'}`}
+        summaryTitle="Resumo"
+        summaryValue={`${completeness.score}% pronto`}
+        summaryHint={`${examType === 'imagem' ? 'pedido de imagem' : 'pedido laboratorial'}`}
         primary={{
           label: 'Enviar pedido',
           onPress: handleSubmit,

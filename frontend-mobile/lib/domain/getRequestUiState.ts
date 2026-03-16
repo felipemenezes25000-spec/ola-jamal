@@ -4,8 +4,8 @@
  * Nenhuma tela deve filtrar status diretamente; usar apenas este helper.
  *
  * State machine canônica (backend):
- *   prescription/exam: submitted → in_review → approved_pending_payment → paid → signed → delivered
- *   consultation:      submitted → searching_doctor → approved_pending_payment → paid → in_consultation → consultation_finished
+ *   prescription/exam: submitted → in_review → paid → signed → delivered
+ *   consultation:      submitted → searching_doctor → paid → in_consultation → consultation_finished
  *   Qualquer estado:   → rejected | cancelled
  *
  * Status legados (retrocompatibilidade com dados históricos):
@@ -60,7 +60,7 @@ const STATUS_TO_UI: Record<string, RequestUiState> = {
 
 const STATE_LABELS: Record<RequestUiState, string> = {
   needs_action:    'Pendente',
-  waiting_payment: 'Aguardando pagamento',
+  waiting_payment: 'Aguardando assinatura',
   in_consultation: 'Em consulta',
   ready:           'Consulta pronta',
   historical:      'Finalizado',

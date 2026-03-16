@@ -5,7 +5,7 @@
  *
  * Regras principais:
  * - Paciente NUNCA tem ação em status `paid` (deve ser "aguardando médico").
- * - Paciente só pode pagar em `approved_pending_payment` e legado `pending_payment`.
+ * - Fluxo sem pagamento: aprovação vai direto para `paid`.
  * - Para consulta: status canônico de entrada é `paid`.
  * - Médico pode aprovar/rejeitar em `submitted`, `in_review`, legados `pending`, `analyzing`.
  */
@@ -197,9 +197,9 @@ function getPrescriptionExamPhaseConfig(role: Role, status: NormalizedStatus): P
       case 'approved_pending_payment':
         return {
           phase: 'awaiting_payment',
-          title: 'Aguardando pagamento',
-          actions: { canPay: true, canCancel: true },
-          countersBucket: 'to_pay',
+          title: 'Aguardando assinatura',
+          actions: { canCancel: true },
+          countersBucket: 'pending',
         };
       case 'paid':
         return {
@@ -246,10 +246,10 @@ function getPrescriptionExamPhaseConfig(role: Role, status: NormalizedStatus): P
     case 'approved_pending_payment':
       return {
         phase: 'awaiting_payment',
-        title: 'Aguardando pagamento do paciente',
+        title: 'Aguardando assinatura',
         actions: {},
         countersBucket: 'pending',
-        disabledReason: 'Aguardando pagamento do paciente',
+        disabledReason: 'Aguardando assinatura',
       };
     case 'paid':
       return {
@@ -288,16 +288,16 @@ function getConsultationPhaseConfig(role: Role, status: NormalizedStatus): Phase
       case 'consultation_ready':
         return {
           phase: 'consult_ready',
-          title: 'Médico aceitou — pagar para iniciar',
-          actions: { canPay: true, canCancel: true },
-          countersBucket: 'to_pay',
+          title: 'Consulta pronta para iniciar',
+          actions: { canJoinCall: true, canCancel: true },
+          countersBucket: 'pending',
         };
       case 'approved_pending_payment':
         return {
           phase: 'awaiting_payment',
-          title: 'Aguardando pagamento',
-          actions: { canPay: true, canCancel: true },
-          countersBucket: 'to_pay',
+          title: 'Consulta pronta para iniciar',
+          actions: { canJoinCall: true, canCancel: true },
+          countersBucket: 'pending',
         };
       case 'paid':
         return {
@@ -338,18 +338,18 @@ function getConsultationPhaseConfig(role: Role, status: NormalizedStatus): Phase
     case 'consultation_ready':
       return {
         phase: 'consult_ready',
-        title: 'Aguardando pagamento',
+        title: 'Aguardando paciente',
         actions: {},
         countersBucket: 'pending',
-        disabledReason: 'Aguardando pagamento do paciente',
+        disabledReason: 'Aguardando paciente',
       };
     case 'approved_pending_payment':
       return {
         phase: 'awaiting_payment',
-        title: 'Aguardando pagamento',
+        title: 'Aguardando paciente',
         actions: {},
         countersBucket: 'pending',
-        disabledReason: 'Aguardando pagamento do paciente',
+        disabledReason: 'Aguardando paciente',
       };
     case 'paid':
       return {
@@ -390,14 +390,14 @@ function buildTimelineForPrescriptionExam(
     { id: 'sent', label: 'Enviado', phases: ['sent'] as UiPhase[] },
     ...(hasAiStep ? [{ id: 'ai', label: 'Análise IA', phases: ['ai'] as UiPhase[] }] : []),
     { id: 'review', label: STATUS_LABELS_PT.in_review, phases: ['review'] as UiPhase[] },
-    { id: 'payment', label: 'Pagamento', phases: ['awaiting_payment'] as UiPhase[] },
+    { id: 'payment', label: 'Aguardando assinatura', phases: ['awaiting_payment'] as UiPhase[] },
     { id: 'signed', label: 'Assinado', phases: ['waiting_doctor', 'signed'] as UiPhase[] },
     { id: 'delivered', label: 'Entregue', phases: ['delivered'] as UiPhase[] },
   ];
   const doctorSteps = [
     { id: 'new', label: 'Novo', phases: ['sent'] as UiPhase[] },
     { id: 'review', label: STATUS_LABELS_PT.in_review, phases: ['review'] as UiPhase[] },
-    { id: 'payment', label: 'Aguardando pagamento', phases: ['awaiting_payment'] as UiPhase[] },
+    { id: 'payment', label: 'Aguardando assinatura', phases: ['awaiting_payment'] as UiPhase[] },
     { id: 'sign', label: 'Assinar', phases: ['ready_to_sign'] as UiPhase[] },
     { id: 'delivered', label: 'Entregue', phases: ['signed', 'delivered'] as UiPhase[] },
   ];
@@ -422,14 +422,14 @@ function buildTimelineForPrescriptionExam(
 function buildTimelineForConsultation(role: Role, phase: UiPhase): UiTimelineStep[] {
   const patientSteps = [
     { id: 'searching', label: 'Buscando', phases: ['sent'] as UiPhase[] },
-    { id: 'payment', label: 'Pagamento', phases: ['awaiting_payment'] as UiPhase[] },
+    { id: 'payment', label: 'Pronta', phases: ['awaiting_payment'] as UiPhase[] },
     { id: 'ready', label: 'Pronta', phases: ['consult_ready'] as UiPhase[] },
     { id: 'consultation', label: 'Em Consulta', phases: ['in_consultation'] as UiPhase[] },
     { id: 'finished', label: 'Finalizada', phases: ['finished'] as UiPhase[] },
   ];
   const doctorSteps = [
     { id: 'new', label: 'Nova', phases: ['sent'] as UiPhase[] },
-    { id: 'payment', label: 'Pagamento', phases: ['consult_ready', 'awaiting_payment'] as UiPhase[] },
+    { id: 'payment', label: 'Pronta', phases: ['consult_ready', 'awaiting_payment'] as UiPhase[] },
     { id: 'consultation', label: 'Em atendimento', phases: ['in_consultation'] as UiPhase[] },
     { id: 'finished', label: 'Finalizada', phases: ['finished'] as UiPhase[] },
   ];

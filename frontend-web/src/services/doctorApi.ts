@@ -90,7 +90,8 @@ export interface MedicalRequest {
   consultationTranscript?: string | null;
   consultationAnamnesis?: string | null;
   consultationAiSuggestions?: string | null;
-  consultationEvidence?: string | null;
+  /** Notas SOAP geradas pela IA após a consulta (JSON com subjective/objective/assessment/plan/medical_terms). */
+  consultationSoapNotes?: string | null;
 }
 
 export interface Medication {

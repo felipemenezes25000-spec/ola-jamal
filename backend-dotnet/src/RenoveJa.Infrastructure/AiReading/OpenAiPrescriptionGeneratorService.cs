@@ -75,14 +75,16 @@ public class OpenAiPrescriptionGeneratorService : IAiPrescriptionGeneratorServic
 
         try
         {
+            var isGemini = baseUrl.Contains("generativelanguage", StringComparison.OrdinalIgnoreCase);
             var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+            client.Timeout = isGemini ? TimeSpan.FromSeconds(60) : TimeSpan.FromSeconds(30);
 
             var requestBody = new
             {
                 model,
                 temperature = 0.2,
-                max_tokens = 2500,
+                max_tokens = isGemini ? 2500 : 2500,
                 response_format = new { type = "json_object" },
                 messages = new[]
                 {

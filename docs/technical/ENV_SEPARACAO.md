@@ -19,7 +19,6 @@ Cada parte do projeto tem seu próprio `.env` e `.env.example`. **Não misture**
 - Google: `Google__ClientId`
 - OpenAI: `OpenAI__ApiKey`, `OpenAI__Model`
 - Certificado: `CertificateEncryption__Key`
-- Mercado Pago: `MercadoPago__AccessToken`, `MercadoPago__PublicKey`, `MercadoPago__ClientId`, `MercadoPago__ClientSecret`, `MercadoPago__NotificationUrl`, `MercadoPago__WebhookSecret`
 - SMTP: `Smtp__Host`, `Smtp__Port`, `Smtp__EnableSsl`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromEmail`, `Smtp__FromName`, `Smtp__ResetPasswordBaseUrl`, `Smtp__ContactToEmail` (formulário de contato)
 - InfoSimples: `InfoSimples__ApiToken`
 - Daily.co: `DAILY_API_KEY`, `DAILY_DOMAIN`, `DAILY_ROOM_PREFIX`, `DAILY_ROOM_EXPIRY_MINUTES`

@@ -5,7 +5,7 @@
  * Integração com sugestão de IA e checkbox para incluir no PDF.
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -15,7 +15,7 @@ import type { DesignColors } from '../../lib/designSystem';
 import { spacing, borderRadius, typography } from '../../lib/themeDoctor';
 import { AppButton, AIActionSheet } from '../ui';
 import { showToast } from '../ui/Toast';
-import { parseAnamnesis, extractCid } from '../../lib/domain/anamnesis';
+import { parseAnamnesis, extractCid, displayMedicamento, displayExame } from '../../lib/domain/anamnesis';
 
 export interface ConductFormData {
   queixaDuracao: string;
@@ -30,6 +30,10 @@ interface ConductFormProps {
   legacyConductNotes?: string;
   aiSuggestion?: string | null;
   anamnesisJson?: string | null;
+  /** Transcrição da consulta — usada para prefill evolucao quando anamnese não tem historia_doenca_atual */
+  consultationTranscript?: string | null;
+  /** Sugestões da IA da consulta — usadas para prefill conduta quando vazio */
+  consultationSuggestions?: string[];
   includeConductInPdf: boolean;
   onIncludeConductInPdfChange: (v: boolean) => void;
   saving: boolean;
@@ -81,6 +85,8 @@ export function ConductForm({
   legacyConductNotes,
   aiSuggestion,
   anamnesisJson,
+  consultationTranscript,
+  consultationSuggestions,
   includeConductInPdf,
   onIncludeConductInPdfChange,
   saving,
@@ -104,6 +110,65 @@ export function ConductForm({
   }, [legacyConductNotes, initialData]);
 
   const [form, setForm] = useState<ConductFormData>(initial);
+  const autoPrefillDone = useRef(false);
+
+  /** Auto-prefill a partir da anamnese/IA quando o prontuário está vazio (pós-consulta). */
+  useEffect(() => {
+    if (autoPrefillDone.current) return;
+    const empty = !form.queixaDuracao.trim() && !form.evolucao.trim() && !form.hipoteseCid.trim() && !form.conduta.trim();
+    if (!empty) return;
+    if (!anamnesisJson && !aiSuggestion) return;
+
+    autoPrefillDone.current = true;
+    if (aiSuggestion) {
+      const parsed = parseStructuredFromLegacy(aiSuggestion);
+      if (parsed.queixaDuracao || parsed.evolucao || parsed.hipoteseCid || parsed.conduta) {
+        setForm(parsed);
+        return;
+      }
+      setForm((prev) => ({ ...prev, conduta: aiSuggestion }));
+    }
+    const anamnesis = parseAnamnesis(anamnesisJson);
+    if (anamnesis) {
+      setForm((prev) => {
+        const next = { ...prev };
+        if (!next.queixaDuracao.trim() && anamnesis.queixa_principal) {
+          next.queixaDuracao = typeof anamnesis.queixa_principal === 'string' ? anamnesis.queixa_principal : '';
+        }
+        if (!next.evolucao.trim() && anamnesis.historia_doenca_atual) {
+          next.evolucao = typeof anamnesis.historia_doenca_atual === 'string' ? anamnesis.historia_doenca_atual : '';
+        }
+        if (!next.evolucao.trim() && consultationTranscript?.trim()) {
+          next.evolucao = consultationTranscript.trim();
+        }
+        if (!next.hipoteseCid.trim()) {
+          const cid = extractCid(anamnesis);
+          if (cid) next.hipoteseCid = cid + (anamnesis.cid_descricao ? ` — ${anamnesis.cid_descricao}` : '');
+        }
+        if (!next.conduta.trim() && aiSuggestion) next.conduta = aiSuggestion;
+        if (!next.conduta.trim() && consultationSuggestions?.length) {
+          next.conduta = consultationSuggestions.join('\n\n').trim();
+        }
+        if (!next.conduta.trim()) {
+          const condutaParts: string[] = [];
+          const meds = anamnesis.medicamentos_sugeridos;
+          if (Array.isArray(meds) && meds.length > 0) {
+            condutaParts.push('Medicamentos: ' + meds.map((m) => displayMedicamento(m)).join('; '));
+          }
+          const exams = anamnesis.exames_sugeridos;
+          if (Array.isArray(exams) && exams.length > 0) {
+            condutaParts.push('Exames: ' + exams.map((e) => displayExame(e)).join('; '));
+          }
+          const orient = anamnesis.orientacoes_paciente;
+          if (Array.isArray(orient) && orient.length > 0) {
+            condutaParts.push('Orientações: ' + orient.join('; '));
+          }
+          if (condutaParts.length > 0) next.conduta = condutaParts.join('\n\n');
+        }
+        return next;
+      });
+    }
+  }, [form.queixaDuracao, form.evolucao, form.hipoteseCid, form.conduta, anamnesisJson, aiSuggestion, consultationTranscript, consultationSuggestions]);
 
   const setField = useCallback((key: keyof ConductFormData, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));

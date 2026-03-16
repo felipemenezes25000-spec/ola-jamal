@@ -200,12 +200,11 @@ export function getNextBestActionForRequest(
 
   if (status === 'approved_pending_payment') {
     return {
-      title: 'Aprovado, falta pagamento',
-      statusSummary: 'Seu pedido foi aprovado e esta pronto para liberar a etapa final.',
-      whatToDo: 'Conclua o pagamento para liberar assinatura/documento.',
-      eta: 'Liberacao quase imediata apos confirmacao.',
-      ctaLabel: 'Pagar agora',
-      intent: 'pay',
+      title: 'Solicitação aprovada',
+      statusSummary: 'Seu pedido foi aprovado e está aguardando assinatura do médico.',
+      whatToDo: 'Aguarde. O médico está preparando e assinando seu documento.',
+      eta: 'Normalmente em 3 a 10 minutos.',
+      intent: 'wait',
     };
   }
 
@@ -213,7 +212,7 @@ export function getNextBestActionForRequest(
     if (request.requestType === 'consultation') {
       return {
         title: 'Consulta liberada',
-        statusSummary: 'Pagamento confirmado. Agora falta o medico iniciar o atendimento.',
+        statusSummary: 'Consulta aceita. Aguardando o médico iniciar o atendimento.',
         whatToDo: 'Fique no app. Você será levado automaticamente para a consulta quando iniciar.',
         eta: 'Normalmente em poucos minutos.',
         intent: 'wait',
@@ -221,9 +220,9 @@ export function getNextBestActionForRequest(
     }
 
     return {
-      title: 'Pagamento confirmado',
-      statusSummary: 'Tudo certo com o pagamento.',
-      whatToDo: 'Agora o medico prepara e assina seu documento.',
+      title: 'Documento aprovado',
+      statusSummary: 'Solicitação aprovada.',
+      whatToDo: 'O médico está preparando e assinando seu documento.',
       eta: 'Tempo medio de assinatura: 3 a 10 minutos.',
       intent: 'wait',
     };

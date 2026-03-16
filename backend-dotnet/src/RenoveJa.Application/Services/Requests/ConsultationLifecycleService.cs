@@ -18,19 +18,18 @@ namespace RenoveJa.Application.Services.Requests;
 public class ConsultationLifecycleService(
     IRequestRepository requestRepository,
     IUserRepository userRepository,
-    IProductPriceRepository productPriceRepository,
     IVideoRoomRepository videoRoomRepository,
     IConsultationAnamnesisRepository consultationAnamnesisRepository,
     IConsultationSessionStore consultationSessionStore,
     IConsultationTimeBankRepository consultationTimeBankRepository,
     IConsultationEncounterService consultationEncounterService,
     IStorageService storageService,
-    IPaymentRepository paymentRepository,
     IAuditService auditService,
     IRequestEventsPublisher requestEventsPublisher,
     IPushNotificationDispatcher pushDispatcher,
     IDocumentTokenService documentTokenService,
     IOptions<ApiConfig> apiConfig,
+    ISoapNotesService soapNotesService,
     ILogger<ConsultationLifecycleService> logger) : IConsultationLifecycleService
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
@@ -57,34 +56,16 @@ public class ConsultationLifecycleService(
         if (doctor == null || !doctor.IsDoctor())
             throw new InvalidOperationException("Doctor not found");
 
-        var consultationType = request.ConsultationType ?? "medico_clinico";
-        var contractedMinutes = request.ContractedMinutes ?? 15;
-        var pricePerMinute = request.PricePerMinute
-            ?? await productPriceRepository.GetPriceAsync("consultation", consultationType, cancellationToken)
-            ?? 6.99m;
-
-        var debitedSeconds = await consultationTimeBankRepository.GetDebitedSecondsForRequestAsync(id, cancellationToken);
-        var freeMinutes = debitedSeconds / 60;
-        var paidMinutes = Math.Max(0, contractedMinutes - freeMinutes);
-        var effectivePrice = paidMinutes * pricePerMinute;
-
-        if (request.Price != null && request.Price.Amount <= 0 && effectivePrice > 0)
-            effectivePrice = 0;
-
         request.AssignDoctor(doctorId, doctor.Name);
-        request.Approve(effectivePrice);
+        request.Approve(0);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var roomName = $"consultation-{request.Id}";
         var videoRoom = VideoRoom.Create(request.Id, roomName);
         videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 
-        var isFree = effectivePrice <= 0;
-        await PublishRequestUpdatedAsync(request, isFree ? "Médico aceitou — consulta confirmada" : "Médico aceitou — efetue o pagamento", cancellationToken);
-        if (isFree)
-            await pushDispatcher.SendAsync(PushNotificationRules.DoctorReady(request.PatientId, request.Id), cancellationToken);
-        else
-            await pushDispatcher.SendAsync(PushNotificationRules.ApprovedPendingPayment(request.PatientId, request.Id, RequestType.Consultation), cancellationToken);
+        await PublishRequestUpdatedAsync(request, "Médico aceitou — consulta confirmada", cancellationToken);
+        await pushDispatcher.SendAsync(PushNotificationRules.DoctorReady(request.PatientId, request.Id), cancellationToken);
 
         return (RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService), RequestHelpers.MapVideoRoomToDto(videoRoom));
     }
@@ -111,24 +92,7 @@ public class ConsultationLifecycleService(
         }
 
         if (request.Status != RequestStatus.Paid)
-        {
-            var payment = await paymentRepository.GetByRequestIdAsync(id, cancellationToken);
-            if (payment != null && payment.IsApproved())
-            {
-#pragma warning disable CS0618 // Status legado: aceitar PendingPayment para dados antigos
-                if (request.Status == RequestStatus.ApprovedPendingPayment || request.Status == RequestStatus.PendingPayment)
-#pragma warning restore CS0618
-                {
-                    request.MarkAsPaid();
-                    request = await requestRepository.UpdateAsync(request, cancellationToken);
-                    logger.LogInformation("[START-CONSULTATION] Request {RequestId} estava com pagamento aprovado e status desatualizado; corrigido para paid.", id);
-                }
-                else
-                    throw new InvalidOperationException($"Consultation can only be started after payment is confirmed. Current status: {request.Status}.");
-            }
-            else
-                throw new InvalidOperationException($"Consultation can only be started after payment is confirmed. Current status: {request.Status}.");
-        }
+            throw new InvalidOperationException($"Consultation can only be started when status is Paid. Current status: {request.Status}.");
 
         request.StartConsultation();
         request = await requestRepository.UpdateAsync(request, cancellationToken);
@@ -350,6 +314,67 @@ public class ConsultationLifecycleService(
 
         await PublishRequestUpdatedAsync(request, "Consulta finalizada", cancellationToken);
         await pushDispatcher.SendAsync(PushNotificationRules.ConsultationFinished(request.PatientId, request.Id), cancellationToken);
+
+        // Gera notas SOAP em background — não bloqueia o retorno para o médico
+        var transcriptForSoap = sessionData?.TranscriptText ?? string.Empty;
+        var anamnesisForSoap  = sessionData?.AnamnesisJson;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                string? soapJson = null;
+                ConsultationAnamnesis? anamnesisEntity = null;
+
+                if (string.IsNullOrWhiteSpace(transcriptForSoap))
+                {
+                    anamnesisEntity = await consultationAnamnesisRepository.GetByRequestIdAsync(id, CancellationToken.None);
+                    if (anamnesisEntity != null)
+                    {
+                        var soap = await soapNotesService.GenerateAsync(
+                            anamnesisEntity.TranscriptText ?? "", anamnesisEntity.AnamnesisJson, CancellationToken.None);
+                        if (soap != null) soapJson = soap.RawJson;
+                    }
+                }
+                else
+                {
+                    var soap = await soapNotesService.GenerateAsync(
+                        transcriptForSoap, anamnesisForSoap, CancellationToken.None);
+                    if (soap != null) soapJson = soap.RawJson;
+                    anamnesisEntity = await consultationAnamnesisRepository.GetByRequestIdAsync(id, CancellationToken.None);
+                }
+
+                if (soapJson == null || anamnesisEntity == null)
+                {
+                    logger.LogWarning("[SOAP] Notas SOAP não geradas ou entidade não encontrada. RequestId={RequestId}", id);
+                    return;
+                }
+
+                // 1. Persistir no banco
+                anamnesisEntity.SetSoapNotes(soapJson, DateTime.UtcNow);
+                await consultationAnamnesisRepository.UpdateAsync(anamnesisEntity, CancellationToken.None);
+                logger.LogInformation("[SOAP] Notas SOAP salvas no banco. RequestId={RequestId}", id);
+
+                // 2. Upload pro S3 — path: consultas/{id}/notas-soap/soap-notes-{id}.json
+                try
+                {
+                    var s3Path = $"consultas/{id:N}/notas-soap/soap-notes-{id:N}.json";
+                    var bytes  = System.Text.Encoding.UTF8.GetBytes(soapJson);
+                    var result = await storageService.UploadAsync(s3Path, bytes, "application/json", CancellationToken.None);
+                    if (result.Success)
+                        logger.LogInformation("[SOAP] Notas SOAP enviadas ao S3. RequestId={RequestId} Path={Path}", id, s3Path);
+                    else
+                        logger.LogWarning("[SOAP] Falha no upload S3 das notas SOAP. RequestId={RequestId} Error={Error}", id, result.ErrorMessage);
+                }
+                catch (Exception exS3)
+                {
+                    logger.LogWarning(exS3, "[SOAP] Exceção no upload S3 das notas SOAP (dado seguro no banco). RequestId={RequestId}", id);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[SOAP] Falha ao gerar notas SOAP. RequestId={RequestId}", id);
+            }
+        }, CancellationToken.None);
 
         return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
     }

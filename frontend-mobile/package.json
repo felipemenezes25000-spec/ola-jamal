@@ -22,7 +22,8 @@
     "eas:credentials": "cross-env EAS_NO_VCS=1 eas credentials -p android",
     "eas:build:android": "cross-env EAS_NO_VCS=1 eas build --profile development --platform android",
     "eas:build:android:preview": "cross-env EAS_NO_VCS=1 eas build --platform android --profile preview",
-    "prepare:icons": "node scripts/prepare-icons.js"
+    "prepare:icons": "node scripts/prepare-icons.js",
+    "icons:from-logo": "node scripts/generate-app-icons.js"
   },
   "dependencies": {
     "@daily-co/config-plugin-rn-daily-js": "^0.0.11",

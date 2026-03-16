@@ -46,6 +46,10 @@ public class ConsultationAnamnesisModel
     public string? AiSuggestionsJson { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("evidence_json")]
     public string? EvidenceJson { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("soap_notes_json")]
+    public string? SoapNotesJson { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("soap_notes_generated_at")]
+    public DateTime? SoapNotesGeneratedAt { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("created_at")]
     public DateTime CreatedAt { get; set; }
 }

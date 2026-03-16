@@ -37,34 +37,23 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<OpenAIConfig> _config;
     private readonly ILogger<ConsultationAnamnesisService> _logger;
-    private readonly IEvidenceSearchService _evidenceSearchService;
     private readonly IAiInteractionLogRepository _aiInteractionLogRepository;
 
     public ConsultationAnamnesisService(
         IHttpClientFactory httpClientFactory,
         IOptions<OpenAIConfig> config,
         ILogger<ConsultationAnamnesisService> logger,
-        IEvidenceSearchService evidenceSearchService,
         IAiInteractionLogRepository aiInteractionLogRepository)
     {
         _httpClientFactory = httpClientFactory;
         _config = config;
         _logger = logger;
-        _evidenceSearchService = evidenceSearchService;
         _aiInteractionLogRepository = aiInteractionLogRepository;
     }
 
     private string GetAnamnesisModel()
     {
         var specific = _config.Value?.ModelAnamnesis?.Trim();
-        if (!string.IsNullOrEmpty(specific)) return specific;
-        if (!string.IsNullOrEmpty(GetOpenAiApiKey())) return _config.Value?.Model ?? DefaultOpenAiModel;
-        return GetGeminiApiKey() != null ? DefaultGeminiModel : (_config.Value?.Model ?? DefaultOpenAiModel);
-    }
-
-    private string GetEvidenceModel()
-    {
-        var specific = _config.Value?.ModelEvidence?.Trim();
         if (!string.IsNullOrEmpty(specific)) return specific;
         if (!string.IsNullOrEmpty(GetOpenAiApiKey())) return _config.Value?.Model ?? DefaultOpenAiModel;
         return GetGeminiApiKey() != null ? DefaultGeminiModel : (_config.Value?.Model ?? DefaultOpenAiModel);
@@ -186,6 +175,7 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
 {transcriptBlock}";
         }
 
+        var isGemini = anamnesisModel.StartsWith("gemini", StringComparison.OrdinalIgnoreCase);
         var requestBody = new
         {
             model = anamnesisModel,
@@ -194,7 +184,7 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
                 new { role = "system", content = (object)systemPrompt },
                 new { role = "user", content = (object)userContent }
             },
-            max_tokens = 16000,
+            max_tokens = isGemini ? 8192 : 16000,
             temperature = 0.10
         };
 
@@ -203,7 +193,7 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
         var promptHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
         var client = _httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        client.Timeout = TimeSpan.FromSeconds(50);
+        client.Timeout = isGemini ? TimeSpan.FromSeconds(90) : TimeSpan.FromSeconds(50);
 
         using var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
         _logger.LogInformation("[Anamnese IA v2] Chamando {Provider}: model={Model} (anamnese)",
@@ -241,7 +231,7 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
                     : GeminiBaseUrl;
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", geminiKey);
                 using var fallbackContent = new StringContent(
-                    JsonSerializer.Serialize(new { model = fallbackModel, messages = requestBody.messages, max_tokens = 16000, temperature = 0.10 }, JsonOptions),
+                    JsonSerializer.Serialize(new { model = fallbackModel, messages = requestBody.messages, max_tokens = 8192, temperature = 0.10 }, JsonOptions),
                     Encoding.UTF8, "application/json");
                 var fallbackResponse = await client.PostAsync($"{geminiUrl}/chat/completions", fallbackContent, cancellationToken);
                 var fallbackJson = await fallbackResponse.Content.ReadAsStringAsync(cancellationToken);
@@ -358,9 +348,6 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
                 suggestions.Add("Avaliação inicial — aguardando mais dados da anamnese para refinar HD e conduta.");
             }
 
-            // Evidências científicas multi-fonte
-            var evidence = await FetchAndTranslateEvidenceAsync(root, apiKey, cancellationToken, transcriptSoFar);
-
             try
             {
                 await _aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
@@ -376,10 +363,10 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
                 _logger.LogWarning(logEx, "[Anamnese IA v2] Falha ao gravar log.");
             }
 
-            _logger.LogInformation("[Anamnese IA v2] SUCESSO: anamnesisLen={Len} suggestions={Count} evidence={EvidCount} durationMs={Ms}",
-                enrichedJson.Length, suggestions.Count, evidence.Count, (long)(DateTime.UtcNow - startedAt).TotalMilliseconds);
+            _logger.LogInformation("[Anamnese IA v2] SUCESSO: anamnesisLen={Len} suggestions={Count} durationMs={Ms}",
+                enrichedJson.Length, suggestions.Count, (long)(DateTime.UtcNow - startedAt).TotalMilliseconds);
 
-            return new ConsultationAnamnesisResult(enrichedJson, suggestions, evidence);
+            return new ConsultationAnamnesisResult(enrichedJson, suggestions, Array.Empty<EvidenceItemDto>());
         }
         catch (Exception ex)
         {
@@ -389,148 +376,4 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
         }
     }
 
-    private async Task<IReadOnlyList<EvidenceItemDto>> FetchAndTranslateEvidenceAsync(
-        JsonElement root,
-        string apiKey,
-        CancellationToken cancellationToken,
-        string? transcriptSoFar = null)
-    {
-        try
-        {
-            var searchTerms = AnamnesisResponseParser.ExtractSearchTerms(root);
-            if (searchTerms.Count == 0)
-                return Array.Empty<EvidenceItemDto>();
-
-            var rawEvidence = await _evidenceSearchService.SearchAsync(searchTerms, 16, cancellationToken);
-            if (rawEvidence.Count == 0)
-                return rawEvidence;
-
-            return await ExtractRelevantEvidenceAsync(rawEvidence, root, apiKey, cancellationToken, transcriptSoFar);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Evidências: falha na busca.");
-            return Array.Empty<EvidenceItemDto>();
-        }
-    }
-
-    private async Task<IReadOnlyList<EvidenceItemDto>> ExtractRelevantEvidenceAsync(
-        IReadOnlyList<EvidenceItemDto> items,
-        JsonElement root,
-        string apiKey,
-        CancellationToken cancellationToken,
-        string? transcriptSoFar = null)
-    {
-        if (items.Count == 0)
-            return items;
-
-        var context = AnamnesisResponseParser.BuildClinicalContextForPrompt(root);
-
-        var transcriptBlock = "";
-        if (!string.IsNullOrWhiteSpace(transcriptSoFar))
-        {
-            var trimmed = transcriptSoFar.Length > 1500 ? transcriptSoFar[^1500..] : transcriptSoFar;
-            transcriptBlock = $"\n\nRESUMO DO QUE O PACIENTE DISSE (últimas falas):\n{trimmed}";
-        }
-
-        var articlesBlock = string.Join("\n\n---\n\n",
-            items.Select((e, i) => $"[{i}]\nTítulo: {e.Title}\nAbstract: {e.Abstract}"));
-
-        var prompt = AnamnesisPrompts.BuildEvidenceFilterPrompt(context, transcriptBlock, articlesBlock);
-
-        var evidenceModel = GetEvidenceModel();
-        var (evApiKey, evBaseUrl) = ResolveProvider(evidenceModel);
-        _logger.LogInformation("[Evidências IA] Chamando {Provider}: model={Model}",
-            evidenceModel.StartsWith("gemini", StringComparison.OrdinalIgnoreCase) ? "Gemini" : "OpenAI", evidenceModel);
-        var requestBody = new
-        {
-            model = evidenceModel,
-            messages = new object[] { new { role = "user", content = (object)prompt } },
-            max_tokens = 4000,
-            temperature = 0.15
-        };
-
-        var json = JsonSerializer.Serialize(requestBody, JsonOptions);
-        var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", evApiKey);
-        client.Timeout = TimeSpan.FromSeconds(45);
-
-        using var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await client.PostAsync($"{evBaseUrl}/chat/completions", requestContent, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-            return Array.Empty<EvidenceItemDto>();
-
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        try
-        {
-            using var doc = JsonDocument.Parse(responseJson);
-            var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
-            if (string.IsNullOrWhiteSpace(content))
-                return Array.Empty<EvidenceItemDto>();
-
-            var cleaned = AnamnesisResponseParser.CleanJsonResponse(content);
-            using var arr = JsonDocument.Parse(cleaned);
-            var result = new List<EvidenceItemDto>();
-            var idx = 0;
-            foreach (var el in arr.RootElement.EnumerateArray())
-            {
-                if (idx >= items.Count) break;
-                var item = items[idx];
-                var excerpts = new List<string>();
-                var relevance = "";
-
-                if (el.TryGetProperty("excerpts", out var exEl) && exEl.ValueKind == JsonValueKind.Array)
-                    foreach (var e in exEl.EnumerateArray())
-                    {
-                        var s = e.GetString()?.Trim();
-                        if (!string.IsNullOrEmpty(s)) excerpts.Add(s);
-                    }
-                if (el.TryGetProperty("clinicalRelevance", out var relEl))
-                    relevance = relEl.GetString()?.Trim() ?? "";
-
-                var isRelevant = true;
-                if (el.TryGetProperty("relevant", out var relFlag) && relFlag.ValueKind == JsonValueKind.False)
-                    isRelevant = false;
-                if (!isRelevant)
-                {
-                    idx++;
-                    continue;
-                }
-                // Só incluir evidência que tenha conteúdo útil (trechos ou relevância clínica)
-                var hasUsefulContent = excerpts.Count > 0 || !string.IsNullOrWhiteSpace(relevance);
-                if (!hasUsefulContent)
-                {
-                    idx++;
-                    continue;
-                }
-
-                var conexao = "";
-                if (el.TryGetProperty("conexao_com_paciente", out var conEl))
-                    conexao = conEl.GetString()?.Trim() ?? "";
-                var nivelEvidencia = "";
-                if (el.TryGetProperty("nivel_evidencia", out var nivEl))
-                    nivelEvidencia = nivEl.GetString()?.Trim() ?? "";
-                var motivoSelecao = "";
-                if (el.TryGetProperty("motivo_selecao", out var motEl))
-                    motivoSelecao = motEl.GetString()?.Trim() ?? "";
-
-                result.Add(new EvidenceItemDto(
-                    item.Title, item.Abstract, item.Source,
-                    TranslatedAbstract: excerpts.Count > 0 ? string.Join("\n\n", excerpts) : null,
-                    RelevantExcerpts: excerpts.Count > 0 ? excerpts : null,
-                    ClinicalRelevance: !string.IsNullOrEmpty(relevance) ? relevance : null,
-                    Provider: item.Provider, Url: item.Url,
-                    ConexaoComPaciente: !string.IsNullOrEmpty(conexao) ? conexao : null,
-                    NivelEvidencia: !string.IsNullOrEmpty(nivelEvidencia) ? nivelEvidencia : null,
-                    MotivoSelecao: !string.IsNullOrEmpty(motivoSelecao) ? motivoSelecao : null));
-                idx++;
-            }
-            return result;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Evidências: falha ao parsear resposta.");
-            return Array.Empty<EvidenceItemDto>();
-        }
-    }
 }

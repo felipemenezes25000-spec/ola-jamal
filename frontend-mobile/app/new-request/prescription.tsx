@@ -17,8 +17,6 @@ import { uiTokens } from '../../lib/ui/tokens';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { createPrescriptionRequest } from '../../lib/api';
-import { PRESCRIPTION_TYPE_PRICES } from '../../lib/config/pricing';
-import { formatBRL } from '../../lib/utils/format';
 import { getApiErrorMessage } from '../../lib/api-client';
 import { isDuplicateRequestError } from '../../lib/hooks/useCreateRequest';
 import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
@@ -45,20 +43,17 @@ const TYPES = [
     key: 'simples' as const,
     label: 'Receituário simples',
     desc: 'Medicações de uso contínuo como medicação para diabetes, pressão alta, hipotireoidismo, remédios manipulados, remédios para dor, remédios para ciclo menstrual, reposição de vitaminas, entre outros.',
-    price: PRESCRIPTION_TYPE_PRICES.simples,
   },
   {
     key: 'controlado' as const,
     label: 'Receituário controlado - dupla via',
     desc: 'Receitas para medicações controladas de uso contínuo como antidepressivos, anticonvulsivantes, remédios para dormir, remédios controlados para dor.',
-    price: PRESCRIPTION_TYPE_PRICES.controlado,
     popular: true,
   },
   {
     key: 'azul' as const,
     label: 'Receituário AZUL',
     desc: 'Receituário para medicações que possuem elevada vigilância por causarem dependência. São feitas em receituário azul.',
-    price: PRESCRIPTION_TYPE_PRICES.azul,
     comingSoon: true,
     anvisaPrevisao: ANVISA_PREVISAO,
   },
@@ -74,7 +69,6 @@ export default function NewPrescription() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currentStep = images.length > 0 ? 3 : 2;
   const listPadding = useStickyCtaScrollPadding();
-  const selectedPrice = formatBRL(TYPES.find((type) => type.key === selectedType)?.price ?? 0);
   const completenessLocal = evaluatePrescriptionCompleteness({
     prescriptionType: selectedType,
     imagesCount: images.length,
@@ -312,18 +306,6 @@ export default function NewPrescription() {
                       <Text style={styles.anvisaPrevisao}>{type.anvisaPrevisao}</Text>
                     )}
                   </View>
-                  {!isComingSoon && (
-                    <View style={styles.typePriceContainer}>
-                      <Text
-                        style={[
-                          styles.typePrice,
-                          selectedType === type.key && styles.typePriceSelected,
-                        ]}
-                      >
-                        {formatBRL(type.price)}
-                      </Text>
-                    </View>
-                  )}
                 </View>
                 {isSelectable && selectedType === type.key && (
                   <View style={styles.checkIcon} pointerEvents="none">
@@ -411,15 +393,14 @@ export default function NewPrescription() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={20} color={colors.info} />
             <Text style={styles.infoText}>
-              Sua solicitação será analisada por um médico em até 15 minutos. Caso não seja aprovada,
-              o valor será estornado integralmente.
+              Sua solicitação será analisada por um médico em até 15 minutos.
             </Text>
           </View>
         </ScrollView>
         <StickyCTA
-          summaryTitle="Total"
-          summaryValue={selectedPrice}
-          summaryHint={`${completeness.score}% pronto • ${images.length} ${images.length === 1 ? 'foto anexada' : 'fotos anexadas'}`}
+          summaryTitle="Resumo"
+          summaryValue={`${completeness.score}% pronto`}
+          summaryHint={`${images.length} ${images.length === 1 ? 'foto anexada' : 'fotos anexadas'}`}
           primary={{
             label: 'Enviar solicitação',
             onPress: handleSubmit,
