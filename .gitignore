@@ -10,7 +10,6 @@ dist/
 .expo/
 frontend-mobile/dist/
 tsconfig.tsbuildinfo
-supabase/.temp/
 [Bb]in/
 [Oo]bj/
 [Ll]og/

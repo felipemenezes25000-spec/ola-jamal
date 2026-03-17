@@ -1,7 +1,6 @@
 -- ============================================================
--- Migrations consolidadas para o projeto Supabase (RenoveJá).
--- Execute no SQL Editor do Dashboard: https://supabase.com/dashboard/project/ifgxgppxsawauaceudec/sql/new
--- Ou configure Supabase:DatabaseUrl no appsettings para a API rodar password_reset_tokens + chat_messages na subida.
+-- Migrations consolidadas para o projeto RenoveJá (PostgreSQL).
+-- Execute no PostgreSQL (AWS RDS ou local). Use ConnectionStrings__DefaultConnection.
 -- ============================================================
 
 -- 1) Tabela de tokens de recuperação de senha

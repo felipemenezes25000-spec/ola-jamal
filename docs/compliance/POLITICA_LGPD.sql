@@ -27,7 +27,7 @@
 -- 2.2 CRIPTOGRAFIA
 --   - Trânsito: HTTPS/TLS 1.3 obrigatório
 --   - Repouso: certificados ICP-Brasil criptografados AES-256
---   - Banco: conexão SSL com Supabase
+--   - Banco: conexão SSL com PostgreSQL (AWS RDS)
 --
 -- 2.3 AUDITORIA
 --   - IAuditService: registra QUEM, QUANDO, O QUE, ONDE
@@ -36,7 +36,7 @@
 --   - Retenção: mínimo 5 anos (conforme CFM 1821/2007)
 --
 -- 2.4 BACKUP E RECUPERAÇÃO
---   - Backup automático diário (Supabase)
+--   - Backup automático diário (AWS RDS)
 --   - Retenção de 30 dias
 --   - RPO < 24h, RTO < 4h
 --   - Teste de restauração mensal

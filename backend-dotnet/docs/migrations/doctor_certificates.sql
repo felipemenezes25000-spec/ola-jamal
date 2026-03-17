@@ -1,6 +1,6 @@
 -- ============================================================
 -- Migration: doctor_certificates + doctor_profiles new columns
--- Execute no SQL Editor do Supabase Dashboard
+-- Execute no PostgreSQL (AWS RDS ou local)
 -- ============================================================
 
 -- 1) Tabela de certificados digitais dos médicos
@@ -41,13 +41,4 @@ ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS crm_validated_at TIM
 -- 3) Coluna access_code em requests (para código de acesso de 4 dígitos)
 ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS access_code TEXT;
 
--- 4) Storage bucket para certificados (executar via Supabase Dashboard → Storage → New Bucket)
--- Nome: certificates
--- Público: NÃO (privado)
--- Tamanho máximo: 10MB
--- MIME types permitidos: application/octet-stream
-
--- Nota: A criação do bucket deve ser feita manualmente no painel do Supabase
--- ou via SQL:
--- INSERT INTO storage.buckets (id, name, public) VALUES ('certificates', 'certificates', false)
--- ON CONFLICT (id) DO NOTHING;
+-- 4) Storage: bucket S3 renoveja-certificates (AWS). Configurar via Terraform/infra.

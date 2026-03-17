@@ -1,6 +1,6 @@
 -- ============================================================
 -- Migration: Tabelas faltantes (notifications, video_rooms, push_tokens, product_prices)
--- Execute no SQL Editor do Supabase Dashboard
+-- Execute no PostgreSQL (AWS RDS ou local)
 -- Data: 2026-02-14
 -- ============================================================
 

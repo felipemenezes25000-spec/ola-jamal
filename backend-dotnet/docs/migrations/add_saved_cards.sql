@@ -1,6 +1,6 @@
 -- ============================================================
 -- Migration: Tabela saved_cards para cartões salvos (MP Customers)
--- Execute no SQL Editor do Supabase Dashboard
+-- Execute no PostgreSQL (AWS RDS ou local)
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.saved_cards (

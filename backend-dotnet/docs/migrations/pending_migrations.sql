@@ -1,11 +1,7 @@
 -- ============================================================
 -- MIGRATIONS PENDENTES - RenoveJá
--- Rodar no SQL Editor: https://supabase.com/dashboard/project/ifgxgppxsawauaceudec/sql/new
+-- Rodar no PostgreSQL (AWS RDS ou local). Migrations oficiais em infra/migrations/.
 -- Data: 2026-02-14
---
--- NOTA: As migrations oficiais estão em supabase/migrations/.
--- Use `supabase db push` ou aplique-as manualmente na ordem.
--- Este arquivo é um fallback manual se as migrations não foram aplicadas.
 -- ============================================================
 
 -- 1) Tabela doctor_certificates (NÃO existe no banco)
@@ -46,7 +42,7 @@ ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS crm_validated_at TIM
 ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS access_code TEXT;
 
 -- 4) Triagem + Conduta (Dra. Renova) — observação automática, conduta médica, IA
--- Se já rodou supabase/migrations/20260302000000_triage_assistant_conduct_observation.sql, pule este bloco.
+-- Se já rodou a migration de triagem/conduta, pule este bloco.
 ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS auto_observation         TEXT;
 ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS doctor_conduct_notes     TEXT;
 ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS include_conduct_in_pdf   BOOLEAN DEFAULT TRUE;

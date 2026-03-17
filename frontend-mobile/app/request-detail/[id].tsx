@@ -209,7 +209,7 @@ export default function RequestDetailScreen() {
     setDocumentActionLoading(true);
     try {
       await markAsDeliveredIfSigned();
-      // Usa URL com token temporário via proxy do backend (evita expor URL do Supabase)
+      // Usa URL com token temporário via proxy do backend (evita expor URL direta do S3)
       const downloadUrl = await getDocumentDownloadUrl(requestId);
       // Tenta compartilhar/salvar o PDF usando Sharing API; fallback para browser
       if (Sharing && FileSystem) {

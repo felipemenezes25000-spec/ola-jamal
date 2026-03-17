@@ -1,4 +1,4 @@
-﻿# CLAUDE.md — Backend .NET 8 (RenoveJá+)
+# CLAUDE.md — Backend .NET 8 (RenoveJá+)
 
 ## Build & Test
 ```bash
@@ -105,7 +105,7 @@ Compilar.
 ### TAREFA 5: Infraestrutura AWS — SSM e ECS
 
 Gerar um script PowerShell `scripts/aws-cleanup.ps1` que:
-1. Copia o valor de `/renoveja/prod/Supabase__DatabaseUrl` para `/renoveja/prod/Database__ConnectionString` no SSM
+1. Copia o valor de `/renoveja/prod/ConnectionStrings__DefaultConnection` (ou equivalente) no SSM
 
 O script deve ser seguro (dry-run por padrão, --apply para executar).
 

@@ -1,5 +1,5 @@
 -- Tabela de mensagens de chat (solicitação ↔ médico).
--- Execute no SQL Editor do Supabase (Dashboard do projeto).
+-- Execute no PostgreSQL (AWS RDS ou local).
 
 CREATE TABLE IF NOT EXISTS public.chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

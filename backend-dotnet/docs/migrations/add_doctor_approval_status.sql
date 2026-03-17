@@ -1,5 +1,5 @@
 -- Adiciona coluna de status de aprovação para perfis de médico.
--- Execute no SQL Editor do projeto Supabase configurado em Supabase:Url.
+-- Execute no PostgreSQL (AWS RDS ou local).
 
 alter table public.doctor_profiles
     add column if not exists approval_status text not null default 'approved';

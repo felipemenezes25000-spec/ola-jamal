@@ -1,8 +1,4 @@
 {
-  "Supabase": {
-    "Url": "https://SEU_PROJETO.supabase.co",
-    "ServiceKey": "sb_secret_SUA_CHAVE_REAL"
-  },
   "OpenAI": {
     "ApiKey": "sk-proj-SUA_CHAVE_OPENAI_REAL",
     "Model": "gpt-4o"

@@ -1,7 +1,6 @@
 -- ============================================================
--- MIGRATIONS COMPLETAS - RenoveJá (CORRIGIDO)
--- Execute UMA VEZ no SQL Editor do Supabase Dashboard:
--- https://supabase.com/dashboard/project/ifgxgppxsawauaceudec/sql/new
+-- MIGRATIONS COMPLETAS - RenoveJá
+-- Execute UMA VEZ no PostgreSQL (AWS RDS ou local).
 -- ============================================================
 
 -- ============================================================

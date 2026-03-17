@@ -1,5 +1,5 @@
 -- Tabela para tokens de recuperação de senha (uso único, expira em 1h).
--- Execute no SQL Editor do Supabase (Dashboard do projeto).
+-- Execute no PostgreSQL (AWS RDS ou local).
 
 CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

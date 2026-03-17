@@ -1,5 +1,5 @@
 -- Permite a role 'admin' na tabela users.
--- Execute no SQL Editor do Supabase se aparecer: new row violates check constraint "users_role_check"
+-- Execute no PostgreSQL se aparecer: new row violates check constraint "users_role_check"
 --
 -- Se a constraint já permitir 'admin', os comandos abaixo não farão mal (DROP IF EXISTS / ADD não falha se já existir o check).
 

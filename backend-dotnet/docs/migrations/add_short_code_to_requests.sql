@@ -1,6 +1,6 @@
 -- ============================================================
 -- Migration: short_code em requests (URLs mais curtas para pedidos)
--- Execute no SQL Editor do Supabase Dashboard
+-- Execute no PostgreSQL (AWS RDS ou local)
 -- Data: 2025-03
 -- ============================================================
 -- Permite URLs como /pedidos/11040ef97c6e em vez do UUID completo.

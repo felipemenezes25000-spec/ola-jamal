@@ -1,7 +1,6 @@
 -- ============================================================
 -- Schema completo RenoveJá+ para RDS PostgreSQL
--- Unificado a partir de supabase/migrations/
--- Removidas referências a auth.users e storage.buckets (Supabase-specific)
+-- Unificado a partir de infra/migrations/
 -- ============================================================
 
 -- Extensões necessárias
