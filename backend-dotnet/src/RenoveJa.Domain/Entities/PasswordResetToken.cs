@@ -65,8 +65,8 @@ public class PasswordResetToken : Entity
         return new PasswordResetToken(id, userId, token, expiresAtUtc, used, createdAt);
     }
 
-    /// <summary>Considera expirado só após 1 minuto além de ExpiresAt, para evitar corte no mesmo segundo.</summary>
-    public bool IsExpired() => DateTime.UtcNow.AddHours(-3) > ExpiresAt.AddMinutes(1);
+    /// <summary>Token expirou quando UTC agora ultrapassou ExpiresAt.</summary>
+    public bool IsExpired() => DateTime.UtcNow > ExpiresAt;
     public bool IsValid() => !Used && !IsExpired();
 
     public void MarkAsUsed()

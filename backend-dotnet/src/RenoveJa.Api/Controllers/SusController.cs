@@ -10,7 +10,7 @@ namespace RenoveJa.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/sus")]
-[Authorize]
+[Authorize(Roles = "admin,sus")]
 public class SusController(
     ILediExportService lediExportService,
     IAuditService auditService,

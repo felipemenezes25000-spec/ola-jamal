@@ -50,6 +50,19 @@ Se Deepgram falhar, usa fallback Whisper via `POST /api/consultation/transcribe`
 - **SignalR do hub de vídeo** — médico conectado ao hub `video` para TranscriptUpdate
 - **Médico não abriu o painel** — transcrição no painel lateral (deslize para abrir)
 
+### D) Gravação (MP4) não salva no S3
+
+A gravação é enviada pelo **Daily.co** via webhook `recording.ready-to-download` (minutos após o fim da chamada).
+
+1. **Webhook configurado no Daily.co** — Dashboard → Developers → Webhooks:
+   - URL: `https://api.renovejasaude.com.br/api/webhooks/daily`
+   - Eventos: `recording.ready-to-download`
+   - O secret retornado pelo Daily é **Base64** — use em `DAILY_WEBHOOK_SECRET`
+
+2. **DAILY_WEBHOOK_SECRET** — variável de ambiente com o secret do webhook (Base64)
+
+3. **Logs** — se HMAC inválido: `[DailyWebhook] HMAC inválido` → verifique se o secret está correto e em Base64
+
 ---
 
 ## Logs no app (React Native / Metro)

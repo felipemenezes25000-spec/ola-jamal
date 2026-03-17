@@ -68,21 +68,26 @@ export function useDailyCall({
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
 
+  // FIX M6: Use functional updater to avoid stale closure on isMuted/isCameraOff
   const toggleMute = useCallback(async () => {
     const call = callRef.current;
     if (!call) return;
-    const newMuted = !isMuted;
-    await call.setLocalAudio(!newMuted);
-    setIsMuted(newMuted);
-  }, [isMuted, callRef]);
+    setIsMuted((prev) => {
+      const newMuted = !prev;
+      call.setLocalAudio(!newMuted).catch((e) => { if (__DEV__) console.warn('[useDailyCall] setLocalAudio failed:', e); });
+      return newMuted;
+    });
+  }, [callRef]);
 
   const toggleCamera = useCallback(async () => {
     const call = callRef.current;
     if (!call) return;
-    const newOff = !isCameraOff;
-    await call.setLocalVideo(!newOff);
-    setIsCameraOff(newOff);
-  }, [isCameraOff, callRef]);
+    setIsCameraOff((prev) => {
+      const newOff = !prev;
+      call.setLocalVideo(!newOff).catch((e) => { if (__DEV__) console.warn('[useDailyCall] setLocalVideo failed:', e); });
+      return newOff;
+    });
+  }, [callRef]);
 
   // FIX #16: Só atualiza isFrontCamera APÓS cycleCamera() ser bem-sucedido.
   // Anteriormente, o estado era invertido antes do await, e o catch silenciava a falha,

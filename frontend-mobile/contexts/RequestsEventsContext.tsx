@@ -50,6 +50,8 @@ export function RequestsEventsProvider({ children }: { children: React.ReactNode
     // FIX #32: Aumentado de 3 para 8 retries com backoff exponencial
     // Em redes 4G/3G brasileiras, quedas momentâneas são comuns
     const maxRetries = 8;
+    // FIX M12: track retry timeout so cleanup can cancel it
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const RECONNECT_COOLDOWN_MS = 10_000;
     let lastReconnectAt = 0;
@@ -62,7 +64,7 @@ export function RequestsEventsProvider({ children }: { children: React.ReactNode
           retryCount++;
           // FIX #32: Backoff exponencial: 5s, 10s, 20s, 40s, 60s, 60s, 60s, 60s
           const delay = Math.min(5_000 * Math.pow(2, retryCount - 1), 60_000);
-          setTimeout(tryConnect, delay);
+          retryTimer = setTimeout(tryConnect, delay);
         }
       });
     };
@@ -87,6 +89,7 @@ export function RequestsEventsProvider({ children }: { children: React.ReactNode
       cancelled = true;
       sub.remove();
       clearInterval(interval);
+      if (retryTimer) clearTimeout(retryTimer);
       stopRequestsEventsConnection();
     };
   }, [user]);

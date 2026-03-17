@@ -14,6 +14,8 @@ public class ExceptionHandlingMiddleware(
     RequestDelegate next,
     ILogger<ExceptionHandlingMiddleware> logger)
 {
+    // IMPORTANT: usa mesma lógica do ASP.NET Core (ASPNETCORE_ENVIRONMENT).
+    // Nunca confiar apenas na variável de ambiente em isolamento — padrão é Production se não definida.
     private static bool IsDevelopment() =>
         string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
     /// <summary>
@@ -124,7 +126,8 @@ public class ExceptionHandlingMiddleware(
         {
             AuthConflictException => (HttpStatusCode.Conflict, exception.Message),
             DomainException => (HttpStatusCode.BadRequest, exception.Message),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, exception.Message),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized,
+                IsDevelopment() ? exception.Message : "Não autorizado."),
             // InvalidOperationException: em produção não expor exception.Message (pode vazar detalhes internos)
             InvalidOperationException => (HttpStatusCode.BadRequest,
                 IsDevelopment() ? exception.Message : "Operação inválida. Verifique os dados e tente novamente."),

@@ -38,7 +38,7 @@ export default function DoctorQueue() {
       const list = parseApiList<MedicalRequest>(data);
       // Fila = pedidos sem médico atribuído (disponíveis para assumir)
       const available = list.filter(
-        (r) => !r.doctorId || r.doctorId === '00000000-0000-0000-0000-000000000000'
+        (r) => !r.doctorId || r.doctorId === '00000000-0000-0000-0000-000000000000' || r.doctorId === null
       );
       setItems(available);
     } catch {

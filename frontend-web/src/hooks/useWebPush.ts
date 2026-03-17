@@ -71,7 +71,7 @@ export function useWebPush(enabled: boolean): UseWebPushReturn {
       const token = JSON.stringify(subscription.toJSON());
       await registerPushToken(token);
     } catch (err) {
-      console.warn('[WebPush] Subscription failed:', err);
+      if (import.meta.env.DEV) console.warn('[WebPush] Subscription failed:', err);
     }
   }, []);
 

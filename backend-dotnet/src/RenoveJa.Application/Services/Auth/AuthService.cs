@@ -42,7 +42,7 @@ public class AuthService(
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreatePatient(
-            request.Name, request.Email, passwordHash, cpf!, request.Phone, request.BirthDate,
+            request.Name, request.Email, passwordHash, cpfDigits, request.Phone, request.BirthDate,
             request.Street, request.Number, request.Neighborhood, request.Complement,
             request.City, request.State, request.PostalCode);
 
@@ -52,7 +52,9 @@ public class AuthService(
         {
             var token = AuthToken.Create(user.Id);
             await tokenRepository.CreateAsync(token, cancellationToken);
-            _ = RecordInitialConsentsAsync(user.Id, cancellationToken);
+            // LGPD compliance risk: fire-and-forget means consent records can be silently lost
+            // on transient failures. TODO: replace with outbox/retry pattern to guarantee persistence.
+            _ = RecordInitialConsentsAsync(user.Id, CancellationToken.None);
             return new AuthResponseDto(MapUserToDto(user), token.Token);
         }
         catch
@@ -76,7 +78,7 @@ public class AuthService(
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreateDoctor(
-            request.Name, request.Email, passwordHash, request.Phone, cpf!, request.BirthDate,
+            request.Name, request.Email, passwordHash, request.Phone, cpfDigits, request.BirthDate,
             request.Street, request.Number, request.Neighborhood, request.Complement,
             request.City, request.State, request.PostalCode);
 
@@ -102,18 +104,23 @@ public class AuthService(
             throw;
         }
 
+        // Token vazio indica que o médico precisa de aprovação antes de poder logar.
+        // O frontend detecta isso via: !response.token || response.token.trim() === ''
         return new AuthResponseDto(MapUserToDto(user), string.Empty, null);
     }
 
     private async Task RollbackUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        try { await userRepository.DeleteAsync(userId, cancellationToken); } catch { }
+        try { await userRepository.DeleteAsync(userId, cancellationToken); }
+        catch (Exception ex) { logger.LogError(ex, "Failed to rollback user {UserId}", userId); }
     }
 
     private async Task RollbackDoctorRegistrationAsync(Guid userId, Guid doctorProfileId, CancellationToken cancellationToken)
     {
-        try { await doctorRepository.DeleteAsync(doctorProfileId, cancellationToken); } catch { }
-        try { await userRepository.DeleteAsync(userId, cancellationToken); } catch { }
+        try { await doctorRepository.DeleteAsync(doctorProfileId, cancellationToken); }
+        catch (Exception ex) { logger.LogError(ex, "Failed to rollback doctor profile {ProfileId}", doctorProfileId); }
+        try { await userRepository.DeleteAsync(userId, cancellationToken); }
+        catch (Exception ex) { logger.LogError(ex, "Failed to rollback user {UserId}", userId); }
     }
 
     public async Task<AuthResponseDto> LoginAsync(
@@ -126,9 +133,7 @@ public class AuthService(
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
 
-        var token = AuthToken.Create(user.Id);
-        await tokenRepository.CreateAsync(token, cancellationToken);
-
+        // Verificar aprovação do médico ANTES de criar token (evita tokens órfãos no banco)
         DoctorProfileDto? doctorProfile = null;
         if (user.IsDoctor())
         {
@@ -142,6 +147,9 @@ public class AuthService(
                 doctorProfile = MapDoctorProfileToDto(profile);
             }
         }
+
+        var token = AuthToken.Create(user.Id);
+        await tokenRepository.CreateAsync(token, cancellationToken);
 
         return new AuthResponseDto(
             await MapUserToDtoAsync(user),
@@ -174,21 +182,8 @@ public class AuthService(
         if (!string.IsNullOrWhiteSpace(config?.AndroidClientId))
             allowedAudiences.Add(config.AndroidClientId.Trim());
 
-        try
-        {
-            var parts = request.GoogleToken.Split('.');
-            if (parts.Length >= 2)
-            {
-                var payloadBase64 = parts[1];
-                switch (payloadBase64.Length % 4) { case 2: payloadBase64 += "=="; break; case 3: payloadBase64 += "="; break; }
-                var payloadJson = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(payloadBase64));
-                var jsonDoc = System.Text.Json.JsonDocument.Parse(payloadJson);
-                var aud = jsonDoc.RootElement.TryGetProperty("aud", out var audProp) ? audProp.GetString() : "N/A";
-                var iss = jsonDoc.RootElement.TryGetProperty("iss", out var issProp) ? issProp.GetString() : "N/A";
-                logger.LogWarning("Google token DEBUG: aud={Aud}, iss={Iss}, allowedAudiences={Audiences}", aud, iss, string.Join(", ", allowedAudiences));
-            }
-        }
-        catch (Exception debugEx) { logger.LogWarning("Could not decode token for debug: {Message}", debugEx.Message); }
+        // Debug token decoding removido: vazava aud/iss em logs de produção (Sentry)
+        // Para debug local, usar breakpoint ou condicional __DEV__
 
         GoogleJsonWebSignature.Payload payload;
         try
@@ -215,7 +210,8 @@ public class AuthService(
         var user = await userRepository.GetByEmailAsync(email, cancellationToken);
         if (user == null)
         {
-            var role = string.Equals(request.Role, "doctor", StringComparison.OrdinalIgnoreCase) ? UserRole.Doctor : UserRole.Patient;
+            // FIX B32: Google OAuth always creates Patient accounts. Doctor registration requires CRM + admin approval.
+            var role = UserRole.Patient;
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"));
             user = User.CreateFromGoogleIdentity(name, email, passwordHash, role);
             user = await userRepository.CreateAsync(user, cancellationToken);
@@ -274,7 +270,7 @@ public class AuthService(
             user.CompleteProfile(request.Phone, request.Cpf, request.BirthDate, request.Street, request.Number, request.Neighborhood, request.Complement, request.City, request.State, request.PostalCode);
             user = await userRepository.UpdateAsync(user, cancellationToken);
         }
-        _ = RecordInitialConsentsAsync(user.Id, cancellationToken);
+        _ = RecordInitialConsentsAsync(user.Id, CancellationToken.None);
         return MapUserToDto(user);
     }
 
@@ -284,18 +280,16 @@ public class AuthService(
             ?? throw new InvalidOperationException("User not found");
         if (user.ProfileComplete)
             throw new InvalidOperationException("Cannot cancel registration: profile is already complete. Use another flow to delete account.");
-        if (user.IsDoctor())
-        {
-            var profile = await doctorRepository.GetByUserIdAsync(userId, cancellationToken);
-            if (profile != null) { try { await doctorRepository.DeleteAsync(profile.Id, cancellationToken); } catch { } }
-        }
-        await tokenRepository.DeleteByUserIdAsync(userId, cancellationToken);
-        await userRepository.DeleteAsync(userId, cancellationToken);
+        // FIX B19: Use transactional cascade delete to prevent race conditions
+        // (previously, individual deletes could leave orphaned tokens/profiles on partial failure)
+        await userRepository.DeleteCascadeAsync(userId, user.IsDoctor(), cancellationToken);
     }
 
     public async Task<(Guid UserId, string Role)> ValidateTokenAsync(string token, CancellationToken cancellationToken = default)
     {
-        var normalizedToken = Uri.UnescapeDataString(token?.Trim() ?? string.Empty);
+        // Normaliza token: trim whitespace, mas NÃO faz UnescapeDataString
+        // (pode corromper tokens Base64 que contêm caracteres URL-like como + e =)
+        var normalizedToken = token?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedToken))
             throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
         var authToken = await tokenRepository.GetByTokenAsync(normalizedToken, cancellationToken);
@@ -310,8 +304,10 @@ public class AuthService(
     {
         var user = await userRepository.GetByEmailAsync(email?.Trim() ?? "", cancellationToken);
         if (user == null) return;
+        // NOTE B34: Invalidation and creation are not atomic. Concurrent calls may create multiple valid tokens.
+        // Both tokens will work — the user receives two emails with valid links. Acceptable for password reset flow.
         await passwordResetTokenRepository.InvalidateByUserIdAsync(user.Id, cancellationToken);
-        var resetToken = PasswordResetToken.Create(user.Id, expirationHours: 2);
+        var resetToken = PasswordResetToken.Create(user.Id, expirationHours: 1);
         resetToken = await passwordResetTokenRepository.CreateAsync(resetToken, cancellationToken);
         var baseUrl = smtpConfig.Value.ResetPasswordBaseUrl?.TrimEnd('/') ?? "https://renovejasaude.com.br/recuperar-senha";
         var resetLink = $"{baseUrl}?token={Uri.EscapeDataString(resetToken.Token)}";
@@ -389,7 +385,7 @@ public class AuthService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "[AUTH] Falha ao registrar consents LGPD para userId={UserId}. Best effort.", userId);
+            logger.LogError(ex, "[AUTH][LGPD] Falha ao registrar consents LGPD para userId={UserId}. AÇÃO NECESSÁRIA: consents devem ser registrados manualmente.", userId);
         }
     }
 

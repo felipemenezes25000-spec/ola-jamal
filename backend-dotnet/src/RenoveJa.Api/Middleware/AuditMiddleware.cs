@@ -30,52 +30,59 @@ public class AuditMiddleware(
     {
         var stopwatch = Stopwatch.StartNew();
 
-        await next(context);
-
-        stopwatch.Stop();
-
-        // Capturar TUDO do context antes que ele seja disposed
-        var path = context.Request.Path.Value ?? "";
-        var method = context.Request.Method;
-        var statusCode = context.Response.StatusCode;
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString();
-        var userAgent = context.Request.Headers.UserAgent.ToString();
-        if (userAgent?.Length > 256) userAgent = userAgent[..256];
-        var correlationId = context.TraceIdentifier;
-        var durationMs = stopwatch.ElapsedMilliseconds;
-
-        Guid? userId = null;
-        if (context.User?.Identity?.IsAuthenticated == true)
+        // FIX #68: Wrap em try/finally para garantir audit mesmo quando next() lança exceção
+        try
         {
-            var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (Guid.TryParse(userIdClaim, out var parsedUserId))
-                userId = parsedUserId;
+            await next(context);
         }
-
-        var action = method switch
+        finally
         {
-            "GET" => "Read",
-            "POST" => "Create",
-            "PUT" or "PATCH" => "Update",
-            "DELETE" => "Delete",
-            _ => method
-        };
+            stopwatch.Stop();
 
-        var (entityType, entityId, metadata) = ClassifyEndpoint(path, method, statusCode, durationMs);
+            // Capturar TUDO do context antes que ele seja disposed
+            var path = context.Request.Path.Value ?? "";
+            var method = context.Request.Method;
+            var statusCode = context.Response.StatusCode;
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString();
+            var userAgent = context.Request.Headers.UserAgent.ToString();
+            if (userAgent?.Length > 256) userAgent = userAgent[..256];
+            var correlationId = context.TraceIdentifier;
+            var durationMs = stopwatch.ElapsedMilliseconds;
 
-        var entry = new AuditEntry(
-            UserId: userId,
-            Action: action,
-            EntityType: entityType,
-            EntityId: entityId,
-            IpAddress: ipAddress,
-            UserAgent: userAgent,
-            CorrelationId: correlationId,
-            Metadata: metadata);
+            Guid? userId = null;
+            if (context.User?.Identity?.IsAuthenticated == true)
+            {
+                var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (Guid.TryParse(userIdClaim, out var parsedUserId))
+                    userId = parsedUserId;
+            }
 
-        if (!auditChannel.Writer.TryWrite(entry))
-        {
-            logger.LogWarning("Audit channel is full; entry dropped for {Method} {Path}", method, path);
+            var action = method switch
+            {
+                "GET" => "Read",
+                "POST" => "Create",
+                "PUT" or "PATCH" => "Update",
+                "DELETE" => "Delete",
+                _ => method
+            };
+
+            var (entityType, entityId, metadata) = ClassifyEndpoint(path, method, statusCode, durationMs);
+
+            var entry = new AuditEntry(
+                UserId: userId,
+                Action: action,
+                EntityType: entityType,
+                EntityId: entityId,
+                IpAddress: ipAddress,
+                UserAgent: userAgent,
+                CorrelationId: correlationId,
+                Metadata: metadata);
+
+            // FIX B27: Log at Error level when audit events are dropped (compliance risk)
+            if (!auditChannel.Writer.TryWrite(entry))
+            {
+                logger.LogError("Audit channel is full; entry dropped for {Method} {Path}. Consider scaling audit consumer.", method, path);
+            }
         }
     }
 

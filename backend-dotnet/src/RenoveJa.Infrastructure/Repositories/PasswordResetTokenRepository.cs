@@ -1,4 +1,5 @@
-﻿using RenoveJa.Domain.Entities;
+﻿using Dapper;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
 using RenoveJa.Infrastructure.Data.Postgres;
@@ -11,17 +12,13 @@ public class PasswordResetTokenRepository(PostgresClient db) : IPasswordResetTok
 
     public async Task<PasswordResetToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
     {
-        // Busca no backend: traz tokens recentes e filtra em memória (banco só persiste dados, lógica no backend)
+        // FIX B24: Direct parameterized SQL query instead of fetching 500 tokens and filtering in memory
         var rawToken = Uri.UnescapeDataString(token.Trim());
-        var list = await db.GetAllAsync<PasswordResetTokenModel>(
-            TableName,
-            select: "*",
-            filter: null,
-            orderBy: "created_at.desc",
-            limit: 500,
-            cancellationToken: cancellationToken);
-
-        var model = list.FirstOrDefault(m => m.Token == rawToken);
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        var model = await conn.QueryFirstOrDefaultAsync<PasswordResetTokenModel>(
+            "SELECT id AS \"Id\", user_id AS \"UserId\", token AS \"Token\", expires_at AS \"ExpiresAt\", used AS \"Used\", created_at AS \"CreatedAt\" FROM password_reset_tokens WHERE token = @Token LIMIT 1",
+            new { Token = rawToken });
         return model != null ? MapToDomain(model) : null;
     }
 

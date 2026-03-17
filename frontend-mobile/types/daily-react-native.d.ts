@@ -27,7 +27,7 @@ declare module '@daily-co/react-native-daily-js' {
     leave(): Promise<void>;
     destroy(): Promise<void>;
     on(event: DailyEvent, cb: (event?: any) => void): void;
-    off?(event: DailyEvent, cb?: (event?: any) => void): void;
+    off(event: DailyEvent, cb?: (event?: any) => void): void;
     participants(): Record<string, DailyParticipant>;
     setLocalAudio(enabled: boolean): Promise<void>;
     setLocalVideo(enabled: boolean): Promise<void>;

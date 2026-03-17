@@ -22,8 +22,10 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
     }
     /// <summary>
     /// Lista médicos com paginação, opcionalmente por especialidade e disponibilidade.
+    /// Intentionally public (AllowAnonymous) — patients search for available doctors before authenticating.
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetDoctors(
         [FromQuery] string? specialty,
         [FromQuery] bool? available,
@@ -42,11 +44,14 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
     /// Obtém um médico pelo ID.
     /// </summary>
     [HttpGet("{id}")]
+    [Authorize]
     public async Task<IActionResult> GetDoctor(
         Guid id,
         CancellationToken cancellationToken)
     {
         var doctor = await doctorService.GetDoctorByIdAsync(id, cancellationToken);
+        if (doctor == null)
+            return NotFound();
         return Ok(doctor);
     }
 
@@ -73,6 +78,16 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
         [FromBody] UpdateDoctorAvailabilityDto dto,
         CancellationToken cancellationToken)
     {
+        // FIX B23: IDOR guard — verify the doctor profile belongs to the current user
+        var currentUserId = GetUserId(User);
+        if (currentUserId == Guid.Empty)
+            return Unauthorized();
+        var existingProfile = await doctorService.GetProfileByUserIdAsync(currentUserId, cancellationToken);
+        if (existingProfile == null)
+            return NotFound();
+        if (existingProfile.Id != id)
+            return Forbid();
+
         var profile = await doctorService.UpdateAvailabilityAsync(id, dto, cancellationToken);
         return Ok(profile);
     }

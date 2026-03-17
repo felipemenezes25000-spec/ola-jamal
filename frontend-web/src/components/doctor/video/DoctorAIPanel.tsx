@@ -3,6 +3,7 @@
  * Gravidade Manchester, CID, alertas, diferencial, anamnese, meds, exames, orientações, perguntas.
  */
 import { useState, useMemo, useCallback } from 'react';
+import { Lightbulb, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
   TabKey,
@@ -22,7 +23,7 @@ interface DoctorAIPanelProps {
   suggestions: (string | { text?: string; suggestion?: string })[];
 }
 
-export function DoctorAIPanel({ anamnesis, suggestions: _suggestions }: DoctorAIPanelProps) {
+export function DoctorAIPanel({ anamnesis, suggestions }: DoctorAIPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('consulta');
   const [expandedMeds, setExpandedMeds] = useState<Set<number>>(new Set());
 
@@ -113,6 +114,13 @@ export function DoctorAIPanel({ anamnesis, suggestions: _suggestions }: DoctorAI
 
   const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
 
+  const parsedSuggestions = useMemo(() => {
+    return suggestions.map((s) => {
+      if (typeof s === 'string') return s;
+      return s.text ?? s.suggestion ?? '';
+    }).filter(Boolean);
+  }, [suggestions]);
+
   const copyToClipboard = useCallback(async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
     toast.success(`${label} copiado para a área de transferência`);
@@ -170,6 +178,27 @@ export function DoctorAIPanel({ anamnesis, suggestions: _suggestions }: DoctorAI
               criteriosRetorno={criteriosRetorno}
               copyToClipboard={copyToClipboard}
             />
+            {parsedSuggestions.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5" />
+                  Sugestoes em tempo real
+                </h3>
+                {parsedSuggestions.map((s, i) => {
+                  const isDanger = s.startsWith('\u{1F6A8}');
+                  return (
+                    <div key={i} className={`flex gap-2 p-2.5 rounded-lg text-sm ${isDanger ? 'bg-destructive/10' : 'bg-amber-50 dark:bg-amber-950/20'}`}>
+                      {isDanger
+                        ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                        : <Lightbulb className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />}
+                      <span className={isDanger ? 'text-destructive' : 'text-amber-800 dark:text-amber-200'}>
+                        {isDanger ? s.replace('\u{1F6A8} ', '') : s}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
         {activeTab === 'perguntas' && (

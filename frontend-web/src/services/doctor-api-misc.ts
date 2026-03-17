@@ -47,6 +47,10 @@ export async function fetchAddressByCep(cep: string) {
 
 // ── Prescription/Exam Images ──
 
+/**
+ * Returns a blob URL for the prescription image.
+ * ⚠️ Caller MUST call URL.revokeObjectURL(url) when done to avoid memory leaks.
+ */
 export async function getPrescriptionImage(id: string, index: number): Promise<string> {
   const res = await authFetch(`/api/requests/${id}/prescription-image/${index}`);
   if (!res.ok) throw new Error('Erro ao buscar imagem');
@@ -54,6 +58,10 @@ export async function getPrescriptionImage(id: string, index: number): Promise<s
   return URL.createObjectURL(blob);
 }
 
+/**
+ * Returns a blob URL for the exam image.
+ * ⚠️ Caller MUST call URL.revokeObjectURL(url) when done to avoid memory leaks.
+ */
 export async function getExamImage(id: string, index: number): Promise<string> {
   const res = await authFetch(`/api/requests/${id}/exam-image/${index}`);
   if (!res.ok) throw new Error('Erro ao buscar imagem');

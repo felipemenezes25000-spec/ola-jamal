@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs;
+using FluentValidation;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.DTOs.Video;
 using RenoveJa.Application.Exceptions;
@@ -198,6 +199,12 @@ public class RequestService(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        // NH-2: Invoke FluentValidation before proceeding
+        var validator = new CreateConsultationRequestValidator();
+        var validationResult = await validator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+            throw new FluentValidation.ValidationException(validationResult.Errors);
+
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null)
             throw new InvalidOperationException("User not found");
@@ -998,6 +1005,13 @@ public class RequestService(
         Guid doctorId,
         CancellationToken cancellationToken = default)
     {
+        // NH-4: Enforce max length on clinical/conduct notes to prevent abuse
+        const int maxNotesLength = 10_000;
+        if (dto.ConductNotes is { Length: > maxNotesLength })
+            throw new InvalidOperationException($"ConductNotes exceeds maximum length of {maxNotesLength} characters.");
+        if (dto.AutoObservationOverride is { Length: > maxNotesLength })
+            throw new InvalidOperationException($"AutoObservationOverride exceeds maximum length of {maxNotesLength} characters.");
+
         var request = await requestRepository.GetByIdAsync(requestId, cancellationToken)
             ?? throw new InvalidOperationException($"Request {requestId} not found.");
 

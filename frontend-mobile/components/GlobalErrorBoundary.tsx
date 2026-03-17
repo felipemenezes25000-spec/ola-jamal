@@ -87,10 +87,10 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               {'\n'}Tente recarregar o app.
             </Text>
 
-            {__DEV__ && this.state.error && (
+            {this.state.error && (
               <View style={styles.devBox}>
-                <Text style={styles.devLabel}>DEV — erro capturado:</Text>
-                <Text style={styles.devText} numberOfLines={6}>
+                <Text style={styles.devLabel}>{__DEV__ ? 'DEV — erro capturado:' : 'Detalhes do erro:'}</Text>
+                <Text style={styles.devText} numberOfLines={8} selectable>
                   {this.state.error.name}: {this.state.error.message}
                 </Text>
               </View>

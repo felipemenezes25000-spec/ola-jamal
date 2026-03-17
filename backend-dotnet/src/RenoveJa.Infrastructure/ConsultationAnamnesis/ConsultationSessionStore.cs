@@ -9,6 +9,12 @@ namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 /// Store em memória (IMemoryCache) do estado da sessão de consulta por requestId.
 /// Thread-safe por requestId via lock no objeto de estado.
 /// Armazena segmentos com timestamp para gerar .txt no formato "Paciente minuto X segundo Y fala".
+///
+/// TODO(resilience): IMemoryCache é volátil — dados de transcrição são PERDIDOS em deploy/restart ECS.
+/// Se uma consulta estiver ativa durante um deploy, toda a transcrição acumulada é perdida.
+/// Migrar para Redis (ElastiCache) ou DynamoDB para persistência cross-deploy.
+/// Workaround atual: FinishConsultation salva no S3/DB antes do encerramento, mas se o container
+/// for encerrado abruptamente (kill signal, OOM, rolling deploy), os dados se perdem.
 /// </summary>
 public class ConsultationSessionStore : IConsultationSessionStore
 {

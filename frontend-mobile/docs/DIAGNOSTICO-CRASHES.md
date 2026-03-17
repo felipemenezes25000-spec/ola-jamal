@@ -109,6 +109,18 @@ doctor-patient-summary.
 | --- | --- |
 | `s.startsWith('🚨')` — s pode ser null em array | `const str = typeof s === 'string' ? s : ''` |
 
+### 14. Pós-consulta (post-consultation-emit / PostConsultationScreen)
+
+| Problema | Correção |
+| --- | --- |
+| `extractCidFromAnamnesis` — `cid_sugerido` pode ser number/null (JSON malformado) | `typeof cid === 'string'` antes de `toUpperCase()` |
+| `buildMedsFromAnamnesis` — itens null no array | `filter((m) => m != null)` antes do map |
+| `buildExamsFromAnamnesis` — itens null no array | `filter((e) => e != null)` antes do map |
+| `cidPkg?.medications.map` — medications pode ser undefined | `(cidPkg?.medications ?? []).map(...)` |
+| `cidPkg?.exams.map` — exams pode ser undefined | `(cidPkg?.exams ?? []).map(...)` |
+| `request.patientName` — pode ser number (API malformada) | `String(request.patientName ?? 'P')` |
+| `request.patientBirthDate` — data inválida gera NaN | Guard `!Number.isNaN(new Date(...).getTime())` |
+
 ---
 
 ## Pedidos do médico — "Não foi possível carregar"
@@ -183,6 +195,8 @@ só repassa a mensagem. A causa real está nos logs do servidor.
 
 ## Arquivos modificados
 
+- `app/post-consultation-emit/[requestId].tsx`
+- `components/post-consultation/PostConsultationScreen.tsx`
 - `app/(patient)/record.tsx`
 - `app/doctor-patient/[patientId].tsx`
 - `app/(patient)/requests.tsx`

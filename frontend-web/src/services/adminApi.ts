@@ -32,12 +32,21 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
   if (!base) throw new Error("URL da API não configurada. Defina VITE_API_URL.");
   const token = getToken();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "true",
     ...(options.headers as Record<string, string> || {}),
   };
+  // Don't set Content-Type for FormData — browser sets multipart boundary automatically
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${base}${url}`, { ...options, headers });
+  // TODO(security): migrar token para HttpOnly cookie — localStorage é acessível via XSS
+  let res: Response;
+  try {
+    res = await fetch(`${base}${url}`, { ...options, headers });
+  } catch {
+    throw new Error("Erro de conexão. Verifique sua internet e tente novamente.");
+  }
   if (res.status === 401) {
     clearAdminSession();
     window.location.href = "/admin/login";
@@ -68,9 +77,9 @@ export async function login(email: string, password: string) {
   if (!res.ok) throw new Error("Credenciais inválidas");
   const data = await res.json();
 
-  // Verificar se o usuário é admin
+  // Verificar se o usuário é admin ou sus (ambos têm acesso ao painel)
   const role = data.user?.role;
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "sus") {
     throw new Error("ACCESS_DENIED");
   }
 
@@ -89,9 +98,9 @@ export function isAuthenticated(): boolean {
   const token = getToken();
   if (!token) return false;
 
-  // Verificar se a role salva é admin
+  // Verificar se a role salva é admin ou sus
   const role = localStorage.getItem(ADMIN_ROLE_KEY);
-  if (role && role !== "admin") {
+  if (role && role !== "admin" && role !== "sus") {
     clearAdminSession();
     return false;
   }

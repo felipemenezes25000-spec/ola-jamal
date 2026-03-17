@@ -35,6 +35,11 @@ export function useWebTranscription({
     onSendSuccessRef.current = onSendSuccess;
   }, [consultationActive, onSendError, onSendSuccess]);
 
+  // Reset startedRef when requestId changes so transcription can restart for a new session
+  useEffect(() => {
+    startedRef.current = false;
+  }, [requestId]);
+
   const localSessionId = useLocalSessionId();
   const meetingState = useMeetingState();
 

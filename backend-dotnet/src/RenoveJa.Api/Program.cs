@@ -245,6 +245,7 @@ builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 builder.Services.AddScoped<IStartConsultationRecording, StartConsultationRecordingService>();
+builder.Services.AddScoped<IRecordingSyncService, RecordingSyncService>();
 builder.Services.AddHttpClient("LediPec");
 builder.Services.AddHttpClient("Rnds");
 
@@ -274,6 +275,8 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Patient", policy => policy.RequireRole("patient"));
     options.AddPolicy("Doctor", policy => policy.RequireRole("doctor"));
+    options.AddPolicy("Admin", policy => policy.RequireRole("admin", "sus"));
+    options.AddPolicy("Sus", policy => policy.RequireRole("sus", "admin"));
 });
 
 builder.Services.AddSignalR();
@@ -338,8 +341,7 @@ builder.Services.AddCors(options =>
                 if (scheme == "exp") return true; // Expo Go: exp://192.168.x.x:8081
                 if (host.StartsWith("192.168.") || host.StartsWith("10.")) return true; // LAN
                 if (host.Contains("ngrok", StringComparison.OrdinalIgnoreCase)) return true;
-                if (host.Equals("lovable.dev", StringComparison.OrdinalIgnoreCase) || host.Equals("www.lovable.dev", StringComparison.OrdinalIgnoreCase)) return true;
-                if (host.EndsWith(".lovable.app", StringComparison.OrdinalIgnoreCase)) return true;
+                // Lovable removido: não é mais utilizado
                 return false;
             }
             catch { return false; }
@@ -389,13 +391,13 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 10
             }));
 
-    // Limiter para autenticação: 10 tentativas por minuto
+    // Limiter para autenticação: 5 tentativas por minuto (proteção contra brute force)
     options.AddPolicy("auth", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = 5,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 2
@@ -423,6 +425,18 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 1
+            }));
+
+    // NM-6: Limiter for admin operations: 30 req/min (separate from login "auth" bucket)
+    options.AddPolicy("admin", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 5
             }));
 
     // Limiter para registro: 10 req/min
@@ -493,7 +507,8 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
     ctx.Response.Headers["X-Frame-Options"] = "DENY";
     ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    ctx.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    // Permite camera e microfone para o portal do médico (Daily.co videochamada)
+    ctx.Response.Headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()";
     ctx.Response.Headers["X-XSS-Protection"] = "0";
     await next();
 });

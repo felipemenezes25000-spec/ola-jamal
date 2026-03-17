@@ -105,7 +105,7 @@ export function useAudioChunking(requestId: string): AudioChunkingReturn {
         const msg = e?.message ?? String(e);
         const status = e?.status;
         const display = status != null ? `[${status}] ${msg}` : msg;
-        console.warn(`[AudioChunking] Chunk send failed:`, display);
+        if (__DEV__) console.warn(`[AudioChunking] Chunk send failed:`, display);
         setLastChunkError(display);
         setChunksFailed((c) => c + 1);
       } finally {
@@ -138,7 +138,7 @@ export function useAudioChunking(requestId: string): AudioChunkingReturn {
         }
         prevUri = prevRecording.getURI();
       } catch (e: any) {
-        console.warn('[AudioChunking] Stop chunk error:', e?.message);
+        if (__DEV__) console.warn('[AudioChunking] Stop chunk error:', e?.message);
       }
       recordingRef.current = null;
     }

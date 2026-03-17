@@ -49,6 +49,12 @@ export function useVideoCallEvents(
 
   const connectSignalR = useCallback(async () => {
     if (!requestId || !isDoctor) return;
+    // FIX NM-3: Stop the previous connection before starting a new one
+    // (e.g., when requestId changes and connectSignalR is re-created)
+    if (signalRRef.current) {
+      try { await signalRRef.current.stop(); } catch {}
+      signalRRef.current = null;
+    }
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic import for SignalR
       const signalR = require('@microsoft/signalr');
@@ -58,7 +64,7 @@ export function useVideoCallEvents(
       // Verifica se há token antes de conectar (falha rápida)
       const initialToken = await apiClient.getAuthToken();
       if (!initialToken) {
-        console.warn('[SignalR] No auth token found — cannot connect');
+        if (__DEV__) console.warn('[SignalR] No auth token found — cannot connect');
         return;
       }
 
@@ -120,7 +126,7 @@ export function useVideoCallEvents(
       await conn.invoke('JoinRoom', requestId);
       signalRRef.current = conn;
     } catch (e) {
-      console.warn('SignalR connection failed (non-critical):', e);
+      if (__DEV__) console.warn('SignalR connection failed (non-critical):', e);
     }
   }, [requestId, isDoctor]);
 

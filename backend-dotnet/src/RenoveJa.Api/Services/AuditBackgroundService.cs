@@ -27,7 +27,8 @@ public sealed class AuditChannel
 
     public AuditChannel()
     {
-        var options = new BoundedChannelOptions(1000)
+        // FIX B27: Increased capacity from 1000 to 10000 to reduce dropped audit events under load
+        var options = new BoundedChannelOptions(10000)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true,

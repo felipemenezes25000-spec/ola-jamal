@@ -92,6 +92,16 @@ export function useDailyJoin({
   const [remoteParticipant, setRemoteParticipant] = useState<ParticipantTrack | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // FIX M9: Store callbacks in refs to avoid stale closures in Daily event handlers
+  const onRemoteJoinedRef = useRef(onRemoteJoined);
+  onRemoteJoinedRef.current = onRemoteJoined;
+  const onCallEndedRef = useRef(onCallEnded);
+  onCallEndedRef.current = onCallEnded;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+  const isDoctorRef = useRef(isDoctor);
+  isDoctorRef.current = isDoctor;
+
   // --- Helpers ---
 
   const extractTrack = useCallback((p: DailyParticipant): ParticipantTrack => ({
@@ -159,7 +169,7 @@ export function useDailyJoin({
       call.on('participant-joined' as DailyEvent, (event: DailyParticipantEvent) => {
         updateParticipants();
         if (event && !event.participant?.local) {
-          onRemoteJoined?.();
+          onRemoteJoinedRef.current?.();
         }
       });
 
@@ -176,7 +186,7 @@ export function useDailyJoin({
             participantLocal: participant?.local,
             participantSessionId: participant?.session_id,
             localSessionId,
-            isDoctor,
+            isDoctor: isDoctorRef.current,
             reason: event?.reason,
           });
         }
@@ -190,14 +200,14 @@ export function useDailyJoin({
 
         if (remoteLeft) {
           setRemoteParticipant(null);
-          if (!isDoctor) {
+          if (!isDoctorRef.current) {
             if (__DEV__) console.warn('[useDailyJoin] onCallEnded(remote-left)');
-            onCallEnded?.('remote-left');
+            onCallEndedRef.current?.('remote-left');
           }
         }
         if (localEjected) {
           if (__DEV__) console.warn('[useDailyJoin] onCallEnded(ejected)');
-          onCallEnded?.('ejected');
+          onCallEndedRef.current?.('ejected');
         }
       });
 
@@ -206,31 +216,50 @@ export function useDailyJoin({
           console.warn('[useDailyJoin] meeting-ended', { isDoctor, event });
         }
         setCallState('idle');
-        onCallEnded?.('meeting-ended');
+        onCallEndedRef.current?.('meeting-ended');
       });
 
       call.on('left-meeting' as DailyEvent, () => {
         setCallState('idle');
-        onCallEnded?.('left');
+        onCallEndedRef.current?.('left');
       });
 
       call.on('error' as DailyEvent, (event: DailyErrorEvent) => {
         const msg = event?.error?.msg ?? event?.errorMsg ?? 'Erro na chamada de vídeo';
         setCallState('error');
         setErrorMessage(msg);
-        onError?.(msg);
+        onErrorRef.current?.(msg);
       });
 
       // --- Join the call ---
       await call.join({ url: roomUrl, token });
 
     } catch (err: unknown) {
+      // FIX NM-7: Clean up event handlers and destroy call object on join failure
+      const call = callRef.current;
+      if (call) {
+        try {
+          call.off('joined-meeting' as DailyEvent);
+          call.off('participant-joined' as DailyEvent);
+          call.off('participant-updated' as DailyEvent);
+          call.off('participant-left' as DailyEvent);
+          call.off('meeting-ended' as DailyEvent);
+          call.off('left-meeting' as DailyEvent);
+          call.off('error' as DailyEvent);
+          await call.destroy();
+        } catch {
+          // swallow — best-effort cleanup
+        }
+        callRef.current = null;
+      }
       const msg = err instanceof Error ? err.message : 'Não foi possível entrar na sala';
       setCallState('error');
       setErrorMessage(msg);
-      onError?.(msg);
+      onErrorRef.current?.(msg);
     }
-  }, [roomUrl, token, isDoctor, updateParticipants, onRemoteJoined, onCallEnded, onError]);
+  // FIX M9: removed callback deps — refs are used inside, so join() is stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isDoctor/callbacks accessed via refs
+  }, [roomUrl, token, updateParticipants]);
 
   // --- Leave ---
 
@@ -270,8 +299,7 @@ export function useDailyJoin({
     return () => {
       const call = callRef.current;
       if (call) {
-        call.leave().catch(() => {});
-        call.destroy().catch(() => {});
+        call.leave().then(() => call.destroy()).catch(() => {});
         callRef.current = null;
       }
     };

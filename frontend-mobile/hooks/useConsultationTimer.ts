@@ -54,11 +54,12 @@ export function useConsultationTimer(
     if (!contractedMinutes || contractedMinutes <= 0 || !isActive) return;
     const remaining = contractedMinutes * 60 - callSeconds;
 
-    if (remaining === 120 && !alertedRef.current.has(120)) {
+    // FIX M14: use <= instead of === to avoid missing alerts if timer skips exact second
+    if (remaining <= 120 && remaining > 60 && !alertedRef.current.has(120)) {
       alertedRef.current.add(120);
       Alert.alert('Atenção', 'A consulta termina em 2 minutos.');
     }
-    if (remaining === 60 && !alertedRef.current.has(60)) {
+    if (remaining <= 60 && remaining > 0 && !alertedRef.current.has(60)) {
       alertedRef.current.add(60);
       Alert.alert('Atenção', 'A consulta termina em 1 minuto.');
     }

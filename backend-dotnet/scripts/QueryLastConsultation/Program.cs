@@ -2,6 +2,9 @@ using System;
 using System.Linq;
 using Npgsql;
 
+// Brasília: UTC-3 (sem horário de verão desde 2019)
+var brasiliaOffset = TimeSpan.FromHours(-3);
+
 var connStr = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
     ?? Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? args.FirstOrDefault()
@@ -43,7 +46,8 @@ var transcriptPreview = r.IsDBNull(6) ? null : r.GetString(6);
 
 Console.WriteLine("=== ÚLTIMA CONSULTA ===\n");
 Console.WriteLine($"Request ID:  {requestId}");
-Console.WriteLine($"Criada em:   {createdAt:yyyy-MM-dd HH:mm:ss} UTC");
+var brasiliaTime = createdAt.Add(brasiliaOffset);
+Console.WriteLine($"Criada em:   {brasiliaTime:yyyy-MM-dd HH:mm:ss} (Brasília)");
 Console.WriteLine($"Status:      {status}");
 Console.WriteLine($"Tipo:        {requestType}");
 Console.WriteLine();

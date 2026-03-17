@@ -9,11 +9,12 @@ import { motion } from "framer-motion";
 const AdminDashboard = () => {
   const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getDoctors()
       .then((data) => setDoctors(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .catch(() => setError('Falha ao carregar dados'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -40,6 +41,10 @@ const AdminDashboard = () => {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-sm text-destructive">{error}</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

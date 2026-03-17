@@ -121,7 +121,9 @@ public class VerificationService(
             return false;
 
         var expectedCode = GenerateAccessCode(requestId);
-        return string.Equals(accessCode.Trim(), expectedCode, StringComparison.OrdinalIgnoreCase);
+        var inputBytes = Encoding.UTF8.GetBytes(accessCode.Trim().ToUpperInvariant());
+        var expectedBytes = Encoding.UTF8.GetBytes(expectedCode.ToUpperInvariant());
+        return CryptographicOperations.FixedTimeEquals(inputBytes, expectedBytes);
     }
 
     /// <summary>
@@ -132,7 +134,9 @@ public class VerificationService(
         if (string.IsNullOrWhiteSpace(storedCode) || string.IsNullOrWhiteSpace(accessCode))
             return false;
 
-        return string.Equals(accessCode.Trim(), storedCode.Trim(), StringComparison.OrdinalIgnoreCase);
+        var inputBytes = Encoding.UTF8.GetBytes(accessCode.Trim().ToUpperInvariant());
+        var storedBytes = Encoding.UTF8.GetBytes(storedCode.Trim().ToUpperInvariant());
+        return CryptographicOperations.FixedTimeEquals(inputBytes, storedBytes);
     }
 
     /// <summary>

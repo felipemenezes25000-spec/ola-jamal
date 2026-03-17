@@ -19,11 +19,12 @@ public class PostgresClient
     public PostgresClient(IOptions<DatabaseConfig> config)
     {
         _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") ?? config.Value.DatabaseUrl ?? "";
-        if (!_connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase) && !_connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
-            _connectionString += ";Maximum Pool Size=20;Minimum Pool Size=2;Connection Idle Lifetime=300;Timeout=15";
 
         if (string.IsNullOrWhiteSpace(_connectionString))
             throw new InvalidOperationException("Database connection string not configured.");
+
+        if (!_connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase) && !_connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
+            _connectionString += ";Maximum Pool Size=20;Minimum Pool Size=2;Connection Idle Lifetime=300;Timeout=15";
 
         _jsonOptions = new JsonSerializerOptions
         {

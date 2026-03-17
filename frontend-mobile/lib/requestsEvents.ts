@@ -109,7 +109,6 @@ export async function stopRequestsEventsConnection(): Promise<void> {
     await connection.stop();
   } catch {}
   connection = null;
-  listeners.clear();
 }
 
 /**

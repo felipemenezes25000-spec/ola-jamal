@@ -108,7 +108,7 @@ public static class PostgRestFilterParser
                 else if (dir == "DESC.NULLSLAST")
                     sqlParts.Add($"{col} DESC NULLS LAST");
                 else
-                    sqlParts.Add(col);
+                    sqlParts.Add($"{col} ASC");
             }
             else
             {

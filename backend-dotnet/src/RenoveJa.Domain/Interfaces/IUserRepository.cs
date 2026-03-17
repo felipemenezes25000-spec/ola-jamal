@@ -11,6 +11,11 @@ public interface IUserRepository
     Task<User> CreateAsync(User user, CancellationToken cancellationToken = default);
     Task<User> UpdateAsync(User user, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Deletes user and all related data (doctor profile, auth tokens) in a single transaction.
+    /// Used by CancelRegistration to prevent race conditions with partial deletes.
+    /// </summary>
+    Task DeleteCascadeAsync(Guid userId, bool isDoctor, CancellationToken cancellationToken = default);
     Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<bool> ExistsByCpfAsync(string cpf, CancellationToken cancellationToken = default);
 }

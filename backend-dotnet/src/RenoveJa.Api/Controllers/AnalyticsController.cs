@@ -28,6 +28,11 @@ public class AnalyticsController(
         if (batch.Events is not { Count: > 0 })
             return Accepted();
 
+        // NL-2: Cap batch size to prevent abuse
+        const int maxBatchSize = 100;
+        if (batch.Events.Count > maxBatchSize)
+            return BadRequest(new { error = $"Batch size exceeds maximum of {maxBatchSize} events." });
+
         Guid? userId = null;
         try
         {

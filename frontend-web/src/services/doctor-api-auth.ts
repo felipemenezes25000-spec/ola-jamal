@@ -33,6 +33,7 @@ export function getStoredUser(): DoctorUser | null {
 }
 
 function storeAuth(token: string, user: DoctorUser) {
+  // TODO(security): migrar token para HttpOnly cookie — localStorage é acessível via XSS
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }

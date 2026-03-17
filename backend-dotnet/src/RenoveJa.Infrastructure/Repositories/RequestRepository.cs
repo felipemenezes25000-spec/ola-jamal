@@ -37,6 +37,8 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         var normalized = shortCode.ToLowerInvariant().Trim();
         if (normalized.Length > 12)
             normalized = normalized[..12];
+        if (normalized.AsSpan().IndexOfAny("&=.(") >= 0)
+            return null;
         var model = await db.GetSingleAsync<RequestModel>(
             TableName,
             filter: $"short_code=eq.{normalized}",
@@ -323,9 +325,17 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
     {
         var filter = $"patient_id=eq.{patientId}";
         if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (status.AsSpan().IndexOfAny("&=.(") >= 0)
+                throw new ArgumentException("Invalid status filter value");
             filter += $"&status=eq.{status}";
+        }
         if (!string.IsNullOrWhiteSpace(type))
+        {
+            if (type.AsSpan().IndexOfAny("&=.(") >= 0)
+                throw new ArgumentException("Invalid type filter value");
             filter += $"&request_type=eq.{type}";
+        }
 
         var totalCount = await db.CountAsync(TableName, filter, cancellationToken);
         if (totalCount == 0)

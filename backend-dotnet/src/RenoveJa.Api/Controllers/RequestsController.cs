@@ -265,7 +265,7 @@ public class RequestsController(
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        pageSize = Math.Clamp(pageSize, 1, 500);
+        pageSize = Math.Clamp(pageSize, 1, 100); // NH-3: cap at 100 to prevent DoS
         if (page < 1) page = 1;
         var userId = GetUserId();
         logger.LogInformation("[GetRequests] GET /api/requests userId={UserId} (from token), page={Page}, pageSize={PageSize}", userId, page, pageSize);
@@ -301,7 +301,7 @@ public class RequestsController(
 
         var userId = GetUserId();
         var request = await requestService.GetRequestByIdAsync(resolvedId.Value, userId, cancellationToken);
-        _ = auditEventService.LogReadAsync(userId, "Request", resolvedId.Value, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
+        _ = auditEventService.LogReadAsync(userId, "Request", resolvedId.Value, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
         return Ok(request);
     }
 }

@@ -237,8 +237,8 @@ export default function DoctorRequestEditor() {
     setExams(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: val } : e));
   };
 
-  const handleSave = useCallback(async () => {
-    if (!id || !request) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!id || !request) return false;
     setSaving(true);
     try {
       if (request.type === 'prescription') {
@@ -246,13 +246,17 @@ export default function DoctorRequestEditor() {
       } else if (request.type === 'exam') {
         await updateExamContent(id, { exams, notes });
       }
-      await updateConduct(id, { conductNotes, includeConductInPdf });
+      if (request.type === 'consultation') {
+        await updateConduct(id, { conductNotes, includeConductInPdf });
+      }
       const updated = await getRequestById(id);
       setRequest(updated);
       await refreshCompliance();
       toast.success('Salvo com sucesso');
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -262,15 +266,24 @@ export default function DoctorRequestEditor() {
     if (!id || !request) return;
     setPdfLoading(true);
     try {
-      await handleSave();
+      const saved = await handleSave();
+      if (!saved) { setPdfLoading(false); return; }
       const url = request.type === 'exam' ? await getPreviewExamPdf(id) : await getPreviewPdf(id);
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
       setPdfUrl(url);
     } catch {
       toast.error('Erro ao gerar preview');
     } finally {
       setPdfLoading(false);
     }
-  }, [id, request, handleSave]);
+  }, [id, request, handleSave, pdfUrl]);
+
+  // Cleanup blob URL on unmount or when pdfUrl changes
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+  }, [pdfUrl]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

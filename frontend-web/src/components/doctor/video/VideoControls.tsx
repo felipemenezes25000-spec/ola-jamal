@@ -101,7 +101,7 @@ export function VideoTopBar({
         <Button
           variant="ghost" size="sm"
           className="text-gray-400 hover:text-white hover:bg-gray-800 gap-1.5"
-          onClick={() => window.open(roomUrl, '_blank')}
+          onClick={() => window.open(roomUrl, '_blank', 'noopener,noreferrer')}
         >
           <ExternalLink className="h-3.5 w-3.5" /> Nova aba
         </Button>

@@ -33,14 +33,20 @@ public class DailyWebhookController(
     [HttpPost]
     public async Task<IActionResult> Handle([FromBody] DailyWebhookPayload? payload, CancellationToken cancellationToken)
     {
-        // Validar HMAC-SHA256 do Daily.co (o Daily assina o body e envia no header x-webhook-signature)
+        // Validar HMAC-SHA256 do Daily.co (o Daily assina o body e envia no header X-Webhook-Signature).
+        // O secret do Daily é BASE-64 encoded; decodificar antes de usar no HMAC.
         var configuredSecret = dailyConfig.Value.WebhookSecret;
-        if (!string.IsNullOrWhiteSpace(configuredSecret))
+        if (string.IsNullOrWhiteSpace(configuredSecret))
         {
-            var signature = Request.Headers["x-webhook-signature"].ToString();
+            logger.LogError("[DailyWebhook] WebhookSecret não configurado. Rejeitando requisição por segurança.");
+            return StatusCode(503, new { error = "Webhook secret not configured. Cannot validate request." });
+        }
+
+        {
+            var signature = Request.Headers["X-Webhook-Signature"].ToString();
             if (string.IsNullOrEmpty(signature))
             {
-                logger.LogWarning("[DailyWebhook] Header x-webhook-signature ausente. Rejeitando.");
+                logger.LogWarning("[DailyWebhook] Header X-Webhook-Signature ausente. Rejeitando.");
                 return Unauthorized();
             }
 
@@ -49,13 +55,23 @@ public class DailyWebhookController(
             var rawBody = await new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true).ReadToEndAsync(cancellationToken);
             Request.Body.Position = 0;
 
-            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(configuredSecret));
+            byte[] keyBytes;
+            try
+            {
+                keyBytes = Convert.FromBase64String(configuredSecret.Trim());
+            }
+            catch (FormatException)
+            {
+                keyBytes = Encoding.UTF8.GetBytes(configuredSecret);
+            }
+
+            using var hmac = new HMACSHA256(keyBytes);
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawBody));
             var computed = Convert.ToBase64String(hash);
 
             if (!string.Equals(computed, signature, StringComparison.Ordinal))
             {
-                logger.LogWarning("[DailyWebhook] HMAC inválido. Esperado={Expected}, Recebido={Received}", computed[..8] + "...", signature[..Math.Min(8, signature.Length)] + "...");
+                logger.LogWarning("[DailyWebhook] HMAC inválido. Esperado={Expected}, Recebido={Received}", computed[..Math.Min(8, computed.Length)] + "...", signature[..Math.Min(8, signature.Length)] + "...");
                 return Unauthorized();
             }
         }

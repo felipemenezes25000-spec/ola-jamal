@@ -141,17 +141,31 @@ public class VideoController(
     [HttpGet("by-request/{requestId:guid}")]
     public async Task<IActionResult> GetRoomByRequest(Guid requestId, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
+        var request = await requestRepository.GetByIdAsync(requestId, cancellationToken);
+        if (request == null) return NotFound();
+        if (request.PatientId != userId && request.DoctorId != userId)
+            return Forbid();
+
         var room = await videoService.GetRoomByRequestIdAsync(requestId, cancellationToken);
         if (room == null) return NotFound();
         return Ok(room);
     }
 
-    /// <summary>Busca sala por ID.</summary>
+    /// <summary>Busca sala por ID. Verifica se o usuário é participante da consulta associada.</summary>
     [Authorize]
     [HttpGet("rooms/{id:guid}")]
     public async Task<IActionResult> GetRoom(Guid id, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var room = await videoService.GetRoomAsync(id, cancellationToken);
+        if (room == null) return NotFound();
+
+        // IDOR fix: verify requesting user is a participant of the associated request
+        var request = await requestRepository.GetByIdAsync(room.RequestId, cancellationToken);
+        if (request == null || (request.PatientId != userId && request.DoctorId != userId))
+            return Forbid();
+
         return Ok(room);
     }
 

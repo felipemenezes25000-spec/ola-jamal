@@ -16,7 +16,6 @@ import {
 } from '@/services/doctorApi';
 import { getTypeLabel, getTypeIcon, getStatusInfo, normalizeStatus } from '@/lib/doctor-helpers';
 import { AiCopilotCard, hasUsefulAiContent } from '@/components/doctor/AiCopilotCard';
-import { ImageGallery } from '@/components/doctor/ImageGallery';
 import { StatusTracker } from '@/components/doctor/StatusTracker';
 import { ConsultationPostSection } from '@/components/doctor/ConsultationPostSection';
 import { PatientSidePanel } from '@/components/doctor/PatientSidePanel';
@@ -154,7 +153,7 @@ export default function DoctorRequestDetail() {
     try {
       const url = request.signedDocumentUrl || await getDocumentDownloadUrl(id);
       if (!url) { toast.error('URL de download não disponível'); return; }
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
       toast.success('Download iniciado');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao baixar documento');
@@ -343,17 +342,7 @@ export default function DoctorRequestDetail() {
                   </motion.div>
                 )}
 
-                {/* Imagens (legado — gallery raw) */}
-                {Array.isArray(request.prescriptionImages) && request.prescriptionImages.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}>
-                    <ImageGallery images={request.prescriptionImages} label="Imagens da Receita" />
-                  </motion.div>
-                )}
-                {Array.isArray(request.examImages) && request.examImages.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-                    <ImageGallery images={request.examImages} label="Imagens do Exame" />
-                  </motion.div>
-                )}
+                {/* Imagens legado removidas — PrescriptionImageGallery acima já renderiza */}
 
                 {/* Medicamentos — componente extraído */}
                 {Array.isArray(request.medications) && request.medications.length > 0 && (
@@ -419,8 +408,8 @@ export default function DoctorRequestDetail() {
                           <p className="font-semibold text-sm text-emerald-800">Documento assinado digitalmente</p>
                           <p className="text-xs text-emerald-600">Certificado ICP-Brasil</p>
                         </div>
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={request.signedDocumentUrl} target="_blank" rel="noreferrer">Ver PDF</a>
+                        <Button size="sm" variant="outline" onClick={handleDownloadPdf}>
+                          Ver PDF
                         </Button>
                       </CardContent>
                     </Card>

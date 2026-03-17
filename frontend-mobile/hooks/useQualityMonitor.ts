@@ -31,13 +31,14 @@ export function useQualityMonitor(
       const call = callRef.current;
       if (!call) return;
 
-      const stats = call.getNetworkStats?.();
-      if (stats && typeof stats === 'object' && 'threshold' in stats) {
-        const threshold = (stats as { threshold: string }).threshold;
-        if (threshold === 'good') setQuality('good');
-        else if (threshold === 'low') setQuality('poor');
-        else setQuality('bad');
-      }
+      Promise.resolve(call.getNetworkStats?.()).then(stats => {
+        if (stats && typeof stats === 'object' && 'threshold' in stats) {
+          const threshold = (stats as { threshold: string }).threshold;
+          if (threshold === 'good') setQuality('good');
+          else if (threshold === 'low') setQuality('poor');
+          else setQuality('bad');
+        }
+      });
     }, 5000);
 
     return () => {

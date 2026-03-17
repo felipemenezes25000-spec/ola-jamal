@@ -52,6 +52,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const unchangedRef = useRef(0);
   const lastFetchRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
 
   const fetchCount = useCallback(async (auth: boolean) => {
     if (!auth) return;
@@ -85,12 +87,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     fetchCount(true);
 
+    let cancelled = false;
+
     function schedule() {
+      if (cancelled) return;
       const interval =
         unchangedRef.current >= UNCHANGED_THRESHOLD
           ? POLL_INTERVAL_SLOW_MS
           : POLL_INTERVAL_MS;
       timerRef.current = setTimeout(async () => {
+        if (cancelled) return;
         await fetchCount(true);
         schedule();
       }, interval);
@@ -99,12 +105,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     schedule();
 
     return () => {
+      cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [isAuthenticated, fetchCount]);
 
-  // Refresh on SignalR event
+  // Refresh on SignalR event — check auth ref to avoid race condition on logout
   const handleSignalREvent = useCallback(() => {
+    if (!isAuthenticatedRef.current) return;
     unchangedRef.current = 0;
     fetchCount(true);
   }, [fetchCount]);
@@ -126,15 +134,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAllReadOptimistic = useCallback(async () => {
-    const prev = unreadCount;
-    setUnreadCount(0);
+    let prevCount = 0;
+    setUnreadCount(prev => { prevCount = prev; return 0; });
     try {
       await markAllNotificationsRead();
     } catch {
-      setUnreadCount(prev);
+      setUnreadCount(prevCount);
       throw new Error('Erro ao marcar todas como lidas');
     }
-  }, [unreadCount]);
+  }, []);
 
   return (
     <NotificationContext.Provider

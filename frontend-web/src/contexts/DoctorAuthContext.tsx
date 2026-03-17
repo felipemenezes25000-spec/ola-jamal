@@ -81,8 +81,8 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
     // Buscar profile em background
     getDoctorProfile()
-      .then((p) => setDoctorProfile(p))
-      .catch(() => setDoctorProfile(null));
+      .then((p) => { if (mountedRef.current) setDoctorProfile(p); })
+      .catch(() => { if (mountedRef.current) setDoctorProfile(null); });
   }, []);
 
   // ── Effect de inicialização ──

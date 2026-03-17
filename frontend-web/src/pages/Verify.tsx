@@ -261,13 +261,18 @@ export default function Verify() {
                   const pharmacy = prompt('Nome da farmácia:');
                   if (!pharmacy) return;
                   setDispensing(true);
-                  const res = await dispenseDocument(id!.trim(), pharmacy);
-                  setDispensing(false);
-                  if (res.success) {
-                    alert('Documento marcado como dispensado.');
-                    setDocResult({ ...docResult, wasDispensed: true, dispensedWarning: 'Dispensado agora.' });
-                  } else {
-                    alert(res.message);
+                  try {
+                    const res = await dispenseDocument(id!.trim(), pharmacy);
+                    if (res.success) {
+                      alert('Documento marcado como dispensado.');
+                      setDocResult({ ...docResult, wasDispensed: true, dispensedWarning: 'Dispensado agora.' });
+                    } else {
+                      alert(res.message);
+                    }
+                  } catch (err) {
+                    alert('Erro ao dispensar documento. Tente novamente.');
+                  } finally {
+                    setDispensing(false);
                   }
                 }}
                 style={{ ...styles.button, marginTop: 12, backgroundColor: '#059669' }}

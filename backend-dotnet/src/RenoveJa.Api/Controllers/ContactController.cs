@@ -43,6 +43,20 @@ public class ContactController : ControllerBase
         if (string.IsNullOrEmpty(message))
             return BadRequest(new { error = "Mensagem é obrigatória." });
 
+        // NM-5: Enforce max length limits on contact form fields
+        if (name.Length > 200)
+            return BadRequest(new { error = "Nome não pode exceder 200 caracteres." });
+        if (email.Length > 254)
+            return BadRequest(new { error = "E-mail não pode exceder 254 caracteres." });
+        if (message.Length > 5000)
+            return BadRequest(new { error = "Mensagem não pode exceder 5000 caracteres." });
+        if (request.Cpf is { Length: > 18 })
+            return BadRequest(new { error = "CPF inválido." });
+        if (request.Cnpj is { Length: > 20 })
+            return BadRequest(new { error = "CNPJ inválido." });
+        if (request.Phone is { Length: > 20 })
+            return BadRequest(new { error = "Telefone não pode exceder 20 caracteres." });
+
         try
         {
             await _emailService.SendContactFormEmailAsync(

@@ -61,7 +61,8 @@ public class DocumentSecurityService(
     /// </summary>
     public (string code, string hash) GenerateVerifyCode()
     {
-        var code = Random.Shared.Next(100000, 999999).ToString();
+        // FIX B25: Use cryptographic RNG instead of Random.Shared for security-sensitive verification codes
+        var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant();
         return (code, hash);
     }
@@ -73,7 +74,10 @@ public class DocumentSecurityService(
     {
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(storedHash)) return false;
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code.Trim()))).ToLowerInvariant();
-        return hash == storedHash.ToLowerInvariant();
+        // FIX B26: Use constant-time comparison to prevent timing attacks
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(hash),
+            Encoding.UTF8.GetBytes(storedHash.ToLowerInvariant()));
     }
 
     /// <summary>
@@ -92,7 +96,7 @@ public class DocumentSecurityService(
             Action = "dispensed",
             ActorType = "pharmacist",
             IpAddress = ip,
-            Metadata = $"{{\"dispensed_by\":\"{dispensedBy}\"}}"
+            Metadata = System.Text.Json.JsonSerializer.Serialize(new { dispensed_by = dispensedBy })
         }, ct);
 
         logger.LogInformation("Document {DocumentId} dispensed by {Pharmacy}", documentId, dispensedBy);

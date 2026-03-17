@@ -47,9 +47,10 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
 
     public async Task<List<DoctorProfile>> GetBySpecialtyAsync(string specialty, CancellationToken cancellationToken = default)
     {
+        var sanitized = SanitizeFilterValue(specialty);
         var models = await db.GetAllAsync<DoctorProfileModel>(
             TableName,
-            filter: $"specialty=eq.{specialty}",
+            filter: $"specialty=eq.{sanitized}",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();
@@ -59,7 +60,7 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
     {
         var filter = "available=eq.true&approval_status=eq.approved";
         if (!string.IsNullOrWhiteSpace(specialty))
-            filter += $"&specialty=eq.{specialty}";
+            filter += $"&specialty=eq.{SanitizeFilterValue(specialty)}";
 
         var models = await db.GetAllAsync<DoctorProfileModel>(
             TableName,
@@ -72,15 +73,16 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
     public async Task<(List<DoctorProfile> Items, int TotalCount)> GetPagedAsync(string? specialty, bool? available, int offset, int limit, CancellationToken cancellationToken = default)
     {
         string? filter = null;
+        var sanitizedSpecialty = specialty != null ? SanitizeFilterValue(specialty) : null;
         if (available == true)
         {
             filter = "available=eq.true&approval_status=eq.approved";
-            if (!string.IsNullOrWhiteSpace(specialty))
-                filter += $"&specialty=eq.{specialty}";
+            if (!string.IsNullOrWhiteSpace(sanitizedSpecialty))
+                filter += $"&specialty=eq.{sanitizedSpecialty}";
         }
-        else if (!string.IsNullOrWhiteSpace(specialty))
+        else if (!string.IsNullOrWhiteSpace(sanitizedSpecialty))
         {
-            filter = $"specialty=eq.{specialty}";
+            filter = $"specialty=eq.{sanitizedSpecialty}";
         }
 
         var models = await db.GetAllAsync<DoctorProfileModel>(
@@ -124,6 +126,16 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
             TableName,
             $"id=eq.{id}",
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Sanitizes a user-supplied value before embedding in a PostgREST-style filter string.
+    /// Strips characters that could inject additional filter segments (e.g. '&', '=', '(', ')').
+    /// </summary>
+    private static string SanitizeFilterValue(string value)
+    {
+        // Remove characters that have structural meaning in PostgREST filter syntax
+        return new string(value.Where(c => c != '&' && c != '=' && c != '(' && c != ')').ToArray());
     }
 
     private static DoctorProfile MapToDomain(DoctorProfileModel model)

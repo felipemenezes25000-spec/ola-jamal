@@ -125,32 +125,24 @@ export default function DoctorPostConsultationEmit() {
   const detectedCid = useMemo(() => extractCid(anamnesis), [anamnesis]);
   const cidPkg = detectedCid ? CID_PACKAGES[detectedCid] : null;
 
-  // Document toggles
+  // Document toggles — re-sync when request/anamnesis loads
   const [rxOn, setRxOn] = useState(true);
-  const [exOn, setExOn] = useState(() => extractExamsFromAnamnesis(anamnesis).length > 0 || (cidPkg?.exams.length ?? 0) > 0);
-  const [atOn, setAtOn] = useState(() => (cidPkg?.days ?? 0) > 0);
+  const [exOn, setExOn] = useState(false);
+  const [atOn, setAtOn] = useState(false);
 
   // Sections
   const [rxOpen, setRxOpen] = useState(true);
-  const [exOpen, setExOpen] = useState(() => extractExamsFromAnamnesis(anamnesis).length > 0);
-  const [atOpen, setAtOpen] = useState(() => (cidPkg?.days ?? 0) > 0);
+  const [exOpen, setExOpen] = useState(false);
+  const [atOpen, setAtOpen] = useState(false);
   const [cidPickerOpen, setCidPickerOpen] = useState(false);
   const [exListExpanded, setExListExpanded] = useState(false);
 
-  // Prescription — prefere dados da IA, fallback CID package
+  // Prescription — populated by useEffect when request loads
   const [rxType, setRxType] = useState<'simples' | 'controlado'>('simples');
-  const [meds, setMeds] = useState<PrescriptionItemEmit[]>(() => {
-    const aiMeds = extractMedsFromAnamnesis(anamnesis);
-    if (aiMeds.length > 0) return aiMeds;
-    return cidPkg?.meds.map(m => ({ drug: m.drug, posology: m.posology, notes: m.note })) ?? [];
-  });
+  const [meds, setMeds] = useState<PrescriptionItemEmit[]>([]);
 
-  // Exams — prefere dados da IA, fallback CID package
-  const [exams, setExams] = useState<ExamItemEmitWeb[]>(() => {
-    const aiExams = extractExamsFromAnamnesis(anamnesis);
-    if (aiExams.length > 0) return aiExams;
-    return cidPkg?.exams.map(e => ({ type: 'laboratorial', description: e })) ?? [];
-  });
+  // Exams — populated by useEffect when request loads
+  const [exams, setExams] = useState<ExamItemEmitWeb[]>([]);
   const [examJust, setExamJust] = useState(cidPkg?.examJust ?? '');
 
   // Certificate
@@ -166,6 +158,29 @@ export default function DoctorPostConsultationEmit() {
       .then(r => { setRequest(r); setLoading(false); })
       .catch(() => { toast.error('Erro ao carregar consulta'); navigate(-1); });
   }, [requestId, navigate]);
+
+  // FIX #64: Sync toggles, meds, exams, cert quando request/anamnesis carrega
+  useEffect(() => {
+    if (!request) return;
+    const aiMeds = extractMedsFromAnamnesis(anamnesis);
+    const aiExams = extractExamsFromAnamnesis(anamnesis);
+    const pkg = detectedCid ? CID_PACKAGES[detectedCid] : null;
+
+    const finalMeds = aiMeds.length > 0 ? aiMeds : (pkg?.meds.map(m => ({ drug: m.drug, posology: m.posology, notes: m.note })) ?? []);
+    const finalExams = aiExams.length > 0 ? aiExams : (pkg?.exams.map(e => ({ type: 'laboratorial' as const, description: e })) ?? []);
+
+    setMeds(finalMeds);
+    setExams(finalExams);
+    if (pkg?.examJust) setExamJust(pkg.examJust);
+    if (pkg?.body) setCertBody(pkg.body);
+    if (detectedCid) setCertCid(detectedCid);
+    if (pkg?.days) setCertDays(pkg.days);
+
+    setExOn(finalExams.length > 0);
+    setExOpen(finalExams.length > 0);
+    setAtOn((pkg?.days ?? 0) > 0);
+    setAtOpen((pkg?.days ?? 0) > 0);
+  }, [request, anamnesis, detectedCid]);
 
   const loadCid = useCallback((code: string) => {
     const pkg = CID_PACKAGES[code];
@@ -301,7 +316,9 @@ export default function DoctorPostConsultationEmit() {
                   </button>
                 </div>
               ))}
-              <button className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-gray-300 text-blue-600 text-sm font-medium hover:bg-blue-50">
+              <button
+                onClick={() => setMeds(prev => [...prev, { drug: '' }])}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-gray-300 text-blue-600 text-sm font-medium hover:bg-blue-50">
                 <Plus className="h-4 w-4" /> Adicionar medicamento
               </button>
             </CardContent>
@@ -348,7 +365,9 @@ export default function DoctorPostConsultationEmit() {
                   {exListExpanded ? <><ChevronUp className="h-3.5 w-3.5" /> Recolher</> : <><ChevronDown className="h-3.5 w-3.5" /> Ver todos ({exams.length})</>}
                 </button>
               )}
-              <button className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-gray-300 text-blue-600 text-sm font-medium hover:bg-blue-50">
+              <button
+                onClick={() => setExams(prev => [...prev, { type: 'laboratorial', description: '' }])}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-gray-300 text-blue-600 text-sm font-medium hover:bg-blue-50">
                 <Plus className="h-4 w-4" /> Adicionar exame avulso
               </button>
               <div className="pt-1">

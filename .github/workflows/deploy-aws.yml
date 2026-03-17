@@ -1,9 +1,13 @@
 name: Deploy RenoveJá+ AWS
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -18,6 +22,7 @@ jobs:
   deploy-backend:
     name: Deploy Backend (ECS)
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -77,6 +82,7 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend (S3/CloudFront)
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     defaults:
       run:
         working-directory: frontend-web
@@ -95,9 +101,9 @@ jobs:
       - name: Create .env.production
         run: |
           cat > .env.production << EOF
-          VITE_API_URL=https://api.renovejasaude.com.br
-          VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
-          EOF
+VITE_API_URL=https://api.renovejasaude.com.br
+VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
+EOF
 
       - name: Build
         run: npm run build

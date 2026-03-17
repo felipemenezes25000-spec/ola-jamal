@@ -81,15 +81,21 @@ export default function DoctorConsultationSummary() {
   useEffect(() => {
     if (!request || !requestId || initialSaveDone.current) return;
     initialSaveDone.current = true;
-    saveToRecord(request.consultationAnamnesis ?? null, request.notes ?? '');
+    if (request.consultationAnamnesis) {
+      saveToRecord(request.consultationAnamnesis, '');
+    }
   }, [request, requestId, saveToRecord]);
 
   const handleCopy = async () => {
     if (!transcript) return;
-    await navigator.clipboard.writeText(transcript);
-    setCopied(true);
-    toast.success('Transcrição copiada');
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(transcript);
+      setCopied(true);
+      toast.success('Transcrição copiada');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Falha ao copiar para a área de transferência');
+    }
   };
 
   const handleNoteChange = (v: string) => {
@@ -156,8 +162,19 @@ export default function DoctorConsultationSummary() {
                 <FileText className="h-4 w-4" /> Anamnese estruturada
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {JSON.stringify(anamnesis, null, 2)}
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              {Object.entries(anamnesis).map(([key, value]) => {
+                if (value == null || value === '') return null;
+                const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+                if (!displayValue.trim()) return null;
+                return (
+                  <div key={key}>
+                    <span className="font-medium text-foreground">{label}:</span>{' '}
+                    <span>{displayValue}</span>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}

@@ -125,6 +125,9 @@ export function TriageAssistantProvider({ children }: { children: React.ReactNod
     resetSessionCounts();
   }, []);
 
+  const currentRef = useRef(current);
+  useEffect(() => { currentRef.current = current; }, [current]);
+
   const evaluate = useCallback(async (input: TriageInput) => {
     if (!IS_ENABLED) return;
 
@@ -148,8 +151,9 @@ export function TriageAssistantProvider({ children }: { children: React.ReactNod
 
     // Ranking: evita trocar uma mensagem visível por outra de menor/igual prioridade
     // em sequência curta, reduzindo "pisca-pisca" do banner.
-    if (current && current.key !== message.key) {
-      const currentPriority = getMessagePriority(current);
+    const cur = currentRef.current;
+    if (cur && cur.key !== message.key) {
+      const currentPriority = getMessagePriority(cur);
       if (now - currentShownAtRef.current < MIN_REPLACE_INTERVAL_MS && nextPriority <= currentPriority) {
         return;
       }
@@ -192,9 +196,9 @@ export function TriageAssistantProvider({ children }: { children: React.ReactNod
             isPersonalized: true,
           });
         }
-      });
+      }).catch(() => { /* enrichment failed — use default message */ });
     }
-  }, [current]);
+  }, []);
 
   const dismiss = useCallback(() => {
     setCurrent(null);

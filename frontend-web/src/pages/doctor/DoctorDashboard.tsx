@@ -74,7 +74,7 @@ export default function DoctorDashboard() {
   const pendentes = requests.filter(r => isActionableStatus(r.status));
   const consultasAtivas = requests.filter(r =>
     r.type === 'consultation' &&
-    ['consultation_accepted', 'in_consultation', 'paid', 'consultation_ready'].some(s => r.status?.toLowerCase().includes(s.toLowerCase()))
+    ['consultation_accepted', 'in_consultation', 'paid', 'consultation_ready'].includes(r.status?.toLowerCase() ?? '')
   );
   const comRiscoAlto = requests.filter(r =>
     r.aiRiskLevel && (r.aiRiskLevel.toLowerCase().includes('high') || r.aiRiskLevel.toLowerCase().includes('alto'))

@@ -19,6 +19,7 @@ public class PostConsultationController(
     IMedicalDocumentRepository medicalDocumentRepository,
     IRequestRepository requestRepository,
     IDocumentTokenService documentTokenService,
+    IHttpClientFactory httpClientFactory,
     ILogger<PostConsultationController> logger) : ControllerBase
 {
     private Guid GetUserId()
@@ -137,7 +138,7 @@ public class PostConsultationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get documents for request {RequestId}", requestId);
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new { error = "Erro ao buscar documentos. Tente novamente." });
         }
     }
 
@@ -190,14 +191,16 @@ public class PostConsultationController(
             if (string.IsNullOrEmpty(pdfUrl))
                 return NotFound(new { error = "PDF not yet available. Document may not be signed." });
 
-            // TODO: Fazer download e streaming em vez de redirect
-            // Por ora, gerar signed URL temporária para o browser
-            return Redirect(pdfUrl);
+            // FIX B29: Use IHttpClientFactory instead of raw HttpClient to avoid socket exhaustion
+            var httpClient = httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
+            var pdfBytes = await httpClient.GetByteArrayAsync(pdfUrl);
+            return File(pdfBytes, "application/pdf", $"document-{documentId}.pdf");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to download document {DocumentId}", documentId);
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new { error = "Erro ao baixar documento. Tente novamente." });
         }
     }
 }

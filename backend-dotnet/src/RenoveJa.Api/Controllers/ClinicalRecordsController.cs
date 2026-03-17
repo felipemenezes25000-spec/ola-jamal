@@ -128,7 +128,7 @@ public class ClinicalRecordsController(
     {
         var doctorId = GetUserId();
         var requests = await requestService.GetPatientRequestsAsync(doctorId, patientId, cancellationToken);
-        _ = auditEventService.LogReadAsync(doctorId, "PatientRequests", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
+        _ = auditEventService.LogReadAsync(doctorId, "PatientRequests", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
         return Ok(requests);
     }
 
@@ -145,7 +145,7 @@ public class ClinicalRecordsController(
         var profile = await requestService.GetPatientProfileForDoctorAsync(doctorId, patientId, cancellationToken);
         if (profile == null)
             return NotFound(new { error = "Paciente não encontrado ou sem acesso." });
-        _ = auditEventService.LogReadAsync(doctorId, "PatientProfile", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
+        _ = auditEventService.LogReadAsync(doctorId, "PatientProfile", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
         return Ok(profile);
     }
 
@@ -286,7 +286,7 @@ public class ClinicalRecordsController(
         var notes = await doctorPatientNotesRepository.GetNotesAsync(doctorId, patientId, cancellationToken);
         var doctorNotes = notes.Select(n => new DoctorNoteDto(n.Id, n.NoteType, n.Content, n.RequestId, n.CreatedAt, n.UpdatedAt)).ToList();
 
-        _ = auditEventService.LogReadAsync(doctorId, "PatientClinicalSummary", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
+        _ = auditEventService.LogReadAsync(doctorId, "PatientClinicalSummary", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
 
         return Ok(new { summary = narrative, fallback, structured = structuredDto, doctorNotes });
     }
@@ -330,8 +330,8 @@ public class ClinicalRecordsController(
             ["patient_id"] = patientId,
             ["created_at"] = entity.CreatedAt
         };
-        _ = auditService.LogModificationAsync(doctorId, "Create", "DoctorPatientNote", entity.Id, oldValues: null, newValues: newValues, cancellationToken: cancellationToken);
-        _ = auditEventService.LogReadAsync(doctorId, "DoctorPatientNote", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
+        _ = auditService.LogModificationAsync(doctorId, "Create", "DoctorPatientNote", entity.Id, oldValues: null, newValues: newValues, cancellationToken: CancellationToken.None);
+        _ = auditEventService.LogReadAsync(doctorId, "DoctorPatientNote", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
         return Ok(note);
     }
 
@@ -392,7 +392,7 @@ public class ClinicalRecordsController(
 
         if (bytes == null || bytes.Length == 0)
             return NotFound(new { error = "Documento assinado não disponível ou você não tem permissão para acessá-lo." });
-        _ = auditEventService.LogReadAsync(null, "SignedDocument", id, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: cancellationToken);
+        _ = auditEventService.LogReadAsync(null, "SignedDocument", id, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
         return File(bytes, "application/pdf", $"documento-{id}.pdf");
     }
 

@@ -164,7 +164,8 @@ public class ConsultationController(
             logger.LogInformation("[Transcribe] Disparando anamnese IA: RequestId={RequestId} previousAnamnesisLen={PrevLen}",
                 requestId, previousAnamnesisJson?.Length ?? 0);
 
-            _ = Task.Run(async () =>
+            // Fire-and-forget sem Task.Run — evita thread pool starvation em ASP.NET Core
+            _ = ((Func<Task>)(async () =>
             {
                 try
                 {
@@ -208,7 +209,7 @@ public class ConsultationController(
                 {
                     logger.LogError(ex, "[Transcribe] ANAMNESE_NAO_OCORRE: Exceção ao atualizar anamnese. RequestId={RequestId}", requestId);
                 }
-            }, CancellationToken.None);
+            }))();
         }
         else if (!canRunAnamnesis)
         {
@@ -293,7 +294,8 @@ public class ConsultationController(
 
             var (previousAnamnesisJson, _) = sessionStore.GetAnamnesisState(requestId);
 
-            _ = Task.Run(async () =>
+            // Fire-and-forget sem Task.Run
+            _ = ((Func<Task>)(async () =>
             {
                 try
                 {
@@ -332,7 +334,7 @@ public class ConsultationController(
                 {
                     logger.LogError(ex, "[TranscribeText] Exceção ao atualizar anamnese. RequestId={RequestId}", requestId);
                 }
-            }, CancellationToken.None);
+            }))();
         }
 
         return Ok(new { ok = true, fullLength = fullText.Length });

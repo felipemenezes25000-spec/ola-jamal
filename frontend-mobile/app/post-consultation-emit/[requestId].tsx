@@ -77,16 +77,15 @@ export default function PostConsultationEmitRoute() {
       <View style={[s.patientBar, { backgroundColor: '#1B2D45' }]}>
         <View style={s.avatar}>
           <Text style={s.avatarText}>
-            {(request.patientName ?? 'P').substring(0, 2).toUpperCase()}
+            {String(request.patientName ?? 'P').substring(0, 2).toUpperCase()}
           </Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.patientName}>{request.patientName ?? 'Paciente'}</Text>
           <Text style={s.patientMeta}>
-            {request.patientBirthDate
+            {request.patientBirthDate && !Number.isNaN(new Date(request.patientBirthDate).getTime())
               ? `${Math.floor((Date.now() - new Date(request.patientBirthDate).getTime()) / 31557600000)} anos`
-              : ''
-            }
+              : ''}
           </Text>
         </View>
         <View style={s.badge}>

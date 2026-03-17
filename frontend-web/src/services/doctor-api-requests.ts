@@ -29,7 +29,7 @@ function normalizeRequest(data: Record<string, unknown>): Record<string, unknown
 function normalizeList(raw: unknown): unknown {
   const arr = Array.isArray(raw) ? raw : (raw as Record<string, unknown>)?.items ?? (raw as Record<string, unknown>)?.data ?? raw;
   if (Array.isArray(arr)) {
-    arr.forEach((item: Record<string, unknown>) => normalizeRequest(item));
+    return arr.map((item: Record<string, unknown>) => normalizeRequest({ ...item }));
   }
   return raw;
 }

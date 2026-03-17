@@ -178,7 +178,7 @@ export default function TranscriptionTestContent() {
                   </Text>
                 ) : (
                   transcript.map((line, i) => (
-                    <Text key={i} style={styles.transcriptLine}>
+                    <Text key={`transcript-${i}-${line.slice(0, 20)}`} style={styles.transcriptLine}>
                       {line}
                     </Text>
                   ))

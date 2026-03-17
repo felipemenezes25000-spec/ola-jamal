@@ -24,7 +24,7 @@ async function getSignalR() {
     try {
       signalR = await import('@microsoft/signalr');
     } catch {
-      console.warn('[SignalR] @microsoft/signalr not installed. Real-time disabled.');
+      if (import.meta.env.DEV) console.warn('[SignalR] @microsoft/signalr not installed. Real-time disabled.');
       return null;
     }
   }
@@ -95,9 +95,11 @@ export function useRequestEvents(onEvent?: EventHandler) {
         if (!cancelled) {
           connectionRef.current = connection;
           setConnected(true);
+        } else {
+          connection.stop().catch(() => {});
         }
       } catch (err) {
-        console.warn('[SignalR] Connection failed:', err);
+        if (import.meta.env.DEV) console.warn('[SignalR] Connection failed:', err);
       }
     }
 
@@ -123,7 +125,7 @@ export function useVideoSignaling(requestId: string | undefined) {
   const [transcript, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<unknown[]>([]);
-  const evidence: unknown[] = [];
+  const [evidence, setEvidence] = useState<unknown[]>([]);
   useEffect(() => {
     if (!requestId) return;
     let cancelled = false;
@@ -131,7 +133,9 @@ export function useVideoSignaling(requestId: string | undefined) {
     // FIX #23: Limpar estados ao trocar de requestId para não exibir dados do request anterior
     setTranscript('');
     setAnamnesis(null);
-    setSuggestions([]);    setConnected(false);
+    setSuggestions([]);
+    setEvidence([]);
+    setConnected(false);
 
     async function connect() {
       const sr = await getSignalR();
@@ -164,7 +168,10 @@ export function useVideoSignaling(requestId: string | undefined) {
         setSuggestions(Array.isArray(items) ? items : []);
       });
 
-
+      connection.on('EvidenceUpdate', (data: { items?: unknown[]; Items?: unknown[]; evidence?: unknown[] }) => {
+        const items = data.items ?? data.Items ?? data.evidence ?? [];
+        setEvidence(Array.isArray(items) ? items : []);
+      });
 
       try {
         await connection.start();
@@ -172,9 +179,13 @@ export function useVideoSignaling(requestId: string | undefined) {
           await connection.invoke('JoinRoom', requestId);
           connectionRef.current = connection;
           setConnected(true);
+        } else {
+          // Component unmounted during connection — cleanup
+          connection.stop().catch(() => {});
         }
       } catch (err) {
-        console.warn('[SignalR Video] Connection failed:', err);
+        if (import.meta.env.DEV) console.warn('[SignalR Video] Connection failed:', err);
+        connection.stop().catch(() => {});
       }
     }
 

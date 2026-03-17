@@ -139,15 +139,28 @@ internal static class AnamnesisResponseParser
 
     /// <summary>
     /// Valida coerência: cid_sugerido DEVE estar em diagnostico_diferencial.
-    /// Se não estiver, retorna o CID do primeiro item com probabilidade "alta", ou o primeiro item.
-    /// Evita alucinações como F10.2 (álcool) quando o transcript não menciona álcool.
+    /// REGRA PRINCIPAL: Se diagnostico_diferencial tem itens, SEMPRE usar o primeiro "alta" como cid_sugerido.
+    /// A IA frequentemente erra em cid_sugerido (ex: F10.2) mas acerta no diagnostico_diferencial.
     /// </summary>
     internal static string EnsureCidCoherentWithDifferential(JsonElement root, string cidRaw, ILogger? logger = null, string? transcript = null)
     {
+        var transcriptLower = transcript?.ToLowerInvariant() ?? "";
+
+        // ═══ REGRA PRINCIPAL: Priorizar SEMPRE o diagnostico_diferencial sobre cid_sugerido ═══
+        // O diferencial é consistente; cid_sugerido da IA falha recorrentemente (F10.2, etc).
+        var fromDifferential = GetFallbackCidFromDifferential(root, "", logger);
+        if (!string.IsNullOrWhiteSpace(fromDifferential))
+        {
+            var cidFromAi = ExtractCidCode(cidRaw);
+            var cidFromDiff = ExtractCidCode(fromDifferential);
+            if (!string.Equals(cidFromAi, cidFromDiff, StringComparison.OrdinalIgnoreCase))
+                logger?.LogWarning("[Anamnese] cid_sugerido da IA ({CidAi}) substituído pelo diferencial ({CidDiff}) — IA erra consistentemente.", cidRaw, fromDifferential);
+            return fromDifferential;
+        }
+
         if (string.IsNullOrWhiteSpace(cidRaw)) return cidRaw;
 
         var cidCode = ExtractCidCode(cidRaw);
-        var transcriptLower = transcript?.ToLowerInvariant() ?? "";
 
         // ═══ CAMADA 1: HARD BLOCK de categorias CID alucinadas ═══
         // A IA alucina CIDs de categorias que não tem suporte no transcript.
@@ -229,10 +242,14 @@ internal static class AnamnesisResponseParser
             return "";
         }
 
-        var alta = differentialCids.FirstOrDefault(dd =>
-            "alta".Equals(dd.probabilidade, StringComparison.OrdinalIgnoreCase));
-        var result = !string.IsNullOrWhiteSpace(alta.cid) ? alta.cid : differentialCids[0].cid;
-        logger?.LogWarning("[Anamnese] CID fallback selecionado: {Replacement}", result);
+        // Sempre a hipótese com maior probabilidade: percentual ou alta > media > baixa.
+        var ordemProb = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["alta"] = 3, ["media"] = 2, ["baixa"] = 1 };
+        var melhor = differentialCids
+            .OrderByDescending(dd => dd.probabilidadePercentual)
+            .ThenByDescending(dd => ordemProb.TryGetValue(dd.probabilidade, out var o) ? o : 0)
+            .First();
+        var result = melhor.cid;
+        logger?.LogDebug("[Anamnese] CID do diferencial: {Replacement}", result);
         return result;
     }
 
@@ -242,18 +259,24 @@ internal static class AnamnesisResponseParser
         return m.Success ? m.Groups[1].Value.ToUpperInvariant() : (cidStr ?? "").Trim();
     }
 
-    private static List<(string cid, string probabilidade)> GetCidsFromDiagnosticoDiferencial(JsonElement root)
+    private static List<(string cid, string probabilidade, int probabilidadePercentual)> GetCidsFromDiagnosticoDiferencial(JsonElement root)
     {
-        var list = new List<(string, string)>();
+        var list = new List<(string, string, int)>();
+        // Buscar em root e em anamnesis (a IA pode retornar em estrutura diferente)
         if (!root.TryGetProperty("diagnostico_diferencial", out var dd) || dd.ValueKind != JsonValueKind.Array)
-            return list;
+        {
+            if (!root.TryGetProperty("anamnesis", out var ana) || ana.ValueKind != JsonValueKind.Object
+                || !ana.TryGetProperty("diagnostico_diferencial", out dd) || dd.ValueKind != JsonValueKind.Array)
+                return list;
+        }
 
         foreach (var item in dd.EnumerateArray())
         {
             var cid = item.TryGetProperty("cid", out var c) ? c.GetString()?.Trim() ?? "" : "";
             var prob = item.TryGetProperty("probabilidade", out var p) ? p.GetString()?.Trim() ?? "" : "";
+            var probPct = item.TryGetProperty("probabilidade_percentual", out var pp) && pp.TryGetInt32(out var pct) ? pct : 0;
             if (!string.IsNullOrWhiteSpace(cid))
-                list.Add((cid, prob));
+                list.Add((cid, prob, probPct));
         }
         return list;
     }

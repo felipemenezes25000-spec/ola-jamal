@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using RenoveJa.Domain.Exceptions;
 
 namespace RenoveJa.Domain.Entities;
@@ -53,8 +54,7 @@ public class AuthToken : Entity
 
     private static string GenerateToken()
     {
-        return Convert.ToBase64String(Guid.NewGuid().ToByteArray()) +
-               Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
     }
 
     public bool IsExpired() => DateTime.UtcNow > ExpiresAt;

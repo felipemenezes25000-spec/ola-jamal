@@ -138,13 +138,13 @@ resource "aws_security_group" "aurora" {
     security_groups = [aws_security_group.ecs.id]
   }
 
-  # Acesso externo (pgAdmin de qualquer lugar — seguranca via senha forte)
+  # Acesso interno VPC (pgAdmin via bastion/VPN — NUNCA 0.0.0.0/0)
   ingress {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "pgAdmin acesso externo"
+    cidr_blocks = ["10.0.0.0/16"]
+    description = "pgAdmin acesso interno VPC"
   }
 
   tags = { Name = "${var.project}-aurora-sg" }

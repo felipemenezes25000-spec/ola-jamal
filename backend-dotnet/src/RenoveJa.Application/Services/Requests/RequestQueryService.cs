@@ -217,8 +217,9 @@ public class RequestQueryService(
             throw new UnauthorizedAccessException("Apenas médicos podem acessar o prontuário do paciente.");
 
         var requests = await requestRepository.GetByPatientIdAsync(patientId, cancellationToken);
+        // FIX B33: Only show requests assigned to the requesting doctor — do not expose unassigned requests
         requests = requests
-            .Where(r => r.DoctorId == null || r.DoctorId == Guid.Empty || r.DoctorId == doctorId)
+            .Where(r => r.DoctorId == doctorId)
             .OrderByDescending(r => r.CreatedAt)
             .ToList();
 
@@ -252,7 +253,8 @@ public class RequestQueryService(
             return null;
 
         var requests = await requestRepository.GetByPatientIdAsync(patientId, cancellationToken);
-        var hasAccess = requests.Any(r => r.DoctorId == null || r.DoctorId == Guid.Empty || r.DoctorId == doctorId);
+        // FIX B33: Only allow access if doctor has assigned requests for this patient
+        var hasAccess = requests.Any(r => r.DoctorId == doctorId);
         if (!hasAccess)
             return null;
 

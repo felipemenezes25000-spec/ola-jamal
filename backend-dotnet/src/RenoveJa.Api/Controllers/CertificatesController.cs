@@ -271,6 +271,18 @@ public class CertificatesController : ControllerBase
         [FromBody] RevokeCertificateDto dto,
         CancellationToken cancellationToken = default)
     {
+        // Ownership check: apenas o dono do certificado pode revogar
+        var userId = _currentUserService.GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var doctorProfileId = await _currentUserService.GetDoctorProfileIdAsync();
+        if (doctorProfileId == null)
+            return BadRequest("Perfil de médico não encontrado. Complete seu cadastro como médico.");
+
+        var cert = await _certificateService.GetActiveCertificateAsync(doctorProfileId.Value, cancellationToken);
+        if (cert == null || cert.Id != id)
+            return StatusCode(403, new { message = "Você só pode revogar seus próprios certificados." });
+
         var result = await _certificateService.RevokeCertificateAsync(
             id,
             dto.Reason,

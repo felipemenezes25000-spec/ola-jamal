@@ -93,22 +93,6 @@ export default function VideoCallScreenInner() {
   // Auto-finish callback ref (set after doEnd is defined below)
   const doEndRef = useRef<(autoFinish?: boolean) => Promise<void>>(async () => {});
 
-  // Server-synced timer + countdown alerts — extracted hook
-  const { callSeconds, setCallSeconds } = useConsultationTimer(
-    consultationStartedAt,
-    contractedMinutes,
-    () => doEndRef.current(true),
-  );
-
-  // Reset state on rid change — enables patient rejoin without stale state
-  useEffect(() => {
-    setLoading(true);
-    setError('');
-    setEnding(false);
-    setRoomUrl(null);
-    setMeetingToken(null);
-    setCallSeconds(0);
-  }, [rid, setCallSeconds]);
   const connReportedRef = useRef(false);
   /** Prevents double router.back() when leave() triggers both 'left-meeting' and .then() callback */
   const leavingRef = useRef(false);
@@ -174,6 +158,24 @@ export default function VideoCallScreenInner() {
     },
     onError: (msg) => setError(msg),
   });
+
+  // Server-synced timer + countdown alerts — extracted hook
+  const { callSeconds, setCallSeconds } = useConsultationTimer(
+    consultationStartedAt,
+    contractedMinutes,
+    () => doEndRef.current(true),
+    callState === 'joined' && !ending,
+  );
+
+  // Reset state on rid change — enables patient rejoin without stale state
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    setEnding(false);
+    setRoomUrl(null);
+    setMeetingToken(null);
+    setCallSeconds(0);
+  }, [rid, setCallSeconds]);
 
   const dailyTranscription = useDailyTranscription({
     callRef,
@@ -340,9 +342,11 @@ export default function VideoCallScreenInner() {
   // Patient: ao entrar na chamada, busca status imediatamente e após 500ms (Daily pode atrasar participant list)
   useEffect(() => {
     if (isDoctor || !rid || callState !== 'joined') return;
+    let cancelled = false;
     const fetchStatus = () => {
       fetchRequestById(rid)
         .then(r => {
+          if (cancelled) return;
           if (r.consultationStartedAt) setConsultationStartedAt(r.consultationStartedAt);
           if (r.status) setRequestStatus(r.status);
           if (__DEV__ && !r.consultationStartedAt) {
@@ -353,7 +357,7 @@ export default function VideoCallScreenInner() {
     };
     fetchStatus();
     const t = setTimeout(fetchStatus, 500);
-    return () => clearTimeout(t);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [isDoctor, rid, callState]);
 
   // Patient: ao receber RequestUpdated (ex.: médico iniciou, chamada conectada), atualiza status imediatamente
@@ -385,7 +389,8 @@ export default function VideoCallScreenInner() {
         .catch((e) => { if (__DEV__) console.warn('[VideoCall] fetchSync failed:', e); });
     };
     fetchSync();
-    const poll = setInterval(fetchSync, 500);
+    // FIX M7: 500ms era agressivo demais — 3s é suficiente para sincronizar o timer
+    const poll = setInterval(fetchSync, 3000);
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
@@ -426,17 +431,20 @@ export default function VideoCallScreenInner() {
     };
   }, [callState, isDoctor]);
 
-  // Cleanup
+  // Cleanup — refs keep closure stable and avoid stale captures
+  const useFallbackRef = useRef(useFallbackTranscription);
+  useEffect(() => { useFallbackRef.current = useFallbackTranscription; }, [useFallbackTranscription]);
+
   const cleanup = useCallback(() => {
     if (Platform.OS === 'android' && ExpoPip.setPictureInPictureParams) {
       ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
     }
     dailyTranscription.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] dailyTranscription stop failed:', e); });
-    if (useFallbackTranscription) {
-      audioRecorder.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] audioRecorder stop failed:', e); });
+    if (useFallbackRef.current) {
+      audioRecorderRef.current.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] audioRecorder stop failed:', e); });
     }
     disconnectSignalR();
-  }, [disconnectSignalR, dailyTranscription, useFallbackTranscription, audioRecorder]);
+  }, [disconnectSignalR, dailyTranscription]);
 
   // End call
   const doEnd = useCallback(async (autoFinish = false) => {

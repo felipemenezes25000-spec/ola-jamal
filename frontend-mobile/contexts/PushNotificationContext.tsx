@@ -91,8 +91,11 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       const targetRole = data?.targetRole as string | undefined;
 
       // 1. Deep link completo → preferido (já contém a rota correta). Valida contra whitelist.
+      // FIX M8: decode URI para tratar caracteres especiais (%20, etc)
       if (typeof deepLink === 'string' && deepLink.startsWith('renoveja://')) {
-        const path = deepLink.replace('renoveja://', '/') || '/';
+        let path: string;
+        try { path = decodeURIComponent(deepLink.replace('renoveja://', '/')) || '/'; }
+        catch { path = deepLink.replace('renoveja://', '/') || '/'; }
         const allowed = ['/request-detail/', '/doctor-request/', '/consultation-summary/'];
         const isAllowed = allowed.some((p) => path.startsWith(p) || path === p.slice(0, -1));
         if (isAllowed && !path.includes('..')) {
@@ -112,6 +115,11 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     },
     [router]
   );
+
+  // Reset cold-start flag when user changes (new login session)
+  useEffect(() => {
+    coldStartHandled.current = false;
+  }, [user?.id]);
 
   /** Trata notificação pendente do cold start (app foi aberto pelo tap na notificação). */
   useEffect(() => {
@@ -187,7 +195,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
           console.log('[Push] Token registrado:', token.slice(0, 24) + '...');
         }
       } catch (error) {
-        console.warn('Push token registration failed:', error);
+        if (__DEV__) console.warn('Push token registration failed:', error);
       }
     };
 
@@ -196,7 +204,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     return () => {
       mounted = false;
     };
-  }, [user?.id, user]);
+  }, [user?.id]);
 
     const pushCtxValue = React.useMemo(() => ({ lastNotificationAt }), [lastNotificationAt]);
   return (

@@ -61,6 +61,8 @@ public class FhirLiteController(
         [FromQuery] int offset = 0,
         CancellationToken cancellationToken = default)
     {
+        limit = Math.Clamp(limit, 1, 100);
+        offset = Math.Max(offset, 0);
         var userId = GetUserId();
         var encounters = await clinicalRecordService.GetEncountersByPatientAsync(userId, limit, offset, cancellationToken);
 
@@ -86,6 +88,8 @@ public class FhirLiteController(
         [FromQuery] int offset = 0,
         CancellationToken cancellationToken = default)
     {
+        limit = Math.Clamp(limit, 1, 100);
+        offset = Math.Max(offset, 0);
         var userId = GetUserId();
         var documents = await clinicalRecordService.GetMedicalDocumentsByPatientAsync(userId, limit, offset, cancellationToken);
 
@@ -147,6 +151,8 @@ public class FhirLiteController(
         if (!hasAccess)
             return Forbid();
 
+        limit = Math.Clamp(limit, 1, 100);
+        offset = Math.Max(offset, 0);
         var encounters = await clinicalRecordService.GetEncountersByPatientAsync(patientId, limit, offset, cancellationToken);
 
         await auditEventService.LogReadAsync(
@@ -177,6 +183,8 @@ public class FhirLiteController(
         if (!hasAccess)
             return Forbid();
 
+        limit = Math.Clamp(limit, 1, 100);
+        offset = Math.Max(offset, 0);
         var documents = await clinicalRecordService.GetMedicalDocumentsByPatientAsync(patientId, limit, offset, cancellationToken);
 
         await auditEventService.LogReadAsync(

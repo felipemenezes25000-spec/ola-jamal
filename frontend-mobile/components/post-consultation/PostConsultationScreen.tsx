@@ -40,35 +40,40 @@ interface Props {
 // ── Helpers ──
 
 function extractCidFromAnamnesis(anamnesis: AnamnesisData | null): string | null {
-  if (!anamnesis?.cid_sugerido) return null;
-  return anamnesis.cid_sugerido.toUpperCase().replace(/\./g, '').trim();
+  const cid = anamnesis?.cid_sugerido;
+  if (cid == null || typeof cid !== 'string') return null;
+  return cid.toUpperCase().replace(/\./g, '').trim();
 }
 
 function buildMedsFromAnamnesis(anamnesis: AnamnesisData | null): PrescriptionItemEmit[] {
-  if (!anamnesis?.medicamentos_sugeridos) return [];
-  return anamnesis.medicamentos_sugeridos.map((m) => {
-    if (typeof m === 'string') return { drug: m };
-    return {
-      drug: m.nome ?? 'Medicamento',
-      concentration: m.dose ?? undefined,
-      form: m.via ?? undefined,
-      posology: m.posologia ?? undefined,
-      duration: m.duracao ?? undefined,
-      notes: m.indicacao ?? undefined,
-    };
-  });
+  if (!anamnesis?.medicamentos_sugeridos || !Array.isArray(anamnesis.medicamentos_sugeridos)) return [];
+  return anamnesis.medicamentos_sugeridos
+    .filter((m): m is NonNullable<typeof m> => m != null)
+    .map((m) => {
+      if (typeof m === 'string') return { drug: m };
+      return {
+        drug: m.nome ?? 'Medicamento',
+        concentration: m.dose ?? undefined,
+        form: m.via ?? undefined,
+        posology: m.posologia ?? undefined,
+        duration: m.duracao ?? undefined,
+        notes: m.indicacao ?? undefined,
+      };
+    });
 }
 
 function buildExamsFromAnamnesis(anamnesis: AnamnesisData | null): ExamItemEmit[] {
-  if (!anamnesis?.exames_sugeridos) return [];
-  return anamnesis.exames_sugeridos.map((e) => {
-    if (typeof e === 'string') return { type: 'laboratorial', description: e };
-    return {
-      type: 'laboratorial',
-      code: e.codigo_tuss ?? undefined,
-      description: e.nome ?? 'Exame',
-    };
-  });
+  if (!anamnesis?.exames_sugeridos || !Array.isArray(anamnesis.exames_sugeridos)) return [];
+  return anamnesis.exames_sugeridos
+    .filter((e): e is NonNullable<typeof e> => e != null)
+    .map((e) => {
+      if (typeof e === 'string') return { type: 'laboratorial', description: e };
+      return {
+        type: 'laboratorial',
+        code: e.codigo_tuss ?? undefined,
+        description: e.nome ?? 'Exame',
+      };
+    });
 }
 
 // ── Main Component ──
@@ -103,16 +108,16 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   const [meds, setMeds] = useState<PrescriptionItemEmit[]>(() =>
     buildMedsFromAnamnesis(anamnesis).length > 0
       ? buildMedsFromAnamnesis(anamnesis)
-      : cidPkg?.medications.map((m) => ({
+      : (cidPkg?.medications ?? []).map((m) => ({
           drug: m.drug, posology: m.posology, notes: m.indication,
-        })) ?? []
+        }))
   );
 
   // ── State: Exams ──
   const [exams, setExams] = useState<ExamItemEmit[]>(() =>
     buildExamsFromAnamnesis(anamnesis).length > 0
       ? buildExamsFromAnamnesis(anamnesis)
-      : cidPkg?.exams.map((e) => ({ type: 'laboratorial', description: e })) ?? []
+      : (cidPkg?.exams ?? []).map((e) => ({ type: 'laboratorial', description: e }))
   );
   const [examJustification, setExamJustification] = useState(cidPkg?.examJustification ?? '');
 

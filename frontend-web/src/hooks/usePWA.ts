@@ -14,6 +14,7 @@ export function usePWA() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const updateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Check if already installed (standalone mode)
@@ -32,12 +33,12 @@ export function usePWA() {
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
         .then((reg) => {
-          console.log('[PWA] Service Worker registered:', reg.scope);
+          if (import.meta.env.DEV) console.log('[PWA] Service Worker registered:', reg.scope);
           // Check for updates periodically
-          setInterval(() => reg.update(), 60 * 60 * 1000); // hourly
+          updateIntervalRef.current = setInterval(() => reg.update(), 60 * 60 * 1000);
         })
         .catch((err) => {
-          console.warn('[PWA] SW registration failed:', err);
+          if (import.meta.env.DEV) console.warn('[PWA] SW registration failed:', err);
         });
     }
 
@@ -51,14 +52,17 @@ export function usePWA() {
     window.addEventListener('beforeinstallprompt', handler);
 
     // Detect when app was installed
-    window.addEventListener('appinstalled', () => {
+    const installedHandler = () => {
       setIsInstalled(true);
       setCanInstall(false);
       deferredPromptRef.current = null;
-    });
+    };
+    window.addEventListener('appinstalled', installedHandler);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', installedHandler);
+      if (updateIntervalRef.current) clearInterval(updateIntervalRef.current);
     };
   }, []);
 

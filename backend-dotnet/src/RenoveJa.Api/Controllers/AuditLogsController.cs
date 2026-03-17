@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Audit;
@@ -49,6 +50,17 @@ public class AuditLogsController : ControllerBase
         if (limit > 200) limit = 200;
         if (limit < 1) limit = 1;
         if (offset < 0) offset = 0;
+
+        // FIX B28: Doctors can only see their own audit logs; admins can see all
+        var callerRole = User.FindFirstValue(ClaimTypes.Role);
+        if (string.Equals(callerRole, "doctor", StringComparison.OrdinalIgnoreCase))
+        {
+            var callerIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (callerIdClaim == null || !Guid.TryParse(callerIdClaim, out var callerUserId))
+                return Unauthorized();
+            // Force userId filter to caller's own ID — ignore any userId parameter from the query
+            userId = callerUserId;
+        }
 
         _logger.LogInformation("AuditLogs GetAuditLogs: userId={UserId}, entityType={EntityType}, limit={Limit}", userId, entityType, limit);
         var logs = await _auditService.QueryAuditLogsAsync(

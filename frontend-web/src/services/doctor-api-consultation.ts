@@ -106,6 +106,10 @@ export async function updateExamContent(id: string, payload: { exams?: ExamItem[
   return res.json();
 }
 
+/**
+ * Returns a blob URL for the prescription PDF preview.
+ * ⚠️ Caller MUST call URL.revokeObjectURL(url) when done to avoid memory leaks.
+ */
 export async function getPreviewPdf(id: string): Promise<string> {
   const res = await authFetch(`/api/requests/${id}/preview-pdf`);
   if (!res.ok) throw new Error('Erro ao gerar preview');
@@ -113,6 +117,10 @@ export async function getPreviewPdf(id: string): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
+/**
+ * Returns a blob URL for the exam PDF preview.
+ * ⚠️ Caller MUST call URL.revokeObjectURL(url) when done to avoid memory leaks.
+ */
 export async function getPreviewExamPdf(id: string): Promise<string> {
   const res = await authFetch(`/api/requests/${id}/preview-exam-pdf`);
   if (!res.ok) throw new Error('Erro ao gerar preview');

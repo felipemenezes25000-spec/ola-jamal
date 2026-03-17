@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -514,6 +515,8 @@ public class RequestServiceFullTests
                 _documentTokenServiceMock.Object, _apiConfigMock.Object,
                 new Mock<ISoapNotesService>().Object,
                 new Mock<IStartConsultationRecording>().Object,
+                new Mock<IRecordingSyncService>().Object,
+                CreateScopeFactoryMock(),
                 new Mock<ILogger<ConsultationLifecycleService>>().Object),
             new SignatureService(
                 _requestRepoMock.Object, _doctorRepoMock.Object, _userRepoMock.Object,
@@ -535,6 +538,19 @@ public class RequestServiceFullTests
     private static User CreateDoctor(Guid id) =>
         User.Reconstitute(id, "Dr. Teste", "d@e.com", "hash", "Doctor",
             "11988776655", "98765432100", null, null, DateTime.UtcNow, DateTime.UtcNow);
+
+    private static IServiceScopeFactory CreateScopeFactoryMock()
+    {
+        var syncMock = new Mock<IRecordingSyncService>();
+        syncMock.Setup(s => s.TrySyncRecordingAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var spMock = new Mock<IServiceProvider>();
+        spMock.Setup(sp => sp.GetService(typeof(IRecordingSyncService))).Returns(syncMock.Object);
+        var scopeMock = new Mock<IServiceScope>();
+        scopeMock.Setup(s => s.ServiceProvider).Returns(spMock.Object);
+        var sfMock = new Mock<IServiceScopeFactory>();
+        sfMock.Setup(sf => sf.CreateScope()).Returns(scopeMock.Object);
+        return sfMock.Object;
+    }
 
     private void SetupNotifications()
     {

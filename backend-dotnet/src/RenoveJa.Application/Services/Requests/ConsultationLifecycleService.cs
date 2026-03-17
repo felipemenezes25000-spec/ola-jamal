@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
@@ -31,6 +32,8 @@ public class ConsultationLifecycleService(
     IOptions<ApiConfig> apiConfig,
     ISoapNotesService soapNotesService,
     IStartConsultationRecording startConsultationRecording,
+    IRecordingSyncService recordingSyncService,
+    IServiceScopeFactory scopeFactory,
     ILogger<ConsultationLifecycleService> logger) : IConsultationLifecycleService
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
@@ -326,43 +329,47 @@ public class ConsultationLifecycleService(
         await PublishRequestUpdatedAsync(request, "Consulta finalizada", cancellationToken);
         await pushDispatcher.SendAsync(PushNotificationRules.ConsultationFinished(request.PatientId, request.Id), cancellationToken);
 
-        // Gera notas SOAP em background — não bloqueia o retorno para o médico
+        // Gravação: disparar sync em background (Daily pode levar 2-5 min para processar).
+        // Usa scope próprio para evitar disposed scoped services.
+        _ = SyncRecordingsAsync(id);
+
+        // FIX B30: Execute SOAP notes generation inline (awaited) instead of Task.Run with scoped services.
+        // Task.Run captures scoped services (consultationAnamnesisRepository, soapNotesService, storageService)
+        // which may be disposed before the background task completes.
         var transcriptForSoap = sessionData?.TranscriptText ?? string.Empty;
         var anamnesisForSoap  = sessionData?.AnamnesisJson;
-        _ = Task.Run(async () =>
+        try
         {
-            try
-            {
-                string? soapJson = null;
-                ConsultationAnamnesis? anamnesisEntity = null;
+            string? soapJson = null;
+            ConsultationAnamnesis? anamnesisEntity = null;
 
-                if (string.IsNullOrWhiteSpace(transcriptForSoap))
-                {
-                    anamnesisEntity = await consultationAnamnesisRepository.GetByRequestIdAsync(id, CancellationToken.None);
-                    if (anamnesisEntity != null)
-                    {
-                        var soap = await soapNotesService.GenerateAsync(
-                            anamnesisEntity.TranscriptText ?? "", anamnesisEntity.AnamnesisJson, CancellationToken.None);
-                        if (soap != null) soapJson = soap.RawJson;
-                    }
-                }
-                else
+            if (string.IsNullOrWhiteSpace(transcriptForSoap))
+            {
+                anamnesisEntity = await consultationAnamnesisRepository.GetByRequestIdAsync(id, cancellationToken);
+                if (anamnesisEntity != null)
                 {
                     var soap = await soapNotesService.GenerateAsync(
-                        transcriptForSoap, anamnesisForSoap, CancellationToken.None);
+                        anamnesisEntity.TranscriptText ?? "", anamnesisEntity.AnamnesisJson, cancellationToken);
                     if (soap != null) soapJson = soap.RawJson;
-                    anamnesisEntity = await consultationAnamnesisRepository.GetByRequestIdAsync(id, CancellationToken.None);
                 }
+            }
+            else
+            {
+                var soap = await soapNotesService.GenerateAsync(
+                    transcriptForSoap, anamnesisForSoap, cancellationToken);
+                if (soap != null) soapJson = soap.RawJson;
+                anamnesisEntity = await consultationAnamnesisRepository.GetByRequestIdAsync(id, cancellationToken);
+            }
 
-                if (soapJson == null || anamnesisEntity == null)
-                {
-                    logger.LogWarning("[SOAP] Notas SOAP não geradas ou entidade não encontrada. RequestId={RequestId}", id);
-                    return;
-                }
-
+            if (soapJson == null || anamnesisEntity == null)
+            {
+                logger.LogWarning("[SOAP] Notas SOAP não geradas ou entidade não encontrada. RequestId={RequestId}", id);
+            }
+            else
+            {
                 // 1. Persistir no banco
                 anamnesisEntity.SetSoapNotes(soapJson, DateTime.UtcNow);
-                await consultationAnamnesisRepository.UpdateAsync(anamnesisEntity, CancellationToken.None);
+                await consultationAnamnesisRepository.UpdateAsync(anamnesisEntity, cancellationToken);
                 logger.LogInformation("[SOAP] Notas SOAP salvas no banco. RequestId={RequestId}", id);
 
                 // 2. Upload pro S3 — path: consultas/{id}/notas-soap/soap-notes-{id}.json
@@ -370,22 +377,22 @@ public class ConsultationLifecycleService(
                 {
                     var s3Path = $"consultas/{id:N}/notas-soap/soap-notes-{id:N}.json";
                     var bytes  = System.Text.Encoding.UTF8.GetBytes(soapJson);
-                    var result = await storageService.UploadAsync(s3Path, bytes, "application/json", CancellationToken.None);
-                    if (result.Success)
+                    var soapResult = await storageService.UploadAsync(s3Path, bytes, "application/json", cancellationToken);
+                    if (soapResult.Success)
                         logger.LogInformation("[SOAP] Notas SOAP enviadas ao S3. RequestId={RequestId} Path={Path}", id, s3Path);
                     else
-                        logger.LogWarning("[SOAP] Falha no upload S3 das notas SOAP. RequestId={RequestId} Error={Error}", id, result.ErrorMessage);
+                        logger.LogWarning("[SOAP] Falha no upload S3 das notas SOAP. RequestId={RequestId} Error={Error}", id, soapResult.ErrorMessage);
                 }
                 catch (Exception exS3)
                 {
                     logger.LogWarning(exS3, "[SOAP] Exceção no upload S3 das notas SOAP (dado seguro no banco). RequestId={RequestId}", id);
                 }
             }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "[SOAP] Falha ao gerar notas SOAP. RequestId={RequestId}", id);
-            }
-        }, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[SOAP] Falha ao gerar notas SOAP. RequestId={RequestId}", id);
+        }
 
         return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
     }
@@ -419,6 +426,11 @@ public class ConsultationLifecycleService(
         if (!isDoctor && !isPatient) return null;
 
         var anamnesis = await consultationAnamnesisRepository.GetByRequestIdAsync(id, cancellationToken);
+        if (anamnesis?.RecordingFileUrl == null)
+        {
+            await recordingSyncService.TrySyncRecordingAsync(id, cancellationToken);
+            anamnesis = await consultationAnamnesisRepository.GetByRequestIdAsync(id, cancellationToken);
+        }
         if (anamnesis?.RecordingFileUrl == null) return null;
 
         var path = storageService.ExtractPathFromStorageUrl(anamnesis.RecordingFileUrl);
@@ -443,8 +455,25 @@ public class ConsultationLifecycleService(
         if (!canFinish)
             throw new InvalidOperationException($"Consultation is not in a state that can be finished (current: {request.Status})");
 
-        var finisherDoctorId = request.DoctorId ?? userId;
-        return await FinishConsultationAsync(id, finisherDoctorId, null, cancellationToken);
+        if (!request.DoctorId.HasValue)
+            throw new InvalidOperationException("Cannot auto-finish consultation without an assigned doctor.");
+
+        return await FinishConsultationAsync(id, request.DoctorId.Value, null, cancellationToken);
+    }
+
+    private async Task SyncRecordingsAsync(Guid requestId)
+    {
+        await Task.Delay(TimeSpan.FromMinutes(2));
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var sync = scope.ServiceProvider.GetRequiredService<IRecordingSyncService>();
+            await sync.TrySyncRecordingAsync(requestId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[RecordingSync] Falha no sync em background para RequestId={RequestId}", requestId);
+        }
     }
 
     public async Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(

@@ -1,7 +1,8 @@
-﻿import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../lib/api-client';
 import { AUTH_TOKEN_KEY } from '../lib/constants/storage-keys';
+import { getSecureItem, setSecureItem, removeSecureItem } from '../lib/secure-storage';
 import { unregisterPushToken } from '../lib/api';
 import { getLastRegisteredPushToken, setLastRegisteredPushToken } from '../lib/pushTokenRegistry';
 import { UserDto, UserRole, AuthResponseDto, DoctorProfileDto } from '../types/database';
@@ -109,9 +110,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
+  // FIX M11: ref to abort background /me validation on unmount
+  const activeControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     loadStoredUser();
+    return () => { activeControllerRef.current?.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount
   }, []);
 
@@ -127,7 +131,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fallback: se AsyncStorage travar, libera a tela em no máximo 1,5s
     const guard = setTimeout(() => setLoading(false), 3500);
     try {
-      const storedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      // FIX M1: Use secure storage for auth token (auto-migrates from AsyncStorage)
+      const storedToken = await getSecureItem(AUTH_TOKEN_KEY);
       const storedUser = await AsyncStorage.getItem(USER_KEY);
       const storedDoctorProfile = await AsyncStorage.getItem(DOCTOR_PROFILE_KEY);
 
@@ -155,8 +160,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
 
         // Valida token em background — não bloqueia a UI
+        // FIX M11: store controller ref so we can abort on unmount/re-run
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
+        // Save ref for cleanup (loadStoredUser is called from useEffect)
+        activeControllerRef.current = controller;
         apiClient.get<UserDto>('/api/auth/me', undefined, { signal: controller.signal })
           .then(async (currentUser) => {
             clearTimeout(timeoutId);
@@ -204,7 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearAuth = useCallback(async () => {
     try {
       apiClient.clearTokenCache();
-      await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+      // FIX M1: Remove token from secure storage (and legacy AsyncStorage)
+      await removeSecureItem(AUTH_TOKEN_KEY);
       await AsyncStorage.removeItem(USER_KEY);
       await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
     } catch (e) {
@@ -242,7 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.post<AuthResponseDto>('/api/auth/login', { email, password });
       if (!response?.user) throw new Error('Resposta inválida do servidor. Tente novamente.');
       if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
-      await setItemSafe(AUTH_TOKEN_KEY, response.token);
+      await setSecureItem(AUTH_TOKEN_KEY, response.token);
       apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
@@ -270,7 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       // BUG FIX: validar que o token não é nulo/vazio (mesma verificação que signIn)
       if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
-      await setItemSafe(AUTH_TOKEN_KEY, response.token);
+      await setSecureItem(AUTH_TOKEN_KEY, response.token);
       apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       setUser(response.user);
@@ -304,7 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       const requiresApproval = !response.token || response.token.trim() === '';
       if (!requiresApproval) {
-        await setItemSafe(AUTH_TOKEN_KEY, response.token);
+        await setSecureItem(AUTH_TOKEN_KEY, response.token);
         apiClient.setTokenCache(response.token);
         await setItemSafe(USER_KEY, JSON.stringify(response.user));
         if (response.doctorProfile) {
@@ -329,7 +338,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.post<AuthResponseDto>('/api/auth/google', { googleToken, role });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
-      await setItemSafe(AUTH_TOKEN_KEY, response.token);
+      await setSecureItem(AUTH_TOKEN_KEY, response.token);
       apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
@@ -378,8 +387,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clearAuth();
   }, [clearAuth]);
 
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+
   const refreshUser = useCallback(async () => {
-    if (!user) return;
+    if (!userRef.current) return;
     try {
       const currentUser = await apiClient.get<UserDto>('/api/auth/me');
       await setItemSafe(USER_KEY, currentUser ? JSON.stringify(currentUser) : undefined);
@@ -388,7 +400,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (__DEV__) console.error('Error refreshing user:', error);
       await clearAuth();
     }
-  }, [user, clearAuth]);
+  }, [clearAuth]);
 
   const refreshDoctorProfile = useCallback(async () => {
     if (user?.role !== 'doctor') return;

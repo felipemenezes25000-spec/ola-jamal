@@ -62,7 +62,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       lastCount.current = count;
       setUnreadCount(count);
     } catch {
-      setUnreadCount(0);
+      // FIX M13: don't reset unreadCount on network error — keep last known value
+      // setUnreadCount(0) was losing the badge count on transient failures
     } finally {
       inFlight.current = false;
     }
@@ -110,10 +111,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
 
-    let timerId: ReturnType<typeof setTimeout>;
+    const timerRef = { current: null as ReturnType<typeof setTimeout> | null };
     const schedulePoll = () => {
       const delay = unchangedPolls.current >= UNCHANGED_THRESHOLD ? POLL_INTERVAL_SLOW_MS : POLL_INTERVAL_MS;
-      timerId = setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         if (cancelled) return;
         if (appState.current === 'active') {
           refreshUnreadCount();
@@ -126,7 +127,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       cancelled = true;
       subscription.remove();
-      clearTimeout(timerId);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [user?.id, refreshUnreadCount]);
 

@@ -19,11 +19,14 @@ resource "aws_db_instance" "main" {
 
   db_subnet_group_name   = aws_db_subnet_group.public.name
   vpc_security_group_ids = [aws_security_group.aurora.id]
-  publicly_accessible    = true
+  # Access via bastion host or VPN — never expose RDS directly to the internet
+  publicly_accessible    = false
 
-  backup_retention_period = 1
-  skip_final_snapshot     = true
-  multi_az                = false
+  backup_retention_period = 30
+  skip_final_snapshot     = false
+  final_snapshot_identifier = "${var.project}-final-snapshot"
+  multi_az                = true
+  deletion_protection     = true
 
   tags = { Name = "${var.project}-postgres" }
 }

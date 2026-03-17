@@ -8,7 +8,7 @@
  * Owns: data loading, form state (reject, sign, conduct), permission flags.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { getRequestById, updateConduct } from '../lib/api';
 import type { RequestResponseDto } from '../types/database';
@@ -69,6 +69,7 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
   const [request, setRequest] = useState<RequestResponseDto | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
   const [loadError, setLoadError] = useState(false);
+  const hasDataRef = useRef(!!cached);
 
   // ── Form state ──
 
@@ -88,10 +89,11 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
       setLoadError(false);
       const fresh = await getRequestById(requestId);
       setRequest(fresh);
+      hasDataRef.current = true;
       cacheRequest(fresh);
     } catch {
-      console.warn('Error loading request');
-      if (!request) setLoadError(true);
+      if (__DEV__) console.warn('Error loading request');
+      if (!hasDataRef.current) setLoadError(true);
     } finally {
       setLoading(false);
     }

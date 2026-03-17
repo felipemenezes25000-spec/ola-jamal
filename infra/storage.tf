@@ -42,6 +42,15 @@ resource "aws_s3_bucket_public_access_block" "private" {
   restrict_public_buckets = true
 }
 
+# Block public access on frontend bucket (served via CloudFront OAI, not direct S3)
+resource "aws_s3_bucket_public_access_block" "frontend" {
+  bucket                  = aws_s3_bucket.frontend.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # Versionamento em prescriptions e certificates
 resource "aws_s3_bucket_versioning" "prescriptions" {
   bucket = aws_s3_bucket.prescriptions.id
@@ -54,6 +63,18 @@ resource "aws_s3_bucket_versioning" "certificates" {
   bucket = aws_s3_bucket.certificates.id
   versioning_configuration {
     status = "Enabled"
+  }
+}
+
+# Server-side encryption para buckets privados (dados médicos sensíveis)
+resource "aws_s3_bucket_server_side_encryption_configuration" "private" {
+  for_each = local.private_buckets
+
+  bucket = each.value
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
   }
 }
 

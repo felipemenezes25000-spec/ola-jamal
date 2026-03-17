@@ -1,4 +1,5 @@
-﻿using RenoveJa.Domain.Entities;
+﻿using Dapper;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
 using RenoveJa.Infrastructure.Data.Postgres;
@@ -91,6 +92,44 @@ public class UserRepository(PostgresClient db) : IUserRepository
             TableName,
             $"id=eq.{id}",
             cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteCascadeAsync(Guid userId, bool isDoctor, CancellationToken cancellationToken = default)
+    {
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            if (isDoctor)
+            {
+                await conn.ExecuteAsync(
+                    new CommandDefinition(
+                        "DELETE FROM public.doctors WHERE user_id = @UserId",
+                        new { UserId = userId },
+                        transaction: tx,
+                        cancellationToken: cancellationToken));
+            }
+            await conn.ExecuteAsync(
+                new CommandDefinition(
+                    "DELETE FROM public.auth_tokens WHERE user_id = @UserId",
+                    new { UserId = userId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+            await conn.ExecuteAsync(
+                new CommandDefinition(
+                    "DELETE FROM public.users WHERE id = @UserId",
+                    new { UserId = userId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)

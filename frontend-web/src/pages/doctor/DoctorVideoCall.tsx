@@ -23,7 +23,7 @@
  *
  * Resolução CFM 2.454/2026: IA como ferramenta de auxílio, decisão final humana.
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,14 +82,14 @@ export default function DoctorVideoCall() {
   const [finishing, setFinishing] = useState(false);
 
   // SignalR real-time
-  const { connected: signalConnected, transcript, anamnesis, suggestions } = useVideoSignaling(requestId);
+  const { connected: signalConnected, transcript, anamnesis, suggestions, evidence: _evidence } = useVideoSignaling(requestId);
 
   // Parse anamnesis JSON (full object for DoctorAIPanel)
-  const parsedAnamnesis: Record<string, unknown> | null = (() => {
+  const parsedAnamnesis: Record<string, unknown> | null = useMemo(() => {
     if (!anamnesis) return null;
     try { return JSON.parse(anamnesis) as Record<string, unknown>; }
     catch { return null; }
-  })();
+  }, [anamnesis]);
 
   // Count filled anamnesis fields (for stats)
   const filledFields = parsedAnamnesis
@@ -111,12 +111,13 @@ export default function DoctorVideoCall() {
     if (consultationStarted) {
       timerRef.current = setInterval(() => setTimerSeconds(prev => prev + 1), 1000);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = undefined; } };
   }, [consultationStarted]);
 
   // Load data
   useEffect(() => {
     if (!requestId) return;
+    let cancelled = false;
     setLoading(true);
 
     (async () => {
@@ -130,9 +131,8 @@ export default function DoctorVideoCall() {
         }
 
         // Start consultation if not already
-        const needsStart = ['paid', 'consultation_accepted', 'consultation_ready'].some(
-          s => data.status?.toLowerCase().includes(s.toLowerCase())
-        );
+        const statusLower = (data.status ?? '').toLowerCase();
+        const needsStart = ['paid', 'consultation_accepted', 'consultation_ready'].includes(statusLower);
         if (needsStart) {
           try {
             const result = await startConsultation(requestId);
@@ -163,11 +163,12 @@ export default function DoctorVideoCall() {
           }
         }
       } catch {
-        setError('Erro ao carregar dados da consulta');
+        if (!cancelled) setError('Erro ao carregar dados da consulta');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [requestId]);
 
   // Report call connected when iframe loads

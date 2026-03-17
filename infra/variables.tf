@@ -34,11 +34,3 @@ variable "ecs_memory" {
 variable "ecs_desired_count" {
   default = 2
 }
-
-variable "aurora_min_acu" {
-  default = 0.5
-}
-
-variable "aurora_max_acu" {
-  default = 4
-}

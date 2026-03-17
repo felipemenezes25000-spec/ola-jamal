@@ -26,7 +26,7 @@ public class DoctorApprovalFilter : IAsyncActionFilter
         }
 
         var user = context.HttpContext.User;
-        if (user?.Identity?.IsAuthenticated == true && user.IsInRole("Doctor"))
+        if (user?.Identity?.IsAuthenticated == true && user.IsInRole("doctor"))
         {
             var repo = context.HttpContext.RequestServices.GetRequiredService<IDoctorRepository>();
             var userIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier);

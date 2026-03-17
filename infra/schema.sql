@@ -559,6 +559,21 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_care_plan_tasks') THEN
     CREATE TRIGGER set_updated_at_care_plan_tasks BEFORE UPDATE ON public.care_plan_tasks FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_user_push_preferences') THEN
+    CREATE TRIGGER set_updated_at_user_push_preferences BEFORE UPDATE ON public.user_push_preferences FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_consultation_time_bank') THEN
+    CREATE TRIGGER set_updated_at_consultation_time_bank BEFORE UPDATE ON public.consultation_time_bank FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_doctor_patient_notes') THEN
+    CREATE TRIGGER set_updated_at_doctor_patient_notes BEFORE UPDATE ON public.doctor_patient_notes FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_ai_suggestions') THEN
+    CREATE TRIGGER set_updated_at_ai_suggestions BEFORE UPDATE ON public.ai_suggestions FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_outbox_events') THEN
+    CREATE TRIGGER set_updated_at_outbox_events BEFORE UPDATE ON public.outbox_events FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
 END $$;
 
 -- Fim do schema RenoveJá+

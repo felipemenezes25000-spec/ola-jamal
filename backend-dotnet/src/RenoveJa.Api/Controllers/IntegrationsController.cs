@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -8,6 +9,7 @@ namespace RenoveJa.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/integrations")]
+[Authorize]
 public class IntegrationsController(IMemoryCache cache, ILogger<IntegrationsController> logger) : ControllerBase
 {
     /// <summary>

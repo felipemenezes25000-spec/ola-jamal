@@ -16,7 +16,7 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/admin/doctors")]
 [Authorize(Roles = "admin")]
-[EnableRateLimiting("auth")]
+[EnableRateLimiting("admin")]  // NM-6: separate rate limit bucket from login "auth" policy
 public class AdminDoctorsController(
     IDoctorRepository doctorRepository,
     IUserRepository userRepository,
@@ -29,8 +29,14 @@ public class AdminDoctorsController(
     [HttpGet]
     public async Task<IActionResult> GetDoctors(
         [FromQuery] string? status,
-        CancellationToken cancellationToken)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
     {
+        // NH-5: enforce pagination to prevent unbounded queries
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
         DoctorApprovalStatus? filterStatus = null;
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -50,15 +56,20 @@ public class AdminDoctorsController(
             all = all.Where(d => d.ApprovalStatus == filterStatus.Value).ToList();
         }
 
-        if (all.Count == 0)
-            return Ok(Array.Empty<DoctorListResponseDto>());
+        var totalCount = all.Count;
 
-        var userIds = all.Select(d => d.UserId).Distinct();
+        if (totalCount == 0)
+            return Ok(new { items = Array.Empty<DoctorListResponseDto>(), totalCount = 0, page, pageSize });
+
+        // NH-5: apply pagination
+        var pagedProfiles = all.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        var userIds = pagedProfiles.Select(d => d.UserId).Distinct();
         var users = await userRepository.GetByIdsAsync(userIds, cancellationToken);
         var userMap = users.ToDictionary(u => u.Id);
 
         var dtos = new List<DoctorListResponseDto>();
-        foreach (var profile in all)
+        foreach (var profile in pagedProfiles)
         {
             if (!userMap.TryGetValue(profile.UserId, out var user))
                 continue;
@@ -100,7 +111,7 @@ public class AdminDoctorsController(
                 profile.HospitalsServices));
         }
 
-        return Ok(dtos);
+        return Ok(new { items = dtos, totalCount, page, pageSize });
     }
 
     /// <summary>
@@ -144,6 +155,10 @@ public class AdminDoctorsController(
         profile = await doctorRepository.UpdateAsync(profile, cancellationToken);
 
         logger.LogInformation("Doctor rejected by admin: doctorProfileId={DoctorProfileId}, reason={Reason}", id, body?.Reason);
+
+        // TODO [NL-4]: Send email notification to the doctor informing them of the rejection.
+        // Use IEmailService (add a SendDoctorRejectionEmailAsync method) with the doctor's email and body?.Reason.
+        // The doctor's email can be retrieved via userRepository.GetByIdAsync(profile.UserId).
 
         return Ok(new
         {

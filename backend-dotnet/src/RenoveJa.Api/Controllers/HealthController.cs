@@ -50,7 +50,8 @@ public class HealthController : ControllerBase
         }
         catch (Exception ex)
         {
-            checks["database"] = new { status = "error", message = ex.Message };
+            _logger.LogWarning(ex, "Health check: database connection failed");
+            checks["database"] = new { status = "error", message = "Database unavailable" };
             overall = false;
         }
 
@@ -147,7 +148,7 @@ public class HealthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Diagnose: database check failed");
-            dbCheck = new { status = "error", message = ex.Message };
+            dbCheck = new { status = "error", message = "Database unavailable" };
         }
 
         return Ok(new
