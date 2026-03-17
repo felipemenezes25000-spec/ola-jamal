@@ -323,6 +323,23 @@ public class DigitalCertificateService : IDigitalCertificateService
         string outputFileName,
         CancellationToken cancellationToken = default)
     {
+        // SECURITY: Validar domínio para prevenir SSRF
+        try
+        {
+            var uri = new Uri(pdfUrl);
+            var host = uri.Host.ToLowerInvariant();
+            var isAllowed = host.EndsWith(".amazonaws.com") || host.EndsWith(".renovejasaude.com.br") || host == "localhost";
+            if (!isAllowed)
+            {
+                _logger.LogWarning("SignPdfFromUrlAsync blocked SSRF attempt: {Url}", pdfUrl);
+                return new DigitalSignatureResult(false, "URL de PDF não permitida. Apenas URLs internas são aceitas.", null, null, null, null);
+            }
+        }
+        catch
+        {
+            return new DigitalSignatureResult(false, "URL de PDF inválida.", null, null, null, null);
+        }
+
         // Baixa o PDF da URL
         using var httpClient = new HttpClient();
         var pdfBytes = await httpClient.GetByteArrayAsync(pdfUrl, cancellationToken);
@@ -696,6 +713,13 @@ public class DigitalCertificateService : IDigitalCertificateService
         
         return result;
     }
+
+    // TODO(security): Separar armazenamento de senha do PFX — atualmente a senha é embarcada
+    // no payload criptografado junto com os bytes do certificado. Se a chave AES vazar,
+    // o atacante tem acesso tanto ao PFX quanto à senha. Migrar para:
+    // 1. Armazenar senha em AWS Secrets Manager (separado do PFX)
+    // 2. Usar KMS envelope encryption em vez de AES direto
+    // 3. Considerar VIDaaS VALID (A3 nuvem) para eliminar PFX local
 
     /// <summary>
     /// Descriptografa para obter o PFX original e a senha armazenada.

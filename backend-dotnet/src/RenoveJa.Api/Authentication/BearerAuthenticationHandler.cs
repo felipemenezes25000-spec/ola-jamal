@@ -49,9 +49,9 @@ public class BearerAuthenticationHandler(
         {
             return AuthenticateResult.Fail("Invalid or expired token");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return AuthenticateResult.Fail($"Authentication error: {ex.Message}");
+            return AuthenticateResult.Fail("Authentication error");
         }
     }
 }

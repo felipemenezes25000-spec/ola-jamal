@@ -185,12 +185,14 @@ public class PostConsultationController(
                     return StatusCode(403, new { error = "Access denied" });
             }
 
-            // Redirecionar para a URL do PDF (S3)
+            // Streaming via backend — não redirecionar para S3 (pode ser privado)
             var pdfUrl = await medicalDocumentRepository.GetSignedDocumentUrlAsync(documentId, cancellationToken);
-            if (!string.IsNullOrEmpty(pdfUrl))
-                return Redirect(pdfUrl);
+            if (string.IsNullOrEmpty(pdfUrl))
+                return NotFound(new { error = "PDF not yet available. Document may not be signed." });
 
-            return NotFound(new { error = "PDF not yet available. Document may not be signed." });
+            // TODO: Fazer download e streaming em vez de redirect
+            // Por ora, gerar signed URL temporária para o browser
+            return Redirect(pdfUrl);
         }
         catch (Exception ex)
         {

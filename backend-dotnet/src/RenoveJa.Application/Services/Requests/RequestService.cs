@@ -636,7 +636,7 @@ public class RequestService(
         if (request.DoctorId != doctorId) throw new UnauthorizedAccessException("Somente o médico atribuído pode atualizar.");
         if (request.RequestType != RequestType.Prescription) throw new InvalidOperationException("Apenas receitas podem ter medicamentos atualizados.");
         if (request.Status != RequestStatus.Paid)
-            throw new InvalidOperationException("Só é possível editar medicamentos/notas após o pagamento. O paciente deve pagar antes de editar e assinar.");
+            throw new InvalidOperationException("Só é possível editar após a aprovação. Aprove a solicitação primeiro.");
         var oldValues = new Dictionary<string, object?>
         {
             ["medications"] = request.Medications,
@@ -669,7 +669,7 @@ public class RequestService(
         if (request.DoctorId != doctorId) throw new UnauthorizedAccessException("Somente o médico atribuído pode atualizar.");
         if (request.RequestType != RequestType.Exam) throw new InvalidOperationException("Apenas pedidos de exame podem ter exames atualizados.");
         if (request.Status != RequestStatus.Paid)
-            throw new InvalidOperationException("Só é possível editar exames/notas após o pagamento. O paciente deve pagar antes de editar e assinar.");
+            throw new InvalidOperationException("Só é possível editar após a aprovação. Aprove a solicitação primeiro.");
         var oldValues = new Dictionary<string, object?>
         {
             ["exams"] = request.Exams,

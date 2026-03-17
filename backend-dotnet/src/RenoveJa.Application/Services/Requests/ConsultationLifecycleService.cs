@@ -91,8 +91,9 @@ public class ConsultationLifecycleService(
             request = await requestRepository.UpdateAsync(request, cancellationToken);
         }
 
-        if (request.Status != RequestStatus.Paid)
-            throw new InvalidOperationException($"Consultation can only be started when status is Paid. Current status: {request.Status}.");
+        // Aceitar Paid (fluxo normal) ou ConsultationReady (legado/race condition com accept)
+        if (request.Status != RequestStatus.Paid && request.Status != RequestStatus.ConsultationReady)
+            throw new InvalidOperationException($"Consultation can only be started when status is Paid or ConsultationReady. Current status: {request.Status}.");
 
         request.StartConsultation();
         request = await requestRepository.UpdateAsync(request, cancellationToken);

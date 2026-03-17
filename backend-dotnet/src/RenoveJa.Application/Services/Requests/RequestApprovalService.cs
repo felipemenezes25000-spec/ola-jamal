@@ -45,11 +45,13 @@ public class RequestApprovalService(
         // o HTTP request termina (ASP.NET cancela o token original ao enviar a response).
         // Capturar requestId antes do closure para evitar problemas de ciclo de vida.
         var requestIdForBackground = request.Id;
-        _ = Task.Run(async () =>
-        {
-            try { await GenerateAndSetConductSuggestionAsync(requestIdForBackground, CancellationToken.None); }
-            catch (Exception ex) { logger.LogWarning(ex, "AI conduct suggestion failed for {RequestId}", requestIdForBackground); }
-        });
+        // Fire-and-forget sem Task.Run — evita thread pool starvation em ASP.NET Core
+        _ = GenerateAndSetConductSuggestionAsync(requestIdForBackground, CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception?.InnerException, "AI conduct suggestion failed for {RequestId}", requestIdForBackground);
+            }, TaskScheduler.Default);
 
         await requestEventsPublisher.NotifyRequestUpdatedAsync(
             request.Id,

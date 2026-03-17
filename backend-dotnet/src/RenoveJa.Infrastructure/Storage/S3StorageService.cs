@@ -117,7 +117,8 @@ public class S3StorageService : IStorageService
 
     /// <summary>
     /// Upload via Stream — bufferiza para permitir retry (4 tentativas com backoff).
-    /// Garante maior chance de sucesso em falhas transitórias de rede/S3.
+    /// TODO(perf): Para arquivos grandes (>10MB), usar TransferUtility com multipart upload
+    /// para evitar OutOfMemoryException em PDFs pesados ou gravações de consulta.
     /// </summary>
     public async Task<StorageUploadResult> UploadStreamAsync(string path, Stream data, string contentType, CancellationToken cancellationToken = default)
     {
@@ -154,8 +155,10 @@ public class S3StorageService : IStorageService
             await _s3.DeleteObjectAsync(bucket, key, cancellationToken);
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            // Log para diagnóstico — falha silenciosa impede debug de problemas de permissão/config S3
+            System.Diagnostics.Debug.WriteLine($"[S3] DeleteAsync failed for {path}: {ex.Message}");
             return false;
         }
     }
@@ -233,7 +236,7 @@ public class S3StorageService : IStorageService
         return await DownloadAsync(path, cancellationToken);
     }
 
-    public async Task<string?> CreateSignedUrlAsync(string path, int expiresInSeconds, CancellationToken cancellationToken = default)
+    public Task<string?> CreateSignedUrlAsync(string path, int expiresInSeconds, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -247,11 +250,12 @@ public class S3StorageService : IStorageService
                 Expires = DateTime.UtcNow.AddSeconds(expiresInSeconds)
             };
 
-            return await Task.FromResult(_s3.GetPreSignedURL(request));
+            // GetPreSignedURL é síncrono no AWS SDK — não precisamos de Task.FromResult
+            return Task.FromResult<string?>(_s3.GetPreSignedURL(request));
         }
         catch
         {
-            return null;
+            return Task.FromResult<string?>(null);
         }
     }
 

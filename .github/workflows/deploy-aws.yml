@@ -2,7 +2,7 @@ name: Deploy RenoveJá+ AWS
 
 on:
   push:
-    branches: [main, fix/frontend-performance-responsive]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -96,6 +96,7 @@ jobs:
         run: |
           cat > .env.production << EOF
           VITE_API_URL=https://api.renovejasaude.com.br
+          VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
           EOF
 
       - name: Build

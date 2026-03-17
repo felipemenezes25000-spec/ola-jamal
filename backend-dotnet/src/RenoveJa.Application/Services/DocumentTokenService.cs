@@ -14,10 +14,10 @@ public class DocumentTokenService(IOptions<ApiConfig> apiConfig) : IDocumentToke
 {
     private readonly string _secret = (apiConfig?.Value?.DocumentTokenSecret ?? "").Trim();
 
-    public string? GenerateDocumentToken(Guid requestId, int validMinutes = 15)
+    public string GenerateDocumentToken(Guid requestId, int validMinutes = 15)
     {
         if (string.IsNullOrEmpty(_secret))
-            return null;
+            throw new InvalidOperationException("DocumentTokenSecret não configurado. Defina Api:DocumentTokenSecret no .env ou appsettings.");
 
         var exp = DateTimeOffset.UtcNow.AddMinutes(validMinutes).ToUnixTimeSeconds();
         var payload = $"{requestId}:{exp}";
