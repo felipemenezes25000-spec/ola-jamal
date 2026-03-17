@@ -57,8 +57,7 @@ export type AppRoute =
   | `/video/${string}`
   | `/consultation-summary/${string}`
   | `/doctor-patient/${string}`
-  | `/doctor-patient-summary/${string}`
-  | `/care-plans/${string}`;
+  | `/doctor-patient-summary/${string}`;
 
 export const nav = {
   push(router: AnyRouter, route: AppRoute) {

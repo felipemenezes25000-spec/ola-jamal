@@ -30,8 +30,7 @@ function shouldHideBanner(
   // Vídeo e telas de resumo/plano: evitar sobreposição com controles críticos e modais
   if (
     pathname.includes('/video') ||
-    pathname.includes('/consultation-summary') ||
-    pathname.includes('/care-plans')
+    pathname.includes('/consultation-summary')
   ) return true;
   // Auth: login, registro, etc.
   if (pathname.includes('(auth)') || pathname.includes('login') || pathname.includes('register') ||

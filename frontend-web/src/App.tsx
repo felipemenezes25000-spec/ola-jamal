@@ -77,7 +77,6 @@ function isDoctorPortal(): boolean {
       '/privacidade',
       '/completar-cadastro',
       '/resumo-consulta',
-      '/care-plans',
       '/paciente',
     ];
     return doctorPaths.some((dp) => path === dp || path.startsWith(dp + '/'));

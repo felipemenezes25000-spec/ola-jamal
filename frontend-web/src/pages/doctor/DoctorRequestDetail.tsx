@@ -29,7 +29,6 @@ import { ExamsCard } from '@/components/doctor/request/ExamsCard';
 import { TranscriptionCard } from '@/components/doctor/request/TranscriptionCard';
 import { RequestActionsCard } from '@/components/doctor/request/RequestActionsCard';
 import { AssistantBanner } from '@/components/doctor/AssistantBanner';
-import { getCarePlanByConsultation } from '@/services/doctor-api-care-plans';
 import { useDoctorRequestDetailQuery } from '@/hooks/useDoctorRequestDetailQuery';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -59,7 +58,6 @@ export default function DoctorRequestDetail() {
   const [actionLoading, setActionLoading] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [carePlanId, setCarePlanId] = useState<string | null>(null);
   const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
 
   useEffect(() => {
@@ -74,16 +72,6 @@ export default function DoctorRequestDetail() {
       .then(setPatient)
       .catch(() => setPatient(null));
   }, [request?.patientId]);
-
-  // Busca care plan para consultas
-  useEffect(() => {
-    if (!id || !request) return;
-    const reqType = (request.type ?? '').toLowerCase();
-    if (reqType !== 'consultation') return;
-    getCarePlanByConsultation(id)
-      .then((cp) => cp && setCarePlanId(cp.id))
-      .catch(() => {});
-  }, [id, request?.type]);
 
   // ── Action handlers — usam refetch() em vez de setRequest ──
 
@@ -331,12 +319,6 @@ export default function DoctorRequestDetail() {
                 )}
 
                 {/* Link care plan */}
-                {carePlanId && (
-                  <Button variant="outline" className="w-full gap-2" onClick={() => navigate(`/care-plans/${carePlanId}`)}>
-                    <ClipboardList className="h-4 w-4" />Ver Plano de Cuidados
-                  </Button>
-                )}
-
                 {/* IA — resumo, risco, urgência */}
                 <AiCopilotSection request={request} />
 

@@ -4,7 +4,7 @@
  * O médico revisa, edita e assina tudo de uma vez.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,

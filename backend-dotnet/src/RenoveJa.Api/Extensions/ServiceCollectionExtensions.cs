@@ -7,7 +7,6 @@ using RenoveJa.Application.Services.Assistant;
 using RenoveJa.Application.Services.Auth;
 using RenoveJa.Application.Services.Audit;
 using RenoveJa.Application.Services;
-using RenoveJa.Application.Services.CarePlans;
 using RenoveJa.Application.Services.Clinical;
 using RenoveJa.Application.Services.Doctors;
 using RenoveJa.Application.Services.Notifications;
@@ -71,8 +70,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAiSuggestionRepository, AiSuggestionRepository>();
         services.AddScoped<IAiInteractionLogRepository, AiInteractionLogRepository>();
         services.AddScoped<IDoctorPatientNotesRepository, DoctorPatientNotesRepository>();
-        services.AddScoped<ICarePlanRepository, CarePlanRepository>();
-        services.AddScoped<ICarePlanTaskRepository, CarePlanTaskRepository>();
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
         return services;
     }
@@ -103,7 +100,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBatchSignatureService, BatchSignatureService>();
         services.AddScoped<DuplicateDocumentGuard>();
         services.AddScoped<IConsultationEncounterService, ConsultationEncounterService>();
-        services.AddScoped<ICarePlanService, CarePlanService>();
         services.AddScoped<ISignedRequestClinicalSyncService, SignedRequestClinicalSyncService>();
         services.AddScoped<IVerificationService, RenoveJa.Application.Services.Verification.VerificationService>();
         return services;

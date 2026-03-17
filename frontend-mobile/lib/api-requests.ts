@@ -5,6 +5,10 @@ import type {
   PagedResponse,
   VideoRoomResponseDto,
 } from '../types/database';
+import type {
+  PostConsultationEmitRequest,
+  PostConsultationEmitResponse,
+} from '../types/postConsultation';
 
 // ============================================
 // REQUEST MANAGEMENT
@@ -405,11 +409,6 @@ export function sortRequestsByNewestFirst(items: RequestResponseDto[]): RequestR
 // ============================================
 // POST-CONSULTATION DOCUMENT EMISSION
 // ============================================
-
-import type {
-  PostConsultationEmitRequest,
-  PostConsultationEmitResponse,
-} from '../types/postConsultation';
 
 /**
  * Emite todos os documentos pós-consulta (receita, exames, atestado) num único request.

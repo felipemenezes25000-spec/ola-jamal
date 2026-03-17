@@ -26,7 +26,6 @@ Plataforma de **telemedicina** completa para renovação de receitas, pedidos de
 - Assinatura digital ICP-Brasil (certificado A1 local)
 - **Assinatura em lote**: revisar → aprovar → acumular → assinar vários de uma vez
 - Fluxo individual (um por um) continua funcionando normalmente
-- Plano de cuidados a partir dos exames sugeridos pela IA
 - Prontuário eletrônico com compliance CFM 1.638/2002
 
 ### Segurança e antifraude

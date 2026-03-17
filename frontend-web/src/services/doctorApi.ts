@@ -167,7 +167,6 @@ export interface PatientClinicalSummaryResponse {
   structured?: {
     problemList?: string[];
     activeMedications?: string[];
-    carePlan?: string;
     narrativeSummary?: string;
     alerts?: string[];
   } | null;

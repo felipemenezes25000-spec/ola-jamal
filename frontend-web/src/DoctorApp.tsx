@@ -67,7 +67,6 @@ const DoctorPostConsultationEmit = lazy(
 const DoctorCompleteDoctor = lazy(
   () => import('@/pages/doctor/DoctorCompleteDoctor')
 );
-const DoctorCarePlan = lazy(() => import('@/pages/doctor/DoctorCarePlan'));
 const DoctorSettings = lazy(() => import('@/pages/doctor/DoctorSettings'));
 const DoctorAbout = lazy(() => import('@/pages/doctor/DoctorAbout'));
 const DoctorHelp = lazy(() => import('@/pages/doctor/DoctorHelp'));
@@ -274,14 +273,6 @@ function DoctorShell() {
               element={
                 <DoctorProtectedRoute>
                   <DoctorPostConsultationEmit />
-                </DoctorProtectedRoute>
-              }
-            />
-            <Route
-              path="/care-plans/:id"
-              element={
-                <DoctorProtectedRoute>
-                  <DoctorCarePlan />
                 </DoctorProtectedRoute>
               }
             />

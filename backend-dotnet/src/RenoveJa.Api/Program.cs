@@ -8,7 +8,6 @@ using RenoveJa.Application.Services.Audit;
 using RenoveJa.Application.Services.Requests;
 using RenoveJa.Application.Services.Notifications;
 using RenoveJa.Application.Services.Video;
-using RenoveJa.Application.Services.CarePlans;
 using RenoveJa.Application.Services.Doctors;
 using RenoveJa.Application.Services.Verification;
 using RenoveJa.Application.Validators;

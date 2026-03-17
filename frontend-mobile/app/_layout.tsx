@@ -147,7 +147,6 @@ export default function RootLayout() {
                 {/* Fluxos paciente: transição mais suave */}
                 <Stack.Screen name="request-detail/[id]" options={motionTokens.nav.softPush} />
                 <Stack.Screen name="consultation-summary/[requestId]" options={motionTokens.nav.softPush} />
-                <Stack.Screen name="care-plans/[carePlanId]" options={motionTokens.nav.softPush} />
                 <Stack.Screen name="video/[requestId]" options={motionTokens.nav.softPush} />
 
                 {/* Fluxos médico: transição mais direta */}

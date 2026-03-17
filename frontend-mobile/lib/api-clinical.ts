@@ -79,7 +79,6 @@ export interface PatientClinicalSummaryStructured {
   problemList: string[];
   activeMedications: string[];
   narrativeSummary: string;
-  carePlan: string | null;
   alerts: string[];
 }
 

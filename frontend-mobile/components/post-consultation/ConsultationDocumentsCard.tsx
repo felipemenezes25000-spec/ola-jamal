@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -31,13 +30,6 @@ interface Props {
   requestId: string;
   requestType: string;
 }
-
-const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
-  medkit: 'medkit',
-  flask: 'flask',
-  'document-text': 'document-text',
-  document: 'document',
-};
 
 export function ConsultationDocumentsCard({ requestId, requestType }: Props) {
   const { colors } = useAppTheme();

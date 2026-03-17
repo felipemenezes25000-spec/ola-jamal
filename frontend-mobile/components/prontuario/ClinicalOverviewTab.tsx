@@ -78,20 +78,6 @@ export function ClinicalOverviewTab({
         </SectionCard>
       )}
 
-      {/* Care plan */}
-      {typeof structured?.carePlan === 'string' && structured.carePlan.trim().length > 0 && (
-        <SectionCard
-          icon="clipboard"
-          iconBg={colors.successLight}
-          iconColor={colors.success}
-          title="Plano de cuidado"
-          borderColor={colors.success}
-          
-        >
-          <Text style={S.bodyText}>{structured.carePlan}</Text>
-        </SectionCard>
-      )}
-
       {/* Narrative summary */}
       <SectionCard
         icon="document-text"

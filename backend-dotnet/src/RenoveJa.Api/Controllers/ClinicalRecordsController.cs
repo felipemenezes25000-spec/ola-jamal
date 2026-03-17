@@ -280,7 +280,6 @@ public class ClinicalRecordsController(
             problemList = structured.ProblemList,
             activeMedications = structured.ActiveMedications,
             narrativeSummary = narrative,
-            carePlan = structured.CarePlan,
             alerts = structured.Alerts
         } : (object?)null;
 

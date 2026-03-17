@@ -67,6 +67,50 @@ public class UserPushPreferencesModel
     public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>Modelo de persistência de sugestão IA (tabela ai_suggestions).</summary>
+public class AiSuggestionModel
+{
+    public Guid Id { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("consultation_id")]
+    public Guid ConsultationId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("patient_id")]
+    public Guid PatientId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("doctor_id")]
+    public Guid? DoctorId { get; set; }
+    public string Type { get; set; } = "exam_suggestion";
+    public string Status { get; set; } = "generated";
+    public string Model { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("payload_json")]
+    public string PayloadJson { get; set; } = "{}";
+    [System.Text.Json.Serialization.JsonPropertyName("payload_hash")]
+    public string PayloadHash { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("correlation_id")]
+    public string? CorrelationId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+    public DateTime CreatedAt { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>Modelo de persistência de evento outbox (tabela outbox_events).</summary>
+public class OutboxEventModel
+{
+    public Guid Id { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("aggregate_type")]
+    public string AggregateType { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("aggregate_id")]
+    public Guid AggregateId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("event_type")]
+    public string EventType { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("payload_json")]
+    public string PayloadJson { get; set; } = "{}";
+    [System.Text.Json.Serialization.JsonPropertyName("idempotency_key")]
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public string Status { get; set; } = "pending";
+    [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+    public DateTime CreatedAt { get; set; }
+}
+
 /// <summary>Modelo de persistência de token de push (tabela push_tokens).</summary>
 public class PushTokenModel
 {
