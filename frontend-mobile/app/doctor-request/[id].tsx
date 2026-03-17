@@ -12,7 +12,6 @@ import {
 import { useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
 import { useListBottomPadding } from '../../lib/ui/responsive';
-import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography, doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
@@ -21,9 +20,8 @@ import StatusTracker from '../../components/StatusTracker';
 import { StatusBadge } from '../../components/StatusBadge';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
 import { DoctorCard } from '../../components/ui/DoctorCard';
-import { AppButton, AppEmptyState } from '../../components/ui';
+import { AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
-import { showToast } from '../../components/ui/Toast';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { useDoctorRequest } from '../../hooks/useDoctorRequest';
 import { useFocusEffect } from 'expo-router';
@@ -236,13 +234,13 @@ export default function DoctorRequestDetail() {
 function ConsultationPostSection({ request, router }: { request: NonNullable<ReturnType<typeof useDoctorRequest>['request']>; router: ReturnType<typeof useRouter> }) {
   const { colors } = useAppTheme({ role: 'doctor' });
   const s = useMemo(() => makeStyles(colors), [colors]);
-  if (request.requestType !== 'consultation' || request.status !== 'consultation_finished') return null;
-  if (!request.consultationTranscript && !request.consultationAnamnesis && !request.consultationAiSuggestions && !request.consultationEvidence) return null;
-
   const parsedAnamnesis = parseAnamnesis(request.consultationAnamnesis);
   const suggestions = parseSuggestions(request.consultationAiSuggestions);
   const evidence = parseEvidence(request.consultationEvidence);
   const [anamnesis, setAnamnesis] = useState(parsedAnamnesis);
+
+  if (request.requestType !== 'consultation' || request.status !== 'consultation_finished') return null;
+  if (!request.consultationTranscript && !request.consultationAnamnesis && !request.consultationAiSuggestions && !request.consultationEvidence) return null;
 
   return (
     <>

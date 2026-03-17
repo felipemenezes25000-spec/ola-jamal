@@ -82,7 +82,7 @@ export default function DoctorVideoCall() {
   const [finishing, setFinishing] = useState(false);
 
   // SignalR real-time
-  const { connected: signalConnected, transcript, anamnesis, suggestions, evidence: _evidence } = useVideoSignaling(requestId);
+  const { connected: signalConnected, transcript, anamnesis, suggestions } = useVideoSignaling(requestId);
 
   // Parse anamnesis JSON (full object for DoctorAIPanel)
   const parsedAnamnesis: Record<string, unknown> | null = useMemo(() => {

@@ -1,3 +1,4 @@
+/* global URL, console */
 // patch-detail.mjs - Run with: node patch-detail.mjs
 import { readFileSync, writeFileSync } from 'fs';
 

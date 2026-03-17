@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import { getUnreadNotificationsCount, markAllNotificationsAsRead } from '../lib/api';
 import { useAuth } from './AuthContext';
+
 // Import seguro: PushNotificationContext pode não estar montado (Expo Go, web)
 function usePushNotificationSafe(): { lastNotificationAt: number } {
   try {
@@ -10,7 +12,6 @@ function usePushNotificationSafe(): { lastNotificationAt: number } {
   } catch { /* provider não disponível */ }
   return { lastNotificationAt: 0 };
 }
-import { getUnreadNotificationsCount, markAllNotificationsAsRead } from '../lib/api';
 
 /** Intervalo de polling quando app está em primeiro plano (em ms). */
 const POLL_INTERVAL_MS = 30_000;

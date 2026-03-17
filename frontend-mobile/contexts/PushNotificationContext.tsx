@@ -204,7 +204,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [user]);
 
     const pushCtxValue = React.useMemo(() => ({ lastNotificationAt }), [lastNotificationAt]);
   return (

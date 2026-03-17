@@ -269,7 +269,7 @@ export default function Verify() {
                     } else {
                       alert(res.message);
                     }
-                  } catch (err) {
+                  } catch {
                     alert('Erro ao dispensar documento. Tente novamente.');
                   } finally {
                     setDispensing(false);

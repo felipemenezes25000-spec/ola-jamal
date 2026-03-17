@@ -441,8 +441,8 @@ public class AuthServiceExtendedTests
 
         await _sut.CancelRegistrationAsync(userId);
 
-        _tokenRepoMock.Verify(r => r.DeleteByUserIdAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
-        _userRepoMock.Verify(r => r.DeleteAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        // B19: CancelRegistrationAsync uses DeleteCascadeAsync (transactional) instead of individual deletes
+        _userRepoMock.Verify(r => r.DeleteCascadeAsync(userId, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 }
 

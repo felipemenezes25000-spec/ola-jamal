@@ -53,7 +53,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const lastFetchRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isAuthenticatedRef = useRef(isAuthenticated);
-  isAuthenticatedRef.current = isAuthenticated;
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   const fetchCount = useCallback(async (auth: boolean) => {
     if (!auth) return;

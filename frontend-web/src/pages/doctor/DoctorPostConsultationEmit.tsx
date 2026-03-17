@@ -225,8 +225,8 @@ export default function DoctorPostConsultationEmit() {
       const result = await emitPostConsultationDocuments(payload);
       toast.success(result.message);
       navigate(`/pedidos/${requestId}`);
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Erro ao emitir documentos');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao emitir documentos');
     } finally { setSubmitting(false); }
   };
 
@@ -371,8 +371,8 @@ export default function DoctorPostConsultationEmit() {
                 <Plus className="h-4 w-4" /> Adicionar exame avulso
               </button>
               <div className="pt-1">
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Justificativa clínica</label>
-                <Textarea value={examJust} onChange={e => setExamJust(e.target.value)} rows={2}
+                <label htmlFor="exam-just" className="text-xs font-medium text-muted-foreground block mb-1.5">Justificativa clínica</label>
+                <Textarea id="exam-just" value={examJust} onChange={e => setExamJust(e.target.value)} rows={2}
                   placeholder="Preenchida ao selecionar pacote" className="text-sm" />
               </div>
             </CardContent>
@@ -403,18 +403,19 @@ export default function DoctorPostConsultationEmit() {
                 ))}
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Motivo</label>
-                <Textarea value={certBody} onChange={e => setCertBody(e.target.value)} rows={3} className="text-sm" />
+                <label htmlFor="cert-body" className="text-xs font-medium text-muted-foreground block mb-1.5">Motivo</label>
+                <Textarea id="cert-body" value={certBody} onChange={e => setCertBody(e.target.value)} rows={3} className="text-sm" />
               </div>
               <div className="flex gap-3 items-end">
                 <div className="w-20">
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">CID</label>
-                  <Input value={certCid} onChange={e => setCertCid(e.target.value.toUpperCase())}
+                  <label htmlFor="cert-cid" className="text-xs font-medium text-muted-foreground block mb-1.5">CID</label>
+                  <Input id="cert-cid" value={certCid} onChange={e => setCertCid(e.target.value.toUpperCase())}
                     className="text-center font-semibold text-base" />
                 </div>
                 <div className="w-28">
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">Dias</label>
-                  <div className="flex items-center border rounded-xl overflow-hidden h-11 bg-gray-50">
+                  <label id="cert-days-label" htmlFor="cert-days" className="text-xs font-medium text-muted-foreground block mb-1.5">Dias</label>
+                  <input id="cert-days" type="number" value={certDays} readOnly aria-hidden className="sr-only" tabIndex={-1} />
+                  <div role="spinbutton" aria-labelledby="cert-days-label" aria-valuenow={certDays} className="flex items-center border rounded-xl overflow-hidden h-11 bg-gray-50">
                     <button onClick={() => setCertDays(Math.max(1, certDays - 1))} className="w-11 h-full flex items-center justify-center hover:bg-gray-100">
                       <Minus className="h-4 w-4 text-gray-500" />
                     </button>
@@ -425,12 +426,12 @@ export default function DoctorPostConsultationEmit() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">Início</label>
-                  <Input value={new Date().toLocaleDateString('pt-BR')} readOnly className="bg-gray-50 text-muted-foreground" />
+                  <label htmlFor="cert-start" className="text-xs font-medium text-muted-foreground block mb-1.5">Início</label>
+                  <Input id="cert-start" value={new Date().toLocaleDateString('pt-BR')} readOnly className="bg-gray-50 text-muted-foreground" />
                 </div>
               </div>
-              <label className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">
-                <input type="checkbox" checked={certIncludeCid} onChange={e => setCertIncludeCid(e.target.checked)}
+              <label htmlFor="cert-include-cid" className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">
+                <input id="cert-include-cid" type="checkbox" checked={certIncludeCid} onChange={e => setCertIncludeCid(e.target.checked)}
                   className="w-4 h-4 accent-blue-600 rounded" />
                 <span className="text-sm text-gray-600">Incluir CID no atestado (paciente autorizou)</span>
               </label>
