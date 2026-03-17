@@ -23,6 +23,7 @@ Voltar ao repositório: [README principal](../README.md) · [CLAUDE.md](../CLAUD
 | [EXPO_GO.md](guides/EXPO_GO.md) | Uso do Expo Go |
 | [EXPO_VALIDACAO.md](guides/EXPO_VALIDACAO.md) | Validação Expo |
 | [LOGIN_GOOGLE_PASSO_A_PASSO.md](guides/LOGIN_GOOGLE_PASSO_A_PASSO.md) | Login com Google (passo a passo) |
+| [TUTORIAL_LOGIN_GOOGLE_EAS.md](guides/TUTORIAL_LOGIN_GOOGLE_EAS.md) | Login Google em builds EAS (Expo Dashboard + Firebase) |
 | [GOOGLE_CLOUD_CHECKLIST.md](guides/GOOGLE_CLOUD_CHECKLIST.md) | Checklist Google Cloud OAuth |
 | [TUTORIAL_VERIFICACAO_RECEITA.md](guides/TUTORIAL_VERIFICACAO_RECEITA.md) | Tutorial verificação de receita (QR Code) |
 | [TUTORIAL_NAVEGADOR_VERIFICACAO.md](guides/TUTORIAL_NAVEGADOR_VERIFICACAO.md) | Verificação no navegador passo a passo |
