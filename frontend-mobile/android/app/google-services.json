@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "598286841038-780e9kksjoscthg0g611virnchlb7kcr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.renoveja.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "598286841038-j095u3iopiqltpgbvu0f5od924etobk7.apps.googleusercontent.com",
           "client_type": 3
         }
