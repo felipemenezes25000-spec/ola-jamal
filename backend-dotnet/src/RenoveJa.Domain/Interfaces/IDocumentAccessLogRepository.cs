@@ -1,4 +1,4 @@
-using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Entities;
 
 namespace RenoveJa.Domain.Interfaces;
 

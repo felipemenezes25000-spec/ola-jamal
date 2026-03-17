@@ -1,4 +1,4 @@
-using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Postgres;
 using System.Text.Json.Serialization;
@@ -24,7 +24,7 @@ public class DocumentAccessLogRepository(PostgresClient db) : IDocumentAccessLog
             Metadata = entry.Metadata,
             CreatedAt = DateTime.UtcNow,
         };
-        await db.InsertAsync(TableName, model, ct);
+        await db.InsertAsync<AccessLogModel>(TableName, model, ct);
     }
 
     public async Task<List<DocumentAccessEntry>> GetByDocumentIdAsync(Guid documentId, int limit = 50, CancellationToken ct = default)

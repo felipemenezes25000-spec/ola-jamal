@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -263,30 +263,29 @@ public class MedicalDocumentRepository(PostgresClient db) : IMedicalDocumentRepo
     {
         var model = await db.GetSingleAsync<MedicalDocumentModel>(
             TableName,
-            new Dictionary<string, object> { ["id"] = documentId },
-            cancellationToken);
+            filter: $"id=eq.{documentId}",
+            cancellationToken: cancellationToken);
         return model?.SignedDocumentUrl;
     }
 
     public async Task SetSecurityFieldsAsync(Guid documentId, DateTime? expiresAt, int maxDispenses, string? accessCode, string? verifyCodeHash, CancellationToken cancellationToken = default)
     {
-        var updates = new Dictionary<string, object?>
+        var updates = new
         {
-            ["expires_at"] = expiresAt,
-            ["max_dispenses"] = maxDispenses,
-            ["access_code"] = accessCode,
-            ["verify_code_hash"] = verifyCodeHash,
+            expires_at = expiresAt,
+            max_dispenses = maxDispenses,
+            access_code = accessCode,
+            verify_code_hash = verifyCodeHash,
         };
-        var filter = new Dictionary<string, object> { ["id"] = documentId };
-        await db.UpdateAsync<MedicalDocumentModel>(TableName, filter, updates, cancellationToken);
+        await db.UpdateAsync<MedicalDocumentModel>(TableName, $"id=eq.{documentId}", updates, cancellationToken);
     }
 
     public async Task<(string? accessCode, string? verifyCodeHash, DateTime? expiresAt, int dispensedCount)?> GetSecurityFieldsAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
         var model = await db.GetSingleAsync<MedicalDocumentModel>(
             TableName,
-            new Dictionary<string, object> { ["id"] = documentId },
-            cancellationToken);
+            filter: $"id=eq.{documentId}",
+            cancellationToken: cancellationToken);
         if (model == null) return null;
         return (model.AccessCode, model.VerifyCodeHash, model.ExpiresAt, model.DispensedCount);
     }

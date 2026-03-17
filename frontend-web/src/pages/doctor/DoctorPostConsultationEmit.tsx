@@ -19,11 +19,9 @@ import {
   type PrescriptionItemEmit,
   type ExamItemEmitWeb,
 } from '@/services/doctorApi';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
 import { toast } from 'sonner';
 import {
-  Loader2, ArrowLeft, FileText, FlaskConical, ClipboardPlus,
-  Sparkles, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Send, Minus,
+  Loader2, ArrowLeft, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Send, Minus,
 } from 'lucide-react';
 
 // ── CID Packages (same data as mobile) ──

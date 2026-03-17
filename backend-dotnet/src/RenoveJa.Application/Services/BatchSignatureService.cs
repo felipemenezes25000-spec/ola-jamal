@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 
@@ -152,12 +153,14 @@ public class BatchSignatureService(
 
         await auditService.LogModificationAsync(
             doctorUserId, "BatchSign", "Requests", Guid.Empty,
-            new Dictionary<string, object?>
+            oldValues: null,
+            newValues: new Dictionary<string, object?>
             {
                 ["total"] = requestIds.Count,
                 ["signed"] = signedCount,
                 ["failed"] = failedCount,
-            }, ct);
+            },
+            cancellationToken: ct);
 
         return new BatchSignatureResult(signedCount, failedCount, results,
             $"{signedCount} documento(s) assinado(s) com sucesso." +

@@ -14,16 +14,3 @@ public interface IDocumentSecurityService
     Task<(bool success, string? error)> RecordDispensationAsync(Guid documentId, string dispensedBy, string? ip, CancellationToken ct);
     Task LogAccessAsync(Guid? documentId, Guid? requestId, Guid? userId, string action, string actorType, string? ip, string? userAgent, CancellationToken ct);
 }
-
-/// <summary>Entrada de log de acesso a documento.</summary>
-public class DocumentAccessEntry
-{
-    public Guid? DocumentId { get; set; }
-    public Guid? RequestId { get; set; }
-    public Guid? UserId { get; set; }
-    public string Action { get; set; } = "";
-    public string ActorType { get; set; } = "patient";
-    public string? IpAddress { get; set; }
-    public string? UserAgent { get; set; }
-    public string? Metadata { get; set; }
-}

@@ -909,7 +909,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             document.Add(new Paragraph(data.Body)
                 .SetFont(regular).SetFontSize(12).SetFontColor(TextDark)
                 .SetTextAlignment(TextAlignment.JUSTIFIED)
-                .SetLineSpacing(1.6f).SetMarginBottom(16));
+                .SetMultipliedLeading(1.6f).SetMarginBottom(16));
 
             // ── CID (se autorizado) ──
             if (!string.IsNullOrWhiteSpace(data.Icd10Code))

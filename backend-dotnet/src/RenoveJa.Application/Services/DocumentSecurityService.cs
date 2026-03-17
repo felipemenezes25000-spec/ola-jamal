@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using System.Security.Cryptography;

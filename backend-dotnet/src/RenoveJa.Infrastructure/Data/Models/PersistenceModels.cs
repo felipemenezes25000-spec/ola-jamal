@@ -172,6 +172,8 @@ public class RequestModel
     public string? RejectionReason { get; set; }
     public string? AccessCode { get; set; }
     public DateTime? SignedAt { get; set; }
+    [JsonPropertyName("expires_at")]
+    public DateTime? ExpiresAt { get; set; }
     [JsonPropertyName("prescription_valid_days")]
     public int? PrescriptionValidDays { get; set; }
     public string? SignedDocumentUrl { get; set; }
@@ -212,13 +214,7 @@ public class RequestModel
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistência de certificado digital (tabela doctor_certificates).</summary>
-/// <summary>Modelo de persistÃªncia de certificado digital (tabela doctor_certificates).</summary>
-
-/// <summary>Modelo de persistÃªncia de certificado digital (tabela doctor_certificates).</summary>
-public class CertificateModel
-
-/// <summary>Modelo de persistÃªncia de tentativa de pagamento (tabela payment_attempts).</summary>
+/// <summary>Modelo de persistência de tentativa de pagamento (tabela payment_attempts).</summary>
 public class PaymentAttemptModel
 {
     public Guid Id { get; set; }
