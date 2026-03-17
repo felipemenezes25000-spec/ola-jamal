@@ -1,4 +1,4 @@
-﻿import { apiClient } from './api-client';
+import { apiClient } from './api-client';
 import type {
   RequestResponseDto,
   RequestStatus,
@@ -418,9 +418,9 @@ import type {
 export async function emitPostConsultationDocuments(
   data: PostConsultationEmitRequest
 ): Promise<PostConsultationEmitResponse> {
-  const res = await apiClient<PostConsultationEmitResponse>(
+  const res = await apiClient.post<PostConsultationEmitResponse>(
     '/api/post-consultation/emit',
-    { method: 'POST', body: JSON.stringify(data) }
+    data
   );
   return res;
 }
@@ -451,7 +451,7 @@ export interface ConsultationDocument {
 export async function getConsultationDocuments(
   requestId: string
 ): Promise<ConsultationDocument[]> {
-  const res = await apiClient<{ documents: ConsultationDocument[] }>(
+  const res = await apiClient.get<{ documents: ConsultationDocument[] }>(
     `/api/post-consultation/${requestId}/documents`
   );
   return res.documents;

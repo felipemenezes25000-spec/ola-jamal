@@ -152,6 +152,8 @@ export interface RequestResponseDto {
   conductUpdatedAt?: string | null;
   /** Médico que atualizou a conduta (audit) */
   conductUpdatedBy?: string | null;
+  /** Data de nascimento do paciente (quando disponível no backend). */
+  patientBirthDate?: string | null;
 }
 
 // ============================================

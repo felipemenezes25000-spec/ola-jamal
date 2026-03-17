@@ -26,6 +26,7 @@ export default function SettingsScreen() {
   const [mutedCount, setMutedCount] = useState(0);
   const [categoryPrefs, setCategoryPrefs] = useState<PushPreferencesDto>({
     requestsEnabled: true,
+    paymentsEnabled: true,
     consultationsEnabled: true,
     remindersEnabled: true,
     timezone: 'America/Sao_Paulo',

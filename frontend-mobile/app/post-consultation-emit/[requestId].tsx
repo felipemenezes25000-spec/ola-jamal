@@ -83,8 +83,8 @@ export default function PostConsultationEmitRoute() {
         <View style={{ flex: 1 }}>
           <Text style={s.patientName}>{request.patientName ?? 'Paciente'}</Text>
           <Text style={s.patientMeta}>
-            {request.birthDate
-              ? `${Math.floor((Date.now() - new Date(request.birthDate).getTime()) / 31557600000)} anos`
+            {request.patientBirthDate
+              ? `${Math.floor((Date.now() - new Date(request.patientBirthDate).getTime()) / 31557600000)} anos`
               : ''
             }
           </Text>

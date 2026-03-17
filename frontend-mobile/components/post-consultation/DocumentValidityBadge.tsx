@@ -22,7 +22,7 @@ function getValidity(request: RequestResponseDto) {
   const now = Date.now();
 
   // Receita controlada: 30 dias. Simples: 180 dias. Exame: 180 dias.
-  const isControlled = request.prescriptionType === 'controlled' ||
+  const isControlled = request.prescriptionType === 'controlado' ||
     request.prescriptionKind === 'controlled_special';
   const validityDays = isControlled ? 30 : 180;
   const expiresMs = signedMs + validityDays * 86400000;
