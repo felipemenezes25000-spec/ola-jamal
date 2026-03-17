@@ -1,4 +1,6 @@
 ﻿using System.Text.Json;
+using Dapper;
+using Npgsql;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -9,14 +11,14 @@ using RenoveJa.Infrastructure.Utils;
 namespace RenoveJa.Infrastructure.Repositories;
 
 /// <summary>
-/// RepositÃ³rio de solicitaÃ§Ãµes mÃ©dicas via db.
+/// Repositório de solicitações médicas via db.
 /// </summary>
 public class RequestRepository(PostgresClient db) : IRequestRepository
 {
     private const string TableName = "requests";
 
     /// <summary>
-    /// ObtÃ©m uma solicitaÃ§Ã£o pelo ID.
+    /// Obtém uma solicitação pelo ID.
     /// </summary>
     public async Task<MedicalRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -111,25 +113,10 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
     }
 
     /// <summary>
-    /// Retorna solicitaÃ§Ãµes disponÃ­veis na fila para o mÃ©dico.
-    ///
-    /// Regras de elegibilidade por tipo (state machine canÃ´nica):
-    ///   prescription / exam â†’ status = submitted (sem mÃ©dico atribuÃ­do)
-    ///   consultation        â†’ status = searching_doctor (sem mÃ©dico atribuÃ­do)
-    ///
-    /// Status legados incluÃ­dos por retrocompatibilidade:
-    ///   pending, analyzing â†’ equivalentes a submitted em dados histÃ³ricos
-    ///
-    /// ExcluÃ­dos intencionalmente:
-    ///   in_review  â†’ mÃ©dico jÃ¡ atribuÃ­do (doctor_id setado)
-    ///   paid       â†’ aguardando assinatura, nÃ£o pertence Ã  fila pÃºblica
-    ///   approved   â†’ legado, equivalente a approved_pending_payment
+    /// Retorna solicitações disponíveis na fila para o médico.
     /// </summary>
     public async Task<List<MedicalRequest>> GetAvailableForQueueAsync(CancellationToken cancellationToken = default)
     {
-        // Status canÃ´nicos + legados sem mÃ©dico atribuÃ­do.
-        // "submitted" = fila de prescription/exam; "searching_doctor" = fila de consultation.
-        // Legacy: "pending" e "analyzing" â†’ mesma semÃ¢ntica de "submitted".
         const string eligibleStatuses = "submitted,searching_doctor,pending,analyzing";
         var filter = $"status=in.({eligibleStatuses})&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
 
@@ -145,19 +132,15 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
 
     public async Task<(int PendingCount, int InReviewCount, int CompletedCount, decimal TotalEarnings)> GetDoctorStatsAsync(Guid doctorId, CancellationToken cancellationToken = default)
     {
-        // pending: sem mÃ©dico em submitted/paid (fila)
         var pendingFilter = "status=in.(submitted,paid)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
         var pendingCount = await db.CountAsync(TableName, pendingFilter, cancellationToken);
 
-        // inReview: com mÃ©dico em in_review, approved, signed, consultation_ready, in_consultation
         var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,signed,consultation_ready,in_consultation)";
         var inReviewCount = await db.CountAsync(TableName, inReviewFilter, cancellationToken);
 
-        // completed: com mÃ©dico em completed, delivered, consultation_finished
         var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(completed,delivered,consultation_finished)";
         var completedCount = await db.CountAsync(TableName, completedFilter, cancellationToken);
 
-        // Serviço gratuito — sem faturamento
         var totalEarnings = 0m;
 
         return (pendingCount, inReviewCount, completedCount, totalEarnings);
@@ -329,7 +312,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
 
     /// <summary>
     /// Pedidos do paciente com paginação real (LIMIT/OFFSET no banco).
-    /// Evita buscar todos os pedidos e fazer Skip/Take em memória.
     /// </summary>
     public async Task<(List<MedicalRequest> Items, int TotalCount)> GetByPatientIdPagedAsync(
         Guid patientId,
@@ -362,8 +344,15 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
     }
 
     /// <summary>
-    /// Fila do médico com paginação real: combina pedidos atribuídos + disponíveis
-    /// numa única query usando OR, depois ordena e pagina no banco.
+    /// Fila do médico com paginação real via SQL direto (Dapper).
+    /// Combina pedidos atribuídos ao médico + disponíveis na fila numa única query.
+    ///
+    /// FIX: Usa SQL raw em vez de PostgREST filter com or=() aninhado,
+    /// que o PostgRestFilterParser não conseguia interpretar corretamente,
+    /// resultando em totalCount=0 e lista vazia.
+    ///
+    /// Mesma lógica que GetByDoctorIdAsync + GetAvailableForQueueAsync (usada pelo mobile via
+    /// GetUserRequestsAsync), mas paginada no banco para performance.
     /// </summary>
     public async Task<(List<MedicalRequest> Items, int TotalCount)> GetDoctorQueuePagedAsync(
         Guid doctorId,
@@ -373,30 +362,50 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        // Combina: atribuídos ao médico OU disponíveis na fila (sem médico, em status elegíveis)
-        const string eligibleStatuses = "submitted,searching_doctor,pending,analyzing";
-        var baseFilter = $"or=(doctor_id.eq.{doctorId},and(status=in.({eligibleStatuses}),or(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)))";
+        // Mesma lógica do mobile: atribuídos ao médico OU disponíveis na fila
+        var baseSql = @"FROM public.requests
+WHERE (
+    doctor_id = @DoctorId
+    OR (
+        status IN ('submitted', 'searching_doctor', 'pending', 'analyzing')
+        AND (doctor_id IS NULL OR doctor_id = '00000000-0000-0000-0000-000000000000')
+    )
+)";
+        var parameters = new DynamicParameters();
+        parameters.Add("DoctorId", doctorId);
 
+        // Filtros opcionais
         if (!string.IsNullOrWhiteSpace(status))
-            baseFilter += $"&status=eq.{status}";
+        {
+            baseSql += " AND status = @StatusFilter";
+            parameters.Add("StatusFilter", status);
+        }
         if (!string.IsNullOrWhiteSpace(type))
-            baseFilter += $"&request_type=eq.{type}";
+        {
+            baseSql += " AND request_type = @TypeFilter";
+            parameters.Add("TypeFilter", type);
+        }
 
-        var totalCount = await db.CountAsync(TableName, baseFilter, cancellationToken);
+        // Count
+        var countSql = $"SELECT COUNT(*) {baseSql}";
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        var totalCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(countSql, parameters, cancellationToken: cancellationToken));
+
         if (totalCount == 0)
             return (new List<MedicalRequest>(), 0);
 
+        // Fetch page
         var offset = (page - 1) * pageSize;
-        var models = await db.GetAllAsync<RequestModel>(
-            TableName,
-            filter: baseFilter,
-            orderBy: "created_at.desc",
-            limit: pageSize,
-            offset: offset,
-            cancellationToken: cancellationToken);
+        var dataSql = $"SELECT * {baseSql} ORDER BY created_at DESC LIMIT @Limit OFFSET @Offset";
+        parameters.Add("Limit", pageSize);
+        parameters.Add("Offset", offset);
+
+        var models = (await conn.QueryAsync<RequestModel>(new CommandDefinition(dataSql, parameters, cancellationToken: cancellationToken))).AsList();
 
         return (models.Select(MapToDomain).ToList(), totalCount);
     }
+
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await db.DeleteAsync(

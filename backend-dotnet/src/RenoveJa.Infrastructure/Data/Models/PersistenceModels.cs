@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace RenoveJa.Infrastructure.Data.Models;
 
-/// <summary>Modelo de persistÃªncia de usuÃ¡rio (tabela users).</summary>
+/// <summary>Modelo de persistência de usuário (tabela users).</summary>
 public class UserModel
 {
     public Guid Id { get; set; }
@@ -27,7 +27,7 @@ public class UserModel
     public string Role { get; set; } = "patient";
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    /// <summary>Cadastro concluÃ­do (phone, CPF preenchidos). UsuÃ¡rios Google iniciam com false.</summary>
+    /// <summary>Cadastro concluído (phone, CPF preenchidos). Usuários Google iniciam com false.</summary>
     public bool ProfileComplete { get; set; } = true;
 }
 
@@ -125,7 +125,7 @@ public class DoctorProfileModel
     }
 }
 
-/// <summary>Modelo de persistÃªncia de token de autenticaÃ§Ã£o (tabela auth_tokens).</summary>
+/// <summary>Modelo de persistência de token de autenticação (tabela auth_tokens).</summary>
 public class AuthTokenModel
 {
     public Guid Id { get; set; }
@@ -135,7 +135,7 @@ public class AuthTokenModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistÃªncia de token de recuperaÃ§Ã£o de senha (tabela password_reset_tokens).</summary>
+/// <summary>Modelo de persistência de token de recuperação de senha (tabela password_reset_tokens).</summary>
 public class PasswordResetTokenModel
 {
     public Guid Id { get; set; }
@@ -146,7 +146,7 @@ public class PasswordResetTokenModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistÃªncia de solicitaÃ§Ã£o mÃ©dica (tabela requests).</summary>
+/// <summary>Modelo de persistência de solicitação médica (tabela requests).</summary>
 public class RequestModel
 {
     public Guid Id { get; set; }
@@ -253,15 +253,12 @@ public class PaymentAttemptModel
     public DateTime CreatedAt { get; set; }
     [JsonPropertyName("updated_at")]
     public DateTime UpdatedAt { get; set; }
-
-    // FromDomain/ToDomain removidos — fluxo de pagamento excluído
 }
 
-/// <summary>Modelo de persistÃªncia de evento de webhook (tabela webhook_events).</summary>
+/// <summary>Modelo de persistência de evento de webhook (tabela webhook_events).</summary>
 public class WebhookEventModel
 {
     public Guid Id { get; set; }
-    // Campos legados da tabela original
     [JsonPropertyName("event_id")]
     public string? EventId { get; set; }
     [JsonPropertyName("event_type")]
@@ -274,7 +271,6 @@ public class WebhookEventModel
     public string? Status { get; set; }
     [JsonPropertyName("error_message")]
     public string? ErrorMessage { get; set; }
-    // Campos do nosso modelo
     [JsonPropertyName("correlation_id")]
     public string? CorrelationId { get; set; }
     [JsonPropertyName("mercado_pago_payment_id")]
@@ -315,11 +311,9 @@ public class WebhookEventModel
     public DateTime CreatedAt { get; set; }
     [JsonPropertyName("updated_at")]
     public DateTime UpdatedAt { get; set; }
-
-    // FromDomain/ToDomain removidos — fluxo de pagamento excluído
 }
 
-/// <summary>Modelo de persistÃªncia de certificado digital (tabela doctor_certificates).</summary>
+/// <summary>Modelo de persistência de certificado digital (tabela doctor_certificates).</summary>
 public class CertificateModel
 {
     public Guid Id { get; set; }
@@ -383,7 +377,7 @@ public class CertificateModel
     }
 }
 
-/// <summary>Modelo de persistÃªncia de paciente clÃ­nico (tabela patients).</summary>
+/// <summary>Modelo de persistência de paciente clínico (tabela patients).</summary>
 public class PatientModel
 {
     public Guid Id { get; set; }
@@ -402,7 +396,7 @@ public class PatientModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistÃªncia de encontro clÃ­nico (tabela encounters).</summary>
+/// <summary>Modelo de persistência de encontro clínico (tabela encounters).</summary>
 public class EncounterModel
 {
     public Guid Id { get; set; }
@@ -427,7 +421,7 @@ public class EncounterModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistÃªncia de documento mÃ©dico (tabela medical_documents).</summary>
+/// <summary>Modelo de persistência de documento médico (tabela medical_documents).</summary>
 public class MedicalDocumentModel
 {
     public Guid Id { get; set; }
@@ -476,7 +470,7 @@ public class MedicalDocumentModel
     public string? AccessCode { get; set; }
 }
 
-/// <summary>Modelo de persistÃªncia de registro de consentimento (tabela consent_records).</summary>
+/// <summary>Modelo de persistência de registro de consentimento (tabela consent_records).</summary>
 public class ConsentRecordModel
 {
     public Guid Id { get; set; }
@@ -490,7 +484,7 @@ public class ConsentRecordModel
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>Modelo de persistÃªncia de evento de auditoria clÃ­nica (tabela audit_events).</summary>
+/// <summary>Modelo de persistência de evento de auditoria clínica (tabela audit_events).</summary>
 public class AuditEventModel
 {
     public Guid Id { get; set; }

@@ -19,8 +19,6 @@ public class PostgresClient
     public PostgresClient(IOptions<DatabaseConfig> config)
     {
         _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") ?? config.Value.DatabaseUrl ?? "";
-        // ConnectionStrings__DefaultConnection ja lido acima
-        // Connection pooling: garante limites saudaveis para RDS db.t3.micro (max_connections ~80)
         if (!_connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase) && !_connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
             _connectionString += ";Maximum Pool Size=20;Minimum Pool Size=2;Connection Idle Lifetime=300;Timeout=15";
 
@@ -39,6 +37,9 @@ public class PostgresClient
     public PostgresClient(HttpClient httpClient, IOptions<DatabaseConfig> config) : this(config) { }
 
     private NpgsqlConnection CreateConnection() => new(_connectionString);
+
+    /// <summary>Expõe criação de conexão para repositórios que precisam de SQL raw (ex: queries com OR complexo).</summary>
+    internal NpgsqlConnection CreateConnectionPublic() => new(_connectionString);
 
     public async Task<List<T>> GetAllAsync<T>(
         string table, string? select = "*", string? filter = null,
@@ -161,7 +162,6 @@ public class PostgresClient
 
     /// <summary>
     /// Converts a JsonElement to a CLR type compatible with Npgsql.
-    /// Key fix: GUIDs are converted to System.Guid so Npgsql sends them as uuid, not text.
     /// </summary>
     private static object? ConvertValue(JsonElement element)
     {
@@ -181,15 +181,12 @@ public class PostgresClient
             case JsonValueKind.String:
                 var str = element.GetString();
                 if (str == null) return null;
-                // UUID detection — critical for PostgreSQL uuid columns
                 if (Guid.TryParse(str, out var guid)) return guid;
-                // DateTime detection
                 if (DateTime.TryParse(str, System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.RoundtripKind, out var dt)) return dt;
                 return str;
             case JsonValueKind.Array:
             case JsonValueKind.Object:
-                // Store as JSONB string — Npgsql handles this for jsonb columns
                 return element.GetRawText();
             default:
                 return element.GetRawText();

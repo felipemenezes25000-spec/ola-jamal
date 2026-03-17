@@ -7,16 +7,15 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
 
-    <!-- FIX #2: CSP header — mitiga XSS que poderia roubar JWT do localStorage.
-         Bloqueia scripts inline (exceto vite HMR via nonce), restringe connect-src aos domínios da API. -->
+    <!-- CSP: mitiga XSS. Permite S3 (avatars, prescriptions), Daily.co (video), Sentry, OpenAI. -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self';
                script-src 'self' 'unsafe-inline' 'unsafe-eval';
                style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
                font-src 'self' https://fonts.gstatic.com;
-               img-src 'self' data: blob: https://*.s3.sa-east-1.amazonaws.com https://*.s3.amazonaws.com;
-               connect-src 'self' https://*.renovejasaude.com.br wss://*.renovejasaude.com.br https://*.daily.co wss://*.daily.co https://api.openai.com https://*.sentry.io https://*.ngrok-free.app https://*.ngrok.io ws://localhost:* http://localhost:*;
+               img-src 'self' data: blob: https://*.s3.sa-east-1.amazonaws.com https://*.s3.amazonaws.com https://*.amazonaws.com https://*.cloudfront.net;
+               connect-src 'self' https://*.renovejasaude.com.br wss://*.renovejasaude.com.br https://*.amazonaws.com https://*.daily.co wss://*.daily.co https://api.openai.com https://*.sentry.io https://*.ngrok-free.app https://*.ngrok.io ws://localhost:* http://localhost:*;
                media-src 'self' blob: https://*.daily.co;
                frame-src 'self' https://*.daily.co;
                object-src 'none';

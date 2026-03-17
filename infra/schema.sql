@@ -1,13 +1,12 @@
 -- ============================================================
 -- Schema completo RenoveJá+ para RDS PostgreSQL
--- Unificado a partir de infra/migrations/
+-- Unificado a partir de infra/migrations/. Última atualização: 2026-03-17
 -- ============================================================
 
--- Extensões necessárias
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================
--- BASE SCHEMA (20260221000001)
+-- CORE: users, auth_tokens, doctor_profiles
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.users (
@@ -77,30 +76,14 @@ CREATE TABLE IF NOT EXISTS public.doctor_profiles (
 );
 CREATE INDEX IF NOT EXISTS idx_doctor_profiles_user_id ON public.doctor_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_doctor_profiles_specialty ON public.doctor_profiles(specialty);
-CREATE INDEX IF NOT EXISTS idx_doctor_profiles_available ON public.doctor_profiles(available);
 
--- Tabela patients (módulo clínico: 1:1 com users via user_id)
-CREATE TABLE IF NOT EXISTS public.patients (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    cpf TEXT NOT NULL,
-    birth_date TIMESTAMPTZ,
-    sex VARCHAR(20),
-    social_name TEXT,
-    phone TEXT,
-    email TEXT,
-    address_line1 TEXT,
-    city VARCHAR(100),
-    state VARCHAR(2),
-    zip_code VARCHAR(10),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_user_id ON public.patients(user_id);
-CREATE INDEX IF NOT EXISTS idx_patients_cpf ON public.patients(cpf);
+-- ============================================================
+-- REQUESTS (solicitações médicas — core do app)
+-- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    short_code TEXT,
     patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
     patient_name TEXT,
     doctor_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
@@ -115,32 +98,33 @@ CREATE TABLE IF NOT EXISTS public.requests (
     exams JSONB NOT NULL DEFAULT '[]',
     exam_images JSONB NOT NULL DEFAULT '[]',
     symptoms TEXT,
+    price DECIMAL(10,2),
     notes TEXT,
     rejection_reason TEXT,
     access_code TEXT,
     signed_at TIMESTAMPTZ,
+    prescription_valid_days INTEGER,
     signed_document_url TEXT,
     signature_id TEXT,
+    -- IA
     ai_summary_for_doctor TEXT,
     ai_extracted_json TEXT,
     ai_risk_level TEXT,
     ai_urgency TEXT,
     ai_readability_ok BOOLEAN,
     ai_message_to_user TEXT,
-    consultation_type TEXT,
-    contracted_minutes INTEGER,
-    consultation_started_at TIMESTAMPTZ,
-    triage_conduct TEXT,
-    triage_observation TEXT,
-    prescription_valid_days INTEGER,
-    short_code TEXT,
     auto_observation TEXT,
     doctor_conduct_notes TEXT,
-    include_conduct_in_pdf BOOLEAN NOT NULL DEFAULT TRUE,
+    include_conduct_in_pdf BOOLEAN DEFAULT TRUE,
     ai_conduct_suggestion TEXT,
     ai_suggested_exams TEXT,
     conduct_updated_at TIMESTAMPTZ,
     conduct_updated_by UUID REFERENCES public.users(id),
+    -- Consulta
+    consultation_type TEXT,
+    contracted_minutes INTEGER,
+    price_per_minute DECIMAL(10,2),
+    consultation_started_at TIMESTAMPTZ,
     doctor_call_connected_at TIMESTAMPTZ,
     patient_call_connected_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -152,23 +136,9 @@ CREATE INDEX IF NOT EXISTS idx_requests_status ON public.requests(status);
 CREATE INDEX IF NOT EXISTS idx_requests_type ON public.requests(request_type);
 CREATE INDEX IF NOT EXISTS idx_requests_created_at ON public.requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_requests_short_code ON public.requests(short_code) WHERE short_code IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_requests_has_conduct ON public.requests(doctor_conduct_notes) WHERE doctor_conduct_notes IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_requests_conduct_audit ON public.requests(conduct_updated_by, conduct_updated_at) WHERE conduct_updated_at IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.chat_messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
-    sender_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    sender_name TEXT,
-    sender_type TEXT NOT NULL CHECK (sender_type IN ('patient', 'doctor', 'system')),
-    message TEXT NOT NULL,
-    read BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_request_id ON public.chat_messages(request_id);
 
 -- ============================================================
--- INCREMENTAL FEATURES (20260221000002)
+-- AUTH & SECURITY
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
@@ -179,6 +149,7 @@ CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
     used BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON public.password_reset_tokens(token);
 
 CREATE TABLE IF NOT EXISTS public.doctor_certificates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -204,28 +175,11 @@ CREATE TABLE IF NOT EXISTS public.doctor_certificates (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_doctor_certificates_doctor ON public.doctor_certificates(doctor_profile_id);
+CREATE INDEX IF NOT EXISTS idx_doctor_certificates_valid ON public.doctor_certificates(is_valid, is_revoked);
 
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    user_email TEXT,
-    user_role TEXT,
-    action TEXT NOT NULL,
-    entity_type TEXT NOT NULL,
-    entity_id TEXT,
-    details TEXT,
-    ip_address TEXT,
-    user_agent TEXT,
-    endpoint TEXT,
-    http_method TEXT,
-    status_code INTEGER,
-    event_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    duration BIGINT,
-    old_values TEXT,
-    new_values TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(created_at DESC);
+-- ============================================================
+-- NOTIFICATIONS & PUSH
+-- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -238,30 +192,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
-
-CREATE TABLE IF NOT EXISTS public.video_rooms (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
-    room_name TEXT NOT NULL,
-    room_url TEXT,
-    status TEXT NOT NULL DEFAULT 'waiting',
-    started_at TIMESTAMPTZ,
-    ended_at TIMESTAMPTZ,
-    duration_seconds INTEGER,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.consultation_anamnesis (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    transcript_text TEXT,
-    anamnesis_json TEXT,
-    ai_suggestions_json TEXT,
-    evidence_json TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_consultation_anamnesis_request_id ON public.consultation_anamnesis(request_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON public.notifications(user_id, read);
 
 CREATE TABLE IF NOT EXISTS public.push_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -285,82 +216,149 @@ CREATE TABLE IF NOT EXISTS public.user_push_preferences (
 );
 
 -- ============================================================
--- PRESCRIPTIONS & VERIFICATION (public-facing)
+-- VIDEO & CONSULTATION
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS public.prescriptions (
+CREATE TABLE IF NOT EXISTS public.video_rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES public.users(id),
-    doctor_id UUID NOT NULL REFERENCES public.users(id),
-    verification_code TEXT NOT NULL UNIQUE,
-    pdf_url TEXT,
-    pdf_hash TEXT,
-    signed BOOLEAN NOT NULL DEFAULT FALSE,
-    valid_until TIMESTAMPTZ,
+    room_name TEXT NOT NULL,
+    room_url TEXT,
+    status TEXT NOT NULL DEFAULT 'waiting',
+    started_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
+    duration_seconds INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_prescriptions_code ON public.prescriptions(verification_code);
-CREATE INDEX IF NOT EXISTS idx_prescriptions_request ON public.prescriptions(request_id);
+CREATE INDEX IF NOT EXISTS idx_video_rooms_request_id ON public.video_rooms(request_id);
 
-CREATE TABLE IF NOT EXISTS public.prescription_verification_logs (
+CREATE TABLE IF NOT EXISTS public.consultation_anamnesis (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    prescription_id UUID NOT NULL REFERENCES public.prescriptions(id),
+    request_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
+    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    transcript_text TEXT,
+    anamnesis_json TEXT,
+    ai_suggestions_json TEXT,
+    evidence_json TEXT,
+    soap_notes_json TEXT,
+    transcript_file_url TEXT,
+    recording_file_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_consultation_anamnesis_request_id ON public.consultation_anamnesis(request_id);
+
+CREATE TABLE IF NOT EXISTS public.consultation_time_bank (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    balance_minutes INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_consultation_time_bank_patient ON public.consultation_time_bank(patient_id);
+
+CREATE TABLE IF NOT EXISTS public.consultation_time_bank_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bank_id UUID NOT NULL REFERENCES public.consultation_time_bank(id) ON DELETE CASCADE,
+    request_id UUID REFERENCES public.requests(id) ON DELETE SET NULL,
+    delta_minutes INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ctb_transactions_bank_id ON public.consultation_time_bank_transactions(bank_id);
+
+-- ============================================================
+-- AUDIT
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    user_email TEXT,
+    user_role TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    details TEXT,
     ip_address TEXT,
     user_agent TEXT,
-    verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    endpoint TEXT,
+    http_method TEXT,
+    status_code INTEGER,
+    event_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    duration BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.audit_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id UUID,
+    channel TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    correlation_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_events_entity ON public.audit_events(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON public.audit_events(created_at DESC);
 
 -- ============================================================
--- PRONTUARIO (clinical records)
+-- PRONTUÁRIO CLÍNICO (FHIR-Lite)
 -- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.patients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    cpf TEXT NOT NULL,
+    birth_date TIMESTAMPTZ,
+    sex VARCHAR(20),
+    social_name TEXT,
+    phone TEXT,
+    email TEXT,
+    address_line1 TEXT,
+    city VARCHAR(100),
+    state VARCHAR(2),
+    zip_code VARCHAR(10),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_user_id ON public.patients(user_id);
 
 CREATE TABLE IF NOT EXISTS public.encounters (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    practitioner_id UUID NOT NULL REFERENCES public.users(id),
-    request_id UUID REFERENCES public.requests(id),
-    source_request_id UUID REFERENCES public.requests(id),
-    encounter_type TEXT NOT NULL DEFAULT 'consultation',
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    practitioner_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    source_request_id UUID REFERENCES public.requests(id) ON DELETE SET NULL,
     type TEXT NOT NULL DEFAULT 'teleconsultation',
-    status TEXT NOT NULL DEFAULT 'in-progress',
-    reason_text TEXT,
+    status TEXT NOT NULL DEFAULT 'draft',
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    channel TEXT,
     reason TEXT,
-    clinical_notes TEXT,
     anamnesis TEXT,
     physical_exam TEXT,
     plan TEXT,
     main_icd10_code VARCHAR(10),
-    diagnosis_codes JSONB DEFAULT '[]',
-    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    ended_at TIMESTAMPTZ,
-    finished_at TIMESTAMPTZ,
-    channel TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_encounters_patient ON public.encounters(patient_id);
-CREATE INDEX IF NOT EXISTS idx_encounters_source_request ON public.encounters(source_request_id) WHERE source_request_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_encounters_patient_id ON public.encounters(patient_id);
 
 CREATE TABLE IF NOT EXISTS public.medical_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    practitioner_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     encounter_id UUID REFERENCES public.encounters(id) ON DELETE SET NULL,
-    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    practitioner_id UUID NOT NULL REFERENCES public.users(id),
-    request_id UUID REFERENCES public.requests(id),
-    source_request_id UUID REFERENCES public.requests(id),
-    document_type TEXT NOT NULL,
-    title TEXT,
-    content_json JSONB NOT NULL DEFAULT '{}',
-    pdf_url TEXT,
+    source_request_id UUID REFERENCES public.requests(id) ON DELETE SET NULL,
     signed_document_url TEXT,
-    signed BOOLEAN NOT NULL DEFAULT FALSE,
-    signed_at TIMESTAMPTZ,
     signature_id TEXT,
+    document_type TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'draft',
     previous_document_id UUID REFERENCES public.medical_documents(id) ON DELETE SET NULL,
-    medications TEXT,
-    exams TEXT,
+    medications JSONB DEFAULT '[]',
+    exams JSONB DEFAULT '[]',
     report_body TEXT,
     clinical_justification TEXT,
     priority TEXT,
@@ -370,31 +368,14 @@ CREATE TABLE IF NOT EXISTS public.medical_documents (
     signature_hash TEXT,
     signature_algorithm TEXT,
     signature_certificate TEXT,
+    signed_at TIMESTAMPTZ,
     signature_is_valid BOOLEAN,
     signature_validation_result TEXT,
     signature_policy_oid TEXT,
-    provenance_source TEXT,
-    provenance_request_id UUID,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_medical_documents_patient ON public.medical_documents(patient_id);
-CREATE INDEX IF NOT EXISTS idx_medical_documents_source_request ON public.medical_documents(source_request_id) WHERE source_request_id IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.consents (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    practitioner_id UUID NOT NULL REFERENCES public.users(id),
-    consent_type TEXT NOT NULL DEFAULT 'treatment',
-    status TEXT NOT NULL DEFAULT 'active',
-    given_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ,
-    revoked_at TIMESTAMPTZ,
-    scope_description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_medical_documents_patient_id ON public.medical_documents(patient_id);
 
--- Consent records (módulo clínico: consent_type, legal_basis, purpose — usado por ConsentRepository)
 CREATE TABLE IF NOT EXISTS public.consent_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
@@ -406,115 +387,123 @@ CREATE TABLE IF NOT EXISTS public.consent_records (
     text_version TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_consent_records_patient_id ON public.consent_records(patient_id);
 
-CREATE TABLE IF NOT EXISTS public.audit_events (
+CREATE TABLE IF NOT EXISTS public.patient_allergies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    actor_id UUID NOT NULL REFERENCES public.users(id),
-    actor_role TEXT NOT NULL,
-    action TEXT NOT NULL,
-    resource_type TEXT NOT NULL,
-    resource_id UUID,
-    patient_id UUID REFERENCES public.users(id),
-    details JSONB DEFAULT '{}',
-    ip_address TEXT,
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    type TEXT,
+    description TEXT NOT NULL,
+    severity TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_audit_events_patient ON public.audit_events(patient_id);
 
-CREATE TABLE IF NOT EXISTS public.ai_suggestions (
+CREATE TABLE IF NOT EXISTS public.patient_conditions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    encounter_id UUID REFERENCES public.encounters(id),
-    request_id UUID REFERENCES public.requests(id),
-    consultation_id UUID REFERENCES public.requests(id) ON DELETE CASCADE,
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    icd10_code VARCHAR(10),
+    description TEXT NOT NULL,
+    start_date TIMESTAMPTZ,
+    end_date TIMESTAMPTZ,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.patient_medications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    drug TEXT NOT NULL,
+    dose TEXT,
+    form TEXT,
+    posology TEXT,
+    start_date TIMESTAMPTZ,
+    end_date TIMESTAMPTZ,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.patient_clinical_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- DOCTOR NOTES & AI LOGS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.doctor_patient_notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    practitioner_id UUID REFERENCES public.users(id),
-    doctor_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    suggestion_type TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'exam_suggestion',
-    status TEXT NOT NULL DEFAULT 'generated',
-    input_data JSONB DEFAULT '{}',
-    output_data JSONB DEFAULT '{}',
-    payload_json JSONB DEFAULT '{}',
-    payload_hash TEXT NOT NULL DEFAULT '',
-    model_used TEXT,
-    model TEXT NOT NULL DEFAULT '',
-    correlation_id TEXT,
-    accepted BOOLEAN,
-    accepted_at TIMESTAMPTZ,
-    feedback TEXT,
+    note_type TEXT NOT NULL DEFAULT 'progress_note',
+    content TEXT NOT NULL,
+    request_id UUID REFERENCES public.requests(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_ai_suggestions_consultation_id ON public.ai_suggestions(consultation_id) WHERE consultation_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_ai_suggestions_doctor_id ON public.ai_suggestions(doctor_id) WHERE doctor_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_doctor_patient_notes_doctor_patient ON public.doctor_patient_notes(doctor_id, patient_id);
 
 CREATE TABLE IF NOT EXISTS public.ai_interaction_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    request_id UUID REFERENCES public.requests(id),
-    interaction_type TEXT NOT NULL,
-    model_used TEXT,
+    request_id UUID REFERENCES public.requests(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
     prompt_tokens INTEGER,
     completion_tokens INTEGER,
-    total_tokens INTEGER,
     latency_ms INTEGER,
     success BOOLEAN NOT NULL DEFAULT TRUE,
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.doctor_patient_notes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    doctor_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    note_text TEXT NOT NULL,
-    note_type TEXT NOT NULL DEFAULT 'general',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(doctor_id, patient_id, note_type)
-);
-
 -- ============================================================
--- CARE PLANS
+-- CARE PLANS (pós-consulta)
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS public.care_plans (
+CREATE TABLE IF NOT EXISTS public.ai_suggestions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    consultation_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
     patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    responsible_doctor_id UUID NOT NULL REFERENCES public.users(id),
-    encounter_id UUID REFERENCES public.encounters(id),
-    consultation_id UUID REFERENCES public.requests(id) ON DELETE CASCADE,
-    title TEXT,
-    description TEXT,
-    status TEXT NOT NULL DEFAULT 'active',
-    start_date DATE DEFAULT CURRENT_DATE,
-    end_date DATE,
-    created_from_ai_suggestion_id UUID REFERENCES public.ai_suggestions(id),
+    doctor_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    type TEXT NOT NULL DEFAULT 'exam_suggestion',
+    status TEXT NOT NULL DEFAULT 'generated',
+    model TEXT NOT NULL,
+    payload_json JSONB NOT NULL,
+    payload_hash TEXT NOT NULL,
     correlation_id TEXT,
-    closed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_care_plans_patient ON public.care_plans(patient_id);
-CREATE INDEX IF NOT EXISTS idx_care_plans_consultation_id ON public.care_plans(consultation_id) WHERE consultation_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ai_suggestions_consultation_id ON public.ai_suggestions(consultation_id);
+
+CREATE TABLE IF NOT EXISTS public.care_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    consultation_id UUID NOT NULL REFERENCES public.requests(id) ON DELETE CASCADE,
+    patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    responsible_doctor_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_from_ai_suggestion_id UUID NOT NULL REFERENCES public.ai_suggestions(id) ON DELETE RESTRICT,
+    correlation_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    closed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_care_plans_consultation_id ON public.care_plans(consultation_id);
 
 CREATE TABLE IF NOT EXISTS public.care_plan_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     care_plan_id UUID NOT NULL REFERENCES public.care_plans(id) ON DELETE CASCADE,
-    assigned_doctor_id UUID REFERENCES public.users(id),
-    title TEXT NOT NULL DEFAULT '',
-    description TEXT,
-    task_type TEXT NOT NULL DEFAULT 'general',
-    type TEXT NOT NULL DEFAULT 'instruction',
-    status TEXT NOT NULL DEFAULT 'pending',
+    assigned_doctor_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    type TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'pending',
-    frequency TEXT,
-    due_date TIMESTAMPTZ,
+    title TEXT NOT NULL,
+    description TEXT,
+    payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     due_at TIMESTAMPTZ,
-    payload_json JSONB NOT NULL DEFAULT '{}',
-    completed_at TIMESTAMPTZ,
-    notes TEXT,
-    sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -523,27 +512,24 @@ CREATE INDEX IF NOT EXISTS idx_care_plan_tasks_care_plan_id ON public.care_plan_
 CREATE TABLE IF NOT EXISTS public.care_plan_task_files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL REFERENCES public.care_plan_tasks(id) ON DELETE CASCADE,
-    storage_path TEXT NOT NULL DEFAULT '',
+    storage_path TEXT NOT NULL,
     file_url TEXT NOT NULL,
-    file_name TEXT,
-    file_type TEXT,
-    content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
-    file_size INTEGER,
-    uploaded_by UUID REFERENCES public.users(id),
-    uploaded_by_user_id UUID REFERENCES public.users(id),
+    content_type TEXT NOT NULL,
+    uploaded_by_user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.outbox_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aggregate_type TEXT NOT NULL,
+    aggregate_id UUID NOT NULL,
     event_type TEXT NOT NULL,
-    payload JSONB NOT NULL DEFAULT '{}',
+    payload_json JSONB NOT NULL,
+    idempotency_key TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
-    retry_count INTEGER NOT NULL DEFAULT 0,
-    last_error TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     processed_at TIMESTAMPTZ
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_outbox_events_idempotency_key ON public.outbox_events(idempotency_key);
 
--- Done!
-SELECT 'Schema RenoveJá+ criado com sucesso no RDS!' AS result;
+-- Fim do schema RenoveJá+

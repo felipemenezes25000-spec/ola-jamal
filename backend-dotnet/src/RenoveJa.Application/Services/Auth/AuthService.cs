@@ -28,10 +28,6 @@ public class AuthService(
     IOptions<GoogleAuthConfig> googleAuthConfig,
     ILogger<AuthService> logger) : IAuthService
 {
-    /// <summary>
-    /// Registra um novo paciente na plataforma.
-    /// Em caso de falha após criar o user, faz rollback (remove o user).
-    /// </summary>
     public async Task<AuthResponseDto> RegisterAsync(
         RegisterRequestDto request,
         CancellationToken cancellationToken = default)
@@ -46,19 +42,9 @@ public class AuthService(
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreatePatient(
-            request.Name,
-            request.Email,
-            passwordHash,
-            cpf!,
-            request.Phone,
-            request.BirthDate,
-            request.Street,
-            request.Number,
-            request.Neighborhood,
-            request.Complement,
-            request.City,
-            request.State,
-            request.PostalCode);
+            request.Name, request.Email, passwordHash, cpf!, request.Phone, request.BirthDate,
+            request.Street, request.Number, request.Neighborhood, request.Complement,
+            request.City, request.State, request.PostalCode);
 
         user = await userRepository.CreateAsync(user, cancellationToken);
 
@@ -76,10 +62,6 @@ public class AuthService(
         }
     }
 
-    /// <summary>
-    /// Registra um novo médico na plataforma.
-    /// Em caso de falha ao criar doctor_profile ou token, faz rollback (remove perfil e/ou user).
-    /// </summary>
     public async Task<AuthResponseDto> RegisterDoctorAsync(
         RegisterDoctorRequestDto request,
         CancellationToken cancellationToken = default)
@@ -94,43 +76,24 @@ public class AuthService(
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var user = User.CreateDoctor(
-            request.Name,
-            request.Email,
-            passwordHash,
-            request.Phone,
-            cpf!,
-            request.BirthDate,
-            request.Street,
-            request.Number,
-            request.Neighborhood,
-            request.Complement,
-            request.City,
-            request.State,
-            request.PostalCode);
+            request.Name, request.Email, passwordHash, request.Phone, cpf!, request.BirthDate,
+            request.Street, request.Number, request.Neighborhood, request.Complement,
+            request.City, request.State, request.PostalCode);
 
         user = await userRepository.CreateAsync(user, cancellationToken);
 
         DoctorProfile? doctorProfile = null;
         try
         {
-            doctorProfile = DoctorProfile.Create(
-                user.Id,
-                request.Crm,
-                request.CrmState,
-                request.Specialty,
-                request.Bio);
+            doctorProfile = DoctorProfile.Create(user.Id, request.Crm, request.CrmState, request.Specialty, request.Bio);
             doctorProfile.UpdateProfile(
-                professionalPhone: request.ProfessionalPhone,
-                university: request.University,
-                courses: request.Courses,
-                hospitalsServices: request.HospitalsServices,
+                professionalPhone: request.ProfessionalPhone, university: request.University,
+                courses: request.Courses, hospitalsServices: request.HospitalsServices,
                 professionalPostalCode: request.ProfessionalPostalCode,
-                professionalStreet: request.ProfessionalStreet,
-                professionalNumber: request.ProfessionalNumber,
+                professionalStreet: request.ProfessionalStreet, professionalNumber: request.ProfessionalNumber,
                 professionalNeighborhood: request.ProfessionalNeighborhood,
                 professionalComplement: request.ProfessionalComplement,
-                professionalCity: request.ProfessionalCity,
-                professionalState: request.ProfessionalState);
+                professionalCity: request.ProfessionalCity, professionalState: request.ProfessionalState);
             doctorProfile = await doctorRepository.CreateAsync(doctorProfile, cancellationToken);
         }
         catch
@@ -139,70 +102,30 @@ public class AuthService(
             throw;
         }
 
-        // Médico só acessa o app após aprovação: não emitir token no cadastro.
-        return new AuthResponseDto(
-            MapUserToDto(user),
-            string.Empty,
-            null);
+        return new AuthResponseDto(MapUserToDto(user), string.Empty, null);
     }
 
-    /// <summary>
-    /// Remove o user criado (rollback quando falha criação de token no registro de paciente).
-    /// </summary>
     private async Task RollbackUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        try
-        {
-            await userRepository.DeleteAsync(userId, cancellationToken);
-        }
-        catch
-        {
-            // Log could be added here; original exception is already thrown
-        }
+        try { await userRepository.DeleteAsync(userId, cancellationToken); } catch { }
     }
 
-    /// <summary>
-    /// Remove doctor_profile e user (rollback quando falha criação de token no registro de médico).
-    /// NOTA: Atualmente não é chamado — RegisterDoctorAsync não emite token e não tem passos pós-DoctorProfile que possam falhar.
-    /// Reservado para uso futuro se houver fluxo que crie token/notificação após DoctorProfile e precise de rollback completo.
-    /// </summary>
     private async Task RollbackDoctorRegistrationAsync(Guid userId, Guid doctorProfileId, CancellationToken cancellationToken)
     {
-        try
-        {
-            await doctorRepository.DeleteAsync(doctorProfileId, cancellationToken);
-        }
-        catch
-        {
-            // best effort
-        }
-
-        try
-        {
-            await userRepository.DeleteAsync(userId, cancellationToken);
-        }
-        catch
-        {
-            // best effort; original exception is already thrown
-        }
+        try { await doctorRepository.DeleteAsync(doctorProfileId, cancellationToken); } catch { }
+        try { await userRepository.DeleteAsync(userId, cancellationToken); } catch { }
     }
 
-    /// <summary>
-    /// Realiza login com e-mail e senha.
-    /// </summary>
     public async Task<AuthResponseDto> LoginAsync(
         LoginRequestDto request,
         CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
-        
         if (user == null)
             throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
-
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
 
-        // Create token
         var token = AuthToken.Create(user.Id);
         await tokenRepository.CreateAsync(token, cancellationToken);
 
@@ -212,55 +135,32 @@ public class AuthService(
             var profile = await doctorRepository.GetByUserIdAsync(user.Id, cancellationToken);
             if (profile != null)
             {
-                // Regra de aprovação: médicos pendentes ou reprovados não podem logar no app.
                 if (profile.ApprovalStatus == Domain.Enums.DoctorApprovalStatus.Pending)
-                {
                     throw new UnauthorizedAccessException("Seu cadastro de médico está em análise. Aguarde a aprovação do administrador.");
-                }
-
                 if (profile.ApprovalStatus == Domain.Enums.DoctorApprovalStatus.Rejected)
-                {
                     throw new UnauthorizedAccessException("Seu cadastro de médico foi reprovado. Entre em contato com o suporte.");
-                }
-
                 doctorProfile = MapDoctorProfileToDto(profile);
             }
         }
 
         return new AuthResponseDto(
-            MapUserToDto(user),
+            await MapUserToDtoAsync(user),
             token.Token,
             doctorProfile);
     }
 
-    /// <summary>
-    /// Retorna os dados do usuário pelo ID.
-    /// </summary>
-    public async Task<UserDto> GetMeAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
+    public async Task<UserDto> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
-        
-        if (user == null)
-            throw new InvalidOperationException("User not found");
-
-        return MapUserToDto(user);
+        if (user == null) throw new InvalidOperationException("User not found");
+        return await MapUserToDtoAsync(user);
     }
 
-    /// <summary>
-    /// Encerra a sessão invalidando o token.
-    /// </summary>
-    public async Task LogoutAsync(
-        string token,
-        CancellationToken cancellationToken = default)
+    public async Task LogoutAsync(string token, CancellationToken cancellationToken = default)
     {
         await tokenRepository.DeleteByTokenAsync(token, cancellationToken);
     }
 
-    /// <summary>
-    /// Autentica via Google OAuth: valida o ID token do Google, busca ou cria o usuário e retorna o token do app.
-    /// </summary>
     public async Task<AuthResponseDto> GoogleAuthAsync(
         GoogleAuthRequestDto request,
         CancellationToken cancellationToken = default)
@@ -270,25 +170,17 @@ public class AuthService(
         if (string.IsNullOrWhiteSpace(clientId))
             throw new InvalidOperationException("Google:ClientId não configurado em appsettings.");
 
-        // Aceitar tanto o Web Client ID quanto o Android Client ID como audience válido
-        // Trim para evitar whitespace/newline das env vars
         var allowedAudiences = new List<string> { clientId.Trim() };
         if (!string.IsNullOrWhiteSpace(config?.AndroidClientId))
             allowedAudiences.Add(config.AndroidClientId.Trim());
 
-        // Decodificar o JWT para ver o audience real (sem validar)
         try
         {
             var parts = request.GoogleToken.Split('.');
             if (parts.Length >= 2)
             {
                 var payloadBase64 = parts[1];
-                // Corrigir padding do base64
-                switch (payloadBase64.Length % 4)
-                {
-                    case 2: payloadBase64 += "=="; break;
-                    case 3: payloadBase64 += "="; break;
-                }
+                switch (payloadBase64.Length % 4) { case 2: payloadBase64 += "=="; break; case 3: payloadBase64 += "="; break; }
                 var payloadJson = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(payloadBase64));
                 var jsonDoc = System.Text.Json.JsonDocument.Parse(payloadJson);
                 var aud = jsonDoc.RootElement.TryGetProperty("aud", out var audProp) ? audProp.GetString() : "N/A";
@@ -296,10 +188,7 @@ public class AuthService(
                 logger.LogWarning("Google token DEBUG: aud={Aud}, iss={Iss}, allowedAudiences={Audiences}", aud, iss, string.Join(", ", allowedAudiences));
             }
         }
-        catch (Exception debugEx)
-        {
-            logger.LogWarning("Could not decode token for debug: {Message}", debugEx.Message);
-        }
+        catch (Exception debugEx) { logger.LogWarning("Could not decode token for debug: {Message}", debugEx.Message); }
 
         GoogleJsonWebSignature.Payload payload;
         try
@@ -323,13 +212,10 @@ public class AuthService(
             throw new UnauthorizedAccessException("Token do Google não contém e-mail.");
 
         var name = payload.Name?.Trim() ?? payload.Email?.Split('@')[0] ?? "Usuário Google";
-
         var user = await userRepository.GetByEmailAsync(email, cancellationToken);
         if (user == null)
         {
-            var role = string.Equals(request.Role, "doctor", StringComparison.OrdinalIgnoreCase)
-                ? UserRole.Doctor
-                : UserRole.Patient;
+            var role = string.Equals(request.Role, "doctor", StringComparison.OrdinalIgnoreCase) ? UserRole.Doctor : UserRole.Patient;
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"));
             user = User.CreateFromGoogleIdentity(name, email, passwordHash, role);
             user = await userRepository.CreateAsync(user, cancellationToken);
@@ -352,24 +238,14 @@ public class AuthService(
         var token = AuthToken.Create(user.Id);
         await tokenRepository.CreateAsync(token, cancellationToken);
 
-        return new AuthResponseDto(
-            MapUserToDto(user),
-            token.Token,
-            doctorProfile,
-            user.ProfileComplete);
+        return new AuthResponseDto(await MapUserToDtoAsync(user), token.Token, doctorProfile, user.ProfileComplete);
     }
 
-    /// <summary>
-    /// Conclui o cadastro (phone, CPF, birth date). Se for médico, exige também Crm, CrmState e Specialty e cria o DoctorProfile.
-    /// </summary>
     public async Task<UserDto> CompleteProfileAsync(
-        Guid userId,
-        CompleteProfileRequestDto request,
-        CancellationToken cancellationToken = default)
+        Guid userId, CompleteProfileRequestDto request, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("User not found");
-
         if (user.ProfileComplete)
             throw new InvalidOperationException("Profile is already complete.");
 
@@ -377,18 +253,13 @@ public class AuthService(
         {
             if (string.IsNullOrWhiteSpace(request.Crm) || string.IsNullOrWhiteSpace(request.CrmState) || string.IsNullOrWhiteSpace(request.Specialty))
                 throw new InvalidOperationException("Doctor profile requires Crm, CrmState and Specialty.");
-            if (request.Crm.Length > 20)
-                throw new InvalidOperationException("CRM cannot exceed 20 characters.");
-            if (request.CrmState.Trim().Length != 2)
-                throw new InvalidOperationException("CrmState must be exactly 2 characters (state abbreviation).");
-            if (request.Specialty.Length > 100)
-                throw new InvalidOperationException("Specialty cannot exceed 100 characters.");
-            if (!MedicalSpecialtyDisplay.IsValid(request.Specialty))
-                throw new InvalidOperationException("Invalid specialty. Use GET /api/specialties for valid values.");
+            if (request.Crm.Length > 20) throw new InvalidOperationException("CRM cannot exceed 20 characters.");
+            if (request.CrmState.Trim().Length != 2) throw new InvalidOperationException("CrmState must be exactly 2 characters (state abbreviation).");
+            if (request.Specialty.Length > 100) throw new InvalidOperationException("Specialty cannot exceed 100 characters.");
+            if (!MedicalSpecialtyDisplay.IsValid(request.Specialty)) throw new InvalidOperationException("Invalid specialty. Use GET /api/specialties for valid values.");
 
             user.SetContactInfo(request.Phone, request.Cpf, request.BirthDate, street: request.Street, number: request.Number, neighborhood: request.Neighborhood, complement: request.Complement, city: request.City, state: request.State, postalCode: request.PostalCode);
             user = await userRepository.UpdateAsync(user, cancellationToken);
-
             try
             {
                 var profile = DoctorProfile.Create(user.Id, request.Crm, request.CrmState, request.Specialty, request.Bio);
@@ -396,172 +267,106 @@ public class AuthService(
                 user.MarkProfileComplete();
                 user = await userRepository.UpdateAsync(user, cancellationToken);
             }
-            catch
-            {
-                user.MarkProfileIncomplete();
-                await userRepository.UpdateAsync(user, cancellationToken);
-                throw;
-            }
+            catch { user.MarkProfileIncomplete(); await userRepository.UpdateAsync(user, cancellationToken); throw; }
         }
         else
         {
             user.CompleteProfile(request.Phone, request.Cpf, request.BirthDate, request.Street, request.Number, request.Neighborhood, request.Complement, request.City, request.State, request.PostalCode);
             user = await userRepository.UpdateAsync(user, cancellationToken);
         }
-
         _ = RecordInitialConsentsAsync(user.Id, cancellationToken);
         return MapUserToDto(user);
     }
 
-    /// <summary>
-    /// Cancela o cadastro e remove o usuário (rollback). Apenas para usuários com perfil incompleto (ex.: criados via Google que desistiram).
-    /// Se for médico, remove antes o DoctorProfile (se existir) por causa de FK.
-    /// </summary>
     public async Task CancelRegistrationAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("User not found");
-
         if (user.ProfileComplete)
             throw new InvalidOperationException("Cannot cancel registration: profile is already complete. Use another flow to delete account.");
-
         if (user.IsDoctor())
         {
             var profile = await doctorRepository.GetByUserIdAsync(userId, cancellationToken);
-            if (profile != null)
-            {
-                try { await doctorRepository.DeleteAsync(profile.Id, cancellationToken); }
-                catch { /* best effort */ }
-            }
+            if (profile != null) { try { await doctorRepository.DeleteAsync(profile.Id, cancellationToken); } catch { } }
         }
-
         await tokenRepository.DeleteByUserIdAsync(userId, cancellationToken);
         await userRepository.DeleteAsync(userId, cancellationToken);
     }
 
-    /// <summary>
-    /// Valida o token e retorna o ID do usuário e a role.
-    /// </summary>
-    public async Task<(Guid UserId, string Role)> ValidateTokenAsync(
-        string token,
-        CancellationToken cancellationToken = default)
+    public async Task<(Guid UserId, string Role)> ValidateTokenAsync(string token, CancellationToken cancellationToken = default)
     {
-        // Normaliza o token que veio do header/query (pode estar URL-encoded, ex.: %3D%3D em vez de ==)
         var normalizedToken = Uri.UnescapeDataString(token?.Trim() ?? string.Empty);
         if (string.IsNullOrWhiteSpace(normalizedToken))
             throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
-
         var authToken = await tokenRepository.GetByTokenAsync(normalizedToken, cancellationToken);
-        
         if (authToken == null || authToken.IsExpired())
             throw new UnauthorizedAccessException("Sessão expirada. Faça login novamente.");
-
         var user = await userRepository.GetByIdAsync(authToken.UserId, cancellationToken);
-
-        if (user == null)
-            throw new UnauthorizedAccessException("Usuário não encontrado.");
-
+        if (user == null) throw new UnauthorizedAccessException("Usuário não encontrado.");
         return (user.Id, user.Role.ToString().ToLowerInvariant());
     }
 
-    /// <summary>
-    /// Envia e-mail com link para redefinição de senha. Sempre retorna sem erro para não revelar se o e-mail existe.
-    /// </summary>
     public async Task ForgotPasswordAsync(string email, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByEmailAsync(email?.Trim() ?? "", cancellationToken);
-        if (user == null)
-            return;
-
+        if (user == null) return;
         await passwordResetTokenRepository.InvalidateByUserIdAsync(user.Id, cancellationToken);
-
         var resetToken = PasswordResetToken.Create(user.Id, expirationHours: 2);
         resetToken = await passwordResetTokenRepository.CreateAsync(resetToken, cancellationToken);
-
         var baseUrl = smtpConfig.Value.ResetPasswordBaseUrl?.TrimEnd('/') ?? "https://renovejasaude.com.br/recuperar-senha";
         var resetLink = $"{baseUrl}?token={Uri.EscapeDataString(resetToken.Token)}";
-
         await emailService.SendPasswordResetEmailAsync(user.Email.Value, user.Name, resetLink, cancellationToken);
     }
 
-    /// <summary>
-    /// Redefine a senha usando o token recebido por e-mail.
-    /// </summary>
     public async Task ResetPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(token))
-            throw new ArgumentException("Token é obrigatório.");
+        if (string.IsNullOrWhiteSpace(token)) throw new ArgumentException("Token é obrigatório.");
         if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
             throw new ArgumentException("A nova senha deve ter no mínimo 8 caracteres.");
-
-        // Token pode vir codificado da URL do e-mail (%3D%3D = ==); normaliza para o valor gravado no banco
         var rawToken = Uri.UnescapeDataString(token.Trim());
         var resetToken = await passwordResetTokenRepository.GetByTokenAsync(rawToken, cancellationToken);
         if (resetToken == null || !resetToken.IsValid())
             throw new UnauthorizedAccessException("Token inválido ou expirado. Solicite uma nova redefinição de senha.");
-
         var user = await userRepository.GetByIdAsync(resetToken.UserId, cancellationToken);
-        if (user == null)
-            throw new InvalidOperationException("Usuário não encontrado.");
-
+        if (user == null) throw new InvalidOperationException("Usuário não encontrado.");
         var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.UpdatePassword(newHash);
         await userRepository.UpdateAsync(user, cancellationToken);
-
         resetToken.MarkAsUsed();
         await passwordResetTokenRepository.UpdateAsync(resetToken, cancellationToken);
     }
 
-    /// <summary>
-    /// Altera a senha do usuário logado (requer senha atual).
-    /// </summary>
     public async Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(currentPassword))
-            throw new ArgumentException("A senha atual é obrigatória.");
+        if (string.IsNullOrWhiteSpace(currentPassword)) throw new ArgumentException("A senha atual é obrigatória.");
         if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
             throw new ArgumentException("A nova senha deve ter no mínimo 8 caracteres.");
-
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("Usuário não encontrado.");
-
         if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
             throw new UnauthorizedAccessException("Senha atual incorreta.");
-
         var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.UpdatePassword(newHash);
         await userRepository.UpdateAsync(user, cancellationToken);
     }
 
-    /// <summary>
-    /// Atualiza o avatar do usuário (upload de foto de perfil).
-    /// </summary>
     public async Task<UserDto> UpdateAvatarAsync(Guid userId, Stream fileStream, string contentType, string fileName, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("Usuário não encontrado.");
-
-        // Deletar avatar antigo do storage se existir (bucket avatars ou prescription-images legado)
         if (!string.IsNullOrWhiteSpace(user.AvatarUrl))
         {
             try
             {
                 var oldPath = storageService.ExtractPathFromStorageUrl(user.AvatarUrl);
-                if (!string.IsNullOrEmpty(oldPath))
-                {
-                    await storageService.DeleteAsync(oldPath, cancellationToken);
-                }
+                if (!string.IsNullOrEmpty(oldPath)) await storageService.DeleteAsync(oldPath, cancellationToken);
             }
-            catch
-            {
-                // Não bloquear upload novo por falha na limpeza do antigo
-            }
+            catch { }
         }
-
         var avatarUrl = await storageService.UploadAvatarAsync(fileStream, fileName, contentType, userId, cancellationToken);
         user.UpdateProfile(avatarUrl: avatarUrl);
         user = await userRepository.UpdateAsync(user, cancellationToken);
-        return MapUserToDto(user);
+        return await MapUserToDtoAsync(user);
     }
 
     private async Task RecordInitialConsentsAsync(Guid userId, CancellationToken cancellationToken)
@@ -572,37 +377,13 @@ public class AuthService(
             var now = DateTime.UtcNow;
             const string channel = "app_registration";
             const string version = "v1.0";
-
-            var privacyConsent = ConsentRecord.Create(
-                patient.Id,
-                ConsentType.PrivacyPolicy,
-                LegalBasis.ContractExecution,
-                "Aceite da Política de Privacidade durante cadastro",
-                now,
-                channel,
-                version);
+            var privacyConsent = ConsentRecord.Create(patient.Id, ConsentType.PrivacyPolicy, LegalBasis.ContractExecution, "Aceite da Política de Privacidade durante cadastro", now, channel, version);
             await consentRepository.CreateAsync(privacyConsent, cancellationToken);
             patient.LinkConsentRecord(privacyConsent.Id);
-
-            var telemedicineConsent = ConsentRecord.Create(
-                patient.Id,
-                ConsentType.Telemedicine,
-                LegalBasis.HealthCareProvision,
-                "Aceite dos Termos de Uso e condições de telemedicina durante cadastro",
-                now,
-                channel,
-                version);
+            var telemedicineConsent = ConsentRecord.Create(patient.Id, ConsentType.Telemedicine, LegalBasis.HealthCareProvision, "Aceite dos Termos de Uso e condições de telemedicina durante cadastro", now, channel, version);
             await consentRepository.CreateAsync(telemedicineConsent, cancellationToken);
             patient.LinkConsentRecord(telemedicineConsent.Id);
-
-            var dataSharingConsent = ConsentRecord.Create(
-                patient.Id,
-                ConsentType.DataSharing,
-                LegalBasis.HealthCareProvision,
-                "Consentimento para compartilhamento de dados com médicos para prestação de serviço de saúde",
-                now,
-                channel,
-                version);
+            var dataSharingConsent = ConsentRecord.Create(patient.Id, ConsentType.DataSharing, LegalBasis.HealthCareProvision, "Consentimento para compartilhamento de dados com médicos para prestação de serviço de saúde", now, channel, version);
             await consentRepository.CreateAsync(dataSharingConsent, cancellationToken);
             patient.LinkConsentRecord(dataSharingConsent.Id);
         }
@@ -612,53 +393,47 @@ public class AuthService(
         }
     }
 
+    /// <summary>Presigned URL para avatar S3 privado (1h).</summary>
+    private async Task<UserDto> MapUserToDtoAsync(User user)
+    {
+        var avatarUrl = user.AvatarUrl;
+        if (!string.IsNullOrWhiteSpace(avatarUrl) && avatarUrl.Contains(".amazonaws.com"))
+        {
+            try
+            {
+                var path = storageService.ExtractPathFromStorageUrl(avatarUrl);
+                if (path != null)
+                {
+                    var signed = await storageService.CreateSignedUrlAsync(path, 3600);
+                    if (signed != null) avatarUrl = signed;
+                }
+            }
+            catch { /* fallback to original URL */ }
+        }
+        return new UserDto(user.Id, user.Name, user.Email, user.Phone?.Value, user.Cpf,
+            user.BirthDate, avatarUrl, user.Role.ToString().ToLowerInvariant(),
+            user.CreatedAt, user.UpdatedAt, user.ProfileComplete,
+            user.Street, user.Number, user.Neighborhood, user.Complement,
+            user.City, user.State, user.PostalCode);
+    }
+
     private static UserDto MapUserToDto(User user)
     {
-        return new UserDto(
-            user.Id,
-            user.Name,
-            user.Email,
-            user.Phone?.Value,
-            user.Cpf,
-            user.BirthDate,
-            user.AvatarUrl,
-            user.Role.ToString().ToLowerInvariant(),
-            user.CreatedAt,
-            user.UpdatedAt,
-            user.ProfileComplete,
-            user.Street,
-            user.Number,
-            user.Neighborhood,
-            user.Complement,
-            user.City,
-            user.State,
-            user.PostalCode);
+        return new UserDto(user.Id, user.Name, user.Email, user.Phone?.Value, user.Cpf,
+            user.BirthDate, user.AvatarUrl, user.Role.ToString().ToLowerInvariant(),
+            user.CreatedAt, user.UpdatedAt, user.ProfileComplete,
+            user.Street, user.Number, user.Neighborhood, user.Complement,
+            user.City, user.State, user.PostalCode);
     }
 
     private static DoctorProfileDto MapDoctorProfileToDto(DoctorProfile profile)
     {
-        return new DoctorProfileDto(
-            profile.Id,
-            profile.UserId,
-            profile.Crm,
-            profile.CrmState,
-            profile.Specialty,
-            profile.Bio,
-            profile.Rating,
-            profile.TotalConsultations,
-            profile.Available,
-            profile.CreatedAt,
-            profile.ProfessionalAddress,
-            profile.ProfessionalPhone,
-            profile.ProfessionalPostalCode,
-            profile.ProfessionalStreet,
-            profile.ProfessionalNumber,
-            profile.ProfessionalNeighborhood,
-            profile.ProfessionalComplement,
-            profile.ProfessionalCity,
-            profile.ProfessionalState,
-            profile.University,
-            profile.Courses,
-            profile.HospitalsServices);
+        return new DoctorProfileDto(profile.Id, profile.UserId, profile.Crm, profile.CrmState,
+            profile.Specialty, profile.Bio, profile.Rating, profile.TotalConsultations,
+            profile.Available, profile.CreatedAt, profile.ProfessionalAddress,
+            profile.ProfessionalPhone, profile.ProfessionalPostalCode, profile.ProfessionalStreet,
+            profile.ProfessionalNumber, profile.ProfessionalNeighborhood,
+            profile.ProfessionalComplement, profile.ProfessionalCity, profile.ProfessionalState,
+            profile.University, profile.Courses, profile.HospitalsServices);
     }
 }
