@@ -10,4 +10,9 @@ public interface ICertificateRepository
     Task<DoctorCertificate> CreateAsync(DoctorCertificate certificate, CancellationToken cancellationToken = default);
     Task<DoctorCertificate> UpdateAsync(DoctorCertificate certificate, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns active (valid, not revoked) certificates expiring within the given number of days.
+    /// </summary>
+    Task<List<DoctorCertificate>> GetExpiringAsync(int withinDays, CancellationToken cancellationToken = default);
 }

@@ -64,6 +64,8 @@ public class RequestApprovalService(
             "Solicitação aprovada",
             cancellationToken);
         // Push de "Documento pronto" será enviado pelo SignatureService após a assinatura
+        // Push de "Solicitação aprovada" — notifica paciente imediatamente
+        await pushDispatcher.SendAsync(PushNotificationRules.Approved(request.PatientId, request.Id, request.RequestType), cancellationToken);
 
         return request;
     }

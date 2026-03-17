@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using RenoveJa.Application.DTOs.Doctors;
+using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Doctors;
+using RenoveJa.Application.Services.Notifications;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 
@@ -20,6 +22,7 @@ namespace RenoveJa.Api.Controllers;
 public class AdminDoctorsController(
     IDoctorRepository doctorRepository,
     IUserRepository userRepository,
+    IPushNotificationDispatcher pushDispatcher,
     ILogger<AdminDoctorsController> logger) : ControllerBase
 {
     /// <summary>
@@ -130,6 +133,15 @@ public class AdminDoctorsController(
         profile = await doctorRepository.UpdateAsync(profile, cancellationToken);
         logger.LogInformation("Doctor approved by admin: doctorProfileId={DoctorProfileId}", id);
 
+        // Notificar médico sobre aprovação (fire-and-forget)
+        _ = pushDispatcher.SendAsync(
+                PushNotificationRules.DoctorApprovedByAdmin(profile.UserId), CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogDebug(t.Exception?.InnerException, "Failed to notify doctor about approval");
+            }, TaskScheduler.Default);
+
         return Ok(new
         {
             id = profile.Id,
@@ -159,6 +171,15 @@ public class AdminDoctorsController(
         // TODO [NL-4]: Send email notification to the doctor informing them of the rejection.
         // Use IEmailService (add a SendDoctorRejectionEmailAsync method) with the doctor's email and body?.Reason.
         // The doctor's email can be retrieved via userRepository.GetByIdAsync(profile.UserId).
+
+        // Notificar médico sobre rejeição (fire-and-forget)
+        _ = pushDispatcher.SendAsync(
+                PushNotificationRules.DoctorRejectedByAdmin(profile.UserId), CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogDebug(t.Exception?.InnerException, "Failed to notify doctor about rejection");
+            }, TaskScheduler.Default);
 
         return Ok(new
         {

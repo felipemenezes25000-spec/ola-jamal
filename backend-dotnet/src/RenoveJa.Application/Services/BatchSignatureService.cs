@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Application.Services.Notifications;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -23,6 +24,7 @@ public class BatchSignatureService(
     IMedicalDocumentRepository documentRepository,
     IDocumentAccessLogRepository accessLogRepository,
     IDigitalCertificateService certificateService,
+    IPushNotificationDispatcher pushDispatcher,
     IAuditService auditService,
     ILogger<BatchSignatureService> logger) : IBatchSignatureService
 #pragma warning restore CS9113
@@ -163,6 +165,18 @@ public class BatchSignatureService(
                 ["failed"] = failedCount,
             },
             cancellationToken: ct);
+
+        // Notificar médico sobre conclusão da assinatura em lote (fire-and-forget)
+        if (signedCount > 0)
+        {
+            _ = pushDispatcher.SendAsync(
+                    PushNotificationRules.BatchSignatureCompleted(doctorUserId, signedCount), CancellationToken.None)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        logger.LogDebug(t.Exception?.InnerException, "Failed to notify doctor about batch signature completion");
+                }, TaskScheduler.Default);
+        }
 
         return new BatchSignatureResult(signedCount, failedCount, results,
             $"{signedCount} documento(s) assinado(s) com sucesso." +

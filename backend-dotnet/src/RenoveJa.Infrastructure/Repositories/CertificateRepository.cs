@@ -85,4 +85,22 @@ public class CertificateRepository(PostgresClient db) : ICertificateRepository
             return false;
         }
     }
+
+    public async Task<List<DoctorCertificate>> GetExpiringAsync(int withinDays, CancellationToken cancellationToken = default)
+    {
+        // Fetch all valid, non-revoked certificates and filter expiry in code
+        // (db REST API doesn't support date arithmetic easily)
+        var models = await db.GetAllAsync<CertificateModel>(
+            TableName,
+            filter: "is_valid=eq.true&is_revoked=eq.false",
+            cancellationToken: cancellationToken);
+
+        var now = DateTime.UtcNow;
+        var cutoff = now.AddDays(withinDays);
+
+        return models
+            .Where(m => m.NotAfter > now && m.NotAfter <= cutoff)
+            .Select(m => m.ToDomain())
+            .ToList();
+    }
 }

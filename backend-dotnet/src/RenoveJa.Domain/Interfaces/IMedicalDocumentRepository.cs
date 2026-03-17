@@ -18,5 +18,8 @@ public interface IMedicalDocumentRepository
     Task SetSecurityFieldsAsync(Guid documentId, DateTime? expiresAt, int maxDispenses, string? accessCode, string? verifyCodeHash, CancellationToken cancellationToken = default);
     /// <summary>Retorna access_code e verify_code_hash de um documento.</summary>
     Task<(string? accessCode, string? verifyCodeHash, DateTime? expiresAt, int dispensedCount)?> GetSecurityFieldsAsync(Guid documentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Retorna o source_request_id vinculado ao documento (se houver).</summary>
+    Task<Guid?> GetSourceRequestIdAsync(Guid documentId, CancellationToken cancellationToken = default);
 }
 

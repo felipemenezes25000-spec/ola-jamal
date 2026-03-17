@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.DTOs.Clinical;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Application.Services.Notifications;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -25,6 +26,7 @@ public class PostConsultationService(
     IPrescriptionPdfService pdfService,
     IDocumentSecurityService documentSecurityService,
     DuplicateDocumentGuard duplicateGuard,
+    IPushNotificationDispatcher pushDispatcher,
     IAuditService auditService,
     ILogger<PostConsultationService> logger) : IPostConsultationService
 #pragma warning restore CS9113
@@ -182,6 +184,13 @@ public class PostConsultationService(
             "Post-consultation emit completed: {Count} documents for encounter {EncounterId} by doctor {DoctorId}",
             emittedTypes.Count, encounter.Id, doctorUserId);
 
+        // ── 5b. Notificar paciente via push ──
+        if (emittedTypes.Count > 0)
+        {
+            await pushDispatcher.SendAsync(
+                PushNotificationRules.PostConsultationDocumentsReady(medicalRequest.PatientId, medicalRequest.Id),
+                cancellationToken);
+        }
 
         // ── 6. Retornar resposta ──
         return new PostConsultationEmitResponse

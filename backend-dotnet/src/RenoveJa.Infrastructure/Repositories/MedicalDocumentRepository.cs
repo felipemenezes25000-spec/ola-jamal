@@ -289,4 +289,13 @@ public class MedicalDocumentRepository(PostgresClient db) : IMedicalDocumentRepo
         if (model == null) return null;
         return (model.AccessCode, model.VerifyCodeHash, model.ExpiresAt, model.DispensedCount);
     }
+
+    public async Task<Guid?> GetSourceRequestIdAsync(Guid documentId, CancellationToken cancellationToken = default)
+    {
+        var model = await db.GetSingleAsync<MedicalDocumentModel>(
+            TableName,
+            filter: $"id=eq.{documentId}",
+            cancellationToken: cancellationToken);
+        return model?.SourceRequestId;
+    }
 }

@@ -91,6 +91,17 @@ public static class PushNotificationRules
             deepLinkSuffix: $"request-detail/{requestId}",
             bypassQuietHours: true);
 
+    /// <summary>Paciente notificado quando solicitação é aprovada (status Paid).</summary>
+    public static PushNotificationRequest Approved(Guid userId, Guid requestId, RequestType requestType) =>
+        BuildRequest(userId, "request_approved", requestId, requestType, RequestStatus.Paid,
+            "Solicitação aprovada",
+            "Seu pedido foi aprovado! O médico está preparando o documento.",
+            targetRole: "patient",
+            deepLinkSuffix: $"request-detail/{requestId}",
+            channel: PushChannel.Default,
+            category: PushCategory.Requests,
+            bypassQuietHours: true);
+
     public static PushNotificationRequest Signed(Guid userId, Guid requestId, RequestType requestType) =>
         BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.Signed,
             "Documento pronto 🧾",
@@ -188,6 +199,19 @@ public static class PushNotificationRules
             category: PushCategory.Consultations,
             bypassQuietHours: true);
 
+    // ── Pós-consulta ──────────────────────────────────────────────────────
+
+    /// <summary>Paciente notificado quando documentos pós-consulta são emitidos pelo médico.</summary>
+    public static PushNotificationRequest PostConsultationDocumentsReady(Guid patientId, Guid requestId) =>
+        BuildRequest(patientId, "post_consultation_documents_ready", requestId, RequestType.Consultation, RequestStatus.ConsultationFinished,
+            "Documentos da consulta disponíveis",
+            "Seu médico emitiu documentos da consulta. Toque para ver.",
+            targetRole: "patient",
+            deepLinkSuffix: $"request-detail/{requestId}",
+            channel: PushChannel.Default,
+            category: PushCategory.Consultations,
+            bypassQuietHours: true);
+
     // ── Lembretes (pedido parado) ───────────────────────────────────────────
 
     /// <summary>Lembrete: pedido em análise há mais de 30 min (médico).</summary>
@@ -216,6 +240,16 @@ public static class PushNotificationRules
 
     // ── Sistema (certificado, etc.) ───────────────────────────────────────────
 
+    /// <summary>Médico recebe notificação quando certificado digital está próximo do vencimento.</summary>
+    public static PushNotificationRequest CertificateExpiringSoon(Guid doctorUserId, int daysLeft) =>
+        new(doctorUserId,
+            "Certificado digital vencendo",
+            $"Seu certificado vence em {daysLeft} dias. Renove para continuar assinando.",
+            new PushNotificationPayload("certificate_expiring_soon", "renoveja://doctor-settings", PushCategory.System,
+                $"cert_expiry_{doctorUserId:N}_{daysLeft}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                TargetRole: "doctor"),
+            PushChannel.Default, true, BypassQuietHours: true);
+
     /// <summary>Médico recebe notificação quando certificado digital é cadastrado.</summary>
     public static PushNotificationRequest CertificateUploaded(Guid doctorId, string validUntil) =>
         new(doctorId,
@@ -239,4 +273,60 @@ public static class PushNotificationRules
             channel: PushChannel.Quiet,
             category: PushCategory.Reminders,
             collapseKeySuffix: "doc_verified");
+
+    // ── Notificação de dispensação (farmácia dispensou receita) ──────────────
+
+    /// <summary>Paciente recebe notificação quando receita é dispensada na farmácia.</summary>
+    public static PushNotificationRequest DocumentDispensed(Guid patientId, Guid requestId) =>
+        BuildRequest(patientId, "document_dispensed", requestId, RequestType.Prescription, RequestStatus.Delivered,
+            "Receita dispensada",
+            "Sua receita foi dispensada na farmácia.",
+            targetRole: "patient",
+            deepLinkSuffix: $"request-detail/{requestId}",
+            channel: PushChannel.Quiet,
+            category: PushCategory.Requests);
+
+    /// <summary>Paciente recebe notificação quando receita controlada é dispensada (não pode reutilizar).</summary>
+    public static PushNotificationRequest ControlledSubstanceDispensed(Guid patientId, Guid requestId) =>
+        BuildRequest(patientId, "controlled_substance_dispensed", requestId, RequestType.Prescription, RequestStatus.Delivered,
+            "Receita controlada utilizada",
+            "Sua receita controlada foi dispensada. Esta receita não pode ser utilizada novamente.",
+            targetRole: "patient",
+            deepLinkSuffix: $"request-detail/{requestId}",
+            category: PushCategory.System,
+            bypassQuietHours: true);
+
+    // ── Admin: Aprovação/Rejeição de médico ──────────────────────────────────
+
+    /// <summary>Médico notificado quando admin aprova seu cadastro.</summary>
+    public static PushNotificationRequest DoctorApprovedByAdmin(Guid doctorUserId) =>
+        new(doctorUserId,
+            "Cadastro aprovado!",
+            "Seu cadastro foi aprovado. Você já pode atender pacientes.",
+            new PushNotificationPayload("doctor_approved", "renoveja://doctor-home", PushCategory.System,
+                $"admin_approval_{doctorUserId:N}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                TargetRole: "doctor"),
+            PushChannel.Default, true, true);
+
+    /// <summary>Médico notificado quando admin rejeita seu cadastro.</summary>
+    public static PushNotificationRequest DoctorRejectedByAdmin(Guid doctorUserId) =>
+        new(doctorUserId,
+            "Cadastro não aprovado",
+            "Seu cadastro precisa de ajustes. Verifique as orientações.",
+            new PushNotificationPayload("doctor_rejected", "renoveja://doctor-settings", PushCategory.System,
+                $"admin_rejection_{doctorUserId:N}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                TargetRole: "doctor"),
+            PushChannel.Default, true, false);
+
+    // ── Assinatura em lote ───────────────────────────────────────────────────
+
+    /// <summary>Médico notificado quando assinatura em lote é concluída.</summary>
+    public static PushNotificationRequest BatchSignatureCompleted(Guid doctorUserId, int count) =>
+        new(doctorUserId,
+            "Documentos assinados",
+            $"{count} documentos assinados com sucesso.",
+            new PushNotificationPayload("batch_signature_completed", "renoveja://doctor-requests?filter=signed", PushCategory.Requests,
+                $"batch_sign_{doctorUserId:N}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                TargetRole: "doctor"),
+            PushChannel.Quiet, true, false);
 }

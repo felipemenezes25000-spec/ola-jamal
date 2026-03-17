@@ -11,6 +11,7 @@ public class DocumentVerifyController(
     IMedicalDocumentRepository documentRepository,
     IDocumentAccessLogRepository accessLogRepository,
     IDocumentSecurityService securityService,
+    IRequestRepository requestRepository,
     IPushNotificationDispatcher pushDispatcher,
     ILogger<DocumentVerifyController> logger) : ControllerBase
 {
@@ -146,6 +147,34 @@ public class DocumentVerifyController(
 
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
             await securityService.RecordDispensationAsync(documentId, request.PharmacyName ?? "Não informado", ip, ct);
+
+            // Check if the prescription is controlled via the source request
+            var isControlled = false;
+            if (doc.DocumentType == Domain.Enums.DocumentType.Prescription)
+            {
+                var sourceRequestId = await documentRepository.GetSourceRequestIdAsync(documentId, ct);
+                if (sourceRequestId.HasValue)
+                {
+                    var sourceRequest = await requestRepository.GetByIdAsync(sourceRequestId.Value, ct);
+                    if (sourceRequest?.PrescriptionKind is Domain.Enums.PrescriptionKind.ControlledSpecial
+                        or Domain.Enums.PrescriptionKind.Antimicrobial)
+                    {
+                        isControlled = true;
+                    }
+                }
+            }
+
+            // Notificar paciente sobre dispensação (fire-and-forget)
+            // Para receitas controladas, envia notificação específica em vez da genérica
+            var notification = isControlled
+                ? PushNotificationRules.ControlledSubstanceDispensed(doc.PatientId, documentId)
+                : PushNotificationRules.DocumentDispensed(doc.PatientId, documentId);
+            _ = pushDispatcher.SendAsync(notification, CancellationToken.None)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        logger.LogDebug(t.Exception?.InnerException, "Failed to notify patient about dispensation");
+                }, TaskScheduler.Default);
 
             return Ok(new { success = true, message = "Documento marcado como dispensado.", dispenseCount = dispenseCount + 1 });
         }

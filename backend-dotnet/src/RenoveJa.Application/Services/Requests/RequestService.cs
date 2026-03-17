@@ -374,8 +374,8 @@ public class RequestService(
             request.AssignDoctor(doctorUser.Id, doctorUser.Name);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
 
-            // "Seu pedido está em análise" — push informativo desnecessário (paciente já vê na tela)
-            // await pushDispatcher.SendAsync(PushNotificationRules.InReview(request.PatientId, request.Id, request.RequestType), cancellationToken);
+            // "Seu pedido está em análise" — push informativo para o paciente
+            await pushDispatcher.SendAsync(PushNotificationRules.InReview(request.PatientId, request.Id, request.RequestType), cancellationToken);
             await pushDispatcher.SendAsync(PushNotificationRules.RequestAssigned(doctorUser.Id, request.Id, request.RequestType), cancellationToken);
         }
 
