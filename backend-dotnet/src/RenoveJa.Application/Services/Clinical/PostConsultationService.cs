@@ -57,7 +57,7 @@ public class PostConsultationService(
 
             encounter = await clinicalRecordService.StartEncounterAsync(
                 patient.Id, doctorUserId, EncounterType.Teleconsultation,
-                channel: "mobile", reason: "Consulta por vídeo", cancellationToken: cancellationToken);
+                channel: "mobile", reason: "Consulta por vídeo", sourceRequestId: request.RequestId, cancellationToken: cancellationToken);
         }
 
         // ── 3. Enriquecer Encounter (compliance CFM 1.638/2002) ──
@@ -82,6 +82,15 @@ public class PostConsultationService(
             request.RedFlags,
             request.StructuredAnamnesis,
             cancellationToken);
+
+        // ── 3a. Validar máximo de 4 documentos ──
+        var docCount = 0;
+        if (request.Prescription is { Items.Count: > 0 }) docCount++;
+        if (request.ExamOrder is { Items.Count: > 0 }) docCount++;
+        if (request.MedicalCertificate is { Body.Length: > 0 }) docCount++;
+        if (request.Referral is { Reason.Length: > 0 }) docCount++;
+        if (docCount > 4)
+            throw new InvalidOperationException("Máximo de 4 documentos por pós-consulta: receita, exames, atestado e encaminhamento.");
 
         // ── 3b. Verificações de duplicidade ──
         var warnings = new List<string>();
@@ -109,6 +118,7 @@ public class PostConsultationService(
         Guid? prescriptionId = null;
         Guid? examOrderId = null;
         Guid? certificateId = null;
+        Guid? referralId = null;
 
         // Receita
         if (request.Prescription is { Items.Count: > 0 })
@@ -163,6 +173,26 @@ public class PostConsultationService(
                 report.Id, encounter.Id);
         }
 
+        // Encaminhamento (MedicalReport com leaveDays=null)
+        if (request.Referral is { Reason.Length: > 0 })
+        {
+            var refDto = request.Referral;
+            var body = $"Encaminho o(a) paciente para avaliação presencial pelo(a) Dr(a). {refDto.ProfessionalName.Trim()}" +
+                (string.IsNullOrWhiteSpace(refDto.Specialty) ? "" : $" ({refDto.Specialty.Trim()})") +
+                $".\n\nMotivo/Indicação: {refDto.Reason.Trim()}";
+            var icdForRef = string.IsNullOrWhiteSpace(refDto.Icd10Code) ? null : refDto.Icd10Code.Trim();
+
+            var referralReport = await clinicalRecordService.CreateMedicalReportAsync(
+                encounter.Id, body, icdForRef, leaveDays: null, cancellationToken);
+            referralId = referralReport.Id;
+            emittedTypes.Add("Encaminhamento");
+
+            await SetDocumentSecurityAsync(referralReport.Id, DocumentType.MedicalReport, null, cancellationToken);
+
+            logger.LogInformation("Referral {ReferralId} created for encounter {EncounterId}",
+                referralReport.Id, encounter.Id);
+        }
+
         // ── 5. Auditoria ──
         await auditService.LogModificationAsync(
             doctorUserId,
@@ -176,6 +206,7 @@ public class PostConsultationService(
                 ["prescription_id"] = prescriptionId,
                 ["exam_order_id"] = examOrderId,
                 ["certificate_id"] = certificateId,
+                ["referral_id"] = referralId,
                 ["main_icd10"] = request.MainIcd10Code
             },
             cancellationToken: cancellationToken);
@@ -199,6 +230,7 @@ public class PostConsultationService(
             PrescriptionId = prescriptionId,
             ExamOrderId = examOrderId,
             MedicalCertificateId = certificateId,
+            ReferralId = referralId,
             DocumentsEmitted = emittedTypes.Count,
             DocumentTypes = emittedTypes,
             Message = $"{emittedTypes.Count} documento(s) criado(s) com sucesso: {string.Join(", ", emittedTypes)}."

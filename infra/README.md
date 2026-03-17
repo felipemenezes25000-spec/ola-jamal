@@ -99,6 +99,19 @@ cd infra/scripts
 
 Depois, adicione os parâmetros em `secrets` na task-definition e remova as env vars de CORS do `environment` (ou mantenha as env vars — elas têm precedência sobre appsettings).
 
+## Google OAuth (login)
+
+O backend precisa de `Google__ClientId` e `Google__AndroidClientId` no SSM para validar tokens do app mobile. O `task-definition.json` já referencia ambos em `secrets`.
+
+Para criar/atualizar os parâmetros no SSM:
+
+```powershell
+cd infra/scripts
+.\ssm-set-google-auth.ps1
+```
+
+O script usa os Client IDs padrão do projeto. Para valores diferentes, passe `-GoogleClientId` e `-GoogleAndroidClientId`.
+
 ## Fases de deploy
 
 Após o `terraform apply` inicial, siga o plano de migração em

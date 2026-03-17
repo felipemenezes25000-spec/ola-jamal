@@ -73,6 +73,14 @@ export interface AnamnesisData {
   criterios_retorno?: string | string[];
   perguntas_sugeridas?: string[];
   lacunas_anamnese?: string[];
+  encaminhamento_sugerido?: {
+    profissional?: string;
+    medico?: string;
+    especialidade?: string;
+    motivo?: string;
+    reason?: string;
+    indication?: string;
+  };
 }
 
 // ── Severidade semântica de cada campo ──

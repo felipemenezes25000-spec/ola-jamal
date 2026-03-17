@@ -15,6 +15,10 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
@@ -76,6 +80,19 @@ function buildExamsFromAnamnesis(anamnesis: AnamnesisData | null): ExamItemEmit[
     });
 }
 
+function buildReferralFromAnamnesis(anamnesis: AnamnesisData | null): { professional: string; specialty?: string; reason: string } | null {
+  const enc = anamnesis?.encaminhamento_sugerido;
+  if (!enc?.profissional && !enc?.medico && !enc?.motivo && !enc?.reason) return null;
+  const professional = enc.profissional ?? enc.medico ?? '';
+  const reason = enc.motivo ?? enc.reason ?? enc.indication ?? '';
+  if (!professional && !reason) return null;
+  return {
+    professional,
+    specialty: enc.especialidade,
+    reason,
+  };
+}
+
 // ── Main Component ──
 
 export default function PostConsultationScreen({ request, onComplete, onBack }: Props) {
@@ -95,11 +112,13 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   const [rxEnabled, setRxEnabled] = useState(true);
   const [exEnabled, setExEnabled] = useState(false);
   const [atEnabled, setAtEnabled] = useState(() => (cidPkg?.defaultLeaveDays ?? 0) > 0);
+  const [refEnabled, setRefEnabled] = useState(false);
 
   // ── State: Sections expanded ──
   const [rxOpen, setRxOpen] = useState(true);
   const [exOpen, setExOpen] = useState(false);
   const [atOpen, setAtOpen] = useState(() => (cidPkg?.defaultLeaveDays ?? 0) > 0);
+  const [refOpen, setRefOpen] = useState(false);
   const [cidPickerOpen, setCidPickerOpen] = useState(false);
   const [exListExpanded, setExListExpanded] = useState(false);
 
@@ -128,8 +147,34 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   const [certDays, setCertDays] = useState(cidPkg?.defaultLeaveDays ?? 3);
   const [certIncludeCid, setCertIncludeCid] = useState(true);
 
+  // ── State: Referral ──
+  const refSug = useMemo(() => buildReferralFromAnamnesis(anamnesis), [anamnesis]);
+  const [refProfessional, setRefProfessional] = useState('');
+  const [refSpecialty, setRefSpecialty] = useState('');
+  const [refReason, setRefReason] = useState('');
+
+  // Sync referral from anamnesis when it loads
+  React.useEffect(() => {
+    if (refSug?.professional || refSug?.reason) {
+      setRefProfessional(refSug.professional ?? '');
+      setRefSpecialty(refSug.specialty ?? '');
+      setRefReason(refSug.reason ?? '');
+      setRefEnabled(true);
+      setRefOpen(true);
+    }
+  }, [refSug]);
+
   // ── State: Submission ──
   const [submitting, setSubmitting] = useState(false);
+
+  // ── State: Modals (add/edit med & exam) ──
+  const [medModalVisible, setMedModalVisible] = useState(false);
+  const [editingMedIndex, setEditingMedIndex] = useState<number | null>(null);
+  const [medForm, setMedForm] = useState<PrescriptionItemEmit>({ drug: '', posology: '', notes: '' });
+
+  const [examModalVisible, setExamModalVisible] = useState(false);
+  const [editingExamIndex, setEditingExamIndex] = useState<number | null>(null);
+  const [examForm, setExamForm] = useState<ExamItemEmit>({ type: 'laboratorial', description: '' });
 
   // ── CID change: reload all data ──
   const loadCidPackage = useCallback((code: string) => {
@@ -161,17 +206,88 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
     setExOpen(true);
   }, []);
 
+  // ── Add/Edit medication ──
+  const openAddMed = useCallback(() => {
+    setEditingMedIndex(null);
+    setMedForm({ drug: '', concentration: '', posology: '', notes: '' });
+    setMedModalVisible(true);
+  }, []);
+  const openEditMed = useCallback((idx: number) => {
+    const m = meds[idx];
+    setEditingMedIndex(idx);
+    setMedForm({
+      drug: m.drug ?? '',
+      concentration: m.concentration ?? '',
+      posology: m.posology ?? '',
+      notes: m.notes ?? '',
+    });
+    setMedModalVisible(true);
+  }, [meds]);
+  const saveMed = useCallback(() => {
+    const drug = medForm.drug?.trim();
+    if (!drug) {
+      Alert.alert('Campo obrigatório', 'Informe o nome do medicamento.');
+      return;
+    }
+    const item: PrescriptionItemEmit = {
+      drug,
+      concentration: medForm.concentration?.trim() || undefined,
+      posology: medForm.posology?.trim() || undefined,
+      notes: medForm.notes?.trim() || undefined,
+    };
+    if (editingMedIndex !== null) {
+      setMeds((prev) => prev.map((m, i) => (i === editingMedIndex ? item : m)));
+    } else {
+      setMeds((prev) => [...prev, item]);
+    }
+    setMedModalVisible(false);
+  }, [medForm, editingMedIndex]);
+
+  // ── Add/Edit exam ──
+  const openAddExam = useCallback(() => {
+    setEditingExamIndex(null);
+    setExamForm({ type: 'laboratorial', description: '' });
+    setExamModalVisible(true);
+  }, []);
+  const openEditExam = useCallback((idx: number) => {
+    const e = exams[idx];
+    setEditingExamIndex(idx);
+    setExamForm({ type: 'laboratorial', description: e.description ?? '' });
+    setExamModalVisible(true);
+  }, [exams]);
+  const saveExam = useCallback(() => {
+    const description = examForm.description?.trim();
+    if (!description) {
+      Alert.alert('Campo obrigatório', 'Informe a descrição do exame.');
+      return;
+    }
+    const item: ExamItemEmit = { type: 'laboratorial', description };
+    if (editingExamIndex !== null) {
+      setExams((prev) => prev.map((e, i) => (i === editingExamIndex ? item : e)));
+    } else {
+      setExams((prev) => [...prev, item]);
+    }
+    setExEnabled(true);
+    setExOpen(true);
+    setExamModalVisible(false);
+  }, [examForm, editingExamIndex]);
+
   // ── Computed ──
-  const docCount = (rxEnabled ? 1 : 0) + (exEnabled ? 1 : 0) + (atEnabled ? 1 : 0);
+  const docCount = (rxEnabled ? 1 : 0) + (exEnabled ? 1 : 0) + (atEnabled ? 1 : 0) + (refEnabled ? 1 : 0);
   const docTags: string[] = [];
   if (rxEnabled) docTags.push(`Receita (${meds.length})`);
   if (exEnabled) docTags.push(`Exames (${exams.length})`);
   if (atEnabled) docTags.push(`Atestado (${certDays}d)`);
+  if (refEnabled) docTags.push('Encaminhamento');
 
   // ── Submit ──
   const handleSubmit = async () => {
     if (docCount === 0) {
       Alert.alert('Nenhum documento', 'Ative pelo menos um documento para emitir.');
+      return;
+    }
+    if (docCount > 4) {
+      Alert.alert('Limite excedido', 'Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
       return;
     }
     setSubmitting(true);
@@ -199,6 +315,14 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
           leaveStartDate: new Date().toISOString(),
           leavePeriod: 'integral',
           includeIcd10: certIncludeCid,
+        };
+      }
+      if (refEnabled && refProfessional.trim() && refReason.trim()) {
+        payload.referral = {
+          professionalName: refProfessional.trim(),
+          specialty: refSpecialty.trim() || undefined,
+          reason: refReason.trim(),
+          icd10Code: certCid || detectedCid || undefined,
         };
       }
 
@@ -270,18 +394,23 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
               </View>
               {meds.map((m, i) => (
                 <View key={`med-${i}`} style={S.item}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={S.itemName}>{m.drug}{m.concentration ? ` ${m.concentration}` : ''}</Text>
-                    {(m.posology || m.notes) && (
-                      <Text style={S.itemSub}>{[m.posology, m.notes].filter(Boolean).join(' · ')}</Text>
-                    )}
-                  </View>
-                  <TouchableOpacity style={S.itemRemove} onPress={() => removeMed(i)}>
+                  <Pressable style={{ flex: 1 }} onPress={() => openEditMed(i)}>
+                    <View>
+                      <Text style={S.itemName}>{m.drug}{m.concentration ? ` ${m.concentration}` : ''}</Text>
+                      {(m.posology || m.notes) && (
+                        <Text style={S.itemSub}>{[m.posology, m.notes].filter(Boolean).join(' · ')}</Text>
+                      )}
+                    </View>
+                  </Pressable>
+                  <TouchableOpacity style={S.itemEdit} onPress={() => openEditMed(i)} accessibilityLabel="Editar medicamento">
+                    <Ionicons name="create-outline" size={18} color="#2E5BFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={S.itemRemove} onPress={() => removeMed(i)} accessibilityLabel="Remover medicamento">
                     <Ionicons name="close" size={14} color="#E5484D" />
                   </TouchableOpacity>
                 </View>
               ))}
-              <TouchableOpacity style={S.addBtn}>
+              <TouchableOpacity style={S.addBtn} onPress={openAddMed} accessibilityLabel="Adicionar medicamento">
                 <Ionicons name="add" size={18} color="#2E5BFF" />
                 <Text style={S.addBtnText}>Adicionar medicamento</Text>
               </TouchableOpacity>
@@ -315,8 +444,13 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
               {/* Exam Items (colapsável) */}
               {exams.slice(0, exListExpanded ? undefined : 3).map((e, i) => (
                 <View key={`ex-${i}`} style={S.item}>
-                  <Text style={[S.itemName, { flex: 1 }]}>{e.description}</Text>
-                  <TouchableOpacity style={S.itemRemove} onPress={() => removeExam(i)}>
+                  <Pressable style={{ flex: 1 }} onPress={() => openEditExam(i)}>
+                    <Text style={S.itemName}>{e.description}</Text>
+                  </Pressable>
+                  <TouchableOpacity style={S.itemEdit} onPress={() => openEditExam(i)} accessibilityLabel="Editar exame">
+                    <Ionicons name="create-outline" size={18} color="#2E5BFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={S.itemRemove} onPress={() => removeExam(i)} accessibilityLabel="Remover exame">
                     <Ionicons name="close" size={14} color="#E5484D" />
                   </TouchableOpacity>
                 </View>
@@ -327,7 +461,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
                   <Text style={S.expandBtnText}>{exListExpanded ? 'Recolher' : `Ver todos (${exams.length})`}</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={S.addBtn}>
+              <TouchableOpacity style={S.addBtn} onPress={openAddExam} accessibilityLabel="Adicionar exame avulso">
                 <Ionicons name="add" size={18} color="#2E5BFF" />
                 <Text style={S.addBtnText}>Adicionar exame avulso</Text>
               </TouchableOpacity>
@@ -398,6 +532,32 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
           )}
         </View>
 
+        {/* ═══ ENCAMINHAMENTO ═══ */}
+        <View style={[S.panel, !refEnabled && S.panelOff]}>
+          <TouchableOpacity style={S.panelHead} onPress={() => refEnabled && setRefOpen(!refOpen)} activeOpacity={0.7}>
+            <View style={[S.panelDot, { backgroundColor: '#7C3AED' }]} />
+            <Text style={S.panelName}>Encaminhamento</Text>
+            <Text style={S.panelBadge}>{refProfessional.trim() || 'Médico/Prof.'}</Text>
+            <Switch value={refEnabled} onValueChange={(v) => { setRefEnabled(v); if (v) setRefOpen(true); }}
+              trackColor={{ false: '#D4D7DF', true: '#7C3AED' }} thumbColor="#fff" />
+            <Ionicons name={refOpen && refEnabled ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+          {refOpen && refEnabled && (
+            <View style={S.panelBody}>
+              <Text style={S.refHint}>Encaminhe o paciente para avaliação presencial conforme anamnese.</Text>
+              <Text style={S.fieldLabel}>Médico ou profissional *</Text>
+              <TextInput style={S.input} value={refProfessional} onChangeText={setRefProfessional}
+                placeholder="Ex: Dr. João Silva" placeholderTextColor={colors.textMuted} />
+              <Text style={S.fieldLabel}>Especialidade</Text>
+              <TextInput style={S.input} value={refSpecialty} onChangeText={setRefSpecialty}
+                placeholder="Ex: Cardiologia, Fisioterapia" placeholderTextColor={colors.textMuted} />
+              <Text style={S.fieldLabel}>Motivo / Indicação *</Text>
+              <TextInput style={S.textArea} value={refReason} onChangeText={setRefReason}
+                placeholder="Conforme anamnese, para avaliação de..." multiline placeholderTextColor={colors.textMuted} />
+            </View>
+          )}
+        </View>
+
         {/* ═══ RESUMO ═══ */}
         <View style={S.summary}>
           <Text style={S.summaryTitle}>
@@ -435,6 +595,59 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
         </Text>
 
       </ScrollView>
+
+      {/* Modal: Adicionar/Editar medicamento */}
+      <Modal visible={medModalVisible} transparent animationType="slide">
+        <Pressable style={S.modalOverlay} onPress={() => setMedModalVisible(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalKav}>
+            <Pressable style={S.modalCard} onPress={(e) => e.stopPropagation()}>
+              <Text style={S.modalTitle}>{editingMedIndex !== null ? 'Editar medicamento' : 'Adicionar medicamento'}</Text>
+              <Text style={S.fieldLabel}>Medicamento *</Text>
+              <TextInput style={S.input} value={medForm.drug} onChangeText={(v) => setMedForm((f) => ({ ...f, drug: v }))}
+                placeholder="Ex: Dipirona 500mg" placeholderTextColor={colors.textMuted} />
+              <Text style={S.fieldLabel}>Concentração (opcional)</Text>
+              <TextInput style={S.input} value={medForm.concentration ?? ''} onChangeText={(v) => setMedForm((f) => ({ ...f, concentration: v }))}
+                placeholder="Ex: 500mg" placeholderTextColor={colors.textMuted} />
+              <Text style={S.fieldLabel}>Posologia (opcional)</Text>
+              <TextInput style={S.input} value={medForm.posology ?? ''} onChangeText={(v) => setMedForm((f) => ({ ...f, posology: v }))}
+                placeholder="Ex: VO 6/6h por 5 dias" placeholderTextColor={colors.textMuted} />
+              <Text style={S.fieldLabel}>Indicação (opcional)</Text>
+              <TextInput style={S.input} value={medForm.notes ?? ''} onChangeText={(v) => setMedForm((f) => ({ ...f, notes: v }))}
+                placeholder="Ex: Febre e dor" placeholderTextColor={colors.textMuted} />
+              <View style={S.modalActs}>
+                <TouchableOpacity style={S.modalBtnSec} onPress={() => setMedModalVisible(false)}>
+                  <Text style={S.modalBtnSecText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.modalBtnPri} onPress={saveMed}>
+                  <Text style={S.modalBtnPriText}>{editingMedIndex !== null ? 'Salvar' : 'Adicionar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+
+      {/* Modal: Adicionar/Editar exame */}
+      <Modal visible={examModalVisible} transparent animationType="slide">
+        <Pressable style={S.modalOverlay} onPress={() => setExamModalVisible(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalKav}>
+            <Pressable style={S.modalCard} onPress={(e) => e.stopPropagation()}>
+              <Text style={S.modalTitle}>{editingExamIndex !== null ? 'Editar exame' : 'Adicionar exame avulso'}</Text>
+              <Text style={S.fieldLabel}>Descrição do exame *</Text>
+              <TextInput style={S.input} value={examForm.description} onChangeText={(v) => setExamForm((f) => ({ ...f, description: v }))}
+                placeholder="Ex: Hemograma completo" placeholderTextColor={colors.textMuted} />
+              <View style={S.modalActs}>
+                <TouchableOpacity style={S.modalBtnSec} onPress={() => setExamModalVisible(false)}>
+                  <Text style={S.modalBtnSecText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.modalBtnPri} onPress={saveExam}>
+                  <Text style={S.modalBtnPriText}>{editingExamIndex !== null ? 'Salvar' : 'Adicionar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -508,6 +721,10 @@ function makeStyles(c: DesignColors) {
     },
     itemName: { fontSize: 14, fontWeight: '500', color: '#1A1D26', lineHeight: 20 },
     itemSub: { fontSize: 12, color: '#9498A8', marginTop: 2 },
+    itemEdit: {
+      width: 32, height: 32, borderRadius: 8, backgroundColor: '#EEF2FF',
+      justifyContent: 'center', alignItems: 'center',
+    },
     itemRemove: {
       width: 28, height: 28, borderRadius: 8, backgroundColor: '#FEF2F2',
       justifyContent: 'center', alignItems: 'center',
@@ -541,6 +758,7 @@ function makeStyles(c: DesignColors) {
 
     // Fields
     fieldLabel: { fontSize: 12, fontWeight: '500', color: '#5E6272', marginBottom: 5 },
+    refHint: { fontSize: 12, color: '#6B7280', marginBottom: 12, lineHeight: 18 },
     input: {
       borderWidth: 1.5, borderColor: '#ECEDF1', borderRadius: 12,
       paddingHorizontal: 14, paddingVertical: 12, fontSize: 14,
@@ -597,5 +815,25 @@ function makeStyles(c: DesignColors) {
     },
     wppBtnText: { fontSize: 14, fontWeight: '500', color: '#166534' },
     footer: { fontSize: 11, color: '#9498A8', textAlign: 'center', marginTop: 12, lineHeight: 18 },
+
+    // Modal
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalKav: { flex: 1, justifyContent: 'flex-end' },
+    modalCard: {
+      backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      padding: 24, paddingBottom: 34,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A1D26', marginBottom: 16 },
+    modalActs: { flexDirection: 'row', gap: 12, marginTop: 20 },
+    modalBtnSec: {
+      flex: 1, height: 48, borderRadius: 12, backgroundColor: '#F4F5F7',
+      justifyContent: 'center', alignItems: 'center',
+    },
+    modalBtnSecText: { fontSize: 14, fontWeight: '600', color: '#5E6272' },
+    modalBtnPri: {
+      flex: 1, height: 48, borderRadius: 12, backgroundColor: '#2E5BFF',
+      justifyContent: 'center', alignItems: 'center',
+    },
+    modalBtnPriText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   });
 }

@@ -309,7 +309,7 @@ public class AuthService(
         await passwordResetTokenRepository.InvalidateByUserIdAsync(user.Id, cancellationToken);
         var resetToken = PasswordResetToken.Create(user.Id, expirationHours: 1);
         resetToken = await passwordResetTokenRepository.CreateAsync(resetToken, cancellationToken);
-        var baseUrl = smtpConfig.Value.ResetPasswordBaseUrl?.TrimEnd('/') ?? "https://renovejasaude.com.br/recuperar-senha";
+        var baseUrl = smtpConfig.Value.ResetPasswordBaseUrl?.TrimEnd('/') ?? "https://www.renovejasaude.com.br/recuperar-senha";
         var resetLink = $"{baseUrl}?token={Uri.EscapeDataString(resetToken.Token)}";
         await emailService.SendPasswordResetEmailAsync(user.Email.Value, user.Name, resetLink, cancellationToken);
     }

@@ -19,7 +19,8 @@ Referência completa das variáveis necessárias para o backend RenoveJá+.
 | `DAILY_ROOM_EXPIRY_MINUTES` | — | Expiração das salas em minutos (default: 120) | Opcional |
 | `DAILY_WEBHOOK_SECRET` | — | Secret para validar webhooks do Daily.co (Dashboard → Developers → Webhooks) | Recomendada |
 | `CertificateEncryption__Key` | `CertificateEncryption:Key` | Chave AES-256 em base64 para criptografar PFX dos médicos | ✅ |
-| `Google__ClientId` | `Google:ClientId` | Client ID Google OAuth | Login Google |
+| `Google__ClientId` | `Google:ClientId` | Client ID Google OAuth (Web) | Login Google |
+| `Google__AndroidClientId` | `Google:AndroidClientId` | Client ID Android (aceito como audience válido além do Web) | Login Google (Android) |
 | `Smtp__Host` | `Smtp:Host` | Host SMTP (ex: `smtp.gmail.com`) | Recuperação de senha |
 | `Smtp__Port` | `Smtp:Port` | Porta SMTP (ex: `587`) | Recuperação de senha |
 | `Smtp__UserName` | `Smtp:UserName` | E-mail remetente | Recuperação de senha |

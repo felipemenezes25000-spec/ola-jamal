@@ -33,4 +33,14 @@ public class VerificationConfig
     /// O endpoint /r/{shortCode} redireciona para /api/verify/{id}.
     /// </summary>
     public string ShortUrlBase { get; set; } = "";
+
+    /// <summary>
+    /// Máximo de downloads de 2ª via por receita (anti-fraude). Padrão: 10.
+    /// </summary>
+    public int MaxDownloadsPerPrescription { get; set; } = 10;
+
+    /// <summary>
+    /// Máximo de downloads por documento médico (exames, atestados). Padrão: 10.
+    /// </summary>
+    public int MaxDownloadsPerDocument { get; set; } = 10;
 }

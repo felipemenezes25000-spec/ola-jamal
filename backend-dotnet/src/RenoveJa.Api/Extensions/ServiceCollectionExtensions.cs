@@ -142,6 +142,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IClinicalSummaryService, OpenAiClinicalSummaryService>();
         services.AddScoped<ITriageEnrichmentService, OpenAiTriageEnrichmentService>();
         services.AddScoped<IPrescriptionVerifyRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerifyRepository>();
+        services.AddScoped<IPrescriptionVerificationLogRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerificationLogRepository>();
         services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();
         services.AddScoped<ITranscriptionService, RenoveJa.Infrastructure.Transcription.WhisperTranscriptionService>();
 

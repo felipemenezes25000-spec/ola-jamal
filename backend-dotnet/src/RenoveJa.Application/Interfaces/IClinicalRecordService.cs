@@ -14,6 +14,7 @@ public interface IClinicalRecordService
         EncounterType type,
         string? channel = null,
         string? reason = null,
+        Guid? sourceRequestId = null,
         CancellationToken cancellationToken = default);
 
     Task<Encounter> FinalizeEncounterAsync(

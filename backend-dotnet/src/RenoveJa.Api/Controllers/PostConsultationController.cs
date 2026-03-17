@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Clinical;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using System.Security.Claims;
 
@@ -19,6 +20,7 @@ public class PostConsultationController(
     IMedicalDocumentRepository medicalDocumentRepository,
     IRequestRepository requestRepository,
     IDocumentTokenService documentTokenService,
+    IStorageService storageService,
     IHttpClientFactory httpClientFactory,
     ILogger<PostConsultationController> logger) : ControllerBase
 {
@@ -66,6 +68,13 @@ public class PostConsultationController(
                 request.RequestId);
             return BadRequest(new { error = ex.Message });
         }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Post-consultation emit unexpected error for request {RequestId}: {Message}",
+                request.RequestId, ex.Message);
+            return StatusCode(500, new { error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -108,26 +117,31 @@ public class PostConsultationController(
                     expiresAt = sec?.expiresAt,
                     accessCode = sec?.accessCode,
                     dispensedCount = sec?.dispensedCount ?? 0,
-                    label = d.DocumentType switch
+                    label = d switch
                     {
-                        Domain.Enums.DocumentType.Prescription => "Receita médica",
-                        Domain.Enums.DocumentType.ExamOrder => "Pedido de exame",
-                        Domain.Enums.DocumentType.MedicalCertificate => "Atestado médico",
-                        Domain.Enums.DocumentType.MedicalReport => "Relatório médico",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.Prescription => "Receita médica",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.ExamOrder => "Pedido de exame",
+                        MedicalReport mr when mr.LeaveDays.HasValue && mr.LeaveDays > 0 => "Atestado médico",
+                        MedicalReport => "Encaminhamento",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.MedicalCertificate => "Atestado médico",
                         _ => "Documento"
                     },
-                    icon = d.DocumentType switch
+                    icon = d switch
                     {
-                        Domain.Enums.DocumentType.Prescription => "medkit",
-                        Domain.Enums.DocumentType.ExamOrder => "flask",
-                        Domain.Enums.DocumentType.MedicalCertificate => "document-text",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.Prescription => "medkit",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.ExamOrder => "flask",
+                        MedicalReport mr when mr.LeaveDays.HasValue && mr.LeaveDays > 0 => "document-text",
+                        MedicalReport => "people",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.MedicalCertificate => "document-text",
                         _ => "document"
                     },
-                    color = d.DocumentType switch
+                    color = d switch
                     {
-                        Domain.Enums.DocumentType.Prescription => "#2E5BFF",
-                        Domain.Enums.DocumentType.ExamOrder => "#00B27A",
-                        Domain.Enums.DocumentType.MedicalCertificate => "#E88D1A",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.Prescription => "#2E5BFF",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.ExamOrder => "#00B27A",
+                        MedicalReport mr when mr.LeaveDays.HasValue && mr.LeaveDays > 0 => "#E88D1A",
+                        MedicalReport => "#7C3AED",
+                        _ when d.DocumentType == Domain.Enums.DocumentType.MedicalCertificate => "#E88D1A",
                         _ => "#6B7280"
                     },
                 });
@@ -186,15 +200,27 @@ public class PostConsultationController(
                     return StatusCode(403, new { error = "Access denied" });
             }
 
-            // Streaming via backend — não redirecionar para S3 (pode ser privado)
-            var pdfUrl = await medicalDocumentRepository.GetSignedDocumentUrlAsync(documentId, cancellationToken);
-            if (string.IsNullOrEmpty(pdfUrl))
+            // Streaming via backend — usa IStorageService para buckets privados (S3)
+            var refOrUrl = await medicalDocumentRepository.GetSignedDocumentUrlAsync(documentId, cancellationToken);
+            if (string.IsNullOrEmpty(refOrUrl))
                 return NotFound(new { error = "PDF not yet available. Document may not be signed." });
 
-            // FIX B29: Use IHttpClientFactory instead of raw HttpClient to avoid socket exhaustion
-            var httpClient = httpClientFactory.CreateClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(30);
-            var pdfBytes = await httpClient.GetByteArrayAsync(pdfUrl);
+            byte[]? pdfBytes = null;
+            var pathOrUrl = refOrUrl.Trim();
+            if (!pathOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                pdfBytes = await storageService.DownloadAsync(pathOrUrl, cancellationToken);
+            else
+            {
+                pdfBytes = await storageService.DownloadFromStorageUrlAsync(pathOrUrl, cancellationToken);
+                if (pdfBytes == null)
+                {
+                    var httpClient = httpClientFactory.CreateClient();
+                    httpClient.Timeout = TimeSpan.FromSeconds(30);
+                    pdfBytes = await httpClient.GetByteArrayAsync(pathOrUrl, cancellationToken);
+                }
+            }
+            if (pdfBytes == null || pdfBytes.Length == 0)
+                return NotFound(new { error = "Document not found." });
             return File(pdfBytes, "application/pdf", $"document-{documentId}.pdf");
         }
         catch (Exception ex)

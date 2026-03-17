@@ -19,7 +19,8 @@
       {"name": "Cors__AllowedOrigins__1", "value": "https://www.renovejasaude.com.br"},
       {"name": "Cors__AllowedOrigins__2", "value": "https://admin.renovejasaude.com.br"},
       {"name": "Cors__AllowedOrigins__3", "value": "https://medico.renovejasaude.com.br"},
-      {"name": "Cors__AllowedOrigins__4", "value": "https://app.renovejasaude.com.br"}
+      {"name": "Cors__AllowedOrigins__4", "value": "https://app.renovejasaude.com.br"},
+      {"name": "Verification__FrontendUrl", "value": "https://www.renovejasaude.com.br/verify"}
     ],
     "secrets": [
       {"name": "ConnectionStrings__DefaultConnection", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/ConnectionStrings__DefaultConnection"},
@@ -40,7 +41,8 @@
       {"name": "Api__BaseUrl", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Api__BaseUrl"},
       {"name": "Api__DocumentTokenSecret", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Api__DocumentTokenSecret"},
       {"name": "Verification__BaseUrl", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Verification__BaseUrl"},
-      {"name": "Google__ClientId", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Google__ClientId"}
+      {"name": "Google__ClientId", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Google__ClientId"},
+      {"name": "Google__AndroidClientId", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Google__AndroidClientId"}
     ],
     "healthCheck": {
       "command": ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/health/live || exit 1"],

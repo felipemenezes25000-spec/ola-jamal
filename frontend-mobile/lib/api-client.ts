@@ -191,6 +191,7 @@ class ApiClient {
             errorData.message ||
             errorData.title ||
             errorData.detail ||
+            errorData.error ||
             firstError ||
             `${response.status} ${response.statusText}`;
           const err: ApiError = {

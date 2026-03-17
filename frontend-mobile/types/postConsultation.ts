@@ -43,6 +43,13 @@ export interface MedicalCertificateEmit {
   includeIcd10: boolean;
 }
 
+export interface ReferralEmit {
+  professionalName: string;
+  specialty?: string;
+  reason: string;
+  icd10Code?: string;
+}
+
 export interface PostConsultationEmitRequest {
   requestId: string;
   mainIcd10Code?: string;
@@ -56,6 +63,7 @@ export interface PostConsultationEmitRequest {
   prescription?: PrescriptionEmit;
   examOrder?: ExamOrderEmit;
   medicalCertificate?: MedicalCertificateEmit;
+  referral?: ReferralEmit;
 }
 
 // ── Response DTO ──
@@ -65,6 +73,7 @@ export interface PostConsultationEmitResponse {
   prescriptionId?: string;
   examOrderId?: string;
   medicalCertificateId?: string;
+  referralId?: string;
   documentsEmitted: number;
   documentTypes: string[];
   message: string;

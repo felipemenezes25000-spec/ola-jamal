@@ -47,6 +47,22 @@ public record PostConsultationEmitRequest
     // ── Atestado (opcional) ──
     /// <summary>Se não-nulo, emite atestado médico.</summary>
     public MedicalCertificateEmitDto? MedicalCertificate { get; init; }
+
+    // ── Encaminhamento (opcional) ──
+    /// <summary>Se não-nulo, emite encaminhamento para médico/profissional presencial.</summary>
+    public ReferralEmitDto? Referral { get; init; }
+}
+
+public record ReferralEmitDto
+{
+    /// <summary>Nome do médico ou profissional para quem encaminhar.</summary>
+    [Required] public string ProfessionalName { get; init; } = null!;
+    /// <summary>Especialidade ou área (ex: Cardiologia, Fisioterapia).</summary>
+    public string? Specialty { get; init; }
+    /// <summary>Motivo/indicação do encaminhamento (conforme anamnese).</summary>
+    [Required] public string Reason { get; init; } = null!;
+    /// <summary>CID-10 relacionado (opcional).</summary>
+    public string? Icd10Code { get; init; }
 }
 
 public record PrescriptionEmitDto
@@ -107,6 +123,7 @@ public record PostConsultationEmitResponse
     public Guid? PrescriptionId { get; init; }
     public Guid? ExamOrderId { get; init; }
     public Guid? MedicalCertificateId { get; init; }
+    public Guid? ReferralId { get; init; }
     public int DocumentsEmitted { get; init; }
     public List<string> DocumentTypes { get; init; } = [];
     public string Message { get; init; } = null!;

@@ -6,6 +6,7 @@
 |------|--------|
 | IDs no `.env` do frontend | ✅ Web, Android, iOS |
 | `Google__ClientId` na API (AWS) | ✅ Configurado |
+| `Google__AndroidClientId` na API (AWS) | ⚠️ Verificar — use `infra/scripts/ssm-set-google-auth.ps1` |
 | Credenciais OAuth no projeto 462336676738 | ✅ Provavelmente criadas |
 
 ---
@@ -66,7 +67,7 @@ Para descobrir seu usuário Expo: rode `npx expo whoami` no terminal.
 | Erro | Causa | Solução |
 |------|-------|---------|
 | `redirect_uri_mismatch` | URI não está na lista do Cliente Web | Adicione a URI exata que o Expo usa |
-| `Token do Google inválido` | Backend com Client ID errado | `Google__ClientId` = Web Client ID |
+| `Token do Google inválido` | Backend com Client ID errado | `Google__ClientId` = Web Client ID; `Google__AndroidClientId` = Android Client ID (SSM) |
 | `idpiframe_initialization_failed` | Domínio não autorizado | Adicione domínio na tela de consentimento |
 | Login não abre no Expo Go | Limitações do proxy auth.expo.io | Use development build (`expo run:ios` / `expo run:android`) |
 

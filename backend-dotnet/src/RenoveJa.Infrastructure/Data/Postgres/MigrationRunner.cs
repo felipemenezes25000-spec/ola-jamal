@@ -471,6 +471,26 @@ public static class MigrationRunner
     };
 
     /// <summary>
+    /// Log de verificações e downloads de receitas (anti-fraude, auditoria LGPD).
+    /// </summary>
+    private static readonly string[] PrescriptionVerificationLogsMigrations =
+    {
+        """
+        CREATE TABLE IF NOT EXISTS public.prescription_verification_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            prescription_id UUID NOT NULL,
+            action TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_prescription_verification_logs_prescription ON public.prescription_verification_logs(prescription_id)",
+        "CREATE INDEX IF NOT EXISTS idx_prescription_verification_logs_created ON public.prescription_verification_logs(created_at DESC)",
+    };
+
+    /// <summary>
     /// Executa todas as migrations. Só roda se DatabaseUrl estiver definida.
     /// </summary>
     public static async Task RunAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
@@ -510,6 +530,7 @@ public static class MigrationRunner
             ("care_plans", CarePlanMigrations),
             ("encounter_enrichment", EncounterEnrichmentMigrations),
             ("document_security", DocumentSecurityMigrations),
+            ("prescription_verification_logs", PrescriptionVerificationLogsMigrations),
             ("cleanup_supabase_urls", CleanupSupabaseUrlsMigrations)
         };
 

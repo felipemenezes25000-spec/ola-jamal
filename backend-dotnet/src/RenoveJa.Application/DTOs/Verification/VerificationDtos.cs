@@ -78,5 +78,6 @@ public record PrescriptionVerifyResponse(
     string? PatientName,
     string? DoctorName,
     string? DoctorCrm,
-    string? DownloadUrl
+    string? DownloadUrl,
+    bool WasDispensed = false
 );

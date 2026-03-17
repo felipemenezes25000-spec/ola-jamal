@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- Schema completo RenoveJá+ para RDS PostgreSQL
 -- Gerado automaticamente a partir do banco AWS. Data: 2026-03-17
 -- ============================================================
@@ -683,6 +683,23 @@ CREATE TABLE IF NOT EXISTS public.prescriptions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_prescriptions_verify_code_hash ON public.prescriptions USING btree (verify_code_hash) WHERE (verify_code_hash <> ''::text);
+
+-- ============================================================
+-- prescription_verification_logs (anti-fraude, auditoria LGPD)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.prescription_verification_logs (
+    id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    prescription_id UUID NOT NULL,
+    action TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_prescription_verification_logs_prescription ON public.prescription_verification_logs USING btree (prescription_id);
+CREATE INDEX IF NOT EXISTS idx_prescription_verification_logs_created ON public.prescription_verification_logs USING btree (created_at DESC);
 
 -- ============================================================
 -- product_prices

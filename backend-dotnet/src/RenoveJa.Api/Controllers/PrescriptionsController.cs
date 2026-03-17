@@ -18,6 +18,7 @@ namespace RenoveJa.Api.Controllers;
 [EnableRateLimiting("verify")]
 public class PrescriptionsController(
     IPrescriptionVerifyRepository prescriptionVerifyRepository,
+    IPrescriptionVerificationLogRepository verificationLogRepository,
     IRequestRepository requestRepository,
     IDoctorRepository doctorRepository,
     IOptions<ApiConfig> apiConfig,
@@ -48,6 +49,7 @@ public class PrescriptionsController(
         if (code.Length != 4 && code.Length != 6)
         {
             logger.LogDebug("Verificação de receita com código de tamanho inválido: {PrescriptionId}", id);
+            await verificationLogRepository.LogAsync(id, "verify", "invalid_code_format", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
             return Ok(new PrescriptionVerifyResponse(
                 IsValid: false,
                 Status: "invalid",
@@ -64,6 +66,7 @@ public class PrescriptionsController(
         if (!codeValid)
         {
             logger.LogDebug("Código de verificação inválido para receita {PrescriptionId}", id);
+            await verificationLogRepository.LogAsync(id, "verify", "invalid_code", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
             return Ok(new PrescriptionVerifyResponse(
                 IsValid: false,
                 Status: "invalid",
@@ -79,6 +82,7 @@ public class PrescriptionsController(
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
         {
+            await verificationLogRepository.LogAsync(id, "verify", "not_found", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
             return Ok(new PrescriptionVerifyResponse(
                 IsValid: false,
                 Status: "invalid",
@@ -93,6 +97,7 @@ public class PrescriptionsController(
 
         if (request.SignedAt == null)
         {
+            await verificationLogRepository.LogAsync(id, "verify", "not_signed", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
             return Ok(new PrescriptionVerifyResponse(
                 IsValid: false,
                 Status: "invalid",
@@ -107,6 +112,7 @@ public class PrescriptionsController(
 
         if (request.Status == RequestStatus.Cancelled)
         {
+            await verificationLogRepository.LogAsync(id, "verify", "revoked", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
             return Ok(new PrescriptionVerifyResponse(
                 IsValid: false,
                 Status: "invalid",
@@ -136,6 +142,10 @@ public class PrescriptionsController(
             ? null
             : $"{baseUrl}/api/verify/{id}/document?code={Uri.EscapeDataString(code)}";
 
+        await verificationLogRepository.LogAsync(id, "verify", "success", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
+
+        var wasDispensed = await prescriptionVerifyRepository.IsDispensedAsync(id, cancellationToken);
+
         return Ok(new PrescriptionVerifyResponse(
             IsValid: true,
             Status: "valid",
@@ -145,6 +155,7 @@ public class PrescriptionsController(
             PatientName: request.PatientName,
             DoctorName: request.DoctorName,
             DoctorCrm: doctorCrmFull,
-            DownloadUrl: downloadUrl));
+            DownloadUrl: downloadUrl,
+            WasDispensed: wasDispensed));
     }
 }

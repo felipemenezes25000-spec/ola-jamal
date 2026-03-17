@@ -403,16 +403,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 2
             }));
 
-    // Limiter para verificação pública: 30 req/min
+    // Limiter para verificação pública: 5 req/min por IP (anti-fraude endurecido)
     options.AddPolicy("verify", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 30,
+                PermitLimit = 5,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 5
+                QueueLimit = 2
             }));
 
     // Limiter para forgot-password: 5 req/min

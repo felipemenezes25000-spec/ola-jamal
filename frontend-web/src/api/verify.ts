@@ -28,6 +28,7 @@ export interface PrescriptionVerifyResponse {
   doctorName?: string | null;
   doctorCrm?: string | null;
   downloadUrl?: string | null;
+  wasDispensed?: boolean;
 }
 
 /** Dados exibidos na UI apenas quando a verificação é válida (sem fallbacks). */
@@ -39,6 +40,7 @@ export interface VerifySuccess {
   doctorName: string | null;
   doctorCrm: string | null;
   downloadUrl: string | null;
+  wasDispensed?: boolean;
 }
 
 export type VerifyResponse =
@@ -127,8 +129,37 @@ export async function verifyReceita(payload: VerifyPayload): Promise<VerifyRespo
       doctorName: data.doctorName ?? null,
       doctorCrm: data.doctorCrm ?? null,
       downloadUrl: data.downloadUrl ?? null,
+      wasDispensed: data.wasDispensed ?? false,
     },
   };
+}
+
+/** Marca receita como dispensada (farmácia). Endpoint público: POST /api/verify/{id}/dispense */
+export async function dispensePrescription(
+  prescriptionId: string,
+  code: string,
+  pharmacyName: string,
+  pharmacistName: string
+): Promise<{ success: boolean; error?: string }> {
+  const apiBase = getApiBaseUrl();
+  if (!apiBase) return { success: false, error: 'URL da API não configurada.' };
+
+  try {
+    const res = await fetch(`${apiBase}/api/verify/${prescriptionId}/dispense`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessCode: code.trim(),
+        pharmacyName: pharmacyName.trim(),
+        pharmacistName: pharmacistName.trim(),
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+    if (!res.ok) return { success: false, error: data?.error ?? `Erro ${res.status}` };
+    return { success: data?.success ?? false, error: data?.error };
+  } catch {
+    return { success: false, error: 'Erro de conexão.' };
+  }
 }
 
 
@@ -144,6 +175,8 @@ export interface DocumentVerifyResult {
   dispenseCount?: number;
   dispensedWarning?: string | null;
   verificationUrl?: string;
+  /** URL para baixar o PDF após verificação (GET com código na query). */
+  downloadUrl?: string | null;
   message: string;
   reason?: string;
 }
@@ -165,17 +198,29 @@ export async function verifyDocument(documentId: string, code: string): Promise<
   }
 }
 
-export async function dispenseDocument(documentId: string, pharmacyName: string): Promise<{ success: boolean; message: string }> {
+/** Dispense com código (público — receitas, exames, atestados). */
+export async function dispenseDocument(
+  documentId: string,
+  code: string,
+  pharmacyName: string,
+  pharmacistName: string
+): Promise<{ success: boolean; message: string }> {
   const apiBase = getApiBaseUrl();
   if (!apiBase) return { success: false, message: 'URL da API não configurada.' };
 
   try {
-    const res = await fetch(`${apiBase}/api/documents/${documentId}/dispense`, {
+    const res = await fetch(`${apiBase}/api/documents/${documentId}/dispense-by-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pharmacyName }),
+      body: JSON.stringify({
+        code: code.trim(),
+        pharmacyName: pharmacyName.trim(),
+        pharmacistName: pharmacistName.trim(),
+      }),
     });
-    return await res.json().catch(() => ({ success: false, message: 'Erro ao processar.' }));
+    const data = (await res.json().catch(() => ({}))) as { success?: boolean; message?: string; error?: string };
+    if (!res.ok) return { success: false, message: data?.error ?? data?.message ?? 'Erro ao processar.' };
+    return { success: data?.success ?? false, message: data?.message ?? data?.error ?? '' };
   } catch {
     return { success: false, message: 'Erro de conexão.' };
   }

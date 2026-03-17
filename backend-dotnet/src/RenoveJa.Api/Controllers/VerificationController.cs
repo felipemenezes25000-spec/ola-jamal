@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Http;
@@ -30,6 +30,7 @@ namespace RenoveJa.Api.Controllers;
 public class VerificationController(
     IVerificationService verificationService,
     IPrescriptionVerifyRepository prescriptionVerifyRepository,
+    IPrescriptionVerificationLogRepository verificationLogRepository,
     IRequestRepository requestRepository,
     IHttpClientFactory httpClientFactory,
     IStorageService storageService,
@@ -138,12 +139,35 @@ public class VerificationController(
         CancellationToken cancellationToken)
     {
         var trimmed = code?.Trim() ?? "";
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+
         if (trimmed.Length != 4 && trimmed.Length != 6)
+        {
+            await verificationLogRepository.LogAsync(id, "download", "invalid_code_format", ip, userAgent, cancellationToken);
             return BadRequest(new { error = "Código de verificação inválido. Informe o código de 4 ou 6 dígitos do documento." });
+        }
 
         var valid = await prescriptionVerifyRepository.ValidateVerifyCodeAsync(id, trimmed, cancellationToken);
         if (!valid)
+        {
+            await verificationLogRepository.LogAsync(id, "download", "invalid_code", ip, userAgent, cancellationToken);
             return Unauthorized(new { error = "Código inválido ou expirado." });
+        }
+
+        if (await prescriptionVerifyRepository.IsDispensedAsync(id, cancellationToken))
+        {
+            await verificationLogRepository.LogAsync(id, "download", "blocked_dispensed", ip, userAgent, cancellationToken);
+            return StatusCode(403, new { error = "Download bloqueado. Esta receita já foi dispensada na farmácia." });
+        }
+
+        var maxDownloads = verificationConfig.Value?.MaxDownloadsPerPrescription ?? 10;
+        var downloadCount = await verificationLogRepository.GetDownloadCountAsync(id, cancellationToken);
+        if (downloadCount >= maxDownloads)
+        {
+            await verificationLogRepository.LogAsync(id, "download", "blocked_limit", ip, userAgent, cancellationToken);
+            return StatusCode(403, new { error = $"Limite de downloads atingido ({maxDownloads} por receita). Contate o suporte se precisar de outra via." });
+        }
 
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null || string.IsNullOrWhiteSpace(request.SignedDocumentUrl))
@@ -175,6 +199,8 @@ public class VerificationController(
 
             if (bytes == null || bytes.Length == 0)
                 return NotFound(new { error = "Documento não encontrado." });
+
+            await verificationLogRepository.LogAsync(id, "download", "success", ip, userAgent, cancellationToken);
 
             // inline para compatibilidade com validar.iti.gov.br (evita problemas ao processar via URL)
             Response.Headers.ContentDisposition = $"inline; filename=\"receita-{id}.pdf\"";

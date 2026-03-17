@@ -48,6 +48,13 @@ public class DocumentAccessLogRepository(PostgresClient db) : IDocumentAccessLog
         return models.Count;
     }
 
+    public async Task<int> GetDownloadCountAsync(Guid documentId, CancellationToken ct = default)
+    {
+        var filter = $"document_id=eq.{documentId}&action=eq.download";
+        var models = await db.GetAllAsync<AccessLogModel>(TableName, filter: filter, cancellationToken: ct);
+        return models.Count;
+    }
+
     private static DocumentAccessEntry MapToEntry(AccessLogModel m) => new()
     {
         DocumentId = m.DocumentId,

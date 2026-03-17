@@ -58,10 +58,11 @@ public class ClinicalRecordService(
         EncounterType type,
         string? channel = null,
         string? reason = null,
+        Guid? sourceRequestId = null,
         CancellationToken cancellationToken = default)
     {
         var encounter = Encounter.Start(patientId, practitionerId, type, channel: channel, reason: reason);
-        encounter = await encounterRepository.CreateAsync(encounter, cancellationToken);
+        encounter = await encounterRepository.CreateAsync(encounter, cancellationToken, sourceRequestId);
 
         await auditService.LogModificationAsync(
             practitionerId,

@@ -91,9 +91,9 @@ O `appsettings.json` já está configurado com o Client ID.
 ### Produção (AWS)
 
 1. Acesse a **Task Definition** ou **Parameter Store** da API (AWS)
-2. **Environment** → **Add Environment Variable**
-3. Nome: `Google__ClientId`
-4. Valor: o **mesmo** que `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+2. **Environment** → **Add Environment Variable** (ou SSM secrets)
+3. Nome: `Google__ClientId` — valor igual a `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+4. Nome: `Google__AndroidClientId` — valor igual a `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` (obrigatório para login Android)
 5. Salve e faça **redeploy** do serviço
 
 ---
@@ -129,6 +129,6 @@ O `appsettings.json` já está configurado com o Client ID.
 | Problema | Solução |
 |----------|---------|
 | Botão "Continuar com Google" desabilitado | Verifique se o `.env` tem as variáveis `EXPO_PUBLIC_GOOGLE_*` e reinicie o Metro |
-| "Token do Google inválido" | O `Google__ClientId` do backend deve ser **igual** ao Web Client ID do frontend |
+| "Token do Google inválido" | O `Google__ClientId` do backend deve ser **igual** ao Web Client ID do frontend; em produção AWS, configure também `Google__AndroidClientId` via SSM |
 | Popup não abre | No Expo Go, pode haver limitações; teste em build de desenvolvimento (EAS) |
 | "Login com Google indisponível" | Confirme que as credenciais OAuth estão ativas no Google Cloud Console |

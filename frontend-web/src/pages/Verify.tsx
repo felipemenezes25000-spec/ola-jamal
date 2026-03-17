@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { verifyReceita, verifyDocument, dispenseDocument, type VerifySuccess, type DocumentVerifyResult } from '@/api/verify';
+import { verifyReceita, verifyDocument, dispenseDocument, dispensePrescription, type VerifySuccess, type DocumentVerifyResult } from '@/api/verify';
 import '@/styles/recuperar-verify.css';
 
 type VerifyState = 'idle' | 'loading' | 'success' | 'error';
@@ -8,10 +8,11 @@ type VerifyState = 'idle' | 'loading' | 'success' | 'error';
 const GUARDRAIL_ALERT =
   'Importante: Decisão e responsabilidade é do profissional. Conteúdo exibido para verificação.';
 
-// FIX #10: Domínios permitidos para download de PDF
+// FIX #10: Domínios permitidos para download de PDF (incl. 127.0.0.1 para dev local)
 const ALLOWED_DOWNLOAD_DOMAINS = [
   'renovejasaude.com.br',
   'localhost',
+  '127.0.0.1',
 ];
 
 function isAllowedDownloadUrl(url: string): boolean {
@@ -149,6 +150,13 @@ export default function Verify() {
         {state === 'success' && result && (
           <div style={styles.success}>
             <p style={styles.validBadge}>✓ Receita válida</p>
+            {result.wasDispensed && (
+              <div style={{ padding: '12px 16px', backgroundColor: '#FEF3C7', borderRadius: 12, marginBottom: 12, border: '1px solid #FDE68A' }}>
+                <p style={{ margin: 0, fontSize: 14, color: '#92400E', fontWeight: 600 }}>
+                  ⚠️ Esta receita já foi dispensada na farmácia. Não pode ser utilizada novamente.
+                </p>
+              </div>
+            )}
             <div style={styles.metaGrid}>
               {result.issuedAt && (
                 <div style={styles.metaRow}>
@@ -184,16 +192,29 @@ export default function Verify() {
             <p style={styles.successNote}>Verificação concluída com sucesso.</p>
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 // FIX #10: Valida domínio do downloadUrl antes de abrir
-                if (result.downloadUrl) {
-                  if (isAllowedDownloadUrl(result.downloadUrl)) {
-                    window.open(result.downloadUrl, '_blank', 'noopener,noreferrer');
-                  } else {
-                    alert('URL de download inválida. Contate o suporte.');
-                  }
-                } else {
+                if (!result.downloadUrl) {
                   alert('Download não disponível. O PDF pode ainda estar sendo processado.');
+                  return;
+                }
+                if (!isAllowedDownloadUrl(result.downloadUrl)) {
+                  alert('URL de download inválida. Contate o suporte.');
+                  return;
+                }
+                try {
+                  const res = await fetch(result.downloadUrl);
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({})) as { error?: string };
+                    alert(err?.error ?? 'Não foi possível baixar o PDF. Tente novamente.');
+                    return;
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                  URL.revokeObjectURL(url);
+                } catch {
+                  alert('Erro ao baixar o PDF. Verifique sua conexão e tente novamente.');
                 }
               }}
               style={{
@@ -204,6 +225,36 @@ export default function Verify() {
             >
               Baixar PDF (2ª via)
             </button>
+            {/* Botão dispensar (para farmacêuticos) — receitas via prescriptions */}
+            {!result.wasDispensed && (
+              <button
+                type="button"
+                disabled={dispensing}
+                onClick={async () => {
+                  const pharmacy = prompt('Nome da farmácia:');
+                  if (!pharmacy?.trim()) return;
+                  const pharmacist = prompt('Nome do(a) farmacêutico(a):');
+                  if (!pharmacist?.trim()) return;
+                  setDispensing(true);
+                  try {
+                    const res = await dispensePrescription(id!.trim(), code.trim(), pharmacy, pharmacist);
+                    if (res.success) {
+                      alert('Receita marcada como dispensada.');
+                      setResult({ ...result, wasDispensed: true });
+                    } else {
+                      alert(res.error ?? 'Erro ao dispensar. Tente novamente.');
+                    }
+                  } catch {
+                    alert('Erro ao dispensar receita. Tente novamente.');
+                  } finally {
+                    setDispensing(false);
+                  }
+                }}
+                style={{ ...styles.button, marginTop: 12, backgroundColor: '#059669' }}
+              >
+                {dispensing ? 'Marcando...' : '✓ Marcar como dispensado'}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => { setState('idle'); setCode(''); setResult(null); setDocResult(null); }}
@@ -246,26 +297,61 @@ export default function Verify() {
               )}
             </div>
             <p style={styles.successNote}>{docResult.message}</p>
+            {docResult.downloadUrl && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!docResult.downloadUrl) return;
+                  if (!isAllowedDownloadUrl(docResult.downloadUrl)) {
+                    alert('URL de download inválida. Contate o suporte.');
+                    return;
+                  }
+                  try {
+                    const res = await fetch(docResult.downloadUrl);
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({})) as { error?: string };
+                      alert(err?.error ?? 'Não foi possível baixar o PDF. Tente novamente.');
+                      return;
+                    }
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                    URL.revokeObjectURL(url);
+                  } catch {
+                    alert('Erro ao baixar o PDF. Verifique sua conexão e tente novamente.');
+                  }
+                }}
+                style={{
+                  ...styles.downloadButton,
+                  opacity: 1,
+                  cursor: 'pointer',
+                }}
+              >
+                Baixar PDF (2ª via)
+              </button>
+            )}
             {docResult.verificationUrl && (
               <p style={{ fontSize: 12, color: '#6B7280', marginTop: 8, textAlign: 'center' as const }}>
                 Validar assinatura ICP-Brasil em: <a href={docResult.verificationUrl} target="_blank" rel="noopener noreferrer"
                   style={{ color: '#2563EB' }}>{docResult.verificationUrl}</a>
               </p>
             )}
-            {/* Botão dispensar (para farmacêuticos) */}
-            {!docResult.wasDispensed && docResult.documentTypeCode === 'prescription' && (
+            {/* Botão dispensar/utilizado (receitas, exames, atestados — todos ICP-Brasil) */}
+            {!docResult.wasDispensed && (
               <button
                 type="button"
                 disabled={dispensing}
                 onClick={async () => {
-                  const pharmacy = prompt('Nome da farmácia:');
-                  if (!pharmacy) return;
+                  const pharmacy = prompt('Nome da farmácia/clínica/laboratório:');
+                  if (!pharmacy?.trim()) return;
+                  const pharmacist = prompt('Nome do(a) farmacêutico(a) ou responsável:');
+                  if (!pharmacist?.trim()) return;
                   setDispensing(true);
                   try {
-                    const res = await dispenseDocument(id!.trim(), pharmacy);
+                    const res = await dispenseDocument(id!.trim(), code.trim(), pharmacy, pharmacist);
                     if (res.success) {
-                      alert('Documento marcado como dispensado.');
-                      setDocResult({ ...docResult, wasDispensed: true, dispensedWarning: 'Dispensado agora.' });
+                      alert('Documento marcado como dispensado/utilizado.');
+                      setDocResult({ ...docResult, wasDispensed: true, dispensedWarning: 'Dispensado/utilizado agora.' });
                     } else {
                       alert(res.message);
                     }
@@ -277,7 +363,7 @@ export default function Verify() {
                 }}
                 style={{ ...styles.button, marginTop: 12, backgroundColor: '#059669' }}
               >
-                {dispensing ? 'Marcando...' : '✓ Marcar como dispensado'}
+                {dispensing ? 'Marcando...' : '✓ Marcar como dispensado/utilizado'}
               </button>
             )}
             <button

@@ -235,6 +235,12 @@ export interface PostConsultationEmitPayload {
     leavePeriod?: 'integral' | 'meio_periodo';
     includeIcd10: boolean;
   };
+  referral?: {
+    professionalName: string;
+    specialty?: string;
+    reason: string;
+    icd10Code?: string;
+  };
 }
 
 export interface PostConsultationEmitResult {
@@ -242,6 +248,7 @@ export interface PostConsultationEmitResult {
   prescriptionId?: string;
   examOrderId?: string;
   medicalCertificateId?: string;
+  referralId?: string;
   documentsEmitted: number;
   documentTypes: string[];
   message: string;

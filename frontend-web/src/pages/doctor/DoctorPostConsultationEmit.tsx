@@ -110,6 +110,17 @@ function extractExamsFromAnamnesis(anam: Record<string, unknown> | null): ExamIt
   });
 }
 
+function extractReferralFromAnamnesis(anam: Record<string, unknown> | null): { professional?: string; specialty?: string; reason?: string } | null {
+  if (!anam?.encaminhamento_sugerido) return null;
+  const enc = anam.encaminhamento_sugerido as Record<string, string>;
+  if (!enc?.profissional && !enc?.motivo) return null;
+  return {
+    professional: enc.profissional ?? enc.medico ?? enc.professional,
+    specialty: enc.especialidade ?? enc.specialty,
+    reason: enc.motivo ?? enc.reason ?? enc.indication,
+  };
+}
+
 export default function DoctorPostConsultationEmit() {
   const { requestId } = useParams<{ requestId: string }>();
   const navigate = useNavigate();
@@ -129,11 +140,13 @@ export default function DoctorPostConsultationEmit() {
   const [rxOn, setRxOn] = useState(true);
   const [exOn, setExOn] = useState(false);
   const [atOn, setAtOn] = useState(false);
+  const [refOn, setRefOn] = useState(false);
 
   // Sections
   const [rxOpen, setRxOpen] = useState(true);
   const [exOpen, setExOpen] = useState(false);
   const [atOpen, setAtOpen] = useState(false);
+  const [refOpen, setRefOpen] = useState(false);
   const [cidPickerOpen, setCidPickerOpen] = useState(false);
   const [exListExpanded, setExListExpanded] = useState(false);
 
@@ -151,6 +164,11 @@ export default function DoctorPostConsultationEmit() {
   const [certCid, setCertCid] = useState(detectedCid ?? '');
   const [certDays, setCertDays] = useState(cidPkg?.days ?? 3);
   const [certIncludeCid, setCertIncludeCid] = useState(true);
+
+  // Referral (encaminhamento)
+  const [refProfessional, setRefProfessional] = useState('');
+  const [refSpecialty, setRefSpecialty] = useState('');
+  const [refReason, setRefReason] = useState('');
 
   useEffect(() => {
     if (!requestId) return;
@@ -180,6 +198,15 @@ export default function DoctorPostConsultationEmit() {
     setExOpen(finalExams.length > 0);
     setAtOn((pkg?.days ?? 0) > 0);
     setAtOpen((pkg?.days ?? 0) > 0);
+
+    const refSug = extractReferralFromAnamnesis(anamnesis);
+    if (refSug?.professional || refSug?.reason) {
+      setRefProfessional(refSug.professional ?? '');
+      setRefSpecialty(refSug.specialty ?? '');
+      setRefReason(refSug.reason ?? '');
+      setRefOn(true);
+      setRefOpen(true);
+    }
   }, [request, anamnesis, detectedCid]);
 
   const loadCid = useCallback((code: string) => {
@@ -200,10 +227,14 @@ export default function DoctorPostConsultationEmit() {
     setExamJust(pkg.just); setExOn(true); setExOpen(true);
   }, []);
 
-  const docCount = (rxOn ? 1 : 0) + (exOn ? 1 : 0) + (atOn ? 1 : 0);
+  const docCount = (rxOn ? 1 : 0) + (exOn ? 1 : 0) + (atOn ? 1 : 0) + (refOn ? 1 : 0);
 
   const handleSubmit = async () => {
     if (!requestId || docCount === 0) return;
+    if (docCount > 4) {
+      toast.error('Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload: PostConsultationEmitPayload = {
@@ -220,6 +251,14 @@ export default function DoctorPostConsultationEmit() {
           certificateType: certType, body: certBody, icd10Code: certCid || undefined,
           leaveDays: certDays, leaveStartDate: new Date().toISOString(),
           leavePeriod: 'integral', includeIcd10: certIncludeCid,
+        };
+      }
+      if (refOn && refProfessional.trim() && refReason.trim()) {
+        payload.referral = {
+          professionalName: refProfessional.trim(),
+          specialty: refSpecialty.trim() || undefined,
+          reason: refReason.trim(),
+          icd10Code: certCid || detectedCid || undefined,
         };
       }
       const result = await emitPostConsultationDocuments(payload);
@@ -439,6 +478,44 @@ export default function DoctorPostConsultationEmit() {
           )}
         </Card>
 
+        {/* ═══ ENCAMINHAMENTO ═══ */}
+        <Card className={!refOn ? 'opacity-35 pointer-events-none' : ''}>
+          <CardHeader className="pb-2 cursor-pointer" onClick={() => refOn && setRefOpen(!refOpen)}>
+            <div className="flex items-center gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+              <CardTitle className="text-base flex-1">Encaminhamento</CardTitle>
+              <Badge variant="secondary" className="font-medium">
+                {refProfessional.trim() || 'Médico/Prof.'}
+              </Badge>
+              <Switch checked={refOn} onCheckedChange={v => { setRefOn(v); if (v) setRefOpen(true); }}
+                onClick={e => e.stopPropagation()} />
+              {refOn && (refOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />)}
+            </div>
+          </CardHeader>
+          {refOpen && refOn && (
+            <CardContent className="space-y-3 pt-0">
+              <p className="text-xs text-muted-foreground">
+                Encaminhe o paciente para avaliação presencial conforme anamnese.
+              </p>
+              <div>
+                <label htmlFor="ref-professional" className="text-xs font-medium text-muted-foreground block mb-1.5">Médico ou profissional</label>
+                <Input id="ref-professional" value={refProfessional} onChange={e => setRefProfessional(e.target.value)}
+                  placeholder="Ex: Dr. João Silva" className="text-sm" />
+              </div>
+              <div>
+                <label htmlFor="ref-specialty" className="text-xs font-medium text-muted-foreground block mb-1.5">Especialidade</label>
+                <Input id="ref-specialty" value={refSpecialty} onChange={e => setRefSpecialty(e.target.value)}
+                  placeholder="Ex: Cardiologia, Fisioterapia" className="text-sm" />
+              </div>
+              <div>
+                <label htmlFor="ref-reason" className="text-xs font-medium text-muted-foreground block mb-1.5">Motivo / Indicação</label>
+                <Textarea id="ref-reason" value={refReason} onChange={e => setRefReason(e.target.value)} rows={3}
+                  placeholder="Conforme anamnese, para avaliação de..." className="text-sm" />
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
         {/* ═══ RESUMO + CTAs ═══ */}
         <Card className="border-green-200 bg-green-50/50">
           <CardContent className="py-4">
@@ -449,6 +526,7 @@ export default function DoctorPostConsultationEmit() {
               {rxOn && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Receita ({meds.length})</Badge>}
               {exOn && <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Exames ({exams.length})</Badge>}
               {atOn && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Atestado ({certDays}d)</Badge>}
+              {refOn && <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100">Encaminhamento</Badge>}
             </div>
           </CardContent>
         </Card>
