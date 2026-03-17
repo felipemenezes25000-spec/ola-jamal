@@ -24,6 +24,7 @@ namespace RenoveJa.Application.Services.Requests;
 /// <summary>
 /// Serviço de solicitações médicas: receita, exame, consulta, aprovação, rejeição, assinatura e sala de vídeo.
 /// </summary>
+#pragma warning disable CS9113 // consultationTimeBankRepository reserved for future use
 public class RequestService(
     IRequestRepository requestRepository,
     IUserRepository userRepository,
@@ -44,6 +45,7 @@ public class RequestService(
     IConsultationLifecycleService consultationLifecycleService,
     ISignatureService signatureService,
     ILogger<RequestService> logger) : IRequestService
+#pragma warning restore CS9113
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
 

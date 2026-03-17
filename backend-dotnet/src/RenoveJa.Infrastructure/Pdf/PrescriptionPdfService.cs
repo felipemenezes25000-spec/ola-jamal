@@ -827,6 +827,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         MedicalCertificatePdfData data,
         CancellationToken cancellationToken = default)
     {
+        await Task.CompletedTask;
         try
         {
             using var ms = new MemoryStream();

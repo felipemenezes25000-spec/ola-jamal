@@ -9,10 +9,12 @@ namespace RenoveJa.Application.Services;
 /// Impede solicitações duplicadas dentro de 30 dias.
 /// Verifica sobreposição de atestados.
 /// </summary>
+#pragma warning disable CS9113 // Parameter is never read (reserved for future logging)
 public class DuplicateDocumentGuard(
     IRequestRepository requestRepository,
     IMedicalDocumentRepository documentRepository,
     ILogger<DuplicateDocumentGuard> logger)
+#pragma warning restore CS9113
 {
     private const int CooldownDays = 30;
 

@@ -19,6 +19,7 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/requests")]
 [Authorize]
+#pragma warning disable CS9113 // logger reserved for future logging
 public class ClinicalRecordsController(
     IRequestService requestService,
     IClinicalSummaryService clinicalSummaryService,
@@ -30,6 +31,7 @@ public class ClinicalRecordsController(
     IDailyVideoService dailyVideoService,
     IOptions<DailyConfig> dailyConfig,
     ILogger<ClinicalRecordsController> logger) : ControllerBase
+#pragma warning restore CS9113
 {
     // ───────────────────── Helpers ─────────────────────
 

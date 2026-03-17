@@ -23,7 +23,7 @@ public class AgendaUbs : AggregateRoot
     public DateTime? InicioAt { get; private set; }
     public DateTime? FimAt { get; private set; }
 
-    public DateTime CreatedAt { get; private set; }
+    public new DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
     private AgendaUbs() : base() { }

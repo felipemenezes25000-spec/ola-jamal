@@ -17,6 +17,7 @@ namespace RenoveJa.Application.Services;
 /// 4. Médico assina todos de uma vez (ApprovedForSigning → Signed)
 /// 5. Não é possível assinar sem aprovar antes
 /// </summary>
+#pragma warning disable CS9113 // Parameters reserved for future use (documentRepository, certificateService)
 public class BatchSignatureService(
     IRequestRepository requestRepository,
     IMedicalDocumentRepository documentRepository,
@@ -24,6 +25,7 @@ public class BatchSignatureService(
     IDigitalCertificateService certificateService,
     IAuditService auditService,
     ILogger<BatchSignatureService> logger) : IBatchSignatureService
+#pragma warning restore CS9113
 {
     /// <summary>
     /// Marca um request como "revisado" pelo médico.

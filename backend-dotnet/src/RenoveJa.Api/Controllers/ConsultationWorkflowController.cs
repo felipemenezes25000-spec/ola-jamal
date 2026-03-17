@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
@@ -11,12 +11,14 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/requests")]
 [Authorize]
+#pragma warning disable CS9113 // logger reserved for future logging
 public class ConsultationWorkflowController(
     IRequestService requestService,
     IConsultationEncounterService consultationEncounterService,
     IRequestRepository requestRepository,
     PostgresClient db,
     ILogger<ConsultationWorkflowController> logger) : ControllerBase
+#pragma warning restore CS9113
 {
     private Guid GetUserId()
     {

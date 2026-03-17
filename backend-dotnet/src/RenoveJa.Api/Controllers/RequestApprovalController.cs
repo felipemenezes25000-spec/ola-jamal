@@ -10,10 +10,12 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/requests")]
 [Authorize]
+#pragma warning disable CS9113 // logger reserved for future logging
 public class RequestApprovalController(
     IRequestService requestService,
     IRequestRepository requestRepository,
     ILogger<RequestApprovalController> logger) : ControllerBase
+#pragma warning restore CS9113
 {
     private Guid GetUserId()
     {

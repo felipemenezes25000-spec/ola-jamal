@@ -20,7 +20,7 @@ public class UnidadeSaude : AggregateRoot
     public string? Cep { get; private set; }
 
     public bool Ativo { get; private set; } = true;
-    public DateTime CreatedAt { get; private set; }
+    public new DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
     private UnidadeSaude() : base() { }

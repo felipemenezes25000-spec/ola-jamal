@@ -12,9 +12,11 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/batch-signature")]
 [Authorize(Roles = "doctor")]
+#pragma warning disable CS9113 // logger reserved for future logging
 public class BatchSignatureController(
     IBatchSignatureService batchService,
     ILogger<BatchSignatureController> logger) : ControllerBase
+#pragma warning restore CS9113
 {
     private Guid GetUserId() =>
         Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)

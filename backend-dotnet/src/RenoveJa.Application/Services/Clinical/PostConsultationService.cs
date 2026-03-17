@@ -16,6 +16,7 @@ namespace RenoveJa.Application.Services.Clinical;
 /// 5. Assina tudo com ICP-Brasil (PAdES)
 /// 6. Notifica paciente
 /// </summary>
+#pragma warning disable CS9113 // pdfService reserved for future use
 public class PostConsultationService(
     IClinicalRecordService clinicalRecordService,
     IRequestRepository requestRepository,
@@ -26,6 +27,7 @@ public class PostConsultationService(
     DuplicateDocumentGuard duplicateGuard,
     IAuditService auditService,
     ILogger<PostConsultationService> logger) : IPostConsultationService
+#pragma warning restore CS9113
 {
     public async Task<PostConsultationEmitResponse> EmitDocumentsAsync(
         Guid doctorUserId,

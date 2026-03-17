@@ -20,7 +20,7 @@ public class PrescricaoAps : AggregateRoot
     public int Quantidade { get; private set; } = 1;
     public bool UsoContínuo { get; private set; }
 
-    public DateTime CreatedAt { get; private set; }
+    public new DateTime CreatedAt { get; private set; }
 
     private PrescricaoAps() : base() { }
 

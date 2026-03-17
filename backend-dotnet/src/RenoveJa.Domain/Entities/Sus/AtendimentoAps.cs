@@ -47,7 +47,7 @@ public class AtendimentoAps : AggregateRoot
     public string? LediUuid { get; private set; }
 
     public DateTime DataAtendimento { get; private set; }
-    public DateTime CreatedAt { get; private set; }
+    public new DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
     private AtendimentoAps() : base() { }
