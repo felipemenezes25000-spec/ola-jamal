@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT NOT NULL CHECK (length(password_hash) >= 20),
     phone TEXT,
     cpf TEXT,
     birth_date TIMESTAMPTZ,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     state VARCHAR(2),
     postal_code VARCHAR(10),
     avatar_url TEXT,
-    role TEXT NOT NULL DEFAULT 'patient' CHECK (role IN ('patient', 'doctor', 'admin')),
+    role TEXT NOT NULL DEFAULT 'patient' CHECK (role IN ('patient', 'doctor', 'admin', 'sus')),
     profile_complete BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS public.doctor_certificates (
     serial_number TEXT NOT NULL,
     not_before TIMESTAMPTZ NOT NULL,
     not_after TIMESTAMPTZ NOT NULL,
-    pfx_storage_path TEXT NOT NULL,
+    pfx_storage_path TEXT NOT NULL, -- Usar apenas key relativa (sem bucket). Ex: doctors/{uuid}/cert.pfx
     pfx_file_name TEXT NOT NULL,
     cpf TEXT,
     crm_number TEXT,
@@ -265,6 +265,7 @@ CREATE TABLE IF NOT EXISTS public.consultation_time_bank_transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_ctb_transactions_bank_id ON public.consultation_time_bank_transactions(bank_id);
+CREATE INDEX IF NOT EXISTS idx_ctb_transactions_reason ON public.consultation_time_bank_transactions(reason);
 
 -- ============================================================
 -- AUDIT
@@ -531,5 +532,33 @@ CREATE TABLE IF NOT EXISTS public.outbox_events (
     processed_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_outbox_events_idempotency_key ON public.outbox_events(idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_outbox_events_status ON public.outbox_events(status) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_outbox_events_processed_at ON public.outbox_events(processed_at) WHERE processed_at IS NOT NULL;
+
+-- ============================================================
+-- TRIGGER: auto-update updated_at
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.trigger_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_users') THEN
+    CREATE TRIGGER set_updated_at_users BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_requests') THEN
+    CREATE TRIGGER set_updated_at_requests BEFORE UPDATE ON public.requests FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_care_plans') THEN
+    CREATE TRIGGER set_updated_at_care_plans BEFORE UPDATE ON public.care_plans FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_care_plan_tasks') THEN
+    CREATE TRIGGER set_updated_at_care_plan_tasks BEFORE UPDATE ON public.care_plan_tasks FOR EACH ROW EXECUTE FUNCTION public.trigger_set_updated_at();
+  END IF;
+END $$;
 
 -- Fim do schema RenoveJá+

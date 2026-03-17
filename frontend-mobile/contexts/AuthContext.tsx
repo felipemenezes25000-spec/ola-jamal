@@ -119,13 +119,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const t = setTimeout(() => {
       setLoading((prev) => (prev ? false : prev));
-    }, 1200);
+    }, 3000);
     return () => clearTimeout(t);
   }, []);
 
   const loadStoredUser = async () => {
     // Fallback: se AsyncStorage travar, libera a tela em no máximo 1,5s
-    const guard = setTimeout(() => setLoading(false), 1500);
+    const guard = setTimeout(() => setLoading(false), 3500);
     try {
       const storedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       const storedUser = await AsyncStorage.getItem(USER_KEY);
@@ -289,23 +289,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: data.phone, cpf: data.cpf, crm: data.crm, crmState: data.crmState, specialty: data.specialty,
         birthDate: data.birthDate, bio: data.bio, street: data.street, number: data.number, neighborhood: data.neighborhood,
         complement: data.complement, city: data.city, state: data.state, postalCode: data.postalCode,
-        professionalPhone: data.professionalPhone ?? undefined,
-        professionalPostalCode: data.professionalPostalCode ?? undefined,
-        professionalStreet: data.professionalStreet ?? undefined,
-        professionalNumber: data.professionalNumber ?? undefined,
-        professionalNeighborhood: data.professionalNeighborhood ?? undefined,
-        professionalComplement: data.professionalComplement ?? undefined,
-        professionalCity: data.professionalCity ?? undefined,
-        professionalState: data.professionalState ?? undefined,
-        university: data.university ?? undefined,
-        courses: data.courses ?? undefined,
-        hospitalsServices: data.hospitalsServices ?? undefined,
+        professionalPhone: data.professionalPhone || undefined,
+        professionalPostalCode: data.professionalPostalCode || undefined,
+        professionalStreet: data.professionalStreet || undefined,
+        professionalNumber: data.professionalNumber || undefined,
+        professionalNeighborhood: data.professionalNeighborhood || undefined,
+        professionalComplement: data.professionalComplement || undefined,
+        professionalCity: data.professionalCity || undefined,
+        professionalState: data.professionalState || undefined,
+        university: data.university || undefined,
+        courses: data.courses || undefined,
+        hospitalsServices: data.hospitalsServices || undefined,
       });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       const requiresApproval = !response.token || response.token.trim() === '';
       if (!requiresApproval) {
-        await setItemSafe(AUTH_TOKEN_KEY, response.token ?? undefined);
-        apiClient.setTokenCache(response.token ?? null);
+        await setItemSafe(AUTH_TOKEN_KEY, response.token);
+        apiClient.setTokenCache(response.token);
         await setItemSafe(USER_KEY, JSON.stringify(response.user));
         if (response.doctorProfile) {
           await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));
@@ -328,8 +328,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await apiClient.post<AuthResponseDto>('/api/auth/google', { googleToken, role });
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
-      await setItemSafe(AUTH_TOKEN_KEY, response.token ?? undefined);
-      apiClient.setTokenCache(response.token ?? null);
+      if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
+      await setItemSafe(AUTH_TOKEN_KEY, response.token);
+      apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
         await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(response.doctorProfile));

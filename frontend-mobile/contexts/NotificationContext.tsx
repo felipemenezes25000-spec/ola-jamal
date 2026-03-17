@@ -1,7 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
-import { usePushNotification } from './PushNotificationContext';
+// Import seguro: PushNotificationContext pode não estar montado (Expo Go, web)
+function usePushNotificationSafe(): { lastNotificationAt: number } {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('./PushNotificationContext');
+    if (mod?.usePushNotification) return mod.usePushNotification();
+  } catch { /* provider não disponível */ }
+  return { lastNotificationAt: 0 };
+}
 import { getUnreadNotificationsCount, markAllNotificationsAsRead } from '../lib/api';
 
 /** Intervalo de polling quando app está em primeiro plano (em ms). */
@@ -26,7 +34,7 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const { lastNotificationAt } = usePushNotification();
+  const { lastNotificationAt } = usePushNotificationSafe();
   const [unreadCount, setUnreadCount] = useState(0);
   const appState = useRef(AppState.currentState);
   const unchangedPolls = useRef(0);
@@ -89,9 +97,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   // Polling quando app em primeiro plano - médico vê novas solicitações rapidamente
   useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false;
 
     const handleAppStateChange = (nextState: AppStateStatus) => {
-      if (nextState === 'active') {
+      if (nextState === 'active' && !cancelled) {
         refreshUnreadCount();
         appState.current = nextState;
       } else {
@@ -101,11 +110,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
 
-    // Usa intervalo adaptativo: rápido enquanto há mudanças, lento quando estável
     let timerId: ReturnType<typeof setTimeout>;
     const schedulePoll = () => {
       const delay = unchangedPolls.current >= UNCHANGED_THRESHOLD ? POLL_INTERVAL_SLOW_MS : POLL_INTERVAL_MS;
       timerId = setTimeout(() => {
+        if (cancelled) return;
         if (appState.current === 'active') {
           refreshUnreadCount();
         }
@@ -115,6 +124,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     schedulePoll();
 
     return () => {
+      cancelled = true;
       subscription.remove();
       clearTimeout(timerId);
     };

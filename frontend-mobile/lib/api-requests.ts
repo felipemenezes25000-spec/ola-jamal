@@ -386,10 +386,13 @@ export async function getDocumentDownloadUrl(requestId: string): Promise<string>
       `/api/requests/${requestId}/document-token`, {}
     );
     return `${baseUrl}/api/requests/${requestId}/document?token=${encodeURIComponent(docToken)}`;
-  } catch {
-    // Fallback: se o endpoint de document-token não existir ainda, usa JWT (retrocompatibilidade)
-    const token = await apiClient.getAuthToken();
-    return `${baseUrl}/api/requests/${requestId}/document${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  } catch (err) {
+    // SECURITY FIX: Não expor JWT completo na URL
+    if (__DEV__) console.warn('[getDocumentDownloadUrl] document-token endpoint failed:', err);
+    throw {
+      message: 'Não foi possível gerar o link de download. Tente novamente em alguns instantes.',
+      status: (err as { status?: number })?.status ?? 0,
+    };
   }
 }
 
@@ -467,9 +470,12 @@ export async function getDocumentDownloadUrlById(documentId: string): Promise<st
       `/api/post-consultation/documents/${documentId}/token`, {}
     );
     return `${baseUrl}/api/post-consultation/documents/${documentId}/download?token=${encodeURIComponent(docToken)}`;
-  } catch {
-    // Fallback: usa o endpoint de request (retrocompatibilidade)
-    const token = await apiClient.getAuthToken();
-    return `${baseUrl}/api/post-consultation/documents/${documentId}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  } catch (err) {
+    // SECURITY FIX: Não expor JWT completo na URL
+    if (__DEV__) console.warn('[getDocumentDownloadUrlById] document-token endpoint failed:', err);
+    throw {
+      message: 'Não foi possível gerar o link de download. Tente novamente em alguns instantes.',
+      status: (err as { status?: number })?.status ?? 0,
+    };
   }
 }
