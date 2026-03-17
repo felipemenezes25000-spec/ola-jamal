@@ -100,7 +100,7 @@ jobs:
 
       - name: Create .env.production
         env:
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+          VITE_SENTRY_DSN: ${{ fromJSON(toJSON(secrets)).VITE_SENTRY_DSN || '' }}
         run: |
           echo "VITE_API_URL=https://api.renovejasaude.com.br" > .env.production
           echo "VITE_SENTRY_DSN=$VITE_SENTRY_DSN" >> .env.production
