@@ -59,7 +59,7 @@ function isDoctorPortal(): boolean {
   // 4. Path de rota do médico — dev com URL direta
   if (host === 'localhost' || host === '127.0.0.1') {
     const doctorPaths = [
-      '/login',
+      // '/login' removido: conflita com rotas públicas no mesmo host
       '/registro',
       '/dashboard',
       '/pedidos',
@@ -86,6 +86,9 @@ function isDoctorPortal(): boolean {
 }
 
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+  // TODO(security): Adicionar verificação de token com backend (GET /api/auth/me)
+  // para validar que o token é real e que o user tem role admin.
+  // A verificação client-side atual pode ser bypassada facilmente.
   if (!isAuthenticated()) {
     return <Navigate to="/admin/login" replace />;
   }

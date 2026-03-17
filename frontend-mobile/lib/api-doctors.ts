@@ -156,7 +156,7 @@ export async function fetchDoctorStats(): Promise<DoctorStats> {
       totalEarnings: res.totalEarnings ?? 0,
     };
   } catch (e) {
-    if (__DEV__) logApiError(0, '/api/requests/stats', (e as { message?: string })?.message ?? String(e));
+    logApiError(0, '/api/requests/stats', (e as { message?: string })?.message ?? String(e));
     return { pendingCount: 0, inReviewCount: 0, completedCount: 0, totalEarnings: 0 };
   }
 }
