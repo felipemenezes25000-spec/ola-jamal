@@ -47,11 +47,22 @@ public class ExpoPushService : IPushNotificationSender
     public async Task SendAsync(PushNotificationRequest request, CancellationToken ct = default)
     {
         var tokens = await _pushTokenRepository.GetByUserIdAsync(request.UserId, ct);
-        var activeTokens = tokens.Where(t => t.Active).ToList();
+        var allActiveTokens = tokens.Where(t => t.Active).ToList();
+
+        // Filter out web push tokens (JSON subscription objects) — Expo Push API only accepts ExponentPushToken[...] format.
+        // TODO: Implement a separate IWebPushSender to handle web push subscription tokens via Web Push Protocol (RFC 8030).
+        var activeTokens = allActiveTokens.Where(t => t.Token.StartsWith("ExponentPushToken[")).ToList();
+        var skippedWebTokens = allActiveTokens.Count - activeTokens.Count;
+        if (skippedWebTokens > 0)
+        {
+            _logger.LogWarning("Skipped {SkippedCount} non-Expo web push token(s) for user {UserId}. These require a separate web push sender.",
+                skippedWebTokens, request.UserId);
+        }
 
         if (activeTokens.Count == 0)
         {
-            _logger.LogDebug("No active push tokens for user {UserId}", request.UserId);
+            _logger.LogDebug("No active Expo push tokens for user {UserId} (total active: {TotalActive}, skipped web: {SkippedWeb})",
+                request.UserId, allActiveTokens.Count, skippedWebTokens);
             return;
         }
 

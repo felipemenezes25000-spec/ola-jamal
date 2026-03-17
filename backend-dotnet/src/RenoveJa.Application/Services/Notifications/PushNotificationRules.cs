@@ -228,13 +228,15 @@ public static class PushNotificationRules
 
     // ── Notificação de verificação (farmácia/empregador verificou) ──────────
 
-    /// <summary>Paciente recebe notificação quando documento é verificado externamente.</summary>
-    public static PushNotificationRequest DocumentVerified(Guid patientId, string documentType) =>
-        BuildRequest(patientId, "document_verified", Guid.Empty, RequestType.Prescription, RequestStatus.Delivered,
+    /// <summary>Paciente recebe notificação quando documento é verificado externamente.
+    /// collapseKey usa documentId + userId (sem time bucket) para colapsar múltiplas
+    /// verificações do mesmo documento pelo mesmo usuário em uma única notificação.</summary>
+    public static PushNotificationRequest DocumentVerified(Guid patientId, Guid documentId, string documentType) =>
+        BuildRequest(patientId, "document_verified", documentId, RequestType.Prescription, RequestStatus.Delivered,
             "Documento verificado",
             $"Seu {documentType.ToLowerInvariant()} foi verificado com sucesso.",
             targetRole: "patient",
             channel: PushChannel.Quiet,
             category: PushCategory.Reminders,
-            collapseKeySuffix: "document_verified");
+            collapseKeySuffix: "doc_verified");
 }

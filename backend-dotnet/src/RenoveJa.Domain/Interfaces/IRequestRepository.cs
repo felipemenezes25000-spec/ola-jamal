@@ -33,6 +33,9 @@ public interface IRequestRepository
     /// <summary>Receitas entregues (delivered) que vencem nos próximos N dias. Para lembretes de renovação.</summary>
     Task<List<MedicalRequest>> GetPrescriptionsExpiringSoonAsync(DateTime nowUtc, int daysAhead = 7, CancellationToken cancellationToken = default);
 
+    /// <summary>Consultas em status Paid ou ConsultationReady (aceitas, não iniciadas) atualizadas recentemente. Para lembretes de consulta próxima.</summary>
+    Task<List<MedicalRequest>> GetUpcomingConsultationsAsync(CancellationToken cancellationToken = default);
+
     Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default);
     Task<MedicalRequest> UpdateAsync(MedicalRequest request, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);

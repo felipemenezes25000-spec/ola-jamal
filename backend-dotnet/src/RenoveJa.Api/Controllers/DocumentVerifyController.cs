@@ -88,8 +88,9 @@ public class DocumentVerifyController(
             };
 
             // Notificar paciente (fire-and-forget com CancellationToken.None para não cancelar ao enviar response)
+            // Passa docId para que o collapseKey agrupe por documento+paciente (evita spam em múltiplas verificações)
             _ = pushDispatcher.SendAsync(
-                    PushNotificationRules.DocumentVerified(doc.PatientId, typeLabel), CancellationToken.None)
+                    PushNotificationRules.DocumentVerified(doc.PatientId, docId, typeLabel), CancellationToken.None)
                 .ContinueWith(t =>
                 {
                     if (t.IsFaulted)

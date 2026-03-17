@@ -99,20 +99,8 @@ public class CertificatesController : ControllerBase
             _logger.LogInformation("Certificates Upload: User {UserId} profile marked complete after first certificate.", userId);
         }
 
-        // Notifica o médico que o certificado foi cadastrado com sucesso
-        try
-        {
-            var validUntil = validation.NotAfter.HasValue
-                ? validation.NotAfter.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture)
-                : "N/A";
-            await _pushDispatcher.SendAsync(
-                PushNotificationRules.CertificateUploaded(userId.Value, validUntil),
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao enviar notificação de certificado para UserId={UserId}", userId);
-        }
+        // CertificateUploaded notification removed: the doctor already knows they uploaded it
+        // (they just performed the action themselves), so a push notification is unnecessary noise.
 
         return Ok(new UploadCertificateResponseDto(
             true,

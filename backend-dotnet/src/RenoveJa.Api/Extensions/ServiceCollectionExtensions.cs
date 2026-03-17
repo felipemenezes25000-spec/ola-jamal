@@ -155,6 +155,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService(sp => sp.GetRequiredService<RenoveJa.Application.Services.Notifications.NewRequestBatchService>());
         services.AddHostedService<RenoveJa.Application.Services.Notifications.StaleRequestReminderService>();
         services.AddHostedService<RenoveJa.Application.Services.Notifications.RenewalReminderService>();
+        services.AddHostedService<RenoveJa.Application.Services.Notifications.ConsultationReminderService>();
         services.AddSingleton<RenoveJa.Infrastructure.Notifications.ExpoPushReceiptChecker>();
         services.AddHostedService(sp => sp.GetRequiredService<RenoveJa.Infrastructure.Notifications.ExpoPushReceiptChecker>());
 

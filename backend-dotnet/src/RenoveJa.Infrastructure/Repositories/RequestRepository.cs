@@ -201,6 +201,17 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             .ToList();
     }
 
+    public async Task<List<MedicalRequest>> GetUpcomingConsultationsAsync(CancellationToken cancellationToken = default)
+    {
+        // Consultas aceitas (Paid ou ConsultationReady) que ainda não iniciaram
+        var filter = "request_type=eq.consultation&status=in.(paid,consultation_ready)&doctor_id=not.is.null";
+        var models = await db.GetAllAsync<RequestModel>(
+            TableName,
+            filter: filter,
+            cancellationToken: cancellationToken);
+        return models.Select(MapToDomain).ToList();
+    }
+
     public async Task<MedicalRequest> CreateAsync(MedicalRequest request, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(request);

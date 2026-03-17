@@ -99,11 +99,11 @@ jobs:
         run: npm ci
 
       - name: Create .env.production
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
         run: |
-          cat > .env.production << EOF
-VITE_API_URL=https://api.renovejasaude.com.br
-VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
-EOF
+          echo "VITE_API_URL=https://api.renovejasaude.com.br" > .env.production
+          echo "VITE_SENTRY_DSN=$VITE_SENTRY_DSN" >> .env.production
 
       - name: Build
         run: npm run build

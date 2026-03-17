@@ -4,16 +4,8 @@ import { Platform } from 'react-native';
 import { registerPushToken, unregisterPushToken as unregisterPushTokenApi } from './api';
 import { colors } from './theme';
 
-// Configure notification behavior — role filtering is handled in PushNotificationContext
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Note: setNotificationHandler is configured in PushNotificationContext.tsx (with role-based filtering).
+// Do NOT add one here — it would be overridden and is dead code.
 
 export async function registerForPushNotifications(
   userId: string

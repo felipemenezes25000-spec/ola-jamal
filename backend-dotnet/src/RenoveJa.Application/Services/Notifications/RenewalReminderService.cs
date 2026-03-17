@@ -10,9 +10,10 @@ using Sentry;
 namespace RenoveJa.Application.Services.Notifications;
 
 /// <summary>
-/// Background service que envia lembretes de renovação de receita.
-/// Receitas entregues (delivered) que vencem nos próximos 7 dias → paciente.
+/// Background service que envia lembretes de renovacao de receita.
+/// Receitas entregues (delivered) que vencem nos proximos 7 dias -> paciente.
 /// Cooldown de 7 dias por request para evitar spam.
+/// Cooldown usa IMemoryCache como L1 (rapido) e DB como L2 (persistente apos restart).
 /// </summary>
 public class RenewalReminderService : BackgroundService
 {
@@ -22,6 +23,7 @@ public class RenewalReminderService : BackgroundService
     private static readonly TimeSpan RunInterval = TimeSpan.FromHours(24);
     private static readonly TimeSpan ReminderCooldown = TimeSpan.FromDays(7);
     private const int DaysAhead = 7;
+    private const string NotificationType = "reminder_renewal";
 
     public RenewalReminderService(IServiceScopeFactory scopeFactory, IMemoryCache cache, ILogger<RenewalReminderService> logger)
     {
@@ -41,10 +43,10 @@ public class RenewalReminderService : BackgroundService
             catch (Exception ex)
             {
                 if (IsDatabaseNotConfigured(ex))
-                    _logger.LogDebug("Database não configurado, ignorando lembretes de renovação de receita");
+                    _logger.LogDebug("Database nao configurado, ignorando lembretes de renovacao de receita");
                 else
                 {
-                    _logger.LogError(ex, "Erro ao enviar lembretes de renovação de receita");
+                    _logger.LogError(ex, "Erro ao enviar lembretes de renovacao de receita");
                     SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "RenewalReminderService"));
                 }
             }
@@ -58,10 +60,11 @@ public class RenewalReminderService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var requestRepo = scope.ServiceProvider.GetRequiredService<IRequestRepository>();
         var dispatcher = scope.ServiceProvider.GetRequiredService<IPushNotificationDispatcher>();
+        var notificationRepo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
 
         var now = DateTime.UtcNow;
 
-        // ── Receitas legadas (tabela requests) ──
+        // Receitas legadas (tabela requests)
         var expiring = await requestRepo.GetPrescriptionsExpiringSoonAsync(now, DaysAhead, ct);
 
         foreach (var req in expiring)
@@ -69,7 +72,20 @@ public class RenewalReminderService : BackgroundService
             if (req.RequestType != RequestType.Prescription) continue;
 
             var cooldownKey = $"reminder_renewal:{req.Id}";
+
+            // L1: in-memory check (fast path)
             if (_cache.TryGetValue(cooldownKey, out _)) continue;
+
+            // L2: DB check (survives restarts)
+            var since = now - ReminderCooldown;
+            var existsInDb = await notificationRepo.ExistsWithDataSinceAsync(
+                NotificationType, req.Id.ToString(), since, ct);
+            if (existsInDb)
+            {
+                // Repopulate L1 cache so next iteration skips the DB call
+                _cache.Set(cooldownKey, true, ReminderCooldown);
+                continue;
+            }
 
             try
             {
@@ -79,17 +95,16 @@ public class RenewalReminderService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Falha ao enviar lembrete de renovação para request {RequestId}", req.Id);
+                _logger.LogWarning(ex, "Falha ao enviar lembrete de renovacao para request {RequestId}", req.Id);
             }
         }
 
-        // ── Documentos pós-consulta (tabela medical_documents com expires_at) ──
+        // Documentos pos-consulta (tabela medical_documents com expires_at)
         try
         {
             var docRepo = scope.ServiceProvider.GetRequiredService<IMedicalDocumentRepository>();
-            // Buscar documentos com expires_at nos próximos N dias
-            // TODO: Adicionar método GetExpiringDocumentsAsync no IMedicalDocumentRepository
-            // Por enquanto, o fluxo de requests cobre o cenário principal
+            // TODO: Adicionar metodo GetExpiringDocumentsAsync no IMedicalDocumentRepository
+            // Por enquanto, o fluxo de requests cobre o cenario principal
         }
         catch (Exception ex)
         {

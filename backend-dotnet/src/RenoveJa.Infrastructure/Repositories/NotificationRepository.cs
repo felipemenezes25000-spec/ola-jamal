@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Dapper;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
@@ -74,6 +75,23 @@ public class NotificationRepository(PostgresClient db) : INotificationRepository
             $"user_id=eq.{userId}",
             new { read = true },
             cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ExistsWithDataSinceAsync(string type, string requestId, DateTime since, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT COUNT(*) FROM public.notifications
+            WHERE data->>'type' = @Type
+              AND data->>'requestId' = @RequestId
+              AND created_at >= @Since
+            LIMIT 1
+            """;
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        var count = await conn.ExecuteScalarAsync<int>(
+            new CommandDefinition(sql, new { Type = type, RequestId = requestId, Since = since }, cancellationToken: cancellationToken));
+        return count > 0;
     }
 
     private static Notification MapToDomain(NotificationModel model)

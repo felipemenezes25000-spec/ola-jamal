@@ -13,4 +13,10 @@ public interface INotificationRepository
     Task<Notification> UpdateAsync(Notification notification, CancellationToken cancellationToken = default);
     Task MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a notification with the given type and requestId in its data JSON
+    /// was created since the specified cutoff time. Used for persistent cooldown checks.
+    /// </summary>
+    Task<bool> ExistsWithDataSinceAsync(string type, string requestId, DateTime since, CancellationToken cancellationToken = default);
 }
