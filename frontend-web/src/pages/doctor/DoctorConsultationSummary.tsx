@@ -326,8 +326,11 @@ export default function DoctorConsultationSummary() {
           <p>Conteúdo gerado por IA como apoio à decisão clínica. A revisão e validação médica são obrigatórias. Conformidade com CFM Resolução 2.299/2021.</p>
         </div>
 
-        <Button className="w-full gap-2" onClick={() => navigate(`/pedidos/${requestId}`)}>
-          <CheckCircle2 className="h-4 w-4" /> Concluir
+        <Button className="w-full gap-2" onClick={() => navigate(`/pos-consulta/${requestId}`)}>
+          <FileText className="h-4 w-4" /> Emitir documentos
+        </Button>
+        <Button variant="outline" className="w-full gap-2" onClick={() => navigate(`/pedidos/${requestId}`)}>
+          <CheckCircle2 className="h-4 w-4" /> Concluir sem emitir
         </Button>
       </div>
     </DoctorLayout>

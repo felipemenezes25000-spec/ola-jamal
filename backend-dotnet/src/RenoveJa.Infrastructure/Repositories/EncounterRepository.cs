@@ -108,7 +108,11 @@ public class EncounterRepository(PostgresClient db) : IEncounterRepository
             model.Plan,
             model.MainIcd10Code,
             model.FinishedAt,
-            model.CreatedAt);
+            model.CreatedAt,
+            model.DifferentialDiagnosis,
+            model.PatientInstructions,
+            model.RedFlags,
+            model.StructuredAnamnesis);
     }
 
     private static EncounterModel MapToModel(Encounter encounter, Guid? sourceRequestId = null)
@@ -128,6 +132,10 @@ public class EncounterRepository(PostgresClient db) : IEncounterRepository
             PhysicalExam = encounter.PhysicalExam,
             Plan = encounter.Plan,
             MainIcd10Code = encounter.MainIcd10Code,
+            DifferentialDiagnosis = encounter.DifferentialDiagnosis,
+            PatientInstructions = encounter.PatientInstructions,
+            RedFlags = encounter.RedFlags,
+            StructuredAnamnesis = encounter.StructuredAnamnesis,
             CreatedAt = encounter.CreatedAt
         };
         if (sourceRequestId.HasValue)

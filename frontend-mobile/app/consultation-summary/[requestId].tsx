@@ -310,11 +310,18 @@ export default function ConsultationSummaryScreen() {
       {/* Bottom actions */}
       <View style={[S.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity
-          style={S.actionBtn}
+          style={[S.actionBtn, { backgroundColor: colors.primary }]}
+          onPress={() => router.push(`/post-consultation-emit/${rid}`)}
+        >
+          <Ionicons name="document-text" size={20} color={colors.white} />
+          <Text style={S.actionBtnText}>Emitir documentos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[S.actionBtn, { backgroundColor: colors.surfaceSecondary }]}
           onPress={() => router.back()}
         >
-          <Ionicons name="checkmark-circle" size={20} color={colors.white} />
-          <Text style={S.actionBtnText}>Concluir</Text>
+          <Ionicons name="checkmark-circle" size={20} color={colors.text} />
+          <Text style={[S.actionBtnText, { color: colors.text }]}>Concluir sem emitir</Text>
         </TouchableOpacity>
       </View>
     </View>

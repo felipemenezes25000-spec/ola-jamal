@@ -22,6 +22,10 @@ public interface IClinicalRecordService
         string? physicalExam = null,
         string? plan = null,
         string? mainIcd10Code = null,
+        string? differentialDiagnosis = null,
+        string? patientInstructions = null,
+        string? redFlags = null,
+        string? structuredAnamnesis = null,
         CancellationToken cancellationToken = default);
 
     Task<Prescription> CreatePrescriptionAsync(

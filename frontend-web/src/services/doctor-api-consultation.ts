@@ -173,3 +173,80 @@ export async function enrichTriage(payload: { symptoms?: string; requestType?: s
   if (!res.ok) throw new Error('Erro na triagem');
   return res.json();
 }
+
+
+// ── Post-consultation document emission ──
+
+export interface PrescriptionItemEmit {
+  drug: string;
+  concentration?: string;
+  form?: string;
+  posology?: string;
+  duration?: string;
+  quantity?: number;
+  notes?: string;
+}
+
+export interface ExamItemEmitWeb {
+  type: string;
+  code?: string;
+  description: string;
+}
+
+export interface PostConsultationEmitPayload {
+  requestId: string;
+  mainIcd10Code?: string;
+  anamnesis?: string;
+  structuredAnamnesis?: string;
+  physicalExam?: string;
+  plan?: string;
+  differentialDiagnosis?: string;
+  patientInstructions?: string;
+  redFlags?: string;
+  prescription?: {
+    type: 'simples' | 'controlado';
+    generalInstructions?: string;
+    items: PrescriptionItemEmit[];
+  };
+  examOrder?: {
+    clinicalJustification?: string;
+    priority?: string;
+    items: ExamItemEmitWeb[];
+  };
+  medicalCertificate?: {
+    certificateType: 'afastamento' | 'comparecimento' | 'aptidao';
+    body: string;
+    icd10Code?: string;
+    leaveDays?: number;
+    leaveStartDate?: string;
+    leavePeriod?: 'integral' | 'meio_periodo';
+    includeIcd10: boolean;
+  };
+}
+
+export interface PostConsultationEmitResult {
+  encounterId: string;
+  prescriptionId?: string;
+  examOrderId?: string;
+  medicalCertificateId?: string;
+  documentsEmitted: number;
+  documentTypes: string[];
+  message: string;
+}
+
+/**
+ * Emite todos os documentos pós-consulta (receita, exames, atestado) num único request.
+ */
+export async function emitPostConsultationDocuments(
+  payload: PostConsultationEmitPayload
+): Promise<PostConsultationEmitResult> {
+  const res = await authFetch('/api/post-consultation/emit', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Erro ao emitir documentos pós-consulta');
+  }
+  return res.json();
+}

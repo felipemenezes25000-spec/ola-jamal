@@ -60,6 +60,8 @@ public class RenewalReminderService : BackgroundService
         var dispatcher = scope.ServiceProvider.GetRequiredService<IPushNotificationDispatcher>();
 
         var now = DateTime.UtcNow;
+
+        // ── Receitas legadas (tabela requests) ──
         var expiring = await requestRepo.GetPrescriptionsExpiringSoonAsync(now, DaysAhead, ct);
 
         foreach (var req in expiring)
@@ -79,6 +81,19 @@ public class RenewalReminderService : BackgroundService
             {
                 _logger.LogWarning(ex, "Falha ao enviar lembrete de renovação para request {RequestId}", req.Id);
             }
+        }
+
+        // ── Documentos pós-consulta (tabela medical_documents com expires_at) ──
+        try
+        {
+            var docRepo = scope.ServiceProvider.GetRequiredService<IMedicalDocumentRepository>();
+            // Buscar documentos com expires_at nos próximos N dias
+            // TODO: Adicionar método GetExpiringDocumentsAsync no IMedicalDocumentRepository
+            // Por enquanto, o fluxo de requests cobre o cenário principal
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Medical document expiration check skipped");
         }
     }
 

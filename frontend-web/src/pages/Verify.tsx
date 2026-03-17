@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { verifyReceita, type VerifySuccess } from '@/api/verify';
+import { verifyReceita, verifyDocument, dispenseDocument, type VerifySuccess, type DocumentVerifyResult } from '@/api/verify';
 import '@/styles/recuperar-verify.css';
 
 type VerifyState = 'idle' | 'loading' | 'success' | 'error';
@@ -65,6 +65,8 @@ export default function Verify() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   // FIX #25: Guard contra double-click / submissão duplicada
   const submittingRef = useRef(false);
+  const [docResult, setDocResult] = useState<DocumentVerifyResult | null>(null);
+  const [dispensing, setDispensing] = useState(false);
 
   // FIX #15: isValidId agora é calculado fora do callback e incluído no deps
   const handleSubmit = useCallback(
@@ -78,13 +80,16 @@ export default function Verify() {
       try {
         const res = await verifyReceita({ id: id!.trim(), code: code.trim() });
 
-        if (res.status === 'error') {
-          setErrorMessage(res.message);
-          setState('error');
-          return;
-        }
-        if (res.status === 'invalid') {
-          setErrorMessage(res.message);
+        if (res.status === 'error' || res.status === 'invalid') {
+          // Fallback: tentar endpoint universal (atestados, exames, documentos pós-consulta)
+          const docRes = await verifyDocument(id!.trim(), code.trim());
+          if (docRes.status === 'valid') {
+            setDocResult(docRes);
+            setState('success');
+            return;
+          }
+          // Ambos falharam — mostrar erro do original
+          setErrorMessage(res.status === 'error' ? res.message : res.message);
           setState('error');
           return;
         }
@@ -111,9 +116,9 @@ export default function Verify() {
   return (
     <div style={styles.container}>
       <div style={styles.card} className="verify-card">
-        <h1 style={styles.title}>Verificação de Receita</h1>
+        <h1 style={styles.title}>Verificação de Documento Médico</h1>
         <p style={styles.subtitle}>
-          Use o código presente na receita para validar e obter a 2ª via (quando disponível).
+          Use o código presente no documento (receita, atestado ou exame) para validar sua autenticidade.
         </p>
 
         {state === 'idle' && (
@@ -201,7 +206,78 @@ export default function Verify() {
             </button>
             <button
               type="button"
-              onClick={() => { setState('idle'); setCode(''); setResult(null); }}
+              onClick={() => { setState('idle'); setCode(''); setResult(null); setDocResult(null); }}
+              style={styles.buttonSecondary}
+            >
+              Verificar outro código
+            </button>
+          </div>
+        )}
+
+        {/* Resultado de documento universal (atestado, exame, receita via medical_documents) */}
+        {state === 'success' && docResult && !result && (
+          <div style={styles.success}>
+            <p style={styles.validBadge}>✓ {docResult.documentType ?? 'Documento'} válido</p>
+            {docResult.wasDispensed && (
+              <div style={{ padding: '12px 16px', backgroundColor: '#FEF3C7', borderRadius: 12, marginBottom: 12, border: '1px solid #FDE68A' }}>
+                <p style={{ margin: 0, fontSize: 14, color: '#92400E', fontWeight: 600 }}>
+                  ⚠️ {docResult.dispensedWarning}
+                </p>
+              </div>
+            )}
+            <div style={styles.metaGrid}>
+              {docResult.issuedAt && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>Emitido em</span>
+                  <span style={styles.metaValue}>{formatIsoDate(docResult.issuedAt)}</span>
+                </div>
+              )}
+              {docResult.signedAt && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>Assinado em</span>
+                  <span style={styles.metaValue}>{formatIsoDateTime(docResult.signedAt)}</span>
+                </div>
+              )}
+              {docResult.documentType && (
+                <div style={styles.metaRow}>
+                  <span style={styles.metaLabel}>Tipo</span>
+                  <span style={styles.metaValue}>{docResult.documentType}</span>
+                </div>
+              )}
+            </div>
+            <p style={styles.successNote}>{docResult.message}</p>
+            {docResult.verificationUrl && (
+              <p style={{ fontSize: 12, color: '#6B7280', marginTop: 8, textAlign: 'center' as const }}>
+                Validar assinatura ICP-Brasil em: <a href={docResult.verificationUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ color: '#2563EB' }}>{docResult.verificationUrl}</a>
+              </p>
+            )}
+            {/* Botão dispensar (para farmacêuticos) */}
+            {!docResult.wasDispensed && docResult.documentTypeCode === 'prescription' && (
+              <button
+                type="button"
+                disabled={dispensing}
+                onClick={async () => {
+                  const pharmacy = prompt('Nome da farmácia:');
+                  if (!pharmacy) return;
+                  setDispensing(true);
+                  const res = await dispenseDocument(id!.trim(), pharmacy);
+                  setDispensing(false);
+                  if (res.success) {
+                    alert('Documento marcado como dispensado.');
+                    setDocResult({ ...docResult, wasDispensed: true, dispensedWarning: 'Dispensado agora.' });
+                  } else {
+                    alert(res.message);
+                  }
+                }}
+                style={{ ...styles.button, marginTop: 12, backgroundColor: '#059669' }}
+              >
+                {dispensing ? 'Marcando...' : '✓ Marcar como dispensado'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { setState('idle'); setCode(''); setDocResult(null); }}
               style={styles.buttonSecondary}
             >
               Verificar outro código

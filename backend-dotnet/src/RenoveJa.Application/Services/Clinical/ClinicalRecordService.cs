@@ -79,12 +79,17 @@ public class ClinicalRecordService(
         string? physicalExam = null,
         string? plan = null,
         string? mainIcd10Code = null,
+        string? differentialDiagnosis = null,
+        string? patientInstructions = null,
+        string? redFlags = null,
+        string? structuredAnamnesis = null,
         CancellationToken cancellationToken = default)
     {
         var encounter = await encounterRepository.GetByIdAsync(encounterId, cancellationToken)
                        ?? throw new InvalidOperationException("Encounter not found");
 
-        encounter.UpdateClinicalNotes(anamnesis, physicalExam, plan, mainIcd10Code);
+        encounter.UpdateClinicalNotes(anamnesis, physicalExam, plan, mainIcd10Code,
+            differentialDiagnosis, patientInstructions, redFlags, structuredAnamnesis);
         encounter.FinalizeEncounter();
 
         encounter = await encounterRepository.UpdateAsync(encounter, cancellationToken);

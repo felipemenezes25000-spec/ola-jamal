@@ -193,15 +193,23 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             filter: filter,
             cancellationToken: cancellationToken);
 
-        var validDays = 30;
         var windowEnd = nowUtc.AddDays(daysAhead);
 
         return models
             .Where(m =>
             {
                 if (!m.SignedAt.HasValue) return false;
-                var days = m.PrescriptionValidDays ?? validDays;
-                var validUntil = m.SignedAt.Value.AddDays(days);
+                // Usar expires_at real se disponível; senão calcular estimativa
+                DateTime validUntil;
+                if (m.ExpiresAt.HasValue)
+                {
+                    validUntil = m.ExpiresAt.Value;
+                }
+                else
+                {
+                    var days = m.PrescriptionValidDays ?? 30;
+                    validUntil = m.SignedAt.Value.AddDays(days);
+                }
                 return validUntil >= nowUtc && validUntil <= windowEnd;
             })
             .Select(MapToDomain)
@@ -305,6 +313,15 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         [System.Text.Json.Serialization.JsonPropertyName("patient_call_connected_at")]
         public DateTime? PatientCallConnectedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        // Security fields (migration: document_security)
+        [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
+        public DateTime? ExpiresAt { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("dispensed_at")]
+        public DateTime? DispensedAt { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("dispensed_count")]
+        public int DispensedCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("prescription_valid_days")]
+        public int? PrescriptionValidDays { get; set; }
     }
 
 

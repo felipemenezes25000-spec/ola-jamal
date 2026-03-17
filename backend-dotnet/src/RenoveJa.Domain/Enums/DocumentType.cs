@@ -7,6 +7,7 @@ public enum DocumentType
 {
     Prescription = 1,
     ExamOrder = 2,
-    MedicalReport = 3
+    MedicalReport = 3,
+    MedicalCertificate = 4
 }
 

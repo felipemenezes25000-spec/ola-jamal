@@ -810,6 +810,57 @@ public static class MigrationRunner
     };
 
     /// <summary>
+    /// Adiciona campos de enriquecimento ao encounter para compliance CFM 1.638/2002
+    /// e suporte à emissão pós-consulta com IA.
+    /// </summary>
+    private static readonly string[] EncounterEnrichmentMigrations =
+    {
+        """
+        ALTER TABLE public.encounters
+          ADD COLUMN IF NOT EXISTS differential_diagnosis TEXT,
+          ADD COLUMN IF NOT EXISTS patient_instructions TEXT,
+          ADD COLUMN IF NOT EXISTS red_flags TEXT,
+          ADD COLUMN IF NOT EXISTS structured_anamnesis TEXT
+        """
+    };
+
+    /// <summary>
+    /// Segurança e controle antifraude de documentos médicos.
+    /// </summary>
+    private static readonly string[] DocumentSecurityMigrations =
+    {
+        "ALTER TABLE public.medical_documents ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ",
+        "ALTER TABLE public.medical_documents ADD COLUMN IF NOT EXISTS dispensed_at TIMESTAMPTZ",
+        "ALTER TABLE public.medical_documents ADD COLUMN IF NOT EXISTS dispensed_by TEXT",
+        "ALTER TABLE public.medical_documents ADD COLUMN IF NOT EXISTS dispensed_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE public.medical_documents ADD COLUMN IF NOT EXISTS max_dispenses INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE public.medical_documents ADD COLUMN IF NOT EXISTS verify_code_hash TEXT",
+        "ALTER TABLE public.medical_documents ADD COLUMN IF NOT EXISTS access_code TEXT",
+        "ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ",
+        "ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS dispensed_at TIMESTAMPTZ",
+        "ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS dispensed_count INTEGER NOT NULL DEFAULT 0",
+        """
+        CREATE TABLE IF NOT EXISTS public.document_access_log (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            document_id UUID,
+            request_id UUID,
+            user_id UUID,
+            action TEXT NOT NULL,
+            actor_type TEXT NOT NULL DEFAULT 'patient',
+            ip_address TEXT,
+            user_agent TEXT,
+            metadata JSONB,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_doc_access_log_doc ON public.document_access_log(document_id)",
+        "CREATE INDEX IF NOT EXISTS idx_doc_access_log_req ON public.document_access_log(request_id)",
+        "CREATE INDEX IF NOT EXISTS idx_doc_access_log_date ON public.document_access_log(created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_med_docs_expires ON public.medical_documents(expires_at) WHERE expires_at IS NOT NULL",
+        "CREATE INDEX IF NOT EXISTS idx_requests_expires ON public.requests(expires_at) WHERE expires_at IS NOT NULL",
+    };
+
+    /// <summary>
     /// Executa todas as migrations. Só roda se DatabaseUrl estiver definida.
     /// </summary>
     public static async Task RunAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
@@ -847,7 +898,9 @@ public static class MigrationRunner
             ("saved_cards", SavedCardsMigrations),
             ("doctor_approval_status", DoctorApprovalStatusMigrations),
             ("prontuario", ProntuarioMigrations),
-            ("care_plans", CarePlanMigrations)
+            ("care_plans", CarePlanMigrations),
+            ("encounter_enrichment", EncounterEnrichmentMigrations),
+            ("document_security", DocumentSecurityMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)

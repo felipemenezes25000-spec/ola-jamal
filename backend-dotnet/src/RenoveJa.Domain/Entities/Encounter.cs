@@ -26,6 +26,16 @@ public class Encounter : AggregateRoot
 
     public string? MainIcd10Code { get; private set; }
 
+    // ── Campos adicionais para compliance CFM 1.638/2002 e prontuário enriquecido ──
+    /// <summary>Hipóteses diagnósticas / diagnóstico diferencial (JSON array ou texto livre).</summary>
+    public string? DifferentialDiagnosis { get; private set; }
+    /// <summary>Orientações ao paciente geradas pela IA ou escritas pelo médico.</summary>
+    public string? PatientInstructions { get; private set; }
+    /// <summary>Alertas vermelhos (red flags) identificados pela IA durante a consulta.</summary>
+    public string? RedFlags { get; private set; }
+    /// <summary>Anamnese estruturada completa (JSON) gerada pela IA — queixa, HDA, revisão sistemas, etc.</summary>
+    public string? StructuredAnamnesis { get; private set; }
+
     private Encounter() : base()
     {
         PatientId = Guid.Empty;
@@ -46,6 +56,10 @@ public class Encounter : AggregateRoot
         string? plan,
         string? mainIcd10Code,
         DateTime? finishedAt,
+        string? differentialDiagnosis = null,
+        string? patientInstructions = null,
+        string? redFlags = null,
+        string? structuredAnamnesis = null,
         DateTime? createdAt = null)
         : base(id, createdAt ?? DateTime.UtcNow)
     {
@@ -61,6 +75,10 @@ public class Encounter : AggregateRoot
         Plan = plan;
         MainIcd10Code = mainIcd10Code;
         FinishedAt = finishedAt;
+        DifferentialDiagnosis = differentialDiagnosis;
+        PatientInstructions = patientInstructions;
+        RedFlags = redFlags;
+        StructuredAnamnesis = structuredAnamnesis;
     }
 
     public static Encounter Start(
@@ -96,7 +114,11 @@ public class Encounter : AggregateRoot
         string? anamnesis = null,
         string? physicalExam = null,
         string? plan = null,
-        string? mainIcd10Code = null)
+        string? mainIcd10Code = null,
+        string? differentialDiagnosis = null,
+        string? patientInstructions = null,
+        string? redFlags = null,
+        string? structuredAnamnesis = null)
     {
         if (anamnesis != null)
             Anamnesis = anamnesis;
@@ -106,6 +128,14 @@ public class Encounter : AggregateRoot
             Plan = plan;
         if (mainIcd10Code != null)
             MainIcd10Code = mainIcd10Code;
+        if (differentialDiagnosis != null)
+            DifferentialDiagnosis = differentialDiagnosis;
+        if (patientInstructions != null)
+            PatientInstructions = patientInstructions;
+        if (redFlags != null)
+            RedFlags = redFlags;
+        if (structuredAnamnesis != null)
+            StructuredAnamnesis = structuredAnamnesis;
     }
 
     public void FinalizeEncounter(DateTime? finishedAt = null)
@@ -144,7 +174,11 @@ public class Encounter : AggregateRoot
         string? plan,
         string? mainIcd10Code,
         DateTime? finishedAt,
-        DateTime createdAt)
+        DateTime createdAt,
+        string? differentialDiagnosis = null,
+        string? patientInstructions = null,
+        string? redFlags = null,
+        string? structuredAnamnesis = null)
     {
         return new Encounter(
             id,
@@ -160,6 +194,10 @@ public class Encounter : AggregateRoot
             plan,
             mainIcd10Code,
             finishedAt,
+            differentialDiagnosis,
+            patientInstructions,
+            redFlags,
+            structuredAnamnesis,
             createdAt);
     }
 }

@@ -113,4 +113,36 @@ public interface IPrescriptionPdfService
     Task<PrescriptionPdfResult> GenerateExamRequestAsync(
         ExamPdfData data,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gera um PDF de atestado médico (para assinatura digital).
+    /// </summary>
+    Task<PrescriptionPdfResult> GenerateMedicalCertificateAsync(
+        MedicalCertificatePdfData data,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Dados para geração de PDF de atestado médico.
+/// </summary>
+public record MedicalCertificatePdfData(
+    Guid RequestId,
+    string PatientName,
+    string? PatientCpf,
+    DateTime? PatientBirthDate,
+    string? PatientGender,
+    string DoctorName,
+    string DoctorCrm,
+    string DoctorCrmState,
+    string DoctorSpecialty,
+    string CertificateType,         // "afastamento", "comparecimento", "aptidao"
+    string Body,                     // Texto/motivo do atestado
+    string? Icd10Code,              // CID-10 (só se autorizado pelo paciente)
+    int? LeaveDays,
+    DateTime? LeaveStartDate,
+    string? LeavePeriod,            // "integral", "meio_periodo"
+    DateTime EmissionDate,
+    string? AccessCode = null,
+    string? PatientAddress = null,
+    string? DoctorAddress = null,
+    string? DoctorPhone = null);

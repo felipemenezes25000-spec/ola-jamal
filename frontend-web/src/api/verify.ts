@@ -130,3 +130,53 @@ export async function verifyReceita(payload: VerifyPayload): Promise<VerifyRespo
     },
   };
 }
+
+
+// ── Verificação universal (atestados, exames, receitas via medical_documents) ──
+
+export interface DocumentVerifyResult {
+  status: 'valid' | 'invalid' | 'error';
+  documentType?: string;
+  documentTypeCode?: string;
+  signedAt?: string;
+  issuedAt?: string;
+  wasDispensed?: boolean;
+  dispenseCount?: number;
+  dispensedWarning?: string | null;
+  verificationUrl?: string;
+  message: string;
+  reason?: string;
+}
+
+export async function verifyDocument(documentId: string, code: string): Promise<DocumentVerifyResult> {
+  const apiBase = getApiBaseUrl();
+  if (!apiBase) return { status: 'error', message: 'URL da API não configurada.' };
+
+  try {
+    const res = await fetch(`${apiBase}/api/documents/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: documentId.trim(), code: code.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return data as DocumentVerifyResult;
+  } catch {
+    return { status: 'error', message: 'Erro de conexão.' };
+  }
+}
+
+export async function dispenseDocument(documentId: string, pharmacyName: string): Promise<{ success: boolean; message: string }> {
+  const apiBase = getApiBaseUrl();
+  if (!apiBase) return { success: false, message: 'URL da API não configurada.' };
+
+  try {
+    const res = await fetch(`${apiBase}/api/documents/${documentId}/dispense`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pharmacyName }),
+    });
+    return await res.json().catch(() => ({ success: false, message: 'Erro ao processar.' }));
+  } catch {
+    return { success: false, message: 'Erro de conexão.' };
+  }
+}

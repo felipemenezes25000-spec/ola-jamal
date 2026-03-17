@@ -424,6 +424,10 @@ public class EncounterModel
     public string? PhysicalExam { get; set; }
     public string? Plan { get; set; }
     public string? MainIcd10Code { get; set; }
+    public string? DifferentialDiagnosis { get; set; }
+    public string? PatientInstructions { get; set; }
+    public string? RedFlags { get; set; }
+    public string? StructuredAnamnesis { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -459,6 +463,21 @@ public class MedicalDocumentModel
     public string? SignatureValidationResult { get; set; }
     public string? SignaturePolicyOid { get; set; }
     public DateTime CreatedAt { get; set; }
+    // Security & anti-fraud
+    [JsonPropertyName("expires_at")]
+    public DateTime? ExpiresAt { get; set; }
+    [JsonPropertyName("dispensed_at")]
+    public DateTime? DispensedAt { get; set; }
+    [JsonPropertyName("dispensed_by")]
+    public string? DispensedBy { get; set; }
+    [JsonPropertyName("dispensed_count")]
+    public int DispensedCount { get; set; }
+    [JsonPropertyName("max_dispenses")]
+    public int MaxDispenses { get; set; } = 1;
+    [JsonPropertyName("verify_code_hash")]
+    public string? VerifyCodeHash { get; set; }
+    [JsonPropertyName("access_code")]
+    public string? AccessCode { get; set; }
 }
 
 /// <summary>Modelo de persistÃªncia de registro de consentimento (tabela consent_records).</summary>

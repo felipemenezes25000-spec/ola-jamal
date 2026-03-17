@@ -38,6 +38,8 @@ import { useTriageEval } from '../../hooks/useTriageEval';
 import { getNextBestActionForRequest, type NextActionIntent } from '../../lib/domain/assistantIntelligence';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
+import { ConsultationDocumentsCard } from '../../components/post-consultation/ConsultationDocumentsCard';
+import { DocumentValidityBadge } from '../../components/post-consultation/DocumentValidityBadge';
 import { useAuth } from '../../contexts/AuthContext';
 
 // FIX #18: onTextLayout não funciona no React Native Web — na web, mostra texto completo
@@ -460,6 +462,16 @@ export default function RequestDetailScreen() {
           <StatusTracker currentStatus={request.status} requestType={request.requestType} />
         </FormSection>
 
+        {/* Documentos da pós-consulta (receita + exame + atestado) */}
+        {request.requestType === 'consultation' && (
+          <View style={styles.formSection}>
+            <ConsultationDocumentsCard
+              requestId={request.id}
+              requestType={request.requestType}
+            />
+          </View>
+        )}
+
         <FormSection
           title="Dra. Renoveja"
           subtitle={nextAction.title}
@@ -501,6 +513,13 @@ export default function RequestDetailScreen() {
               doctorName={request.doctorName}
               conductUpdatedAt={request.conductUpdatedAt ?? undefined}
             />
+          </View>
+        )}
+
+        {/* Validade do documento */}
+        {(request.requestType === 'prescription' || request.requestType === 'exam') && request.signedAt && (
+          <View style={styles.formSection}>
+            <DocumentValidityBadge request={request} />
           </View>
         )}
 
@@ -676,6 +695,13 @@ export default function RequestDetailScreen() {
                 variant="outline"
                 onPress={handleViewDocument}
                 disabled={documentActionLoading}
+              />
+              <AppButton
+                title="Enviar por WhatsApp"
+                icon="logo-whatsapp"
+                variant="outline"
+                onPress={() => {/* TODO: implementar envio WhatsApp */}}
+                style={{ borderColor: '#22C55E' }}
               />
             </>
           )}

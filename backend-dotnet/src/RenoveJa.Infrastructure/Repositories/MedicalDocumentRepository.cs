@@ -258,4 +258,36 @@ public class MedicalDocumentRepository(PostgresClient db) : IMedicalDocumentRepo
     }
     private static string? ListToJson(List<string>? list) => list == null || list.Count == 0 ? null : JsonSerializer.Serialize(list);
     private static List<string> JsonToList(string? json) { if (string.IsNullOrWhiteSpace(json) || json == "null") return new(); try { return JsonSerializer.Deserialize<List<string>>(json) ?? new(); } catch { return new(); } }
+
+    public async Task<string?> GetSignedDocumentUrlAsync(Guid documentId, CancellationToken cancellationToken = default)
+    {
+        var model = await db.GetSingleAsync<MedicalDocumentModel>(
+            TableName,
+            new Dictionary<string, object> { ["id"] = documentId },
+            cancellationToken);
+        return model?.SignedDocumentUrl;
+    }
+
+    public async Task SetSecurityFieldsAsync(Guid documentId, DateTime? expiresAt, int maxDispenses, string? accessCode, string? verifyCodeHash, CancellationToken cancellationToken = default)
+    {
+        var updates = new Dictionary<string, object?>
+        {
+            ["expires_at"] = expiresAt,
+            ["max_dispenses"] = maxDispenses,
+            ["access_code"] = accessCode,
+            ["verify_code_hash"] = verifyCodeHash,
+        };
+        var filter = new Dictionary<string, object> { ["id"] = documentId };
+        await db.UpdateAsync<MedicalDocumentModel>(TableName, filter, updates, cancellationToken);
+    }
+
+    public async Task<(string? accessCode, string? verifyCodeHash, DateTime? expiresAt, int dispensedCount)?> GetSecurityFieldsAsync(Guid documentId, CancellationToken cancellationToken = default)
+    {
+        var model = await db.GetSingleAsync<MedicalDocumentModel>(
+            TableName,
+            new Dictionary<string, object> { ["id"] = documentId },
+            cancellationToken);
+        if (model == null) return null;
+        return (model.AccessCode, model.VerifyCodeHash, model.ExpiresAt, model.DispensedCount);
+    }
 }

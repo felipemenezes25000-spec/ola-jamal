@@ -818,4 +818,155 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         cpf = cpf.Replace(".", "").Replace("-", "");
         return cpf.Length == 11 ? $"{cpf[..3]}.{cpf[3..6]}.{cpf[6..9]}-{cpf[9..]}" : cpf;
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ATESTADO MÉDICO — PDF
+    // ═══════════════════════════════════════════════════════════════
+
+    public async Task<PrescriptionPdfResult> GenerateMedicalCertificateAsync(
+        MedicalCertificatePdfData data,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var ms = new MemoryStream();
+            var writer = new PdfWriter(ms);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf, PageSize.A4);
+            document.SetMargins(50, 50, 50, 50);
+
+            var bold = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var regular = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+
+            // ── Header com logo e dados do médico ──
+            var headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 70, 30 }))
+                .UseAllAvailableWidth();
+
+            var doctorInfo = new Paragraph()
+                .Add(new Text($"Dr(a). {data.DoctorName}\n").SetFont(bold).SetFontSize(14).SetFontColor(PrimaryDark))
+                .Add(new Text($"CRM {data.DoctorCrm}/{data.DoctorCrmState}").SetFont(regular).SetFontSize(10).SetFontColor(TextMedium))
+                .Add(new Text($"\n{data.DoctorSpecialty}").SetFont(regular).SetFontSize(10).SetFontColor(TextMedium));
+            if (!string.IsNullOrEmpty(data.DoctorAddress))
+                doctorInfo.Add(new Text($"\n{data.DoctorAddress}").SetFont(regular).SetFontSize(9).SetFontColor(TextLight));
+            if (!string.IsNullOrEmpty(data.DoctorPhone))
+                doctorInfo.Add(new Text($"\n{data.DoctorPhone}").SetFont(regular).SetFontSize(9).SetFontColor(TextLight));
+
+            headerTable.AddCell(new Cell().Add(doctorInfo).SetBorder(Border.NO_BORDER).SetPaddingBottom(10));
+
+            // QR Code de verificação
+            var verifyUrl = $"{DefaultVerificationBaseUrl}/{data.RequestId}";
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrData = qrGenerator.CreateQrCode(verifyUrl, QRCodeGenerator.ECCLevel.M);
+            using var qrCode = new PngByteQRCode(qrData);
+            var qrBytes = qrCode.GetGraphic(4);
+            var qrImage = new Image(ImageDataFactory.Create(qrBytes)).SetWidth(70).SetHeight(70);
+
+            headerTable.AddCell(new Cell().Add(qrImage).SetBorder(Border.NO_BORDER)
+                .SetTextAlignment(TextAlignment.RIGHT).SetVerticalAlignment(VerticalAlignment.MIDDLE));
+
+            document.Add(headerTable);
+
+            // Linha divisória
+            document.Add(new Paragraph("")
+                .SetBorderBottom(new SolidBorder(BorderLight, 1))
+                .SetMarginTop(8).SetMarginBottom(16));
+
+            // ── Título ──
+            var titleText = data.CertificateType switch
+            {
+                "comparecimento" => "ATESTADO DE COMPARECIMENTO",
+                "aptidao" => "ATESTADO DE APTIDÃO",
+                _ => "ATESTADO MÉDICO"
+            };
+
+            document.Add(new Paragraph(titleText)
+                .SetFont(bold).SetFontSize(16).SetFontColor(PrimaryDark)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginBottom(20));
+
+            // ── Dados do paciente ──
+            var patientTable = new Table(UnitValue.CreatePercentArray(new float[] { 30, 70 }))
+                .UseAllAvailableWidth()
+                .SetMarginBottom(16);
+
+            void AddRow(string label, string? value)
+            {
+                if (string.IsNullOrWhiteSpace(value)) return;
+                patientTable.AddCell(new Cell().Add(new Paragraph(label).SetFont(bold).SetFontSize(10).SetFontColor(TextMedium))
+                    .SetBorder(Border.NO_BORDER).SetPaddingBottom(4));
+                patientTable.AddCell(new Cell().Add(new Paragraph(value).SetFont(regular).SetFontSize(10).SetFontColor(TextDark))
+                    .SetBorder(Border.NO_BORDER).SetPaddingBottom(4));
+            }
+
+            AddRow("Paciente:", data.PatientName);
+            if (!string.IsNullOrEmpty(data.PatientCpf))
+                AddRow("CPF:", FormatCpf(data.PatientCpf));
+            if (data.PatientBirthDate.HasValue)
+                AddRow("Data de nascimento:", data.PatientBirthDate.Value.ToString("dd/MM/yyyy"));
+
+            document.Add(patientTable);
+
+            // ── Corpo do atestado ──
+            document.Add(new Paragraph(data.Body)
+                .SetFont(regular).SetFontSize(12).SetFontColor(TextDark)
+                .SetTextAlignment(TextAlignment.JUSTIFIED)
+                .SetLineSpacing(1.6f).SetMarginBottom(16));
+
+            // ── CID (se autorizado) ──
+            if (!string.IsNullOrWhiteSpace(data.Icd10Code))
+            {
+                document.Add(new Paragraph($"CID-10: {data.Icd10Code}")
+                    .SetFont(bold).SetFontSize(11).SetFontColor(TextDark).SetMarginBottom(8));
+            }
+
+            // ── Período de afastamento ──
+            if (data.LeaveDays.HasValue && data.LeaveDays.Value > 0)
+            {
+                var startDate = data.LeaveStartDate ?? data.EmissionDate;
+                var endDate = startDate.AddDays(data.LeaveDays.Value - 1);
+                var periodStr = data.LeavePeriod == "meio_periodo" ? " (meio período)" : "";
+
+                document.Add(new Paragraph(
+                    $"Período de afastamento: {data.LeaveDays} dia(s){periodStr}\n" +
+                    $"De {startDate:dd/MM/yyyy} a {endDate:dd/MM/yyyy}")
+                    .SetFont(regular).SetFontSize(11).SetFontColor(TextDark)
+                    .SetMarginBottom(20));
+            }
+
+            // ── Data e local ──
+            document.Add(new Paragraph($"São Paulo, {data.EmissionDate:dd 'de' MMMM 'de' yyyy}")
+                .SetFont(regular).SetFontSize(11).SetFontColor(TextMedium)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(30));
+
+            // ── Assinatura digital ──
+            document.Add(new Paragraph("_______________________________________")
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(30)
+                .SetFontColor(TextLight));
+
+            document.Add(new Paragraph($"Dr(a). {data.DoctorName}\nCRM {data.DoctorCrm}/{data.DoctorCrmState}\n{data.DoctorSpecialty}")
+                .SetFont(regular).SetFontSize(10).SetFontColor(TextMedium)
+                .SetTextAlignment(TextAlignment.CENTER));
+
+            // ── Rodapé: verificação ──
+            document.Add(new Paragraph(
+                $"\nDocumento assinado digitalmente com certificado ICP-Brasil.\n" +
+                $"Verifique a autenticidade em: {verifyUrl}")
+                .SetFont(regular).SetFontSize(8).SetFontColor(TextLight)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(20));
+
+            document.Add(new Paragraph(CompanyLine1 + "\n" + CompanyLine2)
+                .SetFont(regular).SetFontSize(7).SetFontColor(TextLight)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(8));
+
+            document.Close();
+
+            _logger.LogInformation("Medical certificate PDF generated for request {RequestId}", data.RequestId);
+
+            return new PrescriptionPdfResult(true, ms.ToArray(), null, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate medical certificate PDF for request {RequestId}", data.RequestId);
+            return new PrescriptionPdfResult(false, null, null, ex.Message);
+        }
+    }
 }

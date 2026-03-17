@@ -1,4 +1,4 @@
-import { apiClient } from './api-client';
+﻿import { apiClient } from './api-client';
 import type {
   RequestResponseDto,
   RequestStatus,
@@ -399,4 +399,78 @@ export function sortRequestsByNewestFirst(items: RequestResponseDto[]): RequestR
     const ub = new Date(b.updatedAt ?? 0).getTime();
     return ub - ua;
   });
+}
+
+
+// ============================================
+// POST-CONSULTATION DOCUMENT EMISSION
+// ============================================
+
+import type {
+  PostConsultationEmitRequest,
+  PostConsultationEmitResponse,
+} from '../types/postConsultation';
+
+/**
+ * Emite todos os documentos pós-consulta (receita, exames, atestado) num único request.
+ * O backend cria os documentos, vincula ao Encounter e retorna os IDs.
+ */
+export async function emitPostConsultationDocuments(
+  data: PostConsultationEmitRequest
+): Promise<PostConsultationEmitResponse> {
+  const res = await apiClient<PostConsultationEmitResponse>(
+    '/api/post-consultation/emit',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+  return res;
+}
+
+
+// ============================================
+// POST-CONSULTATION DOCUMENTS — PATIENT ACCESS
+// ============================================
+
+/** Documento emitido na pós-consulta (retornado pelo backend). */
+export interface ConsultationDocument {
+  id: string;
+  documentType: 'prescription' | 'examorder' | 'medicalcertificate' | 'medicalreport';
+  status: 'draft' | 'signed' | 'revoked';
+  signedAt: string | null;
+  expiresAt: string | null;
+  accessCode: string | null;
+  dispensedCount: number;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+/**
+ * Lista todos os documentos emitidos na pós-consulta de um request.
+ * Funciona tanto para paciente quanto para médico.
+ */
+export async function getConsultationDocuments(
+  requestId: string
+): Promise<ConsultationDocument[]> {
+  const res = await apiClient<{ documents: ConsultationDocument[] }>(
+    `/api/post-consultation/${requestId}/documents`
+  );
+  return res.documents;
+}
+
+/**
+ * Retorna a URL de download para um MedicalDocument específico.
+ * Usa o mesmo mecanismo de token temporário do download de request.
+ */
+export async function getDocumentDownloadUrlById(documentId: string): Promise<string> {
+  const baseUrl = apiClient.getBaseUrl();
+  try {
+    const { token: docToken } = await apiClient.post<{ token: string }>(
+      `/api/post-consultation/documents/${documentId}/token`, {}
+    );
+    return `${baseUrl}/api/post-consultation/documents/${documentId}/download?token=${encodeURIComponent(docToken)}`;
+  } catch {
+    // Fallback: usa o endpoint de request (retrocompatibilidade)
+    const token = await apiClient.getAuthToken();
+    return `${baseUrl}/api/post-consultation/documents/${documentId}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  }
 }

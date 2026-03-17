@@ -38,6 +38,7 @@ import { haptics } from '../../lib/haptics';
 import { showToast } from '../../components/ui/Toast';
 import { getNextBestActionForRequest } from '../../lib/domain/assistantIntelligence';
 import { getAssistantNextAction } from '../../lib/api';
+import { ExpiringDocsBanner } from '../../components/post-consultation/ExpiringDocsBanner';
 import type { AssistantNextActionResponseData } from '../../lib/api';
 import { motionTokens } from '../../lib/ui/motion';
 import { getGreeting } from '../../lib/utils/format';
@@ -435,6 +436,9 @@ export default function PatientHome() {
           </View>
         </Pressable>
       </View>
+
+      {/* ─── Receitas vencendo ─── */}
+      {requests.length > 0 && <ExpiringDocsBanner requests={requests} />}
 
       {/* ─── Recent Requests ─── */}
             {recentRequests.length > 0 ? (

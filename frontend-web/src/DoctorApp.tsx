@@ -61,6 +61,9 @@ const DoctorVideoCall = lazy(() => import('@/pages/doctor/DoctorVideoCall'));
 const DoctorConsultationSummary = lazy(
   () => import('@/pages/doctor/DoctorConsultationSummary')
 );
+const DoctorPostConsultationEmit = lazy(
+  () => import('@/pages/doctor/DoctorPostConsultationEmit')
+);
 const DoctorCompleteDoctor = lazy(
   () => import('@/pages/doctor/DoctorCompleteDoctor')
 );
@@ -263,6 +266,14 @@ function DoctorShell() {
               element={
                 <DoctorProtectedRoute>
                   <DoctorConsultationSummary />
+                </DoctorProtectedRoute>
+              }
+            />
+            <Route
+              path="/pos-consulta/:requestId"
+              element={
+                <DoctorProtectedRoute>
+                  <DoctorPostConsultationEmit />
                 </DoctorProtectedRoute>
               }
             />
