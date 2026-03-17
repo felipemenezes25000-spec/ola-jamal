@@ -255,12 +255,7 @@ export default function Register() {
     Keyboard.dismiss();
     setLoading(true);
     try {
-      const str = street.trim();
-      const num = number.trim();
-      const neigh = neighborhood.trim();
       const comp = complement.trim();
-      const ci = city.trim();
-      const st = state.trim().toUpperCase().slice(0, 2);
       const postalCode = onlyDigits(cep);
       const bdTrim = birthDate.trim().replace(/\D/g, '');
       const birthDateIso = bdTrim.length === 8

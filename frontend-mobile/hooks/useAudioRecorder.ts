@@ -116,7 +116,7 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
         setSecondsUntilNextChunk((s) => (s <= 1 ? CHUNK_DURATION_MS / 1000 : s - 1));
       }, 1000);
 
-      console.warn('[AudioRecorder] Started recording, chunk interval:', CHUNK_DURATION_MS);
+      if (__DEV__) console.log('[AudioRecorder] Started recording, chunk interval:', CHUNK_DURATION_MS);
       return true;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erro ao iniciar gravação';
@@ -131,7 +131,7 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
   // ── Stop recording ──
 
   const stop = useCallback(async () => {
-    console.warn('[AudioRecorder] Stopping...');
+    if (__DEV__) console.log('[AudioRecorder] Stopping...');
     activeRef.current = false;
     setIsRecording(false);
     setSecondsUntilNextChunk(0);
@@ -173,7 +173,7 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
       });
     } catch {}
 
-    console.warn('[AudioRecorder] Stopped.');
+    if (__DEV__) console.log('[AudioRecorder] Stopped.');
   }, [sendChunk, stream, setSecondsUntilNextChunk]);
 
   // ── Cleanup on unmount ──

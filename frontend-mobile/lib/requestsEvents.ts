@@ -46,7 +46,14 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
     const retryDelays = [5000, 15000, 30000];
     const builder = new signalR.HubConnectionBuilder()
       .withUrl(url, {
-        accessTokenFactory: async () => (await getToken()) ?? '',
+        accessTokenFactory: async () => {
+          const t = await getToken();
+          if (!t) {
+            if (__DEV__) console.warn('[RequestsEvents] Token ausente no reconnect');
+            return '';
+          }
+          return t;
+        },
       })
       .withAutomaticReconnect(retryDelays);
     // Só loga Warning/Error — evita poluir com "WebSocket connected", "Using HubProtocol", "Connection disconnected"
@@ -54,6 +61,11 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
       builder.configureLogging(signalR.LogLevel.Warning);
     }
     const conn = builder.build();
+
+    conn.onclose((error: Error | undefined) => {
+      if (__DEV__) console.warn('[RequestsEvents] Conexão fechada:', error?.message);
+      connection = null;
+    });
 
     conn.on(EVENT_NAME, (payload: RequestUpdatedPayload) => {
       const normalized: RequestUpdatedPayload = {
@@ -65,7 +77,7 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
         try {
           fn(normalized);
         } catch (e) {
-          console.warn('[RequestsEvents] Listener error:', e);
+          if (__DEV__) console.warn('[RequestsEvents] Listener error:', e);
         }
       });
     });
