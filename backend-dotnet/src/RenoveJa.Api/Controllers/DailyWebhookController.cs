@@ -101,60 +101,66 @@ public class DailyWebhookController(
             return Ok();
         }
 
-        var (downloadLink, _) = await dailyVideoService.GetRecordingAccessLinkAsync(recordingId, 3600, cancellationToken);
-        if (string.IsNullOrEmpty(downloadLink))
-        {
-            logger.LogWarning("[DailyWebhook] Não foi possível obter link de download da gravação {RecordingId}.", recordingId);
-            return Ok();
-        }
-
-        // PERF FIX: streaming — baixa o vídeo como stream e envia para S3 sem carregar tudo na memória
+        // Retry: até 4 tentativas (download + upload). Retorna 503 em falha para Daily reenviar webhook.
+        const int maxAttempts = 4;
+        const int baseDelayMs = 1000;
         var path = $"consultas/{requestId:N}/gravacao/consulta-{requestId:N}-{recordingId}.mp4";
-        StorageUploadResult uploadResult;
+        StorageUploadResult? uploadResult = null;
         long streamSize = 0;
-        try
-        {
-            var client = httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RenoveJaBackend", "1.0"));
-            var response = await client.GetAsync(downloadLink, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            response.EnsureSuccessStatusCode();
 
-            streamSize = response.Content.Headers.ContentLength ?? 0;
-            if (streamSize == 0)
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var (downloadLink, _) = await dailyVideoService.GetRecordingAccessLinkAsync(recordingId, 3600, cancellationToken);
+            if (string.IsNullOrEmpty(downloadLink))
             {
-                // Fallback: checar se stream realmente tem dados
-                await using var checkStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                if (checkStream == null || !checkStream.CanRead)
-                {
-                    logger.LogWarning("[DailyWebhook] Gravação vazia (stream): {RecordingId}.", recordingId);
-                    return Ok();
-                }
-                uploadResult = await storageService.UploadStreamAsync(path, checkStream, "video/mp4", cancellationToken);
+                logger.LogWarning("[DailyWebhook] Tentativa {Attempt}/{Max}: link de download vazio para {RecordingId}.", attempt, maxAttempts, recordingId);
+                if (attempt < maxAttempts) await Task.Delay(baseDelayMs * (1 << (attempt - 1)), cancellationToken);
+                continue;
             }
-            else
+
+            try
             {
+                var client = httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromMinutes(10);
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RenoveJaBackend", "1.0"));
+                var response = await client.GetAsync(downloadLink, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                response.EnsureSuccessStatusCode();
+
+                streamSize = response.Content.Headers.ContentLength ?? 0;
                 await using var videoStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                if (streamSize == 0 && (videoStream == null || !videoStream.CanRead))
+                {
+                    logger.LogWarning("[DailyWebhook] Tentativa {Attempt}/{Max}: stream vazio para {RecordingId}.", attempt, maxAttempts, recordingId);
+                    if (attempt < maxAttempts) await Task.Delay(baseDelayMs * (1 << (attempt - 1)), cancellationToken);
+                    continue;
+                }
+
                 uploadResult = await storageService.UploadStreamAsync(path, videoStream, "video/mp4", cancellationToken);
+                if (uploadResult.Success && !string.IsNullOrEmpty(uploadResult.Url))
+                    break;
             }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "[DailyWebhook] Falha ao baixar/enviar gravação {RecordingId}.", recordingId);
-            return Ok();
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[DailyWebhook] Tentativa {Attempt}/{Max} falhou para {RecordingId}.", attempt, maxAttempts, recordingId);
+            }
+
+            if (attempt < maxAttempts)
+                await Task.Delay(baseDelayMs * (1 << (attempt - 1)), cancellationToken);
         }
 
-        if (!uploadResult.Success || string.IsNullOrEmpty(uploadResult.Url))
+        if (uploadResult == null || !uploadResult.Success || string.IsNullOrEmpty(uploadResult.Url))
         {
-            logger.LogError("[DailyWebhook] Falha ao enviar gravação para S3: {RequestId} Error={Error}", requestId, uploadResult.ErrorMessage);
-            return Ok();
+            logger.LogError("[DailyWebhook] Todas as {Max} tentativas falharam. RequestId={RequestId} RecordingId={RecordingId}. Retornando 503 para Daily reenviar.", maxAttempts, requestId, recordingId);
+            return StatusCode(503, new { error = "Falha ao processar gravação. Daily reenviará o webhook." });
         }
 
+        var savedUrl = uploadResult.Url!;
         logger.LogInformation("[DailyWebhook] Gravação enviada à AWS (stream): RequestId={RequestId} Path={Path} ContentLength={Size}", requestId, path, streamSize);
 
         var existing = await consultationAnamnesisRepository.GetByRequestIdAsync(requestId, cancellationToken);
         if (existing != null)
         {
-            existing.SetRecordingFileUrl(uploadResult.Url);
+            existing.SetRecordingFileUrl(savedUrl);
             await consultationAnamnesisRepository.UpdateAsync(existing, cancellationToken);
         }
         else
@@ -164,7 +170,7 @@ public class DailyWebhookController(
                 request.PatientId,
                 transcriptText: null,
                 transcriptFileUrl: null,
-                recordingFileUrl: uploadResult.Url,
+                recordingFileUrl: savedUrl,
                 anamnesisJson: null,
                 aiSuggestionsJson: null,
                 evidenceJson: null);

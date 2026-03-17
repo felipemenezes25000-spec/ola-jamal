@@ -10,7 +10,8 @@ public class AuditLogModel
     public Guid? UserId { get; set; }
     public string Action { get; set; } = string.Empty;
     public string EntityType { get; set; } = string.Empty;
-    public Guid? EntityId { get; set; }
+    /// <summary>entity_id é TEXT no PostgreSQL; usamos string para evitar InvalidCastException.</summary>
+    public string? EntityId { get; set; }
     // TEXT columns in PostgreSQL — Dapper reads as string, not Dictionary
     public string? OldValues { get; set; }
     public string? NewValues { get; set; }
@@ -44,7 +45,7 @@ public class AuditLogModel
             UserId = auditLog.UserId,
             Action = auditLog.Action,
             EntityType = auditLog.EntityType,
-            EntityId = auditLog.EntityId,
+            EntityId = auditLog.EntityId?.ToString(),
             OldValues = DictToJson(auditLog.OldValues),
             NewValues = DictToJson(auditLog.NewValues),
             IpAddress = auditLog.IpAddress,
@@ -62,7 +63,7 @@ public class AuditLogModel
             UserId,
             Action,
             EntityType,
-            EntityId,
+            Guid.TryParse(EntityId, out var eid) ? eid : null,
             JsonToDict(OldValues),
             JsonToDict(NewValues),
             IpAddress,

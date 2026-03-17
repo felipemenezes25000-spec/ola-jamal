@@ -363,6 +363,7 @@ public class ExtendedRequestServiceTests
                 _requestEventsPublisherMock.Object, pushDispatcherMock.Object,
                 _documentTokenServiceMock.Object, _apiConfigMock.Object,
                 new Mock<RenoveJa.Application.Interfaces.ISoapNotesService>().Object,
+                new Mock<RenoveJa.Application.Interfaces.IStartConsultationRecording>().Object,
                 new Mock<ILogger<RenoveJa.Application.Services.Requests.ConsultationLifecycleService>>().Object),
             new RenoveJa.Application.Services.Requests.SignatureService(
                 _requestRepoMock.Object, _doctorRepoMock.Object, _userRepoMock.Object,

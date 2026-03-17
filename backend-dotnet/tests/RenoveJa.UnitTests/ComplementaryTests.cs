@@ -513,6 +513,7 @@ public class RequestServiceFullTests
                 _requestEventsPublisherMock.Object, pushDispatcherMock.Object,
                 _documentTokenServiceMock.Object, _apiConfigMock.Object,
                 new Mock<ISoapNotesService>().Object,
+                new Mock<IStartConsultationRecording>().Object,
                 new Mock<ILogger<ConsultationLifecycleService>>().Object),
             new SignatureService(
                 _requestRepoMock.Object, _doctorRepoMock.Object, _userRepoMock.Object,

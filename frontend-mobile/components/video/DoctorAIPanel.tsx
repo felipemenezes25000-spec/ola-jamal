@@ -72,11 +72,10 @@ interface DoctorAIPanelProps {
 
 // ── Tab definition ──
 
-type TabKey = 'consulta' | 'perguntas' | 'historico' | 'evidencias';
+type TabKey = 'consulta' | 'perguntas' | 'evidencias';
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'consulta', label: 'Consulta', icon: 'document-text' },
   { key: 'perguntas', label: 'Perguntas', icon: 'help-circle' },
-  { key: 'historico', label: 'Sugestões', icon: 'bulb' },
   { key: 'evidencias', label: 'Evidências', icon: 'library' },
 ];
 

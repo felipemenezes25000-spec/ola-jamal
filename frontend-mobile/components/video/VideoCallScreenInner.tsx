@@ -455,8 +455,8 @@ export default function VideoCallScreenInner() {
     } catch {}
     setEnding(false);
     cleanup();
-    // Médico vai direto para o pedido com prontuário preenchido (sem consultation-summary)
-    nav.replace(router, `/doctor-request/${rid}`);
+    // Médico vai para tela de pós-consulta (emissão de receita + exames + atestado)
+    nav.replace(router, `/post-consultation-emit/${rid}`);
   }, [leave, rid, clinicalNotes, cleanup, router]);
 
   const onEndPress = useCallback(() => {

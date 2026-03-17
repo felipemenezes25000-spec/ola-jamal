@@ -28,6 +28,9 @@ public interface IDailyVideoService
 
     /// <summary>Obtém link de download temporário da gravação (GET /recordings/:id/access-link).</summary>
     Task<(string? DownloadLink, long? Expires)> GetRecordingAccessLinkAsync(string recordingId, int validForSecs = 3600, CancellationToken ct = default);
+
+    /// <summary>Inicia gravação cloud na sala via API (POST /rooms/:name/recordings/start). Garante gravação mesmo se o token não iniciar.</summary>
+    Task<bool> StartRecordingAsync(string roomName, CancellationToken ct = default);
 }
 
 /// <summary>Metadados de uma gravação Daily (para auditoria).</summary>
@@ -242,6 +245,25 @@ public class DailyVideoService : IDailyVideoService
         var downloadLink = root.TryGetProperty("download_link", out var dl) ? dl.GetString() : null;
         var expires = root.TryGetProperty("expires", out var ex) && ex.ValueKind == JsonValueKind.Number ? ex.GetInt64() : (long?)null;
         return (downloadLink, expires);
+    }
+
+    public async Task<bool> StartRecordingAsync(string roomName, CancellationToken ct = default)
+    {
+        var body = new { type = "cloud", layout = new { preset = "default" } };
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"rooms/{Uri.EscapeDataString(roomName)}/recordings/start", content, ct);
+
+        if (response.IsSuccessStatusCode)
+        {
+            _logger.LogInformation("[Daily] Gravação iniciada na sala {RoomName}", roomName);
+            return true;
+        }
+
+        var errorBody = await response.Content.ReadAsStringAsync(ct);
+        _logger.LogWarning("[Daily] Falha ao iniciar gravação em {RoomName}: {Status} {Body}", roomName, response.StatusCode, errorBody);
+        return false;
     }
 
     private async Task<DailyRoomResult> GetRoomAsync(string roomName, CancellationToken ct)

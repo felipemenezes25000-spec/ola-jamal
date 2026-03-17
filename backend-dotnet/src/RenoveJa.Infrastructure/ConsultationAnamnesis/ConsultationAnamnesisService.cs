@@ -290,6 +290,8 @@ REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do t
 
             // Top-level fields (CID validado contra base local ICD/CID-10)
             var cidRaw = root.TryGetProperty("cid_sugerido", out var cidEl) ? cidEl.GetString()?.Trim() ?? "" : "";
+            // Garantir coerência: cid_sugerido DEVE estar em diagnostico_diferencial (evita alucinações como F10.2)
+            cidRaw = AnamnesisResponseParser.EnsureCidCoherentWithDifferential(root, cidRaw, _logger);
             if (!string.IsNullOrEmpty(cidRaw))
             {
                 var cidValidado = Cid10Database.IsValid(cidRaw)

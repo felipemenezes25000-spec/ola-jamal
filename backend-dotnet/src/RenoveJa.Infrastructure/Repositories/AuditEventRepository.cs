@@ -1,4 +1,4 @@
-﻿using RenoveJa.Domain.Entities;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
@@ -63,7 +63,7 @@ public class AuditEventRepository(PostgresClient db) : IAuditEventRepository
             model.UserId,
             action,
             model.EntityType ?? "",
-            model.EntityId,
+            Guid.TryParse(model.EntityId, out var eid) ? eid : null,
             model.Channel,
             model.IpAddress,
             model.UserAgent,
@@ -79,7 +79,7 @@ public class AuditEventRepository(PostgresClient db) : IAuditEventRepository
             UserId = auditEvent.UserId,
             Action = SnakeCaseHelper.ToSnakeCase(auditEvent.Action.ToString()),
             EntityType = auditEvent.EntityType,
-            EntityId = auditEvent.EntityId,
+            EntityId = auditEvent.EntityId?.ToString(),
             Channel = auditEvent.Channel,
             IpAddress = auditEvent.IpAddress,
             UserAgent = auditEvent.UserAgent,

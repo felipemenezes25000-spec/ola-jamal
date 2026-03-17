@@ -38,7 +38,9 @@ import { DoctorActionButtons } from '../../components/doctor-request/DoctorActio
 import { DetailsCard, MedicationsCard, ExamsCard, SymptomsCard, SignedDocumentCard } from '../../components/doctor-request/RequestDetailCards';
 import { AnamnesisCard } from '../../components/prontuario/AnamnesisCard';
 import { ConductForm } from '../../components/prontuario/ConductForm';
-import { parseAnamnesis, parseSuggestions, parseEvidence, displayMedicamento, displayExame } from '../../lib/domain/anamnesis';
+import { SoapNotesCard } from '../../components/prontuario/SoapNotesCard';
+import { TranscriptViewer } from '../../components/prontuario/TranscriptViewer';
+import { parseAnamnesis, parseSuggestions, parseEvidence } from '../../lib/domain/anamnesis';
 
 export { cacheRequest } from '../../lib/requestCache';
 
@@ -237,44 +239,35 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
   if (request.requestType !== 'consultation' || request.status !== 'consultation_finished') return null;
   if (!request.consultationTranscript && !request.consultationAnamnesis && !request.consultationAiSuggestions && !request.consultationEvidence) return null;
 
-  const anamnesis = parseAnamnesis(request.consultationAnamnesis);
+  const parsedAnamnesis = parseAnamnesis(request.consultationAnamnesis);
   const suggestions = parseSuggestions(request.consultationAiSuggestions);
   const evidence = parseEvidence(request.consultationEvidence);
-  const hasMeds = (anamnesis?.medicamentos_sugeridos?.length ?? 0) > 0;
-  const hasExams = (anamnesis?.exames_sugeridos?.length ?? 0) > 0;
+  const [anamnesis, setAnamnesis] = useState(parsedAnamnesis);
 
   return (
     <>
-      {/* Transcrição completa primeiro — para o médico rever se quiser */}
+      {/* Transcrição formatada — balões por speaker */}
       {request.consultationTranscript && request.consultationTranscript.trim() && (
-        <DoctorCard style={s.cardMargin}>
-          <View style={s.aiHeader}>
-            <Ionicons name="mic" size={18} color={colors.textMuted} />
-            <Text style={s.aiTitle}>TRANSCRIÇÃO DA CONSULTA</Text>
-            <TouchableOpacity style={s.aiSummaryActionBtn} onPress={async () => { await Clipboard.setStringAsync(request.consultationTranscript || ''); showToast({ message: 'Transcrição copiada', type: 'success' }); }}>
-              <Ionicons name="copy-outline" size={14} color={colors.primary} />
-              <Text style={s.aiSummaryActionText}>Copiar</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={s.aiDisclaimer}>
-            <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-            <Text style={s.aiDisclaimerText}>Transcrição automática — pode conter imprecisões.</Text>
-          </View>
-          <Text style={[s.aiSummary, { fontSize: 13, lineHeight: 21, color: colors.textSecondary }]}>
-            {request.consultationTranscript}
-          </Text>
-        </DoctorCard>
+        <TranscriptViewer transcript={request.consultationTranscript} style={s.cardMargin} />
       )}
 
       {anamnesis && Object.keys(anamnesis).length > 0 && (
         <AnamnesisCard
           data={anamnesis}
-          compact
+          editable
+          onDataChange={setAnamnesis}
           showAlerts
           showMedsSuggestions
           showExamsSuggestions
           style={s.cardMargin}
         />
+      )}
+
+      {/* SOAP Notes — geradas pela IA após a consulta */}
+      {request.consultationSoapNotes && (
+        <View style={s.cardMargin}>
+          <SoapNotesCard soapJson={request.consultationSoapNotes} />
+        </View>
       )}
 
       {suggestions.length > 0 && (
@@ -329,32 +322,7 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
         </DoctorCard>
       )}
 
-      {(hasMeds || hasExams) && (() => {
-        const medsForPrefill = (anamnesis?.medicamentos_sugeridos ?? []).map((m) => displayMedicamento(m));
-        const examsForPrefill = (anamnesis?.exames_sugeridos ?? []).map((e) => displayExame(e));
-        return (
-          <View style={[s.cardMargin, { marginBottom: 8 }]}>
-            {hasMeds && (
-              <AppButton
-                title="Criar Receita Baseada na Consulta"
-                variant="doctorPrimary"
-                trailing={<Ionicons name="chevron-forward" size={20} color={colors.white} />}
-                onPress={() => router.push({ pathname: '/doctor-request/editor/[id]' as any, params: { id: request.id, prefillMeds: JSON.stringify(medsForPrefill) } })}
-                style={{ width: '100%' }}
-              />
-            )}
-            {hasExams && (
-              <AppButton
-                title="Criar Pedido de Exame Baseado na Consulta"
-                variant="outline"
-                trailing={<Ionicons name="flask-outline" size={20} color={colors.primary} />}
-                onPress={() => router.push({ pathname: '/new-request/exam' as any, params: { prefillExams: JSON.stringify(examsForPrefill) } })}
-                style={{ width: '100%', marginTop: hasMeds ? 8 : 0 }}
-              />
-            )}
-          </View>
-        );
-      })()}
+
     </>
   );
 }

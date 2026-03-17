@@ -244,6 +244,7 @@ builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
 });
+builder.Services.AddScoped<IStartConsultationRecording, StartConsultationRecordingService>();
 builder.Services.AddHttpClient("LediPec");
 builder.Services.AddHttpClient("Rnds");
 

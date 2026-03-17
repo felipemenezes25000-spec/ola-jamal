@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 using Microsoft.Extensions.Options;
@@ -78,7 +78,7 @@ public class PostgresClient
     public async Task<T> InsertAsync<T>(string table, object data, CancellationToken cancellationToken = default)
     {
         var tableName = SanitizeTable(table);
-        var (columns, paramNames, paramDict) = BuildInsertParams(data);
+        var (columns, paramNames, paramDict) = BuildInsertParams(data, tableName);
         var sql = $"INSERT INTO public.{tableName} ({columns}) VALUES ({paramNames}) RETURNING *";
         await using var conn = CreateConnection();
         await conn.OpenAsync(cancellationToken);
@@ -89,7 +89,7 @@ public class PostgresClient
     public async Task<T> UpdateAsync<T>(string table, string filter, object data, CancellationToken cancellationToken = default)
     {
         var tableName = SanitizeTable(table);
-        var (setClauses, setParams) = BuildUpdateParams(data);
+        var (setClauses, setParams) = BuildUpdateParams(data, tableName);
         var (whereClause, whereParams) = PostgRestFilterParser.Parse(filter, setParams.Count);
         foreach (var kv in whereParams) setParams[kv.Key] = kv.Value;
         var sql = $"UPDATE public.{tableName} SET {setClauses}{whereClause} RETURNING *";
@@ -101,7 +101,7 @@ public class PostgresClient
     public async Task UpsertAsync(string table, object data, CancellationToken cancellationToken = default)
     {
         var tableName = SanitizeTable(table);
-        var (columns, paramNames, paramDict) = BuildInsertParams(data);
+        var (columns, paramNames, paramDict) = BuildInsertParams(data, tableName);
         var updateClauses = string.Join(", ", columns.Split(", ").Where(c => c != "id").Select(c => $"{c} = EXCLUDED.{c}"));
         var sql = string.IsNullOrEmpty(updateClauses)
             ? $"INSERT INTO public.{tableName} ({columns}) VALUES ({paramNames}) ON CONFLICT (id) DO NOTHING"
@@ -125,7 +125,12 @@ public class PostgresClient
     private static string SanitizeTable(string table) => new(table.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
     private static string ParseSelect(string? select) => string.IsNullOrWhiteSpace(select) || select == "*" ? "*" : select.Contains('(') ? "*" : select;
 
-    private (string columns, string paramNames, Dictionary<string, object?> parameters) BuildInsertParams(object data)
+    private static readonly HashSet<string> JsonbColumnsRequests = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "medications", "prescription_images", "exams", "exam_images", "ai_extracted_json"
+    };
+
+    private (string columns, string paramNames, Dictionary<string, object?> parameters) BuildInsertParams(object data, string tableName)
     {
         var json = JsonSerializer.Serialize(data, _jsonOptions);
         var dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, _jsonOptions) ?? new();
@@ -133,27 +138,31 @@ public class PostgresClient
         var pnames = new List<string>();
         var parameters = new Dictionary<string, object?>();
         var i = 0;
+        var useJsonbCast = tableName.Equals("requests", StringComparison.OrdinalIgnoreCase);
         foreach (var kv in dict)
         {
             cols.Add(kv.Key);
-            pnames.Add($"@ins{i}");
+            var needsJsonb = useJsonbCast && JsonbColumnsRequests.Contains(kv.Key);
+            pnames.Add(needsJsonb ? $"@ins{i}::jsonb" : $"@ins{i}");
             parameters[$"ins{i}"] = ConvertValue(kv.Value);
             i++;
         }
         return (string.Join(", ", cols), string.Join(", ", pnames), parameters);
     }
 
-    private (string setClauses, Dictionary<string, object?> parameters) BuildUpdateParams(object data)
+    private (string setClauses, Dictionary<string, object?> parameters) BuildUpdateParams(object data, string tableName)
     {
         var json = JsonSerializer.Serialize(data, _jsonOptions);
         var dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, _jsonOptions) ?? new();
         var clauses = new List<string>();
         var parameters = new Dictionary<string, object?>();
         var i = 0;
+        var useJsonbCast = tableName.Equals("requests", StringComparison.OrdinalIgnoreCase);
         foreach (var kv in dict)
         {
             if (kv.Key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
-            clauses.Add($"{kv.Key} = @set{i}");
+            var needsJsonb = useJsonbCast && JsonbColumnsRequests.Contains(kv.Key);
+            clauses.Add(needsJsonb ? $"{kv.Key} = @set{i}::jsonb" : $"{kv.Key} = @set{i}");
             parameters[$"set{i}"] = ConvertValue(kv.Value);
             i++;
         }

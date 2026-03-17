@@ -81,55 +81,50 @@ public class S3StorageService : IStorageService
 
     public async Task<StorageUploadResult> UploadAsync(string path, byte[] data, string contentType, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var bucket = GetBucket(path);
-            var key = CleanPath(path);
+        const int maxAttempts = 4;
+        const int baseDelayMs = 500;
+        Exception? lastEx = null;
 
-            var request = new PutObjectRequest
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
             {
-                BucketName = bucket,
-                Key = key,
-                InputStream = new MemoryStream(data),
-                ContentType = contentType
-            };
+                var bucket = GetBucket(path);
+                var key = CleanPath(path);
 
-            await _s3.PutObjectAsync(request, cancellationToken);
-            var url = GetPublicUrl(path);
-            return new StorageUploadResult(true, url, null);
+                var request = new PutObjectRequest
+                {
+                    BucketName = bucket,
+                    Key = key,
+                    InputStream = new MemoryStream(data),
+                    ContentType = contentType
+                };
+
+                await _s3.PutObjectAsync(request, cancellationToken);
+                var url = GetPublicUrl(path);
+                return new StorageUploadResult(true, url, null);
+            }
+            catch (Exception ex)
+            {
+                lastEx = ex;
+                if (attempt < maxAttempts)
+                    await Task.Delay(baseDelayMs * (1 << (attempt - 1)), cancellationToken);
+            }
         }
-        catch (Exception ex)
-        {
-            return new StorageUploadResult(false, null, ex.Message);
-        }
+
+        return new StorageUploadResult(false, null, lastEx?.Message ?? "Upload falhou após retries");
     }
 
     /// <summary>
-    /// Upload via Stream — evita carregar o arquivo inteiro na memória (ideal para vídeos grandes).
+    /// Upload via Stream — bufferiza para permitir retry (4 tentativas com backoff).
+    /// Garante maior chance de sucesso em falhas transitórias de rede/S3.
     /// </summary>
     public async Task<StorageUploadResult> UploadStreamAsync(string path, Stream data, string contentType, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var bucket = GetBucket(path);
-            var key = CleanPath(path);
-
-            var request = new PutObjectRequest
-            {
-                BucketName = bucket,
-                Key = key,
-                InputStream = data,
-                ContentType = contentType
-            };
-
-            await _s3.PutObjectAsync(request, cancellationToken);
-            var url = GetPublicUrl(path);
-            return new StorageUploadResult(true, url, null);
-        }
-        catch (Exception ex)
-        {
-            return new StorageUploadResult(false, null, ex.Message);
-        }
+        using var ms = new MemoryStream();
+        await data.CopyToAsync(ms, cancellationToken);
+        var bytes = ms.ToArray();
+        return await UploadAsync(path, bytes, contentType, cancellationToken);
     }
 
     public async Task<byte[]?> DownloadAsync(string path, CancellationToken cancellationToken = default)

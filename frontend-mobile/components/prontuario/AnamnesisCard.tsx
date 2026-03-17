@@ -7,8 +7,8 @@
  * - consultation-summary/[requestId].tsx
  */
 
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
@@ -34,6 +34,10 @@ interface AnamnesisCardProps {
   showMedsSuggestions?: boolean;
   showExamsSuggestions?: boolean;
   showCopyButton?: boolean;
+  /** Permite edição inline de todos os campos da anamnese */
+  editable?: boolean;
+  /** Callback quando os dados são alterados (modo editable) */
+  onDataChange?: (data: AnamnesisData) => void;
   style?: object;
 }
 
@@ -54,11 +58,20 @@ function AnamnesisCard_Fn({
   showMedsSuggestions = false,
   showExamsSuggestions = false,
   showCopyButton = true,
+  editable = false,
+  onDataChange,
   style,
 }: AnamnesisCardProps) {
   const { colors } = useAppTheme({ role: 'doctor' });
   const S = useMemo(() => makeStyles(colors), [colors]);
   const fields = compact ? ANA_FIELDS_COMPACT : ANA_FIELDS;
+  const [editingField, setEditingField] = useState<string | null>(null);
+
+  const handleFieldChange = useCallback((key: keyof AnamnesisData, value: string) => {
+    if (!onDataChange) return;
+    const updated = { ...data, [key]: value };
+    onDataChange(updated);
+  }, [data, onDataChange]);
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(anamnesisToText(data, fields));
@@ -118,10 +131,11 @@ function AnamnesisCard_Fn({
       {fields.map(({ key, label, icon, severity }) => {
         const val = data[key];
         const display = displayFieldValue(val);
-        if (!display) return null;
+        if (!editable && !display) return null;
 
         const isAlert = key === 'alergias';
         const fieldColor = severityColor(severity, colors);
+        const isEditing = editable && editingField === key;
 
         return (
           <View key={key} style={S.field}>
@@ -130,13 +144,50 @@ function AnamnesisCard_Fn({
                 <Ionicons name={icon} size={12} color={fieldColor} />
               </View>
               <Text style={[S.fieldLabel, isAlert && { color: colors.error }]}>{label}</Text>
+              {editable && !isEditing && (
+                <TouchableOpacity
+                  onPress={() => setEditingField(key)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={S.editFieldBtn}
+                >
+                  <Ionicons name="pencil" size={12} color={colors.primary} />
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={[
-              S.fieldValue,
-              key === 'cid_sugerido' && { color: colors.primary, fontFamily: typography.fontFamily.bold },
-            ]}>
-              {display}
-            </Text>
+            {isEditing ? (
+              <View style={S.editFieldWrap}>
+                <TextInput
+                  style={S.editFieldInput}
+                  value={display || ''}
+                  onChangeText={(v) => handleFieldChange(key, v)}
+                  multiline
+                  textAlignVertical="top"
+                  autoFocus
+                  placeholder={`Preencher ${label.toLowerCase()}...`}
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TouchableOpacity
+                  style={S.editFieldDoneBtn}
+                  onPress={() => setEditingField(null)}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                  <Text style={S.editFieldDoneText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={editable ? 0.6 : 1}
+                onPress={editable ? () => setEditingField(key) : undefined}
+              >
+                <Text style={[
+                  S.fieldValue,
+                  key === 'cid_sugerido' && { color: colors.primary, fontFamily: typography.fontFamily.bold },
+                  !display && editable && { color: colors.textMuted, fontStyle: 'italic' },
+                ]}>
+                  {display || (editable ? 'Toque para preencher' : '')}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         );
       })}
@@ -354,6 +405,46 @@ function makeStyles(colors: DesignColors) {
       color: colors.text,
       lineHeight: 21,
       paddingLeft: 28,
+    },
+    editFieldBtn: {
+      marginLeft: 'auto',
+      width: 24,
+      height: 24,
+      borderRadius: 6,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    editFieldWrap: {
+      paddingLeft: 28,
+      gap: 8,
+    },
+    editFieldInput: {
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.sm,
+      padding: spacing.sm,
+      fontSize: 14,
+      color: colors.text,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      fontFamily: typography.fontFamily.regular,
+      lineHeight: 21,
+      minHeight: 48,
+      textAlignVertical: 'top',
+    },
+    editFieldDoneBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      alignSelf: 'flex-end',
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+    },
+    editFieldDoneText: {
+      fontSize: 13,
+      fontFamily: typography.fontFamily.semibold,
+      fontWeight: '600',
+      color: colors.success,
     },
     alertsBlock: {
       marginTop: spacing.xs,

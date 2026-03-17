@@ -1,6 +1,9 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using RenoveJa.Application.DTOs.Consultation;
+using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
 
 namespace RenoveJa.Api.Hubs;
@@ -8,9 +11,13 @@ namespace RenoveJa.Api.Hubs;
 /// <summary>
 /// SignalR hub for WebRTC signaling: exchange SDP (offer/answer) and ICE candidates
 /// between patient and doctor in a consultation room. Room is identified by requestId.
+/// Ao entrar na sala, envia estado atual (transcript, anamnese, sugestões) para garantir que apareça.
 /// </summary>
 [Authorize]
-public class VideoSignalingHub(IRequestRepository requestRepository, ILogger<VideoSignalingHub> logger) : Hub
+public class VideoSignalingHub(
+    IRequestRepository requestRepository,
+    IConsultationSessionStore sessionStore,
+    ILogger<VideoSignalingHub> logger) : Hub
 {
     public static string GroupName(string requestId) => $"room_{requestId}";
 
@@ -53,6 +60,31 @@ public class VideoSignalingHub(IRequestRepository requestRepository, ILogger<Vid
         var group = GroupName(requestId);
         await Groups.AddToGroupAsync(Context.ConnectionId, group);
         logger.LogInformation("User {UserId} joined video room {RequestId}", userGuid, requestId);
+
+        // Sincronizar estado atual para garantir que anamnese e perguntas apareçam (evita tela vazia)
+        var transcript = sessionStore.GetTranscript(reqId);
+        var (anamnesisJson, suggestionsJson) = sessionStore.GetAnamnesisState(reqId);
+        if (!string.IsNullOrEmpty(transcript))
+            await Clients.Caller.SendAsync("TranscriptUpdate", new TranscriptUpdateDto(transcript));
+        if (!string.IsNullOrEmpty(anamnesisJson))
+            await Clients.Caller.SendAsync("AnamnesisUpdate", new AnamnesisUpdateDto(anamnesisJson));
+        else
+        {
+            // Anamnese inicial com perguntas sugeridas para consulta em andamento (garante que sempre apareça)
+            var initialAnamnesis = GetInitialAnamnesisJson();
+            await Clients.Caller.SendAsync("AnamnesisUpdate", new AnamnesisUpdateDto(initialAnamnesis));
+        }
+        if (!string.IsNullOrEmpty(suggestionsJson))
+        {
+            try
+            {
+                var suggestions = JsonSerializer.Deserialize<string[]>(suggestionsJson);
+                if (suggestions != null && suggestions.Length > 0)
+                    await Clients.Caller.SendAsync("SuggestionUpdate", new SuggestionUpdateDto(suggestions));
+            }
+            catch { /* ignore parse */ }
+        }
+
         await Clients.Caller.SendAsync("Joined", requestId);
     }
 
@@ -84,6 +116,19 @@ public class VideoSignalingHub(IRequestRepository requestRepository, ILogger<Vid
     {
         var group = GroupName(requestId);
         await Clients.OthersInGroup(group).SendAsync(method, payload);
+    }
+
+    private static string GetInitialAnamnesisJson()
+    {
+        var perguntas = new[]
+        {
+            new { pergunta = "Qual é a sua queixa principal? O que está sentindo?", objetivo = "Identificar motivo da consulta", hipoteses_afetadas = "Define o eixo diagnóstico", impacto_na_conduta = "Determina investigação", prioridade = "alta" },
+            new { pergunta = "Há quanto tempo está com isso? Começou de repente ou foi piorando?", objetivo = "Estabelecer cronologia", hipoteses_afetadas = "Agudo vs crônico", impacto_na_conduta = "Define urgência", prioridade = "alta" },
+            new { pergunta = "De 0 a 10, qual a intensidade? Interfere nas atividades?", objetivo = "Quantificar gravidade", hipoteses_afetadas = "EVA", impacto_na_conduta = "Analgesia e exames", prioridade = "alta" },
+            new { pergunta = "Está tomando algum remédio? Qual, dose e há quanto tempo?", objetivo = "Mapear farmacoterapia", hipoteses_afetadas = "Interações", impacto_na_conduta = "Evita interações", prioridade = "media" },
+            new { pergunta = "Tem alergia a algum medicamento ou alimento?", objetivo = "Prevenir reações", hipoteses_afetadas = "Restringe opções", impacto_na_conduta = "Muda prescrição", prioridade = "media" },
+        };
+        return JsonSerializer.Serialize(new { perguntas_sugeridas = perguntas });
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)

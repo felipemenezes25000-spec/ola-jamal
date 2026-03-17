@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 
 namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 
@@ -134,6 +135,61 @@ internal static class AnamnesisResponseParser
             };
 
         enrichedObj["suggestions_fallback"] = JsonSerializer.Serialize(fallbackSuggestions, JsonOptionsSnakeCase);
+    }
+
+    /// <summary>
+    /// Valida coerência: cid_sugerido DEVE estar em diagnostico_diferencial.
+    /// Se não estiver, retorna o CID do primeiro item com probabilidade "alta", ou o primeiro item.
+    /// Evita alucinações como F10.2 (álcool) quando o transcript não menciona álcool.
+    /// </summary>
+    internal static string EnsureCidCoherentWithDifferential(JsonElement root, string cidRaw, ILogger? logger = null)
+    {
+        if (string.IsNullOrWhiteSpace(cidRaw)) return cidRaw;
+
+        var cidCode = ExtractCidCode(cidRaw);
+        var differentialCids = GetCidsFromDiagnosticoDiferencial(root);
+
+        if (differentialCids.Count == 0) return cidRaw;
+
+        var cidInDifferential = differentialCids.Any(dd =>
+            string.Equals(ExtractCidCode(dd.cid), cidCode, StringComparison.OrdinalIgnoreCase));
+
+        if (cidInDifferential) return cidRaw;
+
+        // CID incoerente — substituir pelo primeiro do diferencial com probabilidade "alta"
+        var alta = differentialCids.FirstOrDefault(dd =>
+            "alta".Equals(dd.probabilidade, StringComparison.OrdinalIgnoreCase));
+        var replacement = !string.IsNullOrWhiteSpace(alta.cid)
+            ? alta.cid
+            : differentialCids[0].cid;
+
+        logger?.LogWarning(
+            "[Anamnese] CID incoerente corrigido: original={Original} (não está em diagnostico_diferencial) → replacement={Replacement}",
+            cidRaw, replacement);
+
+        return replacement;
+    }
+
+    private static string ExtractCidCode(string cidStr)
+    {
+        var m = CidCodeRegex.Match(cidStr ?? "");
+        return m.Success ? m.Groups[1].Value.ToUpperInvariant() : (cidStr ?? "").Trim();
+    }
+
+    private static List<(string cid, string probabilidade)> GetCidsFromDiagnosticoDiferencial(JsonElement root)
+    {
+        var list = new List<(string, string)>();
+        if (!root.TryGetProperty("diagnostico_diferencial", out var dd) || dd.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var item in dd.EnumerateArray())
+        {
+            var cid = item.TryGetProperty("cid", out var c) ? c.GetString()?.Trim() ?? "" : "";
+            var prob = item.TryGetProperty("probabilidade", out var p) ? p.GetString()?.Trim() ?? "" : "";
+            if (!string.IsNullOrWhiteSpace(cid))
+                list.Add((cid, prob));
+        }
+        return list;
     }
 
     internal static void CopyIfExists(JsonElement root, Dictionary<string, object> dict, string key)

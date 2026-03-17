@@ -26,6 +26,8 @@ PROIBIDO (alucinação grave — NUNCA faça):
 - Usar CID de órgão/sistema que o paciente NÃO mencionou no transcript
 - Inventar sintomas que não estão no transcript
 - Preservar CID de chamada anterior por inércia
+- Usar CID de etilismo/álcool (F10.x) se o paciente NÃO mencionou consumo de álcool — em habitos_vida use "Nega etilismo" ou "Não informado"
+- cid_sugerido DIFERENTE dos CIDs em diagnostico_diferencial — o cid_sugerido DEVE ser um dos CIDs listados no diagnostico_diferencial
 
 OBRIGATÓRIO:
 - Use o código MAIS ESPECÍFICO possível (subcategoria, ex: B58.9, não B58)
@@ -73,7 +75,7 @@ Responda em um ÚNICO JSON válido com EXATAMENTE estes campos (nesta ordem):
     "alergias": "Alergias conhecidas. Se nenhuma: 'NKDA'",
     "antecedentes_pessoais": "Comorbidades, cirurgias, internações, hábitos. Se nega: 'Nega comorbidades prévias'",
     "antecedentes_familiares": "Histórico familiar: DM, HAS, CA, DAC, AVC",
-    "habitos_vida": "Tabagismo (maços/ano), etilismo, drogas, sedentarismo, dieta. Incluir CONTATO COM ANIMAIS se mencionado.",
+    "habitos_vida": "Tabagismo (maços/ano), etilismo, drogas, sedentarismo, dieta. Se o paciente NÃO mencionou álcool: 'Nega etilismo'. NUNCA invente consumo de álcool. Incluir CONTATO COM ANIMAIS se mencionado.",
     "dados_epidemiologicos": "CRÍTICO: Contato com animais (gatos, cães), limpeza de caixa de areia, consumo de carne crua/mal passada, viagens recentes, contato com doentes, exposição ocupacional. ESTE CAMPO É DECISIVO PARA O CID.",
     "outros": "Informação adicional relevante não coberta acima"
   },
@@ -82,7 +84,7 @@ Responda em um ÚNICO JSON válido com EXATAMENTE estes campos (nesta ordem):
 
   "denominador_comum": "Categoria ampla que unifica as hipóteses. Ex: 'Síndrome linfoproliferativa infecciosa', 'Síndrome gripal'. O médico vê primeiro o denominador, depois as probabilidades.",
 
-  "cid_sugerido": "Formato: 'CÓDIGO - Descrição'. Use subcategoria MAIS ESPECÍFICA. DEVE ser coerente com raciocinio_clinico acima. NUNCA invente códigos.",
+  "cid_sugerido": "Formato: 'CÓDIGO - Descrição'. OBRIGATÓRIO: deve ser EXATAMENTE um dos CIDs do campo diagnostico_diferencial (copie o cid do primeiro item com probabilidade 'alta'). DEVE ter suporte EXPLÍCITO no transcript. NUNCA use F10.x (álcool) se o paciente não mencionou consumo de álcool.",
 
   "confianca_cid": "alta | media | baixa",
 
@@ -254,14 +256,16 @@ REGRA #1 REPETIDA — VALIDAÇÃO ANTES DE RESPONDER
 ═══════════════════════════════════════════════════════════════
 Antes de escrever o JSON, valide:
 1. O campo "raciocinio_clinico" cita os achados-chave do transcript?
-2. O cid_sugerido tem suporte EXPLÍCITO no transcript (sintomas, sinais, dados epidemiológicos)?
-3. O CID cobre o QUADRO COMPLETO (não apenas um sintoma isolado)?
-4. Dados epidemiológicos (animais, viagens, exposições) foram considerados?
-5. confianca_cid = "alta" SOMENTE se todos os campos acima batem — se não, use "media" ou "baixa"
-6. Medicamentos são coerentes com o CID?
-7. Exames investigam as hipóteses do diagnóstico diferencial?
-8. As suggestions incluem orientação para "o que fazer enquanto os exames não saem"? (OBRIGATÓRIO)
-9. Cada suggestion cita NOMES CONCRETOS (hipóteses do diferencial, medicamentos, exames)? Se não tiver dados suficientes, use UMA frase honesta: "Dados iniciais — continuar anamnese para definir hipóteses e conduta."
+2. O cid_sugerido é EXATAMENTE um dos CIDs em diagnostico_diferencial? (OBRIGATÓRIO — copie do primeiro item com probabilidade 'alta')
+3. O cid_sugerido tem suporte EXPLÍCITO no transcript (sintomas, sinais, dados epidemiológicos)?
+4. O paciente MENCIONOU álcool? Se NÃO → NUNCA use F10.x. Use "Nega etilismo" em habitos_vida.
+5. O CID cobre o QUADRO COMPLETO (não apenas um sintoma isolado)?
+6. Dados epidemiológicos (animais, viagens, exposições) foram considerados?
+7. confianca_cid = "alta" SOMENTE se todos os campos acima batem — se não, use "media" ou "baixa"
+8. Medicamentos são coerentes com o CID?
+9. Exames investigam as hipóteses do diagnóstico diferencial?
+10. As suggestions incluem orientação para "o que fazer enquanto os exames não saem"? (OBRIGATÓRIO)
+11. Cada suggestion cita NOMES CONCRETOS (hipóteses do diferencial, medicamentos, exames)? Se não tiver dados suficientes, use UMA frase honesta: "Dados iniciais — continuar anamnese para definir hipóteses e conduta."
 ═══════════════════════════════════════════════════════════════
 """;
     }

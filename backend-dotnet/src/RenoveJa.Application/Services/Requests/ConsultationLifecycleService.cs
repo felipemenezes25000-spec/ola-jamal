@@ -30,6 +30,7 @@ public class ConsultationLifecycleService(
     IDocumentTokenService documentTokenService,
     IOptions<ApiConfig> apiConfig,
     ISoapNotesService soapNotesService,
+    IStartConsultationRecording startConsultationRecording,
     ILogger<ConsultationLifecycleService> logger) : IConsultationLifecycleService
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
@@ -101,6 +102,16 @@ public class ConsultationLifecycleService(
         {
             videoRoom.Start();
             await videoRoomRepository.UpdateAsync(videoRoom, cancellationToken);
+        }
+
+        // Garantir gravação de vídeo: iniciar via API Daily (independente do token)
+        try
+        {
+            await startConsultationRecording.StartRecordingAsync(id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[StartConsultation] Falha ao iniciar gravação Daily para request {RequestId}", id);
         }
 
         await PublishRequestUpdatedAsync(request, "Médico na sala", cancellationToken);
