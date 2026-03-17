@@ -26,6 +26,7 @@ jest.mock('react-native', () => ({
   AppState: {
     addEventListener: jest.fn(() => ({ remove: jest.fn() })),
   },
+  Platform: { OS: 'web' },
 }));
 
 const mockStart = jest.fn().mockResolvedValue(true);

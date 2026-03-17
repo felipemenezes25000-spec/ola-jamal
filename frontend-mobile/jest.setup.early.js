@@ -4,6 +4,20 @@
  * Mock de Sentry para evitar ESM "export" não parseável pelo Jest em testes de integração.
  */
 /* eslint-env jest */
+
+// expo-constants usa ESM; Jest falha com "Cannot use import statement outside a module"
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    executionEnvironment: 'standalone',
+    appOwnership: 'standalone',
+  },
+  ExecutionEnvironment: {
+    StoreClient: 'storeClient',
+    Standalone: 'standalone',
+  },
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
