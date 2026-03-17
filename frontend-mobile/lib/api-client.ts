@@ -34,7 +34,11 @@ function generateCorrelationId(): string {
 // Web uses relative URLs so the Metro dev proxy handles /api/* requests (avoids CORS)
 const getDefaultBaseUrl = () => {
   if (Platform.OS === 'web') return '';
-  if (Platform.OS === 'android') return 'http://10.0.2.2:5000';
+  if (Platform.OS === 'android') {
+    // 10.0.2.2 só funciona no EMULADOR. Para device físico, defina EXPO_PUBLIC_API_URL no .env
+    if (__DEV__) console.log('[ApiClient] Usando 10.0.2.2:5000 (emulador). Para device físico, defina EXPO_PUBLIC_API_URL.');
+    return 'http://10.0.2.2:5000';
+  }
   return 'http://localhost:5000';
 };
 

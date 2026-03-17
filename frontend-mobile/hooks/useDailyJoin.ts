@@ -246,6 +246,13 @@ export function useDailyJoin({
           DailyNativeUtils.setShowOngoingMeetingNotification(false, '', '', '', 'renoveja-call');
         }
       }
+      call.off('joined-meeting' as DailyEvent);
+      call.off('participant-joined' as DailyEvent);
+      call.off('participant-updated' as DailyEvent);
+      call.off('participant-left' as DailyEvent);
+      call.off('meeting-ended' as DailyEvent);
+      call.off('left-meeting' as DailyEvent);
+      call.off('error' as DailyEvent);
       await call.leave();
       await call.destroy();
     } catch {

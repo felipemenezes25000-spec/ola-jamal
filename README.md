@@ -281,3 +281,9 @@ Nunca commitar `.env` ou chaves; usar `.env.example` como modelo.
 ---
 
 **RenoveJá+** — .NET 8 · Expo 54 · PostgreSQL · AWS · Daily.co · OpenAI · Gemini · ICP-Brasil · Sentry
+
+## Notas técnicas
+
+- **React version mismatch**: frontend-mobile usa React 19.1.0, frontend-web usa React 18.3.1. Unificar quando possível.
+- **TypeScript version mismatch**: frontend-mobile usa TS ~5.9.2, frontend-web usa TS ~5.6.2.
+- **Zod v4**: Ambos os projetos usam zod ^4.3.6 (recente). Monitorar breaking changes.
