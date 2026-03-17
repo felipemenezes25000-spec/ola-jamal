@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, ChevronDown, ChevronUp, Copy, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { getRiskBadge } from '@/lib/doctor-helpers';
+import { hasUsefulAiContent } from '@/lib/aiCopilotHelpers';
 
 const URGENCY_LABELS: Record<string, string> = {
   routine: 'Rotina',
@@ -36,16 +37,6 @@ export interface AiCopilotCardProps {
   aiSummaryForDoctor?: string | null;
   aiRiskLevel?: string | null;
   aiUrgency?: string | null;
-}
-
-export function hasUsefulAiContent(
-  aiSummary: string | null | undefined,
-  aiRisk?: string | null,
-  aiUrgency?: string | null
-): boolean {
-  if (aiRisk || aiUrgency) return true;
-  if (!aiSummary || !aiSummary.trim()) return false;
-  return aiSummary.replace(/\s/g, '').length > 50;
 }
 
 export function AiCopilotCard({ aiSummaryForDoctor, aiRiskLevel, aiUrgency }: AiCopilotCardProps) {

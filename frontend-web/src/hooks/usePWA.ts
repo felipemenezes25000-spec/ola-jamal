@@ -17,16 +17,16 @@ export function usePWA() {
   const updateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Check if already installed (standalone mode)
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-    setIsInstalled(isStandalone);
+    queueMicrotask(() => {
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+      setIsInstalled(isStandalone);
 
-    // Check iOS (iOS doesn't fire beforeinstallprompt)
-    const ua = navigator.userAgent;
-    const isiOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    setIsIOS(isiOS && !isStandalone);
+      const ua = navigator.userAgent;
+      const isiOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      setIsIOS(isiOS && !isStandalone);
+    });
 
     // Register service worker only on doctor portal
     if ('serviceWorker' in navigator) {

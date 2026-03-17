@@ -15,7 +15,8 @@ import {
   getPatientProfile, type PatientProfile,
 } from '@/services/doctorApi';
 import { getTypeLabel, getTypeIcon, getStatusInfo, normalizeStatus } from '@/lib/doctor-helpers';
-import { AiCopilotCard, hasUsefulAiContent } from '@/components/doctor/AiCopilotCard';
+import { AiCopilotCard } from '@/components/doctor/AiCopilotCard';
+import { hasUsefulAiContent } from '@/lib/aiCopilotHelpers';
 import { StatusTracker } from '@/components/doctor/StatusTracker';
 import { ConsultationPostSection } from '@/components/doctor/ConsultationPostSection';
 import { PatientSidePanel } from '@/components/doctor/PatientSidePanel';

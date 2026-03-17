@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,7 @@ const AdminMedicos = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ApiDoctor | null>(null);
 
-  const fetchDoctors = async () => {
+  const fetchDoctors = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getDoctors(statusFilter === "all" ? undefined : statusFilter);
@@ -46,11 +46,11 @@ const AdminMedicos = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     fetchDoctors();
-  }, [statusFilter]);
+  }, [fetchDoctors]);
 
   const filtered = doctors.filter((d) => {
     const term = search.toLowerCase();

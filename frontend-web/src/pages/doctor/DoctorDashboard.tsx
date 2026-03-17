@@ -4,7 +4,7 @@ import { DoctorLayout } from '@/components/doctor/DoctorLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { getRequests, getDoctorStats, getActiveCertificate, type MedicalRequest, type DoctorStats } from '@/services/doctorApi';
 import { useRequestEvents } from '@/hooks/useSignalR';
 import {

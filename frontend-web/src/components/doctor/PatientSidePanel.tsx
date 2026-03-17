@@ -56,10 +56,11 @@ export function PatientSidePanel({
   const [summary, setSummary] = useState<PatientClinicalSummaryResponse | null>(null);
   const [requests, setRequests] = useState<MedicalRequest[]>([]);
   const [loading, setLoading] = useState(false);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     if (!patientId) return;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     Promise.all([
       getPatientProfile(patientId),
       getPatientClinicalSummary(patientId).catch(() => null),
@@ -88,7 +89,7 @@ export function PatientSidePanel({
 
   const age = patient?.birthDate
     ? Math.floor(
-        (Date.now() - new Date(patient.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000),
+        (now - new Date(patient.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000),
       )
     : null;
 

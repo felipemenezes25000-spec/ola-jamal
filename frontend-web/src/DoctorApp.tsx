@@ -13,10 +13,8 @@ import { CommandPalette } from '@/components/doctor/CommandPalette';
 import { OfflineBanner } from '@/components/doctor/OfflineBanner';
 import { ShortcutsDialog } from '@/components/doctor/ShortcutsDialog';
 import { SkeletonPage } from '@/components/ui/skeleton';
-import {
-  DoctorAuthProvider,
-  useDoctorAuth,
-} from '@/contexts/DoctorAuthContext';
+import { DoctorAuthProvider } from '@/contexts/DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import {
   NotificationProvider,
   useNotifications,

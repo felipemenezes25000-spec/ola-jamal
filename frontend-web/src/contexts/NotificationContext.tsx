@@ -19,7 +19,7 @@ import {
   getUnreadNotificationCount,
   markAllNotificationsRead,
 } from '@/services/doctorApi';
-import { useDoctorAuth } from './DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { useRequestEvents } from '@/hooks/useSignalR';
 
 const POLL_INTERVAL_MS = 30_000;

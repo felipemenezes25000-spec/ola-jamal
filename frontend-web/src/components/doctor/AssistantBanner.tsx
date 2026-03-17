@@ -98,7 +98,7 @@ export function AssistantBanner({ requestId, requestStatus, requestType, onNavig
   }, [requestId, requestStatus, requestType]);
 
   useEffect(() => {
-    loadSuggestions();
+    queueMicrotask(() => loadSuggestions());
     getMutedKeys().then(setMutedKeys).catch(() => {});
   }, [loadSuggestions]);
 

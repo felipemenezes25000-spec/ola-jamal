@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { getActiveCertificate, uploadCertificate } from '@/services/doctorApi';
 import { toast } from 'sonner';
 import { Loader2, ShieldCheck, Upload, FileText, LogOut } from 'lucide-react';
@@ -27,11 +27,7 @@ export default function DoctorCompleteDoctor() {
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadCert();
-  }, []);
-
-  const loadCert = async () => {
+  const loadCert = useCallback(async () => {
     try {
       const cert = await getActiveCertificate();
       if (cert) {
@@ -44,7 +40,11 @@ export default function DoctorCompleteDoctor() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshUser, navigate]);
+
+  useEffect(() => {
+    loadCert();
+  }, [loadCert]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

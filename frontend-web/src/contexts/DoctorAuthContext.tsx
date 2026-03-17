@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import {
   getToken,
   getStoredUser,
@@ -8,19 +8,7 @@ import {
   type DoctorUser,
   type DoctorProfile,
 } from '@/services/doctorApi';
-
-interface DoctorAuthState {
-  user: DoctorUser | null;
-  doctorProfile: DoctorProfile | null;
-  loading: boolean;
-  isAuthenticated: boolean;
-  profileComplete: boolean;
-  refreshUser: () => Promise<void>;
-  setAuthFromLogin: (user: DoctorUser) => void;
-  signOut: () => void;
-}
-
-const DoctorAuthContext = createContext<DoctorAuthState | null>(null);
+import { DoctorAuthContext } from './doctor-auth-context';
 
 export function DoctorAuthProvider({ children }: { children: ReactNode }) {
   // ── Inicialização síncrona a partir do localStorage ──
@@ -141,10 +129,4 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
       {children}
     </DoctorAuthContext.Provider>
   );
-}
-
-export function useDoctorAuth() {
-  const ctx = useContext(DoctorAuthContext);
-  if (!ctx) throw new Error('useDoctorAuth must be inside DoctorAuthProvider');
-  return ctx;
 }

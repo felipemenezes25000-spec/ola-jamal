@@ -769,7 +769,8 @@ public class RequestService(
     }
 
     /// <summary>
-    /// Notifica médicos disponíveis sobre nova solicitação na fila. Usa batching: pedidos em 2 min viram "X novas solicitações".
+    /// Notifica médicos disponíveis sobre nova solicitação na fila. Push imediato para cada médico
+    /// (mesmo com app fechado), sem batching.
     /// </summary>
     private async Task NotifyAvailableDoctorsOfNewRequestAsync(
         string tipoSolicitacao,
@@ -779,8 +780,19 @@ public class RequestService(
         try
         {
             var doctors = await doctorRepository.GetAvailableAsync(null, cancellationToken);
-            foreach (var doc in doctors.Take(3))
-                newRequestBatchService.AddToBatch(doc.UserId, tipoSolicitacao);
+            var patientName = request.PatientName;
+            foreach (var doc in doctors.Take(10))
+            {
+                try
+                {
+                    var pushReq = PushNotificationRules.NewRequestAvailable(doc.UserId, tipoSolicitacao, patientName, 1);
+                    await pushDispatcher.SendAsync(pushReq, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Falha ao enviar push para médico {DoctorId} sobre nova solicitação {RequestId}", doc.UserId, request.Id);
+                }
+            }
         }
         catch (Exception ex)
         {

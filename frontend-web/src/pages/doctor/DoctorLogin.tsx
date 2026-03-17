@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { loginDoctor, forgotPassword } from '@/services/doctorApi';
 import { toast } from 'sonner';
 import { Loader2, Stethoscope, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';

@@ -168,11 +168,13 @@ export function TemplateDialogLoad({
 }: TemplateDialogLoadProps) {
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const templates = useMemo(() => {
+    void refreshTrigger; // trigger re-read when delete or open
     if (mode === 'prescription') return loadPrescriptionTemplates();
     return loadExamTemplates();
-  }, [open, mode, deleteConfirm]);
+  }, [mode, refreshTrigger]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return templates;
@@ -201,6 +203,7 @@ export function TemplateDialogLoad({
         saveExamTemplates(list);
       }
       setDeleteConfirm(null);
+      setRefreshTrigger((t) => t + 1);
       toast.success('Template removido');
     } else {
       setDeleteConfirm(t.name);
@@ -213,7 +216,14 @@ export function TemplateDialogLoad({
   const countLabel = mode === 'prescription' ? 'medicamentos' : 'exames';
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setDeleteConfirm(null); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) setDeleteConfirm(null);
+        if (o) setRefreshTrigger((t) => t + 1);
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Usar template</DialogTitle>

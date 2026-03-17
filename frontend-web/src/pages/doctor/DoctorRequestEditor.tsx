@@ -138,7 +138,7 @@ export default function DoctorRequestEditor() {
     } catch {
       setComplianceValidation(null);
     }
-  }, [id, request?.id, request?.type]);
+  }, [id, request]);
 
   useEffect(() => {
     if (!id) return;
@@ -165,13 +165,13 @@ export default function DoctorRequestEditor() {
       })
       .catch(() => toast.error('Erro ao carregar'))
       .finally(() => setLoading(false));
-  }, [id, state?.prefillMeds]);
+  }, [id, state?.prefillMeds]); // request intentionally excluded — we fetch it here
 
   useEffect(() => {
     if (id && request && (request.type === 'prescription' || request.type === 'exam')) {
       void refreshCompliance();
     }
-  }, [id, request?.id, request?.type, refreshCompliance]);
+  }, [id, request, refreshCompliance]);
 
   // Prefill from consultation (query params or state) — aplica apenas uma vez
   useEffect(() => {

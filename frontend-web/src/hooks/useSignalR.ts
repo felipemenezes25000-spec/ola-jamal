@@ -48,7 +48,8 @@ export function useRequestEvents(onEvent?: EventHandler) {
   useEffect(() => {
     if (onEvent) {
       handlersRef.current.add(onEvent);
-      return () => { handlersRef.current.delete(onEvent); };
+      const handlers = handlersRef.current;
+      return () => { handlers.delete(onEvent); };
     }
   }, [onEvent]);
 
@@ -131,11 +132,13 @@ export function useVideoSignaling(requestId: string | undefined) {
     let cancelled = false;
 
     // FIX #23: Limpar estados ao trocar de requestId para não exibir dados do request anterior
-    setTranscript('');
-    setAnamnesis(null);
-    setSuggestions([]);
-    setEvidence([]);
-    setConnected(false);
+    queueMicrotask(() => {
+      setTranscript('');
+      setAnamnesis(null);
+      setSuggestions([]);
+      setEvidence([]);
+      setConnected(false);
+    });
 
     async function connect() {
       const sr = await getSignalR();

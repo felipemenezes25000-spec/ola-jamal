@@ -66,7 +66,7 @@ function Slider({ label, tag, value, onChange, min, max, step = 1 }: {
 }) {
   const [effectiveMax, setEffectiveMax] = useState(max);
   useEffect(() => {
-    if (value > effectiveMax) setEffectiveMax(Math.ceil(value * 1.3));
+    if (value > effectiveMax) queueMicrotask(() => setEffectiveMax(Math.ceil(value * 1.3)));
   }, [value, effectiveMax]);
   return (
     <div className="bg-card border border-border rounded-lg p-3">

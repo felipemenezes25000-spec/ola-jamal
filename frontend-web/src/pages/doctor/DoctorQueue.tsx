@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   getRequests, assignToQueue, type MedicalRequest,
 } from '@/services/doctorApi';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { parseApiList, getTypeIcon, getTypeLabel, formatDateSafe } from '@/lib/doctor-helpers';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';

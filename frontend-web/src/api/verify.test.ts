@@ -65,6 +65,7 @@ describe('verifyReceita', () => {
         doctorName: 'Dr. Silva',
         doctorCrm: '12345',
         downloadUrl: 'https://example.com/pdf',
+        wasDispensed: false,
       },
     });
   });

@@ -14,7 +14,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { getRequests, type MedicalRequest } from '@/services/doctorApi';
 import { parseApiList } from '@/lib/doctor-helpers';

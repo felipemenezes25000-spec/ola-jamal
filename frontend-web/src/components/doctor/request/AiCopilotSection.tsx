@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { parseAiSummary } from '@/lib/parseAiSummary';
+import { hasUsefulAiContent } from '@/lib/aiCopilotHelpers';
 import type { MedicalRequest } from '@/services/doctorApi';
 import { Sparkles, Shield, AlertTriangle, AlertCircle, Clock, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
@@ -30,16 +31,6 @@ function getRiskLabel(level: string | null | undefined): string {
 function getUrgencyLabel(level: string | null | undefined): string {
   if (!level) return 'Não informado';
   return URGENCY_LABELS[level.toLowerCase()] ?? 'Não informado';
-}
-
-export function hasUsefulAiContent(
-  aiSummary: string | null | undefined,
-  aiRisk?: string | null,
-  aiUrgency?: string | null
-): boolean {
-  if (aiRisk || aiUrgency) return true;
-  if (!aiSummary || !aiSummary.trim()) return false;
-  return aiSummary.replace(/\s/g, '').length > 50;
 }
 
 interface AiCopilotSectionProps {

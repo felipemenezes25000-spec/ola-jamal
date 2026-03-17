@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { NavLink } from '@/components/admin/NavLink';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { usePWA } from '@/hooks/usePWA';
 import { useWebPush } from '@/hooks/useWebPush';

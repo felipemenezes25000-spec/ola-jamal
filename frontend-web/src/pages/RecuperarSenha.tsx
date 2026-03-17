@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { resetPassword } from '@/api/auth';
 import '@/styles/recuperar-verify.css';
@@ -21,30 +21,21 @@ export default function RecuperarSenha() {
   const passwordsValid =
     newPassword.length >= MIN_PASSWORD_LENGTH && confirmPassword.length >= MIN_PASSWORD_LENGTH;
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!isValidToken || !passwordsValid || !passwordsMatch) return;
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isValidToken || !passwordsValid || !passwordsMatch) return;
 
-      setState('loading');
-      setErrorMessage('');
+    setState('loading');
+    setErrorMessage('');
 
-      try {
-        await resetPassword(token.trim(), newPassword);
-        setState('success');
-      } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : 'Erro ao redefinir senha.');
-        setState('error');
-      }
-    },
-    [token, newPassword, confirmPassword, isValidToken, passwordsValid, passwordsMatch]
-  );
-
-  useEffect(() => {
-    if (!isValidToken) {
-      setErrorMessage('Link inválido ou expirado. Solicite uma nova recuperação de senha.');
+    try {
+      await resetPassword(token.trim(), newPassword);
+      setState('success');
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao redefinir senha.');
+      setState('error');
     }
-  }, [isValidToken]);
+  }
 
   if (!isValidToken) {
     return (
