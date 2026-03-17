@@ -5,9 +5,9 @@ env:
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/frontend-performance-responsive]
   pull_request:
-    branches: [main]
+    branches: [main, fix/frontend-performance-responsive]
 
 permissions:
   contents: read
