@@ -4,7 +4,7 @@
  */
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Pill, FlaskConical, Copy, Sparkles } from 'lucide-react';
+import { FileText, Copy, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -50,20 +50,11 @@ function parseAnamnesis(json: string | null | undefined): Record<string, unknown
 
 interface AnamnesisCardProps {
   consultationAnamnesis: string | null | undefined;
-  requestId?: string;
-  requestType: string;
-  status: string;
-  onNavigateToEditor?: (prefillMeds: string) => void;
-  onNavigateToExam?: (prefillExams: string) => void;
   className?: string;
 }
 
 export function AnamnesisCard({
   consultationAnamnesis,
-  requestType,
-  status,
-  onNavigateToEditor,
-  onNavigateToExam,
   className,
 }: AnamnesisCardProps) {
   const data = parseAnamnesis(consultationAnamnesis);
@@ -92,10 +83,6 @@ export function AnamnesisCard({
     laranja: 'bg-orange-100 text-orange-700',
     vermelho: 'bg-red-100 text-red-700',
   };
-
-  const isConsultationFinished = requestType === 'consultation' && status === 'consultation_finished';
-  const medsForPrefill = meds.map((m) => displayMedicamento(m));
-  const examsForPrefill = exams.map((e) => displayExame(e));
 
   return (
     <Card className={cn('border-l-4 border-l-primary', className)}>
@@ -184,29 +171,6 @@ export function AnamnesisCard({
           </div>
         )}
 
-        {isConsultationFinished && (hasMeds || hasExams) && (
-          <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-            {hasMeds && (
-              <Button
-                className="w-full gap-2"
-                onClick={() => onNavigateToEditor?.(JSON.stringify(medsForPrefill))}
-              >
-                <Pill className="h-4 w-4" />
-                Criar Receita Baseada na Consulta
-              </Button>
-            )}
-            {hasExams && (
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                onClick={() => onNavigateToExam?.(JSON.stringify(examsForPrefill))}
-              >
-                <FlaskConical className="h-4 w-4" />
-                Criar Pedido de Exame Baseado na Consulta
-              </Button>
-            )}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

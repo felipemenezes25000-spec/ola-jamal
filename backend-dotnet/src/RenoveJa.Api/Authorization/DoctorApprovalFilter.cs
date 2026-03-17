@@ -13,8 +13,8 @@ namespace RenoveJa.Api.Authorization;
 /// </summary>
 public class DoctorApprovalFilter : IAsyncActionFilter
 {
-    /// <summary>Endpoints que médicos pendentes podem acessar (perfil, avatar, senha).</summary>
-    private static readonly string[] AllowedPathsForPendingDoctor = ["/api/auth/avatar", "/api/auth/change-password", "/api/auth/me"];
+    /// <summary>Endpoints que médicos pendentes podem acessar (perfil, avatar, senha). Permite completar cadastro para aprovação.</summary>
+    private static readonly string[] AllowedPathsForPendingDoctor = ["/api/auth/avatar", "/api/auth/change-password", "/api/auth/me", "/api/doctors/me"];
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {

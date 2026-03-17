@@ -130,6 +130,20 @@ public class PostgresClient
         "medications", "prescription_images", "exams", "exam_images", "ai_extracted_json"
     };
 
+    private static readonly HashSet<string> JsonbColumnsNotifications = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "data"
+    };
+
+    private static bool NeedsJsonbCast(string tableName, string columnName)
+    {
+        if (tableName.Equals("requests", StringComparison.OrdinalIgnoreCase))
+            return JsonbColumnsRequests.Contains(columnName);
+        if (tableName.Equals("notifications", StringComparison.OrdinalIgnoreCase))
+            return JsonbColumnsNotifications.Contains(columnName);
+        return false;
+    }
+
     private (string columns, string paramNames, Dictionary<string, object?> parameters) BuildInsertParams(object data, string tableName)
     {
         var json = JsonSerializer.Serialize(data, _jsonOptions);
@@ -138,11 +152,10 @@ public class PostgresClient
         var pnames = new List<string>();
         var parameters = new Dictionary<string, object?>();
         var i = 0;
-        var useJsonbCast = tableName.Equals("requests", StringComparison.OrdinalIgnoreCase);
         foreach (var kv in dict)
         {
             cols.Add(kv.Key);
-            var needsJsonb = useJsonbCast && JsonbColumnsRequests.Contains(kv.Key);
+            var needsJsonb = NeedsJsonbCast(tableName, kv.Key);
             pnames.Add(needsJsonb ? $"@ins{i}::jsonb" : $"@ins{i}");
             parameters[$"ins{i}"] = ConvertValue(kv.Value);
             i++;
@@ -157,11 +170,10 @@ public class PostgresClient
         var clauses = new List<string>();
         var parameters = new Dictionary<string, object?>();
         var i = 0;
-        var useJsonbCast = tableName.Equals("requests", StringComparison.OrdinalIgnoreCase);
         foreach (var kv in dict)
         {
             if (kv.Key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
-            var needsJsonb = useJsonbCast && JsonbColumnsRequests.Contains(kv.Key);
+            var needsJsonb = NeedsJsonbCast(tableName, kv.Key);
             clauses.Add(needsJsonb ? $"{kv.Key} = @set{i}::jsonb" : $"{kv.Key} = @set{i}");
             parameters[$"set{i}"] = ConvertValue(kv.Value);
             i++;

@@ -187,10 +187,50 @@ export function displayFieldValue(val: unknown): string | null {
   if (val == null) return null;
   if (typeof val === 'string') return val.trim() || null;
   if (Array.isArray(val)) {
-    const items = val.map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).filter(Boolean);
-    return items.length > 0 ? items.join(', ') : null;
+    const items = val.map((v) => {
+      if (typeof v === 'string') return v;
+      if (v && typeof v === 'object') return displayObjectSummary(v as Record<string, unknown>);
+      return String(v);
+    }).filter(Boolean);
+    return items.length > 0 ? items.join('; ') : null;
   }
+  if (typeof val === 'object') return displayObjectSummary(val as Record<string, unknown>);
   return String(val);
+}
+
+/**
+ * Extrai uma representação legível de um objeto genérico da anamnese.
+ * Prioriza campos descritivos conhecidos (hipotese, pergunta, nome, descricao, etc).
+ */
+function displayObjectSummary(obj: Record<string, unknown>): string {
+  if (!obj) return '';
+  // Diagnóstico diferencial
+  if ('hipotese' in obj) {
+    const parts = [obj.hipotese, obj.cid ? `(${obj.cid})` : null, obj.probabilidade ? `— ${obj.probabilidade}` : null].filter(Boolean);
+    return parts.join(' ');
+  }
+  // Pergunta sugerida
+  if ('pergunta' in obj) {
+    const p = String(obj.pergunta);
+    return obj.objetivo ? `${p} (${obj.objetivo})` : p;
+  }
+  // Interação cruzada
+  if ('medicamento_a' in obj && 'medicamento_b' in obj) {
+    return `${obj.medicamento_a} × ${obj.medicamento_b}: ${obj.descricao ?? obj.tipo ?? ''}`.trim();
+  }
+  // Medicamento
+  if ('nome' in obj) {
+    const parts = [obj.nome, obj.dose, obj.posologia].filter(Boolean);
+    return parts.join(' ');
+  }
+  // Fallback: pegar os valores mais relevantes
+  const keys = ['name', 'title', 'description', 'text', 'label', 'value'];
+  for (const k of keys) {
+    if (obj[k] && typeof obj[k] === 'string') return obj[k] as string;
+  }
+  // Último fallback: valores não-nulos concatenados
+  const vals = Object.values(obj).filter(v => v != null && typeof v !== 'object').map(String).filter(Boolean);
+  return vals.slice(0, 3).join(' — ');
 }
 
 export function displayMedicamento(m: MedicamentoSugerido | string): string {

@@ -3,7 +3,6 @@ import React from 'react';
  * ConsultationPostSection — Seção pós-consulta: anamnese, sugestões IA, evidências, transcrição.
  * Aparece quando type === 'consultation' e status inclui consultation_finished.
  */
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +10,6 @@ import {
   Mic,
   Copy,
   FileText,
-  FlaskConical,
   Info,
   ClipboardCopy,
 } from 'lucide-react';
@@ -75,8 +73,7 @@ export interface ConsultationPostSectionProps {
   requestId: string;
 }
 
-export function ConsultationPostSection({ request, requestId }: ConsultationPostSectionProps) {
-  const navigate = useNavigate();
+export function ConsultationPostSection({ request }: ConsultationPostSectionProps) {
   const isConsultation = request.type === 'consultation';
   const isFinished = normalizeStatus(request.status) === 'consultation_finished';
 
@@ -95,9 +92,6 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
     await navigator.clipboard.writeText(transcript);
     toast.success('Transcrição copiada');
   };
-
-  const examsArr = (anamnesis?.exames_sugeridos as unknown[]) ?? [];
-  const hasExams = examsArr.length > 0;
 
   return (
     <div className="space-y-4">
@@ -216,27 +210,6 @@ export function ConsultationPostSection({ request, requestId }: ConsultationPost
         </Card>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <Button
-          className="gap-2"
-          onClick={() => {
-            const meds = (anamnesis?.medicamentos_sugeridos as unknown[]) ?? [];
-            const prefillMeds = meds.length > 0 ? JSON.stringify(meds) : undefined;
-            navigate(`/pedidos/${requestId}/editor`, {
-              state: prefillMeds ? { prefillMeds } : undefined,
-            });
-          }}
-        >
-          <FileText className="h-4 w-4" />
-          Criar Receita Baseada na Consulta
-        </Button>
-        {hasExams && (
-          <Button variant="outline" className="gap-2" disabled>
-            <FlaskConical className="h-4 w-4" />
-            Criar Pedido de Exame Baseado na Consulta (em breve)
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

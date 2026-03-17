@@ -266,6 +266,12 @@ Antes de escrever o JSON, valide:
 9. Exames investigam as hipóteses do diagnóstico diferencial?
 10. As suggestions incluem orientação para "o que fazer enquanto os exames não saem"? (OBRIGATÓRIO)
 11. Cada suggestion cita NOMES CONCRETOS (hipóteses do diferencial, medicamentos, exames)? Se não tiver dados suficientes, use UMA frase honesta: "Dados iniciais — continuar anamnese para definir hipóteses e conduta."
+
+BLOQUEIO ABSOLUTO DE CID F10.x (ALCOOLISMO):
+- LITERALMENTE: se o transcript NÃO contém as palavras "álcool", "beber", "bebida", "cerveja", "vinho", "cachaça", "etilismo", "etilista" → F10.x é PROIBIDO
+- Se paciente disse "nega etilismo" → isso CONFIRMA que NÃO é F10.x
+- Este erro é GRAVÍSSIMO: diagnosticar dependência de álcool para paciente que NÃO bebe é negligência médica
+- Na DÚVIDA, use CID do sintoma predominante (ex: M25.5 para dor articular, R23.3 para equimoses)
 ═══════════════════════════════════════════════════════════════
 """;
     }

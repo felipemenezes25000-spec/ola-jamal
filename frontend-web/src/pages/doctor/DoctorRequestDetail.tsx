@@ -302,20 +302,7 @@ export default function DoctorRequestDetail() {
 
                 {/* Anamnese (consultas) */}
                 {reqType === 'consultation' && request.consultationAnamnesis && (
-                  <AnamnesisCard
-                    consultationAnamnesis={request.consultationAnamnesis}
-                    requestId={request.id}
-                    requestType={reqType}
-                    status={request.status}
-                    onNavigateToEditor={(prefillMeds) => {
-                      try {
-                        const arr = JSON.parse(prefillMeds) as string[];
-                        const meds = arr.map((name) => ({ name: name || '', dosage: '', frequency: '', duration: '' }));
-                        navigate(`/pedidos/${id}/editor`, { state: { prefillMeds: meds } });
-                      } catch { navigate(`/pedidos/${id}/editor`); }
-                    }}
-                    onNavigateToExam={() => toast.info('Criar pedido de exame disponível no app mobile')}
-                  />
+                  <AnamnesisCard consultationAnamnesis={request.consultationAnamnesis} />
                 )}
 
                 {/* Link care plan */}

@@ -56,6 +56,7 @@ export type AppRoute =
   | `/doctor-request/editor/${string}`
   | `/video/${string}`
   | `/consultation-summary/${string}`
+  | `/post-consultation-emit/${string}`
   | `/doctor-patient/${string}`
   | `/doctor-patient-summary/${string}`;
 

@@ -200,8 +200,8 @@ class ApiClient {
             this.onUnauthorized();
           }
           const path = getPathFromResponse(response);
-          // 403 em avatar/senha: não deslogar — pode ser validação (ex.: médico pendente, tipo de arquivo)
-          const skipForbiddenLogout = /\/api\/auth\/(avatar|change-password)/.test(path);
+          // 403 em avatar/senha/requests/documentos/PDF: não deslogar — pode ser validação (ex.: médico pendente, tipo de arquivo, sem permissão ao documento)
+          const skipForbiddenLogout = /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/)/.test(path);
           if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
             this.onForbidden(errorMessage);
           }
@@ -251,7 +251,7 @@ class ApiClient {
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
         this.onUnauthorized();
       }
-      const skipForbiddenLogout = /\/api\/auth\/(avatar|change-password)/.test(path);
+      const skipForbiddenLogout = /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/)/.test(path);
       if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
         this.onForbidden(errorMessage);
       }

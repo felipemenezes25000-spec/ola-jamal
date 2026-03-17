@@ -299,6 +299,8 @@ export default function VideoCallScreenInner() {
       if (!consultationStartedAt) {
         setConsultationStartedAt(new Date().toISOString());
       }
+      // Conectar SignalR mesmo em falha — anamnese/transcrição em tempo real devem funcionar
+      connectSignalR();
     }
   }, [rid, connectSignalR, consultationStartedAt]);
 

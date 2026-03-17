@@ -15,7 +15,7 @@ export async function fetchVideoRoom(roomId: string): Promise<VideoRoomResponseD
 
 export async function fetchVideoRoomByRequest(requestId: string): Promise<VideoRoomResponseDto | null> {
   try {
-    return await apiClient.get(`/api/video/rooms/by-request/${requestId}`);
+    return await apiClient.get(`/api/video/by-request/${requestId}`);
   } catch (error: unknown) {
     if ((error as { status?: number })?.status === 404) return null;
     throw error;

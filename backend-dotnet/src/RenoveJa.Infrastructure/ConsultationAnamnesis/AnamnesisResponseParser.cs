@@ -142,13 +142,66 @@ internal static class AnamnesisResponseParser
     /// Se não estiver, retorna o CID do primeiro item com probabilidade "alta", ou o primeiro item.
     /// Evita alucinações como F10.2 (álcool) quando o transcript não menciona álcool.
     /// </summary>
-    internal static string EnsureCidCoherentWithDifferential(JsonElement root, string cidRaw, ILogger? logger = null)
+    internal static string EnsureCidCoherentWithDifferential(JsonElement root, string cidRaw, ILogger? logger = null, string? transcript = null)
     {
         if (string.IsNullOrWhiteSpace(cidRaw)) return cidRaw;
 
         var cidCode = ExtractCidCode(cidRaw);
-        var differentialCids = GetCidsFromDiagnosticoDiferencial(root);
+        var transcriptLower = transcript?.ToLowerInvariant() ?? "";
 
+        // ═══ CAMADA 1: HARD BLOCK de categorias CID alucinadas ═══
+        // A IA alucina CIDs de categorias que não tem suporte no transcript.
+        // Cada bloco verifica se o transcript menciona palavras-chave da categoria.
+
+        var blockedCategories = new (string prefix, string category, string[] requiredKeywords)[]
+        {
+            ("F10", "álcool/etilismo", new[] { "álcool", "alcool", "bebida", "cerveja", "vinho", "cachaça", "cachaca", "drink", "etilismo", "etilista", "beber", "alcoolismo", "alcoolista" }),
+            ("F11", "opioides", new[] { "opioid", "morfina", "heroína", "heroina", "codeína", "codeina", "tramadol", "fentanil" }),
+            ("F12", "cannabis", new[] { "cannabis", "maconha", "marijuana", "thc" }),
+            ("F13", "sedativos", new[] { "sedativo", "benzodiazep", "diazepam", "clonazepam", "alprazolam" }),
+            ("F14", "cocaína", new[] { "cocaína", "cocaina", "crack", "coca" }),
+            ("F15", "estimulantes", new[] { "anfetamina", "metanfetamina", "estimulante", "ritalina" }),
+            ("F17", "tabaco", new[] { "tabaco", "cigarro", "fumo", "fumante", "nicotina", "tabagismo", "tabagista" }),
+            ("F19", "múltiplas drogas", new[] { "droga", "substância", "substancia", "entorpecente" }),
+        };
+
+        foreach (var (prefix, category, keywords) in blockedCategories)
+        {
+            if (!cidCode.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var hasContext = keywords.Any(kw => transcriptLower.Contains(kw));
+            // Exceção: "nega etilismo", "nega tabagismo" etc. CONFIRMA que NÃO é o CID
+            var negaPattern = keywords.Any(kw => transcriptLower.Contains($"nega {kw}") || transcriptLower.Contains($"não {kw}") || transcriptLower.Contains($"nao {kw}"));
+            if (negaPattern) hasContext = false;
+
+            if (!hasContext)
+            {
+                logger?.LogWarning("[Anamnese] BLOQUEADO CID {Prefix}.x alucinado: {CidRaw} — transcript não menciona {Category}.", prefix, cidRaw, category);
+                return GetFallbackCidFromDifferential(root, prefix, logger);
+            }
+        }
+
+        // ═══ CAMADA 2: CID vs raciocínio clínico ═══
+        // Se o raciocínio clínico menciona um diagnóstico diferente do CID, algo está errado.
+        var raciocinio = root.TryGetProperty("raciocinio_clinico", out var racEl) ? racEl.GetString()?.ToLowerInvariant() ?? "" : "";
+        if (!string.IsNullOrWhiteSpace(raciocinio))
+        {
+            var cidDesc = root.TryGetProperty("cid_descricao", out var descEl) ? descEl.GetString()?.ToLowerInvariant() ?? "" : "";
+            // Se o raciocínio menciona Ehlers-Danlos mas o CID é F10, algo está muito errado
+            var racMentionsEhlers = raciocinio.Contains("ehlers") || raciocinio.Contains("hipermobilidade") || raciocinio.Contains("hiperlaxidão");
+            var cidIsNotMusculoskeletal = cidCode.StartsWith("F", StringComparison.OrdinalIgnoreCase) ||
+                                          cidCode.StartsWith("A", StringComparison.OrdinalIgnoreCase) ||
+                                          cidCode.StartsWith("B", StringComparison.OrdinalIgnoreCase);
+            if (racMentionsEhlers && cidIsNotMusculoskeletal)
+            {
+                logger?.LogWarning("[Anamnese] CID {CidRaw} incoerente com raciocínio clínico que menciona hipermobilidade/Ehlers-Danlos. Buscando alternativa.", cidRaw);
+                var fallback = GetFallbackCidFromDifferential(root, "", logger);
+                if (!string.IsNullOrWhiteSpace(fallback)) return fallback;
+            }
+        }
+
+        // ═══ CAMADA 3: CID deve estar no diagnóstico diferencial ═══
+        var differentialCids = GetCidsFromDiagnosticoDiferencial(root);
         if (differentialCids.Count == 0) return cidRaw;
 
         var cidInDifferential = differentialCids.Any(dd =>
@@ -156,18 +209,31 @@ internal static class AnamnesisResponseParser
 
         if (cidInDifferential) return cidRaw;
 
-        // CID incoerente — substituir pelo primeiro do diferencial com probabilidade "alta"
+        // CID não está no diferencial — substituir
+        var fallbackCid = GetFallbackCidFromDifferential(root, "", logger);
+        logger?.LogWarning("[Anamnese] CID incoerente corrigido: original={Original} → replacement={Replacement}", cidRaw, fallbackCid);
+        return !string.IsNullOrWhiteSpace(fallbackCid) ? fallbackCid : cidRaw;
+    }
+
+    /// <summary>Busca CID alternativo do diagnóstico diferencial, ignorando CIDs com prefix bloqueado.</summary>
+    private static string GetFallbackCidFromDifferential(JsonElement root, string blockedPrefix, ILogger? logger)
+    {
+        var differentialCids = GetCidsFromDiagnosticoDiferencial(root)
+            .Where(dd => string.IsNullOrEmpty(blockedPrefix) ||
+                         !ExtractCidCode(dd.cid).StartsWith(blockedPrefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (differentialCids.Count == 0)
+        {
+            logger?.LogWarning("[Anamnese] Sem CID alternativo no diferencial — retornando vazio.");
+            return "";
+        }
+
         var alta = differentialCids.FirstOrDefault(dd =>
             "alta".Equals(dd.probabilidade, StringComparison.OrdinalIgnoreCase));
-        var replacement = !string.IsNullOrWhiteSpace(alta.cid)
-            ? alta.cid
-            : differentialCids[0].cid;
-
-        logger?.LogWarning(
-            "[Anamnese] CID incoerente corrigido: original={Original} (não está em diagnostico_diferencial) → replacement={Replacement}",
-            cidRaw, replacement);
-
-        return replacement;
+        var result = !string.IsNullOrWhiteSpace(alta.cid) ? alta.cid : differentialCids[0].cid;
+        logger?.LogWarning("[Anamnese] CID fallback selecionado: {Replacement}", result);
+        return result;
     }
 
     private static string ExtractCidCode(string cidStr)
