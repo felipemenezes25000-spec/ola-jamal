@@ -1,15 +1,4 @@
 import { AdminSubdomainRedirect } from '@/components/AdminSubdomainRedirect';
-import Cookies from '@/pages/Cookies';
-import Index from '@/pages/Index';
-import RecuperarSenha from '@/pages/RecuperarSenha';
-import Verify from '@/pages/Verify';
-import AdminConfiguracoes from '@/pages/admin/AdminConfiguracoes';
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import AdminFinanceiro from '@/pages/admin/AdminFinanceiro';
-import AdminLogin from '@/pages/admin/AdminLogin';
-import AdminMedicos from '@/pages/admin/AdminMedicos';
-import AdminNotFound from '@/pages/admin/AdminNotFound';
-import AdminRelatorios from '@/pages/admin/AdminRelatorios';
 import { isAuthenticated } from '@/services/adminApi';
 import { Loader2 } from 'lucide-react';
 import { lazy, Suspense } from 'react';
@@ -17,6 +6,17 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
 const DoctorApp = lazy(() => import('@/DoctorApp'));
+const Index = lazy(() => import('@/pages/Index'));
+const Verify = lazy(() => import('@/pages/Verify'));
+const RecuperarSenha = lazy(() => import('@/pages/RecuperarSenha'));
+const Cookies = lazy(() => import('@/pages/Cookies'));
+const AdminLogin = lazy(() => import('@/pages/admin/AdminLogin'));
+const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
+const AdminMedicos = lazy(() => import('@/pages/admin/AdminMedicos'));
+const AdminFinanceiro = lazy(() => import('@/pages/admin/AdminFinanceiro'));
+const AdminRelatorios = lazy(() => import('@/pages/admin/AdminRelatorios'));
+const AdminConfiguracoes = lazy(() => import('@/pages/admin/AdminConfiguracoes'));
+const AdminNotFound = lazy(() => import('@/pages/admin/AdminNotFound'));
 
 // Detecta se a sessão atual deve renderizar o portal médico.
 //
@@ -113,7 +113,8 @@ export default function App() {
     <>
       <Toaster position="top-center" richColors closeButton />
       <AdminSubdomainRedirect />
-      <Routes>
+      <Suspense fallback={<FallbackLoader />}>
+        <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/verify/:id" element={<Verify />} />
         <Route path="/recuperar-senha" element={<RecuperarSenha />} />
@@ -169,7 +170,8 @@ export default function App() {
           }
         />
         <Route path="/admin/*" element={<AdminNotFound />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </>
   );
 }

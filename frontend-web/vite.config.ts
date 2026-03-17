@@ -27,26 +27,30 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks: (id) => {
           // Core React runtime — compartilhado por todos os portais
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router')) {
+            return 'vendor-react';
+          }
           // TanStack Query — separado para não bloquear landing page
-          'vendor-query': ['@tanstack/react-query'],
-          // UI libs usadas em todo o app
-          'vendor-ui': ['framer-motion', 'sonner', 'lucide-react'],
-          // Radix primitives (usadas só no portal médico e admin)
-          'vendor-radix': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-label',
-            '@radix-ui/react-slot',
-          ],
-          // SignalR — carregado só quando portal médico precisa
-          'vendor-signalr': ['@microsoft/signalr'],
+          if (id.includes('@tanstack/react-query')) return 'vendor-query';
+          // Daily.co — vídeo (só portal médico, ~300 kB)
+          if (id.includes('@daily-co/daily')) return 'vendor-daily';
+          // Chart.js — gráficos (admin)
+          if (id.includes('chart.js') || id.includes('react-chartjs-2')) return 'vendor-chart';
+          // SignalR — real-time (portal médico)
+          if (id.includes('@microsoft/signalr')) return 'vendor-signalr';
+          // Radix primitives (portal médico e admin)
+          if (id.includes('@radix-ui/')) return 'vendor-radix';
+          // UI libs
+          if (id.includes('framer-motion') || id.includes('sonner') || id.includes('lucide-react')) {
+            return 'vendor-ui';
+          }
+          // Sentry — monitoramento (carregado sob demanda)
+          if (id.includes('@sentry/')) return 'vendor-sentry';
         },
       },
     },

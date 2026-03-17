@@ -83,30 +83,6 @@ public static class PushNotificationRules
             targetRole: "patient",
             channel: PushChannel.Quiet, highPriority: false);
 
-    public static PushNotificationRequest NeedMoreInfo(Guid userId, Guid requestId, RequestType requestType, string? focus = null) =>
-        BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.InReview,
-            "Precisamos de um detalhe",
-            "Toque para completar seu pedido e evitar atraso.",
-            targetRole: "patient",
-            deepLinkSuffix: $"request-detail/{requestId}?focus=missingInfo",
-            extra: focus != null ? new Dictionary<string, object?> { ["focus"] = focus } : null);
-
-    public static PushNotificationRequest ApprovedPendingPayment(Guid userId, Guid requestId, RequestType requestType) =>
-        BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.ApprovedPendingPayment,
-            "Aprovado ✅ falta só o pagamento",
-            "Pague para liberar a assinatura do documento.",
-            targetRole: "patient",
-            deepLinkSuffix: $"payment/request/{requestId}",
-            category: PushCategory.Payments);
-
-    public static PushNotificationRequest PaymentFailed(Guid userId, Guid requestId) =>
-        BuildRequest(userId, "payment_failed", requestId, RequestType.Prescription, RequestStatus.ApprovedPendingPayment,
-            "Pagamento não concluído",
-            "Toque para tentar novamente ou trocar a forma de pagamento.",
-            targetRole: "patient",
-            deepLinkSuffix: $"payment/request/{requestId}?retry=1",
-            category: PushCategory.Payments);
-
     public static PushNotificationRequest Paid(Guid userId, Guid requestId, RequestType requestType) =>
         BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.Paid,
             "Solicitação aprovada ✅",
@@ -132,15 +108,6 @@ public static class PushNotificationRules
             deepLinkSuffix: $"request-detail/{requestId}?tab=reason",
             extra: reason != null ? new Dictionary<string, object?> { ["reasonCode"] = reason.Length > 50 ? reason[..50] : reason, ["reasonShort"] = reason } : null);
 
-    public static PushNotificationRequest Cancelled(Guid userId, Guid requestId, bool hadPayment = false) =>
-        BuildRequest(userId, "request_status_changed", requestId, RequestType.Prescription, RequestStatus.Cancelled,
-            "Pedido cancelado",
-            hadPayment ? "Pedido cancelado. Estamos processando reembolso/estorno." : "Toque para ver detalhes e próximos passos.",
-            targetRole: "patient",
-            channel: hadPayment ? PushChannel.Default : PushChannel.Quiet,
-            highPriority: hadPayment,
-            category: PushCategory.System);
-
     // ── Médico: Pedidos ───────────────────────────────────────────────────
 
     public static PushNotificationRequest NewRequestAvailable(Guid doctorId, string tipoSolicitacao, string? patientName = null, int count = 1) =>
@@ -161,20 +128,14 @@ public static class PushNotificationRules
             deepLinkSuffix: $"doctor-request/{requestId}",
             channel: PushChannel.Quiet, highPriority: false);
 
-    public static PushNotificationRequest PaidForDoctor(Guid doctorId, Guid requestId, RequestType requestType) =>
-        BuildRequest(doctorId, "request_status_changed", requestId, requestType, RequestStatus.Paid,
-            "Pagamento confirmado",
-            "Documento pronto para assinatura.",
+    /// <summary>Médico recebe quando paciente cancela o pedido.</summary>
+    public static PushNotificationRequest PatientCancelled(Guid doctorId, Guid requestId, RequestType requestType = RequestType.Prescription) =>
+        BuildRequest(doctorId, "patient_cancelled", requestId, requestType, RequestStatus.Cancelled,
+            "Pedido Cancelado",
+            "O paciente cancelou o pedido.",
             targetRole: "doctor",
-            deepLinkSuffix: $"doctor-request/{requestId}?action=sign",
-            category: PushCategory.Payments);
-
-    public static PushNotificationRequest SigningFailed(Guid doctorId, Guid requestId) =>
-        BuildRequest(doctorId, "signing_failed", requestId, RequestType.Prescription, RequestStatus.Paid,
-            "Falha ao assinar",
-            "Toque para tentar novamente ou atualizar certificado.",
-            targetRole: "doctor",
-            deepLinkSuffix: $"doctor-request/{requestId}?action=sign&retry=1",
+            deepLinkSuffix: $"doctor-request/{requestId}",
+            channel: PushChannel.Quiet, highPriority: false,
             category: PushCategory.System);
 
     // ── Consulta ───────────────────────────────────────────────────────────
@@ -229,17 +190,6 @@ public static class PushNotificationRules
 
     // ── Lembretes (pedido parado) ───────────────────────────────────────────
 
-    /// <summary>Lembrete: pagamento pendente há mais de 6h (paciente).</summary>
-    public static PushNotificationRequest ReminderPaymentPending(Guid patientId, Guid requestId, RequestType requestType) =>
-        BuildRequest(patientId, "reminder_payment_pending", requestId, requestType, RequestStatus.ApprovedPendingPayment,
-            "Pagamento pendente",
-            "Seu pedido está aprovado. Toque para concluir o pagamento.",
-            targetRole: "patient",
-            deepLinkSuffix: $"payment/request/{requestId}",
-            channel: PushChannel.Default,
-            category: PushCategory.Reminders,
-            collapseKeySuffix: "reminder_payment");
-
     /// <summary>Lembrete: pedido em análise há mais de 30 min (médico).</summary>
     public static PushNotificationRequest ReminderInReviewStale(Guid doctorId, Guid requestId, RequestType requestType) =>
         BuildRequest(doctorId, "reminder_in_review_stale", requestId, requestType, RequestStatus.InReview,
@@ -263,6 +213,18 @@ public static class PushNotificationRules
             channel: PushChannel.Quiet,
             category: PushCategory.Reminders,
             collapseKeySuffix: "reminder_renewal");
+
+    // ── Sistema (certificado, etc.) ───────────────────────────────────────────
+
+    /// <summary>Médico recebe notificação quando certificado digital é cadastrado.</summary>
+    public static PushNotificationRequest CertificateUploaded(Guid doctorId, string validUntil) =>
+        new(doctorId,
+            "Certificado Digital Cadastrado",
+            $"Seu certificado digital foi cadastrado e validado com sucesso. Válido até {validUntil}.",
+            new PushNotificationPayload("certificate_uploaded", "renoveja://doctor-settings", PushCategory.System,
+                $"cert_{doctorId:N}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 300}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                TargetRole: "doctor"),
+            PushChannel.Default, true, false);
 
     // ── Notificação de verificação (farmácia/empregador verificou) ──────────
 

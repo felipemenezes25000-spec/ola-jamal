@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { getRequestById, saveConsultationSummary } from '@/services/doctorApi';
-import { useDoctorAuth } from '@/contexts/DoctorAuthContext';
 import { toast } from 'sonner';
 import {
   Loader2, ArrowLeft, FileText, Lightbulb, Mic, Copy, CheckCircle2,
@@ -45,7 +44,6 @@ export default function DoctorConsultationSummary() {
   const [expandedTranscript, setExpandedTranscript] = useState(false);
   const [copied, setCopied] = useState(false);
   const initialSaveDone = useRef(false);
-  const { user } = useDoctorAuth();
 
   const anamnesis = parseAnamnesis(request?.consultationAnamnesis);
   const suggestions = parseSuggestions(request?.consultationAiSuggestions);

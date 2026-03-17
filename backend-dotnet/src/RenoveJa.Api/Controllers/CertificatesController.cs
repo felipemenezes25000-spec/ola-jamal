@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Certificates;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Application.Services.Notifications;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -19,23 +20,20 @@ public class CertificatesController : ControllerBase
     private readonly IDigitalCertificateService _certificateService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUserRepository _userRepository;
-    private readonly INotificationRepository _notificationRepository;
-    private readonly IPushNotificationSender _pushNotificationSender;
+    private readonly IPushNotificationDispatcher _pushDispatcher;
     private readonly ILogger<CertificatesController> _logger;
 
     public CertificatesController(
         IDigitalCertificateService certificateService,
         ICurrentUserService currentUserService,
         IUserRepository userRepository,
-        INotificationRepository notificationRepository,
-        IPushNotificationSender pushNotificationSender,
+        IPushNotificationDispatcher pushDispatcher,
         ILogger<CertificatesController> logger)
     {
         _certificateService = certificateService;
         _currentUserService = currentUserService;
         _userRepository = userRepository;
-        _notificationRepository = notificationRepository;
-        _pushNotificationSender = pushNotificationSender;
+        _pushDispatcher = pushDispatcher;
         _logger = logger;
     }
 
@@ -104,17 +102,12 @@ public class CertificatesController : ControllerBase
         // Notifica o médico que o certificado foi cadastrado com sucesso
         try
         {
-            var notification = Notification.Create(
-                userId.Value,
-                "Certificado Digital Cadastrado",
-                $"Seu certificado digital foi cadastrado e validado com sucesso. Válido até {validation.NotAfter:dd/MM/yyyy}.",
-                NotificationType.Info);
-            await _notificationRepository.CreateAsync(notification, cancellationToken);
-            await _pushNotificationSender.SendAsync(
-                userId.Value,
-                "Certificado Digital Cadastrado",
-                "Seu certificado digital foi cadastrado e validado com sucesso.",
-                ct: cancellationToken);
+            var validUntil = validation.NotAfter.HasValue
+                ? validation.NotAfter.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture)
+                : "N/A";
+            await _pushDispatcher.SendAsync(
+                PushNotificationRules.CertificateUploaded(userId.Value, validUntil),
+                cancellationToken);
         }
         catch (Exception ex)
         {

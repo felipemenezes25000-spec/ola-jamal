@@ -65,8 +65,7 @@ public class ConsultationLifecycleService(
         videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 
         await PublishRequestUpdatedAsync(request, "Médico aceitou — consulta confirmada", cancellationToken);
-        await pushDispatcher.SendAsync(PushNotificationRules.DoctorReady(request.PatientId, request.Id), cancellationToken);
-
+        await pushDispatcher.SendAsync(PushNotificationRules.ConsultationScheduled(request.PatientId, request.Id, isDoctor: false), cancellationToken);
         return (RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService), RequestHelpers.MapVideoRoomToDto(videoRoom));
     }
 

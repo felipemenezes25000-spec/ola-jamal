@@ -125,22 +125,6 @@ export function addNotificationResponseReceivedListener(
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
 
-export async function sendLocalNotification(
-  title: string,
-  body: string,
-  data?: Record<string, any>
-): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-      data,
-      sound: true,
-    },
-    trigger: null, // Send immediately
-  });
-}
-
 export async function getBadgeCount(): Promise<number> {
   return await Notifications.getBadgeCountAsync();
 }

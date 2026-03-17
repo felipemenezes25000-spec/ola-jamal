@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Loader2, ArrowLeft, User, Calendar,
-  Phone, Mail, AlertTriangle, ClipboardList,
+  Phone, Mail, AlertTriangle,
   Shield, ChevronRight, Stethoscope,
 } from 'lucide-react';
 

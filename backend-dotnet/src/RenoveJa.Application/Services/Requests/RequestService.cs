@@ -729,13 +729,9 @@ public class RequestService(
         await PublishRequestUpdatedAsync(request, "Pedido cancelado", cancellationToken);
         if (request.DoctorId.HasValue)
         {
-            await CreateNotificationAsync(
-                request.DoctorId.Value,
-                "Pedido Cancelado",
-                "O paciente cancelou o pedido.",
-                cancellationToken,
-                new Dictionary<string, object?> { ["requestId"] = request.Id.ToString() },
-                targetRole: "doctor");
+            await pushDispatcher.SendAsync(
+                PushNotificationRules.PatientCancelled(request.DoctorId.Value, request.Id, request.RequestType),
+                cancellationToken);
         }
 
         return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);

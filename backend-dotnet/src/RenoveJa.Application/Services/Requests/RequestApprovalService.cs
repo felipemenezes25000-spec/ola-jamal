@@ -58,7 +58,7 @@ public class RequestApprovalService(
             EnumHelper.ToSnakeCase(request.Status),
             "Solicitação aprovada",
             cancellationToken);
-        await pushDispatcher.SendAsync(PushNotificationRules.Paid(request.PatientId, request.Id, request.RequestType), cancellationToken);
+        // Push de "Documento pronto" será enviado pelo SignatureService após a assinatura
 
         return request;
     }
