@@ -61,26 +61,27 @@ export function getTypeBgColor(type: string): string {
 
 // ── Status Helpers (COMPLETE mapping including all backend statuses) ──
 
+// Alinhado ao mobile (statusLabels.ts / getRequestUiState) — sem expor pagamento
 const STATUS_MAP: Record<string, StatusInfo> = {
   // Canonical statuses
-  submitted:                { label: 'Novo pedido',              variant: 'default',      color: 'text-orange-700',  bgColor: 'bg-orange-50 border-orange-200',   icon: AlertTriangle, priority: 1 },
+  submitted:                { label: 'Enviado',                  variant: 'default',      color: 'text-orange-700',  bgColor: 'bg-orange-50 border-orange-200',   icon: AlertTriangle, priority: 1 },
   in_review:                { label: 'Em análise',               variant: 'default',      color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: Eye,           priority: 2 },
   searching_doctor:         { label: 'Buscando médico',          variant: 'default',      color: 'text-purple-600',  bgColor: 'bg-purple-50 border-purple-200',   icon: Search,        priority: 2 },
-  approved_pending_payment: { label: 'Aguardando pagamento',     variant: 'outline',      color: 'text-amber-600',   bgColor: 'bg-amber-50 border-amber-200',     icon: Clock,         priority: 3 },
-  paid:                     { label: 'Pago',                     variant: 'default',      color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2,  priority: 4 },
+  approved_pending_payment: { label: 'Aprovado',                 variant: 'outline',      color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: CheckCircle2,  priority: 3 },
+  paid:                     { label: 'Aprovado',                 variant: 'outline',      color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: CheckCircle2,  priority: 3 },
   in_consultation:          { label: 'Em consulta',              variant: 'default',      color: 'text-primary',     bgColor: 'bg-primary/5 border-primary/20',   icon: Play,          priority: 1 },
   consultation_ready:       { label: 'Consulta pronta',          variant: 'default',      color: 'text-primary',     bgColor: 'bg-primary/5 border-primary/20',   icon: Stethoscope,   priority: 2 },
-  consultation_finished:    { label: 'Consulta finalizada',      variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2,  priority: 8 },
+  consultation_finished:    { label: 'Finalizada',               variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2,  priority: 8 },
   signed:                   { label: 'Assinado',                 variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: Shield,        priority: 9 },
   delivered:                { label: 'Entregue',                 variant: 'secondary',    color: 'text-gray-600',    bgColor: 'bg-gray-50 border-gray-200',       icon: Truck,         priority: 10 },
-  rejected:                 { label: 'Recusado',                 variant: 'destructive',  color: 'text-red-600',     bgColor: 'bg-red-50 border-red-200',         icon: XCircle,       priority: 11 },
+  rejected:                 { label: 'Rejeitado',                variant: 'destructive',  color: 'text-red-600',     bgColor: 'bg-red-50 border-red-200',         icon: XCircle,       priority: 11 },
   cancelled:                { label: 'Cancelado',                variant: 'destructive',  color: 'text-gray-400',    bgColor: 'bg-gray-50 border-gray-200',       icon: XCircle,       priority: 12 },
 
   // Legacy statuses (still in production data)
   pending:                  { label: 'Pendente',                 variant: 'outline',      color: 'text-orange-600',  bgColor: 'bg-orange-50 border-orange-200',   icon: Clock,         priority: 1 },
-  analyzing:                { label: 'Analisando',               variant: 'default',      color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: Eye,           priority: 2 },
+  analyzing:                { label: 'Em análise',               variant: 'default',      color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: Eye,           priority: 2 },
   approved:                 { label: 'Aprovado',                 variant: 'secondary',    color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: CheckCircle2,  priority: 3 },
-  pending_payment:          { label: 'Aguardando pagamento',     variant: 'outline',      color: 'text-amber-600',   bgColor: 'bg-amber-50 border-amber-200',     icon: Clock,         priority: 3 },
+  pending_payment:          { label: 'Aprovado',                 variant: 'outline',      color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: CheckCircle2,  priority: 3 },
   completed:                { label: 'Concluído',                variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2,  priority: 9 },
 
   // Consultation-specific (legacy)

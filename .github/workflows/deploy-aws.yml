@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   AWS_REGION: sa-east-1
   ECR_REPOSITORY: renoveja-api
   ECS_CLUSTER: renoveja-prod
@@ -84,7 +85,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend-web/package-lock.json
 

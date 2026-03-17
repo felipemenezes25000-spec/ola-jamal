@@ -37,7 +37,7 @@ export function RequestActionsCard({
   const canAcceptConsult = reqType === 'consultation' && statusNorm === 'paid';
   const canCancel       = ['submitted', 'pending', 'in_review'].includes(statusNorm);
   const canDeliver      = statusNorm === 'signed';
-  const canGenPdf       = statusNorm === 'paid' && reqType !== 'consultation';
+  const canGenPdf       = statusNorm === 'paid' && reqType === 'prescription';
   const canDownload     = !!request.signedDocumentUrl || statusNorm === 'signed' || statusNorm === 'delivered';
 
   const noActions = !canApprove && !canReject && !canEdit && !canVideo &&

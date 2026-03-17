@@ -10,8 +10,7 @@
 import {
   Send,
   Eye,
-  CreditCard,
-  Wallet,
+  FileText,
   ShieldCheck,
   CheckCheck,
   Search,
@@ -30,21 +29,19 @@ interface Step {
   statuses: string[];
 }
 
-// Receita e Exame
+// Receita e Exame — alinhado ao mobile (sem etapas de pagamento explícitas)
 const PRESCRIPTION_STEPS: Step[] = [
   { key: 'submitted', label: 'Enviado', icon: Send, statuses: ['submitted'] },
-  { key: 'review', label: 'Em análise médica', icon: Eye, statuses: ['analyzing', 'in_review'] },
-  { key: 'waiting_payment', label: 'Aguardando pagamento', icon: CreditCard, statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'paid', label: 'Pago', icon: Wallet, statuses: ['paid'] },
+  { key: 'review', label: 'Em análise', icon: Eye, statuses: ['analyzing', 'in_review'] },
+  { key: 'approved', label: 'Aguardando assinatura', icon: FileText, statuses: ['approved_pending_payment', 'pending_payment', 'paid'] },
   { key: 'signed', label: 'Assinado', icon: ShieldCheck, statuses: ['signed'] },
   { key: 'delivered', label: 'Entregue', icon: CheckCheck, statuses: ['delivered', 'completed'] },
 ];
 
-// Consulta
+// Consulta — alinhado ao mobile
 const CONSULTATION_STEPS: Step[] = [
   { key: 'searching', label: 'Buscando médico', icon: Search, statuses: ['searching_doctor'] },
-  { key: 'payment', label: 'Aguardando pagamento', icon: CreditCard, statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'ready', label: 'Consulta pronta', icon: CheckCircle2, statuses: ['paid', 'consultation_ready', 'consultation_accepted'] },
+  { key: 'ready', label: 'Consulta pronta', icon: CheckCircle2, statuses: ['approved_pending_payment', 'pending_payment', 'paid', 'consultation_ready', 'consultation_accepted'] },
   { key: 'in_consultation', label: 'Em consulta', icon: Video, statuses: ['in_consultation'] },
   { key: 'finished', label: 'Finalizada', icon: CheckCheck, statuses: ['consultation_finished'] },
 ];

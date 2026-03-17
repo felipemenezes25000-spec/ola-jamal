@@ -93,9 +93,14 @@ export async function updatePrescriptionContent(id: string, payload: {
 }
 
 export async function updateExamContent(id: string, payload: { exams?: ExamItem[]; notes?: string }) {
+  // Backend espera exams: string[] (nomes), não ExamItem[]
+  const body = {
+    exams: payload.exams?.map((e) => (typeof e === 'string' ? e : e.name).trim()).filter(Boolean) ?? undefined,
+    notes: payload.notes ?? undefined,
+  };
   const res = await authFetch(`/api/requests/${id}/exam-content`, {
     method: 'PATCH',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error('Erro ao atualizar exame');
   return res.json();

@@ -1,4 +1,8 @@
 name: Build Android APK
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 # Para signing release, configure os seguintes secrets no repositório:
 # - ANDROID_KEYSTORE_BASE64: keystore em base64 (keytool -genkey ...)
 # - ANDROID_KEYSTORE_PASSWORD: senha do keystore
@@ -37,7 +41,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend-mobile/package-lock.json
 

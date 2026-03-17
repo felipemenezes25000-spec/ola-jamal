@@ -93,17 +93,9 @@ resource "aws_cloudfront_distribution" "frontend" {
     }
   }
 
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
+  # NÃO usar custom_error_response para 403/404: quando um chunk JS (ex: /assets/DoctorNotifications-XXX.js)
+  # não existe, o S3 retorna 404. Se retornarmos index.html, o browser espera JS e recebe HTML → erro de MIME type.
+  # O spa_rewrite (viewer-request) já trata SPA: rotas sem extensão (ex: /admin/medicos) são reescritas para /index.html.
 
   restrictions {
     geo_restriction {

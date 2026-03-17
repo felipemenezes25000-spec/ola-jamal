@@ -43,10 +43,11 @@ const TYPE_FILTERS: { value: FilterType; label: string }[] = [
   { value: 'consultation', label: 'Consultas' },
 ];
 
+// Alinhado ao mobile — sem expor pagamento; "Aprovados" = prontos para assinar
 const STATUS_FILTERS: { value: FilterStatus; label: string }[] = [
   { value: 'all', label: 'Todos' },
   { value: 'pending', label: 'Pendentes' },
-  { value: 'paid', label: 'Pagos' },
+  { value: 'paid', label: 'Aprovados' },
   { value: 'signed', label: 'Assinados' },
   { value: 'rejected', label: 'Recusados' },
 ];

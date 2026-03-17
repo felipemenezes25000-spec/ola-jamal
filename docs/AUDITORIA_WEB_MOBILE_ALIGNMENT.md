@@ -18,7 +18,8 @@
 | **Post-consultation emit** | POST `/api/post-consultation/emit` | Idem | ✓ |
 | **Company data** | `lib/company.ts` | `lib/company.ts` | ✓ Idêntico |
 | **Design tokens** | Paleta primária #0284C7 / #0EA5E9 | `theme.ts` / `designSystem.ts` | ✓ Consistente |
-| **Status labels** | `doctor-helpers.ts` STATUS_MAP | `statusLabels.ts` | ✓ Mapeamento similar |
+| **Status labels** | `doctor-helpers.ts` STATUS_MAP | `statusLabels.ts` | ✓ Alinhado (2025-03-17: sem pagamento explícito) |
+| **StatusTracker** | 5 etapas (receita/exame), 4 (consulta) | Idem | ✓ Alinhado (2025-03-17: Aguardando assinatura em vez de pagamento/pago) |
 | **Pós-consulta** | `/pos-consulta/:requestId` | `/post-consultation-emit/[requestId]` | ✓ Mesmo fluxo |
 | **Anamnese estruturada** | Sem botões "Criar Receita/Exame" | DoctorAIPanel sem esses botões | ✓ Alinhado (2025-03-17) |
 | **Video by-request** | GET `/api/video/by-request/{id}` | `api-video.ts` usa path correto | ✓ Patch aplicado |
