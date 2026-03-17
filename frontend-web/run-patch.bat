@@ -1,0 +1,1 @@
+cd C:\Users\renat\source\repos\ola-jamal\frontend-web && node patch-conduct-detail.cjs
