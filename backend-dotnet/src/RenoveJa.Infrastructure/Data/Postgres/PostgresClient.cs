@@ -145,6 +145,20 @@ public class PostgresClient
         return false;
     }
 
+    /// <summary>
+    /// Colunas TEXT que podem conter valores UUID-like como strings.
+    /// Sem cast explícito, ConvertValue converte para System.Guid e Npgsql envia como uuid,
+    /// causando PG 42804: "column X is of type text but expression is of type uuid".
+    /// </summary>
+    private static readonly HashSet<string> TextColumnsWithUuids = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "entity_id", "details", "correlation_id", "ip_address", "user_agent",
+        "old_values", "new_values", "metadata"
+    };
+
+    private static bool NeedsTextCast(string columnName)
+        => TextColumnsWithUuids.Contains(columnName);
+
     private (string columns, string paramNames, Dictionary<string, object?> parameters) BuildInsertParams(object data, string tableName)
     {
         var json = JsonSerializer.Serialize(data, _jsonOptions);
@@ -156,8 +170,10 @@ public class PostgresClient
         foreach (var kv in dict)
         {
             cols.Add(kv.Key);
-            var needsJsonb = NeedsJsonbCast(tableName, kv.Key);
-            pnames.Add(needsJsonb ? $"@ins{i}::jsonb" : $"@ins{i}");
+            var paramExpr = $"@ins{i}";
+            if (NeedsJsonbCast(tableName, kv.Key)) paramExpr += "::jsonb";
+            else if (NeedsTextCast(kv.Key)) paramExpr += "::text";
+            pnames.Add(paramExpr);
             parameters[$"ins{i}"] = ConvertValue(kv.Value);
             i++;
         }
@@ -174,8 +190,10 @@ public class PostgresClient
         foreach (var kv in dict)
         {
             if (kv.Key.Equals("id", StringComparison.OrdinalIgnoreCase)) continue;
-            var needsJsonb = NeedsJsonbCast(tableName, kv.Key);
-            clauses.Add(needsJsonb ? $"{kv.Key} = @set{i}::jsonb" : $"{kv.Key} = @set{i}");
+            var paramExpr = $"@set{i}";
+            if (NeedsJsonbCast(tableName, kv.Key)) paramExpr += "::jsonb";
+            else if (NeedsTextCast(kv.Key)) paramExpr += "::text";
+            clauses.Add($"{kv.Key} = {paramExpr}");
             parameters[$"set{i}"] = ConvertValue(kv.Value);
             i++;
         }
@@ -203,8 +221,10 @@ public class PostgresClient
             case JsonValueKind.String:
                 var str = element.GetString();
                 if (str == null) return null;
-                // NÃO converter GUIDs para System.Guid — causa PG 42883 em colunas TEXT.
-                // PostgreSQL faz cast implícito text→uuid para colunas UUID automaticamente.
+                // Converter GUIDs para System.Guid é necessário no INSERT/UPDATE —
+                // PostgreSQL NÃO faz cast implícito text→uuid em INSERT VALUES.
+                // (A correção de text=uuid ficou no ParseValue, usado apenas em filtros WHERE.)
+                if (Guid.TryParse(str, out var guid)) return guid;
                 if (DateTime.TryParse(str, System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.RoundtripKind, out var dt)) return dt;
                 return str;
