@@ -87,8 +87,9 @@ public class AuthController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "[Auth] Login failed: Exception={Type}", ex.GetType().Name);
-            throw;
+            logger.LogError(ex, "[Auth] Login 500: {Type} | {Message} | Inner: {Inner}",
+                ex.GetType().Name, ex.Message, ex.InnerException?.Message ?? "-");
+            return StatusCode(500, new { message = "Erro ao processar login. Tente novamente." });
         }
     }
 

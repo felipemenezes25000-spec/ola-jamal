@@ -406,7 +406,8 @@ public class AuthService(
             }
             catch { /* fallback to original URL */ }
         }
-        return new UserDto(user.Id, user.Name, user.Email, user.Phone?.Value, user.Cpf,
+        var emailStr = user.Email?.Value ?? string.Empty;
+        return new UserDto(user.Id, user.Name, emailStr, user.Phone?.Value, user.Cpf,
             user.BirthDate, avatarUrl, user.Role.ToString().ToLowerInvariant(),
             user.CreatedAt, user.UpdatedAt, user.ProfileComplete,
             user.Street, user.Number, user.Neighborhood, user.Complement,
@@ -415,7 +416,8 @@ public class AuthService(
 
     private static UserDto MapUserToDto(User user)
     {
-        return new UserDto(user.Id, user.Name, user.Email, user.Phone?.Value, user.Cpf,
+        var emailStr = user.Email?.Value ?? string.Empty;
+        return new UserDto(user.Id, user.Name, emailStr, user.Phone?.Value, user.Cpf,
             user.BirthDate, user.AvatarUrl, user.Role.ToString().ToLowerInvariant(),
             user.CreatedAt, user.UpdatedAt, user.ProfileComplete,
             user.Street, user.Number, user.Neighborhood, user.Complement,
