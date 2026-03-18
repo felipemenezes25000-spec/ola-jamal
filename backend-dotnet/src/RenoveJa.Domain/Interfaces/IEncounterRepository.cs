@@ -12,5 +12,7 @@ public interface IEncounterRepository
     Task<Encounter?> GetBySourceRequestIdAsync(Guid sourceRequestId, CancellationToken cancellationToken = default);
     Task<Encounter> CreateAsync(Encounter encounter, CancellationToken cancellationToken = default, Guid? sourceRequestId = null);
     Task<Encounter> UpdateAsync(Encounter encounter, CancellationToken cancellationToken = default);
+    /// <summary>Corrige patient_id quando o encounter foi criado com user id em vez de patients.id (FK 23503).</summary>
+    Task UpdatePatientIdAsync(Guid encounterId, Guid patientId, CancellationToken cancellationToken = default);
 }
 

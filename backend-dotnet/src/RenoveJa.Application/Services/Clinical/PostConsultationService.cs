@@ -51,20 +51,23 @@ public class PostConsultationService(
         if (doctorProfile.ActiveCertificateId == null)
             throw new InvalidOperationException("Nenhum certificado digital ativo. Faça upload do certificado A1 na tela de Certificado.");
 
-        // ── 2. Obter ou criar Encounter ──
-        // MedicalRequest não tem EncounterId diretamente; buscar via source_request_id
+        // ── 2. Obter paciente (patients.id) e obter ou criar Encounter ──
+        // requests.patient_id é user id; encounters.patient_id deve ser patients(id) — evita FK 23503
+        var patient = await clinicalRecordService.EnsurePatientFromUserAsync(
+            medicalRequest.PatientId, cancellationToken);
+
         var encounter = await encounterRepository.GetBySourceRequestIdAsync(request.RequestId, cancellationToken);
 
         if (encounter == null)
         {
-            // Garantir que patient_profiles existe e obter o patients.id (PK)
-            var patient = await clinicalRecordService.EnsurePatientFromUserAsync(
-                medicalRequest.PatientId, cancellationToken);
-
-            // encounters.patient_id referencia patients(id), não users(id)
             encounter = await clinicalRecordService.StartEncounterAsync(
                 patient.Id, doctorUserId, EncounterType.Teleconsultation,
                 channel: "web", reason: "Consulta por vídeo", sourceRequestId: request.RequestId, cancellationToken: cancellationToken);
+        }
+        else if (encounter.PatientId != patient.Id)
+        {
+            // Encounter antigo pode ter patient_id = user id (bug histórico). Corrigir antes do UPDATE.
+            await encounterRepository.UpdatePatientIdAsync(encounter.Id, patient.Id, cancellationToken);
         }
 
         // ── 3. Enriquecer Encounter (compliance CFM 1.638/2002) ──

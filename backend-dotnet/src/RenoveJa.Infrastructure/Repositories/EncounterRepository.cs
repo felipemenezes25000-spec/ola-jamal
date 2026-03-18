@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -92,6 +92,17 @@ public class EncounterRepository(PostgresClient db) : IEncounterRepository
             cancellationToken);
 
         return MapToDomain(updated);
+    }
+
+    public async Task UpdatePatientIdAsync(Guid encounterId, Guid patientId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        await conn.ExecuteAsync(
+            new CommandDefinition(
+                "UPDATE public.encounters SET patient_id = @patientId WHERE id = @encounterId",
+                new { encounterId, patientId },
+                cancellationToken: cancellationToken));
     }
 
     private static Encounter MapToDomain(EncounterModel model)
