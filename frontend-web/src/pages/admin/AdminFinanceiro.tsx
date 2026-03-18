@@ -14,7 +14,12 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Line, Bar, Doughnut } from "react-chartjs-2";
+import { Line, Bar } from "react-chartjs-2";
+import { SP_CITIES } from "@/data/spCities";
+import { DashboardTab } from "@/components/admin/SimuladorDashboard";
+import { FunilConsultaTab } from "@/components/admin/SimuladorFunilConsulta";
+import { CenariosTab } from "@/components/admin/SimuladorCenarios";
+import { CidadePotencialTab } from "@/components/admin/SimuladorCidadePotencial";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Filler, Tooltip, Legend);
 
@@ -54,12 +59,6 @@ const FK = (v: number) => {
 const F2 = (v: number) => v.toFixed(2).replace(".", ",");
 const NL = (v: number) => Math.round(v).toLocaleString("pt-BR");
 
-function stp(mx: number): [number, number] {
-  if (mx <= 200) return [5, 2]; if (mx <= 1e3) return [20, 10]; if (mx <= 5e3) return [100, 50];
-  if (mx <= 2e4) return [500, 200]; if (mx <= 1e5) return [2e3, 1e3]; if (mx <= 5e5) return [1e4, 5e3];
-  return [5e4, 2e4];
-}
-
 /* ─── Reusable Components ─── */
 function Slider({ label, tag, value, onChange, min, max, step = 1, icon }: {
   label: string; tag?: string; value: number; onChange: (v: number) => void; min: number; max: number; step?: number; icon?: string;
@@ -82,24 +81,6 @@ function Slider({ label, tag, value, onChange, min, max, step = 1, icon }: {
           value={value} min={min} onChange={e => onChange(+e.target.value || 0)} />
       </div>
     </div>
-  );
-}
-
-function Metric({ label, value, sub, color = "text-foreground", delay = 0, icon }: {
-  label: string; value: string; sub: string; color?: string; delay?: number; icon?: string;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.3 }}>
-      <Card className="hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 border-border/60 bg-card/80 backdrop-blur-sm overflow-hidden group">
-        <CardContent className="p-4 text-center relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          {icon && <span className="text-lg mb-1 block">{icon}</span>}
-          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
-          <p className={`text-xl font-bold font-mono mt-1 ${color}`}>{value}</p>
-          <p className="text-[9px] text-muted-foreground/80 mt-0.5">{sub}</p>
-        </CardContent>
-      </Card>
-    </motion.div>
   );
 }
 
@@ -155,7 +136,9 @@ const AdminFinanceiro = () => {
   const [med, setMed] = useState(1400);
   const [docs, setDocs] = useState(1);
   const [dur, setDur] = useState(15);
-  const [activeTab, setActiveTab] = useState<"visao" | "modelos" | "analise">("visao");
+  const [psi, setPsi] = useState(0);
+  const [psiCost, setPsiCost] = useState(800);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "funil" | "cenarios" | "cidade" | "modelos" | "analise">("dashboard");
 
   const setADSync = useCallback((v: number) => { setAd(v); setPes(v * dias); }, [dias]);
   const setPesSync = useCallback((v: number) => { setPes(v); setAd(Math.round(v / dias)); }, [dias]);
@@ -170,8 +153,6 @@ const AdminFinanceiro = () => {
   const cfBE = med * r.dn * dias + inf.fixo;
   const bm = mgP > 0 ? Math.ceil(cfBE / mgP) : Infinity;
   const bc = bm === Infinity ? "impossivel" : NL(bm);
-  const gsm = r.cIA + r.cS + r.cIF + r.cIV + r.cTx;
-  const docsForBE = bm === Infinity ? "---" : String(Math.ceil(bm / (r.cap * dias)));
 
   return (
     <AdminLayout>
@@ -224,6 +205,15 @@ const AdminFinanceiro = () => {
                 <Slider icon="⏱️" label="Duracao consulta (min)" value={dur} onChange={v => setDur(v)} min={5} max={60} />
               </div>
             </div>
+            <div>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="w-1 h-4 bg-primary rounded-full" /> Equipe de Psicologia
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Slider icon="🧠" label="Qtd psicologos" value={psi} onChange={v => setPsi(v)} min={0} max={200} />
+                <Slider icon="💼" label="Custo diario/psicologo (R$)" value={psiCost} onChange={v => setPsiCost(v)} min={100} max={5000} step={50} />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -238,15 +228,33 @@ const AdminFinanceiro = () => {
 
         {/* Navigation Tabs */}
         <div className="flex gap-2 flex-wrap">
-          <TabButton active={activeTab === "visao"} onClick={() => setActiveTab("visao")}>Visao Geral</TabButton>
+          <TabButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>Dashboard Executivo</TabButton>
+          <TabButton active={activeTab === "funil"} onClick={() => setActiveTab("funil")}>Funil de Consulta</TabButton>
+          <TabButton active={activeTab === "cenarios"} onClick={() => setActiveTab("cenarios")}>Cenarios Operacionais</TabButton>
+          <TabButton active={activeTab === "cidade"} onClick={() => setActiveTab("cidade")} count={SP_CITIES.length}>Potencial por Cidade</TabButton>
           <TabButton active={activeTab === "modelos"} onClick={() => setActiveTab("modelos")} count={11}>Modelos de Cobranca</TabButton>
           <TabButton active={activeTab === "analise"} onClick={() => setActiveTab("analise")}>Analise Avancada</TabButton>
         </div>
 
         <AnimatePresence mode="wait">
-          {activeTab === "visao" && (
-            <motion.div key="visao" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
-              <VisaoGeralTab val={val} pes={pes} med={med} docs={docs} dur={dur} dias={dias} r={r} inf={inf} capM={capM} bc={bc} gsm={gsm} mgP={mgP} docsForBE={docsForBE} bm={bm} />
+          {activeTab === "dashboard" && (
+            <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+              <DashboardTab pacientesMes={pes} valConsulta={val} durMedia={dur} diasMes={dias} medicos={docs} psicologos={psi} custoMedDia={med} custoPsicoDia={psiCost} />
+            </motion.div>
+          )}
+          {activeTab === "funil" && (
+            <motion.div key="funil" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+              <FunilConsultaTab pacientesMes={pes} durMedia={dur} diasMes={dias} />
+            </motion.div>
+          )}
+          {activeTab === "cenarios" && (
+            <motion.div key="cenarios" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+              <CenariosTab valConsulta={val} diasMes={dias} />
+            </motion.div>
+          )}
+          {activeTab === "cidade" && (
+            <motion.div key="cidade" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+              <CidadePotencialTab valConsulta={val} durMedia={dur} diasMes={dias} />
             </motion.div>
           )}
           {activeTab === "modelos" && (
@@ -264,197 +272,6 @@ const AdminFinanceiro = () => {
     </AdminLayout>
   );
 };
-
-/* ═══════════════════════════════════════════════════════════════
-   TAB 1 — Visao Geral
-   ═══════════════════════════════════════════════════════════════ */
-type VisaoProps = SimProps & {
-  r: ReturnType<typeof fullCost>; inf: ReturnType<typeof infraCosts>;
-  capM: number; bc: string; gsm: number; mgP: number; docsForBE: string; bm: number;
-};
-
-function VisaoGeralTab({ val, pes, med, docs, dur, dias, r, inf, capM, bc, gsm, mgP, docsForBE, bm }: VisaoProps) {
-  const mxP = Math.max(pes * 2.5, bm === Infinity ? 2e3 : bm * 2, 500);
-  const [st, st2] = stp(mxP);
-
-  const beLabels: number[] = [], beRec: number[] = [], beCst: number[] = [];
-  for (let p = 0; p <= mxP; p += st) {
-    const x = fullCost(p, val, med, docs, dur, dias);
-    beLabels.push(p); beRec.push(Math.round(x.rL)); beCst.push(Math.round(x.cM + x.cIF + x.cIA + x.cS + x.cIV));
-  }
-  const resLabels: number[] = [], resData: number[] = [], resBg: string[] = [];
-  for (let p = st2; p <= mxP; p += st2) {
-    const x = fullCost(p, val, med, docs, dur, dias);
-    resLabels.push(p); resData.push(Math.round(x.res));
-    resBg.push(x.res >= 0 ? "rgba(74,222,128,.6)" : "rgba(248,113,113,.6)");
-  }
-  const sLabels: number[] = [], sM: number[] = [], sIA: number[] = [], sInf: number[] = [], sSt: number[] = [];
-  for (let p = st; p <= mxP; p += st) {
-    const x = fullCost(p, val, med, docs, dur, dias);
-    sLabels.push(p); sM.push(x.cM); sIA.push(x.cIA); sInf.push(x.cIF + x.cIV); sSt.push(x.cS);
-  }
-
-  const chartOpts = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: {
-        grid: { color: "rgba(255,255,255,.04)" },
-        ticks: { color: "#71717a", font: { size: 9 }, maxTicksLimit: 12,
-          callback: (v: number | string) => { const n = Number(v); return n >= 1e6 ? (n / 1e6) + "M" : n >= 1e3 ? (n / 1e3) + "K" : String(n); } },
-      },
-      y: {
-        grid: { color: "rgba(255,255,255,.04)" },
-        ticks: { color: "#71717a", font: { size: 9 }, callback: (v: number | string) => FK(Number(v)) },
-      },
-    },
-  };
-
-  const scaleRows = [50, 100, 200, 500, 1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5].filter(f => f <= mxP);
-
-  return (
-    <>
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <Metric icon="📊" label="Atendimentos/dia" value={NL(Math.round(pes / dias))} sub={`${NL(pes)} pessoas/mes`} color="text-primary" delay={0} />
-        <Metric icon="💵" label="Receita bruta" value={FK(r.rec)} sub="faturamento mensal" color="text-blue-400" delay={0.05} />
-        <Metric icon="📉" label="Custo total" value={FK(r.cT)} sub="medicos+IA+infra+taxas" color="text-destructive" delay={0.1} />
-        <Metric icon={r.res >= 0 ? "✅" : "🔴"} label="Resultado" value={FK(r.res)} sub={r.res >= 0 ? "lucro mensal" : "prejuizo mensal"} color={r.res >= 0 ? "text-green-400" : "text-destructive"} delay={0.15} />
-        <Metric icon="🎯" label="Breakeven" value={bc} sub={`${docsForBE} medico(s) necessarios`} color="text-warning" delay={0.2} />
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Metric label="Capacidade max" value={NL(capM)} sub={`${r.dn} med x ${r.cap}/d x ${dias}d`} color="text-primary" delay={0} />
-        <Metric label="Gastos s/ medico" value={FK(gsm)} sub={`IA ${FK(r.cIA)} + infra ${FK(r.cIF + r.cIV)}`} color="text-pink-400" delay={0.05} />
-        <Metric label="Infra AWS" value={FK(inf.fixo + (inf.vPC + inf.sPC) * pes)} sub={inf.fase} color="text-blue-400" delay={0.1} />
-        <Metric label="Margem/pessoa" value={"R$ " + F2(mgP)} sub="acima do breakeven" color={mgP >= 0 ? "text-green-400" : "text-destructive"} delay={0.15} />
-      </div>
-
-      {/* Profit zones */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        {[
-          { color: "destructive", icon: "🔴", label: "Prejuizo", desc: `menos de ${bc} pessoas/mes` },
-          { color: "warning", icon: "🟡", label: "Breakeven", desc: `~${bc} pac/mes | ${docsForBE} medico(s)` },
-          { color: "green-400", icon: "🟢", label: "Lucro", desc: `acima de ${bc} | margem R$ ${F2(mgP)}/pac` },
-        ].map(z => (
-          <div key={z.label} className={`bg-${z.color === "destructive" ? "destructive" : z.color === "warning" ? "warning" : "green-500"}/5 border border-${z.color === "destructive" ? "destructive" : z.color === "warning" ? "warning" : "green-500"}/15 rounded-xl px-4 py-3 text-xs font-medium flex items-center gap-2.5`}>
-            <span>{z.icon}</span>
-            <div>
-              <span className="font-bold">{z.label}</span>
-              <span className="text-muted-foreground ml-1.5">{z.desc}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/60">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold mb-1">Ponto de Equilibrio</p>
-            <p className="text-[10px] text-muted-foreground mb-3">Receita liquida vs custo total por volume</p>
-            <div className="h-64">
-              <Line data={{
-                labels: beLabels,
-                datasets: [
-                  { label: "Receita liquida", data: beRec, borderColor: "#4ade80", backgroundColor: "rgba(74,222,128,.06)", fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-                  { label: "Custo total", data: beCst, borderColor: "#f87171", backgroundColor: "rgba(248,113,113,.06)", fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-                ],
-              }} options={{ ...chartOpts, plugins: { legend: { display: true, position: "bottom" as const, labels: { color: "#71717a", usePointStyle: true, padding: 12, font: { size: 10 } } } } }} />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/60">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold mb-1">Resultado Mensal</p>
-            <p className="text-[10px] text-muted-foreground mb-3">Lucro ou prejuizo por volume de atendimentos</p>
-            <div className="h-64">
-              <Bar data={{ labels: resLabels, datasets: [{ data: resData, backgroundColor: resBg, borderRadius: 4 }] }} options={chartOpts} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/60">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold mb-1">Composicao de Custos</p>
-            <p className="text-[10px] text-muted-foreground mb-3">Empilhamento por categoria e volume</p>
-            <div className="h-64">
-              <Bar data={{
-                labels: sLabels,
-                datasets: [
-                  { label: "Medicos", data: sM, backgroundColor: "#f87171", borderRadius: 2 },
-                  { label: "IA", data: sIA, backgroundColor: "#fbbf24", borderRadius: 2 },
-                  { label: "Infra", data: sInf, backgroundColor: "#60a5fa", borderRadius: 2 },
-                  { label: "Storage", data: sSt, backgroundColor: "#c084fc", borderRadius: 2 },
-                ],
-              }} options={{
-                ...chartOpts,
-                plugins: { legend: { display: true, position: "bottom" as const, labels: { color: "#71717a", usePointStyle: true, padding: 10, font: { size: 9 } } } },
-                scales: { x: { ...chartOpts.scales.x, stacked: true }, y: { ...chartOpts.scales.y, stacked: true } },
-              }} />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/60">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold mb-1">Custo IA por Consulta</p>
-            <p className="text-[10px] text-muted-foreground mb-3">Decomposicao do custo de R$5/atendimento</p>
-            <div className="h-64">
-              <Doughnut data={{
-                labels: ["Deepgram R$2,90", "Anamnese R$1,10", "CIDs R$0,55", "Resumo R$0,45", "Infra R$0,82"],
-                datasets: [{ data: [2.9, 1.1, 0.55, 0.45, 0.82], backgroundColor: ["#f87171", "#fbbf24", "#4ade80", "#60a5fa", "#71717a"], borderWidth: 0, hoverOffset: 8 }],
-              }} options={{ responsive: true, maintainAspectRatio: false, cutout: "60%", plugins: { legend: { position: "right" as const, labels: { color: "#a1a1aa", padding: 10, usePointStyle: true, font: { size: 10 } } } } }} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Scale Table */}
-      <Card className="border-border/60">
-        <CardContent className="p-5">
-          <SectionHeader title="Projecao de Escala" subtitle="Medicos, infraestrutura e resultado por volume de atendimento" />
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b-2 border-border">
-                  {["Pessoas/mes", "Por dia", "Medicos", "Fase", "Custo med", "Custo IA", "Infra+stor", "Total", "Receita", "Resultado", "Margem"].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-left text-muted-foreground font-semibold uppercase text-[9px] tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {scaleRows.map((p, i) => {
-                  const x = fullCost(p, val, med, docs, dur, dias);
-                  const mg = x.rec > 0 ? (x.res / x.rec * 100) : 0;
-                  const isActive = p === scaleRows.reduce((prev, curr) => Math.abs(curr - pes) < Math.abs(prev - pes) ? curr : prev, scaleRows[0]);
-                  const cls = x.res < -500 ? "text-destructive" : x.res > 500 ? "text-green-400" : "text-warning";
-                  return (
-                    <tr key={p} className={`border-b border-border/40 hover:bg-secondary/40 transition-colors ${isActive ? "bg-primary/5 border-primary/20" : i % 2 === 0 ? "bg-secondary/10" : ""}`}>
-                      <td className="px-3 py-2 font-mono font-semibold">{NL(p)}{isActive && <span className="ml-1 text-[8px] text-primary font-bold">ATUAL</span>}</td>
-                      <td className="px-3 py-2 font-mono">{NL(Math.ceil(p / dias))}</td>
-                      <td className="px-3 py-2 font-semibold">{x.dn}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{x.fase}</td>
-                      <td className="px-3 py-2 font-mono">{FK(x.cM)}</td>
-                      <td className="px-3 py-2 font-mono">{FK(x.cIA)}</td>
-                      <td className="px-3 py-2 font-mono">{FK(x.cIF + x.cIV + x.cS)}</td>
-                      <td className="px-3 py-2 font-mono">{FK(x.cT)}</td>
-                      <td className="px-3 py-2 font-mono">{FK(x.rec)}</td>
-                      <td className={`px-3 py-2 font-mono font-bold ${cls}`}>{FK(x.res)}</td>
-                      <td className={`px-3 py-2 font-mono font-semibold ${cls}`}>{mg.toFixed(1)}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════
    TAB 2 — Modelos de Cobranca (SUS + Privado)
@@ -1145,5 +962,6 @@ function UnitEconomicsCard({ val, pes, dias, r, mgP, bm }: Omit<SimProps, 'med' 
     </Card>
   );
 }
+
 
 export default AdminFinanceiro;
