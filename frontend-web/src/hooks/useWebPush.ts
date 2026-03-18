@@ -63,7 +63,7 @@ export function useWebPush(enabled: boolean): UseWebPushReturn {
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_KEY!),
+          applicationServerKey: urlBase64ToUint8Array(VAPID_KEY!) as BufferSource,
         });
       }
 
