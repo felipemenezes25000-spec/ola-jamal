@@ -1,12 +1,19 @@
 /**
- * VideoFrameDaily — Daily.co via SDK (em vez de iframe puro).
- * Permite acessar transcription-message e enviar ao backend.
- * Inclui controles de vídeo (mic, câmera) como no mobile.
+ * VideoFrameDaily — Daily.co prebuilt UI com lifecycle gerenciado manualmente.
+ *
+ * Usa DailyIframe.createFrame() em vez de useCallFrame para evitar:
+ * - "duplicate dailyiframe" ao remontar o componente
+ * - Vídeo/áudio não funcionar por falta de join
+ * - Controles ausentes
+ *
+ * O prebuilt Daily UI já inclui: botão de entrar, câmera, mic, leave, fullscreen.
+ * A transcrição é encaminhada ao backend via useWebTranscription (DailyProvider).
  */
 
-import { useCallback, useRef, useState } from 'react';
-import { DailyProvider, useCallFrame, useDaily, useDailyEvent } from '@daily-co/daily-react';
-import { Maximize2, Minimize2, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import DailyIframe, { type DailyCall } from '@daily-co/daily-js';
+import { DailyProvider } from '@daily-co/daily-react';
+import { useEffect, useRef, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { useWebTranscription } from '@/hooks/useWebTranscription';
 
 interface VideoFrameDailyProps {
@@ -29,64 +36,7 @@ function TranscriptionForwarder({
   return null;
 }
 
-function CallJoinedReporter({ onCallJoined }: { onCallJoined: () => void }) {
-  const reportedRef = useRef(false);
-  const cb = useCallback(() => {
-    if (!reportedRef.current) {
-      reportedRef.current = true;
-      onCallJoined();
-    }
-  }, [onCallJoined]);
-  useDailyEvent('joined-meeting', cb);
-  return null;
-}
-
-function VideoControlBar() {
-  const daily = useDaily();
-  const [micOn, setMicOn] = useState(true);
-  const [camOn, setCamOn] = useState(true);
-
-  const toggleMic = useCallback(() => {
-    if (!daily) return;
-    daily.setLocalAudio(!micOn);
-    setMicOn(!micOn);
-  }, [daily, micOn]);
-
-  const toggleCam = useCallback(() => {
-    if (!daily) return;
-    daily.setLocalVideo(!camOn);
-    setCamOn(!camOn);
-  }, [daily, camOn]);
-
-  return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 z-10">
-      <button
-        onClick={toggleMic}
-        className={`p-3.5 rounded-full transition-colors shadow-lg ${
-          micOn
-            ? 'bg-gray-800/90 text-white hover:bg-gray-700'
-            : 'bg-red-600 text-white hover:bg-red-700'
-        }`}
-        aria-label={micOn ? 'Desativar microfone' : 'Ativar microfone'}
-      >
-        {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-      </button>
-      <button
-        onClick={toggleCam}
-        className={`p-3.5 rounded-full transition-colors shadow-lg ${
-          camOn
-            ? 'bg-gray-800/90 text-white hover:bg-gray-700'
-            : 'bg-red-600 text-white hover:bg-red-700'
-        }`}
-        aria-label={camOn ? 'Desativar câmera' : 'Ativar câmera'}
-      >
-        {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-      </button>
-    </div>
-  );
-}
-
-function VideoFrameInner({
+export function VideoFrameDaily({
   roomUrl,
   requestId,
   isExpanded,
@@ -95,37 +45,105 @@ function VideoFrameInner({
   consultationActive,
 }: VideoFrameDailyProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const call = useCallFrame({
-    parentElRef: containerRef as React.MutableRefObject<HTMLElement>,
-    options: { url: roomUrl },
-    shouldCreateInstance: () => !!roomUrl,
-  });
+  const [callObject, setCallObject] = useState<DailyCall | null>(null);
+  const destroyedRef = useRef(false);
+  const createdForUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !roomUrl) return;
+
+    // Prevent duplicate creation for the same URL
+    if (createdForUrlRef.current === roomUrl && callObject) return;
+
+    // Cleanup any existing instance first
+    if (callObject) {
+      try { callObject.destroy(); } catch { /* ignore */ }
+      setCallObject(null);
+    }
+
+    // Clear any leftover Daily iframes in the container
+    container.querySelectorAll('iframe').forEach((el) => el.remove());
+
+    destroyedRef.current = false;
+    createdForUrlRef.current = roomUrl;
+
+    let frame: DailyCall | null = null;
+
+    try {
+      frame = DailyIframe.createFrame(container, {
+        iframeStyle: {
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          borderRadius: '0',
+        },
+        showLeaveButton: true,
+        showFullscreenButton: true,
+        showLocalVideo: true,
+        showParticipantsBar: true,
+        url: roomUrl,
+        lang: 'pt',
+        theme: {
+          colors: {
+            accent: '#0EA5E9',
+            accentText: '#FFFFFF',
+            background: '#111827',
+            backgroundAccent: '#1F2937',
+            baseText: '#F9FAFB',
+            border: '#374151',
+            mainAreaBg: '#030712',
+            mainAreaBgAccent: '#111827',
+            mainAreaText: '#F9FAFB',
+          },
+        },
+      });
+
+      frame.on('joined-meeting', () => {
+        if (!destroyedRef.current) onCallJoined();
+      });
+
+      setCallObject(frame);
+    } catch (err) {
+      console.error('[VideoFrameDaily] Failed to create Daily frame:', err);
+    }
+
+    return () => {
+      destroyedRef.current = true;
+      createdForUrlRef.current = null;
+      if (frame) {
+        try { frame.destroy(); } catch { /* ignore */ }
+      }
+      setCallObject(null);
+      // Clean up any leftover iframes
+      container.querySelectorAll('iframe').forEach((el) => el.remove());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomUrl]);
 
   return (
-    <div className="relative w-full h-full min-h-[200px]">
-      <div ref={containerRef} className="w-full h-full min-h-[200px] bg-gray-900" />
-      {call && (
-        <DailyProvider callObject={call}>
-          <CallJoinedReporter onCallJoined={onCallJoined} />
-          <TranscriptionForwarder requestId={requestId} consultationActive={consultationActive} />
-          <VideoControlBar />
-        </DailyProvider>
-      )}
-      <button
-        onClick={onToggleExpand}
-        className="absolute top-4 right-4 p-2 rounded-lg bg-gray-900/80 text-gray-400 hover:text-white transition-colors z-10"
-        aria-label={isExpanded ? 'Expandir vídeo' : 'Expandir painel'}
-      >
-        {isExpanded ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-      </button>
-    </div>
-  );
-}
+    <div className={`relative transition-all duration-300 ${isExpanded ? 'w-[40%]' : 'w-[60%]'}`}>
+      <div className="relative w-full h-full min-h-[200px]">
+        <div ref={containerRef} className="w-full h-full min-h-[200px] bg-gray-900" />
 
-export function VideoFrameDaily(props: VideoFrameDailyProps) {
-  return (
-    <div className={`relative transition-all duration-300 ${props.isExpanded ? 'w-[40%]' : 'w-[60%]'}`}>
-      <VideoFrameInner {...props} />
+        {/* DailyProvider for transcription forwarding */}
+        {callObject && (
+          <DailyProvider callObject={callObject}>
+            <TranscriptionForwarder
+              requestId={requestId}
+              consultationActive={consultationActive}
+            />
+          </DailyProvider>
+        )}
+
+        <button
+          onClick={onToggleExpand}
+          className="absolute top-4 right-4 p-2 rounded-lg bg-gray-900/80 text-gray-400 hover:text-white transition-colors z-10"
+          aria-label={isExpanded ? 'Expandir vídeo' : 'Expandir painel'}
+        >
+          {isExpanded ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+        </button>
+      </div>
     </div>
   );
 }

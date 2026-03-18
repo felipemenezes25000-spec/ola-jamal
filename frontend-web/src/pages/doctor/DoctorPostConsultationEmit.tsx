@@ -19,9 +19,12 @@ import {
   type PrescriptionItemEmit,
   type ExamItemEmitWeb,
 } from '@/services/doctorApi';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  Loader2, ArrowLeft, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Send, Minus,
+  Loader2, ArrowLeft, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Send, Minus, Lock,
 } from 'lucide-react';
 
 // ── CID Packages (same data as mobile) ──
@@ -229,16 +232,28 @@ export default function DoctorPostConsultationEmit() {
 
   const docCount = (rxOn ? 1 : 0) + (exOn ? 1 : 0) + (atOn ? 1 : 0) + (refOn ? 1 : 0);
 
-  const handleSubmit = async () => {
+  // ── Password dialog state ──
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [certPassword, setCertPassword] = useState('');
+
+  const handleSignClick = () => {
     if (!requestId || docCount === 0) return;
     if (docCount > 4) {
       toast.error('Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
       return;
     }
+    setCertPassword('');
+    setPasswordDialogOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!requestId || docCount === 0) return;
+    setPasswordDialogOpen(false);
     setSubmitting(true);
     try {
       const payload: PostConsultationEmitPayload = {
         requestId,
+        certificatePassword: certPassword || undefined,
         mainIcd10Code: certCid || detectedCid || undefined,
         anamnesis: request?.consultationAnamnesis ?? undefined,
         structuredAnamnesis: request?.consultationAnamnesis ?? undefined,
@@ -532,7 +547,7 @@ export default function DoctorPostConsultationEmit() {
         </Card>
 
         <Button size="lg" className="w-full h-14 text-base gap-2 bg-gray-900 hover:bg-gray-800 rounded-2xl"
-          onClick={handleSubmit} disabled={submitting || docCount === 0}>
+          onClick={handleSignClick} disabled={submitting || docCount === 0}>
           {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
           Assinar e emitir documentos
         </Button>
@@ -545,6 +560,41 @@ export default function DoctorPostConsultationEmit() {
           Assinatura digital ICP-Brasil · QR Code verificável · Prontuário atualizado automaticamente
         </p>
       </div>
+
+      {/* ── Password Dialog ── */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" />
+              Senha do Certificado Digital
+            </DialogTitle>
+            <DialogDescription>
+              Informe a senha do seu certificado A1 (PFX) para assinar os {docCount} documento(s).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              type="password"
+              placeholder="Senha do certificado"
+              value={certPassword}
+              onChange={(e) => setCertPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && certPassword) handleSubmit(); }}
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground">
+              A senha é usada apenas para validar o certificado. Não é armazenada.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPasswordDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={!certPassword || submitting} className="gap-2">
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              Assinar e emitir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DoctorLayout>
   );
 }

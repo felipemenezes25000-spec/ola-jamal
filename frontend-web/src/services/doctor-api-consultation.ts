@@ -208,6 +208,7 @@ export interface ExamItemEmitWeb {
 
 export interface PostConsultationEmitPayload {
   requestId: string;
+  certificatePassword?: string;
   mainIcd10Code?: string;
   anamnesis?: string;
   structuredAnamnesis?: string;

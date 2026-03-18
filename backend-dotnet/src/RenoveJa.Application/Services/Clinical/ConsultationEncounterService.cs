@@ -25,9 +25,11 @@ public class ConsultationEncounterService(
         string? reason,
         CancellationToken cancellationToken = default)
     {
-        var patient = await EnsurePatientFromUserAsync(patientUserId, cancellationToken);
+        // Garantir que patient_profiles existe (prontuário clínico)
+        await EnsurePatientFromUserAsync(patientUserId, cancellationToken);
+        // encounters.patient_id referencia users(id), não patient_profiles(id)
         var encounter = Encounter.Start(
-            patient.Id,
+            patientUserId,
             doctorId,
             EncounterType.Teleconsultation,
             channel: "daily",

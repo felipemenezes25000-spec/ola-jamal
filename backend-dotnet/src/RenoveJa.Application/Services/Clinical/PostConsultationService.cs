@@ -17,19 +17,21 @@ namespace RenoveJa.Application.Services.Clinical;
 /// 5. Assina tudo com ICP-Brasil (PAdES)
 /// 6. Notifica paciente
 /// </summary>
-#pragma warning disable CS9113 // pdfService reserved for future use
 public class PostConsultationService(
     IClinicalRecordService clinicalRecordService,
     IRequestRepository requestRepository,
     IEncounterRepository encounterRepository,
     IMedicalDocumentRepository medicalDocumentRepository,
     IPrescriptionPdfService pdfService,
+    IDigitalCertificateService certificateService,
+    IStorageService storageService,
+    IUserRepository userRepository,
+    IDoctorRepository doctorRepository,
     IDocumentSecurityService documentSecurityService,
     DuplicateDocumentGuard duplicateGuard,
     IPushNotificationDispatcher pushDispatcher,
     IAuditService auditService,
     ILogger<PostConsultationService> logger) : IPostConsultationService
-#pragma warning restore CS9113
 {
     public async Task<PostConsultationEmitResponse> EmitDocumentsAsync(
         Guid doctorUserId,
@@ -46,18 +48,27 @@ public class PostConsultationService(
         if (medicalRequest.RequestType != RequestType.Consultation)
             throw new InvalidOperationException("Post-consultation documents can only be emitted for consultations");
 
+        // ── 1b. Validar certificado digital ativo ──
+        var doctorProfile = await doctorRepository.GetByUserIdAsync(doctorUserId, cancellationToken);
+        if (doctorProfile == null)
+            throw new InvalidOperationException("Perfil de médico não encontrado.");
+        if (doctorProfile.ActiveCertificateId == null)
+            throw new InvalidOperationException("Nenhum certificado digital ativo. Faça upload do certificado A1 na tela de Certificado.");
+
         // ── 2. Obter ou criar Encounter ──
         // MedicalRequest não tem EncounterId diretamente; buscar via source_request_id
         var encounter = await encounterRepository.GetBySourceRequestIdAsync(request.RequestId, cancellationToken);
 
         if (encounter == null)
         {
-            var patient = await clinicalRecordService.EnsurePatientFromUserAsync(
+            // Garantir que patient_profiles existe (prontuário clínico)
+            await clinicalRecordService.EnsurePatientFromUserAsync(
                 medicalRequest.PatientId, cancellationToken);
 
+            // encounters.patient_id referencia users(id), não patient_profiles(id)
             encounter = await clinicalRecordService.StartEncounterAsync(
-                patient.Id, doctorUserId, EncounterType.Teleconsultation,
-                channel: "mobile", reason: "Consulta por vídeo", sourceRequestId: request.RequestId, cancellationToken: cancellationToken);
+                medicalRequest.PatientId, doctorUserId, EncounterType.Teleconsultation,
+                channel: "web", reason: "Consulta por vídeo", sourceRequestId: request.RequestId, cancellationToken: cancellationToken);
         }
 
         // ── 3. Enriquecer Encounter (compliance CFM 1.638/2002) ──
@@ -83,7 +94,30 @@ public class PostConsultationService(
             request.StructuredAnamnesis,
             cancellationToken);
 
-        // ── 3a. Validar máximo de 4 documentos ──
+        // ── 3a. Verificar se já foram emitidos documentos para este encounter ──
+        var existingDocs = await medicalDocumentRepository.GetByEncounterIdAsync(encounter.Id, cancellationToken);
+        if (existingDocs.Count > 0)
+        {
+            // Documentos já emitidos — retornar os existentes sem duplicar
+            logger.LogInformation(
+                "Post-consultation emit already done for encounter {EncounterId}: {Count} documents exist. Returning existing.",
+                encounter.Id, existingDocs.Count);
+
+            return new PostConsultationEmitResponse
+            {
+                EncounterId = encounter.Id,
+                PrescriptionId = existingDocs.FirstOrDefault(d => d.DocumentType == DocumentType.Prescription)?.Id,
+                ExamOrderId = existingDocs.FirstOrDefault(d => d.DocumentType == DocumentType.ExamOrder)?.Id,
+                MedicalCertificateId = existingDocs.FirstOrDefault(d => d.DocumentType == DocumentType.MedicalCertificate)?.Id,
+                ReferralId = existingDocs.FirstOrDefault(d => d.DocumentType == DocumentType.MedicalReport)?.Id,
+                DocumentsEmitted = existingDocs.Count,
+                DocumentTypes = existingDocs.Select(d => d.DocumentType.ToString()).Distinct().ToList(),
+                Message = $"{existingDocs.Count} documento(s) já emitido(s) anteriormente.",
+                Warnings = new List<string>(),
+            };
+        }
+
+        // ── 3b. Validar máximo de 4 documentos ──
         var docCount = 0;
         if (request.Prescription is { Items.Count: > 0 }) docCount++;
         if (request.ExamOrder is { Items.Count: > 0 }) docCount++;
@@ -92,7 +126,7 @@ public class PostConsultationService(
         if (docCount > 4)
             throw new InvalidOperationException("Máximo de 4 documentos por pós-consulta: receita, exames, atestado e encaminhamento.");
 
-        // ── 3b. Verificações de duplicidade ──
+        // ── 3c. Verificações de duplicidade (medicamentos e atestados) ──
         var warnings = new List<string>();
         if (request.Prescription is { Items.Count: > 0 })
         {

@@ -36,6 +36,9 @@ public record PostConsultationEmitRequest
     /// <summary>Alertas vermelhos (red flags).</summary>
     public string? RedFlags { get; init; }
 
+    /// <summary>Senha do certificado digital A1 (PFX). Se informada, assina todos os documentos emitidos.</summary>
+    public string? CertificatePassword { get; init; }
+
     // ── Receita (opcional) ──
     /// <summary>Se não-nulo, emite receita com estes medicamentos.</summary>
     public PrescriptionEmitDto? Prescription { get; init; }
