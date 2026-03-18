@@ -26,6 +26,10 @@ public class PostgresClient
         if (!_connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase) && !_connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
             _connectionString += ";Maximum Pool Size=20;Minimum Pool Size=2;Connection Idle Lifetime=300;Timeout=15";
 
+        // Include Error Detail para revelar valores em FK violations (debug PG 23503)
+        if (!_connectionString.Contains("Include Error Detail", StringComparison.OrdinalIgnoreCase))
+            _connectionString += ";Include Error Detail=true";
+
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
