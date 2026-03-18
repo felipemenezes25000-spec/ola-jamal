@@ -101,9 +101,6 @@ function Metric({ label, value, sub, color = "text-foreground", delay = 0 }: {
   );
 }
 
-/* ─── Pricing Mode ─── */
-type PricingMode = "fixed" | "per_minute";
-
 /* ─── Main Page ─── */
 const AdminFinanceiro = () => {
   const [ad, setAd] = useState(46);
@@ -113,17 +110,12 @@ const AdminFinanceiro = () => {
   const [med, setMed] = useState(1400);
   const [docs, setDocs] = useState(1);
   const [dur, setDur] = useState(15);
-  const [pricingMode, setPricingMode] = useState<PricingMode>("fixed");
-  const [valMin, setValMin] = useState(6.99);
 
   const setADSync = useCallback((v: number) => { setAd(v); setPes(v * dias); }, [dias]);
   const setPesSync = useCallback((v: number) => { setPes(v); setAd(Math.round(v / dias)); }, [dias]);
   const setDiasSync = useCallback((v: number) => { setDias(v); setPes(ad * v); }, [ad]);
 
-  // Valor efetivo por consulta: fixo ou minuto × duração
-  const valEfetivo = pricingMode === "per_minute" ? valMin * dur : val;
-
-  const r = fullCost(pes, valEfetivo, med, docs, dur, dias);
+  const r = fullCost(pes, val, med, docs, dur, dias);
   const inf = r.inf;
   const capM = r.cap * docs * dias;
   const cvP = IA + inf.vPC + inf.sPC;
@@ -141,14 +133,14 @@ const AdminFinanceiro = () => {
   // Chart data: Breakeven line
   const beLabels: number[] = [], beRec: number[] = [], beCst: number[] = [];
   for (let p = 0; p <= mxP; p += st) {
-    const x = fullCost(p, valEfetivo, med, docs, dur, dias);
+    const x = fullCost(p, val, med, docs, dur, dias);
     beLabels.push(p); beRec.push(Math.round(x.rL)); beCst.push(Math.round(x.cM + x.cIF + x.cIA + x.cS + x.cIV));
   }
 
   // Chart data: Result bars
   const resLabels: number[] = [], resData: number[] = [], resBg: string[] = [];
   for (let p = st2; p <= mxP; p += st2) {
-    const x = fullCost(p, valEfetivo, med, docs, dur, dias);
+    const x = fullCost(p, val, med, docs, dur, dias);
     resLabels.push(p); resData.push(Math.round(x.res));
     resBg.push(x.res >= 0 ? "rgba(74,222,128,.6)" : "rgba(248,113,113,.6)");
   }
@@ -156,7 +148,7 @@ const AdminFinanceiro = () => {
   // Chart data: Cost composition stacked
   const sLabels: number[] = [], sM: number[] = [], sIA: number[] = [], sInf: number[] = [], sSt: number[] = [];
   for (let p = st; p <= mxP; p += st) {
-    const x = fullCost(p, valEfetivo, med, docs, dur, dias);
+    const x = fullCost(p, val, med, docs, dur, dias);
     sLabels.push(p); sM.push(x.cM); sIA.push(x.cIA); sInf.push(x.cIF + x.cIV); sSt.push(x.cS);
   }
 
@@ -201,41 +193,7 @@ const AdminFinanceiro = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Slider label="Atendimentos/dia" value={ad} onChange={setADSync} min={1} max={5000} />
             <Slider label="Pessoas/mês" value={pes} onChange={setPesSync} min={1} max={9999999} step={10} />
-            <div className="bg-card border border-border rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Modelo de cobrança</span>
-                <div className="flex bg-secondary rounded-md p-0.5 ml-auto">
-                  <button
-                    className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${pricingMode === "fixed" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    onClick={() => setPricingMode("fixed")}
-                  >Fixo</button>
-                  <button
-                    className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${pricingMode === "per_minute" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    onClick={() => setPricingMode("per_minute")}
-                  >Por minuto</button>
-                </div>
-              </div>
-              {pricingMode === "fixed" ? (
-                <div className="flex items-center gap-2">
-                  <input type="range" className="flex-1 accent-primary h-1" min={1} max={500} step={1}
-                    value={val} onChange={e => setVal(+e.target.value)} />
-                  <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={val} min={1} onChange={e => setVal(+e.target.value || 0)} />
-                </div>
-              ) : (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <input type="range" className="flex-1 accent-primary h-1" min={0.5} max={30} step={0.01}
-                      value={valMin} onChange={e => setValMin(+e.target.value)} />
-                    <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={valMin} min={0.5} step={0.01} onChange={e => setValMin(+e.target.value || 0)} />
-                  </div>
-                  <p className="text-[9px] text-muted-foreground mt-1">
-                    R$ {F2(valMin)}/min × {dur} min = <span className="text-primary font-semibold">R$ {F2(valEfetivo)}/consulta</span>
-                  </p>
-                </div>
-              )}
-            </div>
+            <Slider label="Valor atendimento (R$)" value={val} onChange={v => setVal(v)} min={1} max={500} />
           </div>
         </div>
 
@@ -258,9 +216,6 @@ const AdminFinanceiro = () => {
         )}
         <div className="bg-primary/5 border border-primary/10 text-primary rounded-lg p-3 text-sm">
           <b>Infra {inf.fase}:</b> Base R$ {NL(inf.fixo)}/mês + R$ {F2(inf.vPC)}/consulta (compute) + R$ {F2(inf.sPC)}/consulta (storage)
-          {pricingMode === "per_minute" && (
-            <span className="ml-2">| <b>Cobrança:</b> R$ {F2(valMin)}/min × {dur} min = R$ {F2(valEfetivo)}/consulta</span>
-          )}
         </div>
 
         {/* Metrics Row 1 */}
@@ -369,7 +324,7 @@ const AdminFinanceiro = () => {
                 </thead>
                 <tbody>
                   {scaleRows.map(p => {
-                    const x = fullCost(p, valEfetivo, med, docs, dur, dias);
+                    const x = fullCost(p, val, med, docs, dur, dias);
                     const mg = x.rec > 0 ? (x.res / x.rec * 100) : 0;
                     const gsmRow = x.cIA + x.cS + x.cIF + x.cIV + x.cTx;
                     const cls = x.res < -500 ? "text-destructive bg-destructive/5" : x.res > 500 ? "text-green-400 bg-green-400/5" : "text-warning bg-warning/5";
@@ -395,9 +350,93 @@ const AdminFinanceiro = () => {
             </div>
           </CardContent>
         </Card>
+        {/* ─── Simulador de Modelos de Cobrança (independente) ─── */}
+        <PricingModelsCard val={val} dur={dur} pes={pes} />
       </div>
     </AdminLayout>
   );
 };
+
+/* ─── Pricing Models Card (não interfere no cálculo principal) ─── */
+function PricingModelsCard({ val, dur, pes }: { val: number; dur: number; pes: number }) {
+  const [valMin, setValMin] = useState(6.99);
+  const [valAnual, setValAnual] = useState(599);
+
+  const perMinConsulta = valMin * dur;
+  const perMinMes = perMinConsulta * pes;
+
+  // Modelo anual: assinantes pagam R$ valAnual/ano → receita mensal = assinantes × valAnual / 12
+  const [assinantes, setAssinantes] = useState(500);
+  const anualRecMes = assinantes * valAnual / 12;
+  const anualRecConsulta = pes > 0 ? anualRecMes / pes : 0;
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-4">
+        <div>
+          <p className="text-sm font-semibold">Simulador de Modelos de Cobrança</p>
+          <p className="text-[10px] text-muted-foreground">Compare modelos — não altera o simulador principal (que usa R$ {val}/consulta fixo)</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Fixo (referência) */}
+          <div className="bg-secondary/30 rounded-lg p-3 border border-border">
+            <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">Fixo (atual)</p>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between"><span className="text-muted-foreground">Por consulta</span><span className="font-mono font-semibold">R$ {F2(val)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês ({NL(pes)} consultas)</span><span className="font-mono font-semibold text-primary">{FK(val * pes)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Por minuto equivalente</span><span className="font-mono text-muted-foreground">R$ {F2(dur > 0 ? val / dur : 0)}/min</span></div>
+            </div>
+          </div>
+
+          {/* Por minuto */}
+          <div className="bg-secondary/30 rounded-lg p-3 border border-primary/30">
+            <p className="text-[10px] font-semibold text-green-400 uppercase tracking-wider mb-2">Por Minuto</p>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] text-muted-foreground">R$/min:</span>
+              <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                value={valMin} min={0.5} step={0.01} onChange={e => setValMin(+e.target.value || 0)} />
+            </div>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between"><span className="text-muted-foreground">Por consulta ({dur} min)</span><span className="font-mono font-semibold">R$ {F2(perMinConsulta)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês ({NL(pes)} consultas)</span><span className="font-mono font-semibold text-green-400">{FK(perMinMes)}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">vs Fixo</span>
+                <span className={`font-mono font-semibold ${perMinConsulta >= val ? "text-green-400" : "text-destructive"}`}>
+                  {perMinConsulta >= val ? "+" : ""}{F2(perMinConsulta - val)} ({perMinConsulta >= val ? "+" : ""}{val > 0 ? ((perMinConsulta - val) / val * 100).toFixed(0) : 0}%)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Anual (assinatura) */}
+          <div className="bg-secondary/30 rounded-lg p-3 border border-blue-400/30">
+            <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-2">Assinatura Anual</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] text-muted-foreground">R$/ano:</span>
+              <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                value={valAnual} min={10} step={10} onChange={e => setValAnual(+e.target.value || 0)} />
+            </div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] text-muted-foreground">Assinantes:</span>
+              <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                value={assinantes} min={1} step={10} onChange={e => setAssinantes(+e.target.value || 0)} />
+            </div>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-blue-400">{FK(anualRecMes)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Por consulta equiv.</span><span className="font-mono font-semibold">R$ {F2(anualRecConsulta)}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">vs Fixo (receita/mês)</span>
+                <span className={`font-mono font-semibold ${anualRecMes >= val * pes ? "text-green-400" : "text-destructive"}`}>
+                  {anualRecMes >= val * pes ? "+" : ""}{FK(anualRecMes - val * pes)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default AdminFinanceiro;
