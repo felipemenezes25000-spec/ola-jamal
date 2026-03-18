@@ -1,4 +1,5 @@
-﻿using RenoveJa.Domain.Entities;
+﻿using Dapper;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
@@ -55,15 +56,18 @@ public class EncounterRepository(PostgresClient db) : IEncounterRepository
         return models.Select(MapToDomain).ToList();
     }
 
+    /// <summary>
+    /// Usa raw SQL porque encounters.source_request_id é TEXT no banco real (schema.sql),
+    /// mas ParseValue converte UUIDs para System.Guid → Npgsql envia como uuid → PG 42883.
+    /// </summary>
     public async Task<Encounter?> GetBySourceRequestIdAsync(Guid sourceRequestId, CancellationToken cancellationToken = default)
     {
-        // source_request_id é UUID na migration — agora que ParseValue não converte
-        // strings para Guid, podemos usar o filter normalmente (text→uuid cast implícito)
-        var model = await db.GetSingleAsync<EncounterModel>(
-            TableName,
-            filter: $"source_request_id=eq.{sourceRequestId}",
-            cancellationToken: cancellationToken);
-
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        var sql = "SELECT * FROM public.encounters WHERE \"source_request_id\" = @srcId LIMIT 1";
+        var model = await conn.QueryFirstOrDefaultAsync<EncounterModel>(
+            new CommandDefinition(sql, new { srcId = sourceRequestId.ToString() },
+                cancellationToken: cancellationToken));
         return model != null ? MapToDomain(model) : null;
     }
 

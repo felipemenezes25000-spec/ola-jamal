@@ -152,7 +152,7 @@ public class PostgresClient
     /// </summary>
     private static readonly HashSet<string> TextColumnsWithUuids = new(StringComparer.OrdinalIgnoreCase)
     {
-        "entity_id", "correlation_id"
+        "entity_id", "correlation_id", "source_request_id"
     };
 
     private static bool NeedsTextCast(string columnName)
