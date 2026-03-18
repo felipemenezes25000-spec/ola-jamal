@@ -13,6 +13,7 @@ import {
   BarElement,
   Tooltip,
   Legend,
+  Title,
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +32,7 @@ ChartJS.register(
   BarElement,
   Tooltip,
   Legend,
+  Title,
 );
 
 // ---------------------------------------------------------------------------
@@ -91,6 +93,7 @@ interface ScenarioFinancials {
 function calcScenario(
   sc: OperationalScenario,
   overrideDias?: number,
+  valConsulta?: number,
 ): ScenarioFinancials {
   const p = {
     ...sc.params,
@@ -122,12 +125,22 @@ function calcScenario(
     CONSULTATION_OUTCOMES,
   );
 
+  // If valConsulta (R$ per consultation) is provided and positive, use it as
+  // the base consultation fee; otherwise fall back to the per-minute rate.
+  const effectiveClinicaConsultRev =
+    valConsulta != null && valConsulta > 0
+      ? valConsulta
+      : p.avgConsultDuration * 6.99;
+  const effectivePsicoConsultRev =
+    valConsulta != null && valConsulta > 0
+      ? valConsulta
+      : p.avgConsultDuration * 3.99;
+
   // Split consult revenue vs derivative revenue
-  const clinicaConsultRev =
-    p.avgConsultDuration * 6.99; // per_minuto price
-  const psicoConsultRev = p.avgConsultDuration * 3.99;
-  const derivPerClinica = revPerClinica - clinicaConsultRev;
-  const derivPerPsico = revPerPsico - psicoConsultRev;
+  const clinicaConsultRev = effectiveClinicaConsultRev;
+  const psicoConsultRev = effectivePsicoConsultRev;
+  const derivPerClinica = Math.max(0, revPerClinica - p.avgConsultDuration * 6.99);
+  const derivPerPsico = Math.max(0, revPerPsico - p.avgConsultDuration * 3.99);
 
   const revenueConsultMonth =
     clinicaPerMonth * clinicaConsultRev + psicoPerMonth * psicoConsultRev;
@@ -350,13 +363,14 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
 
   // ── Compute all scenario financials ───────────────────────────────────────
   // diasMes prop overrides each scenario's workDaysPerMonth when provided.
+  // valConsulta (R$ per consultation) scales the consultation revenue.
   const allFinancials = useMemo(
     () =>
       OPERATIONAL_SCENARIOS.map((sc) => ({
         sc,
-        fin: calcScenario(sc, diasMes > 0 ? diasMes : undefined),
+        fin: calcScenario(sc, diasMes > 0 ? diasMes : undefined, valConsulta),
       })),
-    [diasMes],
+    [diasMes, valConsulta],
   );
 
   // Most profitable scenario
@@ -401,20 +415,22 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
     const revPerConsult = clinicaFrac * revClinica + psicoFrac * revPsico;
 
     // Recommend staffing: use Crescimento params as baseline capacity unit
+    // Use diasMes prop when provided so calculations reflect the actual month config.
     const baseParams = OPERATIONAL_SCENARIOS[1].params;
+    const effectiveDias = diasMes > 0 ? diasMes : baseParams.workDaysPerMonth;
     const consultsPerDoctorPerMonth =
       Math.floor((baseParams.hoursPerDay * 60) / avgDuration) *
-      baseParams.workDaysPerMonth;
+      effectiveDias;
     const totalConsultsForMix =
       consultsPerDoctorPerMonth * baseParams.doctorsPerShift;
     const monthlyRevenue = totalConsultsForMix * revPerConsult;
     const staffCost =
       baseParams.doctorsPerShift *
         baseParams.doctorCostPerDay *
-        baseParams.workDaysPerMonth +
+        effectiveDias +
       baseParams.psychologistsPerShift *
         baseParams.psychologistCostPerDay *
-        baseParams.workDaysPerMonth;
+        effectiveDias;
     const infra = infraCost(totalConsultsForMix);
     const profit = monthlyRevenue - staffCost - infra;
     const margin =
@@ -435,7 +451,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       recDoctors,
       recPsychos,
     };
-  }, [clinicaPct, avgDuration, customOutcomes]);
+  }, [clinicaPct, avgDuration, customOutcomes, diasMes]);
 
   // ── Bar chart: Scenarios comparison ──────────────────────────────────────
   const barChartData = useMemo(() => {
@@ -546,8 +562,8 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       {/* ── Section 1: Scenario Cards ───────────────────────────────────── */}
       <div className="space-y-4">
         <SectionHeader
-          title="Cenarios de Operacao"
-          subtitle="Selecione um cenario para ver a analise financeira detalhada"
+          title="Cenários de Operação"
+          subtitle="Selecione um cenário para ver a análise financeira detalhada"
           badge="5 presets"
         />
 
@@ -619,7 +635,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                       <div className="bg-secondary/40 rounded-lg px-2 py-1.5">
                         <p className="text-muted-foreground">Dias/mês</p>
                         <p className="font-mono font-bold text-foreground">
-                          {sc.params.workDaysPerMonth}d
+                          {diasMes > 0 ? diasMes : sc.params.workDaysPerMonth}d
                         </p>
                       </div>
                     </div>
@@ -696,12 +712,12 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                           color: "text-foreground",
                         },
                         {
-                          label: "Rec. consultas",
+                          label: "Receita consultas",
                           value: FK(fin.revenueConsultMonth),
                           color: "text-primary",
                         },
                         {
-                          label: "Rec. derivados",
+                          label: "Receita derivados (receitas, exames)",
                           value: FK(fin.revenueDerivMonth),
                           color: "text-blue-400",
                         },
@@ -736,12 +752,13 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                           color: marginColor(fin.marginPct),
                         },
                         {
-                          label: "ROI anual",
+                          label: "Retorno anual (ROI)",
                           value: F2(fin.roiAnual * 100),
                           color: fin.roiAnual > 0 ? "text-green-400" : "text-red-400",
+                          subtitle: "lucro×12 ÷ custo total",
                         },
                         {
-                          label: "Breakeven",
+                          label: "Ponto de equilíbrio",
                           value:
                             fin.breakevenMonths === Infinity
                               ? "Impossível"
@@ -753,7 +770,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                                 ? "text-green-400"
                                 : "text-yellow-400",
                         },
-                      ].map(({ label, value, color }) => (
+                      ].map(({ label, value, color, subtitle }) => (
                         <div
                           key={label}
                           className="bg-card/80 border border-border/60 rounded-xl p-3"
@@ -761,6 +778,11 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                           <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">
                             {label}
                           </p>
+                          {subtitle && (
+                            <p className="text-[8px] text-muted-foreground/60 mt-0.5">
+                              {subtitle}
+                            </p>
+                          )}
                           <p className={`text-base font-bold font-mono mt-1 ${color}`}>
                             {value}
                           </p>
@@ -778,8 +800,8 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       {/* ── Section 2: Comparison table ─────────────────────────────────── */}
       <div className="space-y-4">
         <SectionHeader
-          title="Comparativo de Cenarios"
-          subtitle="Todos os 5 cenarios lado a lado com metricas financeiras completas"
+          title="Comparativo de Cenários"
+          subtitle="Todos os 5 cenários lado a lado com métricas financeiras completas"
         />
 
         <Card className="border-border/60 bg-card/80 overflow-hidden">
@@ -837,13 +859,13 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                         color: () => "text-foreground",
                       },
                       {
-                        label: "Rec. consultas",
+                        label: "Receita consultas",
                         get: (_sc: OperationalScenario, fin: ScenarioFinancials) =>
                           FK(fin.revenueConsultMonth),
                         color: () => "text-primary",
                       },
                       {
-                        label: "Rec. derivados",
+                        label: "Receita derivados (receitas, exames)",
                         get: (_sc: OperationalScenario, fin: ScenarioFinancials) =>
                           FK(fin.revenueDerivMonth),
                         color: () => "text-blue-400",
@@ -881,14 +903,14 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                           marginColor(fin.marginPct),
                       },
                       {
-                        label: "ROI anual",
+                        label: "Retorno anual (ROI)",
                         get: (_sc: OperationalScenario, fin: ScenarioFinancials) =>
                           F2(fin.roiAnual * 100),
                         color: (_sc: OperationalScenario, fin: ScenarioFinancials) =>
                           fin.roiAnual > 0 ? "text-green-400" : "text-red-400",
                       },
                       {
-                        label: "Breakeven (meses)",
+                        label: "Ponto de equilíbrio (meses)",
                         get: (_sc: OperationalScenario, fin: ScenarioFinancials) =>
                           fin.breakevenMonths === Infinity
                             ? "Impossível"
@@ -934,7 +956,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       <div className="space-y-4">
         <SectionHeader
           title="Otimizador de Mix"
-          subtitle="Ajuste o mix de servicos e veja o impacto em tempo real na receita e lucratividade"
+          subtitle="Ajuste o mix de serviços e veja o impacto em tempo real na receita e lucratividade"
           badge="interativo"
         />
 
@@ -944,7 +966,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
             <CardContent className="p-5 space-y-4">
               <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1 h-4 bg-primary rounded-full" />
-                Composicao de consultas
+                Composição de consultas
               </p>
 
               <Slider
@@ -965,7 +987,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
 
               <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2 pt-2">
                 <span className="w-1 h-4 bg-primary rounded-full" />
-                Probabilidades de outcomes
+                Probabilidade por tipo de serviço
               </p>
 
               <div className="space-y-2">
@@ -975,7 +997,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                   onChange={setPReceitaSimples}
                 />
                 <OutcomeSlider
-                  label="Receita control."
+                  label="Receita controlada"
                   value={pControlada}
                   onChange={setPControlada}
                 />
@@ -985,7 +1007,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                   onChange={setPAzul}
                 />
                 <OutcomeSlider
-                  label="Exame lab."
+                  label="Exame laboratorial"
                   value={pExameLab}
                   onChange={setPExameLab}
                 />
@@ -1003,7 +1025,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
             <CardContent className="p-5 space-y-4">
               <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1 h-4 bg-primary rounded-full" />
-                Projecao com mix atual
+                Projeção com mix atual
               </p>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1046,7 +1068,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
 
               <div className="bg-secondary/30 border border-border/40 rounded-xl p-4 space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Recomendacao de equipe (base: Crescimento)
+                  Recomendação de equipe (base: Crescimento)
                 </p>
                 <div className="flex gap-4">
                   <div>
@@ -1088,7 +1110,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       <div className="space-y-4">
         <SectionHeader
           title="Crescimento em Escala"
-          subtitle="Comparativo visual e trajetoria de crescimento hipotetica ao longo de 30 meses"
+          subtitle="Comparativo visual e trajetória de crescimento hipotética ao longo de 30 meses"
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1096,7 +1118,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
           <Card className="border-border/60 bg-card/80">
             <CardContent className="p-5">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                Comparativo: receita × custo × lucro por cenario
+                Comparativo: receita × custo × lucro por cenário
               </p>
               <div className="h-64">
                 <Bar
@@ -1117,6 +1139,12 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                       ...CHART_DEFAULTS.scales,
                       y: {
                         ...CHART_DEFAULTS.scales.y,
+                        title: {
+                          display: true,
+                          text: "R$ / mês",
+                          color: "#64748b",
+                          font: { size: 9 },
+                        },
                         ticks: {
                           ...CHART_DEFAULTS.scales.y.ticks,
                           callback: (v) => FK(v as number),
@@ -1133,9 +1161,13 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
           <Card className="border-border/60 bg-card/80">
             <CardContent className="p-5">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                Trajetoria hipotetica de crescimento (meses 1–30)
+                Trajetória hipotética de crescimento (meses 1–30)
               </p>
-              <div className="flex flex-wrap gap-3 mb-3 text-[9px] text-muted-foreground">
+              {/* Phase legend */}
+              <div className="flex flex-wrap gap-3 mb-1 text-[9px] text-muted-foreground">
+                <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground/50 self-center">
+                  Fases:
+                </span>
                 {[
                   { label: "M1–3: Mínimo Viável", color: "bg-slate-400" },
                   { label: "M4–8: Crescimento", color: "bg-blue-400" },
@@ -1152,7 +1184,10 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                   </span>
                 ))}
               </div>
-              <div className="h-56">
+              {/* Separator */}
+              <div className="border-t border-border/30 mb-2" />
+              {/* Dataset legend (Receita / Custo / Lucro) shown by Chart.js via options.plugins.legend */}
+              <div className="h-52">
                 <Line
                   data={growthChartData}
                   options={{
@@ -1169,8 +1204,23 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                     },
                     scales: {
                       ...CHART_DEFAULTS.scales,
+                      x: {
+                        ...CHART_DEFAULTS.scales.x,
+                        title: {
+                          display: true,
+                          text: "Mês",
+                          color: "#64748b",
+                          font: { size: 9 },
+                        },
+                      },
                       y: {
                         ...CHART_DEFAULTS.scales.y,
+                        title: {
+                          display: true,
+                          text: "R$ / mês",
+                          color: "#64748b",
+                          font: { size: 9 },
+                        },
                         ticks: {
                           ...CHART_DEFAULTS.scales.y.ticks,
                           callback: (v) => FK(v as number),

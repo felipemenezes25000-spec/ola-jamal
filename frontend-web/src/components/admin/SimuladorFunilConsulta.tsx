@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import {
@@ -164,6 +164,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
 
   /* Section 3 — desdobramentos sliders */
   const [simPacientes, setSimPacientes] = useState(pacientesMes);
+  useEffect(() => { setSimPacientes(pacientesMes); }, [pacientesMes]);
   const [pctSimples, setPctSimples] = useState(
     Math.round(
       (CONSULTATION_OUTCOMES.find((o) => o.serviceId === "receita_simples")?.probability ?? 0.55) * 100,
@@ -245,6 +246,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         x: {
           grid: { color: CHART_COLOR_GRID },
           ticks: { color: CHART_COLOR_TEXT, font: CHART_FONT, callback: (v: number | string) => `R$${+v < 1 ? F2(+v) : Math.round(+v)}` },
+          title: { display: true, text: "Receita esperada por consulta (R$)", color: CHART_COLOR_TEXT, font: CHART_FONT },
         },
         y: {
           grid: { display: false },
@@ -397,7 +399,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { display: true, labels: { color: CHART_COLOR_TEXT, font: CHART_FONT, boxWidth: 10, padding: 10 } },
         tooltip: {
           callbacks: {
             label: (ctx: TooltipItem<"bar">) => ` ${FK((ctx.parsed as { y: number }).y ?? 0)}`,
@@ -503,10 +505,12 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         x: {
           grid: { color: CHART_COLOR_GRID },
           ticks: { color: CHART_COLOR_TEXT, font: CHART_FONT },
+          title: { display: true, text: "Mês", color: CHART_COLOR_TEXT, font: CHART_FONT },
         },
         y: {
           grid: { color: CHART_COLOR_GRID },
           ticks: { color: CHART_COLOR_TEXT, font: CHART_FONT, callback: (v: number | string) => FK(+v) },
+          title: { display: true, text: "Receita mensal (R$)", color: CHART_COLOR_TEXT, font: CHART_FONT },
         },
       },
     }),
@@ -531,7 +535,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
           <MetricCard
             label="Receita consulta"
             value={`R$ ${F2(funnelData.consultaRev)}`}
-            sub={`${durMedia} min × R$ 6,99`}
+            sub={`${durMedia} min × R$ ${F2(RENOVEJA_SERVICES.consulta_clinica.price)}`}
             color="text-primary"
             delay={0}
           />
@@ -662,7 +666,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                         <span className="font-mono">{profile.avgConsultDurationMin} min</span>
                       </div>
                       <div className="flex justify-between text-[9px]">
-                        <span className="text-muted-foreground">Receita/visita</span>
+                        <span className="text-muted-foreground">Receita total/visita (consulta + derivados)</span>
                         <span className="font-mono text-green-400">R$ {F2(pr.totalPerVisit)}</span>
                       </div>
                       <div className="flex justify-between text-[9px]">
@@ -672,6 +676,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                     </div>
 
                     {/* Contribution bar */}
+                    <p className="text-[9px] text-muted-foreground mb-1">Peso no mix:</p>
                     <div className="w-full bg-secondary/60 rounded-full h-1 mb-2">
                       <div
                         className="bg-primary h-1 rounded-full transition-all duration-300"
@@ -679,6 +684,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                       />
                     </div>
 
+                    <span className="text-[9px] text-muted-foreground mb-0.5 block">% do mix</span>
                     <input
                       type="range"
                       className="w-full accent-primary h-1 rounded-full"
@@ -687,6 +693,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                       step={1}
                       value={mixRaw[idx]}
                       onChange={(e) => updateMix(idx, +e.target.value)}
+                      aria-label={`Percentual do mix para ${profile.name}`}
                     />
                   </CardContent>
                 </Card>
@@ -735,8 +742,8 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         transition={{ delay: 0.15, duration: 0.35 }}
       >
         <SectionHeader
-          title="Simulador de Desdobramentos"
-          subtitle="Ajuste as taxas de conversão de cada serviço derivado e veja o impacto na receita mensal"
+          title="Simulador de Serviços Derivados"
+          subtitle="Cada consulta pode gerar receitas, exames e outros serviços — ajuste as taxas de conversão abaixo"
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -751,7 +758,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
               step={10}
             />
             <SliderRow
-              label="% Receita simples"
+              label="% pacientes com receita simples"
               value={pctSimples}
               onChange={setPctSimples}
               min={0}
@@ -759,7 +766,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
               fmt={(v) => `${v}%`}
             />
             <SliderRow
-              label="% Receita controlada"
+              label="% pacientes com receita controlada"
               value={pctControlada}
               onChange={setPctControlada}
               min={0}
@@ -767,7 +774,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
               fmt={(v) => `${v}%`}
             />
             <SliderRow
-              label="% Exame laboratorial"
+              label="% pacientes com exame laboratorial"
               value={pctExameLab}
               onChange={setPctExameLab}
               min={0}
@@ -775,7 +782,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
               fmt={(v) => `${v}%`}
             />
             <SliderRow
-              label="% Exame de imagem"
+              label="% pacientes com exame de imagem"
               value={pctExameImg}
               onChange={setPctExameImg}
               min={0}
@@ -791,6 +798,14 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                 Volume e Receita Mensal por Serviço
               </p>
               <div className="space-y-2">
+                {/* Column headers */}
+                <div className="flex items-center justify-between gap-2 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider pb-1 border-b border-border/40">
+                  <span>Serviço</span>
+                  <span className="flex items-center gap-3 flex-shrink-0">
+                    <span className="w-12 text-right">Volume/mês</span>
+                    <span className="w-20 text-right">Receita/mês</span>
+                  </span>
+                </div>
                 {/* Consulta row */}
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="flex items-center gap-2">
@@ -905,6 +920,18 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
           subtitle="Receita acumulada com crescimento composto mês a mês"
         />
 
+        <div className="mb-4">
+          <SliderRow
+            label="Crescimento mensal (composto)"
+            value={growthPct}
+            onChange={setGrowthPct}
+            min={0}
+            max={30}
+            step={1}
+            fmt={(v) => `${v}%`}
+          />
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <MetricCard
             label="Mês 1"
@@ -934,21 +961,9 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                 ? `${F2(((projection12.totalRevs[11] ?? 0) / projection12.base - 1) * 100)}%`
                 : "—"
             }
-            sub="M12 vs M1"
+            sub="Mês 12 vs Mês 1"
             color="text-green-400"
             delay={0.15}
-          />
-        </div>
-
-        <div className="mb-4">
-          <SliderRow
-            label="Crescimento mensal"
-            value={growthPct}
-            onChange={setGrowthPct}
-            min={0}
-            max={30}
-            step={1}
-            fmt={(v) => `${v}%`}
           />
         </div>
 

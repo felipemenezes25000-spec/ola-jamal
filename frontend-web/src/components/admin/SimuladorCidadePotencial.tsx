@@ -164,7 +164,7 @@ interface CidadePotencialTabProps {
 /* ═══════════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════ */
-export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProps) {
+export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePotencialTabProps) {
   /* ── state ── */
   const [search, setSearch]             = useState("");
   const [regionFilter, setRegionFilter] = useState<SPRegiao | "Todas">("Todas");
@@ -246,10 +246,17 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
   }, 0), [selectedCities, basePenPct]);
 
   /* ── Section 2: service-level potential ── */
-  // revenue-per-consultation for each category, using durMedia prop
-  const revenuePerClinica = useMemo(() =>
-    calcTotalRevenuePerConsultation(durMedia, "clinica"),
-  [durMedia]);
+  // revenue-per-consultation for each category, using durMedia and valConsulta props.
+  // valConsulta (R$ per consultation from parent) overrides the base consultation price
+  // when it differs from the internal default, so external pricing is always reflected.
+  const revenuePerClinica = useMemo(() => {
+    // Use valConsulta as the per-minute consultation price, replacing the internal default.
+    // All downstream service outcomes are kept; only the consultation line is repriced.
+    const internal = calcTotalRevenuePerConsultation(durMedia, "clinica");
+    const internalConsultationRevenue = RENOVEJA_SERVICES.consulta_clinica.price * durMedia;
+    const externalConsultationRevenue = valConsulta * durMedia;
+    return internal - internalConsultationRevenue + externalConsultationRevenue;
+  }, [durMedia, valConsulta]);
 
   const revenuePerPsico = useMemo(() =>
     calcTotalRevenuePerConsultation(durMedia, "psico"),
@@ -285,7 +292,7 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
       {
         id: "consulta_clinica",
         name: RENOVEJA_SERVICES.consulta_clinica.name,
-        price: RENOVEJA_SERVICES.consulta_clinica.price * durMedia,
+        price: valConsulta * durMedia,
         volume: clinicaCount,
         revenue: clinicaCount * revenuePerClinica,
       },
@@ -310,7 +317,7 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
     return entries
       .map(e => ({ ...e, pct: (e.revenue / totalRev) * 100 }))
       .sort((a, b) => b.revenue - a.revenue);
-  }, [totalMonthlyConsultations, revenuePerClinica, revenuePerPsico, durMedia]);
+  }, [totalMonthlyConsultations, revenuePerClinica, revenuePerPsico, durMedia, valConsulta]);
 
   const serviceDonutData = useMemo(() => {
     if (serviceBreakdown.length === 0) return null;
@@ -789,8 +796,17 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
                         },
                       },
                       scales: {
-                        x: { ...CHART_BASE.scales.x, stacked: true, ticks: { ...CHART_BASE.scales.x.ticks, callback: (v) => FK(v as number) } },
-                        y: { ...CHART_BASE.scales.y, stacked: true },
+                        x: {
+                          ...CHART_BASE.scales.x,
+                          stacked: true,
+                          title: { display: true, text: "Receita mensal (R$)", color: "#64748b", font: { size: 9 } },
+                          ticks: { ...CHART_BASE.scales.x.ticks, callback: (v) => FK(v as number) },
+                        },
+                        y: {
+                          ...CHART_BASE.scales.y,
+                          stacked: true,
+                          title: { display: true, text: "Região", color: "#64748b", font: { size: 9 } },
+                        },
                       },
                     }}
                   />
@@ -848,26 +864,53 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
               ) : (
                 <>
                   {topOppChartData && (
-                    <div className="h-56">
-                      <Bar
-                        data={topOppChartData}
-                        options={{
-                          ...CHART_BASE,
-                          indexAxis: "y" as const,
-                          plugins: {
-                            ...CHART_BASE.plugins,
-                            tooltip: {
-                              ...CHART_BASE.plugins.tooltip,
-                              callbacks: { label: ctx => ` Receita/mês: ${FK(ctx.parsed.x ?? 0)}` },
+                    <>
+                      {/* Tier color legend for the bar chart */}
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {(
+                          [
+                            { key: "micro"     as TierKey, color: "#94a3b8" },
+                            { key: "pequena"   as TierKey, color: "#3b82f6" },
+                            { key: "media"     as TierKey, color: "#22c55e" },
+                            { key: "grande"    as TierKey, color: "#f97316" },
+                            { key: "metropole" as TierKey, color: "#a855f7" },
+                          ]
+                        ).map(({ key, color }) => (
+                          <span key={key} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
+                            {TIER_STYLES[key].label}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="h-56">
+                        <Bar
+                          data={topOppChartData}
+                          options={{
+                            ...CHART_BASE,
+                            indexAxis: "y" as const,
+                            plugins: {
+                              ...CHART_BASE.plugins,
+                              legend: { display: false },
+                              tooltip: {
+                                ...CHART_BASE.plugins.tooltip,
+                                callbacks: { label: ctx => ` Receita/mês: ${FK(ctx.parsed.x ?? 0)}` },
+                              },
                             },
-                          },
-                          scales: {
-                            x: { ...CHART_BASE.scales.x, ticks: { ...CHART_BASE.scales.x.ticks, callback: (v) => FK(v as number) } },
-                            y: { ...CHART_BASE.scales.y },
-                          },
-                        }}
-                      />
-                    </div>
+                            scales: {
+                              x: {
+                                ...CHART_BASE.scales.x,
+                                title: { display: true, text: "Receita mensal (R$)", color: "#64748b", font: { size: 9 } },
+                                ticks: { ...CHART_BASE.scales.x.ticks, callback: (v) => FK(v as number) },
+                              },
+                              y: {
+                                ...CHART_BASE.scales.y,
+                                title: { display: true, text: "Cidade", color: "#64748b", font: { size: 9 } },
+                              },
+                            },
+                          }}
+                        />
+                      </div>
+                    </>
                   )}
 
                   <div className="overflow-x-auto rounded-xl border border-border/40">
@@ -975,14 +1018,14 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
                 <MetricCard
                   label="Receita Ano 1 (realista)"
                   value={FK(expansionSummary.yr1.real)}
-                  sub={`Pes: ${FK(expansionSummary.yr1.pes)} · Oti: ${FK(expansionSummary.yr1.oti)}`}
+                  sub={`Pessimista: ${FK(expansionSummary.yr1.pes)} · Oti: ${FK(expansionSummary.yr1.oti)}`}
                   color="text-blue-400"
                   delay={0}
                 />
                 <MetricCard
                   label="Receita Ano 2 (realista)"
                   value={FK(expansionSummary.yr2.real)}
-                  sub={`Pes: ${FK(expansionSummary.yr2.pes)} · Oti: ${FK(expansionSummary.yr2.oti)}`}
+                  sub={`Pessimista: ${FK(expansionSummary.yr2.pes)} · Oti: ${FK(expansionSummary.yr2.oti)}`}
                   color="text-primary"
                   delay={0.05}
                 />
@@ -1009,9 +1052,13 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
                       },
                     },
                     scales: {
-                      x: { ...CHART_BASE.scales.x },
+                      x: {
+                        ...CHART_BASE.scales.x,
+                        title: { display: true, text: "Mês", color: "#64748b", font: { size: 9 } },
+                      },
                       y: {
                         ...CHART_BASE.scales.y,
+                        title: { display: true, text: "Receita mensal (R$)", color: "#64748b", font: { size: 9 } },
                         ticks: { ...CHART_BASE.scales.y.ticks, callback: (v) => FK(v as number) },
                       },
                     },
@@ -1043,11 +1090,22 @@ export function CidadePotencialTab({ durMedia, diasMes }: CidadePotencialTabProp
 
       {/* ── Tier legend ── */}
       <div className="flex flex-wrap gap-2 justify-end">
-        {(Object.entries(TIER_STYLES) as [TierKey, TierStyle][]).map(([, ts]) => (
-          <span key={ts.label} className={`text-[9px] font-bold px-2.5 py-1 rounded-full border ${ts.textClass} ${ts.bgClass} ${ts.borderClass}`}>
-            {ts.label}
-          </span>
-        ))}
+        {(
+          [
+            { key: "micro"     as TierKey, threshold: "< 10 mil" },
+            { key: "pequena"   as TierKey, threshold: "10–50 mil" },
+            { key: "media"     as TierKey, threshold: "50–200 mil" },
+            { key: "grande"    as TierKey, threshold: "200–500 mil" },
+            { key: "metropole" as TierKey, threshold: "> 500 mil" },
+          ]
+        ).map(({ key, threshold }) => {
+          const ts = TIER_STYLES[key];
+          return (
+            <span key={key} className={`text-[9px] font-bold px-2.5 py-1 rounded-full border ${ts.textClass} ${ts.bgClass} ${ts.borderClass}`}>
+              {ts.label} ({threshold})
+            </span>
+          );
+        })}
         <span className="text-[9px] text-muted-foreground self-center">Porte por faixa populacional</span>
       </div>
     </div>

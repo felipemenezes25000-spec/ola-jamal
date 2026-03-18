@@ -21,7 +21,6 @@ import {
   RENOVEJA_SERVICES,
   CONSULTATION_OUTCOMES,
   PATIENT_PROFILES,
-  calcConsultationRevenue,
   calcDerivativeRevenue,
   calcTotalRevenuePerConsultation,
 } from "@/data/renovejaServices";
@@ -225,7 +224,7 @@ function SectionHeading({ title, subtitle }: SectionHeadingProps) {
 
 export function DashboardTab({
   pacientesMes,
-  valConsulta: _valConsulta,
+  valConsulta,
   durMedia,
   diasMes,
   medicos,
@@ -233,9 +232,6 @@ export function DashboardTab({
   custoMedDia,
   custoPsicoDia,
 }: DashboardTabProps) {
-  // We accept valConsulta as a prop (used externally) but compute revenue from
-  // the data model to keep the dashboard self-consistent.
-  void _valConsulta;
 
   // ---------------------------------------------------------------------------
   // 1. Core revenue calculations
@@ -250,9 +246,9 @@ export function DashboardTab({
     const pacientesClinica = Math.round(pacientesMes * clinicaPct);
     const pacientesPsico = pacientesMes - pacientesClinica;
 
-    // Consultation revenue
-    const recConsultaClinica = calcConsultationRevenue(durMedia, "clinica") * pacientesClinica;
-    const recConsultaPsico = calcConsultationRevenue(durMedia, "psico") * pacientesPsico;
+    // Consultation revenue — valConsulta is the total price per consultation (R$/atendimento)
+    const recConsultaClinica = valConsulta * pacientesClinica;
+    const recConsultaPsico = valConsulta * pacientesPsico;
     const recConsulta = recConsultaClinica + recConsultaPsico;
 
     // Derivative revenue (outcomes × all patients for clinica; psico outcomes separate)
@@ -344,6 +340,7 @@ export function DashboardTab({
     };
   }, [
     pacientesMes,
+    valConsulta,
     durMedia,
     diasMes,
     medicos,
@@ -377,10 +374,10 @@ export function DashboardTab({
 
       if (id === "consulta_clinica") {
         volume = pacientesClinica;
-        monthlyRevenue = calcConsultationRevenue(durMedia, "clinica") * pacientesClinica;
+        monthlyRevenue = valConsulta * pacientesClinica;
       } else if (id === "consulta_psico") {
         volume = pacientesPsico;
-        monthlyRevenue = calcConsultationRevenue(durMedia, "psico") * pacientesPsico;
+        monthlyRevenue = valConsulta * pacientesPsico;
       } else {
         const outcome = CONSULTATION_OUTCOMES.find((o) => o.serviceId === id);
         if (outcome) {
@@ -409,7 +406,7 @@ export function DashboardTab({
     return rows
       .map((r) => ({ ...r, pct: total > 0 ? (r.monthlyRevenue / total) * 100 : 0 }))
       .sort((a, b) => b.monthlyRevenue - a.monthlyRevenue);
-  }, [calcs, durMedia]);
+  }, [calcs, valConsulta]);
 
   // ---------------------------------------------------------------------------
   // 3. Chart data
@@ -453,9 +450,9 @@ export function DashboardTab({
       "(-) Médicos",
       "(-) Psicólogos",
       "(-) Infra",
-      "(-) IA/Trans.",
-      "(-) Storage",
-      "(-) Gateway",
+      "(-) IA / Transcrição",
+      "(-) Armazenamento S3",
+      "(-) Gateway Pagto.",
       "= Resultado",
     ];
     const values = [
@@ -490,7 +487,7 @@ export function DashboardTab({
   const costDoughnutData = useMemo(() => {
     const { custoMedicos, custoPsico, custoInfra, custoAI, custoStorage, custoGateway } = calcs;
     return {
-      labels: ["Médicos", "Psicólogos", "Infraestrutura", "IA/Trans.", "Storage", "Gateway"],
+      labels: ["Médicos", "Psicólogos", "Infraestrutura", "IA / Transcrição", "Armazenamento S3", "Gateway Pagto."],
       datasets: [
         {
           data: [custoMedicos, custoPsico, custoInfra, custoAI, custoStorage, custoGateway],
@@ -722,7 +719,7 @@ export function DashboardTab({
           />
           <KpiCard
             icon={<Users className={iconSm} />}
-            label="Rec. por Paciente"
+            label="Receita por Paciente"
             value={fK(calcs.recPorPaciente)}
             subtitle="Receita bruta ÷ total de pacientes no mês"
             status={kpiStatus.recPorPaciente}
@@ -730,7 +727,7 @@ export function DashboardTab({
           />
           <KpiCard
             icon={<Stethoscope className={iconSm} />}
-            label="Rec. por Médico"
+            label="Receita por Médico"
             value={fK(calcs.recPorMedico)}
             subtitle="Receita bruta ÷ número de médicos ativos"
             status={kpiStatus.recPorMedico}
@@ -746,7 +743,7 @@ export function DashboardTab({
           />
           <KpiCard
             icon={<Star className={iconSm} />}
-            label="LTV Estimado"
+            label="Valor Vitalício (LTV)"
             value={fK(calcs.ltvEstimado)}
             subtitle="Valor vitalício médio por paciente (2,5 anos)"
             status={kpiStatus.ltv}
@@ -754,7 +751,7 @@ export function DashboardTab({
           />
           <KpiCard
             icon={<Target className={iconSm} />}
-            label="CAC Estimado"
+            label="Custo Aquisição (CAC)"
             value={fK(calcs.cacEstimado)}
             subtitle="Custo de aquisição por paciente (base R$ 35)"
             status={kpiStatus.cac}
@@ -762,7 +759,7 @@ export function DashboardTab({
           />
           <KpiCard
             icon={<Zap className={iconSm} />}
-            label="LTV:CAC"
+            label="Razão LTV / CAC"
             value={`${fNL(calcs.ltvCac, 1)}×`}
             subtitle="Razão entre valor vitalício e custo de aquisição"
             status={kpiStatus.ltvCac}
@@ -770,7 +767,7 @@ export function DashboardTab({
           />
           <KpiCard
             icon={<TrendingUp className={iconSm} />}
-            label="ROI Anual"
+            label="Retorno Anual (ROI)"
             value={fPct(calcs.roiAnual)}
             subtitle="Retorno sobre o investimento projetado para 12 meses"
             status={kpiStatus.roi}
@@ -778,7 +775,7 @@ export function DashboardTab({
           />
           <KpiCard
             icon={<Clock className={iconSm} />}
-            label="Breakeven"
+            label="Ponto de Equilíbrio"
             value={
               calcs.breakeven >= 99
                 ? "∞"
@@ -989,6 +986,12 @@ export function DashboardTab({
                           grid: { color: "#1e293b" },
                         },
                         y: {
+                          title: {
+                            display: true,
+                            text: "R$ / mês",
+                            color: "#64748b",
+                            font: CHART_FONT,
+                          },
                           ticks: {
                             color: "#64748b",
                             font: CHART_FONT,
@@ -1066,10 +1069,22 @@ export function DashboardTab({
                     ...BASE_CHART_OPTIONS,
                     scales: {
                       x: {
+                        title: {
+                          display: true,
+                          text: "% do volume atual",
+                          color: "#64748b",
+                          font: CHART_FONT,
+                        },
                         ticks: { color: "#94a3b8", font: CHART_FONT },
                         grid: { color: "#1e293b" },
                       },
                       y: {
+                        title: {
+                          display: true,
+                          text: "Margem (%)",
+                          color: "#64748b",
+                          font: CHART_FONT,
+                        },
                         ticks: {
                           color: "#64748b",
                           font: CHART_FONT,
