@@ -504,7 +504,7 @@ public class RequestServiceFullTests
             new RequestQueryService(
                 _requestRepoMock.Object, _userRepoMock.Object,
                 _consultationAnamnesisRepoMock.Object, _documentTokenServiceMock.Object,
-                _apiConfigMock.Object, new Mock<ILogger<RequestQueryService>>().Object),
+                storageServiceMock.Object, _apiConfigMock.Object, new Mock<ILogger<RequestQueryService>>().Object),
             new ConsultationLifecycleService(
                 _requestRepoMock.Object, _userRepoMock.Object,
                 _videoRoomRepoMock.Object, _consultationAnamnesisRepoMock.Object,

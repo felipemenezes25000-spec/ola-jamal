@@ -94,6 +94,7 @@ public class RequestServiceTests
                 _userRepoMock.Object,
                 _consultationAnamnesisRepoMock.Object,
                 documentTokenServiceMock.Object,
+                storageServiceMock.Object,
                 apiConfigMock.Object,
                 new Mock<ILogger<RequestQueryService>>().Object),
             new Mock<IConsultationLifecycleService>().Object,

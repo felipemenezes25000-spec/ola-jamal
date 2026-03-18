@@ -1,6 +1,7 @@
 using Moq;
 using Xunit;
 using FluentAssertions;
+using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services.Doctors;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
@@ -18,7 +19,7 @@ public class DoctorServiceTests
     {
         _doctorRepoMock = new Mock<IDoctorRepository>();
         _userRepoMock = new Mock<IUserRepository>();
-        _sut = new DoctorService(_doctorRepoMock.Object, _userRepoMock.Object);
+        _sut = new DoctorService(_doctorRepoMock.Object, _userRepoMock.Object, new Mock<IStorageService>().Object);
     }
 
     private static DoctorProfile CreateDoctorProfile(Guid? userId = null)

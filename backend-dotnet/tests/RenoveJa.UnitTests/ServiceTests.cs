@@ -354,7 +354,7 @@ public class ExtendedRequestServiceTests
             new RenoveJa.Application.Services.Requests.RequestQueryService(
                 _requestRepoMock.Object, _userRepoMock.Object,
                 _consultationAnamnesisRepoMock.Object, _documentTokenServiceMock.Object,
-                _apiConfigMock.Object, new Mock<ILogger<RenoveJa.Application.Services.Requests.RequestQueryService>>().Object),
+                storageServiceMock.Object, _apiConfigMock.Object, new Mock<ILogger<RenoveJa.Application.Services.Requests.RequestQueryService>>().Object),
             new RenoveJa.Application.Services.Requests.ConsultationLifecycleService(
                 _requestRepoMock.Object, _userRepoMock.Object,
                 _videoRoomRepoMock.Object, _consultationAnamnesisRepoMock.Object,
