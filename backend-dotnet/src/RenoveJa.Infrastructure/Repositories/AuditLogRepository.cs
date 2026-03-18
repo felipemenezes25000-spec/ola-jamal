@@ -1,4 +1,5 @@
-﻿using RenoveJa.Domain.Entities;
+﻿using Dapper;
+using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
 using RenoveJa.Infrastructure.Data.Postgres;
@@ -32,16 +33,22 @@ public class AuditLogRepository(PostgresClient db) : IAuditLogRepository
         return models.Select(m => m.ToDomain()).ToList();
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Usa raw SQL porque entity_id é coluna TEXT que armazena UUIDs como string.
+    /// PostgREST filter converte para System.Guid → Npgsql envia como uuid → PG 42883.
+    /// </summary>
     public async Task<List<AuditLog>> GetByEntityAsync(string entityType, Guid entityId, int limit = 50, int offset = 0, CancellationToken cancellationToken = default)
     {
-        var models = await db.GetAllAsync<AuditLogModel>(
-            TableName,
-            filter: $"entity_type=eq.{entityType}&entity_id=eq.{entityId}",
-            orderBy: "created_at.desc",
-            limit: limit,
-            cancellationToken: cancellationToken);
-
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        var sql = """
+            SELECT * FROM public.audit_logs
+            WHERE "entity_type" = @entityType AND "entity_id" = @entityId
+            ORDER BY created_at DESC LIMIT @limit OFFSET @offset
+            """;
+        var models = (await conn.QueryAsync<AuditLogModel>(
+            new CommandDefinition(sql, new { entityType, entityId = entityId.ToString(), limit, offset },
+                cancellationToken: cancellationToken))).AsList();
         return models.Select(m => m.ToDomain()).ToList();
     }
 
@@ -57,7 +64,9 @@ public class AuditLogRepository(PostgresClient db) : IAuditLogRepository
         return models.Select(m => m.ToDomain()).ToList();
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Usa raw SQL porque entity_id é coluna TEXT — evita type mismatch uuid=text.
+    /// </summary>
     public async Task<List<AuditLog>> QueryAsync(
         Guid? userId = null,
         string? entityType = null,
@@ -68,32 +77,45 @@ public class AuditLogRepository(PostgresClient db) : IAuditLogRepository
         int offset = 0,
         CancellationToken cancellationToken = default)
     {
-        var filters = new List<string>();
+        var conditions = new List<string>();
+        var parameters = new DynamicParameters();
 
         if (userId.HasValue)
-            filters.Add($"user_id=eq.{userId.Value}");
-
+        {
+            conditions.Add("\"user_id\" = @userId");
+            parameters.Add("userId", userId.Value);
+        }
         if (!string.IsNullOrWhiteSpace(entityType))
-            filters.Add($"entity_type=eq.{entityType}");
-
+        {
+            conditions.Add("\"entity_type\" = @entityType");
+            parameters.Add("entityType", entityType);
+        }
         if (!string.IsNullOrWhiteSpace(entityId))
-            filters.Add($"entity_id=eq.{entityId}");
-
+        {
+            conditions.Add("\"entity_id\" = @entityId");
+            parameters.Add("entityId", entityId); // string — não converter para Guid
+        }
         if (from.HasValue)
-            filters.Add($"created_at=gte.{from.Value:yyyy-MM-ddTHH:mm:ssZ}");
-
+        {
+            conditions.Add("\"created_at\" >= @from");
+            parameters.Add("from", from.Value);
+        }
         if (to.HasValue)
-            filters.Add($"created_at=lte.{to.Value:yyyy-MM-ddTHH:mm:ssZ}");
+        {
+            conditions.Add("\"created_at\" <= @to");
+            parameters.Add("to", to.Value);
+        }
 
-        var filter = filters.Count > 0 ? string.Join("&", filters) : null;
+        parameters.Add("limit", limit);
+        parameters.Add("offset", offset);
 
-        var models = await db.GetAllAsync<AuditLogModel>(
-            TableName,
-            filter: filter,
-            orderBy: "created_at.desc",
-            limit: limit,
-            cancellationToken: cancellationToken);
+        var where = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+        var sql = $"SELECT * FROM public.audit_logs {where} ORDER BY created_at DESC LIMIT @limit OFFSET @offset";
 
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        var models = (await conn.QueryAsync<AuditLogModel>(
+            new CommandDefinition(sql, parameters, cancellationToken: cancellationToken))).AsList();
         return models.Select(m => m.ToDomain()).ToList();
     }
 }

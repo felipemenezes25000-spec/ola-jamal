@@ -1,3 +1,4 @@
+using Dapper;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -22,16 +23,22 @@ public class AuditEventRepository(PostgresClient db) : IAuditEventRepository
         return MapToDomain(created);
     }
 
+    /// <summary>
+    /// Usa raw SQL porque entity_id é coluna TEXT que armazena UUIDs como string.
+    /// PostgREST filter converte para System.Guid → Npgsql envia como uuid → PG 42883.
+    /// </summary>
     public async Task<List<AuditEvent>> GetByEntityAsync(string entityType, Guid entityId, int limit = 50, int offset = 0, CancellationToken cancellationToken = default)
     {
-        var models = await db.GetAllAsync<AuditEventModel>(
-            TableName,
-            filter: $"entity_type=eq.{entityType}&entity_id=eq.{entityId}",
-            orderBy: "created_at.desc",
-            limit: limit,
-            offset: offset,
-            cancellationToken: cancellationToken);
-
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(cancellationToken);
+        var sql = """
+            SELECT * FROM public.audit_events
+            WHERE "entity_type" = @entityType AND "entity_id" = @entityId
+            ORDER BY created_at DESC LIMIT @limit OFFSET @offset
+            """;
+        var models = (await conn.QueryAsync<AuditEventModel>(
+            new CommandDefinition(sql, new { entityType, entityId = entityId.ToString(), limit, offset },
+                cancellationToken: cancellationToken))).AsList();
         return models.Select(MapToDomain).ToList();
     }
 
