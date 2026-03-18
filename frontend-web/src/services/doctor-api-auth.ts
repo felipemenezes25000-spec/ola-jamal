@@ -141,7 +141,19 @@ export async function registerDoctorFull(payload: {
   return res.json();
 }
 
-export function logoutDoctor() {
+export async function logoutDoctor() {
+  // Chamar API de logout para invalidar token no servidor
+  try {
+    const token = getToken();
+    if (token) {
+      const base = getApiBase();
+      await fetch(`${base}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
+      }).catch(() => {}); // best-effort — não bloquear logout local se a API falhar
+    }
+  } catch { /* silent */ }
+
   clearAuth();
   // Disparar evento para React redirecionar via Router, sem hard reload
   window.dispatchEvent(new CustomEvent('auth:expired'));
