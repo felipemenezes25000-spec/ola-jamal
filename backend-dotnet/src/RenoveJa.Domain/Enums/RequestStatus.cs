@@ -12,7 +12,7 @@ namespace RenoveJa.Domain.Enums;
 ///   Qualquer estado → Rejected | Cancelled
 ///
 /// consultation:
-///   Submitted → SearchingDoctor → ApprovedPendingPayment → Paid → InConsultation → ConsultationFinished
+///   Submitted → SearchingDoctor → ApprovedPendingPayment → Paid → InConsultation → PendingPostConsultation → ConsultationFinished
 ///   Qualquer estado → Rejected | Cancelled
 ///
 /// Status marcados com [Obsolete] + [EditorBrowsable(Never)] são legados:
@@ -60,7 +60,10 @@ public enum RequestStatus
     /// <summary>Consulta por vídeo em andamento.</summary>
     InConsultation,
 
-    /// <summary>Consulta encerrada (estado final de sucesso para consultation).</summary>
+    /// <summary>Chamada encerrada; aguardando emissão de pelo menos um documento para finalizar a consulta.</summary>
+    PendingPostConsultation,
+
+    /// <summary>Consulta encerrada (estado final de sucesso para consultation). Só após emitir pelo menos um documento.</summary>
     ConsultationFinished,
 
     // ── Legados (não usar em novas transições) ────────────────

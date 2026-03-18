@@ -94,7 +94,12 @@ public class PostConsultationService(
         var existingDocs = await medicalDocumentRepository.GetByEncounterIdAsync(encounter.Id, cancellationToken);
         if (existingDocs.Count > 0)
         {
-            // Documentos já emitidos — retornar os existentes sem duplicar
+            // Documentos já emitidos — garantir consulta finalizada e retornar os existentes sem duplicar
+            if (medicalRequest.Status != RequestStatus.ConsultationFinished)
+            {
+                medicalRequest.MarkConsultationFinished();
+                await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+            }
             logger.LogInformation(
                 "Post-consultation emit already done for encounter {EncounterId}: {Count} documents exist. Returning existing.",
                 encounter.Id, existingDocs.Count);
@@ -245,9 +250,14 @@ public class PostConsultationService(
             "Post-consultation emit completed: {Count} documents for encounter {EncounterId} by doctor {DoctorId}",
             emittedTypes.Count, encounter.Id, doctorUserId);
 
-        // ── 5b. Notificar paciente via push ──
+        // ── 5b. Marcar consulta como finalizada e notificar paciente ──
         if (emittedTypes.Count > 0)
         {
+            if (medicalRequest.Status != RequestStatus.ConsultationFinished)
+            {
+                medicalRequest.MarkConsultationFinished();
+                await requestRepository.UpdateAsync(medicalRequest, cancellationToken);
+            }
             await pushDispatcher.SendAsync(
                 PushNotificationRules.PostConsultationDocumentsReady(medicalRequest.PatientId, medicalRequest.Id),
                 cancellationToken);

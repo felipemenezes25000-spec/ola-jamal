@@ -181,7 +181,7 @@ public class ConsultationLifecycleService(
         if (!canFinish)
             throw new InvalidOperationException("Consultation must be in progress to be finished");
 
-        request.FinishConsultation(dto?.ClinicalNotes);
+        request.EndConsultationCall(dto?.ClinicalNotes);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         var videoRoom = await videoRoomRepository.GetByRequestIdAsync(id, cancellationToken);
@@ -326,8 +326,8 @@ public class ConsultationLifecycleService(
             logger.LogWarning(ex, "[FinishConsultation] Falha ao finalizar Encounter para request {RequestId}", id);
         }
 
-        await PublishRequestUpdatedAsync(request, "Consulta finalizada", cancellationToken);
-        await pushDispatcher.SendAsync(PushNotificationRules.ConsultationFinished(request.PatientId, request.Id), cancellationToken);
+        await PublishRequestUpdatedAsync(request, "Chamada encerrada — emita os documentos na pós-consulta para finalizar", cancellationToken);
+        await pushDispatcher.SendAsync(PushNotificationRules.ConsultationEndedPendingDocuments(request.PatientId, request.Id), cancellationToken);
 
         // Gravação: disparar sync em background (Daily pode levar 2-5 min para processar).
         // Usa scope próprio para evitar disposed scoped services.

@@ -747,7 +747,7 @@ public class RequestServiceFullTests
             .ReturnsAsync((VideoRoom?)null);
 
         var result = await _sut.FinishConsultationAsync(request.Id, doctorId, new FinishConsultationDto("Notas clínicas"));
-        result.Status.Should().Be("consultation_finished");
+        result.Status.Should().Be("pending_post_consultation");
         result.Notes.Should().Be("Notas clínicas");
     }
 

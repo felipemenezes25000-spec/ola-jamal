@@ -78,6 +78,7 @@ export type RequestStatus =
   | 'searching_doctor'
   | 'consultation_ready'
   | 'in_consultation'
+  | 'pending_post_consultation'
   | 'consultation_finished'
   | 'cancelled'
   | 'pending'

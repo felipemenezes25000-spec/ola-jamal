@@ -75,7 +75,8 @@ export interface ConsultationPostSectionProps {
 
 export function ConsultationPostSection({ request }: ConsultationPostSectionProps) {
   const isConsultation = request.type === 'consultation';
-  const isFinished = normalizeStatus(request.status) === 'consultation_finished';
+  const statusNorm = normalizeStatus(request.status);
+  const isFinished = statusNorm === 'consultation_finished' || statusNorm === 'pending_post_consultation';
 
   if (!isConsultation || !isFinished) return null;
 

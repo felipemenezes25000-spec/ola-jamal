@@ -197,6 +197,22 @@ export default function DoctorRequestDetail() {
 
         <ConsultationPostSection request={request} router={router} />
 
+        {request.requestType === 'consultation' && (request.status === 'consultation_finished' || request.status === 'pending_post_consultation') && (
+          <DoctorCard style={s.cardMargin}>
+            <TouchableOpacity
+              style={[s.pdfBtn, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }]}
+              onPress={() => router.push(`/post-consultation-emit/${request.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel="Emitir documentos da consulta"
+            >
+              <Ionicons name="document-text" size={22} color={colors.primary} />
+              <Text style={s.pdfBtnText}>
+                {request.status === 'pending_post_consultation' ? 'Emitir documentos (consulta não finalizada)' : 'Emitir documentos'}
+              </Text>
+            </TouchableOpacity>
+          </DoctorCard>
+        )}
+
         <SignedDocumentCard request={request} />
 
         <DoctorActionButtons
@@ -239,7 +255,8 @@ function ConsultationPostSection({ request, router }: { request: NonNullable<Ret
   const evidence = parseEvidence(request.consultationEvidence);
   const [anamnesis, setAnamnesis] = useState(parsedAnamnesis);
 
-  if (request.requestType !== 'consultation' || request.status !== 'consultation_finished') return null;
+  if (request.requestType !== 'consultation') return null;
+  if (request.status !== 'consultation_finished' && request.status !== 'pending_post_consultation') return null;
   if (!request.consultationTranscript && !request.consultationAnamnesis && !request.consultationAiSuggestions && !request.consultationEvidence) return null;
 
   return (

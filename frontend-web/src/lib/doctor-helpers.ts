@@ -71,6 +71,7 @@ const STATUS_MAP: Record<string, StatusInfo> = {
   paid:                     { label: 'Aprovado',                 variant: 'outline',      color: 'text-blue-600',    bgColor: 'bg-blue-50 border-blue-200',       icon: CheckCircle2,  priority: 3 },
   in_consultation:          { label: 'Em consulta',              variant: 'default',      color: 'text-primary',     bgColor: 'bg-primary/5 border-primary/20',   icon: Play,          priority: 1 },
   consultation_ready:       { label: 'Consulta pronta',          variant: 'default',      color: 'text-primary',     bgColor: 'bg-primary/5 border-primary/20',   icon: Stethoscope,   priority: 2 },
+  pending_post_consultation: { label: 'Emitir documentos',        variant: 'default',      color: 'text-amber-700',   bgColor: 'bg-amber-50 border-amber-200',   icon: FileText,     priority: 2 },
   consultation_finished:    { label: 'Finalizada',               variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2,  priority: 8 },
   signed:                   { label: 'Assinado',                 variant: 'secondary',    color: 'text-emerald-700', bgColor: 'bg-emerald-50 border-emerald-200', icon: Shield,        priority: 9 },
   delivered:                { label: 'Entregue',                 variant: 'secondary',    color: 'text-gray-600',    bgColor: 'bg-gray-50 border-gray-200',       icon: Truck,         priority: 10 },

@@ -991,9 +991,12 @@ public class ExtendedMedicalRequestTests
         r.StartConsultation();
         r.Status.Should().Be(RequestStatus.InConsultation);
 
-        r.FinishConsultation("Paciente está bem.");
-        r.Status.Should().Be(RequestStatus.ConsultationFinished);
+        r.EndConsultationCall("Paciente está bem.");
+        r.Status.Should().Be(RequestStatus.PendingPostConsultation);
         r.Notes.Should().Be("Paciente está bem.");
+
+        r.MarkConsultationFinished();
+        r.Status.Should().Be(RequestStatus.ConsultationFinished);
     }
 
     [Fact]
@@ -1013,10 +1016,10 @@ public class ExtendedMedicalRequestTests
     }
 
     [Fact]
-    public void FinishConsultation_ShouldThrow_WhenNotConsultation()
+    public void EndConsultationCall_ShouldThrow_WhenNotConsultation()
     {
         var r = MedicalRequest.CreatePrescription(Guid.NewGuid(), "P", PrescriptionType.Simple, new List<string> { "M" });
-        Action act = () => r.FinishConsultation();
+        Action act = () => r.EndConsultationCall();
         act.Should().Throw<DomainException>();
     }
 

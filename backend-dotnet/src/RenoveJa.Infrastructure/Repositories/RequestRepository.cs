@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Dapper;
 using Npgsql;
 using RenoveJa.Domain.Entities;
@@ -137,7 +137,7 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         var pendingFilter = "status=in.(submitted,paid)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
         var pendingCount = await db.CountAsync(TableName, pendingFilter, cancellationToken);
 
-        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,signed,consultation_ready,in_consultation)";
+        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,signed,consultation_ready,in_consultation,pending_post_consultation)";
         var inReviewCount = await db.CountAsync(TableName, inReviewFilter, cancellationToken);
 
         var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(completed,delivered,consultation_finished)";

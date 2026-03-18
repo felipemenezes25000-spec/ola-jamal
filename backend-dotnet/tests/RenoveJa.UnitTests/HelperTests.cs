@@ -21,6 +21,7 @@ public class EnumHelperTests
     [InlineData(RequestStatus.SearchingDoctor, "searching_doctor")]
     [InlineData(RequestStatus.ConsultationReady, "consultation_ready")]
     [InlineData(RequestStatus.InConsultation, "in_consultation")]
+    [InlineData(RequestStatus.PendingPostConsultation, "pending_post_consultation")]
     [InlineData(RequestStatus.ConsultationFinished, "consultation_finished")]
     [InlineData(RequestStatus.Cancelled, "cancelled")]
     public void ToSnakeCase_ShouldConvertRequestStatus(RequestStatus status, string expected)
@@ -46,6 +47,7 @@ public class EnumHelperTests
     [InlineData("searching_doctor", RequestStatus.SearchingDoctor)]
     [InlineData("consultation_ready", RequestStatus.ConsultationReady)]
     [InlineData("in_consultation", RequestStatus.InConsultation)]
+    [InlineData("pending_post_consultation", RequestStatus.PendingPostConsultation)]
     [InlineData("consultation_finished", RequestStatus.ConsultationFinished)]
     public void ParseSnakeCase_ShouldParseRequestStatus(string input, RequestStatus expected)
     {

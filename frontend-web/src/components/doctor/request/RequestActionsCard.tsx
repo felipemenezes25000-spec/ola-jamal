@@ -37,8 +37,8 @@ export function RequestActionsCard({
   const canEdit          = statusNorm === 'paid' && !isConsultation;
   const canAcceptConsult = isConsultation && ['searching_doctor', 'submitted', 'pending'].includes(statusNorm);
   const canVideo         = isConsultation && ['paid', 'consultation_accepted', 'consultation_ready', 'in_consultation'].includes(statusNorm);
-  const canPostConsult   = isConsultation && statusNorm === 'consultation_finished';
-  const canSummary       = isConsultation && statusNorm === 'consultation_finished';
+  const canPostConsult   = isConsultation && (statusNorm === 'consultation_finished' || statusNorm === 'pending_post_consultation');
+  const canSummary       = isConsultation && (statusNorm === 'consultation_finished' || statusNorm === 'pending_post_consultation');
   const canCancel        = ['submitted', 'pending', 'in_review', 'searching_doctor'].includes(statusNorm);
   const canDeliver       = statusNorm === 'signed';
   const canGenPdf        = statusNorm === 'paid' && reqType === 'prescription';

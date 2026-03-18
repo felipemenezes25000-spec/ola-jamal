@@ -36,6 +36,7 @@ const STATUS_TO_UI: Record<string, RequestUiState> = {
   searching_doctor:         'needs_action',
   consultation_ready:       'ready',
   in_consultation:          'in_consultation',
+  pending_post_consultation: 'needs_action',
   consultation_finished:    'historical',
   rejected:                 'historical',
   cancelled:                'historical',

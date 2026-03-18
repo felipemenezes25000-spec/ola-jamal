@@ -45,6 +45,7 @@ export type NormalizedStatus =
   | 'searching_doctor'
   | 'consultation_ready'
   | 'in_consultation'
+  | 'pending_post_consultation'
   | 'consultation_finished';
 
 export interface UiActions {
@@ -114,6 +115,7 @@ export function normalizeRequestStatus(status: string): NormalizedStatus {
     'searching_doctor',
     'consultation_ready',
     'in_consultation',
+    'pending_post_consultation',
     'consultation_finished',
   ];
   return valid.includes(status as NormalizedStatus) ? (status as NormalizedStatus) : 'submitted';
@@ -317,6 +319,13 @@ function getConsultationPhaseConfig(role: Role, status: NormalizedStatus): Phase
         title: 'Em atendimento',
         actions: { canJoinCall: true },
         countersBucket: 'in_consultation',
+      };
+    case 'pending_post_consultation':
+      return {
+        phase: 'finished',
+        title: 'Emitir documentos',
+        actions: {},
+        countersBucket: 'historical',
       };
     case 'consultation_finished':
       return {

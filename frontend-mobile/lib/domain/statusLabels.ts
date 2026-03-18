@@ -18,6 +18,7 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   searching_doctor: 'Buscando médico',
   consultation_ready: 'Consulta pronta',
   in_consultation: 'Em consulta',
+  pending_post_consultation: 'Emitir documentos',
   consultation_finished: 'Finalizada',
   // Common
   rejected: 'Rejeitado',

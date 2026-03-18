@@ -589,14 +589,28 @@ public class MedicalRequest : AggregateRoot
         return true;
     }
 
-    public void FinishConsultation(string? clinicalNotes = null)
+    /// <summary>Encerra a chamada; consulta só será finalizada após emissão de pelo menos um documento (pós-consulta).</summary>
+    public void EndConsultationCall(string? clinicalNotes = null)
     {
         if (RequestType != Enums.RequestType.Consultation)
-            throw new DomainException("Only consultation requests can be finished");
+            throw new DomainException("Only consultation requests can end the call");
 
-        Status = RequestStatus.ConsultationFinished;
+        if (Status != RequestStatus.InConsultation && Status != RequestStatus.Paid)
+            throw new DomainException("Consultation must be in progress to end the call");
+
+        Status = RequestStatus.PendingPostConsultation;
         if (clinicalNotes != null)
             Notes = clinicalNotes;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Marca a consulta como finalizada. Só deve ser chamado após emissão de pelo menos um documento (PostConsultationService).</summary>
+    public void MarkConsultationFinished()
+    {
+        if (RequestType != Enums.RequestType.Consultation)
+            throw new DomainException("Only consultation requests can be marked finished");
+
+        Status = RequestStatus.ConsultationFinished;
         UpdatedAt = DateTime.UtcNow;
     }
 }

@@ -189,11 +189,21 @@ public static class PushNotificationRules
             channel: PushChannel.Quiet, highPriority: false,
             category: PushCategory.System);
 
-    /// <summary>Médico encerrou a consulta — notifica o paciente com prioridade.</summary>
+    /// <summary>Médico encerrou a consulta — notifica o paciente. Consulta só finaliza após emissão de documentos.</summary>
     public static PushNotificationRequest ConsultationFinished(Guid patientId, Guid requestId) =>
         BuildRequest(patientId, "consultation_finished", requestId, RequestType.Consultation, RequestStatus.ConsultationFinished,
             "Consulta finalizada",
             "Sua consulta foi encerrada. Obrigado!",
+            targetRole: "patient",
+            deepLinkSuffix: $"consultation-summary/{requestId}",
+            category: PushCategory.Consultations,
+            bypassQuietHours: true);
+
+    /// <summary>Chamada encerrada; aguardando médico emitir documentos para finalizar.</summary>
+    public static PushNotificationRequest ConsultationEndedPendingDocuments(Guid patientId, Guid requestId) =>
+        BuildRequest(patientId, "consultation_ended_pending_documents", requestId, RequestType.Consultation, RequestStatus.PendingPostConsultation,
+            "Chamada encerrada",
+            "Sua consulta foi encerrada. Os documentos serão disponibilizados em breve.",
             targetRole: "patient",
             deepLinkSuffix: $"consultation-summary/{requestId}",
             category: PushCategory.Consultations,
