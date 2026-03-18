@@ -152,7 +152,7 @@ public class PostgresClient
     /// </summary>
     private static readonly HashSet<string> TextColumnsWithUuids = new(StringComparer.OrdinalIgnoreCase)
     {
-        "entity_id", "correlation_id", "source_request_id"
+        "entity_id", "correlation_id", "source_request_id", "SourceRequestId"
     };
 
     private static bool NeedsTextCast(string columnName)
@@ -173,7 +173,8 @@ public class PostgresClient
             if (NeedsJsonbCast(tableName, kv.Key)) paramExpr += "::jsonb";
             else if (NeedsTextCast(kv.Key)) paramExpr += "::text";
             pnames.Add(paramExpr);
-            parameters[$"ins{i}"] = ConvertValue(kv.Value);
+            var value = ConvertValue(kv.Value);
+            parameters[$"ins{i}"] = NeedsTextCast(kv.Key) && value is Guid gu ? gu.ToString() : value;
             i++;
         }
         return (string.Join(", ", cols), string.Join(", ", pnames), parameters);
@@ -193,7 +194,9 @@ public class PostgresClient
             if (NeedsJsonbCast(tableName, kv.Key)) paramExpr += "::jsonb";
             else if (NeedsTextCast(kv.Key)) paramExpr += "::text";
             clauses.Add($"{kv.Key} = {paramExpr}");
-            parameters[$"set{i}"] = ConvertValue(kv.Value);
+            var value = ConvertValue(kv.Value);
+            // Colunas TEXT que armazenam UUID: enviar como string para evitar PG 42883 (text = uuid)
+            parameters[$"set{i}"] = NeedsTextCast(kv.Key) && value is Guid g ? g.ToString() : value;
             i++;
         }
         return (string.Join(", ", clauses), parameters);
