@@ -496,11 +496,8 @@ if (app.Environment.IsDevelopment())
 else
     app.UseCors();
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHsts();
-    app.UseHttpsRedirection();
-}
+// HSTS e HTTPS redirect removidos: ALB termina TLS e encaminha HTTP para o container.
+// UseHttpsRedirection() causava health check 400 em produção (ECS/ALB).
 
 app.Use(async (ctx, next) =>
 {
