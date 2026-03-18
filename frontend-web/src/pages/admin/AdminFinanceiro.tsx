@@ -203,7 +203,7 @@ const AdminFinanceiro = () => {
             <Slider label="Pessoas/mês" value={pes} onChange={setPesSync} min={1} max={9999999} step={10} />
             <div className="bg-card border border-border rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Modelo de cobrança</label>
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Modelo de cobrança</span>
                 <div className="flex bg-secondary rounded-md p-0.5 ml-auto">
                   <button
                     className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${pricingMode === "fixed" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
