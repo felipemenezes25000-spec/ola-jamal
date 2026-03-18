@@ -1,3 +1,7 @@
+/**
+ * SimuladorCidadePotencial — Simulador de potencial de telemedicina por cidade
+ * Projeta teleconsultas por vídeo, receita e expansão regional para o Estado de SP.
+ */
 import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
@@ -492,8 +496,8 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
       <Card className="border-border/60">
         <CardContent className="p-5 space-y-4">
           <SectionHeader
-            title="Seletor de Cidades"
-            subtitle={`${SP_CITIES.length} municípios · Estado de São Paulo · IBGE Censo 2022`}
+            title="Seletor de Cidades — Potencial de Telemedicina"
+            subtitle={`${SP_CITIES.length} municípios · Estado de São Paulo · IBGE Censo 2022 · potencial de telemedicina por cidade`}
             badge="FILTRO"
           />
 
@@ -599,7 +603,7 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
               {[
                 { label: "Cidades selecionadas", value: NL(selectedCities.length), color: "text-primary" },
                 { label: "População total", value: NL(totalPop) + " hab.", color: "text-foreground" },
-                { label: "Usuários estimados", value: NL(totalEstUsers), color: "text-green-400" },
+                { label: "Usuários estimados (telemedicina)", value: NL(totalEstUsers), color: "text-green-400" },
               ].map(item => (
                 <div key={item.label} className="bg-secondary/30 rounded-xl p-3 text-center border border-border/40">
                   <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">{item.label}</p>
@@ -616,10 +620,10 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
         <Card className="border-border/60">
           <CardContent className="p-12 text-center">
             <span className="text-4xl block mb-3">🗺️</span>
-            <h3 className="text-lg font-bold mb-1">Selecione cidades para iniciar</h3>
+            <h3 className="text-lg font-bold mb-1">Selecione cidades para iniciar a análise de telemedicina</h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Use a busca, o filtro de região ou os botões de região acima para selecionar municípios.
-              As análises serão calculadas automaticamente.
+              As projeções de teleconsultas por vídeo serão calculadas automaticamente.
             </p>
           </CardContent>
         </Card>
@@ -631,7 +635,7 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
           <Card className="border-border/60">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Penetração base do mercado endereçável</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Penetração base do mercado endereçável de telemedicina</p>
                 <span className="text-sm font-bold font-mono text-primary">{F2(basePenPct)}%</span>
               </div>
               <input
@@ -652,16 +656,16 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
           <Card className="border-border/60">
             <CardContent className="p-5 space-y-4">
               <SectionHeader
-                title="Potencial por Serviço"
-                subtitle="Receita mensal estimada desagregada por tipo de serviço · baseado em probabilidades de desfecho clínico"
+                title="Potencial por Serviço — Teleconsultas por Vídeo"
+                subtitle="Receita mensal estimada de teleconsultas por vídeo, desagregada por tipo de serviço · baseado em probabilidades de desfecho clínico"
                 badge="SERVIÇOS"
               />
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <MetricCard
-                  label="Consultas/mês"
+                  label="Teleconsultas/mês"
                   value={NL(totalMonthlyConsultations)}
-                  sub="clínicas + psi"
+                  sub="clínicas + psi (por vídeo)"
                   color="text-primary"
                   delay={0}
                 />
@@ -682,7 +686,7 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
                 <MetricCard
                   label="Receita Total/mês"
                   value={FK(totalMonthlyRevenue)}
-                  sub="todos os serviços"
+                  sub="teleconsultas + serviços derivados"
                   color="text-green-400"
                   delay={0.15}
                 />
@@ -691,7 +695,7 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-2">
                 {/* Donut */}
                 <div>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Composição da Receita</p>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Composição da Receita — Teleconsultas por Vídeo</p>
                   {serviceDonutData ? (
                     <div className="h-52">
                       <Doughnut
@@ -715,7 +719,7 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
                       />
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground text-center py-10">Nenhuma consulta estimada</p>
+                    <p className="text-xs text-muted-foreground text-center py-10">Nenhuma teleconsulta estimada</p>
                   )}
                 </div>
 
@@ -760,8 +764,8 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
             <CardContent className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <SectionHeader
-                  title="Cenários por Região"
-                  subtitle="Projeções pessimista (×0,4) · realista (×1,0) · otimista (×2,0) por macro-região"
+                  title="Cenários Regionais de Telemedicina"
+                  subtitle="Projeções de expansão de telemedicina: pessimista (×0,4) · realista (×1,0) · otimista (×2,0) por macro-região"
                   badge="REGIONAL"
                 />
                 <div className="flex gap-1.5">
@@ -841,7 +845,7 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
                     ))}
                     {regionalData.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-xs text-muted-foreground">Nenhuma região com cidades selecionadas</td>
+                        <td colSpan={7} className="py-8 text-center text-xs text-muted-foreground">Nenhuma região com cidades selecionadas para análise de telemedicina</td>
                       </tr>
                     )}
                   </tbody>
@@ -854,8 +858,8 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
           <Card className="border-border/60">
             <CardContent className="p-5 space-y-4">
               <SectionHeader
-                title="Top Oportunidades"
-                subtitle="Top 20 cidades por ROI estimado · score = receita per capita × fator de baixa competição"
+                title="Top Oportunidades — Telemedicina"
+                subtitle="Top 20 cidades por ROI estimado em teleconsultas por vídeo · score = receita per capita × fator de baixa competição"
                 badge="RANKING"
               />
 
@@ -967,8 +971,8 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
           <Card className="border-border/60">
             <CardContent className="p-5 space-y-4">
               <SectionHeader
-                title="Projeção de Expansão — 24 meses"
-                subtitle="Receita mensal acumulada das cidades selecionadas · 3 cenários · crescimento composto"
+                title="Projeção de Expansão da Telemedicina — 24 meses"
+                subtitle="Receita mensal de teleconsultas por vídeo nas cidades selecionadas · 3 cenários · crescimento composto"
                 badge="PROJEÇÃO"
               />
 
@@ -1016,14 +1020,14 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
               {/* Summary cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <MetricCard
-                  label="Receita Ano 1 (realista)"
+                  label="Receita Ano 1 — Teleconsultas (realista)"
                   value={FK(expansionSummary.yr1.real)}
                   sub={`Pessimista: ${FK(expansionSummary.yr1.pes)} · Oti: ${FK(expansionSummary.yr1.oti)}`}
                   color="text-blue-400"
                   delay={0}
                 />
                 <MetricCard
-                  label="Receita Ano 2 (realista)"
+                  label="Receita Ano 2 — Teleconsultas (realista)"
                   value={FK(expansionSummary.yr2.real)}
                   sub={`Pessimista: ${FK(expansionSummary.yr2.pes)} · Oti: ${FK(expansionSummary.yr2.oti)}`}
                   color="text-primary"
@@ -1106,7 +1110,7 @@ export function CidadePotencialTab({ valConsulta, durMedia, diasMes }: CidadePot
             </span>
           );
         })}
-        <span className="text-[9px] text-muted-foreground self-center">Porte por faixa populacional</span>
+        <span className="text-[9px] text-muted-foreground self-center">Porte por faixa populacional · adoção de telemedicina varia por porte</span>
       </div>
     </div>
   );

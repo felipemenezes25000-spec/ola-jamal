@@ -1,5 +1,5 @@
 // SimuladorCenarios.tsx
-// RenoveJá+ — Operational Scenarios Simulator Tab
+// RenoveJá+ — Simulador de Cenários Operacionais de Telemedicina (teleconsulta por vídeo)
 // Self-contained; no external state beyond props.
 
 import { useState, useMemo } from "react";
@@ -562,8 +562,8 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       {/* ── Section 1: Scenario Cards ───────────────────────────────────── */}
       <div className="space-y-4">
         <SectionHeader
-          title="Cenários de Operação"
-          subtitle="Selecione um cenário para ver a análise financeira detalhada"
+          title="Cenários Operacionais de Telemedicina"
+          subtitle="Selecione um cenário de teleconsulta por vídeo para ver a análise financeira detalhada"
           badge="5 presets"
         />
 
@@ -702,17 +702,17 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                       {[
                         {
-                          label: "Consultas/dia",
+                          label: "Teleconsultas/dia",
                           value: NL(fin.consultPerDay),
                           color: "text-foreground",
                         },
                         {
-                          label: "Consultas/mês",
+                          label: "Teleconsultas/mês",
                           value: NL(fin.consultPerMonth),
                           color: "text-foreground",
                         },
                         {
-                          label: "Receita consultas",
+                          label: "Receita teleconsultas",
                           value: FK(fin.revenueConsultMonth),
                           color: "text-primary",
                         },
@@ -800,8 +800,8 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       {/* ── Section 2: Comparison table ─────────────────────────────────── */}
       <div className="space-y-4">
         <SectionHeader
-          title="Comparativo de Cenários"
-          subtitle="Todos os 5 cenários lado a lado com métricas financeiras completas"
+          title="Comparativo de Cenários de Telemedicina"
+          subtitle="Todos os 5 cenários de teleconsulta lado a lado com métricas financeiras completas"
         />
 
         <Card className="border-border/60 bg-card/80 overflow-hidden">
@@ -853,13 +853,13 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                         color: () => "text-foreground",
                       },
                       {
-                        label: "Capacidade/mês",
+                        label: "Teleconsultas/mês",
                         get: (_sc: OperationalScenario, fin: ScenarioFinancials) =>
                           NL(fin.consultPerMonth),
                         color: () => "text-foreground",
                       },
                       {
-                        label: "Receita consultas",
+                        label: "Receita teleconsultas",
                         get: (_sc: OperationalScenario, fin: ScenarioFinancials) =>
                           FK(fin.revenueConsultMonth),
                         color: () => "text-primary",
@@ -955,8 +955,8 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       {/* ── Section 3: Mix Optimizer ─────────────────────────────────────── */}
       <div className="space-y-4">
         <SectionHeader
-          title="Otimizador de Mix"
-          subtitle="Ajuste o mix de serviços e veja o impacto em tempo real na receita e lucratividade"
+          title="Otimizador de Mix de Telemedicina"
+          subtitle="Ajuste o mix de teleconsultas e veja o impacto em tempo real na receita e lucratividade"
           badge="interativo"
         />
 
@@ -966,7 +966,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
             <CardContent className="p-5 space-y-4">
               <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1 h-4 bg-primary rounded-full" />
-                Composição de consultas
+                Composição de teleconsultas
               </p>
 
               <Slider
@@ -1025,13 +1025,13 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
             <CardContent className="p-5 space-y-4">
               <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1 h-4 bg-primary rounded-full" />
-                Projeção com mix atual
+                Projeção com mix atual de teleconsultas
               </p>
 
               <div className="grid grid-cols-2 gap-3">
                 {[
                   {
-                    label: "Rev./consulta",
+                    label: "Rev./teleconsulta",
                     value: `R$ ${mixStats.revPerConsult.toFixed(2).replace(".", ",")}`,
                     color: "text-primary",
                   },
@@ -1097,7 +1097,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
                   <span>⚠️</span>
                   <span>
                     Mix atual resulta em prejuízo. Aumente a proporção de
-                    clínica geral ou reduza a duração média das consultas.
+                    clínica geral ou reduza a duração média das teleconsultas.
                   </span>
                 </div>
               )}
@@ -1109,8 +1109,8 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
       {/* ── Section 4: Scale charts ──────────────────────────────────────── */}
       <div className="space-y-4">
         <SectionHeader
-          title="Crescimento em Escala"
-          subtitle="Comparativo visual e trajetória de crescimento hipotética ao longo de 30 meses"
+          title="Crescimento em Escala — Telemedicina"
+          subtitle="Comparativo visual e trajetória de expansão da telemedicina ao longo de 30 meses"
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1118,7 +1118,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
           <Card className="border-border/60 bg-card/80">
             <CardContent className="p-5">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                Comparativo: receita × custo × lucro por cenário
+                Comparativo: receita × custo × lucro por cenário de teleconsulta
               </p>
               <div className="h-64">
                 <Bar
@@ -1161,7 +1161,7 @@ export function CenariosTab({ valConsulta, diasMes }: CenariosTabProps) {
           <Card className="border-border/60 bg-card/80">
             <CardContent className="p-5">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                Trajetória hipotética de crescimento (meses 1–30)
+                Trajetória hipotética de expansão da telemedicina (meses 1–30)
               </p>
               {/* Phase legend */}
               <div className="flex flex-wrap gap-3 mb-1 text-[9px] text-muted-foreground">

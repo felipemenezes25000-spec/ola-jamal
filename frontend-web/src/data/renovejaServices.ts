@@ -33,21 +33,21 @@ export interface RenovejaService {
 export const RENOVEJA_SERVICES: Record<ServiceType, RenovejaService> = {
   consulta_clinica: {
     id: 'consulta_clinica',
-    name: 'Consulta Médico Clínico',
+    name: 'Teleconsulta Médico Clínico',
     category: 'consulta',
     price: 6.99,
     unit: 'por_minuto',
-    description: 'Consulta com médico clínico geral no modelo banco de horas.',
+    description: 'Teleconsulta por vídeo com médico clínico geral no modelo banco de horas.',
     costToDeliver: 4.2,
     marginPct: 39.9,
   },
   consulta_psico: {
     id: 'consulta_psico',
-    name: 'Consulta Psicólogo',
+    name: 'Teleconsulta Psicólogo',
     category: 'consulta',
     price: 3.99,
     unit: 'por_minuto',
-    description: 'Consulta com psicólogo no modelo banco de horas.',
+    description: 'Teleconsulta por vídeo com psicólogo no modelo banco de horas.',
     costToDeliver: 2.2,
     marginPct: 44.9,
   },
@@ -121,7 +121,7 @@ export const RENOVEJA_SERVICES: Record<ServiceType, RenovejaService> = {
     price: 0,
     unit: 'por_documento',
     description:
-      'Encaminhamento para especialista. Incluído na consulta; gera futuras consultas na plataforma.',
+      'Encaminhamento para especialista. Incluído na teleconsulta; gera futuras teleconsultas na plataforma.',
     costToDeliver: 0.5,
     marginPct: 0,
   },
@@ -145,7 +145,7 @@ export const CONSULTATION_OUTCOMES: ConsultationOutcome[] = [
     serviceId: 'receita_simples',
     probability: 0.55,
     avgQuantity: 1.3,
-    description: 'Mais da metade das consultas resultam em receituário simples.',
+    description: 'Mais da metade das teleconsultas resultam em receituário simples.',
   },
   {
     serviceId: 'receita_controlada',
@@ -163,7 +163,7 @@ export const CONSULTATION_OUTCOMES: ConsultationOutcome[] = [
     serviceId: 'exame_lab',
     probability: 0.35,
     avgQuantity: 1.5,
-    description: 'Solicitação de exames laboratoriais em consultas investigativas.',
+    description: 'Solicitação de exames laboratoriais em teleconsultas investigativas.',
   },
   {
     serviceId: 'exame_imagem',
@@ -175,14 +175,14 @@ export const CONSULTATION_OUTCOMES: ConsultationOutcome[] = [
     serviceId: 'atestado',
     probability: 0.3,
     avgQuantity: 1.0,
-    description: 'Atestado médico emitido (incluído na consulta, sem receita adicional).',
+    description: 'Atestado médico digital emitido na teleconsulta (sem custo adicional).',
   },
   {
     serviceId: 'encaminhamento',
     probability: 0.18,
     avgQuantity: 1.0,
     description:
-      'Encaminhamento para especialista (incluído na consulta; gera futuras consultas).',
+      'Encaminhamento para especialista (incluído na teleconsulta; gera futuras teleconsultas).',
   },
 ];
 
@@ -206,7 +206,7 @@ export const PATIENT_PROFILES: PatientProfile[] = [
   {
     id: 'jovem_saudavel',
     name: 'Jovem Saudável',
-    description: 'Faixa 18–30 anos, sem doenças crônicas. Consulta principalmente para gripes, atestados e exames preventivos.',
+    description: 'Faixa 18–30 anos, sem doenças crônicas. Usa teleconsulta para gripes, atestados e exames preventivos.',
     consultasPerYear: 1.5,
     avgConsultDurationMin: 10,
     outcomes: {
@@ -223,7 +223,7 @@ export const PATIENT_PROFILES: PatientProfile[] = [
   {
     id: 'adulto_cronico',
     name: 'Adulto Crônico',
-    description: 'Faixa 30–60 anos, portador de doença crônica (hipertensão, diabetes, hipotireoidismo). Alta demanda por receituário simples e exames.',
+    description: 'Faixa 30–60 anos, portador de doença crônica (hipertensão, diabetes, hipotireoidismo). Usa teleconsulta para renovar receitas e pedir exames.',
     consultasPerYear: 4.2,
     avgConsultDurationMin: 15,
     outcomes: {
@@ -240,7 +240,7 @@ export const PATIENT_PROFILES: PatientProfile[] = [
   {
     id: 'idoso_polimedicado',
     name: 'Idoso Polimedicado',
-    description: 'Acima de 60 anos, múltiplas comorbidades. Alta frequência de consultas, receituários controlados e azul.',
+    description: 'Acima de 60 anos, múltiplas comorbidades. Alta frequência de teleconsultas, receituários controlados e azul.',
     consultasPerYear: 6.8,
     avgConsultDurationMin: 20,
     outcomes: {
@@ -257,7 +257,7 @@ export const PATIENT_PROFILES: PatientProfile[] = [
   {
     id: 'saude_mental',
     name: 'Saúde Mental',
-    description: 'Qualquer faixa etária. Consultas frequentes com psicólogo; alta taxa de receituário controlado.',
+    description: 'Qualquer faixa etária. Teleconsultas frequentes com psicólogo por vídeo; alta taxa de receituário controlado.',
     consultasPerYear: 8.0,
     avgConsultDurationMin: 25,
     outcomes: {
@@ -274,7 +274,7 @@ export const PATIENT_PROFILES: PatientProfile[] = [
   {
     id: 'eventual',
     name: 'Eventual',
-    description: 'Qualquer faixa etária. Acessa a plataforma raramente — principalmente para atestados, exames rápidos ou renovação de receita.',
+    description: 'Qualquer faixa etária. Usa a telemedicina raramente — principalmente para atestados digitais, exames rápidos ou renovação de receita.',
     consultasPerYear: 1.0,
     avgConsultDurationMin: 12,
     outcomes: {

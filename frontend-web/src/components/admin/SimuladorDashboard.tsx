@@ -1,5 +1,5 @@
 // SimuladorDashboard.tsx
-// RenoveJá+ — Executive KPI Dashboard Tab
+// RenoveJá+ — Executive KPI Dashboard — Telemedicina
 // Vite + React · No "use client" · Tailwind dark theme · Chart.js · framer-motion
 
 import { useMemo } from "react";
@@ -246,7 +246,7 @@ export function DashboardTab({
     const pacientesClinica = Math.round(pacientesMes * clinicaPct);
     const pacientesPsico = pacientesMes - pacientesClinica;
 
-    // Consultation revenue — valConsulta is the total price per consultation (R$/atendimento)
+    // Consultation revenue — valConsulta is the total price per teleconsultation (R$/atendimento)
     const recConsultaClinica = valConsulta * pacientesClinica;
     const recConsultaPsico = valConsulta * pacientesPsico;
     const recConsulta = recConsultaClinica + recConsultaPsico;
@@ -281,8 +281,8 @@ export function DashboardTab({
     const custoMedicos = medicos * custoMedDia * diasMes;
     const custoPsico = psicologos * custoPsicoDia * diasMes;
     const custoInfra = infraCost(pacientesMes);
-    const custoAI = 0.15 * pacientesMes; // R$ 0,15/consulta — Daily/Deepgram + OpenAI
-    const custoStorage = 0.08 * pacientesMes; // R$ 0,08/consulta — S3
+    const custoAI = 0.15 * pacientesMes; // R$ 0,15/teleconsulta — Daily/Deepgram + OpenAI
+    const custoStorage = 0.08 * pacientesMes; // R$ 0,08/teleconsulta — S3
     const custoGateway = recBruta * 0.025; // 2.5% gateway de pagamento
     const custoTotal = custoMedicos + custoPsico + custoInfra + custoAI + custoStorage + custoGateway;
 
@@ -620,11 +620,11 @@ export function DashboardTab({
 
     const recommendations: string[] = [];
     if (calcs.margemBruta <= 30)
-      recommendations.push("Aumente o ticket médio ampliando serviços derivados por consulta.");
+      recommendations.push("Aumente o ticket médio ampliando serviços derivados por teleconsulta.");
     if (ltvCac <= 3)
       recommendations.push("Reduza o CAC com indicações ou aumente retenção com assinatura mensal.");
     if (utilizacaoPct <= 70)
-      recommendations.push("Otimize escala de médicos ou amplie o marketing para aumentar a taxa de utilização.");
+      recommendations.push("Otimize escala de médicos ou amplie o marketing digital para aumentar a taxa de utilização.");
     if (topServicePct >= 60)
       recommendations.push("Diversifique o mix de receita estimulando receituários e exames.");
     if (calcs.breakeven >= 6)
@@ -682,14 +682,14 @@ export function DashboardTab({
       <section>
         <SectionHeading
           title="Painel Executivo"
-          subtitle="Indicadores-chave de performance financeira e operacional do período"
+          subtitle="Indicadores-chave de performance financeira e operacional da telemedicina no período"
         />
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           <KpiCard
             icon={<DollarSign className={iconSm} />}
             label="Receita Bruta"
             value={fK(calcs.recBruta)}
-            subtitle="Consultas + todos os serviços derivados no mês"
+            subtitle="Teleconsultas + todos os serviços derivados no mês"
             status={kpiStatus.recBruta}
             delay={0}
           />
@@ -795,7 +795,7 @@ export function DashboardTab({
       <section>
         <SectionHeading
           title="Composição de Receita"
-          subtitle="Distribuição e volume financeiro por tipo de serviço no mês"
+          subtitle="Distribuição e volume financeiro por tipo de serviço de telemedicina no mês"
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -1117,7 +1117,7 @@ export function DashboardTab({
       <section>
         <SectionHeading
           title="Métricas por Perfil de Paciente"
-          subtitle="Contribuição financeira de cada arquétipo com base na composição estimada da base"
+          subtitle="Contribuição financeira de cada arquétipo de paciente na telemedicina, com base na composição estimada da base"
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {profileMetrics.map((p, i) => (

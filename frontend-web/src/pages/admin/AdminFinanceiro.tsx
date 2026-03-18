@@ -161,8 +161,8 @@ const AdminFinanceiro = () => {
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-card to-card border border-border/60 p-6">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(var(--primary-rgb,99,102,241),0.12),transparent)]" />
           <div className="relative">
-            <h1 className="text-2xl font-bold tracking-tight">Simulador Financeiro</h1>
-            <p className="text-muted-foreground text-sm mt-1">Plataforma de analise e decisao de contratos — modelos SUS & privado em tempo real</p>
+            <h1 className="text-2xl font-bold tracking-tight">Simulador Financeiro — Telemedicina</h1>
+            <p className="text-muted-foreground text-sm mt-1">Plataforma de analise e projecao financeira para teleconsultas por video — modelos SUS & privado em tempo real</p>
             <div className="flex flex-wrap gap-2 mt-4">
               <div className="flex items-center gap-1.5 bg-card/80 border border-border/60 rounded-full px-3 py-1.5">
                 <span className={`w-2 h-2 rounded-full ${r.res >= 0 ? "bg-green-400 animate-pulse" : "bg-red-400"}`} />
@@ -189,9 +189,9 @@ const AdminFinanceiro = () => {
                 <span className="w-1 h-4 bg-primary rounded-full" /> Parametros de Receita
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Slider icon="📊" label="Atendimentos/dia" value={ad} onChange={setADSync} min={1} max={5000} />
-                <Slider icon="👥" label="Pessoas/mes" value={pes} onChange={setPesSync} min={1} max={9999999} step={10} />
-                <Slider icon="💰" label="Valor atendimento (R$)" value={val} onChange={v => setVal(v)} min={1} max={500} />
+                <Slider icon="📊" label="Teleconsultas/dia" value={ad} onChange={setADSync} min={1} max={5000} />
+                <Slider icon="👥" label="Pacientes/mes" value={pes} onChange={setPesSync} min={1} max={9999999} step={10} />
+                <Slider icon="💰" label="Valor teleconsulta (R$)" value={val} onChange={v => setVal(v)} min={1} max={500} />
               </div>
             </div>
             <div>
@@ -202,7 +202,7 @@ const AdminFinanceiro = () => {
                 <Slider icon="🩺" label="Custo diario/medico (R$)" value={med} onChange={v => setMed(v)} min={100} max={20000} step={50} />
                 <Slider icon="👨‍⚕️" label="Qtd medicos" value={docs} onChange={v => setDocs(v)} min={1} max={500} />
                 <Slider icon="📅" label="Dias trabalhados/mes" tag="editavel" value={dias} onChange={setDiasSync} min={1} max={31} />
-                <Slider icon="⏱️" label="Duracao consulta (min)" value={dur} onChange={v => setDur(v)} min={5} max={60} />
+                <Slider icon="⏱️" label="Duracao teleconsulta (min)" value={dur} onChange={v => setDur(v)} min={5} max={60} />
               </div>
             </div>
             <div>
@@ -222,14 +222,14 @@ const AdminFinanceiro = () => {
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
             className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl p-4 text-sm flex items-start gap-3">
             <span className="text-lg mt-0.5">⚠️</span>
-            <div><b>Capacidade excedida:</b> {docs} medico(s) x {r.cap}/dia x {dias}d = {NL(capM)} max. Precisa de <b>{r.dn} medicos</b>.</div>
+            <div><b>Capacidade excedida:</b> {docs} medico(s) x {r.cap} teleconsultas/dia x {dias}d = {NL(capM)} max. Precisa de <b>{r.dn} medicos</b>.</div>
           </motion.div>
         )}
 
         {/* Navigation Tabs */}
         <div className="flex gap-2 flex-wrap">
           <TabButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>Dashboard Executivo</TabButton>
-          <TabButton active={activeTab === "funil"} onClick={() => setActiveTab("funil")}>Funil de Consulta</TabButton>
+          <TabButton active={activeTab === "funil"} onClick={() => setActiveTab("funil")}>Funil de Teleconsulta</TabButton>
           <TabButton active={activeTab === "cenarios"} onClick={() => setActiveTab("cenarios")}>Cenarios Operacionais</TabButton>
           <TabButton active={activeTab === "cidade"} onClick={() => setActiveTab("cidade")} count={SP_CITIES.length}>Potencial por Cidade</TabButton>
           <TabButton active={activeTab === "modelos"} onClick={() => setActiveTab("modelos")} count={11}>Modelos de Cobranca</TabButton>
@@ -340,19 +340,19 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
   return [
     { id: "fixo", name: "Fixo por Consulta", tipo: "Privado", perConsulta: val, recMes: refRecMes,
       color: "text-primary", borderColor: "border-primary/30", bgColor: "bg-primary/5",
-      desc: "Valor fixo por atendimento. Modelo atual da plataforma.",
+      desc: "Valor fixo por teleconsulta. Modelo atual da plataforma de telemedicina.",
       pros: ["Simples de implementar", "Previsibilidade para o paciente", "Facil de calcular"],
       contras: ["Receita limitada por volume", "Nao diferencia complexidade", "Sem receita recorrente"],
       score: calcScore(refRecMes, false, true) },
     { id: "minuto", name: "Por Minuto", tipo: "Privado", perConsulta: perMinConsulta, recMes: perMinMes,
       color: "text-green-400", borderColor: "border-green-400/30", bgColor: "bg-green-400/5",
-      desc: "Cobranca proporcional ao tempo de consulta. Justo para ambas as partes.",
-      pros: ["Justo para paciente e medico", "Incentiva eficiencia", "Margem em consultas longas"],
+      desc: "Cobranca proporcional ao tempo de teleconsulta por video. Justo para ambas as partes.",
+      pros: ["Justo para paciente e medico", "Incentiva eficiencia", "Margem em teleconsultas longas"],
       contras: ["Imprevisivel para paciente", "Pode gerar pressa no atendimento", "Complexo de faturar"],
       score: calcScore(perMinMes, false, true) },
     { id: "mensal", name: "Assinatura Mensal", tipo: "Privado", perConsulta: mensalPerConsulta, recMes: mensalRecMes,
       color: "text-purple-400", borderColor: "border-purple-400/30", bgColor: "bg-purple-400/5",
-      desc: "Plano mensal com consultas ilimitadas ou limitadas. Receita recorrente previsivel.",
+      desc: "Plano mensal com teleconsultas ilimitadas ou limitadas. Receita recorrente previsivel.",
       pros: ["Receita recorrente (MRR)", "Alto LTV", "Fidelizacao do paciente"],
       contras: ["Risco de uso excessivo", "Churn se nao usar", "Necessita boa retencao"],
       score: calcScore(mensalRecMes, true, true) },
@@ -364,13 +364,13 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
       score: calcScore(anualRecMes, true, true) },
     { id: "convenio", name: "Convenio / Plano", tipo: "Privado", perConsulta: convenioLiq, recMes: convenioMes,
       color: "text-orange-400", borderColor: "border-orange-400/30", bgColor: "bg-orange-400/5",
-      desc: "Atendimento via planos de saude com tabela TUSS. Volume alto mas margem menor.",
+      desc: "Teleconsultas via planos de saude com tabela TUSS. Volume alto mas margem menor.",
       pros: ["Volume garantido pelo plano", "Base grande de pacientes", "Credibilidade"],
       contras: ["Glosa de " + glosa + "%", "Valor tabelado baixo", "Pagamento em 30-60 dias"],
       score: calcScore(convenioMes, true, false) },
     { id: "pacote", name: "Pacote Bundle", tipo: "Privado", perConsulta: pacotePerConsulta, recMes: pacoteMes,
       color: "text-cyan-400", borderColor: "border-cyan-400/30", bgColor: "bg-cyan-400/5",
-      desc: "Pacote com N consultas por preco fechado. Incentiva uso e retorno.",
+      desc: "Pacote com N teleconsultas por preco fechado. Incentiva uso e retorno.",
       pros: ["Receita antecipada", "Paciente retorna", "Perceived value alto"],
       contras: ["Desconto implicito", "Consultas nao usadas = custo zero", "Controle complexo"],
       score: calcScore(pacoteMes, false, true) },
@@ -394,7 +394,7 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
       score: calcScore(susPsfMes, true, false) },
     { id: "sus-mac", name: "MAC (Media/Alta)", tipo: "SUS", perConsulta: susMacPerConsulta, recMes: susMacMes,
       color: "text-amber-400", borderColor: "border-amber-400/30", bgColor: "bg-amber-400/5",
-      desc: "Procedimentos ambulatoriais de media e alta complexidade — tabela SIGTAP.",
+      desc: "Procedimentos de media/alta complexidade viabilizados por telemedicina — tabela SIGTAP.",
       pros: ["Valor por procedimento mais alto", "Especialidades valorizadas", "Complementa BPA"],
       contras: ["Volume limitado por teto", "Necessita autorizacao", "Auditoria rigorosa"],
       score: calcScore(susMacMes, false, false) },
@@ -416,7 +416,7 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
 
   return (
     <>
-      <SectionHeader title="Modelos de Cobranca" subtitle="Configure e compare todos os modelos de receita — SUS e privado — para decisao de contrato" badge="11 MODELOS" />
+      <SectionHeader title="Modelos de Cobranca — Telemedicina" subtitle="Configure e compare modelos de receita para teleconsultas por video — SUS e privado" badge="11 MODELOS" />
 
       {/* Best picks */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

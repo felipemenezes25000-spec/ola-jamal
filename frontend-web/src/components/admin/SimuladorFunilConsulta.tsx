@@ -212,7 +212,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
   }, [durMedia]);
 
   const funnelChartData = useMemo(() => {
-    const labels = ["Consulta", ...funnelData.derivs.map((d) => d.name.split(" ").slice(0, 2).join(" "))];
+    const labels = ["Teleconsulta", ...funnelData.derivs.map((d) => d.name.split(" ").slice(0, 2).join(" "))];
     const values = [funnelData.consultaRev, ...funnelData.derivs.map((d) => d.expected)];
     const colors = [SERVICE_COLORS.consulta_clinica, ...funnelData.derivs.map((d) => d.color)];
     return {
@@ -246,7 +246,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         x: {
           grid: { color: CHART_COLOR_GRID },
           ticks: { color: CHART_COLOR_TEXT, font: CHART_FONT, callback: (v: number | string) => `R$${+v < 1 ? F2(+v) : Math.round(+v)}` },
-          title: { display: true, text: "Receita esperada por consulta (R$)", color: CHART_COLOR_TEXT, font: CHART_FONT },
+          title: { display: true, text: "Receita esperada por teleconsulta (R$)", color: CHART_COLOR_TEXT, font: CHART_FONT },
         },
         y: {
           grid: { display: false },
@@ -376,7 +376,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
   }, [desdobSvc, simPacientes, durMedia]);
 
   const desdobBarData = useMemo(() => ({
-    labels: ["Consulta", ...desdobCalc.rows.map((r) => r.name.split(" ").slice(0, 2).join(" "))],
+    labels: ["Teleconsulta", ...desdobCalc.rows.map((r) => r.name.split(" ").slice(0, 2).join(" "))],
     datasets: [
       {
         label: "Receita (R$)",
@@ -448,7 +448,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
       labels: projection12.months,
       datasets: [
         {
-          label: "Consultas",
+          label: "Teleconsultas",
           data: projection12.consultaRevs,
           borderColor: SERVICE_COLORS.consulta_clinica,
           backgroundColor: "rgba(99,102,241,0.12)",
@@ -527,13 +527,13 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         transition={{ duration: 0.35 }}
       >
         <SectionHeader
-          title="Funil de Receita por Consulta"
-          subtitle={`Duração média: ${durMedia} min — como uma consulta se desdobra em múltiplos fluxos de receita`}
+          title="Funil de Receita por Teleconsulta"
+          subtitle={`Duração média: ${durMedia} min — como uma teleconsulta por vídeo se desdobra em múltiplos fluxos de receita`}
         />
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <MetricCard
-            label="Receita consulta"
+            label="Receita teleconsulta"
             value={`R$ ${F2(funnelData.consultaRev)}`}
             sub={`${durMedia} min × R$ ${F2(RENOVEJA_SERVICES.consulta_clinica.price)}`}
             color="text-primary"
@@ -547,16 +547,16 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
             delay={0.05}
           />
           <MetricCard
-            label="Total / consulta"
+            label="Total / teleconsulta"
             value={`R$ ${F2(funnelData.totalPerConsulta)}`}
-            sub="consulta + derivados"
+            sub="teleconsulta + derivados"
             color="text-yellow-400"
             delay={0.1}
           />
           <MetricCard
             label="Multiplicador"
             value={`${funnelData.consultaRev > 0 ? F2(funnelData.totalPerConsulta / funnelData.consultaRev) : "—"}×`}
-            sub="derivados / consulta"
+            sub="derivados / teleconsulta"
             color="text-orange-400"
             delay={0.15}
           />
@@ -574,7 +574,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: SERVICE_COLORS.consulta_clinica }} />
-                    <span className="text-foreground font-medium">Consulta clínica</span>
+                    <span className="text-foreground font-medium">Teleconsulta clínica</span>
                   </span>
                   <span className="font-mono text-primary">R$ {F2(funnelData.consultaRev)}</span>
                 </div>
@@ -603,7 +603,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
           <Card className="lg:col-span-3 border-border/60 bg-card/80">
             <CardContent className="p-4">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Contribuição por serviço (R$ / consulta esperado)
+                Contribuição por serviço (R$ / teleconsulta esperado)
               </p>
               <div style={{ height: 220 }}>
                 <Bar data={funnelChartData} options={funnelChartOpts} />
@@ -620,8 +620,8 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         transition={{ delay: 0.1, duration: 0.35 }}
       >
         <SectionHeader
-          title="Mix de Pacientes"
-          subtitle="Ajuste a composição da base de pacientes para calcular a receita média ponderada"
+          title="Mix de Pacientes — Telemedicina"
+          subtitle="Ajuste a composição da base de pacientes atendidos por teleconsulta para calcular a receita média ponderada"
         />
 
         {/* Mix warning */}
@@ -658,7 +658,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
 
                     <div className="space-y-1 mb-2">
                       <div className="flex justify-between text-[9px]">
-                        <span className="text-muted-foreground">Consultas/ano</span>
+                        <span className="text-muted-foreground">Teleconsultas/ano</span>
                         <span className="font-mono">{profile.consultasPerYear}</span>
                       </div>
                       <div className="flex justify-between text-[9px]">
@@ -666,7 +666,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                         <span className="font-mono">{profile.avgConsultDurationMin} min</span>
                       </div>
                       <div className="flex justify-between text-[9px]">
-                        <span className="text-muted-foreground">Receita total/visita (consulta + derivados)</span>
+                        <span className="text-muted-foreground">Receita total/visita (teleconsulta + derivados)</span>
                         <span className="font-mono text-green-400">R$ {F2(pr.totalPerVisit)}</span>
                       </div>
                       <div className="flex justify-between text-[9px]">
@@ -712,9 +712,9 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
             delay={0}
           />
           <MetricCard
-            label="Receita/consulta ponderada"
+            label="Receita/teleconsulta ponderada"
             value={`R$ ${F2(weightedAvgRevPerConsulta)}`}
-            sub="consulta + derivados"
+            sub="teleconsulta + derivados"
             color="text-green-400"
             delay={0.04}
           />
@@ -743,7 +743,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
       >
         <SectionHeader
           title="Simulador de Serviços Derivados"
-          subtitle="Cada consulta pode gerar receitas, exames e outros serviços — ajuste as taxas de conversão abaixo"
+          subtitle="Cada teleconsulta por vídeo pode gerar receitas, exames e outros serviços — ajuste as taxas de conversão abaixo"
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -810,7 +810,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: SERVICE_COLORS.consulta_clinica }} />
-                    <span className="text-foreground font-medium">Consulta clínica</span>
+                    <span className="text-foreground font-medium">Teleconsulta clínica</span>
                   </span>
                   <span className="flex items-center gap-3 flex-shrink-0">
                     <span className="font-mono text-muted-foreground w-12 text-right">{NL(simPacientes)}</span>
@@ -902,7 +902,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
           <MetricCard
             label="Receita / paciente"
             value={`R$ ${F2(desdobCalc.revPorPaciente)}`}
-            sub="consulta + derivados"
+            sub="teleconsulta + derivados"
             color="text-primary"
             delay={0.12}
           />
@@ -916,8 +916,8 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         transition={{ delay: 0.2, duration: 0.35 }}
       >
         <SectionHeader
-          title="Projeção 12 Meses"
-          subtitle="Receita acumulada com crescimento composto mês a mês"
+          title="Projeção 12 Meses — Teleconsultas"
+          subtitle="Receita acumulada de teleconsultas por vídeo com crescimento composto mês a mês"
         />
 
         <div className="mb-4">
@@ -970,7 +970,7 @@ export function FunilConsultaTab({ pacientesMes, durMedia, diasMes }: FunilConsu
         <Card className="border-border/60 bg-card/80">
           <CardContent className="p-4">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Receita mensal — Consultas vs Derivados vs Total (R$)
+              Receita mensal — Teleconsultas vs Derivados vs Total (R$)
             </p>
             <div style={{ height: 280 }}>
               <Line data={lineChartData} options={lineChartOpts} />
