@@ -624,81 +624,344 @@ function UnitEconomicsCard({ val, pes, dias, r, mgP, bm }: Omit<SimProps, 'med' 
   );
 }
 
-/* ─── Pricing Models Card (não interfere no cálculo principal) ─── */
+/* ─── Pricing Models Card — SUS + Privado (não interfere no cálculo principal) ─── */
 function PricingModelsCard({ val, dur, pes }: { val: number; dur: number; pes: number }) {
+  // Privado
   const [valMin, setValMin] = useState(6.99);
+  const [valMensal, setValMensal] = useState(89.9);
+  const [assinMensal, setAssinMensal] = useState(500);
   const [valAnual, setValAnual] = useState(599);
+  const [assinAnual, setAssinAnual] = useState(200);
+  const [valConvenio, setValConvenio] = useState(18.5);
+  const [glosa, setGlosa] = useState(12);
+  const [valPacote, setValPacote] = useState(79.9);
+  const [consultasPacote, setConsultasPacote] = useState(3);
+  const [freemiumConv, setFreemiumConv] = useState(5);
+  const [valPremium, setValPremium] = useState(39.9);
 
+  // SUS
+  const [susTeleconsulta, setSusTeleconsulta] = useState(21.43);
+  const [susPercRepasse, setSusPercRepasse] = useState(100);
+  const [susPsfEquipes, setSusPsfEquipes] = useState(10);
+  const [susPsfPerCapita, setSusPsfPerCapita] = useState(4.5);
+  const [susPsfPopulacao, setSusPsfPopulacao] = useState(3500);
+  const [susMacValor, setSusMacValor] = useState(85);
+  const [susMacQtd, setSusMacQtd] = useState(50);
+  const [susNasfEquipes, setSusNasfEquipes] = useState(3);
+  const [susNasfValor, setSusNasfValor] = useState(8000);
+
+  const refRecMes = val * pes;
+
+  // Privado calcs
   const perMinConsulta = valMin * dur;
   const perMinMes = perMinConsulta * pes;
+  const mensalRecMes = assinMensal * valMensal;
+  const mensalPerConsulta = pes > 0 ? mensalRecMes / pes : 0;
+  const anualRecMes = assinAnual * valAnual / 12;
+  const anualPerConsulta = pes > 0 ? anualRecMes / pes : 0;
+  const convenioLiq = valConvenio * (1 - glosa / 100);
+  const convenioMes = convenioLiq * pes;
+  const pacotePerConsulta = consultasPacote > 0 ? valPacote / consultasPacote : 0;
+  const pacoteMes = pacotePerConsulta * pes;
+  const freemiumPagantes = Math.round(pes * freemiumConv / 100);
+  const freemiumMes = freemiumPagantes * valPremium;
+  const freemiumPerConsulta = pes > 0 ? freemiumMes / pes : 0;
 
-  // Modelo anual: assinantes pagam R$ valAnual/ano → receita mensal = assinantes × valAnual / 12
-  const [assinantes, setAssinantes] = useState(500);
-  const anualRecMes = assinantes * valAnual / 12;
-  const anualRecConsulta = pes > 0 ? anualRecMes / pes : 0;
+  // SUS calcs
+  const susTelemedicinaMes = susTeleconsulta * (susPercRepasse / 100) * pes;
+  const susPsfMes = susPsfEquipes * susPsfPerCapita * susPsfPopulacao;
+  const susPsfPerConsulta = pes > 0 ? susPsfMes / pes : 0;
+  const susMacMes = susMacValor * susMacQtd;
+  const susMacPerConsulta = susMacQtd > 0 ? susMacValor : 0;
+  const susNasfMes = susNasfEquipes * susNasfValor;
+  const susNasfPerConsulta = pes > 0 ? susNasfMes / pes : 0;
+
+  const vsRef = (recMes: number) => {
+    const diff = recMes - refRecMes;
+    const pct = refRecMes > 0 ? (diff / refRecMes * 100).toFixed(0) : "0";
+    return { diff, pct, positive: diff >= 0 };
+  };
+
+  type ModelRow = { name: string; perConsulta: number; recMes: number; color: string; tag: string };
+
+  const privadoModels: ModelRow[] = [
+    { name: "Fixo (atual)", perConsulta: val, recMes: refRecMes, color: "text-primary", tag: "REF" },
+    { name: "Por Minuto", perConsulta: perMinConsulta, recMes: perMinMes, color: "text-green-400", tag: "MIN" },
+    { name: "Assinatura Mensal", perConsulta: mensalPerConsulta, recMes: mensalRecMes, color: "text-purple-400", tag: "MENSAL" },
+    { name: "Assinatura Anual", perConsulta: anualPerConsulta, recMes: anualRecMes, color: "text-blue-400", tag: "ANUAL" },
+    { name: "Convênio/Plano", perConsulta: convenioLiq, recMes: convenioMes, color: "text-orange-400", tag: "CONV" },
+    { name: "Pacote Bundle", perConsulta: pacotePerConsulta, recMes: pacoteMes, color: "text-cyan-400", tag: "PACK" },
+    { name: "Freemium + Premium", perConsulta: freemiumPerConsulta, recMes: freemiumMes, color: "text-pink-400", tag: "FREE" },
+  ];
+  const susModels: ModelRow[] = [
+    { name: "Telessaúde SIGTAP", perConsulta: susTeleconsulta * (susPercRepasse / 100), recMes: susTelemedicinaMes, color: "text-emerald-400", tag: "BPA" },
+    { name: "PSF/ESF Per Capita", perConsulta: susPsfPerConsulta, recMes: susPsfMes, color: "text-teal-400", tag: "PSF" },
+    { name: "MAC (Média/Alta)", perConsulta: susMacPerConsulta, recMes: susMacMes, color: "text-amber-400", tag: "MAC" },
+    { name: "NASF/eMulti", perConsulta: susNasfPerConsulta, recMes: susNasfMes, color: "text-lime-400", tag: "NASF" },
+  ];
+
+  const inputCls = "w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary";
+  const lblCls = "text-[10px] text-muted-foreground";
 
   return (
     <Card>
-      <CardContent className="p-4 space-y-4">
+      <CardContent className="p-4 space-y-5">
         <div>
-          <p className="text-sm font-semibold">Simulador de Modelos de Cobrança</p>
-          <p className="text-[10px] text-muted-foreground">Compare modelos — não altera o simulador principal (que usa R$ {val}/consulta fixo)</p>
+          <p className="text-sm font-semibold">Modelos de Cobrança — SUS & Privado</p>
+          <p className="text-[10px] text-muted-foreground">Compare todos os modelos de receita possíveis — independente do simulador principal (referência: R$ {F2(val)}/consulta fixo)</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Fixo (referência) */}
-          <div className="bg-secondary/30 rounded-lg p-3 border border-border">
-            <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">Fixo (atual)</p>
-            <div className="space-y-1 text-xs">
-              <div className="flex justify-between"><span className="text-muted-foreground">Por consulta</span><span className="font-mono font-semibold">R$ {F2(val)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês ({NL(pes)} consultas)</span><span className="font-mono font-semibold text-primary">{FK(val * pes)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Por minuto equivalente</span><span className="font-mono text-muted-foreground">R$ {F2(dur > 0 ? val / dur : 0)}/min</span></div>
-            </div>
+        {/* ═══ SEÇÃO PRIVADO ═══ */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-bold text-primary uppercase tracking-wider">Privado</span>
+            <span className="flex-1 border-t border-border/50" />
           </div>
 
-          {/* Por minuto */}
-          <div className="bg-secondary/30 rounded-lg p-3 border border-primary/30">
-            <p className="text-[10px] font-semibold text-green-400 uppercase tracking-wider mb-2">Por Minuto</p>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] text-muted-foreground">R$/min:</span>
-              <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={valMin} min={0.5} step={0.01} onChange={e => setValMin(+e.target.value || 0)} />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {/* Por Minuto */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-green-400/20">
+              <p className="text-[10px] font-semibold text-green-400 uppercase tracking-wider mb-2">Por Minuto</p>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>R$/min:</span>
+                <input type="number" className={inputCls} value={valMin} min={0.5} step={0.01} onChange={e => setValMin(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Por consulta ({dur}min)</span><span className="font-mono font-semibold">R$ {F2(perMinConsulta)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-green-400">{FK(perMinMes)}</span></div>
+              </div>
             </div>
-            <div className="space-y-1 text-xs">
-              <div className="flex justify-between"><span className="text-muted-foreground">Por consulta ({dur} min)</span><span className="font-mono font-semibold">R$ {F2(perMinConsulta)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês ({NL(pes)} consultas)</span><span className="font-mono font-semibold text-green-400">{FK(perMinMes)}</span></div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">vs Fixo</span>
-                <span className={`font-mono font-semibold ${perMinConsulta >= val ? "text-green-400" : "text-destructive"}`}>
-                  {perMinConsulta >= val ? "+" : ""}{F2(perMinConsulta - val)} ({perMinConsulta >= val ? "+" : ""}{val > 0 ? ((perMinConsulta - val) / val * 100).toFixed(0) : 0}%)
-                </span>
+
+            {/* Assinatura Mensal */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-purple-400/20">
+              <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-2">Assinatura Mensal</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>R$/mês:</span>
+                <input type="number" className={inputCls} value={valMensal} min={1} step={1} onChange={e => setValMensal(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>Assinantes:</span>
+                <input type="number" className={inputCls} value={assinMensal} min={1} step={10} onChange={e => setAssinMensal(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-purple-400">{FK(mensalRecMes)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Equiv./consulta</span><span className="font-mono">R$ {F2(mensalPerConsulta)}</span></div>
+              </div>
+            </div>
+
+            {/* Assinatura Anual */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-blue-400/20">
+              <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-2">Assinatura Anual</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>R$/ano:</span>
+                <input type="number" className={inputCls} value={valAnual} min={10} step={10} onChange={e => setValAnual(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>Assinantes:</span>
+                <input type="number" className={inputCls} value={assinAnual} min={1} step={10} onChange={e => setAssinAnual(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-blue-400">{FK(anualRecMes)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Equiv./consulta</span><span className="font-mono">R$ {F2(anualPerConsulta)}</span></div>
+              </div>
+            </div>
+
+            {/* Convênio / Plano de Saúde */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-orange-400/20">
+              <p className="text-[10px] font-semibold text-orange-400 uppercase tracking-wider mb-2">Convênio / Plano</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>Tabela TUSS:</span>
+                <input type="number" className={inputCls} value={valConvenio} min={1} step={0.5} onChange={e => setValConvenio(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>% Glosa:</span>
+                <input type="number" className={inputCls} value={glosa} min={0} max={50} step={1} onChange={e => setGlosa(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Líquido/consulta</span><span className="font-mono font-semibold">R$ {F2(convenioLiq)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-orange-400">{FK(convenioMes)}</span></div>
+              </div>
+            </div>
+
+            {/* Pacote Bundle */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-cyan-400/20">
+              <p className="text-[10px] font-semibold text-cyan-400 uppercase tracking-wider mb-2">Pacote Bundle</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>R$/pacote:</span>
+                <input type="number" className={inputCls} value={valPacote} min={1} step={1} onChange={e => setValPacote(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>Consultas/pacote:</span>
+                <input type="number" className={inputCls} value={consultasPacote} min={1} max={12} step={1} onChange={e => setConsultasPacote(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Por consulta</span><span className="font-mono font-semibold">R$ {F2(pacotePerConsulta)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-cyan-400">{FK(pacoteMes)}</span></div>
+              </div>
+            </div>
+
+            {/* Freemium */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-pink-400/20">
+              <p className="text-[10px] font-semibold text-pink-400 uppercase tracking-wider mb-2">Freemium + Premium</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>% Conversão:</span>
+                <input type="number" className={inputCls} value={freemiumConv} min={1} max={100} step={1} onChange={e => setFreemiumConv(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>R$/premium:</span>
+                <input type="number" className={inputCls} value={valPremium} min={1} step={1} onChange={e => setValPremium(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Pagantes ({freemiumConv}%)</span><span className="font-mono">{NL(freemiumPagantes)} de {NL(pes)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-pink-400">{FK(freemiumMes)}</span></div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Anual (assinatura) */}
-          <div className="bg-secondary/30 rounded-lg p-3 border border-blue-400/30">
-            <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-2">Assinatura Anual</p>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] text-muted-foreground">R$/ano:</span>
-              <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={valAnual} min={10} step={10} onChange={e => setValAnual(+e.target.value || 0)} />
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] text-muted-foreground">Assinantes:</span>
-              <input type="number" className="w-20 bg-secondary border border-border rounded px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={assinantes} min={1} step={10} onChange={e => setAssinantes(+e.target.value || 0)} />
-            </div>
-            <div className="space-y-1 text-xs">
-              <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-blue-400">{FK(anualRecMes)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Por consulta equiv.</span><span className="font-mono font-semibold">R$ {F2(anualRecConsulta)}</span></div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">vs Fixo (receita/mês)</span>
-                <span className={`font-mono font-semibold ${anualRecMes >= val * pes ? "text-green-400" : "text-destructive"}`}>
-                  {anualRecMes >= val * pes ? "+" : ""}{FK(anualRecMes - val * pes)}
-                </span>
+        {/* ═══ SEÇÃO SUS ═══ */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">SUS — Sistema Único de Saúde</span>
+            <span className="flex-1 border-t border-border/50" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {/* Telessaúde SIGTAP */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-emerald-400/20">
+              <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-1">Telessaúde SIGTAP</p>
+              <p className="text-[8px] text-muted-foreground mb-2">Cód. 0301010072 — Teleconsulta médica BPA</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>R$/proc:</span>
+                <input type="number" className={inputCls} value={susTeleconsulta} min={1} step={0.01} onChange={e => setSusTeleconsulta(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>% Repasse:</span>
+                <input type="number" className={inputCls} value={susPercRepasse} min={10} max={100} step={5} onChange={e => setSusPercRepasse(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Líquido/consulta</span><span className="font-mono font-semibold">R$ {F2(susTeleconsulta * susPercRepasse / 100)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês ({NL(pes)})</span><span className="font-mono font-semibold text-emerald-400">{FK(susTelemedicinaMes)}</span></div>
               </div>
             </div>
+
+            {/* PSF / ESF Per Capita */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-teal-400/20">
+              <p className="text-[10px] font-semibold text-teal-400 uppercase tracking-wider mb-1">PSF/ESF Per Capita</p>
+              <p className="text-[8px] text-muted-foreground mb-2">Programa Saúde da Família — repasse fixo por pessoa cadastrada</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>Equipes:</span>
+                <input type="number" className={inputCls} value={susPsfEquipes} min={1} step={1} onChange={e => setSusPsfEquipes(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>R$/capita:</span>
+                <input type="number" className={inputCls} value={susPsfPerCapita} min={0.5} step={0.5} onChange={e => setSusPsfPerCapita(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>Pop./equipe:</span>
+                <input type="number" className={inputCls} value={susPsfPopulacao} min={100} step={100} onChange={e => setSusPsfPopulacao(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Pop. coberta</span><span className="font-mono">{NL(susPsfEquipes * susPsfPopulacao)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-teal-400">{FK(susPsfMes)}</span></div>
+              </div>
+            </div>
+
+            {/* MAC */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-amber-400/20">
+              <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-1">MAC (Média/Alta Complex.)</p>
+              <p className="text-[8px] text-muted-foreground mb-2">Procedimentos ambulatoriais especializados — tabela SIGTAP</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>R$/proc:</span>
+                <input type="number" className={inputCls} value={susMacValor} min={1} step={5} onChange={e => setSusMacValor(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>Qtd/mês:</span>
+                <input type="number" className={inputCls} value={susMacQtd} min={1} step={5} onChange={e => setSusMacQtd(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-amber-400">{FK(susMacMes)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Equiv./consulta</span><span className="font-mono">R$ {F2(susMacPerConsulta)}</span></div>
+              </div>
+            </div>
+
+            {/* NASF / eMulti */}
+            <div className="bg-secondary/30 rounded-lg p-3 border border-lime-400/20">
+              <p className="text-[10px] font-semibold text-lime-400 uppercase tracking-wider mb-1">NASF / eMulti</p>
+              <p className="text-[8px] text-muted-foreground mb-2">Núcleo de Apoio à Saúde da Família — custeio fixo por equipe</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={lblCls}>Equipes:</span>
+                <input type="number" className={inputCls} value={susNasfEquipes} min={1} step={1} onChange={e => setSusNasfEquipes(+e.target.value || 0)} />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={lblCls}>R$/equipe/mês:</span>
+                <input type="number" className={inputCls} value={susNasfValor} min={1000} step={500} onChange={e => setSusNasfValor(+e.target.value || 0)} />
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Receita/mês</span><span className="font-mono font-semibold text-lime-400">{FK(susNasfMes)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Equiv./consulta</span><span className="font-mono">R$ {F2(susNasfPerConsulta)}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ TABELA COMPARATIVA ═══ */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-bold text-foreground uppercase tracking-wider">Comparativo Geral</span>
+            <span className="flex-1 border-t border-border/50" />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-2 py-2 text-left text-muted-foreground font-medium">Modelo</th>
+                  <th className="px-2 py-2 text-left text-muted-foreground font-medium">Tipo</th>
+                  <th className="px-2 py-2 text-right text-muted-foreground font-medium">R$/Consulta</th>
+                  <th className="px-2 py-2 text-right text-muted-foreground font-medium">Receita/Mês</th>
+                  <th className="px-2 py-2 text-right text-muted-foreground font-medium">vs Fixo</th>
+                  <th className="px-2 py-2 text-right text-muted-foreground font-medium">Variação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...privadoModels, ...susModels].map(m => {
+                  const v = vsRef(m.recMes);
+                  return (
+                    <tr key={m.name} className="border-b border-border/50 hover:bg-secondary/30">
+                      <td className={`px-2 py-1.5 font-semibold ${m.color}`}>
+                        <span className="inline-block w-10 text-[8px] bg-secondary rounded px-1 py-0.5 text-center font-mono mr-1.5">{m.tag}</span>
+                        {m.name}
+                      </td>
+                      <td className="px-2 py-1.5 text-muted-foreground">{susModels.includes(m) ? "SUS" : "Privado"}</td>
+                      <td className="px-2 py-1.5 font-mono text-right">R$ {F2(m.perConsulta)}</td>
+                      <td className={`px-2 py-1.5 font-mono font-semibold text-right ${m.color}`}>{FK(m.recMes)}</td>
+                      <td className={`px-2 py-1.5 font-mono text-right ${v.positive ? "text-green-400" : "text-destructive"}`}>
+                        {v.positive ? "+" : ""}{FK(v.diff)}
+                      </td>
+                      <td className={`px-2 py-1.5 font-mono text-right ${v.positive ? "text-green-400" : "text-destructive"}`}>
+                        {v.positive ? "+" : ""}{v.pct}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ═══ RANKING ═══ */}
+        <div>
+          <p className="text-[10px] text-muted-foreground mb-2">Ranking por receita mensal (maior → menor)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[...privadoModels, ...susModels]
+              .sort((a, b) => b.recMes - a.recMes)
+              .map((m, i) => (
+                <div key={m.name} className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium border ${i === 0 ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-300" : "border-border bg-secondary/30 text-muted-foreground"}`}>
+                  <span className="font-mono font-bold">{i + 1}.</span>
+                  <span className={m.color}>{m.tag}</span>
+                  <span className="font-mono">{FK(m.recMes)}</span>
+                </div>
+              ))}
           </div>
         </div>
       </CardContent>
