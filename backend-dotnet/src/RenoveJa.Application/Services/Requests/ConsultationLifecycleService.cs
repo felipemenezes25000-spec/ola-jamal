@@ -463,17 +463,29 @@ public class ConsultationLifecycleService(
 
     private async Task SyncRecordingsAsync(Guid requestId)
     {
-        await Task.Delay(TimeSpan.FromMinutes(2));
-        try
+        // Daily.co pode levar 2-10 min para processar a gravação.
+        // Tentamos múltiplas vezes com backoff para garantir que a gravação seja salva no S3.
+        var delays = new[] { 2, 4, 8 }; // minutos
+        foreach (var delayMinutes in delays)
         {
-            using var scope = scopeFactory.CreateScope();
-            var sync = scope.ServiceProvider.GetRequiredService<IRecordingSyncService>();
-            await sync.TrySyncRecordingAsync(requestId);
+            await Task.Delay(TimeSpan.FromMinutes(delayMinutes));
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var sync = scope.ServiceProvider.GetRequiredService<IRecordingSyncService>();
+                var synced = await sync.TrySyncRecordingAsync(requestId);
+                if (synced)
+                {
+                    logger.LogInformation("[RecordingSync] Gravação sincronizada com sucesso após {Minutes}min para RequestId={RequestId}", delayMinutes, requestId);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[RecordingSync] Tentativa após {Minutes}min falhou para RequestId={RequestId}", delayMinutes, requestId);
+            }
         }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "[RecordingSync] Falha no sync em background para RequestId={RequestId}", requestId);
-        }
+        logger.LogWarning("[RecordingSync] Gravação não encontrada após todas as tentativas para RequestId={RequestId}. Webhook ou acesso manual necessário.", requestId);
     }
 
     public async Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(

@@ -239,11 +239,10 @@ export default function DoctorPatientRecord() {
           <Card className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-start gap-5">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
-                  {patient.avatarUrl ? (
-                    <img src={patient.avatarUrl} alt={patient.name} className="w-16 h-16 rounded-2xl object-cover" />
-                  ) : (
-                    <User className="h-8 w-8 text-primary" />
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 overflow-hidden relative">
+                  <User className="h-8 w-8 text-primary" />
+                  {patient.avatarUrl && (
+                    <img src={patient.avatarUrl} alt={patient.name} className="absolute inset-0 w-16 h-16 rounded-2xl object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">

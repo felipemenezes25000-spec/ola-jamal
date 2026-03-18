@@ -127,6 +127,7 @@ export default function PatientRecordScreen() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('resumo');
   const [activeFilter, setActiveFilter] = useState<FilterChip>('todos');
+  const [avatarError, setAvatarError] = useState(false);
 
   const [summary, setSummary] = useState<PatientSummaryDto | null>(null);
   const [encounters, setEncounters] = useState<EncounterSummaryDto[]>([]);
@@ -410,11 +411,12 @@ export default function PatientRecordScreen() {
                 </Text>
               </View>
               <View style={s.avatarCircle}>
-                {user?.avatarUrl ? (
+                {user?.avatarUrl && !avatarError ? (
                   <Image
                     source={{ uri: user.avatarUrl }}
                     style={{ width: '100%', height: '100%', borderRadius: 28 }}
                     resizeMode="cover"
+                    onError={() => setAvatarError(true)}
                   />
                 ) : (
                   <Text style={s.avatarText}>{initials}</Text>

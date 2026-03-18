@@ -59,7 +59,7 @@ function isDoctorPortal(): boolean {
   // 4. Path de rota do médico — dev com URL direta
   if (host === 'localhost' || host === '127.0.0.1') {
     const doctorPaths = [
-      // '/login' removido: conflita com rotas públicas no mesmo host
+      '/login',
       '/registro',
       '/dashboard',
       '/pedidos',

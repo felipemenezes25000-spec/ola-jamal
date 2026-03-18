@@ -238,10 +238,11 @@ export default function DoctorRequestDetail() {
                   <Card className="shadow-sm">
                     <CardContent className="p-5">
                       <div className="flex items-center gap-4 mb-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                          {patient?.avatarUrl
-                            ? <img src={patient.avatarUrl} alt="" className="w-full h-full object-cover" />
-                            : <User className="h-6 w-6 text-primary" />}
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 relative">
+                          <User className="h-6 w-6 text-primary" />
+                          {patient?.avatarUrl && (
+                            <img src={patient.avatarUrl} alt="" className="absolute inset-0 w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold">{request.patientName}</p>

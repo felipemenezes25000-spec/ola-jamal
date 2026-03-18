@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import {
   Loader2, CheckCircle2, XCircle, Pen, Video, Stethoscope,
-  FileOutput, Download, PackageCheck, Ban, Clock,
+  FileOutput, Download, PackageCheck, Ban, Clock, FileText, ClipboardList,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,19 +29,24 @@ export function RequestActionsCard({
   const navigate = useNavigate();
   const statusNorm = normalizeStatus(request.status);
   const reqType = (request.type ?? '').toLowerCase();
+  const isConsultation = reqType === 'consultation';
 
-  const canApprove      = ['submitted', 'pending'].includes(statusNorm);
-  const canReject       = ['submitted', 'pending', 'in_review', 'approved_pending_payment', 'approved', 'paid'].includes(statusNorm);
-  const canEdit         = statusNorm === 'paid';
-  const canVideo        = reqType === 'consultation' && ['consultation_accepted', 'consultation_ready', 'in_consultation'].includes(statusNorm);
-  const canAcceptConsult = reqType === 'consultation' && statusNorm === 'paid';
-  const canCancel       = ['submitted', 'pending', 'in_review'].includes(statusNorm);
-  const canDeliver      = statusNorm === 'signed';
-  const canGenPdf       = statusNorm === 'paid' && reqType === 'prescription';
-  const canDownload     = !!request.signedDocumentUrl || statusNorm === 'signed' || statusNorm === 'delivered';
+  // ── Condições de ação ──
+  const canApprove       = !isConsultation && ['submitted', 'pending'].includes(statusNorm);
+  const canReject        = ['submitted', 'pending', 'in_review', 'searching_doctor', 'approved_pending_payment', 'approved', 'paid'].includes(statusNorm);
+  const canEdit          = statusNorm === 'paid' && !isConsultation;
+  const canAcceptConsult = isConsultation && ['searching_doctor', 'submitted', 'pending'].includes(statusNorm);
+  const canVideo         = isConsultation && ['paid', 'consultation_accepted', 'consultation_ready', 'in_consultation'].includes(statusNorm);
+  const canPostConsult   = isConsultation && statusNorm === 'consultation_finished';
+  const canSummary       = isConsultation && statusNorm === 'consultation_finished';
+  const canCancel        = ['submitted', 'pending', 'in_review', 'searching_doctor'].includes(statusNorm);
+  const canDeliver       = statusNorm === 'signed';
+  const canGenPdf        = statusNorm === 'paid' && reqType === 'prescription';
+  const canDownload      = !!request.signedDocumentUrl || statusNorm === 'signed' || statusNorm === 'delivered';
 
   const noActions = !canApprove && !canReject && !canEdit && !canVideo &&
-    !canAcceptConsult && !canCancel && !canDeliver && !canGenPdf && !canDownload;
+    !canAcceptConsult && !canCancel && !canDeliver && !canGenPdf && !canDownload &&
+    !canPostConsult && !canSummary;
 
   return (
     <Card className="shadow-sm sticky top-6">
@@ -55,15 +60,15 @@ export function RequestActionsCard({
             Aprovar
           </Button>
         )}
-        {canReject && (
-          <Button variant="outline" className="w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5" onClick={onRejectOpen} disabled={!!actionLoading}>
-            <XCircle className="h-4 w-4" />Recusar
-          </Button>
-        )}
         {canAcceptConsult && (
           <Button className="w-full gap-2" onClick={onAcceptConsult} disabled={!!actionLoading}>
             {actionLoading === 'accept' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Stethoscope className="h-4 w-4" />}
             Aceitar Consulta
+          </Button>
+        )}
+        {canReject && (
+          <Button variant="outline" className="w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5" onClick={onRejectOpen} disabled={!!actionLoading}>
+            <XCircle className="h-4 w-4" />Recusar
           </Button>
         )}
         {canEdit && (
@@ -74,6 +79,16 @@ export function RequestActionsCard({
         {canVideo && (
           <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate(`/video/${id}`)}>
             <Video className="h-4 w-4" />Iniciar Vídeo
+          </Button>
+        )}
+        {canPostConsult && (
+          <Button className="w-full gap-2" onClick={() => navigate(`/pos-consulta/${id}`)}>
+            <FileText className="h-4 w-4" />Emitir Documentos
+          </Button>
+        )}
+        {canSummary && (
+          <Button variant="outline" className="w-full gap-2" onClick={() => navigate(`/resumo-consulta/${id}`)}>
+            <ClipboardList className="h-4 w-4" />Ver Resumo
           </Button>
         )}
         {canGenPdf && (

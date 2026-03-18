@@ -40,13 +40,12 @@ import {
 import { useVideoSignaling } from '@/hooks/useSignalR';
 import { toast } from 'sonner';
 import {
-  Loader2, ArrowLeft, Brain, Mic, AlertTriangle,
+  Loader2, ArrowLeft, Brain, AlertTriangle,
   Save, PhoneOff, Shield,
   MessageSquare,
 } from 'lucide-react';
 import { VideoTopBar } from '@/components/doctor/video/VideoControls';
 import { VideoFrameDaily } from '@/components/doctor/video/VideoFrameDaily';
-import { TranscriptionPanel } from '@/components/doctor/video/TranscriptionPanel';
 import { ConsultationStats } from '@/components/doctor/video/ConsultationStats';
 import { DoctorAIPanel } from '@/components/doctor/video/DoctorAIPanel';
 
@@ -71,8 +70,8 @@ export default function DoctorVideoCall() {
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const [contractedMinutes, setContractedMinutes] = useState<number | null>(null);
 
-  // AI panel: transcript | consulta (full DoctorAIPanel) | notes
-  const [activeTab, setActiveTab] = useState('transcript');
+  // AI panel: consulta (full DoctorAIPanel) | notes
+  const [activeTab, setActiveTab] = useState('consulta');
   const [doctorNotes, setDoctorNotes] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
@@ -302,14 +301,6 @@ export default function DoctorVideoCall() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
             <TabsList className="bg-gray-800/50 border-b border-gray-800 rounded-none px-2 shrink-0 flex-wrap">
-              <TabsTrigger value="transcript" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
-                <Mic className="h-3 w-3" /> Transcrição
-                {transcript.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400 text-[9px]">
-                    LIVE
-                  </span>
-                )}
-              </TabsTrigger>
               <TabsTrigger value="consulta" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
                 <Brain className="h-3 w-3" /> Consulta
                 {filledFields > 0 && (
@@ -322,11 +313,6 @@ export default function DoctorVideoCall() {
                 <MessageSquare className="h-3 w-3" /> Notas
               </TabsTrigger>
             </TabsList>
-
-            {/* ── Transcript Tab ── */}
-            <TabsContent value="transcript" className="flex-1 overflow-auto p-4 m-0 min-h-0">
-              <TranscriptionPanel transcript={transcript} />
-            </TabsContent>
 
             {/* ── Consulta Tab (full DoctorAIPanel: gravidade, CID, alertas, diferencial, anamnese, meds, exames, orientações, perguntas, evidências) ── */}
             <TabsContent value="consulta" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">

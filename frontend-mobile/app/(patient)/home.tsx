@@ -54,6 +54,7 @@ export default function PatientHome() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoCard, setShowInfoCard] = useState(true);
+  const [avatarError, setAvatarError] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -291,11 +292,12 @@ export default function PatientHome() {
             accessibilityRole="button"
             accessibilityLabel="Abrir perfil"
           >
-            {user?.avatarUrl ? (
+            {user?.avatarUrl && !avatarError ? (
               <Image
                 source={{ uri: user.avatarUrl }}
                 style={{ width: '100%', height: '100%', borderRadius: 16 }}
                 resizeMode="cover"
+                onError={() => setAvatarError(true)}
               />
             ) : (
               <Text style={styles.avatarInitial}>{initial}</Text>

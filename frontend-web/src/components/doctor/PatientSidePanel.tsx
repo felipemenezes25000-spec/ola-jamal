@@ -137,11 +137,10 @@ export function PatientSidePanel({
               <Card className="shadow-sm">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                      {patient?.avatarUrl ? (
-                        <img src={patient.avatarUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="h-5 w-5 text-primary" />
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 relative">
+                      <User className="h-5 w-5 text-primary" />
+                      {patient?.avatarUrl && (
+                        <img src={patient.avatarUrl} alt="" className="absolute inset-0 w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">

@@ -19,6 +19,7 @@ public class RequestQueryService(
     IUserRepository userRepository,
     IConsultationAnamnesisRepository consultationAnamnesisRepository,
     IDocumentTokenService documentTokenService,
+    IStorageService storageService,
     IOptions<ApiConfig> apiConfig,
     ILogger<RequestQueryService> logger) : IRequestQueryService
 {
@@ -264,6 +265,9 @@ public class RequestQueryService(
 
         var cpfMasked = RequestHelpers.MaskCpf(user.Cpf);
 
+        // Gerar presigned URL para avatar (bucket S3 privado)
+        var avatarUrl = await ResolveAvatarUrlAsync(user.AvatarUrl);
+
         return new PatientProfileForDoctorDto(
             user.Name,
             user.Email.Value,
@@ -278,7 +282,7 @@ public class RequestQueryService(
             user.City,
             user.State,
             user.PostalCode,
-            user.AvatarUrl
+            avatarUrl
         );
     }
 
@@ -301,5 +305,25 @@ public class RequestQueryService(
         if (a == null) return (null, null, null, null, null, false);
         var hasRecording = !string.IsNullOrWhiteSpace(a.RecordingFileUrl);
         return (a.TranscriptText, a.AnamnesisJson, a.AiSuggestionsJson, a.EvidenceJson, a.SoapNotesJson, hasRecording);
+    }
+
+    /// <summary>
+    /// Converte URL direta do S3 em presigned URL (1h) para buckets privados.
+    /// </summary>
+    private async Task<string?> ResolveAvatarUrlAsync(string? rawUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrl)) return null;
+        if (!rawUrl.Contains(".amazonaws.com")) return rawUrl;
+        try
+        {
+            var path = storageService.ExtractPathFromStorageUrl(rawUrl);
+            if (path != null)
+            {
+                var signed = await storageService.CreateSignedUrlAsync(path, 3600);
+                if (signed != null) return signed;
+            }
+        }
+        catch { /* fallback to original URL */ }
+        return rawUrl;
     }
 }

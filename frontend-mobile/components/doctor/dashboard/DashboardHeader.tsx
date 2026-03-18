@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { clinicalSoftTokens } from './clinicalSoftTokens';
 import { haptics } from '../../../lib/haptics';
@@ -25,6 +25,7 @@ function DashboardHeader_Fn({
   onAvatarPress,
   responsive,
 }: DashboardHeaderProps) {
+  const [avatarError, setAvatarError] = useState(false);
   const { typography, avatarSize, avatarInnerSize } = responsive;
   const radius = avatarSize / 2;
   const innerRadius = avatarInnerSize / 2;
@@ -79,11 +80,12 @@ function DashboardHeader_Fn({
         accessibilityRole="button"
         accessibilityLabel="Abrir perfil"
       >
-        {avatarUrl ? (
+        {avatarUrl && !avatarError ? (
           <Image
             source={{ uri: avatarUrl }}
             style={{ width: avatarInnerSize, height: avatarInnerSize, borderRadius: innerRadius }}
             resizeMode="cover"
+            onError={() => setAvatarError(true)}
           />
         ) : (
           <Text style={[styles.avatarInitials, { fontSize: typography.name * 0.9 }]}>

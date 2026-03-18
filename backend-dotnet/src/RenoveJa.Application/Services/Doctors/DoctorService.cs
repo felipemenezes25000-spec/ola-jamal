@@ -1,6 +1,7 @@
 ﻿using RenoveJa.Application.DTOs;
 using RenoveJa.Application.DTOs.Auth;
 using RenoveJa.Application.DTOs.Doctors;
+using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
 
@@ -25,7 +26,8 @@ public interface IDoctorService
 /// </summary>
 public class DoctorService(
     IDoctorRepository doctorRepository,
-    IUserRepository userRepository) : IDoctorService
+    IUserRepository userRepository,
+    IStorageService storageService) : IDoctorService
 {
     /// <summary>
     /// Lista médicos, opcionalmente por especialidade e disponibilidade.
@@ -70,7 +72,7 @@ public class DoctorService(
                     user.Name,
                     user.Email,
                     user.Phone?.Value,
-                    user.AvatarUrl,
+                    await ResolveAvatarUrlAsync(user.AvatarUrl),
                     profile.Crm,
                     profile.CrmState,
                     profile.Specialty,
@@ -115,7 +117,7 @@ public class DoctorService(
                     user.Name,
                     user.Email,
                     user.Phone?.Value,
-                    user.AvatarUrl,
+                    await ResolveAvatarUrlAsync(user.AvatarUrl),
                     profile.Crm,
                     profile.CrmState,
                     profile.Specialty,
@@ -150,7 +152,7 @@ public class DoctorService(
             user.Name,
             user.Email,
             user.Phone?.Value,
-            user.AvatarUrl,
+            await ResolveAvatarUrlAsync(user.AvatarUrl),
             profile.Crm,
             profile.CrmState,
             profile.Specialty,
@@ -294,5 +296,25 @@ public class DoctorService(
             profile.University,
             profile.Courses,
             profile.HospitalsServices);
+    }
+
+    /// <summary>
+    /// Converte URL direta do S3 em presigned URL (1h) para buckets privados.
+    /// </summary>
+    private async Task<string?> ResolveAvatarUrlAsync(string? rawUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrl)) return null;
+        if (!rawUrl.Contains(".amazonaws.com")) return rawUrl;
+        try
+        {
+            var path = storageService.ExtractPathFromStorageUrl(rawUrl);
+            if (path != null)
+            {
+                var signed = await storageService.CreateSignedUrlAsync(path, 3600);
+                if (signed != null) return signed;
+            }
+        }
+        catch { /* fallback to original URL */ }
+        return rawUrl;
     }
 }

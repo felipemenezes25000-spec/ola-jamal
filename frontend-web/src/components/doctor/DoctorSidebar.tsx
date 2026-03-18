@@ -215,17 +215,17 @@ export function DoctorSidebar() {
         <div className="p-3 lg:p-4 border-t border-sidebar-border space-y-3">
           {user && (
             <div className="flex items-center gap-2.5 px-1">
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.name}
-                  className="w-8 h-8 lg:w-9 lg:h-9 rounded-full object-cover ring-2 ring-primary/20 shrink-0"
-                />
-              ) : (
-                <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-[10px] lg:text-xs font-bold text-primary">{initials}</span>
-                </div>
-              )}
+              <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 relative overflow-hidden ring-2 ring-primary/20">
+                <span className="text-[10px] lg:text-xs font-bold text-primary">{initials}</span>
+                {user.avatarUrl && (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="absolute inset-0 w-full h-full rounded-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
+                  />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs lg:text-sm font-medium truncate">{user.name}</p>
                 <p className="text-[10px] lg:text-xs text-muted-foreground truncate">{user.email}</p>

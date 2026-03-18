@@ -11,7 +11,7 @@ resource "aws_wafv2_web_acl" "main" {
     allow {}
   }
 
-  # Permite upload de avatar e certificado — AWS Managed Rules bloqueiam multipart/form-data
+  # Permite upload multipart — AWS Managed Rules bloqueiam multipart/form-data
   # (CrossSiteScripting_BODY, SQLi_BODY, SizeRestrictions_BODY interpretam binário como ataque)
   rule {
     name     = "allow-multipart-uploads"
@@ -39,6 +39,45 @@ resource "aws_wafv2_web_acl" "main" {
         statement {
           byte_match_statement {
             search_string         = "/api/certificates/upload"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+            positional_constraint = "CONTAINS"
+          }
+        }
+        statement {
+          byte_match_statement {
+            search_string         = "/api/requests/prescription"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+            positional_constraint = "CONTAINS"
+          }
+        }
+        statement {
+          byte_match_statement {
+            search_string         = "/api/requests/exam"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+            positional_constraint = "CONTAINS"
+          }
+        }
+        statement {
+          byte_match_statement {
+            search_string         = "/api/consultation/transcribe"
             field_to_match {
               uri_path {}
             }

@@ -165,13 +165,12 @@ export default function DoctorProfile() {
             <CardContent className="p-6">
               <div className="flex items-center gap-6">
                 <div className="relative group">
-                  {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.name} className="w-24 h-24 rounded-2xl object-cover ring-4 ring-primary/10" />
-                  ) : (
-                    <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-4 ring-primary/10">
-                      <span className="text-2xl font-bold text-primary">{initials}</span>
-                    </div>
-                  )}
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-4 ring-primary/10 relative overflow-hidden">
+                    <span className="text-2xl font-bold text-primary">{initials}</span>
+                    {user?.avatarUrl && (
+                      <img src={user.avatarUrl} alt={user.name} className="absolute inset-0 w-24 h-24 rounded-2xl object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                    )}
+                  </div>
                   <label className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                     {avatarLoading ? (
                       <Loader2 className="h-6 w-6 text-white animate-spin" />
