@@ -580,7 +580,6 @@ export default function DoctorPostConsultationEmit() {
               value={certPassword}
               onChange={(e) => setCertPassword(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && certPassword) handleSubmit(); }}
-              autoFocus
             />
             <p className="text-xs text-muted-foreground">
               A senha é usada apenas para validar o certificado. Não é armazenada.
