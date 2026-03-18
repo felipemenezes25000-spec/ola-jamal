@@ -22,10 +22,6 @@ public class PostConsultationService(
     IRequestRepository requestRepository,
     IEncounterRepository encounterRepository,
     IMedicalDocumentRepository medicalDocumentRepository,
-    IPrescriptionPdfService pdfService,
-    IDigitalCertificateService certificateService,
-    IStorageService storageService,
-    IUserRepository userRepository,
     IDoctorRepository doctorRepository,
     IDocumentSecurityService documentSecurityService,
     DuplicateDocumentGuard duplicateGuard,
@@ -61,13 +57,13 @@ public class PostConsultationService(
 
         if (encounter == null)
         {
-            // Garantir que patient_profiles existe (prontuário clínico)
-            await clinicalRecordService.EnsurePatientFromUserAsync(
+            // Garantir que patient_profiles existe e obter o patients.id (PK)
+            var patient = await clinicalRecordService.EnsurePatientFromUserAsync(
                 medicalRequest.PatientId, cancellationToken);
 
-            // encounters.patient_id referencia users(id), não patient_profiles(id)
+            // encounters.patient_id referencia patients(id), não users(id)
             encounter = await clinicalRecordService.StartEncounterAsync(
-                medicalRequest.PatientId, doctorUserId, EncounterType.Teleconsultation,
+                patient.Id, doctorUserId, EncounterType.Teleconsultation,
                 channel: "web", reason: "Consulta por vídeo", sourceRequestId: request.RequestId, cancellationToken: cancellationToken);
         }
 

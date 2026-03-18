@@ -1,5 +1,4 @@
-﻿using Dapper;
-using RenoveJa.Domain.Entities;
+﻿using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Models;
@@ -58,15 +57,12 @@ public class EncounterRepository(PostgresClient db) : IEncounterRepository
 
     public async Task<Encounter?> GetBySourceRequestIdAsync(Guid sourceRequestId, CancellationToken cancellationToken = default)
     {
-        // source_request_id is TEXT in the schema — use raw SQL to avoid
-        // PostgRestFilterParser converting the Guid to uuid type (causes PG 42883)
-        await using var conn = db.CreateConnectionPublic();
-        await conn.OpenAsync(cancellationToken);
-        var model = await conn.QueryFirstOrDefaultAsync<EncounterModel>(
-            new Dapper.CommandDefinition(
-                "SELECT * FROM public.encounters WHERE source_request_id = @id LIMIT 1",
-                new { id = sourceRequestId.ToString() },
-                cancellationToken: cancellationToken));
+        // source_request_id é UUID na migration — agora que ParseValue não converte
+        // strings para Guid, podemos usar o filter normalmente (text→uuid cast implícito)
+        var model = await db.GetSingleAsync<EncounterModel>(
+            TableName,
+            filter: $"source_request_id=eq.{sourceRequestId}",
+            cancellationToken: cancellationToken);
 
         return model != null ? MapToDomain(model) : null;
     }

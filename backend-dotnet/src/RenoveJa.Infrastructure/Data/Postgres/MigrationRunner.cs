@@ -420,6 +420,32 @@ public static class MigrationRunner
     };
 
     /// <summary>
+    /// Corrige encounters criados com users.id em patient_id (deveria ser patients.id).
+    /// Também corrige medical_documents que herdaram o patient_id errado do encounter.
+    /// </summary>
+    private static readonly string[] FixEncounterPatientIdMigrations =
+    {
+        // Corrigir encounters: trocar users.id → patients.id onde o FK está quebrado
+        """
+        UPDATE public.encounters e
+        SET patient_id = p.id
+        FROM public.patients p
+        WHERE e.patient_id = p.user_id
+          AND e.patient_id != p.id
+          AND NOT EXISTS (SELECT 1 FROM public.patients px WHERE px.id = e.patient_id)
+        """,
+        // Corrigir medical_documents que herdaram o patient_id errado
+        """
+        UPDATE public.medical_documents md
+        SET patient_id = p.id
+        FROM public.patients p
+        WHERE md.patient_id = p.user_id
+          AND md.patient_id != p.id
+          AND NOT EXISTS (SELECT 1 FROM public.patients px WHERE px.id = md.patient_id)
+        """
+    };
+
+    /// <summary>
     /// Adiciona campos de enriquecimento ao encounter para compliance CFM 1.638/2002
     /// e suporte à emissão pós-consulta com IA.
     /// </summary>
@@ -531,7 +557,8 @@ public static class MigrationRunner
             ("encounter_enrichment", EncounterEnrichmentMigrations),
             ("document_security", DocumentSecurityMigrations),
             ("prescription_verification_logs", PrescriptionVerificationLogsMigrations),
-            ("cleanup_supabase_urls", CleanupSupabaseUrlsMigrations)
+            ("cleanup_supabase_urls", CleanupSupabaseUrlsMigrations),
+            ("fix_encounter_patient_id", FixEncounterPatientIdMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)

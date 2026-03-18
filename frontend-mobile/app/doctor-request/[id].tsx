@@ -212,7 +212,7 @@ export default function DoctorRequestDetail() {
           onReject={handleReject}
           onSign={handleSign}
           onAccept={handleAcceptConsultation}
-          onStartVideo={() => router.push(`/video/${request.id}`)}
+          onStartVideo={() => router.replace(`/video/${request.id}`)}
           onNavigateEditor={() => router.push(`/doctor-request/editor/${requestId}`)}
           showRejectForm={showRejectForm}
           showSignForm={showSignForm}

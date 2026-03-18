@@ -78,6 +78,29 @@ export interface UseDailyJoinReturn {
   leave: () => Promise<void>;
 }
 
+// ── Module-level singleton guard ──
+// Prevents "Duplicate DailyIframe instances are not allowed" when the previous
+// screen's async destroy() hasn't finished before the next screen calls createCallObject().
+let globalCallInstance: DailyCall | null = null;
+let destroyPromise: Promise<void> | null = null;
+
+async function ensurePreviousDestroyed(): Promise<void> {
+  if (destroyPromise) {
+    await destroyPromise;
+  }
+  if (globalCallInstance) {
+    destroyPromise = globalCallInstance
+      .leave()
+      .then(() => globalCallInstance?.destroy())
+      .catch(() => {})
+      .finally(() => {
+        globalCallInstance = null;
+        destroyPromise = null;
+      });
+    await destroyPromise;
+  }
+}
+
 export function useDailyJoin({
   roomUrl,
   token,
@@ -140,11 +163,15 @@ export function useDailyJoin({
       setCallState('joining');
       setErrorMessage(null);
 
+      // Wait for any previous Daily instance to be fully destroyed
+      await ensurePreviousDestroyed();
+
       const call = Daily.createCallObject({
         audioSource: true,
         videoSource: true,
       });
       callRef.current = call;
+      globalCallInstance = call;
 
       // --- Event handlers ---
 
@@ -251,6 +278,7 @@ export function useDailyJoin({
           // swallow — best-effort cleanup
         }
         callRef.current = null;
+        globalCallInstance = null;
       }
       const msg = err instanceof Error ? err.message : 'Não foi possível entrar na sala';
       setCallState('error');
@@ -288,6 +316,7 @@ export function useDailyJoin({
       // swallow — already left
     } finally {
       callRef.current = null;
+      globalCallInstance = null;
       setCallState('idle');
       setLocalParticipant(null);
       setRemoteParticipant(null);
@@ -299,8 +328,16 @@ export function useDailyJoin({
     return () => {
       const call = callRef.current;
       if (call) {
-        call.leave().then(() => call.destroy()).catch(() => {});
         callRef.current = null;
+        // Track the async destroy so the next mount can await it
+        destroyPromise = call
+          .leave()
+          .then(() => call.destroy())
+          .catch(() => {})
+          .finally(() => {
+            globalCallInstance = null;
+            destroyPromise = null;
+          });
       }
     };
   }, []);

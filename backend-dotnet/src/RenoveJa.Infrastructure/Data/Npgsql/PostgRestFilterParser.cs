@@ -294,7 +294,10 @@ public static class PostgRestFilterParser
         if (value == "null") return null;
         if (value == "true") return true;
         if (value == "false") return false;
-        if (Guid.TryParse(value, out var guid)) return guid;
+        // NÃO converter GUIDs automaticamente para System.Guid — quando o Npgsql
+        // envia Guid, o PostgreSQL recebe como tipo uuid. Se a coluna for TEXT
+        // (ex: audit_logs.entity_id), causa PG 42883: "operator does not exist: text = uuid".
+        // Manter como string é seguro: PostgreSQL faz cast implícito text→uuid para colunas UUID.
         if (int.TryParse(value, out var intVal)) return intVal;
         if (long.TryParse(value, out var longVal)) return longVal;
         if (decimal.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var decVal)) return decVal;

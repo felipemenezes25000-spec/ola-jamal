@@ -203,7 +203,8 @@ public class PostgresClient
             case JsonValueKind.String:
                 var str = element.GetString();
                 if (str == null) return null;
-                if (Guid.TryParse(str, out var guid)) return guid;
+                // NÃO converter GUIDs para System.Guid — causa PG 42883 em colunas TEXT.
+                // PostgreSQL faz cast implícito text→uuid para colunas UUID automaticamente.
                 if (DateTime.TryParse(str, System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.RoundtripKind, out var dt)) return dt;
                 return str;

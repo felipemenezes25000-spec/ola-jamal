@@ -526,7 +526,7 @@ export default function VideoCallScreenInner() {
     <View style={[S.container, S.center]}>
       <Ionicons name="alert-circle" size={56} color={colors.error} />
       <Text style={S.errText}>{error || errorMessage || 'Erro na chamada'}</Text>
-      <TouchableOpacity style={S.retryBtn} onPress={() => { setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
+      <TouchableOpacity style={S.retryBtn} onPress={async () => { await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
         <Text style={S.retryTxt}>Tentar novamente</Text>
       </TouchableOpacity>
       <TouchableOpacity style={{ marginTop: 8, padding: 10 }} onPress={() => router.back()}>

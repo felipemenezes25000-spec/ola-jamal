@@ -436,7 +436,7 @@ export default function RequestDetailScreen() {
         {canJoinVideo && (
           <TouchableOpacity
             style={styles.videoReadyBanner}
-            onPress={() => { setShowVideoModal(false); nav.push(router, `/video/${request.id}`); }}
+            onPress={() => { setShowVideoModal(false); nav.replace(router, `/video/${request.id}`); }}
             activeOpacity={0.85}
           >
             <Ionicons name="videocam" size={28} color={colors.white} />
@@ -758,7 +758,7 @@ export default function RequestDetailScreen() {
             </Text>
             <TouchableOpacity
               style={styles.videoModalBtn}
-              onPress={() => { setShowVideoModal(false); nav.push(router, `/video/${request.id}`); }}
+              onPress={() => { setShowVideoModal(false); nav.replace(router, `/video/${request.id}`); }}
               activeOpacity={0.85}
             >
               <Text style={styles.videoModalBtnText}>Entrar agora</Text>

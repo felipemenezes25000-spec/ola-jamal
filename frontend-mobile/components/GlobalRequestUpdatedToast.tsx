@@ -125,7 +125,7 @@ export function GlobalRequestUpdatedToast() {
         clearInterval(t);
         const rid = countdownRequestId;
         setCountdownRequestId(null);
-        nav.push(routerRef.current, `/video/${rid}`);
+        nav.replace(routerRef.current, `/video/${rid}`);
       }
     }, 1000);
     return () => clearInterval(t);
@@ -135,7 +135,7 @@ export function GlobalRequestUpdatedToast() {
     if (countdownRequestId) {
       const rid = countdownRequestId;
       setCountdownRequestId(null);
-      nav.push(routerRef.current, `/video/${rid}`);
+      nav.replace(routerRef.current, `/video/${rid}`);
     }
   };
 
