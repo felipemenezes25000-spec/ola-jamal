@@ -38,7 +38,8 @@ function storeAuth(token: string, user: DoctorUser) {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-function clearAuth() {
+/** Limpa token e usuário (usado em authFetch 401 e em SignalR 401). */
+export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
@@ -94,7 +95,11 @@ export async function loginDoctor(email: string, password: string) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || 'Credenciais inválidas');
+    const message =
+      res.status >= 500
+        ? 'Erro no servidor. Tente novamente.'
+        : (data.message || 'Credenciais inválidas');
+    throw new Error(message);
   }
   const data = await res.json();
   const role = (data.user?.role ?? '').toString().toLowerCase();

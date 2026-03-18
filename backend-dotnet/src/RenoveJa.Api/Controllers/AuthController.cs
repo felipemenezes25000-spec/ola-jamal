@@ -80,6 +80,11 @@ public class AuthController(
             logger.LogInformation("[Auth] Login success: UserId={UserId}", response.User.Id);
             return Ok(response);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogWarning("[Auth] Login denied: {Message}", ex.Message);
+            return Unauthorized(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "[Auth] Login failed: Exception={Type}", ex.GetType().Name);

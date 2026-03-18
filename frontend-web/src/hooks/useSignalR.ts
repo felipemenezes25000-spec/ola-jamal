@@ -6,7 +6,7 @@
  * Events: "RequestUpdated" { requestId, status, message }
  */
 import { useEffect, useRef, useState } from 'react';
-import { getToken } from '@/services/doctorApi';
+import { clearAuth, getToken } from '@/services/doctorApi';
 
 interface RequestEvent {
   requestId: string;
@@ -100,6 +100,11 @@ export function useRequestEvents(onEvent?: EventHandler) {
           connection.stop().catch(() => {});
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('401') || msg.includes('Unauthorized')) {
+          clearAuth();
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+        }
         if (import.meta.env.DEV) console.warn('[SignalR] Connection failed:', err);
       }
     }
@@ -187,6 +192,11 @@ export function useVideoSignaling(requestId: string | undefined) {
           connection.stop().catch(() => {});
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('401') || msg.includes('Unauthorized')) {
+          clearAuth();
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+        }
         if (import.meta.env.DEV) console.warn('[SignalR Video] Connection failed:', err);
         connection.stop().catch(() => {});
       }
