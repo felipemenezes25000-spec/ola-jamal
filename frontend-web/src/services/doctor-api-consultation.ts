@@ -253,6 +253,8 @@ export interface PostConsultationEmitResult {
   documentsEmitted: number;
   documentTypes: string[];
   message: string;
+  warnings?: string[];
+  errors?: string[];
 }
 
 /**

@@ -132,4 +132,6 @@ public record PostConsultationEmitResponse
     public string Message { get; init; } = null!;
     /// <summary>Avisos de duplicidade (não bloqueantes — médico tem decisão final).</summary>
     public List<string> Warnings { get; init; } = [];
+    /// <summary>Erros ao processar documentos específicos (ex: "Receita: falha ao assinar PDF").</summary>
+    public List<string> Errors { get; init; } = [];
 }

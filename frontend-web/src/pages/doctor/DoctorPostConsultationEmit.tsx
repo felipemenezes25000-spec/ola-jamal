@@ -278,7 +278,12 @@ export default function DoctorPostConsultationEmit() {
       }
       const result = await emitPostConsultationDocuments(payload);
       toast.success(result.message);
-      navigate(`/pedidos/${requestId}`);
+      if (result.errors?.length) {
+        result.errors.forEach((e) => toast.error(e, { duration: 6000 }));
+      }
+      if (result.documentsEmitted > 0) {
+        navigate(`/pedidos/${requestId}`);
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao emitir documentos');
     } finally { setSubmitting(false); }

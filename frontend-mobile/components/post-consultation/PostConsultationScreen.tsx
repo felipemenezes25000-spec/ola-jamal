@@ -343,7 +343,14 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       }
 
       const result = await emitPostConsultationDocuments(payload);
-      Alert.alert('Documentos emitidos', result.message, [{ text: 'OK', onPress: onComplete }]);
+      const detail = result.errors?.length
+        ? `${result.message}\n\nProblemas:\n${result.errors.join('\n')}`
+        : result.message;
+      Alert.alert(
+        result.documentsEmitted > 0 ? 'Documentos emitidos' : 'Atenção',
+        detail,
+        [{ text: 'OK', onPress: result.documentsEmitted > 0 ? onComplete : undefined }]
+      );
     } catch (err: any) {
       Alert.alert('Erro', err?.message ?? 'Não foi possível emitir os documentos.');
     } finally {

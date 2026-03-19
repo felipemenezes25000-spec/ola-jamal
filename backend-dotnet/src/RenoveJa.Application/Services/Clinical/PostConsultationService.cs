@@ -138,6 +138,7 @@ public class PostConsultationService(
 
         // ── 3c. Verificações de duplicidade (medicamentos e atestados) ──
         var warnings = new List<string>();
+        var errors = new List<string>();
         if (request.Prescription is { Items.Count: > 0 })
         {
             var medNames = request.Prescription.Items.Select(i => i.Drug).ToList();
@@ -167,85 +168,125 @@ public class PostConsultationService(
         // Receita
         if (request.Prescription is { Items.Count: > 0 })
         {
-            var items = request.Prescription.Items.Select(i =>
-                (i.Drug, i.Concentration, i.Form, i.Posology, i.Duration, i.Quantity, i.Notes));
+            try
+            {
+                var items = request.Prescription.Items.Select(i =>
+                    (i.Drug, i.Concentration, i.Form, i.Posology, i.Duration, i.Quantity, i.Notes));
 
-            var prescription = await clinicalRecordService.CreatePrescriptionAsync(
-                encounter.Id, items, request.Prescription.GeneralInstructions, cancellationToken);
-            prescriptionId = prescription.Id;
-            emittedTypes.Add("Receita");
+                var prescription = await clinicalRecordService.CreatePrescriptionAsync(
+                    encounter.Id, items, request.Prescription.GeneralInstructions, cancellationToken);
+                prescriptionId = prescription.Id;
+                emittedTypes.Add("Receita");
 
-            var accessCode = await SetDocumentSecurityAsync(prescription.Id, DocumentType.Prescription,
-                request.Prescription.Type, cancellationToken);
-            await GenerateSignAndPersistPrescriptionPdfAsync(
-                prescription, patient, doctorProfile, request.Prescription, request.CertificatePassword,
-                accessCode, cancellationToken);
+                var accessCode = await SetDocumentSecurityAsync(prescription.Id, DocumentType.Prescription,
+                    request.Prescription.Type, cancellationToken);
+                var signed = await GenerateSignAndPersistPrescriptionPdfAsync(
+                    prescription, patient, doctorProfile, request.Prescription, request.CertificatePassword,
+                    accessCode, cancellationToken);
+                if (!signed)
+                    errors.Add("Receita: documento criado, mas PDF/assinatura não concluída. Verifique senha do certificado.");
 
-            logger.LogInformation("Prescription {PrescriptionId} created for encounter {EncounterId}",
-                prescription.Id, encounter.Id);
+                logger.LogInformation("Prescription {PrescriptionId} created for encounter {EncounterId}",
+                    prescription.Id, encounter.Id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to emit Receita for encounter {EncounterId}", encounter.Id);
+                errors.Add($"Receita: {GetUserFriendlyError(ex)}");
+            }
         }
 
         // Pedido de exames
         if (request.ExamOrder is { Items.Count: > 0 })
         {
-            var items = request.ExamOrder.Items.Select(i => (i.Type, i.Code, i.Description));
+            try
+            {
+                var items = request.ExamOrder.Items.Select(i => (i.Type, i.Code, i.Description));
 
-            var examOrder = await clinicalRecordService.CreateExamOrderAsync(
-                encounter.Id, items, request.ExamOrder.ClinicalJustification,
-                request.ExamOrder.Priority, cancellationToken);
-            examOrderId = examOrder.Id;
-            emittedTypes.Add("Exames");
+                var examOrder = await clinicalRecordService.CreateExamOrderAsync(
+                    encounter.Id, items, request.ExamOrder.ClinicalJustification,
+                    request.ExamOrder.Priority, cancellationToken);
+                examOrderId = examOrder.Id;
+                emittedTypes.Add("Exames");
 
-            var examAccessCode = await SetDocumentSecurityAsync(examOrder.Id, DocumentType.ExamOrder, null, cancellationToken);
-            await GenerateSignAndPersistExamPdfAsync(
-                examOrder, patient, doctorProfile, request.ExamOrder, request.CertificatePassword,
-                examAccessCode, cancellationToken);
+                var examAccessCode = await SetDocumentSecurityAsync(examOrder.Id, DocumentType.ExamOrder, null, cancellationToken);
+                var signed = await GenerateSignAndPersistExamPdfAsync(
+                    examOrder, patient, doctorProfile, request.ExamOrder, request.CertificatePassword,
+                    examAccessCode, cancellationToken);
+                if (!signed)
+                    errors.Add("Exames: documento criado, mas PDF/assinatura não concluída. Verifique senha do certificado.");
 
-            logger.LogInformation("ExamOrder {ExamOrderId} created for encounter {EncounterId}",
-                examOrder.Id, encounter.Id);
+                logger.LogInformation("ExamOrder {ExamOrderId} created for encounter {EncounterId}",
+                    examOrder.Id, encounter.Id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to emit Exames for encounter {EncounterId}", encounter.Id);
+                errors.Add($"Exames: {GetUserFriendlyError(ex)}");
+            }
         }
 
         // Atestado médico
         if (request.MedicalCertificate is { Body.Length: > 0 })
         {
-            var cert = request.MedicalCertificate;
-            var icdForDoc = cert.IncludeIcd10 ? cert.Icd10Code : null;
+            try
+            {
+                var cert = request.MedicalCertificate;
+                var icdForDoc = cert.IncludeIcd10 ? cert.Icd10Code : null;
 
-            var report = await clinicalRecordService.CreateMedicalReportAsync(
-                encounter.Id, cert.Body, icdForDoc, cert.LeaveDays, cancellationToken);
-            certificateId = report.Id;
-            emittedTypes.Add("Atestado");
+                var report = await clinicalRecordService.CreateMedicalReportAsync(
+                    encounter.Id, cert.Body, icdForDoc, cert.LeaveDays, cancellationToken);
+                certificateId = report.Id;
+                emittedTypes.Add("Atestado");
 
-            var certAccessCode = await SetDocumentSecurityAsync(report.Id, DocumentType.MedicalCertificate, null, cancellationToken);
-            await GenerateSignAndPersistCertificatePdfAsync(
-                report, patient, doctorProfile, request.MedicalCertificate, request.CertificatePassword,
-                certAccessCode, cancellationToken);
+                var certAccessCode = await SetDocumentSecurityAsync(report.Id, DocumentType.MedicalCertificate, null, cancellationToken);
+                var signed = await GenerateSignAndPersistCertificatePdfAsync(
+                    report, patient, doctorProfile, request.MedicalCertificate, request.CertificatePassword,
+                    certAccessCode, cancellationToken);
+                if (!signed)
+                    errors.Add("Atestado: documento criado, mas PDF/assinatura não concluída. Verifique senha do certificado.");
 
-            logger.LogInformation("MedicalCertificate {CertificateId} created for encounter {EncounterId}",
-                report.Id, encounter.Id);
+                logger.LogInformation("MedicalCertificate {CertificateId} created for encounter {EncounterId}",
+                    report.Id, encounter.Id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to emit Atestado for encounter {EncounterId}", encounter.Id);
+                errors.Add($"Atestado: {GetUserFriendlyError(ex)}");
+            }
         }
 
         // Encaminhamento (MedicalReport com leaveDays=null)
         if (request.Referral is { Reason.Length: > 0 })
         {
-            var refDto = request.Referral;
-            var body = $"Encaminho o(a) paciente para avaliação presencial pelo(a) Dr(a). {refDto.ProfessionalName.Trim()}" +
-                (string.IsNullOrWhiteSpace(refDto.Specialty) ? "" : $" ({refDto.Specialty.Trim()})") +
-                $".\n\nMotivo/Indicação: {refDto.Reason.Trim()}";
-            var icdForRef = string.IsNullOrWhiteSpace(refDto.Icd10Code) ? null : refDto.Icd10Code.Trim();
+            try
+            {
+                var refDto = request.Referral;
+                var body = $"Encaminho o(a) paciente para avaliação presencial pelo(a) Dr(a). {refDto.ProfessionalName.Trim()}" +
+                    (string.IsNullOrWhiteSpace(refDto.Specialty) ? "" : $" ({refDto.Specialty.Trim()})") +
+                    $".\n\nMotivo/Indicação: {refDto.Reason.Trim()}";
+                var icdForRef = string.IsNullOrWhiteSpace(refDto.Icd10Code) ? null : refDto.Icd10Code.Trim();
 
-            var referralReport = await clinicalRecordService.CreateMedicalReportAsync(
-                encounter.Id, body, icdForRef, leaveDays: null, cancellationToken);
-            referralId = referralReport.Id;
-            emittedTypes.Add("Encaminhamento");
+                var referralReport = await clinicalRecordService.CreateMedicalReportAsync(
+                    encounter.Id, body, icdForRef, leaveDays: null, cancellationToken);
+                referralId = referralReport.Id;
+                emittedTypes.Add("Encaminhamento");
 
-            var refAccessCode = await SetDocumentSecurityAsync(referralReport.Id, DocumentType.MedicalReport, null, cancellationToken);
-            await GenerateSignAndPersistCertificatePdfAsync(
-                referralReport, patient, doctorProfile, body, icdForRef, leaveDays: null,
-                request.CertificatePassword, refAccessCode, "encaminhamento", cancellationToken);
+                var refAccessCode = await SetDocumentSecurityAsync(referralReport.Id, DocumentType.MedicalReport, null, cancellationToken);
+                var signed = await GenerateSignAndPersistCertificatePdfAsync(
+                    referralReport, patient, doctorProfile, body, icdForRef, leaveDays: null,
+                    request.CertificatePassword, refAccessCode, "encaminhamento", cancellationToken);
+                if (!signed)
+                    errors.Add("Encaminhamento: documento criado, mas PDF/assinatura não concluída. Verifique senha do certificado.");
 
-            logger.LogInformation("Referral {ReferralId} created for encounter {EncounterId}",
-                referralReport.Id, encounter.Id);
+                logger.LogInformation("Referral {ReferralId} created for encounter {EncounterId}",
+                    referralReport.Id, encounter.Id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to emit Encaminhamento for encounter {EncounterId}", encounter.Id);
+                errors.Add($"Encaminhamento: {GetUserFriendlyError(ex)}");
+            }
         }
 
         // ── 5. Auditoria ──
@@ -284,6 +325,14 @@ public class PostConsultationService(
         }
 
         // ── 6. Retornar resposta ──
+        var msg = emittedTypes.Count > 0
+            ? $"{emittedTypes.Count} documento(s) criado(s) com sucesso: {string.Join(", ", emittedTypes)}."
+                + (warnings.Count > 0 ? $" ⚠️ {warnings.Count} aviso(s) de duplicidade." : "")
+                + (errors.Count > 0 ? $" ⚠️ {errors.Count} problema(s) em outros documentos." : "")
+            : errors.Count > 0
+                ? $"Nenhum documento pôde ser emitido. Erros: {string.Join("; ", errors)}"
+                : "Nenhum documento solicitado.";
+
         return new PostConsultationEmitResponse
         {
             EncounterId = encounter.Id,
@@ -293,10 +342,23 @@ public class PostConsultationService(
             ReferralId = referralId,
             DocumentsEmitted = emittedTypes.Count,
             DocumentTypes = emittedTypes,
-            Message = $"{emittedTypes.Count} documento(s) criado(s) com sucesso: {string.Join(", ", emittedTypes)}."
-                + (warnings.Count > 0 ? $" ⚠️ {warnings.Count} aviso(s) de duplicidade." : ""),
+            Message = msg,
             Warnings = warnings,
+            Errors = errors,
         };
+    }
+
+    private static string GetUserFriendlyError(Exception ex)
+    {
+        var msg = ex.Message;
+        if (msg.Contains("parsing column", StringComparison.OrdinalIgnoreCase))
+            return "Erro interno de dados. Contate o suporte.";
+        if (msg.Contains("23503") || msg.Contains("foreign key", StringComparison.OrdinalIgnoreCase))
+            return "Dados inconsistentes. Tente novamente ou contate o suporte.";
+        if (msg.Contains("certificate", StringComparison.OrdinalIgnoreCase) || msg.Contains("senha", StringComparison.OrdinalIgnoreCase))
+            return "Verifique a senha do certificado digital.";
+        if (msg.Length > 80) return msg[..77] + "...";
+        return msg;
     }
 
     /// <summary>
@@ -344,7 +406,7 @@ public class PostConsultationService(
         return (name, profile.Crm, profile.CrmState, profile.Specialty);
     }
 
-    private async Task GenerateSignAndPersistPrescriptionPdfAsync(
+    private async Task<bool> GenerateSignAndPersistPrescriptionPdfAsync(
         Prescription prescription,
         Patient patient,
         DoctorProfile doctorProfile,
@@ -356,12 +418,12 @@ public class PostConsultationService(
         if (string.IsNullOrWhiteSpace(pfxPassword))
         {
             logger.LogWarning("CertificatePassword não informada — PDF de receita {DocId} não será assinado.", prescription.Id);
-            return;
+            return false;
         }
         if (string.IsNullOrWhiteSpace(accessCode))
         {
             logger.LogWarning("AccessCode não disponível para doc {DocId} — PDF não gerado (evita código incorreto na verificação).", prescription.Id);
-            return;
+            return false;
         }
         var (doctorName, crm, crmState, specialty) = await GetDoctorPdfInfoAsync(doctorProfile, ct);
         var meds = dto.Items.Select(i => $"{i.Drug}" + (string.IsNullOrEmpty(i.Posology) ? "" : $" — {i.Posology}")).ToList();
@@ -380,7 +442,7 @@ public class PostConsultationService(
         if (!result.Success || result.PdfBytes == null)
         {
             logger.LogError("Falha ao gerar PDF da receita {DocId}: {Error}", prescription.Id, result.ErrorMessage);
-            return;
+            return false;
         }
         var storagePath = $"documentos/{prescription.Id:N}/receita-{prescription.Id:N}.pdf";
         var signResult = await digitalCertificateService.SignPdfAsync(
@@ -389,15 +451,16 @@ public class PostConsultationService(
         if (!signResult.Success || string.IsNullOrEmpty(signResult.SignedDocumentUrl))
         {
             logger.LogError("Falha ao assinar PDF da receita {DocId}: {Error}", prescription.Id, signResult.ErrorMessage);
-            return;
+            return false;
         }
         await medicalDocumentRepository.SetSignedDocumentAsync(
             prescription.Id, signResult.SignedDocumentUrl, signResult.SignatureId,
             signResult.SignedPdfHash ?? "", "SHA-256", signResult.SignatureId ?? "",
             signResult.SignedAt ?? DateTime.UtcNow, true, null, null, ct);
+        return true;
     }
 
-    private async Task GenerateSignAndPersistExamPdfAsync(
+    private async Task<bool> GenerateSignAndPersistExamPdfAsync(
         ExamOrder examOrder,
         Patient patient,
         DoctorProfile doctorProfile,
@@ -409,12 +472,12 @@ public class PostConsultationService(
         if (string.IsNullOrWhiteSpace(pfxPassword))
         {
             logger.LogWarning("CertificatePassword não informada — PDF de exame {DocId} não será assinado.", examOrder.Id);
-            return;
+            return false;
         }
         if (string.IsNullOrWhiteSpace(accessCode))
         {
             logger.LogWarning("AccessCode não disponível para doc {DocId} — PDF não gerado.", examOrder.Id);
-            return;
+            return false;
         }
         var (doctorName, crm, crmState, specialty) = await GetDoctorPdfInfoAsync(doctorProfile, ct);
         var exams = examOrder.Items.Select(i => i.Description).ToList();
@@ -426,7 +489,7 @@ public class PostConsultationService(
         if (!result.Success || result.PdfBytes == null)
         {
             logger.LogError("Falha ao gerar PDF do exame {DocId}: {Error}", examOrder.Id, result.ErrorMessage);
-            return;
+            return false;
         }
         var storagePath = $"documentos/{examOrder.Id:N}/exame-{examOrder.Id:N}.pdf";
         var signResult = await digitalCertificateService.SignPdfAsync(
@@ -435,15 +498,16 @@ public class PostConsultationService(
         if (!signResult.Success || string.IsNullOrEmpty(signResult.SignedDocumentUrl))
         {
             logger.LogError("Falha ao assinar PDF do exame {DocId}: {Error}", examOrder.Id, signResult.ErrorMessage);
-            return;
+            return false;
         }
         await medicalDocumentRepository.SetSignedDocumentAsync(
             examOrder.Id, signResult.SignedDocumentUrl, signResult.SignatureId,
             signResult.SignedPdfHash ?? "", "SHA-256", signResult.SignatureId ?? "",
             signResult.SignedAt ?? DateTime.UtcNow, true, null, null, ct);
+        return true;
     }
 
-    private async Task GenerateSignAndPersistCertificatePdfAsync(
+    private async Task<bool> GenerateSignAndPersistCertificatePdfAsync(
         MedicalReport report,
         Patient patient,
         DoctorProfile doctorProfile,
@@ -455,12 +519,12 @@ public class PostConsultationService(
         if (string.IsNullOrWhiteSpace(pfxPassword))
         {
             logger.LogWarning("CertificatePassword não informada — PDF do atestado {DocId} não será assinado.", report.Id);
-            return;
+            return false;
         }
         if (string.IsNullOrWhiteSpace(accessCode))
         {
             logger.LogWarning("AccessCode não disponível para doc {DocId} — PDF não gerado.", report.Id);
-            return;
+            return false;
         }
         var (doctorName, crm, crmState, specialty) = await GetDoctorPdfInfoAsync(doctorProfile, ct);
         var certType = (dto.CertificateType ?? "afastamento").ToLowerInvariant() switch
@@ -478,7 +542,7 @@ public class PostConsultationService(
         if (!result.Success || result.PdfBytes == null)
         {
             logger.LogError("Falha ao gerar PDF do atestado {DocId}: {Error}", report.Id, result.ErrorMessage);
-            return;
+            return false;
         }
         var storagePath = $"documentos/{report.Id:N}/atestado-{report.Id:N}.pdf";
         var signResult = await digitalCertificateService.SignPdfAsync(
@@ -487,15 +551,16 @@ public class PostConsultationService(
         if (!signResult.Success || string.IsNullOrEmpty(signResult.SignedDocumentUrl))
         {
             logger.LogError("Falha ao assinar PDF do atestado {DocId}: {Error}", report.Id, signResult.ErrorMessage);
-            return;
+            return false;
         }
         await medicalDocumentRepository.SetSignedDocumentAsync(
             report.Id, signResult.SignedDocumentUrl, signResult.SignatureId,
             signResult.SignedPdfHash ?? "", "SHA-256", signResult.SignatureId ?? "",
             signResult.SignedAt ?? DateTime.UtcNow, true, null, null, ct);
+        return true;
     }
 
-    private async Task GenerateSignAndPersistCertificatePdfAsync(
+    private async Task<bool> GenerateSignAndPersistCertificatePdfAsync(
         MedicalReport report,
         Patient patient,
         DoctorProfile doctorProfile,
@@ -510,12 +575,12 @@ public class PostConsultationService(
         if (string.IsNullOrWhiteSpace(pfxPassword))
         {
             logger.LogWarning("CertificatePassword não informada — PDF do encaminhamento {DocId} não será assinado.", report.Id);
-            return;
+            return false;
         }
         if (string.IsNullOrWhiteSpace(accessCode))
         {
             logger.LogWarning("AccessCode não disponível para doc {DocId} — PDF não gerado.", report.Id);
-            return;
+            return false;
         }
         var (doctorName, crm, crmState, specialty) = await GetDoctorPdfInfoAsync(doctorProfile, ct);
         var data = new MedicalCertificatePdfData(
@@ -527,7 +592,7 @@ public class PostConsultationService(
         if (!result.Success || result.PdfBytes == null)
         {
             logger.LogError("Falha ao gerar PDF do encaminhamento {DocId}: {Error}", report.Id, result.ErrorMessage);
-            return;
+            return false;
         }
         var storagePath = $"documentos/{report.Id:N}/encaminhamento-{report.Id:N}.pdf";
         var signResult = await digitalCertificateService.SignPdfAsync(
@@ -536,11 +601,12 @@ public class PostConsultationService(
         if (!signResult.Success || string.IsNullOrEmpty(signResult.SignedDocumentUrl))
         {
             logger.LogError("Falha ao assinar PDF do encaminhamento {DocId}: {Error}", report.Id, signResult.ErrorMessage);
-            return;
+            return false;
         }
         await medicalDocumentRepository.SetSignedDocumentAsync(
             report.Id, signResult.SignedDocumentUrl, signResult.SignatureId,
             signResult.SignedPdfHash ?? "", "SHA-256", signResult.SignatureId ?? "",
             signResult.SignedAt ?? DateTime.UtcNow, true, null, null, ct);
+        return true;
     }
 }

@@ -402,8 +402,9 @@ public class EncounterModel
     public Guid Id { get; set; }
     public Guid PatientId { get; set; }
     public Guid PractitionerId { get; set; }
+    /// <summary>No schema.sql é TEXT; usar string para evitar "Error parsing column" ao mapear.</summary>
     [JsonPropertyName("source_request_id")]
-    public Guid? SourceRequestId { get; set; }
+    public string? SourceRequestId { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Status { get; set; } = "draft";
     public DateTime StartedAt { get; set; }

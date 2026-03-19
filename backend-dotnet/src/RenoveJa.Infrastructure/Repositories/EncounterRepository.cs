@@ -156,7 +156,7 @@ public class EncounterRepository(PostgresClient db) : IEncounterRepository
             CreatedAt = encounter.CreatedAt
         };
         if (sourceRequestId.HasValue)
-            model.SourceRequestId = sourceRequestId;
+            model.SourceRequestId = sourceRequestId.Value.ToString();
         return model;
     }
 }

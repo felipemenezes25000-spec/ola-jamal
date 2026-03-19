@@ -79,6 +79,8 @@ export interface PostConsultationEmitResponse {
   documentsEmitted: number;
   documentTypes: string[];
   message: string;
+  warnings?: string[];
+  errors?: string[];
 }
 
 // ── CID Package (dados locais para pré-preenchimento) ──
