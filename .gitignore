@@ -68,3 +68,4 @@ infra/*.tfvars
 infra/.terraform.lock.hcl
 # Senha RDS (script apply-schema.ps1)
 infra/scripts/.db-password
+*.backup
