@@ -144,7 +144,7 @@ resource "aws_security_group" "aurora" {
     to_port     = 5432
     protocol    = "tcp"
     cidr_blocks = [for s in aws_subnet.private : s.cidr_block]
-    description = "pgAdmin acesso restrito às subnets privadas"
+    description = "pgAdmin acesso restrito as subnets privadas"
   }
 
   tags = { Name = "${var.project}-aurora-sg" }
