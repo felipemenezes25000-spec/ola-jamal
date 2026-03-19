@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Logging;
@@ -13,7 +14,7 @@ namespace RenoveJa.Infrastructure.Storage;
 ///   pacientes/{patientId}/{tipo}/{requestId}/...
 /// Copia objetos (mantém originais como backup) e atualiza URLs no banco.
 /// </summary>
-public sealed class S3MigrationService(
+public sealed partial class S3MigrationService(
     IAmazonS3 s3,
     IOptions<S3StorageConfig> s3Config,
     IOptions<DatabaseConfig> dbConfig,
@@ -30,19 +31,22 @@ public sealed class S3MigrationService(
         var dbUpdated = 0;
         var scanned = 0;
 
-        // 1. Migrate signed prescriptions: signed/{requestId}.pdf → pacientes/{patientId}/pedidos/{requestId}/receita/assinado/receita-{requestId}.pdf
+        // 1. Migrate signed prescriptions/exams
+        // Real formats: signed/receita-assinada-{guid}[-timestamp].pdf, signed/pedido-exame-assinado-{guid}[-timestamp].pdf
         var prescriptionMap = await LoadRequestPatientMapAsync(ct);
+        var guidRegex = GuidPattern();
         var signedObjects = await ListObjectsAsync(_cfg.PrescriptionsBucket, "signed/", ct);
         foreach (var obj in signedObjects)
         {
             scanned++;
             var key = obj.Key;
-            // signed/{requestId}.pdf or signed/{requestId}-exame.pdf
-            var fileName = Path.GetFileNameWithoutExtension(key);
-            var isExam = fileName.EndsWith("-exame", StringComparison.OrdinalIgnoreCase);
-            var idStr = isExam ? fileName.Replace("-exame", "") : fileName;
+            var fileName = Path.GetFileName(key);
+            var isExam = fileName.StartsWith("pedido-exame-assinado", StringComparison.OrdinalIgnoreCase);
 
-            if (!Guid.TryParse(idStr, out var requestId) || !prescriptionMap.TryGetValue(requestId, out var patientId))
+            // Extract the first GUID found in the filename
+            var match = guidRegex.Match(fileName);
+            if (!match.Success || !Guid.TryParse(match.Value, out var requestId) ||
+                !prescriptionMap.TryGetValue(requestId, out var patientId))
             {
                 errors.Add($"Skip {key}: cannot resolve patientId");
                 continue;
@@ -313,4 +317,7 @@ public sealed class S3MigrationService(
 
         return updated;
     }
+
+    [GeneratedRegex(@"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")]
+    private static partial Regex GuidPattern();
 }
