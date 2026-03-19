@@ -124,6 +124,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
 
   // ── State: Prescription ──
   const [rxType, setRxType] = useState<'simples' | 'controlado'>('simples');
+  const [rxGeneralInstructions, setRxGeneralInstructions] = useState('');
   const [meds, setMeds] = useState<PrescriptionItemEmit[]>(() =>
     buildMedsFromAnamnesis(anamnesis).length > 0
       ? buildMedsFromAnamnesis(anamnesis)
@@ -312,7 +313,11 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       };
 
       if (rxEnabled && meds.length > 0) {
-        payload.prescription = { type: rxType, items: meds };
+        payload.prescription = {
+          type: rxType,
+          items: meds,
+          generalInstructions: rxGeneralInstructions.trim() || undefined,
+        };
       }
       if (exEnabled && exams.length > 0) {
         payload.examOrder = { clinicalJustification: examJustification, items: exams };
@@ -425,6 +430,18 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
                 <Ionicons name="add" size={18} color="#2E5BFF" />
                 <Text style={S.addBtnText}>Adicionar medicamento</Text>
               </TouchableOpacity>
+              <View style={{ marginTop: 12 }}>
+                <Text style={S.fieldLabel}>Instruções gerais (opcional)</Text>
+                <TextInput
+                  style={S.textArea}
+                  value={rxGeneralInstructions}
+                  onChangeText={setRxGeneralInstructions}
+                  placeholder="Ex: Tomar após as refeições. Evitar álcool. Retornar em 15 dias."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
             </View>
           )}
         </View>
