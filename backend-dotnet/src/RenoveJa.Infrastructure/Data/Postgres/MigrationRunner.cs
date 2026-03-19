@@ -443,7 +443,20 @@ public static class MigrationRunner
           ADD CONSTRAINT encounters_patient_id_fkey
           FOREIGN KEY (patient_id) REFERENCES public.patients(id) ON DELETE CASCADE
         """,
-        // 4. Corrigir medical_documents que herdaram o patient_id errado
+        // 4. Remover FK incorreta de medical_documents (se apontar para users)
+        """
+        DO $$
+        DECLARE fk_name TEXT;
+        BEGIN
+            SELECT conname INTO fk_name FROM pg_constraint
+            WHERE conrelid = 'public.medical_documents'::regclass
+              AND contype = 'f' AND conname LIKE '%patient_id%';
+            IF fk_name IS NOT NULL THEN
+                EXECUTE format('ALTER TABLE public.medical_documents DROP CONSTRAINT %I', fk_name);
+            END IF;
+        END $$
+        """,
+        // 5. Corrigir medical_documents que herdaram o patient_id errado
         """
         UPDATE public.medical_documents md
         SET patient_id = p.id
@@ -451,6 +464,12 @@ public static class MigrationRunner
         WHERE md.patient_id = p.user_id
           AND md.patient_id != p.id
           AND NOT EXISTS (SELECT 1 FROM public.patients px WHERE px.id = md.patient_id)
+        """,
+        // 6. Recriar FK correta: medical_documents.patient_id → patients(id)
+        """
+        ALTER TABLE public.medical_documents
+          ADD CONSTRAINT medical_documents_patient_id_fkey
+          FOREIGN KEY (patient_id) REFERENCES public.patients(id) ON DELETE CASCADE
         """
     };
 
