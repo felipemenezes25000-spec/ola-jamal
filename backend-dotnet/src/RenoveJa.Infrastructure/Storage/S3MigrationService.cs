@@ -83,11 +83,7 @@ public sealed partial class S3MigrationService(
             var subPath = string.Join("/", parts.Skip(2));
             var newKey = $"pacientes/{patId:N}/consultas/{reqId:N}/{subPath}";
 
-            var destBucket = key.Contains("/gravacao/") || key.Contains("/recordings/")
-                ? _cfg.TranscriptsBucket
-                : _cfg.TranscriptsBucket;
-
-            if (await CopyIfNeededAsync(_cfg.TranscriptsBucket, key, destBucket, newKey, dryRun, ct))
+            if (await CopyIfNeededAsync(_cfg.TranscriptsBucket, key, _cfg.TranscriptsBucket, newKey, dryRun, ct))
                 copied++;
         }
 

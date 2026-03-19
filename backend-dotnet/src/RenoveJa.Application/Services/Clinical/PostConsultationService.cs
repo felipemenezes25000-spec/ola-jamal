@@ -471,7 +471,7 @@ public class PostConsultationService(
             logger.LogError("Falha ao gerar PDF da receita {DocId}: {Error}", prescription.Id, result.ErrorMessage);
             return false;
         }
-        var storagePath = $"documentos/{prescription.Id:N}/receita-{prescription.Id:N}.pdf";
+        var storagePath = Helpers.StoragePaths.DocumentoReceita(patient.Id, prescription.Id);
         var signResult = await digitalCertificateService.SignPdfAsync(
             doctorProfile.ActiveCertificateId!.Value, result.PdfBytes, storagePath, pfxPassword,
             documentTypeHint: "prescription", ct);
@@ -522,7 +522,7 @@ public class PostConsultationService(
             logger.LogError("Falha ao gerar PDF do exame {DocId}: {Error}", examOrder.Id, result.ErrorMessage);
             return false;
         }
-        var storagePath = $"documentos/{examOrder.Id:N}/exame-{examOrder.Id:N}.pdf";
+        var storagePath = Helpers.StoragePaths.DocumentoExame(patient.Id, examOrder.Id);
         var signResult = await digitalCertificateService.SignPdfAsync(
             doctorProfile.ActiveCertificateId!.Value, result.PdfBytes, storagePath, pfxPassword,
             documentTypeHint: "exam", ct);
@@ -575,7 +575,7 @@ public class PostConsultationService(
             logger.LogError("Falha ao gerar PDF do atestado {DocId}: {Error}", report.Id, result.ErrorMessage);
             return false;
         }
-        var storagePath = $"documentos/{report.Id:N}/atestado-{report.Id:N}.pdf";
+        var storagePath = Helpers.StoragePaths.DocumentoAtestado(patient.Id, report.Id);
         var signResult = await digitalCertificateService.SignPdfAsync(
             doctorProfile.ActiveCertificateId!.Value, result.PdfBytes, storagePath, pfxPassword,
             documentTypeHint: "atestado", ct);
@@ -625,7 +625,7 @@ public class PostConsultationService(
             logger.LogError("Falha ao gerar PDF do encaminhamento {DocId}: {Error}", report.Id, result.ErrorMessage);
             return false;
         }
-        var storagePath = $"documentos/{report.Id:N}/encaminhamento-{report.Id:N}.pdf";
+        var storagePath = Helpers.StoragePaths.DocumentoEncaminhamento(patient.Id, report.Id);
         var signResult = await digitalCertificateService.SignPdfAsync(
             doctorProfile.ActiveCertificateId!.Value, result.PdfBytes, storagePath, pfxPassword,
             documentTypeHint: "encaminhamento", ct);
