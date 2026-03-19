@@ -277,6 +277,57 @@ BLOQUEIO ABSOLUTO DE CID F10.x (ALCOOLISMO):
     }
 
     /// <summary>
-    /// Builds the prompt for filtering/translating evidence articles based on clinical context.
+    /// Monta a mensagem de usuário (transcript + instruções de raciocínio) enviada ao modelo de anamnese.
+    /// </summary>
+    internal static string BuildUserContentForAnamnesisV2(string processedTranscript, string? previousAnamnesisJson)
+    {
+        var transcriptBlock = $@"═══ TRANSCRIPT DA CONSULTA (pré-processado, linhas consolidadas por locutor) ═══
 
+{processedTranscript}
+
+═══ FIM DO TRANSCRIPT ═══";
+
+        var reasoningInstruction = @"
+═══ INSTRUÇÕES OBRIGATÓRIAS ANTES DE GERAR O JSON ═══
+
+ETAPA 1 — RECONSTRUÇÃO: O transcript vem de reconhecimento de fala (Deepgram/Daily) e contém ERROS FONÉTICOS. Reconstrua mentalmente o que o paciente QUIS dizer. Exemplos comuns:
+- ""saúde não teu pressão alta"" → ""não tenho pressão alta""
+- ""pescoço macho"" → ""pescoço, acho""
+- ""de bar"" → ""daqui debaixo""
+- ""mu"" → ""nuca"" (região cervical posterior)
+- ""talk aguda de querida"" → ""toxoplasmose aguda adquirida""
+- ""uma mono de"" → ""mononucleose""
+Leia com olhos clínicos: interprete o SENTIDO MÉDICO, não a literalidade.
+
+ETAPA 2 — EXTRAÇÃO DE DADOS CLÍNICOS: Antes de definir QUALQUER CID, liste mentalmente:
+• Quais SINTOMAS o paciente relatou? (duração, localização, intensidade, caráter)
+• Quais SINAIS foram mencionados? (febre, inchaço, etc.)
+• Qual a HISTÓRIA EPIDEMIOLÓGICA? (contato com animais, viagens, exposições)
+• O que o paciente NEGA? (nega hipertensão, nega medicamentos, nega alergias)
+• O que o MÉDICO comentou no final? (diagnósticos, CIDs mencionados verbalmente)
+
+ETAPA 3 — RACIOCÍNIO DIAGNÓSTICO: Com os dados extraídos, raciocine:
+• Qual SISTEMA/ÓRGÃO está envolvido? (apenas os que o paciente MENCIONOU)
+• Quais HIPÓTESES explicam TODOS os achados juntos?
+• Qual dado epidemiológico é CHAVE para o diagnóstico diferencial?
+• O CID deve cobrir o quadro COMPLETO, não apenas um sintoma isolado.
+
+SOMENTE DEPOIS das 3 etapas, gere o JSON com cid_sugerido coerente.";
+
+        if (string.IsNullOrWhiteSpace(previousAnamnesisJson))
+        {
+            return $@"{reasoningInstruction}
+
+{transcriptBlock}";
+        }
+
+        return $@"{reasoningInstruction}
+
+ANAMNESE ANTERIOR (use como REFERÊNCIA, mas RECALCULE TUDO — especialmente cid_sugerido e diagnostico_diferencial — do ZERO com base no transcript completo abaixo. O CID anterior pode estar ERRADO. Não o preserve por inércia.):
+{previousAnamnesisJson}
+
+REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do transcript abaixo, seguindo as 3 etapas acima.
+
+{transcriptBlock}";
+    }
 }

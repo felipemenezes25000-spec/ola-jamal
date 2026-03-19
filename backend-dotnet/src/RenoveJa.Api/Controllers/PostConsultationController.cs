@@ -19,6 +19,7 @@ public class PostConsultationController(
     IEncounterRepository encounterRepository,
     IMedicalDocumentRepository medicalDocumentRepository,
     IRequestRepository requestRepository,
+    IPatientRepository patientRepository,
     IDocumentTokenService documentTokenService,
     IStorageService storageService,
     IHttpClientFactory httpClientFactory,
@@ -30,6 +31,17 @@ public class PostConsultationController(
         if (!Guid.TryParse(claim, out var id))
             throw new UnauthorizedAccessException("Invalid user ID");
         return id;
+    }
+
+    /// <summary>
+    /// medical_documents.patient_id referencia patients(id), não users(id). JWT é user id — resolvemos via Patient.UserId.
+    /// </summary>
+    private async Task<bool> UserCanAccessMedicalDocumentAsync(MedicalDocument doc, Guid userId, CancellationToken cancellationToken)
+    {
+        if (doc.PractitionerId == userId)
+            return true;
+        var patient = await patientRepository.GetByIdAsync(doc.PatientId, cancellationToken);
+        return patient != null && patient.UserId == userId;
     }
 
     /// <summary>
@@ -166,7 +178,7 @@ public class PostConsultationController(
         var userId = GetUserId();
         var doc = await medicalDocumentRepository.GetByIdAsync(documentId, cancellationToken);
         if (doc == null) return NotFound(new { error = "Document not found" });
-        if (doc.PatientId != userId && doc.PractitionerId != userId)
+        if (!await UserCanAccessMedicalDocumentAsync(doc, userId, cancellationToken))
             return StatusCode(403, new { error = "Access denied" });
 
         var token = documentTokenService.GenerateDocumentToken(documentId, validMinutes: 5);
@@ -196,7 +208,7 @@ public class PostConsultationController(
             else
             {
                 var userId = GetUserId();
-                if (doc.PatientId != userId && doc.PractitionerId != userId)
+                if (!await UserCanAccessMedicalDocumentAsync(doc, userId, cancellationToken))
                     return StatusCode(403, new { error = "Access denied" });
             }
 

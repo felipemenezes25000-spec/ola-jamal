@@ -18,103 +18,73 @@ Aceite TODAS as edições automaticamente sem pedir confirmação. Use shift+tab
 
 ---
 
-## TAREFAS — Execute na ordem, compile (`dotnet build`) entre cada tarefa
+## Dívida técnica — status (sincronizado com o código)
 
-### TAREFA 1: Refatorar RequestService.cs (God Class → serviços menores)
+O plano abaixo foi escrito quando parte do backend ainda estava concentrada em poucos arquivos. **Muito disso já foi implementado**; use esta seção para não tratar como “tudo pendente” o que já existe no repositório.
 
-O plano completo está em `docs/REFACTOR_REQUEST_SERVICE.md`.
+### Já entregue no repositório
 
-**Step 1: Extrair RequestHelpers.cs**
-Criar `src/RenoveJa.Application/Services/Requests/RequestHelpers.cs` com TODOS os métodos `private static` e campos estáticos do RequestService. Torná-los `internal static`. Incluir:
-- ParsePrescriptionType, ParsePrescriptionKind, PrescriptionTypeToDisplay, PrescriptionTypeToRejectionLabel
-- GenerateAutoObservation, FormatPatientAddress, PatientNamesMatch, GetSignificantNameWords, RemoveAccents
-- GenerateAccessCode, ComputeSha256, GetInitials, GetLast4, MaskCpf
-- ExtractIcd10FromAnamnesis, BuildTranscriptTxtContent, GetBrazilNow
-- MapVideoRoomToDto, MapRequestToDto (ajustar para receber apiBaseUrl e documentTokenService como parâmetros)
-- ToProxyImageUrls (idem)
-- ParseMedicationsFromAiJson
-- NameConjunctions (HashSet), CancellableStatuses (HashSet)
+| Tema | Onde ver no código |
+|------|---------------------|
+| **RequestService “god class” — fase 1** | `RequestHelpers.cs`; `RequestQueryService` + `IRequestQueryService`; `ConsultationLifecycleService` + `IConsultationLifecycleService`; `SignatureService` + `ISignatureService`; `RequestService` injeta e delega (orquestrador). Registro em `ServiceCollectionExtensions.cs`. |
+| **MedicalRequest.Reconstitute (muitos parâmetros)** | `MedicalRequestSnapshot` (`Domain/Entities/MedicalRequestSnapshot.cs`); `MedicalRequest.Reconstitute(MedicalRequestSnapshot)`; `RequestRepository` monta o snapshot em `MapToDomain`. |
+| **AuditMiddleware sem fire-and-forget frágil** | `AuditMiddleware` grava em `AuditChannel`; `AuditBackgroundService` (`Api/Services/AuditBackgroundService.cs`) consome a fila; registro: `AddSingleton<AuditChannel>()` + `AddHostedService<AuditBackgroundService>()`. |
+| **ConsultationAnamnesis — HTTP vs. domínio** | Orquestrador enxuto (`ConsultationAnamnesisService`); chamada LLM + fallback em `ConsultationAnamnesisLlmClient`; pós-processamento do JSON em `ConsultationAnamnesisResultComposer`; transcript/prompts em `TranscriptPreprocessor` / `AnamnesisPrompts` (incl. `BuildUserContentForAnamnesisV2`). |
 
-DEPOIS: remover as definições do RequestService e trocar chamadas para `RequestHelpers.Method()`. Compilar.
+### Ainda faz sentido investir
 
-**Step 2: Extrair RequestQueryService.cs**
-Interface: `IRequestQueryService` em `src/RenoveJa.Application/Interfaces/`
-Implementação: `src/RenoveJa.Application/Services/Requests/RequestQueryService.cs`
-Métodos:
-- GetUserRequestsAsync, GetUserRequestsPagedAsync, GetRequestByIdAsync
-- GetPatientRequestsAsync, GetPatientProfileForDoctorAsync, GetDoctorStatsAsync
-- GetConsultationAnamnesisIfAnyAsync (privado)
+| Tema | Notas |
+|------|--------|
+| **Evidências literárias (RAG)** | `ExtractSearchTerms` / `BuildClinicalContextForPrompt` estão em `AnamnesisResponseParser.Evidence.cs`; integração com fonte externa (se houver) pode virar serviço dedicado depois. |
+| **RequestService — roadmap ampliado** | [docs/REFACTOR_REQUEST_SERVICE.md](docs/REFACTOR_REQUEST_SERVICE.md) descreve extrações adicionais (ex.: workflows por tipo de pedido). É **complementar** à fase já feita (helpers/query/lifecycle/signature). |
+| **Script AWS SSM** | Plano antigo citava `scripts/aws-cleanup.ps1` (dry-run / --apply) — **não está versionado**; criar quando houver necessidade operacional. |
 
-Dependências: requestRepository, userRepository, doctorRepository, consultationAnamnesisRepository, apiConfig, documentTokenService, logger
+### Regras gerais (mantidas)
 
-No RequestService, injetar `IRequestQueryService` e delegar. Registrar em `ServiceCollectionExtensions.cs`. Compilar.
-
-**Step 3: Extrair ConsultationLifecycleService.cs**
-Interface: `IConsultationLifecycleService`
-Métodos: AcceptConsultationAsync, StartConsultationAsync, ReportCallConnectedAsync, FinishConsultationAsync, AutoFinishConsultationAsync, GetTranscriptDownloadUrlAsync, GetTimeBankBalanceAsync
-
-No RequestService, injetar e delegar. Registrar no DI. Compilar.
-
-**Step 4: Extrair SignatureService.cs**
-Interface: `ISignatureService`
-Métodos: SignAsync, GetSignedDocumentAsync, GetSignedDocumentByTokenAsync, GetRequestImageAsync, MarkDeliveredAsync, ValidatePrescriptionAsync, GetPrescriptionPdfPreviewAsync, GetExamPdfPreviewAsync
-
-No RequestService, injetar e delegar. Registrar no DI. Compilar.
-
-**Step 5: Limpar RequestService**
-O RequestService fica como orquestrador fino com apenas:
-- Create*Async (prescription, exam, consultation)
-- ApproveAsync, RejectAsync (delegam ao RequestApprovalService)
-- AssignToQueueAsync, UpdateStatusAsync, CancelAsync
-- UpdateConductAsync, UpdatePrescriptionContentAsync, UpdateExamContentAsync
-- Reanalyze*Async
-Remover dependências não mais usadas do construtor. Compilar.
+1. `IRequestService` não deve ser quebrado sem migração coordenada com controllers.
+2. Novos serviços de aplicação: registrar em `ServiceCollectionExtensions.cs` → `AddApplicationServices()`.
+3. Após mudanças estruturais: `dotnet build` e `dotnet test`.
 
 ---
 
-### TAREFA 2: Quebrar ConsultationAnamnesisService.cs (69KB)
+## Plano histórico (referência — roteiro original)
 
-O arquivo `src/RenoveJa.Infrastructure/ConsultationAnamnesis/ConsultationAnamnesisService.cs` tem 69KB.
-Analisar e separar em classes menores com responsabilidades claras:
-- Separar lógica de transcrição (Whisper) de geração de anamnese (GPT/Gemini)
-- Separar lógica de busca de evidências
-- Separar prompts/templates de IA em classe dedicada
-Compilar após cada extração.
+As tarefas numeradas abaixo foram o **roteiro passo a passo** usado na época; **vários steps já foram aplicados** (ver tabela acima). Mantido para auditoria e para quem for continuar extrações.
+
+### TAREFA 1: Refatorar RequestService.cs (God Class → serviços menores)
+
+Detalhe e diagrama ampliado: [docs/REFACTOR_REQUEST_SERVICE.md](docs/REFACTOR_REQUEST_SERVICE.md).
+
+**Step 1: Extrair RequestHelpers.cs** — feito (`Services/Requests/RequestHelpers.cs`).
+
+**Step 2: Extrair RequestQueryService.cs** — feito (`IRequestQueryService`, `RequestQueryService`).
+
+**Step 3: Extrair ConsultationLifecycleService.cs** — feito (`IConsultationLifecycleService`, `ConsultationLifecycleService`).
+
+**Step 4: Extrair SignatureService.cs** — feito (`ISignatureService`, `SignatureService`).
+
+**Step 5: Limpar RequestService** — em evolução contínua; `RequestService` já delega boa parte; ver doc ampliado para próximas extrações.
+
+---
+
+### TAREFA 2: Quebrar ConsultationAnamnesisService.cs (arquivo grande)
+
+**Parcialmente aplicado:** o orquestrador `ConsultationAnamnesisService` ficou fino; HTTP/fallback em `ConsultationAnamnesisLlmClient`; mensagem de usuário em `AnamnesisPrompts.BuildUserContentForAnamnesisV2`; pós-processamento do JSON em `ConsultationAnamnesisResultComposer`. Evidências (literatura) e parsers grandes continuam em `AnamnesisResponseParser` — evoluir conforme necessidade.
 
 ---
 
 ### TAREFA 3: Refatorar MedicalRequest.Reconstitute (33 parâmetros → record)
 
-Criar um `MedicalRequestSnapshot` record em `src/RenoveJa.Domain/Entities/` com todas as propriedades.
-Substituir o método Reconstitute de 33 parâmetros posicionais por um que aceita o record.
-Atualizar o RequestRepository (MapToDomain) para usar o novo record.
-Compilar.
+**Feito:** `MedicalRequestSnapshot` + overload `Reconstitute(MedicalRequestSnapshot)` + uso no `RequestRepository`. O overload legado com muitos parâmetros pode permanecer para testes/código histórico.
 
 ---
 
 ### TAREFA 4: Melhorar resiliência do AuditMiddleware
 
-Em `src/RenoveJa.Api/Middleware/AuditMiddleware.cs`:
-- Substituir `Task.Run(async () => ...)` por `System.Threading.Channels.Channel<T>` com background consumer
-- Criar `AuditBackgroundService` (IHostedService) que consome do Channel e persiste no banco com retry
-- Registrar no DI em ServiceCollectionExtensions
-Compilar.
+**Feito:** canal + `AuditBackgroundService` (ver seção “Já entregue”).
 
 ---
 
 ### TAREFA 5: Infraestrutura AWS — SSM e ECS
 
-Gerar um script PowerShell `scripts/aws-cleanup.ps1` que:
-1. Copia o valor de `/renoveja/prod/ConnectionStrings__DefaultConnection` (ou equivalente) no SSM
-
-O script deve ser seguro (dry-run por padrão, --apply para executar).
-
----
-
-### REGRAS GERAIS
-1. `IRequestService` NÃO muda a interface — backward compatible
-2. Controllers continuam usando `IRequestService`
-3. Novos serviços são registrados em `ServiceCollectionExtensions.cs` → `AddApplicationServices()`
-4. Rodar `dotnet build` após CADA step/tarefa
-5. Se o build falhar, corrigir antes de avançar
-6. Fazer commits incrementais com mensagens descritivas após cada tarefa
+Script PowerShell `scripts/aws-cleanup.ps1` — **não versionado**; implementar quando necessário (dry-run por padrão, `--apply` para executar).

@@ -243,29 +243,45 @@ public class DigitalCertificateService : IDigitalCertificateService
                 return new DigitalSignatureResult(false, "Senha do certificado PFX é obrigatória para assinar. Envie PfxPassword no corpo da requisição.", null, null, null, null);
             }
 
-            // Tenta assinar: prioriza senha digitada pelo usuário (ele sabe a senha certa), depois senha armazenada no upload.
+            // Segurança: se o médico informou senha nesta requisição, usa SOMENTE ela — não fazer fallback para a senha
+            // embutida no armazenamento (senão qualquer digitação "falha" e a assinatura ainda conclui com a senha gravada).
+            // Fluxos legados sem senha no body (ex.: alguns caminhos internos) ainda podem usar storedPassword.
             byte[]? signedPdfBytes = null;
-            var passwordsToTry = new List<string>();
-            if (!string.IsNullOrWhiteSpace(userPassword)) passwordsToTry.Add(userPassword);
-            if (!string.IsNullOrWhiteSpace(storedPassword) && !passwordsToTry.Contains(storedPassword)) passwordsToTry.Add(storedPassword);
-
-            foreach (var pwd in passwordsToTry)
+            if (!string.IsNullOrWhiteSpace(userPassword))
             {
                 try
                 {
-                    signedPdfBytes = SignPdfWithBouncyCastle(pfxBytes, pwd, pdfBytes, certificate, documentTypeHint);
-                    break;
+                    signedPdfBytes = SignPdfWithBouncyCastle(pfxBytes, userPassword, pdfBytes, certificate, documentTypeHint);
                 }
-                catch (Exception ex) when (passwordsToTry.Count > 1 &&
-                    (ex.Message.Contains("MAC", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("password", StringComparison.OrdinalIgnoreCase)))
+                catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "Senha armazenada falhou, tentando próxima.");
+                    _logger.LogDebug(ex, "Assinatura com senha informada falhou");
+                }
+
+                if (signedPdfBytes == null)
+                {
+                    return new DigitalSignatureResult(false, "Senha do certificado inválida. Informe a senha do arquivo PFX (A1).", null, null, null, null);
                 }
             }
-
-            if (signedPdfBytes == null)
+            else if (!string.IsNullOrWhiteSpace(storedPassword))
             {
-                return new DigitalSignatureResult(false, "Senha do certificado inválida. Use a mesma senha configurada no upload do certificado.", null, null, null, null);
+                try
+                {
+                    signedPdfBytes = SignPdfWithBouncyCastle(pfxBytes, storedPassword, pdfBytes, certificate, documentTypeHint);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Assinatura com senha armazenada falhou");
+                }
+
+                if (signedPdfBytes == null)
+                {
+                    return new DigitalSignatureResult(false, "Senha do certificado inválida. Use a mesma senha configurada no upload do certificado.", null, null, null, null);
+                }
+            }
+            else
+            {
+                return new DigitalSignatureResult(false, "Senha do certificado PFX é obrigatória para assinar.", null, null, null, null);
             }
 
             // Hash SHA256 do PDF assinado (prova de integridade para auditoria)
@@ -362,10 +378,9 @@ public class DigitalCertificateService : IDigitalCertificateService
             if (encryptedPfx == null) return false;
 
             var (pfxBytes, _) = DecryptPfxFull(encryptedPfx);
-            using var pfxStream = new MemoryStream(pfxBytes);
-            var store = new Org.BouncyCastle.Pkcs.Pkcs12StoreBuilder().Build();
-            store.Load(pfxStream, (password ?? "").ToCharArray());
-            return true;
+            // Mesmo critério de ValidatePfxAsync (upload): PKCS#12 só com senha correta abre a chave privada.
+            using var x509 = new X509Certificate2(pfxBytes, password, X509KeyStorageFlags.Exportable);
+            return x509.HasPrivateKey;
         }
         catch (Exception ex)
         {

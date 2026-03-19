@@ -83,9 +83,21 @@ export default function PostConsultationEmitRoute() {
         <View style={{ flex: 1 }}>
           <Text style={s.patientName}>{request.patientName ?? 'Paciente'}</Text>
           <Text style={s.patientMeta}>
-            {request.patientBirthDate && !Number.isNaN(new Date(request.patientBirthDate).getTime())
-              ? `${Math.floor((Date.now() - new Date(request.patientBirthDate).getTime()) / 31557600000)} anos`
-              : ''}
+            {[
+              request.patientBirthDate && !Number.isNaN(new Date(request.patientBirthDate).getTime())
+                ? `${Math.floor((Date.now() - new Date(request.patientBirthDate).getTime()) / 31557600000)} anos`
+                : null,
+              request.patientGender
+                ? (() => {
+                    const g = String(request.patientGender).trim().toUpperCase();
+                    if (g === 'M' || g === 'MASCULINO' || g === 'HOMEM') return 'Masculino';
+                    if (g === 'F' || g === 'FEMININO' || g === 'MULHER') return 'Feminino';
+                    return request.patientGender;
+                  })()
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </Text>
         </View>
         <View style={s.badge}>

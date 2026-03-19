@@ -84,6 +84,16 @@ export interface UseDailyJoinReturn {
 let globalCallInstance: DailyCall | null = null;
 let destroyPromise: Promise<void> | null = null;
 
+/** Serializes join/leave so two concurrent join() calls cannot both pass ensurePreviousDestroyed
+ *  before createCallObject() (React Strict Mode / double effect / rapid re-entry). */
+let dailyOpChain: Promise<void> = Promise.resolve();
+
+function runDailyOpExclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = dailyOpChain.then(() => fn());
+  dailyOpChain = run.then(() => {}).catch(() => {});
+  return run;
+}
+
 async function ensurePreviousDestroyed(): Promise<void> {
   if (destroyPromise) {
     await destroyPromise;
@@ -159,121 +169,131 @@ export function useDailyJoin({
   const join = useCallback(async () => {
     if (callRef.current) return;
 
+    /** Evita narrowing incorreto de callRef no catch (TS pensa que .current segue null após o guard do início). */
+    let createdCall: DailyCall | null = null;
+
     try {
-      setCallState('joining');
-      setErrorMessage(null);
+      await runDailyOpExclusive(async () => {
+        if (callRef.current) return;
 
-      // Wait for any previous Daily instance to be fully destroyed
-      await ensurePreviousDestroyed();
+        setCallState('joining');
+        setErrorMessage(null);
 
-      const call = Daily.createCallObject({
-        audioSource: true,
-        videoSource: true,
-      });
-      callRef.current = call;
-      globalCallInstance = call;
+        // Wait for any previous Daily instance to be fully destroyed
+        await ensurePreviousDestroyed();
 
-      // --- Event handlers ---
+        if (callRef.current) return;
 
-      call.on('joined-meeting' as DailyEvent, () => {
-        setCallState('joined');
-        updateParticipants();
-        // Foreground service mantém câmera/microfone ativos em PiP (Android)
-        if (Platform.OS === 'android') {
-          const DailyNativeUtils = NativeModules.DailyNativeUtils;
-          if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
-            DailyNativeUtils.setShowOngoingMeetingNotification(
-              true,
-              'Consulta em andamento',
-              'Toque para expandir',
-              'ic_daily_videocam_24dp',
-              'renoveja-call'
-            );
+        const call = Daily.createCallObject({
+          audioSource: true,
+          videoSource: true,
+        });
+        createdCall = call;
+        callRef.current = call;
+        globalCallInstance = call;
+
+        // --- Event handlers ---
+
+        call.on('joined-meeting' as DailyEvent, () => {
+          setCallState('joined');
+          updateParticipants();
+          // Foreground service mantém câmera/microfone ativos em PiP (Android)
+          if (Platform.OS === 'android') {
+            const DailyNativeUtils = NativeModules.DailyNativeUtils;
+            if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
+              DailyNativeUtils.setShowOngoingMeetingNotification(
+                true,
+                'Consulta em andamento',
+                'Toque para expandir',
+                'ic_daily_videocam_24dp',
+                'renoveja-call'
+              );
+            }
           }
-        }
-      });
+        });
 
-      call.on('participant-joined' as DailyEvent, (event: DailyParticipantEvent) => {
-        updateParticipants();
-        if (event && !event.participant?.local) {
-          onRemoteJoinedRef.current?.();
-        }
-      });
-
-      call.on('participant-updated' as DailyEvent, () => {
-        updateParticipants();
-      });
-
-      call.on('participant-left' as DailyEvent, (event: DailyParticipantEvent) => {
-        const participant = event?.participant;
-        const localSessionId = call.participants()?.local?.session_id;
-
-        if (__DEV__) {
-          console.warn('[useDailyJoin] participant-left', {
-            participantLocal: participant?.local,
-            participantSessionId: participant?.session_id,
-            localSessionId,
-            isDoctor: isDoctorRef.current,
-            reason: event?.reason,
-          });
-        }
-
-        const isLocalParticipant =
-          participant?.session_id != null &&
-          localSessionId != null &&
-          participant.session_id === localSessionId;
-        const remoteLeft = participant && !isLocalParticipant;
-        const localEjected = isLocalParticipant;
-
-        if (remoteLeft) {
-          setRemoteParticipant(null);
-          if (!isDoctorRef.current) {
-            if (__DEV__) console.warn('[useDailyJoin] onCallEnded(remote-left)');
-            onCallEndedRef.current?.('remote-left');
+        call.on('participant-joined' as DailyEvent, (event: DailyParticipantEvent) => {
+          updateParticipants();
+          if (event && !event.participant?.local) {
+            onRemoteJoinedRef.current?.();
           }
-        }
-        if (localEjected) {
-          if (__DEV__) console.warn('[useDailyJoin] onCallEnded(ejected)');
-          onCallEndedRef.current?.('ejected');
-        }
+        });
+
+        call.on('participant-updated' as DailyEvent, () => {
+          updateParticipants();
+        });
+
+        call.on('participant-left' as DailyEvent, (event: DailyParticipantEvent) => {
+          const participant = event?.participant;
+          const localSessionId = call.participants()?.local?.session_id;
+
+          if (__DEV__) {
+            console.warn('[useDailyJoin] participant-left', {
+              participantLocal: participant?.local,
+              participantSessionId: participant?.session_id,
+              localSessionId,
+              isDoctor: isDoctorRef.current,
+              reason: event?.reason,
+            });
+          }
+
+          const isLocalParticipant =
+            participant?.session_id != null &&
+            localSessionId != null &&
+            participant.session_id === localSessionId;
+          const remoteLeft = participant && !isLocalParticipant;
+          const localEjected = isLocalParticipant;
+
+          if (remoteLeft) {
+            setRemoteParticipant(null);
+            if (!isDoctorRef.current) {
+              if (__DEV__) console.warn('[useDailyJoin] onCallEnded(remote-left)');
+              onCallEndedRef.current?.('remote-left');
+            }
+          }
+          if (localEjected) {
+            if (__DEV__) console.warn('[useDailyJoin] onCallEnded(ejected)');
+            onCallEndedRef.current?.('ejected');
+          }
+        });
+
+        call.on('meeting-ended' as DailyEvent, (event: DailyMeetingEndedEvent) => {
+          if (__DEV__) {
+            console.warn('[useDailyJoin] meeting-ended', { isDoctor, event });
+          }
+          setCallState('idle');
+          onCallEndedRef.current?.('meeting-ended');
+        });
+
+        call.on('left-meeting' as DailyEvent, () => {
+          setCallState('idle');
+          onCallEndedRef.current?.('left');
+        });
+
+        call.on('error' as DailyEvent, (event: DailyErrorEvent) => {
+          const msg = event?.error?.msg ?? event?.errorMsg ?? 'Erro na chamada de vídeo';
+          setCallState('error');
+          setErrorMessage(msg);
+          onErrorRef.current?.(msg);
+        });
+
+        // --- Join the call ---
+        await call.join({ url: roomUrl, token });
       });
-
-      call.on('meeting-ended' as DailyEvent, (event: DailyMeetingEndedEvent) => {
-        if (__DEV__) {
-          console.warn('[useDailyJoin] meeting-ended', { isDoctor, event });
-        }
-        setCallState('idle');
-        onCallEndedRef.current?.('meeting-ended');
-      });
-
-      call.on('left-meeting' as DailyEvent, () => {
-        setCallState('idle');
-        onCallEndedRef.current?.('left');
-      });
-
-      call.on('error' as DailyEvent, (event: DailyErrorEvent) => {
-        const msg = event?.error?.msg ?? event?.errorMsg ?? 'Erro na chamada de vídeo';
-        setCallState('error');
-        setErrorMessage(msg);
-        onErrorRef.current?.(msg);
-      });
-
-      // --- Join the call ---
-      await call.join({ url: roomUrl, token });
-
     } catch (err: unknown) {
       // FIX NM-7: Clean up event handlers and destroy call object on join failure
-      const call = callRef.current;
-      if (call) {
+      // TS não liga atribuição dentro do callback async ao catch; falha costuma ser em call.join() após create.
+      const callToCleanup = createdCall as DailyCall | null;
+      if (callToCleanup) {
         try {
-          call.off('joined-meeting' as DailyEvent);
-          call.off('participant-joined' as DailyEvent);
-          call.off('participant-updated' as DailyEvent);
-          call.off('participant-left' as DailyEvent);
-          call.off('meeting-ended' as DailyEvent);
-          call.off('left-meeting' as DailyEvent);
-          call.off('error' as DailyEvent);
-          await call.destroy();
+          callToCleanup.off('joined-meeting' as DailyEvent);
+          callToCleanup.off('participant-joined' as DailyEvent);
+          callToCleanup.off('participant-updated' as DailyEvent);
+          callToCleanup.off('participant-left' as DailyEvent);
+          callToCleanup.off('meeting-ended' as DailyEvent);
+          callToCleanup.off('left-meeting' as DailyEvent);
+          callToCleanup.off('error' as DailyEvent);
+          await callToCleanup.destroy();
         } catch {
           // swallow — best-effort cleanup
         }
@@ -295,32 +315,36 @@ export function useDailyJoin({
     const call = callRef.current;
     if (!call) return;
 
-    try {
-      setCallState('leaving');
-      if (Platform.OS === 'android') {
-        const DailyNativeUtils = NativeModules.DailyNativeUtils;
-        if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
-          DailyNativeUtils.setShowOngoingMeetingNotification(false, '', '', '', 'renoveja-call');
+    await runDailyOpExclusive(async () => {
+      try {
+        setCallState('leaving');
+        if (Platform.OS === 'android') {
+          const DailyNativeUtils = NativeModules.DailyNativeUtils;
+          if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
+            DailyNativeUtils.setShowOngoingMeetingNotification(false, '', '', '', 'renoveja-call');
+          }
         }
+        call.off('joined-meeting' as DailyEvent);
+        call.off('participant-joined' as DailyEvent);
+        call.off('participant-updated' as DailyEvent);
+        call.off('participant-left' as DailyEvent);
+        call.off('meeting-ended' as DailyEvent);
+        call.off('left-meeting' as DailyEvent);
+        call.off('error' as DailyEvent);
+        await call.leave();
+        await call.destroy();
+      } catch {
+        // swallow — already left
+      } finally {
+        if (callRef.current === call) {
+          callRef.current = null;
+        }
+        globalCallInstance = null;
+        setCallState('idle');
+        setLocalParticipant(null);
+        setRemoteParticipant(null);
       }
-      call.off('joined-meeting' as DailyEvent);
-      call.off('participant-joined' as DailyEvent);
-      call.off('participant-updated' as DailyEvent);
-      call.off('participant-left' as DailyEvent);
-      call.off('meeting-ended' as DailyEvent);
-      call.off('left-meeting' as DailyEvent);
-      call.off('error' as DailyEvent);
-      await call.leave();
-      await call.destroy();
-    } catch {
-      // swallow — already left
-    } finally {
-      callRef.current = null;
-      globalCallInstance = null;
-      setCallState('idle');
-      setLocalParticipant(null);
-      setRemoteParticipant(null);
-    }
+    });
   }, []);
 
   // --- Cleanup on unmount ---

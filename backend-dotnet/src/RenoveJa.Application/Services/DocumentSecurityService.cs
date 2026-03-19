@@ -16,7 +16,6 @@ namespace RenoveJa.Application.Services;
 /// - Log de acesso (auditoria LGPD)
 /// </summary>
 public class DocumentSecurityService(
-    IMedicalDocumentRepository documentRepository,
     IDocumentAccessLogRepository accessLogRepository,
     ILogger<DocumentSecurityService> logger)
     : IDocumentSecurityService

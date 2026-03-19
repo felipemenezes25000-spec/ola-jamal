@@ -334,7 +334,10 @@ internal static class RequestHelpers
         string? consultationAiSuggestions = null,
         string? consultationEvidence = null,
         string? consultationSoapNotes = null,
-        bool consultationHasRecording = false)
+        bool consultationHasRecording = false,
+        DateTime? patientBirthDate = null,
+        string? patientGender = null,
+        IReadOnlyList<ExamQuickPackageDto>? examQuickPackages = null)
     {
         var signedUrl = request.SignedDocumentUrl;
         if (!string.IsNullOrWhiteSpace(apiBaseUrl) && !string.IsNullOrWhiteSpace(signedUrl))
@@ -393,7 +396,10 @@ internal static class RequestHelpers
             request.AiConductSuggestion,
             request.AiSuggestedExams,
             request.ConductUpdatedAt,
-            request.ConductUpdatedBy);
+            request.ConductUpdatedBy,
+            patientBirthDate,
+            patientGender,
+            examQuickPackages);
     }
 
     internal static List<string> ToProxyImageUrls(Guid requestId, List<string> urls, string imageType, string apiBaseUrl, IDocumentTokenService documentTokenService)

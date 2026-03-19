@@ -5,6 +5,7 @@ using RenoveJa.Application.DTOs;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Helpers;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Application.Services.Clinical;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
@@ -193,6 +194,17 @@ public class RequestQueryService(
         if (!canAccess)
             throw new KeyNotFoundException("Request not found");
 
+        DateTime? patientBirthDate = null;
+        string? patientGender = null;
+        IReadOnlyList<ExamQuickPackageDto>? examQuickPackages = null;
+        if (isPatient || isAssignedDoctor)
+        {
+            var patientUser = await userRepository.GetByIdAsync(request.PatientId, cancellationToken);
+            patientBirthDate = patientUser?.BirthDate;
+            patientGender = patientUser?.Gender;
+            examQuickPackages = ExamQuickPackagesBuilder.Build(patientBirthDate, patientGender);
+        }
+
         string? ct = null, ca = null, cs = null, ce = null, csoap = null;
         var hasRecording = false;
         if (isAssignedDoctor)
@@ -205,7 +217,8 @@ public class RequestQueryService(
             csoap = consultationData.SoapNotesJson;
             hasRecording = consultationData.HasRecording;
         }
-        return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, csoap, hasRecording);
+        return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService, ct, ca, cs, ce, csoap, hasRecording,
+            patientBirthDate, patientGender, examQuickPackages);
     }
 
     public async Task<List<RequestResponseDto>> GetPatientRequestsAsync(

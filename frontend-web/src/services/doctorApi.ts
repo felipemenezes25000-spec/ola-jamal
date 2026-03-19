@@ -92,6 +92,17 @@ export interface MedicalRequest {
   consultationAiSuggestions?: string | null;
   /** Notas SOAP geradas pela IA após a consulta (JSON com subjective/objective/assessment/plan/medical_terms). */
   consultationSoapNotes?: string | null;
+  patientBirthDate?: string | null;
+  patientGender?: string | null;
+  examQuickPackages?: ExamQuickPackageDto[] | null;
+}
+
+/** Alinhado ao DTO .NET `ExamQuickPackageDto`. */
+export interface ExamQuickPackageDto {
+  key: string;
+  name: string;
+  exams: string[];
+  justification: string;
 }
 
 export interface Medication {

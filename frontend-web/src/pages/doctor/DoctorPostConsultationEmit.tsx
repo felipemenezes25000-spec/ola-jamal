@@ -139,6 +139,15 @@ export default function DoctorPostConsultationEmit() {
   const detectedCid = useMemo(() => extractCid(anamnesis), [anamnesis]);
   const cidPkg = detectedCid ? CID_PACKAGES[detectedCid] : null;
 
+  /** Pacotes do backend (idade/sexo) ou lista estática. */
+  const examPackagesDisplay = useMemo(() => {
+    const pkgs = request?.examQuickPackages;
+    if (pkgs && pkgs.length > 0) {
+      return pkgs.map((p) => ({ key: p.key, name: p.name, exams: p.exams, just: p.justification }));
+    }
+    return EXAM_PACKAGES;
+  }, [request?.examQuickPackages]);
+
   // Document toggles — re-sync when request/anamnesis loads
   const [rxOn, setRxOn] = useState(true);
   const [exOn, setExOn] = useState(false);
@@ -224,11 +233,11 @@ export default function DoctorPostConsultationEmit() {
   }, []);
 
   const loadExamPkg = useCallback((key: string) => {
-    const pkg = EXAM_PACKAGES.find(p => p.key === key);
+    const pkg = examPackagesDisplay.find(p => p.key === key);
     if (!pkg) return;
     setExams(pkg.exams.map(e => ({ type: 'laboratorial', description: e })));
     setExamJust(pkg.just); setExOn(true); setExOpen(true);
-  }, []);
+  }, [examPackagesDisplay]);
 
   const docCount = (rxOn ? 1 : 0) + (exOn ? 1 : 0) + (atOn ? 1 : 0) + (refOn ? 1 : 0);
 
@@ -400,7 +409,7 @@ export default function DoctorPostConsultationEmit() {
             <CardContent className="space-y-3 pt-0">
               <p className="text-[11px] font-medium text-muted-foreground tracking-wide uppercase">Pacotes rápidos</p>
               <div className="grid grid-cols-2 gap-2">
-                {EXAM_PACKAGES.map(p => (
+                {examPackagesDisplay.map(p => (
                   <button key={p.key} onClick={() => loadExamPkg(p.key)}
                     className="text-left p-3 rounded-xl border-[1.5px] border-gray-200 hover:border-blue-400 hover:bg-blue-50/50 transition-all">
                     <p className="font-semibold text-sm">{p.name}</p>

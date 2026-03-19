@@ -23,7 +23,11 @@
     "eas:build:android": "cross-env EAS_NO_VCS=1 eas build --profile development --platform android",
     "eas:build:android:preview": "cross-env EAS_NO_VCS=1 eas build --platform android --profile preview",
     "prepare:icons": "node scripts/prepare-icons.js",
-    "icons:from-logo": "node scripts/generate-app-icons.js"
+    "icons:from-logo": "node scripts/generate-app-icons.js",
+    "test:e2e": "maestro test .maestro/",
+    "test:e2e:auth": "maestro test .maestro/auth-login.yaml",
+    "test:e2e:register": "maestro test .maestro/auth-register.yaml",
+    "test:e2e:navigation": "maestro test .maestro/navigation.yaml"
   },
   "dependencies": {
     "@daily-co/config-plugin-rn-daily-js": "^0.0.11",

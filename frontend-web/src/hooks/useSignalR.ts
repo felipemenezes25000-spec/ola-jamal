@@ -181,6 +181,17 @@ export function useVideoSignaling(requestId: string | undefined) {
         setEvidence(Array.isArray(items) ? items : []);
       });
 
+      // VideoSignalingHub envia "Joined" após JoinRoom; o protocolo pode expor como "joined" → sem .on() o SignalR avisa no console.
+      const onJoinedAck = () => {};
+      connection.on('Joined', onJoinedAck);
+      connection.on('joined', onJoinedAck);
+
+      const onHubError = (msg: unknown) => {
+        if (import.meta.env.DEV) console.warn('[SignalR Video] Hub:', msg);
+      };
+      connection.on('Error', onHubError);
+      connection.on('error', onHubError);
+
       try {
         await connection.start();
         if (!cancelled) {

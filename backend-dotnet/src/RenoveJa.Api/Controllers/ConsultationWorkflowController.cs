@@ -11,14 +11,12 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/requests")]
 [Authorize]
-#pragma warning disable CS9113 // logger reserved for future logging
 public class ConsultationWorkflowController(
     IRequestService requestService,
     IConsultationEncounterService consultationEncounterService,
     IRequestRepository requestRepository,
     PostgresClient db,
     ILogger<ConsultationWorkflowController> logger) : ControllerBase
-#pragma warning restore CS9113
 {
     private Guid GetUserId()
     {
@@ -58,11 +56,16 @@ public class ConsultationWorkflowController(
         if (patient == null || !patient.HasChronicCondition)
             return null;
 
-        var lastPresential = await db.GetSingleAsync<EncounterPresentialRow>(
+        // is_presential é TEXT no schema — eq.true virava parâmetro boolean e PG falhava (text = boolean) → 500.
+        // ilike.true compara como texto; order/limit no filter eram ignorados pelo GetSingleAsync — usar GetAllAsync.
+        var presentialRows = await db.GetAllAsync<EncounterPresentialRow>(
             "encounters",
             "started_at",
-            $"patient_id=eq.{patient.Id}&is_presential=eq.true&order=started_at.desc&limit=1",
-            cancellationToken);
+            $"patient_id=eq.{patient.Id}&is_presential=ilike.true",
+            orderBy: "started_at.desc",
+            limit: 1,
+            cancellationToken: cancellationToken);
+        var lastPresential = presentialRows.Count > 0 ? presentialRows[0] : null;
 
         if (lastPresential?.StartedAt == null)
             return "Atenção: paciente crônico sem registro de consulta presencial (Art. 6º, §2º, Res. CFM 2.314/2022).";
@@ -101,7 +104,16 @@ public class ConsultationWorkflowController(
     {
         var doctorId = GetUserId();
         var request = await requestService.StartConsultationAsync(id, doctorId, cancellationToken);
-        var chronicWarning = await BuildChronic180DaysWarningAsync(request.PatientId, cancellationToken);
+        string? chronicWarning = null;
+        try
+        {
+            chronicWarning = await BuildChronic180DaysWarningAsync(request.PatientId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[StartConsultation] Falha ao calcular aviso CFM 180d (paciente user {PatientId})", request.PatientId);
+        }
+
         return Ok(new
         {
             request,

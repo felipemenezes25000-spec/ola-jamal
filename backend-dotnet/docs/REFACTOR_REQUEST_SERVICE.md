@@ -1,6 +1,6 @@
 # Plano de Refatoração — RequestService (2.900 linhas → 5-6 serviços)
 
-## Status: PLANEJADO (próxima sessão)
+## Status: PARCIAL — fase 1 entregue (`RequestHelpers`, `RequestQueryService`, `ConsultationLifecycleService`, `SignatureService`). As seções 1–6 abaixo (**PrescriptionWorkflowService**, **ExamWorkflowService**, etc.) são **ainda não implementadas** — roadmap para reduzir `RequestService` além da fase 1. Ver [../CLAUDE.md](../CLAUDE.md) para o quadro atualizado.
 
 ## Problema
 `RequestService.cs` tem ~2.900 linhas e 61 dependências injetadas no construtor.

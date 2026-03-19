@@ -53,6 +53,13 @@ public record SignRequestDto(
     string? SignedDocumentUrl = null
 );
 
+/// <summary>Pacote rápido de exames (pós-consulta), personalizado por idade/sexo no servidor.</summary>
+public record ExamQuickPackageDto(
+    string Key,
+    string Name,
+    IReadOnlyList<string> Exams,
+    string Justification);
+
 public record RequestResponseDto(
     Guid Id,
     Guid PatientId,
@@ -102,7 +109,13 @@ public record RequestResponseDto(
     string? AiConductSuggestion = null,
     string? AiSuggestedExams = null,
     DateTime? ConductUpdatedAt = null,
-    Guid? ConductUpdatedBy = null
+    Guid? ConductUpdatedBy = null,
+    /// <summary>Data de nascimento do paciente (quando o solicitante pode ver o pedido).</summary>
+    DateTime? PatientBirthDate = null,
+    /// <summary>Sexo biológico cadastrado (M/F etc.), para personalização de pacotes.</summary>
+    string? PatientGender = null,
+    /// <summary>Pacotes rápidos de exames já filtrados por idade/sexo.</summary>
+    IReadOnlyList<ExamQuickPackageDto>? ExamQuickPackages = null
 );
 
 /// <summary>Médico atualiza medicamentos, notas e tipo de receita antes da assinatura.</summary>

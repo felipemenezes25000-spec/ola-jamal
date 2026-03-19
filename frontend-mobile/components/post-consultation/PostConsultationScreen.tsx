@@ -31,7 +31,7 @@ import type {
   ExamItemEmit,
 } from '../../types/postConsultation';
 import { parseAnamnesis, type AnamnesisData } from '../../lib/domain/anamnesis';
-import { CID_PACKAGES, EXAM_PACKAGES, getCidPackage } from '../../lib/data/cidPackages';
+import { CID_PACKAGES, EXAM_PACKAGES, getCidPackage, type ExamPackage } from '../../lib/data/cidPackages';
 
 // ── Types ──
 
@@ -107,6 +107,20 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
 
   const detectedCid = useMemo(() => extractCidFromAnamnesis(anamnesis), [anamnesis]);
   const cidPkg = useMemo(() => detectedCid ? getCidPackage(detectedCid) : null, [detectedCid]);
+
+  /** Pacotes do backend (idade/sexo); fallback local se a API não enviar. */
+  const examQuickPackages = useMemo((): ExamPackage[] => {
+    const fromApi = request.examQuickPackages;
+    if (fromApi && fromApi.length > 0) {
+      return fromApi.map((p) => ({
+        key: p.key,
+        name: p.name,
+        exams: p.exams,
+        justification: p.justification,
+      }));
+    }
+    return EXAM_PACKAGES;
+  }, [request.examQuickPackages]);
 
   // ── State: Document toggles ──
   const [rxEnabled, setRxEnabled] = useState(true);
@@ -203,13 +217,13 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
 
   // ── Load exam package ──
   const loadExamPackage = useCallback((pkgKey: string) => {
-    const pkg = EXAM_PACKAGES.find((p) => p.key === pkgKey);
+    const pkg = examQuickPackages.find((p) => p.key === pkgKey);
     if (!pkg) return;
     setExams(pkg.exams.map((e) => ({ type: 'laboratorial', description: e })));
     setExamJustification(pkg.justification);
     setExEnabled(true);
     setExOpen(true);
-  }, []);
+  }, [examQuickPackages]);
 
   // ── Add/Edit medication ──
   const openAddMed = useCallback(() => {
@@ -468,7 +482,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
               {/* Exam Packages */}
               <Text style={S.label}>PACOTES RÁPIDOS</Text>
               <View style={S.pkgGrid}>
-                {EXAM_PACKAGES.map((pkg) => (
+                {examQuickPackages.map((pkg) => (
                   <TouchableOpacity key={pkg.key} style={S.pkg} onPress={() => loadExamPackage(pkg.key)}>
                     <Text style={S.pkgName}>{pkg.name}</Text>
                     <Text style={S.pkgCount}>{pkg.exams.length} exames</Text>
