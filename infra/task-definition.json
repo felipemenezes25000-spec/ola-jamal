@@ -3,7 +3,7 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
-  "memory": "1024",
+  "memory": "2048",
   "executionRoleArn": "arn:aws:iam::064212133215:role/renoveja-ecs-execution",
   "taskRoleArn": "arn:aws:iam::064212133215:role/renoveja-ecs-task",
   "containerDefinitions": [{
@@ -47,9 +47,9 @@
     "healthCheck": {
       "command": ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/health/live || exit 1"],
       "interval": 30,
-      "timeout": 10,
-      "retries": 5,
-      "startPeriod": 90
+      "timeout": 15,
+      "retries": 6,
+      "startPeriod": 120
     },
     "logConfiguration": {
       "logDriver": "awslogs",
