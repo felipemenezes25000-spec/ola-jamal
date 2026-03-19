@@ -30,6 +30,7 @@ export interface AuthResponseDto {
   token: string;
   doctorProfile?: DoctorProfileDto;
   profileComplete: boolean;
+  refreshToken?: string;
 }
 
 export interface DoctorProfileDto {
@@ -155,6 +156,18 @@ export interface RequestResponseDto {
   conductUpdatedBy?: string | null;
   /** Data de nascimento do paciente (quando disponível no backend). */
   patientBirthDate?: string | null;
+  /** Sexo cadastrado (M/F etc.) — vem do backend no GET do pedido. */
+  patientGender?: string | null;
+  /** Pacotes rápidos de exames já filtrados por idade/sexo (backend). */
+  examQuickPackages?: ExamQuickPackageDto[] | null;
+}
+
+/** Pacote de exames (pós-consulta), alinhado ao DTO .NET `ExamQuickPackageDto`. */
+export interface ExamQuickPackageDto {
+  key: string;
+  name: string;
+  exams: string[];
+  justification: string;
 }
 
 // ============================================

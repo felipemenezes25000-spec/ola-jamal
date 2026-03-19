@@ -133,6 +133,8 @@ public class AuthTokenModel
     public string Token { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
 }
 
 /// <summary>Modelo de persistência de token de recuperação de senha (tabela password_reset_tokens).</summary>

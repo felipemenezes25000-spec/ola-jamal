@@ -17,7 +17,7 @@ resource "aws_db_instance" "main" {
   username = "postgres"
   password = var.db_password
 
-  db_subnet_group_name   = aws_db_subnet_group.public.name
+  db_subnet_group_name   = aws_db_subnet_group.private.name
   vpc_security_group_ids = [aws_security_group.aurora.id]
   # Access via bastion host or VPN — never expose RDS directly to the internet
   publicly_accessible    = false
@@ -31,11 +31,11 @@ resource "aws_db_instance" "main" {
   tags = { Name = "${var.project}-postgres" }
 }
 
-# Subnet group com subnets PUBLICAS (para acesso pgAdmin)
-resource "aws_db_subnet_group" "public" {
-  name       = "${var.project}-db-public-subnets"
-  subnet_ids = aws_subnet.public[*].id
-  tags       = { Name = "${var.project}-db-public-subnets" }
+# Subnet group com subnets PRIVADAS (RDS nunca deve ficar em subnet pública)
+resource "aws_db_subnet_group" "private" {
+  name       = "${var.project}-db-private-subnets"
+  subnet_ids = aws_subnet.private[*].id
+  tags       = { Name = "${var.project}-db-private-subnets" }
 }
 
 # Manter o antigo para referência (será deletado)

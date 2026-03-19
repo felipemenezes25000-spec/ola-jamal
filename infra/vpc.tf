@@ -138,13 +138,13 @@ resource "aws_security_group" "aurora" {
     security_groups = [aws_security_group.ecs.id]
   }
 
-  # Acesso interno VPC (pgAdmin via bastion/VPN — NUNCA 0.0.0.0/0)
+  # Acesso interno somente das subnets privadas (bastion/VPN nas privadas)
   ingress {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
-    description = "pgAdmin acesso interno VPC"
+    cidr_blocks = [for s in aws_subnet.private : s.cidr_block]
+    description = "pgAdmin acesso restrito às subnets privadas"
   }
 
   tags = { Name = "${var.project}-aurora-sg" }

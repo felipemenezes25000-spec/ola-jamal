@@ -39,11 +39,12 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
+  // Send Authorization header as fallback for legacy localStorage tokens.
+  // New logins use HttpOnly cookies sent automatically via credentials: 'include'.
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  // TODO(security): migrar token para HttpOnly cookie — localStorage é acessível via XSS
   let res: Response;
   try {
-    res = await fetch(`${base}${url}`, { ...options, headers });
+    res = await fetch(`${base}${url}`, { ...options, headers, credentials: "include" });
   } catch {
     throw new Error("Erro de conexão. Verifique sua internet e tente novamente.");
   }
@@ -73,6 +74,7 @@ export async function login(email: string, password: string) {
     method: "POST",
     headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
     body: JSON.stringify({ email, password }),
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Credenciais inválidas");
   const data = await res.json();
@@ -89,7 +91,19 @@ export async function login(email: string, password: string) {
   return data;
 }
 
-export function logout() {
+export async function logout() {
+  // Call backend to invalidate token and clear HttpOnly cookie
+  try {
+    const base = getApiBase();
+    const token = getToken();
+    const headers: Record<string, string> = { "ngrok-skip-browser-warning": "true" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    await fetch(`${base}/api/auth/logout`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+    }).catch(() => {}); // best-effort
+  } catch { /* silent */ }
   clearAdminSession();
   window.location.href = "/admin/login";
 }

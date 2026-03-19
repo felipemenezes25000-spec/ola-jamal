@@ -26,6 +26,7 @@ using RenoveJa.Infrastructure.Video;
 using RenoveJa.Infrastructure.Ledi;
 using RenoveJa.Infrastructure.Rnds;
 using RenoveJa.Api.Services;
+using StackExchange.Redis;
 
 namespace RenoveJa.Api.Extensions;
 
@@ -143,11 +144,23 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITriageEnrichmentService, OpenAiTriageEnrichmentService>();
         services.AddScoped<IPrescriptionVerifyRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerifyRepository>();
         services.AddScoped<IPrescriptionVerificationLogRepository, RenoveJa.Infrastructure.Repositories.PrescriptionVerificationLogRepository>();
+        // Redis (ElastiCache) — usado pelo ConsultationSessionStore para persistir sessões cross-deploy
+        services.AddSingleton<IConnectionMultiplexer>(sp =>
+        {
+            var cfg = sp.GetRequiredService<IConfiguration>();
+            var redisConnectionString = Environment.GetEnvironmentVariable("Redis__ConnectionString")
+                ?? cfg["Redis:ConnectionString"]
+                ?? "localhost:6379";
+            var redisConfig = ConfigurationOptions.Parse(redisConnectionString);
+            redisConfig.AbortOnConnectFail = false; // Allow startup even if Redis is temporarily unavailable
+            return ConnectionMultiplexer.Connect(redisConfig);
+        });
         services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();
         services.AddScoped<ITranscriptionService, RenoveJa.Infrastructure.Transcription.WhisperTranscriptionService>();
 
         services.AddScoped<IRxNormService, RenoveJa.Infrastructure.RxNorm.RxNormService>();
 
+        services.AddScoped<RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisLlmClient>();
         services.AddScoped<IConsultationAnamnesisService, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisService>();
         services.AddScoped<ISoapNotesService, RenoveJa.Infrastructure.SoapNotes.SoapNotesService>();
 

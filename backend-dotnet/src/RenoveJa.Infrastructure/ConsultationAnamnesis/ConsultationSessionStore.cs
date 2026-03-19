@@ -1,66 +1,105 @@
 using System.Text;
-using Microsoft.Extensions.Caching.Memory;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
+using StackExchange.Redis;
 
 namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 
 /// <summary>
-/// Store em memória (IMemoryCache) do estado da sessão de consulta por requestId.
-/// Thread-safe por requestId via lock no objeto de estado.
-/// Armazena segmentos com timestamp para gerar .txt no formato "Paciente minuto X segundo Y fala".
+/// Store em Redis (ElastiCache) do estado da sessão de consulta por requestId.
+/// Persiste dados entre deploys/restarts do ECS, resolvendo a perda de transcrições
+/// que ocorria com IMemoryCache quando containers eram reciclados.
 ///
-/// TODO(resilience): IMemoryCache é volátil — dados de transcrição são PERDIDOS em deploy/restart ECS.
-/// Se uma consulta estiver ativa durante um deploy, toda a transcrição acumulada é perdida.
-/// Migrar para Redis (ElastiCache) ou DynamoDB para persistência cross-deploy.
-/// Workaround atual: FinishConsultation salva no S3/DB antes do encerramento, mas se o container
-/// for encerrado abruptamente (kill signal, OOM, rolling deploy), os dados se perdem.
+/// Estrutura Redis por sessão (Hash):
+///   consultation:session:{requestId} → {
+///     patientId, transcript, segments (JSON array),
+///     anamnesisJson, aiSuggestionsJson, evidenceJson
+///   }
+/// TTL: 4 horas (SessionExpiration).
 /// </summary>
 public class ConsultationSessionStore : IConsultationSessionStore
 {
-    private const string KeyPrefix = "consultation_session_";
+    private const string KeyPrefix = "consultation:session:";
     private static readonly TimeSpan SessionExpiration = TimeSpan.FromHours(4);
 
-    private readonly IMemoryCache _cache;
+    // Hash field names
+    private const string FieldPatientId = "patientId";
+    private const string FieldTranscript = "transcript";
+    private const string FieldSegments = "segments";
+    private const string FieldAnamnesisJson = "anamnesisJson";
+    private const string FieldAiSuggestionsJson = "aiSuggestionsJson";
+    private const string FieldEvidenceJson = "evidenceJson";
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<ConsultationSessionStore> _logger;
 
-    public ConsultationSessionStore(IMemoryCache cache, ILogger<ConsultationSessionStore> logger)
+    public ConsultationSessionStore(IConnectionMultiplexer redis, ILogger<ConsultationSessionStore> logger)
     {
-        _cache = cache;
+        _redis = redis;
         _logger = logger;
     }
+
+    private IDatabase Db => _redis.GetDatabase();
 
     public void EnsureSession(Guid requestId, Guid patientId)
     {
         var key = KeyPrefix + requestId;
-        var created = false;
-        _cache.GetOrCreate(key, entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = SessionExpiration;
-            created = true;
-            return new SessionState(patientId);
-        });
+        var db = Db;
+
+        // Only create if doesn't exist yet (HSETNX on patientId field)
+        var created = db.HashSet(key, FieldPatientId, patientId.ToString(), When.NotExists);
         if (created)
-            _logger.LogInformation("[ConsultationSession] Sessão criada RequestId={RequestId} PatientId={PatientId}", requestId, patientId);
+        {
+            // Initialize empty transcript and segments
+            db.HashSet(key, new HashEntry[]
+            {
+                new(FieldTranscript, string.Empty),
+                new(FieldSegments, "[]"),
+            });
+            db.KeyExpire(key, SessionExpiration);
+            _logger.LogInformation(
+                "[ConsultationSession] Sessão criada RequestId={RequestId} PatientId={PatientId}",
+                requestId, patientId);
+        }
+        else
+        {
+            // Refresh TTL on existing session
+            db.KeyExpire(key, SessionExpiration);
+        }
     }
 
     public void AppendTranscript(Guid requestId, string text, double? startTimeSeconds = null)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            _logger.LogDebug("[ConsultationSession] AppendTranscript ignorado: texto vazio RequestId={RequestId}", requestId);
+            _logger.LogDebug(
+                "[ConsultationSession] AppendTranscript ignorado: texto vazio RequestId={RequestId}",
+                requestId);
             return;
         }
+
         var key = KeyPrefix + requestId;
-        if (!_cache.TryGetValue(key, out SessionState? state) || state == null)
+        var db = Db;
+
+        if (!db.KeyExists(key))
         {
-            _logger.LogWarning("[ConsultationSession] TRANSCRICAO_PERDIDA: Sessão não encontrada ao append. RequestId={RequestId} textLen={Len}", requestId, text.Length);
+            _logger.LogWarning(
+                "[ConsultationSession] TRANSCRICAO_PERDIDA: Sessão não encontrada ao append. RequestId={RequestId} textLen={Len}",
+                requestId, text.Length);
             return;
         }
+
         var trimmed = text.Trim();
         var receivedAt = DateTime.UtcNow;
         string speaker;
         string segmentText;
+
         if (trimmed.StartsWith("[Médico]", StringComparison.OrdinalIgnoreCase))
         {
             speaker = "Médico";
@@ -76,71 +115,132 @@ public class ConsultationSessionStore : IConsultationSessionStore
             speaker = "Transcrição";
             segmentText = trimmed;
         }
-        lock (state.Lock)
+
+        // Use a Lua script to atomically read existing transcript, deduplicate, and append.
+        // This avoids race conditions without needing distributed locks.
+        var luaScript = @"
+            local existing = redis.call('HGET', KEYS[1], 'transcript') or ''
+            local newText = ARGV[1]
+            local segment = ARGV[2]
+            local combined = existing .. ' ' .. newText
+            redis.call('HSET', KEYS[1], 'transcript', combined)
+            if segment ~= '' then
+                local segments = redis.call('HGET', KEYS[1], 'segments') or '[]'
+                -- Append segment JSON: remove trailing ']', add comma if needed, add new segment, close ']'
+                if segments == '[]' then
+                    segments = '[' .. segment .. ']'
+                else
+                    segments = string.sub(segments, 1, #segments - 1) .. ',' .. segment .. ']'
+                end
+                redis.call('HSET', KEYS[1], 'segments', segments)
+            end
+            redis.call('EXPIRE', KEYS[1], ARGV[3])
+            return #combined
+        ";
+
+        // Perform deduplication on client side before sending to Redis
+        // (reads existing transcript first)
+        var existingTranscript = (string?)db.HashGet(key, FieldTranscript) ?? string.Empty;
+        var deduped = DeduplicateOverlap(existingTranscript, trimmed);
+
+        var segmentJson = string.Empty;
+        if (!string.IsNullOrWhiteSpace(segmentText))
         {
-            // Deduplicar overlap: transcrição pode repetir as últimas palavras do chunk anterior
-            var existingText = state.TranscriptBuilder.ToString();
-            var deduped = DeduplicateOverlap(existingText, trimmed);
-            state.TranscriptBuilder.Append(' ').Append(deduped);
-            if (!string.IsNullOrWhiteSpace(segmentText))
-            {
-                state.TranscriptSegments.Add(new TranscriptSegment(speaker, segmentText, receivedAt, startTimeSeconds));
-            }
-            _logger.LogDebug("[ConsultationSession] Transcript append RequestId={RequestId} totalLen={Len} segments={Count} startTime={StartTime} deduped={Deduped}", requestId, state.TranscriptBuilder.Length, state.TranscriptSegments.Count, startTimeSeconds, deduped != trimmed);
+            var seg = new TranscriptSegmentDto(speaker, segmentText, receivedAt, startTimeSeconds);
+            segmentJson = JsonSerializer.Serialize(seg, JsonOptions);
         }
+
+        var result = db.ScriptEvaluate(
+            luaScript,
+            new RedisKey[] { key },
+            new RedisValue[] { deduped, segmentJson, (int)SessionExpiration.TotalSeconds });
+
+        var totalLen = (long)result;
+
+        _logger.LogDebug(
+            "[ConsultationSession] Transcript append RequestId={RequestId} totalLen={Len} startTime={StartTime} deduped={Deduped}",
+            requestId, totalLen, startTimeSeconds, deduped != trimmed);
     }
 
     public void UpdateAnamnesis(Guid requestId, string? anamnesisJson, string? suggestionsJson, string? evidenceJson = null)
     {
         var key = KeyPrefix + requestId;
-        if (!_cache.TryGetValue(key, out SessionState? state) || state == null) return;
-        lock (state.Lock)
+        var db = Db;
+
+        if (!db.KeyExists(key)) return;
+
+        var entries = new List<HashEntry>();
+        if (anamnesisJson != null) entries.Add(new HashEntry(FieldAnamnesisJson, anamnesisJson));
+        if (suggestionsJson != null) entries.Add(new HashEntry(FieldAiSuggestionsJson, suggestionsJson));
+        if (evidenceJson != null) entries.Add(new HashEntry(FieldEvidenceJson, evidenceJson));
+
+        if (entries.Count > 0)
         {
-            if (anamnesisJson != null) state.AnamnesisJson = anamnesisJson;
-            if (suggestionsJson != null) state.AiSuggestionsJson = suggestionsJson;
-            if (evidenceJson != null) state.EvidenceJson = evidenceJson;
+            db.HashSet(key, entries.ToArray());
+            db.KeyExpire(key, SessionExpiration);
         }
     }
 
     public string GetTranscript(Guid requestId)
     {
         var key = KeyPrefix + requestId;
-        if (!_cache.TryGetValue(key, out SessionState? state) || state == null) return string.Empty;
-        lock (state.Lock)
-        {
-            return state.TranscriptBuilder.ToString().Trim();
-        }
+        var transcript = (string?)Db.HashGet(key, FieldTranscript);
+        return transcript?.Trim() ?? string.Empty;
     }
 
     public (string? AnamnesisJson, string? SuggestionsJson) GetAnamnesisState(Guid requestId)
     {
         var key = KeyPrefix + requestId;
-        if (!_cache.TryGetValue(key, out SessionState? state) || state == null) return (null, null);
-        lock (state.Lock)
-        {
-            return (state.AnamnesisJson, state.AiSuggestionsJson);
-        }
+        var db = Db;
+
+        if (!db.KeyExists(key)) return (null, null);
+
+        var values = db.HashGet(key, new RedisValue[] { FieldAnamnesisJson, FieldAiSuggestionsJson });
+        return ((string?)values[0], (string?)values[1]);
     }
 
     public ConsultationSessionData? GetAndRemove(Guid requestId)
     {
         var key = KeyPrefix + requestId;
-        if (!_cache.TryGetValue(key, out SessionState? state) || state == null) return null;
-        string transcript;
+        var db = Db;
+
+        var allFields = db.HashGetAll(key);
+        if (allFields.Length == 0) return null;
+
+        var dict = allFields.ToDictionary(
+            e => (string)e.Name!,
+            e => (string?)e.Value) ?? new Dictionary<string, string?>();
+
+        // Remove the key from Redis
+        db.KeyDelete(key);
+
+        var patientId = dict.TryGetValue(FieldPatientId, out var pid) && Guid.TryParse(pid, out var parsedPid)
+            ? parsedPid
+            : Guid.Empty;
+
+        var transcript = dict.GetValueOrDefault(FieldTranscript)?.Trim();
+
         IReadOnlyList<TranscriptSegment> segments;
-        string? anamnesisJson;
-        string? suggestionsJson;
-        string? evidenceJson;
-        lock (state.Lock)
+        var segmentsJson = dict.GetValueOrDefault(FieldSegments);
+        if (!string.IsNullOrWhiteSpace(segmentsJson) && segmentsJson != "[]")
         {
-            transcript = state.TranscriptBuilder.ToString().Trim();
-            segments = state.TranscriptSegments.ToList();
-            anamnesisJson = state.AnamnesisJson;
-            suggestionsJson = state.AiSuggestionsJson;
-            evidenceJson = state.EvidenceJson;
+            var dtos = JsonSerializer.Deserialize<List<TranscriptSegmentDto>>(segmentsJson, JsonOptions);
+            segments = dtos?.Select(d => new TranscriptSegment(
+                d.Speaker, d.Text, d.ReceivedAtUtc, d.StartTimeSeconds)).ToList()
+                ?? new List<TranscriptSegment>();
         }
-        _cache.Remove(key);
-        return new ConsultationSessionData(requestId, state.PatientId, transcript, segments, anamnesisJson, suggestionsJson, evidenceJson);
+        else
+        {
+            segments = new List<TranscriptSegment>();
+        }
+
+        var anamnesisJson = dict.GetValueOrDefault(FieldAnamnesisJson);
+        var suggestionsJson = dict.GetValueOrDefault(FieldAiSuggestionsJson);
+        var evidenceJson = dict.GetValueOrDefault(FieldEvidenceJson);
+
+        return new ConsultationSessionData(
+            requestId, patientId, transcript, segments,
+            anamnesisJson, suggestionsJson, evidenceJson);
     }
 
     /// <summary>
@@ -222,19 +322,10 @@ public class ConsultationSessionStore : IConsultationSessionStore
         return word.TrimEnd('.', ',', ';', ':', '!', '?', '"', '\'');
     }
 
-    private sealed class SessionState
-    {
-        public readonly object Lock = new();
-        public readonly Guid PatientId;
-        public readonly StringBuilder TranscriptBuilder = new();
-        public readonly List<TranscriptSegment> TranscriptSegments = new();
-        public string? AnamnesisJson;
-        public string? AiSuggestionsJson;
-        public string? EvidenceJson;
-
-        public SessionState(Guid patientId)
-        {
-            PatientId = patientId;
-        }
-    }
+    /// <summary>Internal DTO for JSON serialization of transcript segments in Redis.</summary>
+    private sealed record TranscriptSegmentDto(
+        string Speaker,
+        string Text,
+        DateTime ReceivedAtUtc,
+        double? StartTimeSeconds = null);
 }

@@ -67,7 +67,7 @@ export default function DoctorVideoCall() {
   // Consultation state
   const [consultationStarted, setConsultationStarted] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [contractedMinutes, setContractedMinutes] = useState<number | null>(null);
 
   // AI panel: consulta (full DoctorAIPanel) | notes
@@ -110,7 +110,7 @@ export default function DoctorVideoCall() {
     if (consultationStarted) {
       timerRef.current = setInterval(() => setTimerSeconds(prev => prev + 1), 1000);
     }
-    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = undefined; } };
+    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
   }, [consultationStarted]);
 
   // Load data

@@ -1,0 +1,43 @@
+appId: com.renoveja.app
+name: "Login - fluxo principal"
+---
+
+# Inicia o app
+- launchApp
+
+# Aguarda a splash screen redirecionar para login
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Verifica que a tela de login está visível
+- assertVisible: "Email"
+- assertVisible: "Senha"
+- assertVisible: "Entrar"
+
+# Preenche o campo de email
+- tapOn:
+    id: "login-email-input"
+- inputText: "teste@renoveja.com"
+
+# Preenche o campo de senha
+- tapOn:
+    id: "login-password-input"
+- inputText: "Teste@1234"
+
+# Fecha o teclado
+- hideKeyboard
+
+# Toca no botão Entrar
+- tapOn:
+    id: "login-button"
+
+# Aguarda resposta do servidor (pode mostrar erro ou navegar)
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Se as credenciais forem válidas, o app navega para a home do paciente
+# Se forem inválidas, mostra um alerta de erro
+# Aqui verificamos que o login foi ao menos tentado (sem crash)
+- assertVisible:
+    text: ".*"
+    optional: true

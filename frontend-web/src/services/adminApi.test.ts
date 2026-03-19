@@ -22,10 +22,12 @@ describe('adminApi', () => {
   });
 
   describe('logout', () => {
-    it('deve remover token do localStorage', () => {
+    it('deve remover token do localStorage', async () => {
       localStorage.setItem('admin_auth_token', 'abc123');
+      // Mock fetch for the backend logout call (best-effort, does not block)
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
 
-      logout();
+      await logout();
 
       expect(localStorage.getItem('admin_auth_token')).toBeNull();
     });

@@ -72,12 +72,16 @@ public record GoogleAuthRequestDto(
     string? Role = null
 );
 
+/// <summary>Request para renovar tokens via refresh token.</summary>
+public record RefreshTokenRequestDto(string RefreshToken);
+
 /// <summary>Resposta de autenticação (usuário, token e perfil médico opcional).</summary>
 public record AuthResponseDto(
     UserDto User,
     string Token,
     DoctorProfileDto? DoctorProfile = null,
-    bool ProfileComplete = true
+    bool ProfileComplete = true,
+    string? RefreshToken = null
 );
 
 public record UserDto(

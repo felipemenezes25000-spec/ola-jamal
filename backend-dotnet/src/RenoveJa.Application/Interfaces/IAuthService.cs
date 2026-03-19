@@ -33,4 +33,6 @@ public interface IAuthService
     Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default);
     /// <summary>Atualiza o avatar do usuário (upload de foto).</summary>
     Task<UserDto> UpdateAvatarAsync(Guid userId, Stream fileStream, string contentType, string fileName, CancellationToken cancellationToken = default);
+    /// <summary>Renova o access token usando um refresh token válido (com rotação).</summary>
+    Task<AuthResponseDto> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 }

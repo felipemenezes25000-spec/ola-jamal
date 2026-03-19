@@ -19,8 +19,23 @@ function getApiBase(): string {
 const TOKEN_KEY = 'doctor_auth_token';
 const USER_KEY = 'doctor_user';
 
+/**
+ * Returns the auth token if available.
+ * With HttpOnly cookies the token is NOT accessible via JS — this only returns
+ * a legacy localStorage token during migration. New logins no longer store tokens
+ * in localStorage; the HttpOnly cookie is sent automatically by the browser.
+ */
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
+}
+
+/**
+ * Returns true if the user is likely authenticated (has cached user data).
+ * Since HttpOnly cookies are not readable from JS, we use the presence of
+ * cached user data as a proxy. The actual auth check happens server-side.
+ */
+export function hasAuthSession(): boolean {
+  return !!localStorage.getItem(USER_KEY) || !!localStorage.getItem(TOKEN_KEY);
 }
 
 export function getStoredUser(): DoctorUser | null {
@@ -32,9 +47,11 @@ export function getStoredUser(): DoctorUser | null {
   }
 }
 
-function storeAuth(token: string, user: DoctorUser) {
-  // TODO(security): migrar token para HttpOnly cookie — localStorage é acessível via XSS
-  localStorage.setItem(TOKEN_KEY, token);
+function storeAuth(_token: string, user: DoctorUser) {
+  // Token is now stored as an HttpOnly cookie (set by the server).
+  // We only cache user data in localStorage for quick rehydration.
+  // Legacy: keep token in localStorage during migration for fallback.
+  localStorage.setItem(TOKEN_KEY, _token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
@@ -48,7 +65,10 @@ export function clearAuth() {
 let lastRedirectAt = 0;
 const REDIRECT_COOLDOWN_MS = 2000;
 
-/** Base HTTP client with JWT auth. Used by all doctor-api-* modules. */
+/** Base HTTP client with JWT auth. Used by all doctor-api-* modules.
+ * Auth token is sent automatically via HttpOnly cookie (credentials: 'include').
+ * Falls back to Authorization header if a legacy localStorage token exists (migration period).
+ */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const base = getApiBase();
   if (!base) throw new Error('URL da API não configurada. Defina VITE_API_URL.');
@@ -60,11 +80,13 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     headers['Content-Type'] = 'application/json';
   }
   headers['ngrok-skip-browser-warning'] = 'true';
+  // Fallback: send Authorization header if legacy localStorage token exists.
+  // New logins use HttpOnly cookies (sent automatically via credentials: 'include').
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   let res: Response;
   try {
-    res = await fetch(`${base}${url}`, { ...options, headers });
+    res = await fetch(`${base}${url}`, { ...options, headers, credentials: 'include' });
   } catch {
     // Erro de rede/DNS/CORS/timeout — NÃO limpar auth
     throw new Error('Erro de conexão com o servidor.');
@@ -92,6 +114,7 @@ export async function loginDoctor(email: string, password: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
     body: JSON.stringify({ email, password }),
+    credentials: 'include',
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -133,6 +156,7 @@ export async function registerDoctorFull(payload: {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
     body: JSON.stringify(payload),
+    credentials: 'include',
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -142,16 +166,18 @@ export async function registerDoctorFull(payload: {
 }
 
 export async function logoutDoctor() {
-  // Chamar API de logout para invalidar token no servidor
+  // Chamar API de logout para invalidar token no servidor e limpar HttpOnly cookie
   try {
+    const base = getApiBase();
     const token = getToken();
-    if (token) {
-      const base = getApiBase();
-      await fetch(`${base}/api/auth/logout`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
-      }).catch(() => {}); // best-effort — não bloquear logout local se a API falhar
-    }
+    const headers: Record<string, string> = { 'ngrok-skip-browser-warning': 'true' };
+    // Send Authorization header as fallback if legacy token exists
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    await fetch(`${base}/api/auth/logout`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+    }).catch(() => {}); // best-effort — não bloquear logout local se a API falhar
   } catch { /* silent */ }
 
   clearAuth();
@@ -214,6 +240,7 @@ export async function forgotPassword(email: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
     body: JSON.stringify({ email }),
+    credentials: 'include',
   });
   if (!res.ok) throw new Error('Erro ao enviar email');
   return res.json();

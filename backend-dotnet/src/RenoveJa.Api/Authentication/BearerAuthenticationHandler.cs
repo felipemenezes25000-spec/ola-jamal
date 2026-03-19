@@ -16,18 +16,36 @@ public class BearerAuthenticationHandler(
     IAuthService authService) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     /// <summary>
-    /// Valida o token Bearer e cria o principal de autenticação.
+    /// Nome do cookie HttpOnly que contém o token de autenticação (usado pelo frontend-web).
+    /// O mobile continua usando o header Authorization: Bearer.
+    /// </summary>
+    public const string AuthCookieName = "auth_token";
+
+    /// <summary>
+    /// Valida o token Bearer (header ou cookie HttpOnly) e cria o principal de autenticação.
+    /// Prioridade: cookie auth_token (web) → header Authorization: Bearer (mobile).
     /// </summary>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.TryGetValue("Authorization", out var value))
-            return AuthenticateResult.Fail("Missing Authorization Header");
+        // 1. Tentar ler do cookie HttpOnly (frontend-web)
+        string? token = null;
+        if (Request.Cookies.TryGetValue(AuthCookieName, out var cookieToken) && !string.IsNullOrWhiteSpace(cookieToken))
+        {
+            token = cookieToken.Trim();
+        }
 
-        var authHeader = value.ToString();
-        if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            return AuthenticateResult.Fail("Invalid Authorization Header");
+        // 2. Fallback: header Authorization: Bearer (mobile app)
+        if (string.IsNullOrEmpty(token))
+        {
+            if (!Request.Headers.TryGetValue("Authorization", out var value))
+                return AuthenticateResult.Fail("Missing Authorization Header");
 
-        var token = authHeader["Bearer ".Length..].Trim();
+            var authHeader = value.ToString();
+            if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return AuthenticateResult.Fail("Invalid Authorization Header");
+
+            token = authHeader["Bearer ".Length..].Trim();
+        }
 
         try
         {

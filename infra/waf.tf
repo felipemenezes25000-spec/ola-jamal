@@ -144,7 +144,7 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
-  # Rate limiting: 2000 req / 5 min por IP
+  # Rate limiting: 500 req / 5 min por IP
   rule {
     name     = "rate-limit"
     priority = 3
@@ -155,7 +155,7 @@ resource "aws_wafv2_web_acl" "main" {
 
     statement {
       rate_based_statement {
-        limit              = 2000
+        limit              = 500
         aggregate_key_type = "IP"
       }
     }

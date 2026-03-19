@@ -23,6 +23,15 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
         return model != null ? MapToDomain(model) : null;
     }
 
+    public async Task<AuthToken?> GetByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        var model = await db.GetSingleAsync<AuthTokenModel>(
+            TableName,
+            filter: $"refresh_token=eq.{refreshToken}",
+            cancellationToken: cancellationToken);
+        return model != null ? MapToDomain(model) : null;
+    }
+
     public async Task<List<AuthToken>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var models = await db.GetAllAsync<AuthTokenModel>(
@@ -40,6 +49,17 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
             model,
             cancellationToken);
         return MapToDomain(created);
+    }
+
+    public async Task<AuthToken> UpdateAsync(AuthToken authToken, CancellationToken cancellationToken = default)
+    {
+        var model = MapToModel(authToken);
+        var updated = await db.UpdateAsync<AuthTokenModel>(
+            TableName,
+            $"id=eq.{authToken.Id}",
+            model,
+            cancellationToken);
+        return MapToDomain(updated);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -67,7 +87,8 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
     {
         return AuthToken.Reconstitute(
             model.Id, model.UserId, model.Token,
-            model.ExpiresAt, model.CreatedAt);
+            model.ExpiresAt, model.CreatedAt,
+            model.RefreshToken, model.RefreshTokenExpiresAt);
     }
 
     private static AuthTokenModel MapToModel(AuthToken token)
@@ -78,7 +99,9 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
             UserId = token.UserId,
             Token = token.Token,
             ExpiresAt = token.ExpiresAt,
-            CreatedAt = token.CreatedAt
+            CreatedAt = token.CreatedAt,
+            RefreshToken = token.RefreshToken,
+            RefreshTokenExpiresAt = token.RefreshTokenExpiresAt
         };
     }
 }

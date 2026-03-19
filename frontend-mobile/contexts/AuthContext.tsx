@@ -1,7 +1,7 @@
 ﻿import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../lib/api-client';
-import { AUTH_TOKEN_KEY } from '../lib/constants/storage-keys';
+import { AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/constants/storage-keys';
 import { getSecureItem, setSecureItem, removeSecureItem } from '../lib/secure-storage';
 import { unregisterPushToken } from '../lib/api';
 import { getLastRegisteredPushToken, setLastRegisteredPushToken } from '../lib/pushTokenRegistry';
@@ -214,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       apiClient.clearTokenCache();
       // FIX M1: Remove token from secure storage (and legacy AsyncStorage)
       await removeSecureItem(AUTH_TOKEN_KEY);
+      await removeSecureItem(REFRESH_TOKEN_KEY);
       await AsyncStorage.removeItem(USER_KEY);
       await AsyncStorage.removeItem(DOCTOR_PROFILE_KEY);
     } catch (e) {
@@ -252,6 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response?.user) throw new Error('Resposta inválida do servidor. Tente novamente.');
       if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
       await setSecureItem(AUTH_TOKEN_KEY, response.token);
+      if (response.refreshToken) await setSecureItem(REFRESH_TOKEN_KEY, response.refreshToken);
       apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {
@@ -280,6 +282,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // BUG FIX: validar que o token não é nulo/vazio (mesma verificação que signIn)
       if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
       await setSecureItem(AUTH_TOKEN_KEY, response.token);
+      if (response.refreshToken) await setSecureItem(REFRESH_TOKEN_KEY, response.refreshToken);
       apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       setUser(response.user);
@@ -314,6 +317,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const requiresApproval = !response.token || response.token.trim() === '';
       if (!requiresApproval) {
         await setSecureItem(AUTH_TOKEN_KEY, response.token);
+        if (response.refreshToken) await setSecureItem(REFRESH_TOKEN_KEY, response.refreshToken);
         apiClient.setTokenCache(response.token);
         await setItemSafe(USER_KEY, JSON.stringify(response.user));
         if (response.doctorProfile) {
@@ -339,6 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
       if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
       await setSecureItem(AUTH_TOKEN_KEY, response.token);
+      if (response.refreshToken) await setSecureItem(REFRESH_TOKEN_KEY, response.refreshToken);
       apiClient.setTokenCache(response.token);
       await setItemSafe(USER_KEY, JSON.stringify(response.user));
       if (response.doctorProfile) {

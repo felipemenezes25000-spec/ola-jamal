@@ -8,8 +8,10 @@ namespace RenoveJa.Domain.Interfaces;
 public interface IAuthTokenRepository
 {
     Task<AuthToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
+    Task<AuthToken?> GetByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<List<AuthToken>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<AuthToken> CreateAsync(AuthToken authToken, CancellationToken cancellationToken = default);
+    Task<AuthToken> UpdateAsync(AuthToken authToken, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task DeleteByTokenAsync(string token, CancellationToken cancellationToken = default);
     Task DeleteByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);

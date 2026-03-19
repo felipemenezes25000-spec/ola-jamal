@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using RenoveJa.Application.DTOs.Auth;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Api.Authentication;
 using RenoveJa.Domain.Interfaces;
 using System.Security.Claims;
 
@@ -23,6 +24,42 @@ public class AuthController(
     ILogger<AuthController> logger) : ControllerBase
 {
     /// <summary>
+    /// Token lifetime in days — must match AuthToken.Create(expirationDays: 30).
+    /// </summary>
+    private const int TokenLifetimeDays = 30;
+
+    /// <summary>
+    /// Sets the auth_token HttpOnly cookie on the response.
+    /// The cookie is HttpOnly + Secure + SameSite=Lax, scoped to /api.
+    /// SameSite=Lax (not Strict) to allow navigation from external links (e.g. email password reset).
+    /// The token is ALSO returned in the response body for backward compatibility with the mobile app.
+    /// </summary>
+    private void SetAuthCookie(string token)
+    {
+        Response.Cookies.Append(BearerAuthenticationHandler.AuthCookieName, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/api",
+            MaxAge = TimeSpan.FromDays(TokenLifetimeDays),
+        });
+    }
+
+    /// <summary>
+    /// Clears the auth_token cookie (used on logout).
+    /// </summary>
+    private void ClearAuthCookie()
+    {
+        Response.Cookies.Delete(BearerAuthenticationHandler.AuthCookieName, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/api",
+        });
+    }
+    /// <summary>
     /// Registra um novo paciente na plataforma.
     /// </summary>
     [HttpPost("register")]
@@ -38,6 +75,8 @@ public class AuthController(
         try
         {
             var response = await authService.RegisterAsync(request, cancellationToken);
+            if (!string.IsNullOrEmpty(response.Token))
+                SetAuthCookie(response.Token);
             return Ok(response);
         }
         catch (Exception e)
@@ -78,6 +117,8 @@ public class AuthController(
             logger.LogInformation("[Auth] Login attempt");
             var response = await authService.LoginAsync(request!, cancellationToken);
             logger.LogInformation("[Auth] Login success: UserId={UserId}", response.User.Id);
+            if (!string.IsNullOrEmpty(response.Token))
+                SetAuthCookie(response.Token);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -90,6 +131,29 @@ public class AuthController(
             logger.LogError(ex, "[Auth] Login 500: {Type} | {Message} | Inner: {Inner}",
                 ex.GetType().Name, ex.Message, ex.InnerException?.Message ?? "-");
             return StatusCode(500, new { message = "Erro ao processar login. Tente novamente." });
+        }
+    }
+
+    /// <summary>
+    /// Renova o access token usando um refresh token válido.
+    /// Realiza rotação: gera novo access token + novo refresh token e invalida os anteriores.
+    /// </summary>
+    [HttpPost("refresh")]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<AuthResponseDto>> RefreshToken(
+        [FromBody] RefreshTokenRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await authService.RefreshTokenAsync(request.RefreshToken, cancellationToken);
+            if (!string.IsNullOrEmpty(response.Token))
+                SetAuthCookie(response.Token);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
         }
     }
 
@@ -123,8 +187,13 @@ public class AuthController(
             await pushTokenRepository.SetAllActiveForUserAsync(userId, false, cancellationToken);
         }
 
-        var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+        // Read token from cookie (web) or Authorization header (mobile)
+        var token = Request.Cookies[BearerAuthenticationHandler.AuthCookieName];
+        if (string.IsNullOrWhiteSpace(token))
+            token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
         await authService.LogoutAsync(token, cancellationToken);
+        ClearAuthCookie();
         return Ok(new { message = "Logged out successfully" });
     }
 
@@ -139,6 +208,8 @@ public class AuthController(
         CancellationToken cancellationToken)
     {
         var response = await authService.GoogleAuthAsync(request, cancellationToken);
+        if (!string.IsNullOrEmpty(response.Token))
+            SetAuthCookie(response.Token);
         return Ok(response);
     }
 

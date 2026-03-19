@@ -55,7 +55,7 @@ public class AuthService(
             // LGPD compliance risk: fire-and-forget means consent records can be silently lost
             // on transient failures. TODO: replace with outbox/retry pattern to guarantee persistence.
             _ = RecordInitialConsentsAsync(user.Id, CancellationToken.None);
-            return new AuthResponseDto(MapUserToDto(user), token.Token);
+            return new AuthResponseDto(MapUserToDto(user), token.Token, RefreshToken: token.RefreshToken);
         }
         catch
         {
@@ -154,7 +154,8 @@ public class AuthService(
         return new AuthResponseDto(
             await MapUserToDtoAsync(user),
             token.Token,
-            doctorProfile);
+            doctorProfile,
+            RefreshToken: token.RefreshToken);
     }
 
     public async Task<UserDto> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -234,7 +235,7 @@ public class AuthService(
         var token = AuthToken.Create(user.Id);
         await tokenRepository.CreateAsync(token, cancellationToken);
 
-        return new AuthResponseDto(await MapUserToDtoAsync(user), token.Token, doctorProfile, user.ProfileComplete);
+        return new AuthResponseDto(await MapUserToDtoAsync(user), token.Token, doctorProfile, user.ProfileComplete, token.RefreshToken);
     }
 
     public async Task<UserDto> CompleteProfileAsync(
@@ -363,6 +364,38 @@ public class AuthService(
         user.UpdateProfile(avatarUrl: avatarUrl);
         user = await userRepository.UpdateAsync(user, cancellationToken);
         return await MapUserToDtoAsync(user);
+    }
+
+    public async Task<AuthResponseDto> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            throw new UnauthorizedAccessException("Refresh token é obrigatório.");
+
+        var authToken = await tokenRepository.GetByRefreshTokenAsync(refreshToken.Trim(), cancellationToken);
+        if (authToken == null || !authToken.IsRefreshTokenValid())
+            throw new UnauthorizedAccessException("Refresh token inválido ou expirado. Faça login novamente.");
+
+        var user = await userRepository.GetByIdAsync(authToken.UserId, cancellationToken);
+        if (user == null)
+            throw new UnauthorizedAccessException("Usuário não encontrado.");
+
+        // Rotate: generate new access token + new refresh token
+        authToken.RotateTokens();
+        await tokenRepository.UpdateAsync(authToken, cancellationToken);
+
+        DoctorProfileDto? doctorProfile = null;
+        if (user.IsDoctor())
+        {
+            var profile = await doctorRepository.GetByUserIdAsync(user.Id, cancellationToken);
+            if (profile != null) doctorProfile = MapDoctorProfileToDto(profile);
+        }
+
+        return new AuthResponseDto(
+            await MapUserToDtoAsync(user),
+            authToken.Token,
+            doctorProfile,
+            user.ProfileComplete,
+            authToken.RefreshToken);
     }
 
     private async Task RecordInitialConsentsAsync(Guid userId, CancellationToken cancellationToken)

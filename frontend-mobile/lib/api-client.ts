@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 import { trackApiLatency } from './analytics';
 import { logApiError } from './logger';
-import { AUTH_TOKEN_KEY } from './constants/storage-keys';
-import { getSecureItem } from './secure-storage';
+import { AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY } from './constants/storage-keys';
+import { getSecureItem, setSecureItem } from './secure-storage';
 
 /** Debounce 401 logs: múltiplas chamadas simultâneas geram um único log. */
 let last401LogAt = 0;
@@ -76,8 +76,63 @@ class ApiClient {
   private onUnauthorized: OnUnauthorizedCallback | null = null;
   private onForbidden: OnForbiddenCallback | null = null;
 
+  /**
+   * Mutex for token refresh: when a 401 triggers a refresh, concurrent requests
+   * wait for the same refresh promise instead of firing multiple refresh calls.
+   */
+  private refreshPromise: Promise<boolean> | null = null;
+
   constructor(baseUrl: string = BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Attempts to refresh the access token using the stored refresh token.
+   * Returns true if refresh succeeded, false otherwise.
+   * Uses a mutex so concurrent 401s share a single refresh call.
+   */
+  async tryRefreshToken(): Promise<boolean> {
+    // If a refresh is already in progress, wait for it
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = this.executeRefresh();
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  private async executeRefresh(): Promise<boolean> {
+    try {
+      const refreshToken = await getSecureItem(REFRESH_TOKEN_KEY);
+      if (!refreshToken) return false;
+
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/api/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          ...this.getCommonHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      if (!data?.token || !data?.refreshToken) return false;
+
+      // Persist the new tokens
+      await setSecureItem(AUTH_TOKEN_KEY, data.token);
+      await setSecureItem(REFRESH_TOKEN_KEY, data.refreshToken);
+      this.tokenCache = data.token;
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   setOnUnauthorized(cb: OnUnauthorizedCallback | null) {
@@ -169,7 +224,12 @@ class ApiClient {
     }
   }
 
-  private async handleResponse<T>(response: Response): Promise<T> {
+  /**
+   * Handles non-ok responses: parses error body, triggers callbacks (401/403), logs.
+   * The `skipUnauthorizedCallback` flag suppresses the onUnauthorized callback —
+   * used when the caller will handle 401 via token refresh + retry.
+   */
+  private async handleResponse<T>(response: Response, skipUnauthorizedCallback = false): Promise<T> {
     if (!response.ok) {
       let errorMessage = `Erro ${response.status}: Ocorreu um erro na requisição`;
       let errors: Record<string, string[]> | undefined;
@@ -203,7 +263,7 @@ class ApiClient {
             code: errorData.code,
             cooldownDays: errorData.cooldownDays,
           };
-          if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
+          if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled && !skipUnauthorizedCallback) {
             unauthorizedHandled = true;
             this.onUnauthorized();
           }
@@ -256,7 +316,7 @@ class ApiClient {
         logApiError(response.status, path, errorMessage, bodyExtra);
       }
 
-      if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled) {
+      if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled && !skipUnauthorizedCallback) {
         this.onUnauthorized();
       }
       const skipForbiddenLogout = /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/)/.test(path);
@@ -294,6 +354,37 @@ class ApiClient {
     return (await response.text()) as unknown as T;
   }
 
+  /**
+   * Executes an authenticated fetch. On 401, attempts to refresh the token
+   * and retries the request once. If refresh fails, triggers onUnauthorized.
+   *
+   * Auth endpoints (login, register, refresh) bypass the retry logic.
+   */
+  private async fetchWithAuthRetry<T>(
+    url: string,
+    init: RequestInit,
+  ): Promise<T> {
+    const isAuthEndpoint = /\/api\/auth\/(login|register|refresh|google|forgot-password|reset-password)/.test(url);
+
+    const response = await this.fetchWithTimeout(url, init);
+
+    if (response.status === 401 && !isAuthEndpoint) {
+      // Try to refresh the token before giving up
+      const refreshed = await this.tryRefreshToken();
+      if (refreshed) {
+        // Rebuild auth header with the new token and retry
+        const newAuthHeaders = await this.getAuthHeader();
+        const retryHeaders = { ...init.headers, ...newAuthHeaders } as Record<string, string>;
+        const retryResponse = await this.fetchWithTimeout(url, { ...init, headers: retryHeaders });
+        return this.handleResponse<T>(retryResponse);
+      }
+      // Refresh failed — parse and throw the original 401 (which triggers onUnauthorized)
+      return this.handleResponse<T>(response);
+    }
+
+    return this.handleResponse<T>(response);
+  }
+
   async get<T>(path: string, params?: Record<string, string | number | boolean | undefined | null>, options?: { signal?: AbortSignal }): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
@@ -312,13 +403,11 @@ class ApiClient {
       }
     }
 
-    const response = await this.fetchWithTimeout(url, {
+    return this.fetchWithAuthRetry<T>(url, {
       method: 'GET',
       headers: { ...this.getCommonHeaders(), ...authHeaders },
       signal: options?.signal,
     });
-
-    return this.handleResponse<T>(response);
   }
 
   /** GET que retorna Blob (ex.: PDF). */
@@ -357,19 +446,17 @@ class ApiClient {
       bodyData = JSON.stringify(body ?? {});
     }
 
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
+    return this.fetchWithAuthRetry<T>(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers,
       body: bodyData,
     });
-
-    return this.handleResponse<T>(response);
   }
 
   async put<T>(path: string, body?: unknown): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
+    return this.fetchWithAuthRetry<T>(`${this.baseUrl}${path}`, {
       method: 'PUT',
       headers: {
         ...this.getCommonHeaders(),
@@ -378,14 +465,12 @@ class ApiClient {
       },
       body: body != null ? JSON.stringify(body) : undefined,
     });
-
-    return this.handleResponse<T>(response);
   }
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
+    return this.fetchWithAuthRetry<T>(`${this.baseUrl}${path}`, {
       method: 'PATCH',
       headers: {
         ...this.getCommonHeaders(),
@@ -394,13 +479,11 @@ class ApiClient {
       },
       body: body != null ? JSON.stringify(body) : undefined,
     });
-
-    return this.handleResponse<T>(response);
   }
 
   async patchMultipart<T>(path: string, formData: FormData): Promise<T> {
     const authHeaders = await this.getAuthHeader();
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
+    return this.fetchWithAuthRetry<T>(`${this.baseUrl}${path}`, {
       method: 'PATCH',
       headers: {
         ...this.getCommonHeaders(),
@@ -408,21 +491,18 @@ class ApiClient {
       },
       body: formData,
     });
-    return this.handleResponse<T>(response);
   }
 
   async delete<T>(path: string): Promise<T> {
     const authHeaders = await this.getAuthHeader();
 
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
+    return this.fetchWithAuthRetry<T>(`${this.baseUrl}${path}`, {
       method: 'DELETE',
       headers: {
         ...this.getCommonHeaders(),
         ...authHeaders,
       },
     });
-
-    return this.handleResponse<T>(response);
   }
 
   // Helper to set base URL (useful for testing or changing environments)

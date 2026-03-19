@@ -1,0 +1,64 @@
+appId: com.renoveja.app
+name: "Registro - navegacao e campos"
+---
+
+# Inicia o app
+- launchApp
+
+# Aguarda a splash screen redirecionar para login
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Verifica que a tela de login está visível
+- assertVisible: "Entrar"
+
+# Toca no link de registro
+- tapOn:
+    id: "register-link"
+
+# Aguarda navegação para tela de registro
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Verifica que a tela de registro está visível
+- assertVisible: "Crie sua conta"
+- assertVisible: "Paciente"
+- assertVisible: "Médico"
+
+# Verifica que os campos do formulário estão visíveis
+- assertVisible: "Nome completo"
+- assertVisible: "E-mail"
+- assertVisible: "Telefone"
+- assertVisible: "CPF"
+
+# Preenche o nome
+- tapOn:
+    id: "register-name-input"
+- inputText: "Maria Silva Santos"
+
+# Preenche o email
+- tapOn:
+    id: "register-email-input"
+- inputText: "maria.teste@renoveja.com"
+
+# Rola para baixo para ver mais campos
+- scrollDown
+
+# Preenche o CPF
+- tapOn:
+    id: "register-cpf-input"
+- inputText: "12345678909"
+
+# Rola para os campos de senha
+- scrollDown
+
+# Preenche a senha
+- tapOn:
+    id: "register-password-input"
+- inputText: "Teste@1234"
+
+- hideKeyboard
+
+# Verifica que o botão de submit está visível
+- scrollDown
+- assertVisible: "Criar minha conta"

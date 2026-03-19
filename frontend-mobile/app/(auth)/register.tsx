@@ -383,6 +383,7 @@ export default function Register() {
         {/* ── Dados pessoais ── */}
         <SectionHeader icon="person-outline" title={role === 'patient' ? 'Dados para atendimento' : 'Dados pessoais'} variant="form" />
         <AppInput
+          testID="register-name-input"
           label="Nome completo"
           required
           leftIcon="person-outline"
@@ -393,6 +394,7 @@ export default function Register() {
           autoCapitalize="words"
         />
         <AppInput
+          testID="register-email-input"
           label="E-mail"
           required
           leftIcon="mail-outline"
@@ -415,6 +417,7 @@ export default function Register() {
           hint="Para contato e notificações"
         />
         <AppInput
+          testID="register-cpf-input"
           label="CPF"
           required
           leftIcon="card-outline"
@@ -446,6 +449,7 @@ export default function Register() {
         {/* ── Segurança ── */}
         <SectionHeader icon="lock-closed-outline" title="Segurança" variant="form" />
         <AppInput
+          testID="register-password-input"
           label="Senha"
           required
           leftIcon="lock-closed-outline"
@@ -594,6 +598,7 @@ export default function Register() {
 
         {/* ── Submit ── */}
         <AppButton
+          testID="register-button"
           title="Criar minha conta"
           onPress={handleRegister}
           loading={loading}

@@ -40,6 +40,7 @@ export interface AppButtonProps {
   onPressIn?: () => void;
   style?: StyleProp<ViewStyle>;
   pulse?: boolean;
+  testID?: string;
 }
 
 const SIZE_CONFIG = {
@@ -62,6 +63,7 @@ export function AppButton({
   onPressIn,
   style,
   pulse = false,
+  testID,
 }: AppButtonProps) {
   const { colors, shadows: themeShadows } = useAppTheme();
   const isDisabled = disabled || loading;
@@ -142,6 +144,7 @@ export function AppButton({
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityState={{ disabled: isDisabled, busy: loading }}
+        testID={testID}
       >
         {loading ? (
           <ActivityIndicator

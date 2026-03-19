@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import {
-  getToken,
+  hasAuthSession,
   getStoredUser,
   getMe,
   getDoctorProfile,
@@ -17,15 +17,17 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DoctorUser | null>(() => getStoredUser());
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
 
-  // MUDANÇA CRÍTICA: loading começa como TRUE apenas se tem token mas NÃO tem user cached.
-  // Se já tem ambos (token + user no localStorage), loading começa FALSE — sem flash.
+  // MUDANÇA CRÍTICA: loading começa como TRUE apenas se tem sessão mas NÃO tem user cached.
+  // Se já tem ambos (sessão + user no localStorage), loading começa FALSE — sem flash.
+  // hasAuthSession() checks for cached user or legacy localStorage token — HttpOnly cookies
+  // are not readable from JS, so we rely on cached user data as a session indicator.
   const [loading, setLoading] = useState(() => {
-    const hasToken = !!getToken();
+    const hasSession = hasAuthSession();
     const hasUser = !!getStoredUser();
-    // Se tem token E user cached → já podemos renderizar (loading = false)
-    // Se tem token mas NÃO tem user → precisa esperar getMe() (loading = true)
-    // Se NÃO tem token → não autenticado (loading = false)
-    return hasToken && !hasUser;
+    // Se tem sessão E user cached → já podemos renderizar (loading = false)
+    // Se tem sessão mas NÃO tem user → precisa esperar getMe() (loading = true)
+    // Se NÃO tem sessão → não autenticado (loading = false)
+    return hasSession && !hasUser;
   });
 
   // Guard contra múltiplos refreshes simultâneos e StrictMode double-mount
@@ -34,7 +36,9 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     if (refreshingRef.current) return;
-    if (!getToken()) return;
+    // With HttpOnly cookies, we can't check for token presence from JS.
+    // hasAuthSession() returns true if we have cached user data or legacy token.
+    if (!hasAuthSession()) return;
 
     refreshingRef.current = true;
     try {
@@ -50,14 +54,14 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
         if (mountedRef.current) setDoctorProfile(null);
       }
     } catch {
-      // MUDANÇA: Só zera user se o token foi removido (pelo authFetch no 401).
-      // Se o token ainda existe, foi erro de rede — manter user cached.
+      // MUDANÇA: Só zera user se a sessão foi invalidada (pelo authFetch no 401).
+      // Se a sessão ainda existe, foi erro de rede — manter user cached.
       if (mountedRef.current) {
-        if (!getToken()) {
+        if (!hasAuthSession()) {
           setUser(null);
           setDoctorProfile(null);
         }
-        // Se token ainda existe → manter user do localStorage (erro de rede/timeout)
+        // Se sessão ainda existe → manter user do localStorage (erro de rede/timeout)
       }
     } finally {
       refreshingRef.current = false;
@@ -77,8 +81,7 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     mountedRef.current = true;
 
-    const token = getToken();
-    if (!token) {
+    if (!hasAuthSession()) {
       setLoading(false);
       return;
     }
@@ -110,8 +113,10 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
     logoutDoctor();
   }, []);
 
-  // ── isAuthenticated: usa user E token (ambos devem existir) ──
-  const isAuthenticated = !!user && !!getToken();
+  // ── isAuthenticated: usa user E sessão (ambos devem existir) ──
+  // With HttpOnly cookies we can't read the token from JS, so we use
+  // hasAuthSession() which checks for cached user data or legacy token.
+  const isAuthenticated = !!user && hasAuthSession();
 
   return (
     <DoctorAuthContext.Provider

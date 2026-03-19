@@ -1,0 +1,46 @@
+appId: com.renoveja.app
+name: "Navegacao - links da tela de login"
+---
+
+# Inicia o app
+- launchApp
+
+# Aguarda a splash screen redirecionar para login
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Verifica elementos da tela de login
+- assertVisible: "Email"
+- assertVisible: "Senha"
+- assertVisible: "Entrar"
+- assertVisible: "Esqueceu sua senha?"
+- assertVisible: "Crie agora"
+- assertVisible: "ou continue com"
+
+# Testa navegação para "Esqueceu senha"
+- tapOn:
+    id: "forgot-password-link"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Volta para login (pressiona botão de voltar do sistema)
+- pressKey: back
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Testa navegação para registro
+- tapOn:
+    id: "register-link"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Verifica que estamos na tela de registro
+- assertVisible: "Crie sua conta"
+
+# Volta para login
+- pressKey: back
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Verifica que voltamos para o login
+- assertVisible: "Entrar"

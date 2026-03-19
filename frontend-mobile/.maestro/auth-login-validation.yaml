@@ -1,0 +1,42 @@
+appId: com.renoveja.app
+name: "Login - validacao de campos obrigatorios"
+---
+
+# Inicia o app
+- launchApp
+
+# Aguarda a splash screen redirecionar para login
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Verifica que a tela de login está visível
+- assertVisible: "Email"
+- assertVisible: "Senha"
+
+# Tenta fazer login sem preencher nada
+- tapOn:
+    id: "login-button"
+
+# Deve exibir alerta de campos obrigatórios
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Campos obrigatórios"
+
+# Fecha o alerta
+- tapOn: "OK"
+
+# Preenche apenas o email (sem senha)
+- tapOn:
+    id: "login-email-input"
+- inputText: "teste@renoveja.com"
+- hideKeyboard
+
+# Tenta login novamente
+- tapOn:
+    id: "login-button"
+
+# Deve exibir alerta novamente
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Campos obrigatórios"
+- tapOn: "OK"

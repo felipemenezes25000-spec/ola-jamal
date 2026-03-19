@@ -1,0 +1,62 @@
+appId: com.renoveja.app
+name: "Patient Home - elementos e tabs"
+tags:
+  - requires-auth
+---
+
+# NOTA: Este teste requer que o usuário já esteja autenticado.
+# Para rodar, faça login manualmente antes OU configure um
+# estado de autenticação persistido no dispositivo/emulador.
+
+# Inicia o app (assume sessão ativa)
+- launchApp
+
+# Aguarda carregamento da home
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# Verifica elementos do header (saudação varia por horário)
+# O nome do paciente deve estar visível
+- assertVisible:
+    text: ".*"
+    enabled: true
+
+# Verifica seção de ações rápidas
+- scrollDown
+- assertVisible: "O QUE VOCÊ PRECISA?"
+- assertVisible: "Renovar Receita"
+- assertVisible: "Pedir Exame"
+- assertVisible: "Consulta Breve +"
+
+# Verifica card do prontuário
+- scrollDown
+- assertVisible: "Meu Prontuário"
+
+# Testa navegação por tabs
+# Tab: Pedidos
+- tapOn: "Pedidos"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Tab: Prontuário
+- tapOn: "Prontuário"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Tab: Alertas
+- tapOn: "Alertas"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Tab: Perfil
+- tapOn: "Perfil"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Volta para Início
+- tapOn: "Início"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Verifica que voltamos para a home
+- assertVisible: "O QUE VOCÊ PRECISA?"

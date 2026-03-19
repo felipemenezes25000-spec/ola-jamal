@@ -218,6 +218,7 @@ export default function Login() {
 
       {/* Inputs */}
       <AppInput
+        testID="login-email-input"
         label="Email"
         leftIcon="mail-outline"
         placeholder="seu@email.com"
@@ -234,6 +235,7 @@ export default function Login() {
       />
       <AppInput
         ref={passwordRef}
+        testID="login-password-input"
         label="Senha"
         leftIcon="lock-closed-outline"
         placeholder="Sua senha"
@@ -249,6 +251,7 @@ export default function Login() {
 
       {/* Esqueceu senha — acima do botão */}
       <TouchableOpacity
+        testID="forgot-password-link"
         onPress={handleForgotPassword}
         style={styles.forgotRow}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -257,6 +260,7 @@ export default function Login() {
       </TouchableOpacity>
 
       <AppButton
+        testID="login-button"
         title="Entrar"
         onPress={handleLogin}
         loading={loading}
@@ -301,7 +305,7 @@ export default function Login() {
       <View style={styles.footerSection}>
         <View style={styles.registerRow}>
           <Text style={styles.registerText}>Não tem uma conta? </Text>
-          <TouchableOpacity onPress={handleRegister} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.registerPill}>
+          <TouchableOpacity testID="register-link" onPress={handleRegister} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.registerPill}>
             <Text style={styles.registerLink}>Crie agora</Text>
           </TouchableOpacity>
         </View>
