@@ -70,6 +70,10 @@ public class DocumentVerifyController(
             // Verificar status
             if (doc.Status == Domain.Enums.DocumentStatus.Revoked)
                 return Ok(new { status = "invalid", reason = "REVOKED", message = "Documento revogado." });
+            if (doc.Status == Domain.Enums.DocumentStatus.Cancelled)
+                return Ok(new { status = "invalid", reason = "CANCELLED", message = "Documento cancelado." });
+            if (doc.Status == Domain.Enums.DocumentStatus.Superseded)
+                return Ok(new { status = "invalid", reason = "SUPERSEDED", message = "Documento substituído por versão mais recente." });
 
             if (doc.SignedAt == null)
                 return Ok(new { status = "invalid", reason = "NOT_SIGNED", message = "Documento ainda não assinado." });
@@ -102,9 +106,9 @@ public class DocumentVerifyController(
 
             // URL para download do PDF (público, valida código)
             var apiBase = (apiConfig?.Value?.BaseUrl ?? "").TrimEnd('/');
-            var downloadUrl = !string.IsNullOrEmpty(apiBase)
-                ? $"{apiBase}/api/documents/{docId}/document?code={Uri.EscapeDataString(request.Code)}"
-                : (string?)null;
+            if (string.IsNullOrEmpty(apiBase))
+                apiBase = $"{Request.Scheme}://{Request.Host}";
+            var downloadUrl = $"{apiBase}/api/documents/{docId}/document?code={Uri.EscapeDataString(request.Code)}";
 
             // Notificar paciente (fire-and-forget com CancellationToken.None para não cancelar ao enviar response)
             // Passa docId para que o collapseKey agrupe por documento+paciente (evita spam em múltiplas verificações)
@@ -245,51 +249,60 @@ public class DocumentVerifyController(
         if (string.IsNullOrWhiteSpace(request.PharmacyName) || string.IsNullOrWhiteSpace(request.PharmacistName))
             return BadRequest(new { error = "Informe nome da farmácia e farmacêutico(a) ou responsável." });
 
-        var doc = await documentRepository.GetByIdAsync(documentId, ct);
-        if (doc == null) return NotFound(new { error = "Documento não encontrado." });
-        if (doc.SignedAt == null) return BadRequest(new { error = "Documento não assinado." });
-
-        var security = await documentRepository.GetSecurityFieldsAsync(documentId, ct);
-        var codeValid = false;
-        if (security.HasValue && !string.IsNullOrEmpty(security.Value.verifyCodeHash))
-            codeValid = securityService.ValidateVerifyCode(request.Code.Trim(), security.Value.verifyCodeHash);
-        else if (security.HasValue && !string.IsNullOrEmpty(security.Value.accessCode))
-            codeValid = request.Code.Trim() == security.Value.accessCode.Trim();
-
-        if (!codeValid)
-            return Unauthorized(new { error = "Código inválido ou expirado." });
-
-        var dispenseCount = await accessLogRepository.GetDispenseCountAsync(documentId, ct);
-        if (dispenseCount >= 1 && doc.DocumentType == Domain.Enums.DocumentType.Prescription)
-            return Conflict(new { error = "Receita já dispensada. Não é permitido dispensar novamente.", alreadyDispensed = true });
-
-        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-        await securityService.RecordDispensationAsync(documentId, request.PharmacyName.Trim(), ip, ct);
-
-        var isControlled = false;
-        if (doc.DocumentType == Domain.Enums.DocumentType.Prescription)
+        try
         {
-            var sourceRequestId = await documentRepository.GetSourceRequestIdAsync(documentId, ct);
-            if (sourceRequestId.HasValue)
+            var doc = await documentRepository.GetByIdAsync(documentId, ct);
+            if (doc == null) return NotFound(new { error = "Documento não encontrado." });
+            if (doc.SignedAt == null) return BadRequest(new { error = "Documento não assinado." });
+
+            var security = await documentRepository.GetSecurityFieldsAsync(documentId, ct);
+            var codeValid = false;
+            if (security.HasValue && !string.IsNullOrEmpty(security.Value.verifyCodeHash))
+                codeValid = securityService.ValidateVerifyCode(request.Code.Trim(), security.Value.verifyCodeHash);
+            else if (security.HasValue && !string.IsNullOrEmpty(security.Value.accessCode))
+                codeValid = request.Code.Trim() == security.Value.accessCode.Trim();
+
+            if (!codeValid)
+                return Unauthorized(new { error = "Código inválido ou expirado." });
+
+            var dispenseCount = await accessLogRepository.GetDispenseCountAsync(documentId, ct);
+            if (dispenseCount >= 1 && doc.DocumentType == Domain.Enums.DocumentType.Prescription)
+                return Conflict(new { error = "Receita já dispensada. Não é permitido dispensar novamente.", alreadyDispensed = true });
+
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            await securityService.RecordDispensationAsync(
+                documentId, request.PharmacyName.Trim(), request.PharmacistName.Trim(), ip, ct);
+
+            var isControlled = false;
+            if (doc.DocumentType == Domain.Enums.DocumentType.Prescription)
             {
-                var sourceRequest = await requestRepository.GetByIdAsync(sourceRequestId.Value, ct);
-                if (sourceRequest?.PrescriptionKind is Domain.Enums.PrescriptionKind.ControlledSpecial
-                    or Domain.Enums.PrescriptionKind.Antimicrobial)
-                    isControlled = true;
+                var sourceRequestId = await documentRepository.GetSourceRequestIdAsync(documentId, ct);
+                if (sourceRequestId.HasValue)
+                {
+                    var sourceRequest = await requestRepository.GetByIdAsync(sourceRequestId.Value, ct);
+                    if (sourceRequest?.PrescriptionKind is Domain.Enums.PrescriptionKind.ControlledSpecial
+                        or Domain.Enums.PrescriptionKind.Antimicrobial)
+                        isControlled = true;
+                }
             }
+
+            var notification = isControlled
+                ? PushNotificationRules.ControlledSubstanceDispensed(doc.PatientId, documentId)
+                : PushNotificationRules.DocumentDispensed(doc.PatientId, documentId);
+            _ = pushDispatcher.SendAsync(notification, CancellationToken.None)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        logger.LogDebug(t.Exception?.InnerException, "Failed to notify patient about dispensation");
+                }, TaskScheduler.Default);
+
+            return Ok(new { success = true, message = "Documento marcado como dispensado/utilizado.", dispenseCount = dispenseCount + 1 });
         }
-
-        var notification = isControlled
-            ? PushNotificationRules.ControlledSubstanceDispensed(doc.PatientId, documentId)
-            : PushNotificationRules.DocumentDispensed(doc.PatientId, documentId);
-        _ = pushDispatcher.SendAsync(notification, CancellationToken.None)
-            .ContinueWith(t =>
-            {
-                if (t.IsFaulted)
-                    logger.LogDebug(t.Exception?.InnerException, "Failed to notify patient about dispensation");
-            }, TaskScheduler.Default);
-
-        return Ok(new { success = true, message = "Documento marcado como dispensado/utilizado.", dispenseCount = dispenseCount + 1 });
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Dispense-by-code failed for document {DocumentId}", documentId);
+            return BadRequest(new { error = "Erro ao registrar dispensação. Tente novamente." });
+        }
     }
 
     /// <summary>
@@ -314,7 +327,7 @@ public class DocumentVerifyController(
                 return BadRequest(new { error = "Receita já dispensada. Não é permitido dispensar novamente.", alreadyDispensed = true });
 
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-            await securityService.RecordDispensationAsync(documentId, request.PharmacyName ?? "Não informado", ip, ct);
+            await securityService.RecordDispensationAsync(documentId, request.PharmacyName ?? "Não informado", null, ip, ct);
 
             // Check if the prescription is controlled via the source request
             var isControlled = false;

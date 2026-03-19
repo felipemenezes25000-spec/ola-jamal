@@ -11,6 +11,6 @@ public interface IDocumentSecurityService
     int CalculateMaxDispenses(DocumentType docType, string? prescriptionKind);
     (string code, string hash) GenerateVerifyCode();
     bool ValidateVerifyCode(string code, string storedHash);
-    Task<(bool success, string? error)> RecordDispensationAsync(Guid documentId, string dispensedBy, string? ip, CancellationToken ct);
+    Task<(bool success, string? error)> RecordDispensationAsync(Guid documentId, string dispensedBy, string? pharmacistName, string? ip, CancellationToken ct);
     Task LogAccessAsync(Guid? documentId, Guid? requestId, Guid? userId, string action, string actorType, string? ip, string? userAgent, CancellationToken ct);
 }

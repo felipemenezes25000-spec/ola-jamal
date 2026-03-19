@@ -192,6 +192,10 @@ export async function verifyDocument(documentId: string, code: string): Promise<
       body: JSON.stringify({ documentId: documentId.trim(), code: code.trim() }),
     });
     const data = await res.json().catch(() => ({}));
+    if (!res.ok && !data.status) {
+      const errBody = data as { error?: string; message?: string };
+      return { status: 'error', message: errBody?.error ?? errBody?.message ?? `Erro do servidor (${res.status}).` };
+    }
     return data as DocumentVerifyResult;
   } catch {
     return { status: 'error', message: 'Erro de conexão.' };

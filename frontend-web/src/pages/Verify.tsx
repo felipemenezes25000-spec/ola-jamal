@@ -79,23 +79,25 @@ export default function Verify() {
       setErrorMessage('');
       setResult(null);
       try {
-        const res = await verifyReceita({ id: id!.trim(), code: code.trim() });
-
-        if (res.status === 'error' || res.status === 'invalid') {
-          // Fallback: tentar endpoint universal (atestados, exames, documentos pós-consulta)
-          const docRes = await verifyDocument(id!.trim(), code.trim());
-          if (docRes.status === 'valid') {
-            setDocResult(docRes);
-            setState('success');
-            return;
-          }
-          // Ambos falharam — mostrar erro do original
-          setErrorMessage(res.status === 'error' ? res.message : res.message);
-          setState('error');
+        // Tentar endpoint universal primeiro (medical_documents — cobre todos os tipos)
+        const docRes = await verifyDocument(id!.trim(), code.trim());
+        if (docRes.status === 'valid') {
+          setDocResult(docRes);
+          setState('success');
           return;
         }
-        setResult(res.data);
-        setState('success');
+
+        // Fallback: tentar endpoint legado (prescriptions — receitas pré-consulta)
+        const res = await verifyReceita({ id: id!.trim(), code: code.trim() });
+        if (res.status !== 'error' && res.status !== 'invalid') {
+          setResult(res.data);
+          setState('success');
+          return;
+        }
+
+        // Ambos falharam — mostrar erro mais relevante
+        setErrorMessage(docRes.message || res.message || 'Código inválido ou documento não encontrado.');
+        setState('error');
       } finally {
         submittingRef.current = false;
       }
@@ -210,9 +212,13 @@ export default function Verify() {
                     return;
                   }
                   const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  window.open(url, '_blank', 'noopener,noreferrer');
-                  URL.revokeObjectURL(url);
+                  const blobUrl = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = blobUrl;
+                  a.target = '_blank';
+                  a.rel = 'noopener noreferrer';
+                  a.click();
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
                 } catch {
                   alert('Erro ao baixar o PDF. Verifique sua conexão e tente novamente.');
                 }
@@ -314,9 +320,13 @@ export default function Verify() {
                       return;
                     }
                     const blob = await res.blob();
-                    const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                    URL.revokeObjectURL(url);
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
                   } catch {
                     alert('Erro ao baixar o PDF. Verifique sua conexão e tente novamente.');
                   }

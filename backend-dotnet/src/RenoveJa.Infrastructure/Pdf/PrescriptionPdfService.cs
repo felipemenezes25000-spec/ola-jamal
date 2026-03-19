@@ -454,10 +454,8 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             AddInfoCell(grid, "Idade", d.PatientBirthDate.HasValue ? $"{CalculateAge(d.PatientBirthDate.Value)} anos" : "—", fb, f);
         }
 
+        AddInfoCell(grid, "Telefone", !string.IsNullOrWhiteSpace(d.PatientPhone) ? d.PatientPhone : "—", fb, f);
         AddInfoCell(grid, "Data de Emissão", d.EmissionDate.ToString("dd/MM/yyyy 'às' HH:mm"), fb, f);
-
-        if (!string.IsNullOrWhiteSpace(d.PatientPhone))
-            AddInfoCell(grid, "Telefone", d.PatientPhone, fb, f);
 
         if (!string.IsNullOrWhiteSpace(d.PatientAddress))
         {

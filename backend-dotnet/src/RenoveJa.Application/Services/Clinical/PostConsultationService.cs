@@ -408,6 +408,19 @@ public class PostConsultationService(
         return $"{frontendBase}/{documentId}";
     }
 
+    private static readonly TimeZoneInfo BrasiliaTimeZone =
+        TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "E. South America Standard Time" : "America/Sao_Paulo");
+
+    private static DateTime GetBrasiliaNow() =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTimeZone);
+
+    private static string FormatPatientAddress(Patient patient)
+    {
+        var parts = new[] { patient.AddressLine1, patient.City, patient.State, patient.ZipCode }
+            .Where(p => !string.IsNullOrWhiteSpace(p));
+        return string.Join(", ", parts);
+    }
+
     private async Task<(string DoctorName, string DoctorCrm, string DoctorCrmState, string DoctorSpecialty)> GetDoctorPdfInfoAsync(DoctorProfile profile, CancellationToken ct)
     {
         var user = await userRepository.GetByIdAsync(profile.UserId, ct);
@@ -442,11 +455,16 @@ public class PostConsultationService(
             "antimicrobiano" or "antimicrobial" => PrescriptionKind.Antimicrobial,
             _ => PrescriptionKind.Simple
         };
+        var address = FormatPatientAddress(patient);
         var data = new PrescriptionPdfData(
             prescription.Id, patient.Name, patient.Cpf, doctorName, crm, crmState, specialty,
-            meds, dto.Type ?? "simples", DateTime.UtcNow,
+            meds, dto.Type ?? "simples", GetBrasiliaNow(),
             AccessCode: accessCode, VerificationUrl: GetVerificationUrl(prescription.Id), PrescriptionKind: kind,
-            AdditionalNotes: dto.GeneralInstructions);
+            AdditionalNotes: dto.GeneralInstructions,
+            PatientBirthDate: patient.BirthDate,
+            PatientPhone: patient.Phone,
+            PatientGender: patient.Sex,
+            PatientAddress: string.IsNullOrWhiteSpace(address) ? null : address);
         var result = await prescriptionPdfService.GenerateAsync(data, ct);
         if (!result.Success || result.PdfBytes == null)
         {
@@ -490,10 +508,14 @@ public class PostConsultationService(
         }
         var (doctorName, crm, crmState, specialty) = await GetDoctorPdfInfoAsync(doctorProfile, ct);
         var exams = examOrder.Items.Select(i => i.Description).ToList();
+        var examAddress = FormatPatientAddress(patient);
         var data = new ExamPdfData(
             examOrder.Id, patient.Name, patient.Cpf, doctorName, crm, crmState, specialty,
-            exams, dto.ClinicalJustification, DateTime.UtcNow,
-            AccessCode: accessCode, VerificationUrl: GetVerificationUrl(examOrder.Id));
+            exams, dto.ClinicalJustification, GetBrasiliaNow(),
+            AccessCode: accessCode, VerificationUrl: GetVerificationUrl(examOrder.Id),
+            PatientBirthDate: patient.BirthDate,
+            PatientPhone: patient.Phone,
+            PatientAddress: string.IsNullOrWhiteSpace(examAddress) ? null : examAddress);
         var result = await prescriptionPdfService.GenerateExamRequestAsync(data, ct);
         if (!result.Success || result.PdfBytes == null)
         {
@@ -545,7 +567,7 @@ public class PostConsultationService(
         var data = new MedicalCertificatePdfData(
             report.Id, patient.Name, patient.Cpf, patient.BirthDate, patient.Sex,
             doctorName, crm, crmState, specialty, certType, dto.Body, dto.Icd10Code,
-            dto.LeaveDays, dto.LeaveStartDate, dto.LeavePeriod, DateTime.UtcNow,
+            dto.LeaveDays, dto.LeaveStartDate, dto.LeavePeriod, GetBrasiliaNow(),
             AccessCode: accessCode, VerificationUrl: GetVerificationUrl(report.Id));
         var result = await prescriptionPdfService.GenerateMedicalCertificateAsync(data, ct);
         if (!result.Success || result.PdfBytes == null)
@@ -595,7 +617,7 @@ public class PostConsultationService(
         var data = new MedicalCertificatePdfData(
             report.Id, patient.Name, patient.Cpf, patient.BirthDate, patient.Sex,
             doctorName, crm, crmState, specialty, certificateType, body, icd10Code,
-            leaveDays, null, null, DateTime.UtcNow,
+            leaveDays, null, null, GetBrasiliaNow(),
             AccessCode: accessCode, VerificationUrl: GetVerificationUrl(report.Id));
         var result = await prescriptionPdfService.GenerateMedicalCertificateAsync(data, ct);
         if (!result.Success || result.PdfBytes == null)

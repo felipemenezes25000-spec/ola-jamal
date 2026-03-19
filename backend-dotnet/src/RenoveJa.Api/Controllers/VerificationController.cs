@@ -70,9 +70,9 @@ public class VerificationController(
                     return NotFound(new { error = "Documento assinado não disponível para esta receita." });
 
                 var apiBase = (apiConfig.Value?.BaseUrl ?? "").TrimEnd('/');
-                var pdfUrl = !string.IsNullOrEmpty(apiBase)
-                    ? $"{apiBase}/api/verify/{id}/document?code={Uri.EscapeDataString(code)}"
-                    : full.SignedDocumentUrl;
+                if (string.IsNullOrEmpty(apiBase))
+                    apiBase = $"{Request.Scheme}://{Request.Host}";
+                var pdfUrl = $"{apiBase}/api/verify/{id}/document?code={Uri.EscapeDataString(code)}";
 
                 return Ok(new
                 {

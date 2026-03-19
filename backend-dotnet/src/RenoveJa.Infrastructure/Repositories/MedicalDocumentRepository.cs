@@ -222,6 +222,7 @@ public class MedicalDocumentRepository(PostgresClient db) : IMedicalDocumentRepo
             "prescription" => DocumentType.Prescription,
             "exam_order" => DocumentType.ExamOrder,
             "medical_report" => DocumentType.MedicalReport,
+            "medical_certificate" => DocumentType.MedicalCertificate,
             _ => DocumentType.Prescription
         };
     }
@@ -253,6 +254,8 @@ public class MedicalDocumentRepository(PostgresClient db) : IMedicalDocumentRepo
             "signed" => DocumentStatus.Signed,
             "cancelled" => DocumentStatus.Cancelled,
             "superseded" => DocumentStatus.Superseded,
+            "revoked" => DocumentStatus.Revoked,
+            "approved_for_signing" => DocumentStatus.ApprovedForSigning,
             _ => DocumentStatus.Draft
         };
     }

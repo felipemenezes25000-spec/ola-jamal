@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,7 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/prescriptions")]
 [EnableRateLimiting("verify")]
+[EnableCors("VerifyCors")]
 public class PrescriptionsController(
     IPrescriptionVerifyRepository prescriptionVerifyRepository,
     IPrescriptionVerificationLogRepository verificationLogRepository,

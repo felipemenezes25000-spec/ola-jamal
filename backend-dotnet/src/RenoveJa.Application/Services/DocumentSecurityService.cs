@@ -85,21 +85,23 @@ public class DocumentSecurityService(
     /// Retorna erro se já atingiu max_dispenses.
     /// </summary>
     public async Task<(bool success, string? error)> RecordDispensationAsync(
-        Guid documentId, string dispensedBy, string? ip, CancellationToken ct)
+        Guid documentId, string dispensedBy, string? pharmacistName, string? ip, CancellationToken ct)
     {
-        var url = await documentRepository.GetSignedDocumentUrlAsync(documentId, ct);
-        // Buscar contagem atual — via query customizada
-        // Por simplicidade, logamos e confiamos no controle do endpoint
         await accessLogRepository.LogAccessAsync(new DocumentAccessEntry
         {
             DocumentId = documentId,
             Action = "dispensed",
             ActorType = "pharmacist",
             IpAddress = ip,
-            Metadata = System.Text.Json.JsonSerializer.Serialize(new { dispensed_by = dispensedBy })
+            Metadata = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                dispensed_by = dispensedBy,
+                pharmacist_name = pharmacistName
+            })
         }, ct);
 
-        logger.LogInformation("Document {DocumentId} dispensed by {Pharmacy}", documentId, dispensedBy);
+        logger.LogInformation("Document {DocumentId} dispensed by {Pharmacy} (pharmacist: {Pharmacist})",
+            documentId, dispensedBy, pharmacistName ?? "N/A");
         return (true, null);
     }
 
