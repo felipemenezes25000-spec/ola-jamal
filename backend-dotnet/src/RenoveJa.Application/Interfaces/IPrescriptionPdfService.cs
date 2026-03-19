@@ -69,6 +69,8 @@ public record ExamPdfData(
     string? Notes,
     DateTime EmissionDate,
     string? AccessCode = null,
+    /// <summary>URL de verificação (ex.: frontend/verify/{documentId}). Quando informada, sobrescreve a URL padrão.</summary>
+    string? VerificationUrl = null,
     DateTime? PatientBirthDate = null,
     string? PatientPhone = null,
     string? PatientAddress = null,
@@ -135,7 +137,7 @@ public record MedicalCertificatePdfData(
     string DoctorCrm,
     string DoctorCrmState,
     string DoctorSpecialty,
-    string CertificateType,         // "afastamento", "comparecimento", "aptidao"
+    string CertificateType,         // "afastamento", "comparecimento", "aptidao", "encaminhamento"
     string Body,                     // Texto/motivo do atestado
     string? Icd10Code,              // CID-10 (só se autorizado pelo paciente)
     int? LeaveDays,
@@ -143,6 +145,8 @@ public record MedicalCertificatePdfData(
     string? LeavePeriod,            // "integral", "meio_periodo"
     DateTime EmissionDate,
     string? AccessCode = null,
+    /// <summary>URL de verificação (ex.: frontend/verify/{documentId}). Quando informada, sobrescreve a URL padrão.</summary>
+    string? VerificationUrl = null,
     string? PatientAddress = null,
     string? DoctorAddress = null,
     string? DoctorPhone = null);

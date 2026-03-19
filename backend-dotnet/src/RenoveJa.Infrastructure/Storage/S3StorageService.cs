@@ -37,9 +37,24 @@ public class S3StorageService : IStorageService
     {
         if (string.IsNullOrWhiteSpace(path)) return _config.PrescriptionsBucket;
         var p = path.TrimStart('/');
-        // Estrutura nova (docs/STORAGE_S3_ESTRUTURA.md)
+
+        // Novo padrão: pacientes/{id}/consultas/... → transcripts, pacientes/{id}/certificados/... → certificates, etc.
+        if (p.StartsWith("pacientes/", StringComparison.OrdinalIgnoreCase))
+        {
+            if (p.Contains("/consultas/", StringComparison.OrdinalIgnoreCase))
+                return _config.TranscriptsBucket;
+            if (p.Contains("/certificados/", StringComparison.OrdinalIgnoreCase))
+                return _config.CertificatesBucket;
+            if (p.Contains("/avatar/", StringComparison.OrdinalIgnoreCase))
+                return _config.AvatarsBucket;
+            // pedidos, planos-de-cuidado, etc.
+            return _config.PrescriptionsBucket;
+        }
+
+        // Padrão intermediário
         if (p.StartsWith("pedidos/", StringComparison.OrdinalIgnoreCase) ||
-            p.StartsWith("planos-de-cuidado/", StringComparison.OrdinalIgnoreCase))
+            p.StartsWith("planos-de-cuidado/", StringComparison.OrdinalIgnoreCase) ||
+            p.StartsWith("documentos/", StringComparison.OrdinalIgnoreCase))
             return _config.PrescriptionsBucket;
         if (p.StartsWith("consultas/", StringComparison.OrdinalIgnoreCase))
             return _config.TranscriptsBucket;
@@ -47,8 +62,9 @@ public class S3StorageService : IStorageService
         {
             if (p.Contains("/certificados/", StringComparison.OrdinalIgnoreCase))
                 return _config.CertificatesBucket;
-            return _config.AvatarsBucket; // usuarios/{id}/avatar/
+            return _config.AvatarsBucket;
         }
+
         // Legado
         if (p.StartsWith("certificates/", StringComparison.OrdinalIgnoreCase))
             return _config.CertificatesBucket;
@@ -70,8 +86,7 @@ public class S3StorageService : IStorageService
     {
         if (string.IsNullOrWhiteSpace(path)) return path;
         var p = path.TrimStart('/');
-        var prefixes = new[] { "pedidos/", "consultas/", "usuarios/", "planos-de-cuidado/", "certificates/", "prescription-images/", "avatars/", "transcripts/", "recordings/", "receitas/", "signed/", "careplans/" };
-        foreach (var prefix in prefixes)
+        foreach (var prefix in Application.Helpers.StoragePaths.AllPrefixes)
         {
             if (p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 return p;
@@ -205,7 +220,7 @@ public class S3StorageService : IStorageService
     {
         var ext = Path.GetExtension(fileName);
         if (string.IsNullOrEmpty(ext)) ext = ".jpg";
-        var key = $"pedidos/{kind}/anexos/{userId:N}/{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}{ext}";
+        var key = Application.Helpers.StoragePaths.PedidoAnexo(userId, kind, ext);
         using var ms = new MemoryStream();
         await content.CopyToAsync(ms, cancellationToken);
 
@@ -218,7 +233,7 @@ public class S3StorageService : IStorageService
 
     public async Task<string> UploadAvatarAsync(Stream content, string fileName, string contentType, Guid userId, CancellationToken cancellationToken = default)
     {
-        var key = $"usuarios/{userId:N}/avatar/{fileName}";
+        var key = Application.Helpers.StoragePaths.Avatar(userId, fileName);
         using var ms = new MemoryStream();
         await content.CopyToAsync(ms, cancellationToken);
 

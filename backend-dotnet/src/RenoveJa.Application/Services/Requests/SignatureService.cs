@@ -172,7 +172,7 @@ public class SignatureService(
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
                         {
                             pdfBytes = pdfResult.PdfBytes;
-                            pdfFileName = $"pedidos/{request.Id:N}/receita/assinado/receita-{request.Id:N}.pdf";
+                            pdfFileName = Helpers.StoragePaths.ReceitaAssinada(request.PatientId, request.Id);
                         }
                         else
                             throw new InvalidOperationException("Falha ao gerar PDF da receita. " + (pdfResult.ErrorMessage ?? "Verifique os dados da receita e tente novamente."));
@@ -213,7 +213,7 @@ public class SignatureService(
                         if (pdfResult.Success && pdfResult.PdfBytes != null)
                         {
                             pdfBytes = pdfResult.PdfBytes;
-                            pdfFileName = $"pedidos/{request.Id:N}/exame/assinado/pedido-exame-{request.Id:N}.pdf";
+                            pdfFileName = Helpers.StoragePaths.ExameAssinado(request.PatientId, request.Id);
                         }
                         else
                             throw new InvalidOperationException("Falha ao gerar PDF do exame. " + (pdfResult.ErrorMessage ?? "Verifique os dados do pedido e tente novamente."));

@@ -244,8 +244,12 @@ builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
 });
-builder.Services.AddScoped<IStartConsultationRecording, StartConsultationRecordingService>();
+builder.Services.AddSingleton<RecordingStartChannel>();
+builder.Services.AddSingleton<IStartConsultationRecording, StartConsultationRecordingService>();
+builder.Services.AddHostedService<BackgroundRecordingStarter>();
 builder.Services.AddScoped<IRecordingSyncService, RecordingSyncService>();
+builder.Services.AddHostedService<RecordingSyncBackgroundService>();
+builder.Services.AddScoped<RenoveJa.Infrastructure.Storage.S3MigrationService>();
 builder.Services.AddHttpClient("LediPec");
 builder.Services.AddHttpClient("Rnds");
 

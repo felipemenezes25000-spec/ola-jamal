@@ -420,12 +420,15 @@ public static class MigrationRunner
     };
 
     /// <summary>
-    /// Corrige encounters criados com users.id em patient_id (deveria ser patients.id).
-    /// Também corrige medical_documents que herdaram o patient_id errado do encounter.
+    /// Corrige encounters: FK patient_id deve referenciar patients(id), não users(id).
+    /// Erro 23503 ocorre quando encounters_patient_id_fkey aponta para users.
+    /// Ordem: 1) drop FK 2) corrigir dados 3) recriar FK para patients.
     /// </summary>
     private static readonly string[] FixEncounterPatientIdMigrations =
     {
-        // Corrigir encounters: trocar users.id → patients.id onde o FK está quebrado
+        // 1. Remover FK incorreta (se existir e apontar para users)
+        "ALTER TABLE public.encounters DROP CONSTRAINT IF EXISTS encounters_patient_id_fkey",
+        // 2. Corrigir encounters: trocar users.id → patients.id onde o FK estava quebrado
         """
         UPDATE public.encounters e
         SET patient_id = p.id
@@ -434,7 +437,13 @@ public static class MigrationRunner
           AND e.patient_id != p.id
           AND NOT EXISTS (SELECT 1 FROM public.patients px WHERE px.id = e.patient_id)
         """,
-        // Corrigir medical_documents que herdaram o patient_id errado
+        // 3. Recriar FK correta: encounters.patient_id → patients(id)
+        """
+        ALTER TABLE public.encounters
+          ADD CONSTRAINT encounters_patient_id_fkey
+          FOREIGN KEY (patient_id) REFERENCES public.patients(id) ON DELETE CASCADE
+        """,
+        // 4. Corrigir medical_documents que herdaram o patient_id errado
         """
         UPDATE public.medical_documents md
         SET patient_id = p.id

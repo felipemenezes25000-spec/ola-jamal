@@ -52,6 +52,8 @@ export interface ReferralEmit {
 
 export interface PostConsultationEmitRequest {
   requestId: string;
+  /** Senha do certificado A1 (PFX) para assinar os documentos. Obrigatória para gerar PDFs assinados. */
+  certificatePassword?: string;
   mainIcd10Code?: string;
   anamnesis?: string;
   structuredAnamnesis?: string;

@@ -163,9 +163,18 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             var frontendBase = !string.IsNullOrWhiteSpace(_verificationConfig.FrontendUrl)
                 ? _verificationConfig.FrontendUrl.TrimEnd('/')
                 : apiBase;
-            // type=exame conforme Guia ITI Cap. IV — necessário para validar.iti.gov.br identificar solicitação de exame
-            var qrUrl = $"{apiBase}/{data.RequestId}?type=exame";
-            var displayUrl = $"{frontendBase}/{data.RequestId}";
+            string qrUrl;
+            string displayUrl;
+            if (!string.IsNullOrWhiteSpace(data.VerificationUrl))
+            {
+                qrUrl = displayUrl = data.VerificationUrl.Trim();
+            }
+            else
+            {
+                // type=exame conforme Guia ITI Cap. IV — necessário para validar.iti.gov.br identificar solicitação de exame
+                qrUrl = $"{apiBase}/{data.RequestId}?type=exame";
+                displayUrl = $"{frontendBase}/{data.RequestId}";
+            }
 
             using var ms = new MemoryStream();
             using var writer = new PdfWriter(ms);
@@ -855,7 +864,12 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             headerTable.AddCell(new Cell().Add(doctorInfo).SetBorder(Border.NO_BORDER).SetPaddingBottom(10));
 
             // QR Code de verificação
-            var verifyUrl = $"{DefaultVerificationBaseUrl}/{data.RequestId}";
+            var frontendBase = !string.IsNullOrWhiteSpace(_verificationConfig.FrontendUrl)
+                ? _verificationConfig.FrontendUrl.TrimEnd('/')
+                : DefaultVerificationBaseUrl;
+            var verifyUrl = !string.IsNullOrWhiteSpace(data.VerificationUrl)
+                ? data.VerificationUrl.Trim()
+                : $"{frontendBase}/{data.RequestId}";
             using var qrGenerator = new QRCodeGenerator();
             using var qrData = qrGenerator.CreateQrCode(verifyUrl, QRCodeGenerator.ECCLevel.M);
             using var qrCode = new PngByteQRCode(qrData);
@@ -877,6 +891,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             {
                 "comparecimento" => "ATESTADO DE COMPARECIMENTO",
                 "aptidao" => "ATESTADO DE APTIDÃO",
+                "encaminhamento" => "ENCAMINHAMENTO MÉDICO",
                 _ => "ATESTADO MÉDICO"
             };
 
@@ -948,9 +963,11 @@ public class PrescriptionPdfService : IPrescriptionPdfService
                 .SetTextAlignment(TextAlignment.CENTER));
 
             // ── Rodapé: verificação ──
-            document.Add(new Paragraph(
-                $"\nDocumento assinado digitalmente com certificado ICP-Brasil.\n" +
-                $"Verifique a autenticidade em: {verifyUrl}")
+            var verifyFooter = "\nDocumento assinado digitalmente com certificado ICP-Brasil.\n" +
+                $"Verifique a autenticidade em: {verifyUrl}";
+            if (!string.IsNullOrEmpty(data.AccessCode))
+                verifyFooter += $"\nCódigo de verificação: {data.AccessCode}";
+            document.Add(new Paragraph(verifyFooter)
                 .SetFont(regular).SetFontSize(8).SetFontColor(TextLight)
                 .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(20));
 

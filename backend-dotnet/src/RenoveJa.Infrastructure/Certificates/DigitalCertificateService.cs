@@ -164,7 +164,7 @@ public class DigitalCertificateService : IDigitalCertificateService
         var encryptedPfx = EncryptPfx(pfxBytes, password);
 
         // Faz upload do PFX criptografado para o storage (estrutura: usuarios/{id}/certificados/{guid}.pfx.enc)
-        var storagePath = $"usuarios/{doctorProfileId:N}/certificados/{Guid.NewGuid()}.pfx.enc";
+        var storagePath = RenoveJa.Application.Helpers.StoragePaths.CertificadoDigital(doctorProfileId);
         var uploadResult = await _storageService.UploadAsync(
             storagePath,
             encryptedPfx,

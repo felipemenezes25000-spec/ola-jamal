@@ -108,7 +108,7 @@ public class ConsultationController(
         // Gravação de áudio na AWS (bucket de transcrições/gravações)
         var fileName = file.FileName ?? "";
         var ext = string.IsNullOrEmpty(Path.GetExtension(fileName)) ? "webm" : Path.GetExtension(fileName).TrimStart('.');
-        var recordingPath = $"consultas/{requestId:N}/gravacao-chunks/{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}.{ext}";
+        var recordingPath = RenoveJa.Application.Helpers.StoragePaths.GravacaoChunk(request.PatientId, requestId, ext);
         var contentType = string.IsNullOrWhiteSpace(file.ContentType) ? "audio/webm" : file.ContentType;
         try
         {

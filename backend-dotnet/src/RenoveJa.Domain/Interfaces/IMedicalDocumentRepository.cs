@@ -16,6 +16,20 @@ public interface IMedicalDocumentRepository
     Task<string?> GetSignedDocumentUrlAsync(Guid documentId, CancellationToken cancellationToken = default);
     /// <summary>Atualiza campos de segurança (expires_at, access_code, max_dispenses, verify_code_hash).</summary>
     Task SetSecurityFieldsAsync(Guid documentId, DateTime? expiresAt, int maxDispenses, string? accessCode, string? verifyCodeHash, CancellationToken cancellationToken = default);
+
+    /// <summary>Atualiza URL do PDF assinado e metadados de assinatura digital.</summary>
+    Task SetSignedDocumentAsync(
+        Guid documentId,
+        string signedDocumentUrl,
+        string? signatureId,
+        string documentHash,
+        string hashAlgorithm,
+        string certificateIdentifier,
+        DateTime signedAt,
+        bool isValid,
+        string? validationResult,
+        string? policyOid,
+        CancellationToken cancellationToken = default);
     /// <summary>Retorna access_code e verify_code_hash de um documento.</summary>
     Task<(string? accessCode, string? verifyCodeHash, DateTime? expiresAt, int dispensedCount)?> GetSecurityFieldsAsync(Guid documentId, CancellationToken cancellationToken = default);
 

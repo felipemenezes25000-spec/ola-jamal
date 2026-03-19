@@ -1,20 +1,18 @@
-using Microsoft.Extensions.Options;
-using RenoveJa.Application.Configuration;
 using RenoveJa.Application.Interfaces;
 
 namespace RenoveJa.Infrastructure.Video;
 
 /// <summary>
-/// Inicia gravação cloud no Daily.co quando a consulta é iniciada.
-/// Garante que haja gravação de vídeo mesmo se o token do médico não iniciar.
+/// Enfileira o requestId no <see cref="RecordingStartChannel"/> para que o
+/// <see cref="BackgroundRecordingStarter"/> inicie a gravação com retry e backoff,
+/// dando tempo para os participantes entrarem na sala.
 /// </summary>
 public sealed class StartConsultationRecordingService(
-    IDailyVideoService dailyVideoService,
-    IOptions<DailyConfig> dailyConfig) : IStartConsultationRecording
+    RecordingStartChannel channel) : IStartConsultationRecording
 {
-    public async Task StartRecordingAsync(Guid requestId, CancellationToken ct = default)
+    public Task StartRecordingAsync(Guid requestId, CancellationToken ct = default)
     {
-        var roomName = dailyConfig.Value.GetRoomName(requestId);
-        await dailyVideoService.StartRecordingAsync(roomName, ct);
+        channel.Writer.TryWrite(requestId);
+        return Task.CompletedTask;
     }
 }

@@ -167,6 +167,10 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   // ── State: Submission ──
   const [submitting, setSubmitting] = useState(false);
 
+  // ── State: Senha do certificado (para assinatura ICP-Brasil) ──
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [certPassword, setCertPassword] = useState('');
+
   // ── State: Modals (add/edit med & exam) ──
   const [medModalVisible, setMedModalVisible] = useState(false);
   const [editingMedIndex, setEditingMedIndex] = useState<number | null>(null);
@@ -281,7 +285,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   if (refEnabled) docTags.push('Encaminhamento');
 
   // ── Submit ──
-  const handleSubmit = async () => {
+  const handleSignClick = () => {
     if (docCount === 0) {
       Alert.alert('Nenhum documento', 'Ative pelo menos um documento para emitir.');
       return;
@@ -290,10 +294,17 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       Alert.alert('Limite excedido', 'Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
       return;
     }
+    setCertPassword('');
+    setPasswordModalVisible(true);
+  };
+
+  const handleSubmit = async () => {
+    setPasswordModalVisible(false);
     setSubmitting(true);
     try {
       const payload: PostConsultationEmitRequest = {
         requestId: request.id,
+        certificatePassword: certPassword.trim() || undefined,
         mainIcd10Code: certCid || detectedCid || undefined,
         anamnesis: request.consultationAnamnesis ?? undefined,
         structuredAnamnesis: request.consultationAnamnesis ?? undefined,
@@ -573,7 +584,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
         </View>
 
         {/* ═══ BOTÕES ═══ */}
-        <TouchableOpacity style={S.signBtn} onPress={handleSubmit} disabled={submitting || docCount === 0}>
+        <TouchableOpacity style={S.signBtn} onPress={handleSignClick} disabled={submitting || docCount === 0}>
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -595,6 +606,52 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
         </Text>
 
       </ScrollView>
+
+      {/* Modal: Senha do certificado */}
+      <Modal visible={passwordModalVisible} transparent animationType="slide">
+        <Pressable style={S.modalOverlay} onPress={() => setPasswordModalVisible(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.modalKav}>
+            <Pressable style={S.modalCard} onPress={(e) => e.stopPropagation()}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Ionicons name="lock-closed" size={24} color={colors.primary} />
+                <Text style={S.modalTitle}>Senha do Certificado Digital</Text>
+              </View>
+              <Text style={[S.fieldLabel, { marginBottom: 8 }]}>
+                Informe a senha do seu certificado A1 (PFX) para assinar os {docCount} documento(s).
+              </Text>
+              <TextInput
+                style={S.input}
+                value={certPassword}
+                onChangeText={setCertPassword}
+                placeholder="Senha do certificado"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={[S.fieldLabel, { marginTop: 8, fontSize: 12, color: colors.textMuted }]}>
+                A senha é usada apenas para validar o certificado. Não é armazenada.
+              </Text>
+              <View style={S.modalActs}>
+                <TouchableOpacity style={S.modalBtnSec} onPress={() => setPasswordModalVisible(false)}>
+                  <Text style={S.modalBtnSecText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[S.modalBtnPri, !certPassword.trim() && { opacity: 0.5 }]}
+                  onPress={() => certPassword.trim() && handleSubmit()}
+                  disabled={!certPassword.trim() || submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={S.modalBtnPriText}>Assinar e emitir</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
 
       {/* Modal: Adicionar/Editar medicamento */}
       <Modal visible={medModalVisible} transparent animationType="slide">

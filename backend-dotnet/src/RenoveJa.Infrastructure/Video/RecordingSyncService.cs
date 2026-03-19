@@ -48,7 +48,7 @@ public class RecordingSyncService(
         }
 
         var recordingId = finished.Id;
-        var path = $"consultas/{requestId:N}/gravacao/consulta-{requestId:N}-{recordingId}.mp4";
+        var path = RenoveJa.Application.Helpers.StoragePaths.Gravacao(request.PatientId, requestId, recordingId);
 
         var (downloadLink, _) = await dailyVideoService.GetRecordingAccessLinkAsync(recordingId, 3600, cancellationToken);
         if (string.IsNullOrEmpty(downloadLink))

@@ -280,6 +280,35 @@ public class MedicalDocumentRepository(PostgresClient db) : IMedicalDocumentRepo
         await db.UpdateAsync<MedicalDocumentModel>(TableName, $"id=eq.{documentId}", updates, cancellationToken);
     }
 
+    public async Task SetSignedDocumentAsync(
+        Guid documentId,
+        string signedDocumentUrl,
+        string? signatureId,
+        string documentHash,
+        string hashAlgorithm,
+        string certificateIdentifier,
+        DateTime signedAt,
+        bool isValid,
+        string? validationResult,
+        string? policyOid,
+        CancellationToken cancellationToken = default)
+    {
+        var updates = new
+        {
+            signed_document_url = signedDocumentUrl,
+            signature_id = signatureId,
+            signature_hash = documentHash,
+            signature_algorithm = hashAlgorithm,
+            signature_certificate = certificateIdentifier,
+            signed_at = signedAt,
+            signature_is_valid = isValid,
+            signature_validation_result = validationResult,
+            signature_policy_oid = policyOid,
+            status = "signed",
+        };
+        await db.UpdateAsync<MedicalDocumentModel>(TableName, $"id=eq.{documentId}", updates, cancellationToken);
+    }
+
     public async Task<(string? accessCode, string? verifyCodeHash, DateTime? expiresAt, int dispensedCount)?> GetSecurityFieldsAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
         var model = await db.GetSingleAsync<MedicalDocumentModel>(

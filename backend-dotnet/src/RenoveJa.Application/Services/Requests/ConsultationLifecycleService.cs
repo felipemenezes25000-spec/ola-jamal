@@ -235,7 +235,7 @@ public class ConsultationLifecycleService(
             {
                 try
                 {
-                    var path = $"consultas/{id:N}/transcricao/transcricao-{id:N}.txt";
+                    var path = Helpers.StoragePaths.Transcricao(request.PatientId, id);
                     var bytes = Encoding.UTF8.GetBytes(contentToSave);
                     var result = await storageService.UploadAsync(path, bytes, "text/plain", cancellationToken);
                     if (result.Success && !string.IsNullOrEmpty(result.Url))
@@ -375,7 +375,7 @@ public class ConsultationLifecycleService(
                 // 2. Upload pro S3 — path: consultas/{id}/notas-soap/soap-notes-{id}.json
                 try
                 {
-                    var s3Path = $"consultas/{id:N}/notas-soap/soap-notes-{id:N}.json";
+                    var s3Path = Helpers.StoragePaths.SoapNotes(request.PatientId, id);
                     var bytes  = System.Text.Encoding.UTF8.GetBytes(soapJson);
                     var soapResult = await storageService.UploadAsync(s3Path, bytes, "application/json", cancellationToken);
                     if (soapResult.Success)
@@ -411,7 +411,7 @@ public class ConsultationLifecycleService(
         if (anamnesis?.TranscriptFileUrl == null) return null;
 
         var path = storageService.ExtractPathFromStorageUrl(anamnesis.TranscriptFileUrl)
-            ?? $"consultas/{id:N}/transcricao/transcricao-{id:N}.txt";
+            ?? Helpers.StoragePaths.Transcricao(request.PatientId, id);
         return await storageService.CreateSignedUrlAsync(path, expiresInSeconds, cancellationToken);
     }
 

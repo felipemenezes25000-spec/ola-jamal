@@ -111,16 +111,16 @@ public class DailyWebhookController(
         }
 
         var request = await requestRepository.GetByIdAsync(requestId, cancellationToken);
-        if (request == null)
+        if (request == null || request.RequestType != Domain.Enums.RequestType.Consultation)
         {
-            logger.LogWarning("[DailyWebhook] Request não encontrado: {RequestId}", requestId);
+            logger.LogWarning("[DailyWebhook] Request não encontrado ou não é consulta: {RequestId}", requestId);
             return Ok();
         }
 
         // Retry: até 4 tentativas (download + upload). Retorna 503 em falha para Daily reenviar webhook.
         const int maxAttempts = 4;
         const int baseDelayMs = 1000;
-        var path = $"consultas/{requestId:N}/gravacao/consulta-{requestId:N}-{recordingId}.mp4";
+        var path = RenoveJa.Application.Helpers.StoragePaths.Gravacao(request.PatientId, requestId, recordingId);
         StorageUploadResult? uploadResult = null;
         long streamSize = 0;
 
@@ -194,6 +194,25 @@ public class DailyWebhookController(
         }
 
         return Ok();
+    }
+
+    /// <summary>
+    /// Health check: verifica se o webhook do Daily.co está configurado corretamente.
+    /// GET /api/webhooks/daily/health
+    /// </summary>
+    [HttpGet("health")]
+    public IActionResult Health()
+    {
+        var secret = dailyConfig.Value.WebhookSecret;
+        var isConfigured = !string.IsNullOrWhiteSpace(secret);
+
+        return Ok(new
+        {
+            webhook_configured = isConfigured,
+            secret_length = isConfigured ? secret!.Length : 0,
+            endpoint = "/api/webhooks/daily",
+            expected_events = new[] { "recording.ready-to-download" }
+        });
     }
 
     /// <summary>Payload do webhook Daily (campos em camelCase ou snake_case conforme documentação).</summary>
