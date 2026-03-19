@@ -57,6 +57,15 @@ public class PostConsultationService(
         if (doctorProfile.ActiveCertificateId == null)
             throw new InvalidOperationException("Nenhum certificado digital ativo. Faça upload do certificado A1 na tela de Certificado.");
 
+        // ── 1c. Validar senha do certificado ANTES de criar documentos ──
+        if (string.IsNullOrWhiteSpace(request.CertificatePassword))
+            throw new InvalidOperationException("Senha do certificado digital é obrigatória para assinar documentos.");
+
+        var passwordOk = await digitalCertificateService.ValidateCertificatePasswordAsync(
+            doctorProfile.ActiveCertificateId.Value, request.CertificatePassword, cancellationToken);
+        if (!passwordOk)
+            throw new InvalidOperationException("Senha do certificado digital incorreta. Verifique e tente novamente.");
+
         // ── 2. Obter paciente (patients.id) e obter ou criar Encounter ──
         // requests.patient_id é user id; encounters.patient_id deve ser patients(id) — evita FK 23503
         var patient = await clinicalRecordService.EnsurePatientFromUserAsync(

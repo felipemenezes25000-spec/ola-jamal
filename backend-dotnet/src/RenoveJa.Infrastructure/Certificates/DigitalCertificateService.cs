@@ -347,6 +347,33 @@ public class DigitalCertificateService : IDigitalCertificateService
         return await SignPdfAsync(certificateId, pdfBytes, outputFileName, null, documentTypeHint: null, cancellationToken);
     }
 
+    public async Task<bool> ValidateCertificatePasswordAsync(
+        Guid certificateId,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        var certificate = await _certificateRepository.GetByIdAsync(certificateId, cancellationToken);
+        if (certificate == null || !certificate.IsReadyForSigning())
+            return false;
+
+        try
+        {
+            var encryptedPfx = await _storageService.DownloadAsync(certificate.PfxStoragePath, cancellationToken);
+            if (encryptedPfx == null) return false;
+
+            var (pfxBytes, _) = DecryptPfxFull(encryptedPfx);
+            using var pfxStream = new MemoryStream(pfxBytes);
+            var store = new Org.BouncyCastle.Pkcs.Pkcs12StoreBuilder().Build();
+            store.Load(pfxStream, (password ?? "").ToCharArray());
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Senha do certificado {CertificateId} inválida", certificateId);
+            return false;
+        }
+    }
+
     public async Task<bool> HasValidCertificateAsync(
         Guid doctorProfileId,
         CancellationToken cancellationToken = default)

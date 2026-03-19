@@ -76,6 +76,15 @@ public interface IDigitalCertificateService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Verifica se a senha do certificado está correta sem assinar nada.
+    /// Retorna true se a senha abre o PFX com sucesso.
+    /// </summary>
+    Task<bool> ValidateCertificatePasswordAsync(
+        Guid certificateId,
+        string password,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Verifica se o médico tem certificado válido para assinatura.
     /// </summary>
     Task<bool> HasValidCertificateAsync(
