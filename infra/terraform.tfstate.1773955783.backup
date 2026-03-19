@@ -1,0 +1,3653 @@
+{
+  "version": 4,
+  "terraform_version": "1.14.7",
+  "serial": 103,
+  "lineage": "8f70aaca-8e2d-3474-cc78-c1b4af2e52aa",
+  "outputs": {
+    "alb_dns": {
+      "value": "renoveja-alb-1239997187.sa-east-1.elb.amazonaws.com",
+      "type": "string"
+    },
+    "cloudfront_domain": {
+      "value": "d2u0wdu42tdqh3.cloudfront.net",
+      "type": "string"
+    },
+    "db_endpoint": {
+      "value": "renoveja-postgres.c54og6486w6w.sa-east-1.rds.amazonaws.com:5432",
+      "type": "string"
+    },
+    "ecr_repository_url": {
+      "value": "064212133215.dkr.ecr.sa-east-1.amazonaws.com/renoveja-api",
+      "type": "string"
+    },
+    "redis_endpoint": {
+      "value": "renoveja-redis.psfcse.0001.sae1.cache.amazonaws.com",
+      "type": "string"
+    },
+    "s3_frontend_bucket": {
+      "value": "renoveja-frontend-web",
+      "type": "string"
+    },
+    "s3_prescriptions_bucket": {
+      "value": "renoveja-prescriptions",
+      "type": "string"
+    },
+    "vpc_id": {
+      "value": "vpc-06b68772f388099da",
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "mode": "data",
+      "type": "aws_availability_zones",
+      "name": "available",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "all_availability_zones": null,
+            "exclude_names": null,
+            "exclude_zone_ids": null,
+            "filter": null,
+            "group_names": [
+              "sa-east-1-zg-1"
+            ],
+            "id": "sa-east-1",
+            "names": [
+              "sa-east-1a",
+              "sa-east-1b",
+              "sa-east-1c"
+            ],
+            "state": "available",
+            "timeouts": null,
+            "zone_ids": [
+              "sae1-az1",
+              "sae1-az2",
+              "sae1-az3"
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_appautoscaling_policy",
+      "name": "cpu",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "alarm_arns": [
+              "arn:aws:cloudwatch:sa-east-1:064212133215:alarm:TargetTracking-service/renoveja-prod/renoveja-api-AlarmHigh-38d3a107-685d-4e72-9a12-ca72a8784809",
+              "arn:aws:cloudwatch:sa-east-1:064212133215:alarm:TargetTracking-service/renoveja-prod/renoveja-api-AlarmLow-19e0a770-a90a-48f0-8ad7-e04afd089e57"
+            ],
+            "arn": "arn:aws:autoscaling:sa-east-1:064212133215:scalingPolicy:143c2453-0a59-4824-8558-ba699709e3ce:resource/ecs/service/renoveja-prod/renoveja-api:policyName/renoveja-cpu-scaling",
+            "id": "renoveja-cpu-scaling",
+            "name": "renoveja-cpu-scaling",
+            "policy_type": "TargetTrackingScaling",
+            "resource_id": "service/renoveja-prod/renoveja-api",
+            "scalable_dimension": "ecs:service:DesiredCount",
+            "service_namespace": "ecs",
+            "step_scaling_policy_configuration": [],
+            "target_tracking_scaling_policy_configuration": [
+              {
+                "customized_metric_specification": [],
+                "disable_scale_in": false,
+                "predefined_metric_specification": [
+                  {
+                    "predefined_metric_type": "ECSServiceAverageCPUUtilization",
+                    "resource_label": ""
+                  }
+                ],
+                "scale_in_cooldown": 0,
+                "scale_out_cooldown": 0,
+                "target_value": 70
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_appautoscaling_target.ecs",
+            "aws_ecr_repository.api",
+            "aws_ecs_cluster.main",
+            "aws_ecs_service.api",
+            "aws_ecs_task_definition.api",
+            "aws_iam_role.ecs_execution",
+            "aws_iam_role.ecs_task",
+            "aws_lb.main",
+            "aws_lb_listener.https",
+            "aws_lb_target_group.api",
+            "aws_security_group.alb",
+            "aws_security_group.ecs",
+            "aws_subnet.private",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_appautoscaling_target",
+      "name": "ecs",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:application-autoscaling:sa-east-1:064212133215:scalable-target/0ec5143c24530a5948248558ba699709e3ce",
+            "id": "service/renoveja-prod/renoveja-api",
+            "max_capacity": 10,
+            "min_capacity": 2,
+            "resource_id": "service/renoveja-prod/renoveja-api",
+            "role_arn": "arn:aws:iam::064212133215:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService",
+            "scalable_dimension": "ecs:service:DesiredCount",
+            "service_namespace": "ecs",
+            "suspended_state": [
+              {
+                "dynamic_scaling_in_suspended": false,
+                "dynamic_scaling_out_suspended": false,
+                "scheduled_scaling_suspended": false
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            }
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_ecr_repository.api",
+            "aws_ecs_cluster.main",
+            "aws_ecs_service.api",
+            "aws_ecs_task_definition.api",
+            "aws_iam_role.ecs_execution",
+            "aws_iam_role.ecs_task",
+            "aws_lb.main",
+            "aws_lb_listener.https",
+            "aws_lb_target_group.api",
+            "aws_security_group.alb",
+            "aws_security_group.ecs",
+            "aws_subnet.private",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_cloudfront_distribution",
+      "name": "frontend",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "aliases": [
+              "admin.renovejasaude.com.br",
+              "medico.renovejasaude.com.br",
+              "www.renovejasaude.com.br"
+            ],
+            "arn": "arn:aws:cloudfront::064212133215:distribution/EXWM1ERYI9GZL",
+            "caller_reference": "terraform-20260315032744436900000003",
+            "comment": null,
+            "continuous_deployment_policy_id": "",
+            "custom_error_response": [],
+            "default_cache_behavior": [
+              {
+                "allowed_methods": [
+                  "GET",
+                  "HEAD"
+                ],
+                "cache_policy_id": "",
+                "cached_methods": [
+                  "GET",
+                  "HEAD"
+                ],
+                "compress": true,
+                "default_ttl": 0,
+                "field_level_encryption_id": "",
+                "forwarded_values": [
+                  {
+                    "cookies": [
+                      {
+                        "forward": "none",
+                        "whitelisted_names": []
+                      }
+                    ],
+                    "headers": [],
+                    "query_string": false,
+                    "query_string_cache_keys": []
+                  }
+                ],
+                "function_association": [
+                  {
+                    "event_type": "viewer-request",
+                    "function_arn": "arn:aws:cloudfront::064212133215:function/renoveja-spa-rewrite"
+                  }
+                ],
+                "grpc_config": [
+                  {
+                    "enabled": false
+                  }
+                ],
+                "lambda_function_association": [],
+                "max_ttl": 0,
+                "min_ttl": 0,
+                "origin_request_policy_id": "",
+                "realtime_log_config_arn": "",
+                "response_headers_policy_id": "",
+                "smooth_streaming": false,
+                "target_origin_id": "s3-frontend",
+                "trusted_key_groups": [],
+                "trusted_signers": [],
+                "viewer_protocol_policy": "redirect-to-https"
+              }
+            ],
+            "default_root_object": "index.html",
+            "domain_name": "d2u0wdu42tdqh3.cloudfront.net",
+            "enabled": true,
+            "etag": "E2EUQ1WTGCTBG2",
+            "hosted_zone_id": "Z2FDTNDATAQYW2",
+            "http_version": "http2",
+            "id": "EXWM1ERYI9GZL",
+            "in_progress_validation_batches": 0,
+            "is_ipv6_enabled": true,
+            "last_modified_time": "2026-03-19 21:09:16.325 +0000 UTC",
+            "logging_config": [],
+            "ordered_cache_behavior": [
+              {
+                "allowed_methods": [
+                  "GET",
+                  "HEAD"
+                ],
+                "cache_policy_id": "",
+                "cached_methods": [
+                  "GET",
+                  "HEAD"
+                ],
+                "compress": true,
+                "default_ttl": 604800,
+                "field_level_encryption_id": "",
+                "forwarded_values": [
+                  {
+                    "cookies": [
+                      {
+                        "forward": "none",
+                        "whitelisted_names": []
+                      }
+                    ],
+                    "headers": [],
+                    "query_string": false,
+                    "query_string_cache_keys": []
+                  }
+                ],
+                "function_association": [],
+                "grpc_config": [
+                  {
+                    "enabled": false
+                  }
+                ],
+                "lambda_function_association": [],
+                "max_ttl": 31536000,
+                "min_ttl": 86400,
+                "origin_request_policy_id": "",
+                "path_pattern": "/assets/*",
+                "realtime_log_config_arn": "",
+                "response_headers_policy_id": "",
+                "smooth_streaming": false,
+                "target_origin_id": "s3-frontend",
+                "trusted_key_groups": [],
+                "trusted_signers": [],
+                "viewer_protocol_policy": "redirect-to-https"
+              }
+            ],
+            "origin": [
+              {
+                "connection_attempts": 3,
+                "connection_timeout": 10,
+                "custom_header": [],
+                "custom_origin_config": [],
+                "domain_name": "renoveja-frontend-web.s3.sa-east-1.amazonaws.com",
+                "origin_access_control_id": "",
+                "origin_id": "s3-frontend",
+                "origin_path": "",
+                "origin_shield": [],
+                "s3_origin_config": [
+                  {
+                    "origin_access_identity": "origin-access-identity/cloudfront/E1IR0EVKN4PAEA"
+                  }
+                ],
+                "vpc_origin_config": []
+              }
+            ],
+            "origin_group": [],
+            "price_class": "PriceClass_200",
+            "restrictions": [
+              {
+                "geo_restriction": [
+                  {
+                    "locations": [],
+                    "restriction_type": "none"
+                  }
+                ]
+              }
+            ],
+            "retain_on_delete": false,
+            "staging": false,
+            "status": "Deployed",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "trusted_key_groups": [
+              {
+                "enabled": false,
+                "items": []
+              }
+            ],
+            "trusted_signers": [
+              {
+                "enabled": false,
+                "items": []
+              }
+            ],
+            "viewer_certificate": [
+              {
+                "acm_certificate_arn": "arn:aws:acm:us-east-1:064212133215:certificate/e0f1e5c6-b192-4d6d-9178-8f45b659045e",
+                "cloudfront_default_certificate": false,
+                "iam_certificate_id": "",
+                "minimum_protocol_version": "TLSv1.2_2021",
+                "ssl_support_method": "sni-only"
+              }
+            ],
+            "wait_for_deployment": true,
+            "web_acl_id": ""
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "aws_cloudfront_function.spa_rewrite",
+            "aws_cloudfront_origin_access_identity.frontend",
+            "aws_s3_bucket.frontend"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_cloudfront_function",
+      "name": "spa_rewrite",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:cloudfront::064212133215:function/renoveja-spa-rewrite",
+            "code": "function handler(event) {\r\n  var request = event.request;\r\n  var uri = request.uri;\r\n  if (uri.includes('.')) return request;\r\n  request.uri = '/index.html';\r\n  return request;\r\n}\r\n",
+            "comment": "",
+            "etag": "ETVPDKIKX0DER",
+            "id": "renoveja-spa-rewrite",
+            "key_value_store_associations": [],
+            "live_stage_etag": "E3UN6WX5RRO2AG",
+            "name": "renoveja-spa-rewrite",
+            "publish": true,
+            "runtime": "cloudfront-js-2.0",
+            "status": "DEPLOYED"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_cloudfront_origin_access_identity",
+      "name": "frontend",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:cloudfront::064212133215:origin-access-identity/E1IR0EVKN4PAEA",
+            "caller_reference": "terraform-20260316210347450800000001",
+            "cloudfront_access_identity_path": "origin-access-identity/cloudfront/E1IR0EVKN4PAEA",
+            "comment": "renoveja frontend OAI",
+            "etag": "ETVPDKIKX0DER",
+            "iam_arn": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity E1IR0EVKN4PAEA",
+            "id": "E1IR0EVKN4PAEA",
+            "s3_canonical_user_id": "f67233350869b48261815ba60e6eab905a74b876d69a4027f8efc2dfc3d1a3c125b543b835dafa7445db6907d1a1960e"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "ecs",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:logs:sa-east-1:064212133215:log-group:/ecs/renoveja-api",
+            "id": "/ecs/renoveja-api",
+            "kms_key_id": "",
+            "log_group_class": "STANDARD",
+            "name": "/ecs/renoveja-api",
+            "name_prefix": "",
+            "retention_in_days": 30,
+            "skip_destroy": false,
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            }
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "address": "renoveja-postgres.c54og6486w6w.sa-east-1.rds.amazonaws.com",
+            "allocated_storage": 20,
+            "allow_major_version_upgrade": null,
+            "apply_immediately": false,
+            "arn": "arn:aws:rds:sa-east-1:064212133215:db:renoveja-postgres",
+            "auto_minor_version_upgrade": true,
+            "availability_zone": "sa-east-1a",
+            "backup_retention_period": 30,
+            "backup_target": "region",
+            "backup_window": "05:32-06:02",
+            "blue_green_update": [],
+            "ca_cert_identifier": "rds-ca-rsa2048-g1",
+            "character_set_name": "",
+            "copy_tags_to_snapshot": false,
+            "custom_iam_instance_profile": "",
+            "customer_owned_ip_enabled": false,
+            "database_insights_mode": "standard",
+            "db_name": "renoveja",
+            "db_subnet_group_name": "renoveja-db-public-subnets",
+            "dedicated_log_volume": false,
+            "delete_automated_backups": true,
+            "deletion_protection": true,
+            "domain": "",
+            "domain_auth_secret_arn": "",
+            "domain_dns_ips": [],
+            "domain_fqdn": "",
+            "domain_iam_role_name": "",
+            "domain_ou": "",
+            "enabled_cloudwatch_logs_exports": [],
+            "endpoint": "renoveja-postgres.c54og6486w6w.sa-east-1.rds.amazonaws.com:5432",
+            "engine": "postgres",
+            "engine_lifecycle_support": "open-source-rds-extended-support",
+            "engine_version": "15",
+            "engine_version_actual": "15.14",
+            "final_snapshot_identifier": "renoveja-final-snapshot",
+            "hosted_zone_id": "ZLRUIUX7Z3ZF7",
+            "iam_database_authentication_enabled": false,
+            "id": "db-JPDQS7W3LBZ4OHIG2JQOTELCOQ",
+            "identifier": "renoveja-postgres",
+            "identifier_prefix": "",
+            "instance_class": "db.t3.micro",
+            "iops": 3000,
+            "kms_key_id": "arn:aws:kms:sa-east-1:064212133215:key/9a5dcfca-4bcb-4172-a194-30d4cbc147df",
+            "latest_restorable_time": "2026-03-19T21:14:38Z",
+            "license_model": "postgresql-license",
+            "listener_endpoint": [],
+            "maintenance_window": "thu:02:31-thu:03:01",
+            "manage_master_user_password": null,
+            "master_user_secret": [],
+            "master_user_secret_kms_key_id": null,
+            "max_allocated_storage": 100,
+            "monitoring_interval": 0,
+            "monitoring_role_arn": "",
+            "multi_az": false,
+            "nchar_character_set_name": "",
+            "network_type": "IPV4",
+            "option_group_name": "default:postgres-15",
+            "parameter_group_name": "default.postgres15",
+            "password": "RnvJa2026#Pr0d!Sx9kL2m",
+            "password_wo": null,
+            "password_wo_version": null,
+            "performance_insights_enabled": false,
+            "performance_insights_kms_key_id": "",
+            "performance_insights_retention_period": 0,
+            "port": 5432,
+            "publicly_accessible": false,
+            "replica_mode": "",
+            "replicas": [],
+            "replicate_source_db": "",
+            "resource_id": "db-JPDQS7W3LBZ4OHIG2JQOTELCOQ",
+            "restore_to_point_in_time": [],
+            "s3_import": [],
+            "skip_final_snapshot": false,
+            "snapshot_identifier": null,
+            "status": "available",
+            "storage_encrypted": true,
+            "storage_throughput": 125,
+            "storage_type": "gp3",
+            "tags": {
+              "Name": "renoveja-postgres"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-postgres",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "timezone": "",
+            "upgrade_storage_config": null,
+            "username": "postgres",
+            "vpc_security_group_ids": [
+              "sg-08ad0e10b95e2361e"
+            ]
+          },
+          "sensitive_attributes": [
+            [
+              {
+                "type": "get_attr",
+                "value": "password"
+              }
+            ],
+            [
+              {
+                "type": "get_attr",
+                "value": "password_wo"
+              }
+            ]
+          ],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInVwZGF0ZSI6NDgwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMiJ9",
+          "dependencies": [
+            "aws_db_subnet_group.private",
+            "aws_security_group.alb",
+            "aws_security_group.aurora",
+            "aws_security_group.ecs",
+            "aws_subnet.private",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_db_subnet_group",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:rds:sa-east-1:064212133215:subgrp:renoveja-db-private-subnets",
+            "description": "Managed by Terraform",
+            "id": "renoveja-db-private-subnets",
+            "name": "renoveja-db-private-subnets",
+            "name_prefix": "",
+            "subnet_ids": [
+              "subnet-03eb30c698c982e01",
+              "subnet-0709ef2de2b2580fd"
+            ],
+            "supported_network_types": [
+              "IPV4"
+            ],
+            "tags": {
+              "Name": "renoveja-db-private-subnets"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-db-private-subnets",
+              "Project": "renoveja"
+            },
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_subnet.private",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_ecr_repository",
+      "name": "api",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ecr:sa-east-1:064212133215:repository/renoveja-api",
+            "encryption_configuration": [
+              {
+                "encryption_type": "AES256",
+                "kms_key": ""
+              }
+            ],
+            "force_delete": null,
+            "id": "renoveja-api",
+            "image_scanning_configuration": [
+              {
+                "scan_on_push": true
+              }
+            ],
+            "image_tag_mutability": "MUTABLE",
+            "name": "renoveja-api",
+            "registry_id": "064212133215",
+            "repository_url": "064212133215.dkr.ecr.sa-east-1.amazonaws.com/renoveja-api",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiZGVsZXRlIjoxMjAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIwIn0="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_ecs_cluster",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ecs:sa-east-1:064212133215:cluster/renoveja-prod",
+            "configuration": [],
+            "id": "arn:aws:ecs:sa-east-1:064212133215:cluster/renoveja-prod",
+            "name": "renoveja-prod",
+            "service_connect_defaults": [],
+            "setting": [
+              {
+                "name": "containerInsights",
+                "value": "enabled"
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            }
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_ecs_service",
+      "name": "api",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "alarms": [],
+            "availability_zone_rebalancing": "DISABLED",
+            "capacity_provider_strategy": [],
+            "cluster": "arn:aws:ecs:sa-east-1:064212133215:cluster/renoveja-prod",
+            "deployment_circuit_breaker": [
+              {
+                "enable": true,
+                "rollback": true
+              }
+            ],
+            "deployment_controller": [
+              {
+                "type": "ECS"
+              }
+            ],
+            "deployment_maximum_percent": 200,
+            "deployment_minimum_healthy_percent": 100,
+            "desired_count": 2,
+            "enable_ecs_managed_tags": false,
+            "enable_execute_command": false,
+            "force_delete": null,
+            "force_new_deployment": null,
+            "health_check_grace_period_seconds": 90,
+            "iam_role": "/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+            "id": "arn:aws:ecs:sa-east-1:064212133215:service/renoveja-prod/renoveja-api",
+            "launch_type": "FARGATE",
+            "load_balancer": [
+              {
+                "container_name": "api",
+                "container_port": 8080,
+                "elb_name": "",
+                "target_group_arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:targetgroup/renoveja-api-tg/d2c18c77ff3a0387"
+              }
+            ],
+            "name": "renoveja-api",
+            "network_configuration": [
+              {
+                "assign_public_ip": false,
+                "security_groups": [
+                  "sg-0a0a804f9ccd128c7"
+                ],
+                "subnets": [
+                  "subnet-006f36d0ddda764ab",
+                  "subnet-03313be02bdd00075"
+                ]
+              }
+            ],
+            "ordered_placement_strategy": [],
+            "placement_constraints": [],
+            "platform_version": "1.4.0",
+            "propagate_tags": "NONE",
+            "scheduling_strategy": "REPLICA",
+            "service_connect_configuration": [],
+            "service_registries": [],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "task_definition": "renoveja-api:72",
+            "timeouts": null,
+            "triggers": {},
+            "volume_configuration": [],
+            "vpc_lattice_configurations": [],
+            "wait_for_steady_state": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "aws_ecr_repository.api",
+            "aws_ecs_cluster.main",
+            "aws_ecs_task_definition.api",
+            "aws_iam_role.ecs_execution",
+            "aws_iam_role.ecs_task",
+            "aws_lb.main",
+            "aws_lb_listener.https",
+            "aws_lb_target_group.api",
+            "aws_security_group.alb",
+            "aws_security_group.ecs",
+            "aws_subnet.private",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_ecs_task_definition",
+      "name": "api",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ecs:sa-east-1:064212133215:task-definition/renoveja-api:73",
+            "arn_without_revision": "arn:aws:ecs:sa-east-1:064212133215:task-definition/renoveja-api",
+            "container_definitions": "[{\"environment\":[{\"name\":\"ASPNETCORE_ENVIRONMENT\",\"value\":\"Production\"},{\"name\":\"ASPNETCORE_URLS\",\"value\":\"http://+:8080\"}],\"essential\":true,\"healthCheck\":{\"command\":[\"CMD-SHELL\",\"wget -q --spider http://localhost:8080/api/health || exit 1\"],\"interval\":30,\"retries\":5,\"startPeriod\":60,\"timeout\":10},\"image\":\"064212133215.dkr.ecr.sa-east-1.amazonaws.com/renoveja-api:latest\",\"logConfiguration\":{\"logDriver\":\"awslogs\",\"options\":{\"awslogs-stream-prefix\":\"api\",\"awslogs-group\":\"/ecs/renoveja-api\",\"awslogs-region\":\"sa-east-1\"}},\"mountPoints\":[],\"name\":\"api\",\"portMappings\":[{\"containerPort\":8080,\"hostPort\":8080,\"protocol\":\"tcp\"}],\"systemControls\":[],\"volumesFrom\":[]}]",
+            "cpu": "512",
+            "enable_fault_injection": false,
+            "ephemeral_storage": [],
+            "execution_role_arn": "arn:aws:iam::064212133215:role/renoveja-ecs-execution",
+            "family": "renoveja-api",
+            "id": "renoveja-api",
+            "inference_accelerator": [],
+            "ipc_mode": "",
+            "memory": "1024",
+            "network_mode": "awsvpc",
+            "pid_mode": "",
+            "placement_constraints": [],
+            "proxy_configuration": [],
+            "requires_compatibilities": [
+              "FARGATE"
+            ],
+            "revision": 73,
+            "runtime_platform": [],
+            "skip_destroy": false,
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "task_role_arn": "arn:aws:iam::064212133215:role/renoveja-ecs-task",
+            "track_latest": false,
+            "volume": []
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "aws_ecr_repository.api",
+            "aws_iam_role.ecs_execution",
+            "aws_iam_role.ecs_task"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_eip",
+      "name": "nat",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "address": null,
+            "allocation_id": "eipalloc-085d0043bd6c30003",
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:elastic-ip/eipalloc-085d0043bd6c30003",
+            "associate_with_private_ip": null,
+            "association_id": "eipassoc-0afb7c80b8332ee23",
+            "carrier_ip": "",
+            "customer_owned_ip": "",
+            "customer_owned_ipv4_pool": "",
+            "domain": "vpc",
+            "id": "eipalloc-085d0043bd6c30003",
+            "instance": "",
+            "ipam_pool_id": null,
+            "network_border_group": "sa-east-1",
+            "network_interface": "eni-022e6e3d666a74e43",
+            "private_dns": "ip-10-0-1-253.sa-east-1.compute.internal",
+            "private_ip": "10.0.1.253",
+            "ptr_record": "",
+            "public_dns": "ec2-18-228-73-120.sa-east-1.compute.amazonaws.com",
+            "public_ip": "18.228.73.120",
+            "public_ipv4_pool": "amazon",
+            "tags": {
+              "Name": "renoveja-nat-eip"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-nat-eip",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiZGVsZXRlIjoxODAwMDAwMDAwMDAsInJlYWQiOjkwMDAwMDAwMDAwMCwidXBkYXRlIjozMDAwMDAwMDAwMDB9fQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_elasticache_cluster",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "apply_immediately": null,
+            "arn": "arn:aws:elasticache:sa-east-1:064212133215:cluster:renoveja-redis",
+            "auto_minor_version_upgrade": "true",
+            "availability_zone": "sa-east-1a",
+            "az_mode": "single-az",
+            "cache_nodes": [
+              {
+                "address": "renoveja-redis.psfcse.0001.sae1.cache.amazonaws.com",
+                "availability_zone": "sa-east-1a",
+                "id": "0001",
+                "outpost_arn": "",
+                "port": 6379
+              }
+            ],
+            "cluster_address": null,
+            "cluster_id": "renoveja-redis",
+            "configuration_endpoint": null,
+            "engine": "redis",
+            "engine_version": "7.0",
+            "engine_version_actual": "7.0.7",
+            "final_snapshot_identifier": null,
+            "id": "renoveja-redis",
+            "ip_discovery": "ipv4",
+            "log_delivery_configuration": [],
+            "maintenance_window": "mon:07:00-mon:08:00",
+            "network_type": "ipv4",
+            "node_type": "cache.t4g.micro",
+            "notification_topic_arn": null,
+            "num_cache_nodes": 1,
+            "outpost_mode": null,
+            "parameter_group_name": "default.redis7",
+            "port": 6379,
+            "preferred_availability_zones": null,
+            "preferred_outpost_arn": "",
+            "replication_group_id": "",
+            "security_group_ids": [
+              "sg-08edcf6fc64005c32"
+            ],
+            "snapshot_arns": null,
+            "snapshot_name": null,
+            "snapshot_retention_limit": 0,
+            "snapshot_window": "02:00-03:00",
+            "subnet_group_name": "renoveja-redis-subnets",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "transit_encryption_enabled": false
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoyNDAwMDAwMDAwMDAwLCJkZWxldGUiOjI0MDAwMDAwMDAwMDAsInVwZGF0ZSI6NDgwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9",
+          "dependencies": [
+            "aws_elasticache_subnet_group.main",
+            "aws_security_group.alb",
+            "aws_security_group.ecs",
+            "aws_security_group.redis",
+            "aws_subnet.private",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_elasticache_subnet_group",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:elasticache:sa-east-1:064212133215:subnetgroup:renoveja-redis-subnets",
+            "description": "Managed by Terraform",
+            "id": "renoveja-redis-subnets",
+            "name": "renoveja-redis-subnets",
+            "subnet_ids": [
+              "subnet-03eb30c698c982e01",
+              "subnet-0709ef2de2b2580fd"
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "vpc_id": "vpc-090f3bbc85875577b"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_subnet.private",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "ecs_execution",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::064212133215:role/renoveja-ecs-execution",
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "create_date": "2026-03-15T03:27:47Z",
+            "description": "",
+            "force_detach_policies": false,
+            "id": "renoveja-ecs-execution",
+            "inline_policy": [
+              {
+                "name": "renoveja-ecs-ssm",
+                "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ssm:GetParameters\",\"ssm:GetParameter\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ssm:sa-east-1:*:parameter/renoveja/*\"}]}"
+              }
+            ],
+            "managed_policy_arns": [
+              "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+            ],
+            "max_session_duration": 3600,
+            "name": "renoveja-ecs-execution",
+            "name_prefix": "",
+            "path": "/",
+            "permissions_boundary": "",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "unique_id": "AROAQ542XMVPSQV3VCLDR"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "ecs_task",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::064212133215:role/renoveja-ecs-task",
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "create_date": "2026-03-15T03:27:47Z",
+            "description": "",
+            "force_detach_policies": false,
+            "id": "renoveja-ecs-task",
+            "inline_policy": [
+              {
+                "name": "renoveja-ecs-s3",
+                "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:s3:::renoveja-prescriptions\",\"arn:aws:s3:::renoveja-prescriptions/*\",\"arn:aws:s3:::renoveja-certificates\",\"arn:aws:s3:::renoveja-certificates/*\",\"arn:aws:s3:::renoveja-avatars\",\"arn:aws:s3:::renoveja-avatars/*\",\"arn:aws:s3:::renoveja-transcripts\",\"arn:aws:s3:::renoveja-transcripts/*\"]}]}"
+              }
+            ],
+            "managed_policy_arns": [],
+            "max_session_duration": 3600,
+            "name": "renoveja-ecs-task",
+            "name_prefix": "",
+            "path": "/",
+            "permissions_boundary": "",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "unique_id": "AROAQ542XMVPYT2TWDAHY"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "ecs_s3",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "renoveja-ecs-task:renoveja-ecs-s3",
+            "name": "renoveja-ecs-s3",
+            "name_prefix": "",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:ListBucket\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:s3:::renoveja-prescriptions\",\"arn:aws:s3:::renoveja-prescriptions/*\",\"arn:aws:s3:::renoveja-certificates\",\"arn:aws:s3:::renoveja-certificates/*\",\"arn:aws:s3:::renoveja-avatars\",\"arn:aws:s3:::renoveja-avatars/*\",\"arn:aws:s3:::renoveja-transcripts\",\"arn:aws:s3:::renoveja-transcripts/*\"]}]}",
+            "role": "renoveja-ecs-task"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_iam_role.ecs_task",
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "ecs_ssm",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "renoveja-ecs-execution:renoveja-ecs-ssm",
+            "name": "renoveja-ecs-ssm",
+            "name_prefix": "",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ssm:GetParameters\",\"ssm:GetParameter\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:ssm:sa-east-1:*:parameter/renoveja/*\"}]}",
+            "role": "renoveja-ecs-execution"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_iam_role.ecs_execution"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_iam_role_policy_attachment",
+      "name": "ecs_execution",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "renoveja-ecs-execution-arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+            "policy_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+            "role": "renoveja-ecs-execution"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_iam_role.ecs_execution"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_internet_gateway",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:internet-gateway/igw-01e9ed9fc7170e0d3",
+            "id": "igw-01e9ed9fc7170e0d3",
+            "owner_id": "064212133215",
+            "tags": {
+              "Name": "renoveja-igw"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-igw",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_vpc.main"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_lb",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "access_logs": [
+              {
+                "bucket": "",
+                "enabled": false,
+                "prefix": ""
+              }
+            ],
+            "arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:loadbalancer/app/renoveja-alb/fba7020345418a84",
+            "arn_suffix": "app/renoveja-alb/fba7020345418a84",
+            "client_keep_alive": 3600,
+            "connection_logs": [
+              {
+                "bucket": "",
+                "enabled": false,
+                "prefix": ""
+              }
+            ],
+            "customer_owned_ipv4_pool": "",
+            "desync_mitigation_mode": "defensive",
+            "dns_name": "renoveja-alb-1239997187.sa-east-1.elb.amazonaws.com",
+            "dns_record_client_routing_policy": null,
+            "drop_invalid_header_fields": false,
+            "enable_cross_zone_load_balancing": true,
+            "enable_deletion_protection": false,
+            "enable_http2": true,
+            "enable_tls_version_and_cipher_suite_headers": false,
+            "enable_waf_fail_open": false,
+            "enable_xff_client_port": false,
+            "enable_zonal_shift": false,
+            "enforce_security_group_inbound_rules_on_private_link_traffic": "",
+            "id": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:loadbalancer/app/renoveja-alb/fba7020345418a84",
+            "idle_timeout": 60,
+            "internal": false,
+            "ip_address_type": "ipv4",
+            "ipam_pools": [],
+            "load_balancer_type": "application",
+            "minimum_load_balancer_capacity": [],
+            "name": "renoveja-alb",
+            "name_prefix": "",
+            "preserve_host_header": false,
+            "security_groups": [
+              "sg-0484c04e915115f3f"
+            ],
+            "subnet_mapping": [
+              {
+                "allocation_id": "",
+                "ipv6_address": "",
+                "outpost_id": "",
+                "private_ipv4_address": "",
+                "subnet_id": "subnet-019120073e2e81278"
+              },
+              {
+                "allocation_id": "",
+                "ipv6_address": "",
+                "outpost_id": "",
+                "private_ipv4_address": "",
+                "subnet_id": "subnet-0ec173023bf520ff7"
+              }
+            ],
+            "subnets": [
+              "subnet-03f6b033e924a25e8",
+              "subnet-09295e48859cc4ff3"
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-090f3bbc85875577b",
+            "xff_header_processing_mode": "append",
+            "zone_id": "Z2P70J7HTTTPLU"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6NjAwMDAwMDAwMDAwLCJ1cGRhdGUiOjYwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_security_group.alb",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_lb_listener",
+      "name": "http",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "alpn_policy": null,
+            "arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:listener/app/renoveja-alb/fba7020345418a84/c868adc36d52955f",
+            "certificate_arn": null,
+            "default_action": [
+              {
+                "authenticate_cognito": [],
+                "authenticate_oidc": [],
+                "fixed_response": [],
+                "forward": [],
+                "order": 0,
+                "redirect": [
+                  {
+                    "host": "#{host}",
+                    "path": "/#{path}",
+                    "port": "443",
+                    "protocol": "HTTPS",
+                    "query": "#{query}",
+                    "status_code": "HTTP_301"
+                  }
+                ],
+                "target_group_arn": "",
+                "type": "redirect"
+              }
+            ],
+            "id": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:listener/app/renoveja-alb/fba7020345418a84/c868adc36d52955f",
+            "load_balancer_arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:loadbalancer/app/renoveja-alb/fba7020345418a84",
+            "mutual_authentication": [],
+            "port": 80,
+            "protocol": "HTTP",
+            "routing_http_request_x_amzn_mtls_clientcert_header_name": null,
+            "routing_http_request_x_amzn_mtls_clientcert_issuer_header_name": null,
+            "routing_http_request_x_amzn_mtls_clientcert_leaf_header_name": null,
+            "routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name": null,
+            "routing_http_request_x_amzn_mtls_clientcert_subject_header_name": null,
+            "routing_http_request_x_amzn_mtls_clientcert_validity_header_name": null,
+            "routing_http_request_x_amzn_tls_cipher_suite_header_name": null,
+            "routing_http_request_x_amzn_tls_version_header_name": null,
+            "routing_http_response_access_control_allow_credentials_header_value": "",
+            "routing_http_response_access_control_allow_headers_header_value": "",
+            "routing_http_response_access_control_allow_methods_header_value": "",
+            "routing_http_response_access_control_allow_origin_header_value": "",
+            "routing_http_response_access_control_expose_headers_header_value": "",
+            "routing_http_response_access_control_max_age_header_value": "",
+            "routing_http_response_content_security_policy_header_value": "",
+            "routing_http_response_server_enabled": true,
+            "routing_http_response_strict_transport_security_header_value": "",
+            "routing_http_response_x_content_type_options_header_value": "",
+            "routing_http_response_x_frame_options_header_value": "",
+            "ssl_policy": "",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "tcp_idle_timeout_seconds": null,
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsInVwZGF0ZSI6MzAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIwIn0=",
+          "dependencies": [
+            "aws_lb.main",
+            "aws_security_group.alb",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_lb_listener",
+      "name": "https",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "alpn_policy": null,
+            "arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:listener/app/renoveja-alb/fba7020345418a84/4b663d5e8a957180",
+            "certificate_arn": "arn:aws:acm:sa-east-1:064212133215:certificate/16f804be-768e-4fcd-91e2-154495739b19",
+            "default_action": [
+              {
+                "authenticate_cognito": [],
+                "authenticate_oidc": [],
+                "fixed_response": [],
+                "forward": [
+                  {
+                    "stickiness": [
+                      {
+                        "duration": 0,
+                        "enabled": false
+                      }
+                    ],
+                    "target_group": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:targetgroup/renoveja-api-tg/d2c18c77ff3a0387",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ],
+                "order": 1,
+                "redirect": [],
+                "target_group_arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:targetgroup/renoveja-api-tg/d2c18c77ff3a0387",
+                "type": "forward"
+              }
+            ],
+            "id": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:listener/app/renoveja-alb/fba7020345418a84/4b663d5e8a957180",
+            "load_balancer_arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:loadbalancer/app/renoveja-alb/fba7020345418a84",
+            "mutual_authentication": [
+              {
+                "advertise_trust_store_ca_names": "",
+                "ignore_client_certificate_expiry": false,
+                "mode": "off",
+                "trust_store_arn": ""
+              }
+            ],
+            "port": 443,
+            "protocol": "HTTPS",
+            "routing_http_request_x_amzn_mtls_clientcert_header_name": "",
+            "routing_http_request_x_amzn_mtls_clientcert_issuer_header_name": "",
+            "routing_http_request_x_amzn_mtls_clientcert_leaf_header_name": "",
+            "routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name": "",
+            "routing_http_request_x_amzn_mtls_clientcert_subject_header_name": "",
+            "routing_http_request_x_amzn_mtls_clientcert_validity_header_name": "",
+            "routing_http_request_x_amzn_tls_cipher_suite_header_name": "",
+            "routing_http_request_x_amzn_tls_version_header_name": "",
+            "routing_http_response_access_control_allow_credentials_header_value": "",
+            "routing_http_response_access_control_allow_headers_header_value": "",
+            "routing_http_response_access_control_allow_methods_header_value": "",
+            "routing_http_response_access_control_allow_origin_header_value": "",
+            "routing_http_response_access_control_expose_headers_header_value": "",
+            "routing_http_response_access_control_max_age_header_value": "",
+            "routing_http_response_content_security_policy_header_value": "",
+            "routing_http_response_server_enabled": true,
+            "routing_http_response_strict_transport_security_header_value": "",
+            "routing_http_response_x_content_type_options_header_value": "",
+            "routing_http_response_x_frame_options_header_value": "",
+            "ssl_policy": "ELBSecurityPolicy-TLS13-1-2-2021-06",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "tcp_idle_timeout_seconds": null,
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsInVwZGF0ZSI6MzAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIwIn0=",
+          "dependencies": [
+            "aws_lb.main",
+            "aws_lb_target_group.api",
+            "aws_security_group.alb",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_lb_target_group",
+      "name": "api",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:targetgroup/renoveja-api-tg/d2c18c77ff3a0387",
+            "arn_suffix": "targetgroup/renoveja-api-tg/d2c18c77ff3a0387",
+            "connection_termination": null,
+            "deregistration_delay": "300",
+            "health_check": [
+              {
+                "enabled": true,
+                "healthy_threshold": 2,
+                "interval": 30,
+                "matcher": "200",
+                "path": "/api/health/live",
+                "port": "traffic-port",
+                "protocol": "HTTP",
+                "timeout": 10,
+                "unhealthy_threshold": 3
+              }
+            ],
+            "id": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:targetgroup/renoveja-api-tg/d2c18c77ff3a0387",
+            "ip_address_type": "ipv4",
+            "lambda_multi_value_headers_enabled": null,
+            "load_balancer_arns": [
+              "arn:aws:elasticloadbalancing:sa-east-1:064212133215:loadbalancer/app/renoveja-alb/fba7020345418a84"
+            ],
+            "load_balancing_algorithm_type": "round_robin",
+            "load_balancing_anomaly_mitigation": "off",
+            "load_balancing_cross_zone_enabled": "use_load_balancer_configuration",
+            "name": "renoveja-api-tg",
+            "name_prefix": "",
+            "port": 8080,
+            "preserve_client_ip": null,
+            "protocol": "HTTP",
+            "protocol_version": "HTTP1",
+            "proxy_protocol_v2": null,
+            "slow_start": 0,
+            "stickiness": [
+              {
+                "cookie_duration": 86400,
+                "cookie_name": "",
+                "enabled": true,
+                "type": "lb_cookie"
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "target_failover": [
+              {
+                "on_deregistration": null,
+                "on_unhealthy": null
+              }
+            ],
+            "target_group_health": [
+              {
+                "dns_failover": [
+                  {
+                    "minimum_healthy_targets_count": "1",
+                    "minimum_healthy_targets_percentage": "off"
+                  }
+                ],
+                "unhealthy_state_routing": [
+                  {
+                    "minimum_healthy_targets_count": 1,
+                    "minimum_healthy_targets_percentage": "off"
+                  }
+                ]
+              }
+            ],
+            "target_health_state": [
+              {
+                "enable_unhealthy_connection_termination": null,
+                "unhealthy_draining_interval": null
+              }
+            ],
+            "target_type": "ip",
+            "vpc_id": "vpc-090f3bbc85875577b"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_vpc.main"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_nat_gateway",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "allocation_id": "eipalloc-085d0043bd6c30003",
+            "association_id": "eipassoc-0afb7c80b8332ee23",
+            "connectivity_type": "public",
+            "id": "nat-016fa08cc5b552388",
+            "network_interface_id": "eni-022e6e3d666a74e43",
+            "private_ip": "10.0.1.253",
+            "public_ip": "18.228.73.120",
+            "secondary_allocation_ids": [],
+            "secondary_private_ip_address_count": 0,
+            "secondary_private_ip_addresses": [],
+            "subnet_id": "subnet-09295e48859cc4ff3",
+            "tags": {
+              "Name": "renoveja-nat"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-nat",
+              "Project": "renoveja"
+            },
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTgwMDAwMDAwMDAwMCwidXBkYXRlIjo2MDAwMDAwMDAwMDB9fQ==",
+          "dependencies": [
+            "aws_eip.nat",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route_table",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:route-table/rtb-0eece47852ebf3f9c",
+            "id": "rtb-0eece47852ebf3f9c",
+            "owner_id": "064212133215",
+            "propagating_vgws": [],
+            "route": [
+              {
+                "carrier_gateway_id": "",
+                "cidr_block": "0.0.0.0/0",
+                "core_network_arn": "",
+                "destination_prefix_list_id": "",
+                "egress_only_gateway_id": "",
+                "gateway_id": "",
+                "ipv6_cidr_block": "",
+                "local_gateway_id": "",
+                "nat_gateway_id": "nat-016fa08cc5b552388",
+                "network_interface_id": "",
+                "transit_gateway_id": "",
+                "vpc_endpoint_id": "",
+                "vpc_peering_connection_id": ""
+              }
+            ],
+            "tags": {
+              "Name": "renoveja-private-rt"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-private-rt",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_eip.nat",
+            "aws_nat_gateway.main",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route_table",
+      "name": "public",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:route-table/rtb-0b024995d8ad90888",
+            "id": "rtb-0b024995d8ad90888",
+            "owner_id": "064212133215",
+            "propagating_vgws": [],
+            "route": [
+              {
+                "carrier_gateway_id": "",
+                "cidr_block": "0.0.0.0/0",
+                "core_network_arn": "",
+                "destination_prefix_list_id": "",
+                "egress_only_gateway_id": "",
+                "gateway_id": "igw-01e9ed9fc7170e0d3",
+                "ipv6_cidr_block": "",
+                "local_gateway_id": "",
+                "nat_gateway_id": "",
+                "network_interface_id": "",
+                "transit_gateway_id": "",
+                "vpc_endpoint_id": "",
+                "vpc_peering_connection_id": ""
+              }
+            ],
+            "tags": {
+              "Name": "renoveja-public-rt"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-public-rt",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_internet_gateway.main",
+            "aws_vpc.main"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route_table_association",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "gateway_id": "",
+            "id": "rtbassoc-000610055a8568d0d",
+            "route_table_id": "rtb-0eece47852ebf3f9c",
+            "subnet_id": "subnet-03eb30c698c982e01",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_eip.nat",
+            "aws_nat_gateway.main",
+            "aws_route_table.private",
+            "aws_subnet.private",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        },
+        {
+          "index_key": 1,
+          "schema_version": 0,
+          "attributes": {
+            "gateway_id": "",
+            "id": "rtbassoc-0b378d708114b8db7",
+            "route_table_id": "rtb-0eece47852ebf3f9c",
+            "subnet_id": "subnet-0709ef2de2b2580fd",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_eip.nat",
+            "aws_nat_gateway.main",
+            "aws_route_table.private",
+            "aws_subnet.private",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route_table_association",
+      "name": "public",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "gateway_id": "",
+            "id": "rtbassoc-0123926553d4f13e5",
+            "route_table_id": "rtb-0b024995d8ad90888",
+            "subnet_id": "subnet-09295e48859cc4ff3",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_internet_gateway.main",
+            "aws_route_table.public",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        },
+        {
+          "index_key": 1,
+          "schema_version": 0,
+          "attributes": {
+            "gateway_id": "",
+            "id": "rtbassoc-01fc98a9fe7a9c8d0",
+            "route_table_id": "rtb-0b024995d8ad90888",
+            "subnet_id": "subnet-03f6b033e924a25e8",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "aws_internet_gateway.main",
+            "aws_route_table.public",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "avatars",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::renoveja-avatars",
+            "bucket": "renoveja-avatars",
+            "bucket_domain_name": "renoveja-avatars.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "renoveja-avatars.s3.sa-east-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": null,
+            "grant": [
+              {
+                "id": "78eb9c1c67b5ef886844199f1e7ee9b0222051ac03cd0ffb9e067b8b10084d5f",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z7KQH4QJS55SO",
+            "id": "renoveja-avatars",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "",
+            "region": "sa-east-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "aws:kms"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "certificates",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::renoveja-certificates",
+            "bucket": "renoveja-certificates",
+            "bucket_domain_name": "renoveja-certificates.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "renoveja-certificates.s3.sa-east-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": null,
+            "grant": [
+              {
+                "id": "78eb9c1c67b5ef886844199f1e7ee9b0222051ac03cd0ffb9e067b8b10084d5f",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z7KQH4QJS55SO",
+            "id": "renoveja-certificates",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "",
+            "region": "sa-east-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "aws:kms"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": true,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "frontend",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::renoveja-frontend-web",
+            "bucket": "renoveja-frontend-web",
+            "bucket_domain_name": "renoveja-frontend-web.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "renoveja-frontend-web.s3.sa-east-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": null,
+            "grant": [
+              {
+                "id": "78eb9c1c67b5ef886844199f1e7ee9b0222051ac03cd0ffb9e067b8b10084d5f",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z7KQH4QJS55SO",
+            "id": "renoveja-frontend-web",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "{\"Statement\":[{\"Action\":\"s3:GetObject\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity E1IR0EVKN4PAEA\"},\"Resource\":\"arn:aws:s3:::renoveja-frontend-web/*\"}],\"Version\":\"2012-10-17\"}",
+            "region": "sa-east-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "AES256"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "prescriptions",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::renoveja-prescriptions",
+            "bucket": "renoveja-prescriptions",
+            "bucket_domain_name": "renoveja-prescriptions.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "renoveja-prescriptions.s3.sa-east-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": null,
+            "grant": [
+              {
+                "id": "78eb9c1c67b5ef886844199f1e7ee9b0222051ac03cd0ffb9e067b8b10084d5f",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z7KQH4QJS55SO",
+            "id": "renoveja-prescriptions",
+            "lifecycle_rule": [
+              {
+                "abort_incomplete_multipart_upload_days": 0,
+                "enabled": true,
+                "expiration": [],
+                "id": "archive-old-prescriptions",
+                "noncurrent_version_expiration": [],
+                "noncurrent_version_transition": [],
+                "prefix": "",
+                "tags": {},
+                "transition": [
+                  {
+                    "date": "",
+                    "days": 365,
+                    "storage_class": "GLACIER"
+                  }
+                ]
+              }
+            ],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "",
+            "region": "sa-east-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "aws:kms"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": true,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "transcripts",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::renoveja-transcripts",
+            "bucket": "renoveja-transcripts",
+            "bucket_domain_name": "renoveja-transcripts.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "renoveja-transcripts.s3.sa-east-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": null,
+            "grant": [
+              {
+                "id": "78eb9c1c67b5ef886844199f1e7ee9b0222051ac03cd0ffb9e067b8b10084d5f",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z7KQH4QJS55SO",
+            "id": "renoveja-transcripts",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "",
+            "region": "sa-east-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "aws:kms"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket_lifecycle_configuration",
+      "name": "prescriptions",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "bucket": "renoveja-prescriptions",
+            "expected_bucket_owner": "",
+            "id": "renoveja-prescriptions",
+            "rule": [
+              {
+                "abort_incomplete_multipart_upload": [],
+                "expiration": [],
+                "filter": [
+                  {
+                    "and": [],
+                    "object_size_greater_than": null,
+                    "object_size_less_than": null,
+                    "prefix": "",
+                    "tag": []
+                  }
+                ],
+                "id": "archive-old-prescriptions",
+                "noncurrent_version_expiration": [],
+                "noncurrent_version_transition": [],
+                "prefix": "",
+                "status": "Enabled",
+                "transition": [
+                  {
+                    "date": null,
+                    "days": 365,
+                    "storage_class": "GLACIER"
+                  }
+                ]
+              }
+            ],
+            "timeouts": null,
+            "transition_default_minimum_object_size": "all_storage_classes_128K"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "aws_s3_bucket.prescriptions"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket_policy",
+      "name": "frontend",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "bucket": "renoveja-frontend-web",
+            "id": "renoveja-frontend-web",
+            "policy": "{\"Statement\":[{\"Action\":\"s3:GetObject\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity E1IR0EVKN4PAEA\"},\"Resource\":\"arn:aws:s3:::renoveja-frontend-web/*\"}],\"Version\":\"2012-10-17\"}"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_cloudfront_origin_access_identity.frontend",
+            "aws_s3_bucket.frontend"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block",
+      "name": "frontend",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "block_public_acls": true,
+            "block_public_policy": true,
+            "bucket": "renoveja-frontend-web",
+            "id": "renoveja-frontend-web",
+            "ignore_public_acls": true,
+            "restrict_public_buckets": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_s3_bucket.frontend"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "index_key": "avatars",
+          "schema_version": 0,
+          "attributes": {
+            "block_public_acls": true,
+            "block_public_policy": true,
+            "bucket": "renoveja-avatars",
+            "id": "renoveja-avatars",
+            "ignore_public_acls": true,
+            "restrict_public_buckets": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        },
+        {
+          "index_key": "certificates",
+          "schema_version": 0,
+          "attributes": {
+            "block_public_acls": true,
+            "block_public_policy": true,
+            "bucket": "renoveja-certificates",
+            "id": "renoveja-certificates",
+            "ignore_public_acls": true,
+            "restrict_public_buckets": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        },
+        {
+          "index_key": "prescriptions",
+          "schema_version": 0,
+          "attributes": {
+            "block_public_acls": true,
+            "block_public_policy": true,
+            "bucket": "renoveja-prescriptions",
+            "id": "renoveja-prescriptions",
+            "ignore_public_acls": true,
+            "restrict_public_buckets": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        },
+        {
+          "index_key": "transcripts",
+          "schema_version": 0,
+          "attributes": {
+            "block_public_acls": true,
+            "block_public_policy": true,
+            "bucket": "renoveja-transcripts",
+            "id": "renoveja-transcripts",
+            "ignore_public_acls": true,
+            "restrict_public_buckets": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "index_key": "avatars",
+          "schema_version": 0,
+          "attributes": {
+            "bucket": "renoveja-avatars",
+            "expected_bucket_owner": "",
+            "id": "renoveja-avatars",
+            "rule": [
+              {
+                "apply_server_side_encryption_by_default": [
+                  {
+                    "kms_master_key_id": "",
+                    "sse_algorithm": "aws:kms"
+                  }
+                ],
+                "bucket_key_enabled": false
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        },
+        {
+          "index_key": "certificates",
+          "schema_version": 0,
+          "attributes": {
+            "bucket": "renoveja-certificates",
+            "expected_bucket_owner": "",
+            "id": "renoveja-certificates",
+            "rule": [
+              {
+                "apply_server_side_encryption_by_default": [
+                  {
+                    "kms_master_key_id": "",
+                    "sse_algorithm": "aws:kms"
+                  }
+                ],
+                "bucket_key_enabled": false
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        },
+        {
+          "index_key": "prescriptions",
+          "schema_version": 0,
+          "attributes": {
+            "bucket": "renoveja-prescriptions",
+            "expected_bucket_owner": "",
+            "id": "renoveja-prescriptions",
+            "rule": [
+              {
+                "apply_server_side_encryption_by_default": [
+                  {
+                    "kms_master_key_id": "",
+                    "sse_algorithm": "aws:kms"
+                  }
+                ],
+                "bucket_key_enabled": false
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        },
+        {
+          "index_key": "transcripts",
+          "schema_version": 0,
+          "attributes": {
+            "bucket": "renoveja-transcripts",
+            "expected_bucket_owner": "",
+            "id": "renoveja-transcripts",
+            "rule": [
+              {
+                "apply_server_side_encryption_by_default": [
+                  {
+                    "kms_master_key_id": "",
+                    "sse_algorithm": "aws:kms"
+                  }
+                ],
+                "bucket_key_enabled": false
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_s3_bucket.avatars",
+            "aws_s3_bucket.certificates",
+            "aws_s3_bucket.prescriptions",
+            "aws_s3_bucket.transcripts"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket_versioning",
+      "name": "certificates",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "bucket": "renoveja-certificates",
+            "expected_bucket_owner": "",
+            "id": "renoveja-certificates",
+            "mfa": null,
+            "versioning_configuration": [
+              {
+                "mfa_delete": "",
+                "status": "Enabled"
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_s3_bucket.certificates"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket_versioning",
+      "name": "prescriptions",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "bucket": "renoveja-prescriptions",
+            "expected_bucket_owner": "",
+            "id": "renoveja-prescriptions",
+            "mfa": null,
+            "versioning_configuration": [
+              {
+                "mfa_delete": "",
+                "status": "Enabled"
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_s3_bucket.prescriptions"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "alb",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:security-group/sg-0484c04e915115f3f",
+            "description": "Managed by Terraform",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "",
+                "from_port": 0,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "-1",
+                "security_groups": [],
+                "self": false,
+                "to_port": 0
+              }
+            ],
+            "id": "sg-0484c04e915115f3f",
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "",
+                "from_port": 443,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 443
+              },
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "",
+                "from_port": 80,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 80
+              }
+            ],
+            "name": "renoveja-alb-20260316210359410400000002",
+            "name_prefix": "renoveja-alb-",
+            "owner_id": "064212133215",
+            "revoke_rules_on_delete": false,
+            "tags": {
+              "Name": "renoveja-alb-sg"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-alb-sg",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
+          "dependencies": [
+            "aws_vpc.main"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "aurora",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:security-group/sg-08ad0e10b95e2361e",
+            "description": "Managed by Terraform",
+            "egress": [],
+            "id": "sg-08ad0e10b95e2361e",
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "10.0.10.0/24",
+                  "10.0.11.0/24"
+                ],
+                "description": "pgAdmin acesso restrito as subnets privadas",
+                "from_port": 5432,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 5432
+              },
+              {
+                "cidr_blocks": [],
+                "description": "",
+                "from_port": 5432,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [
+                  "sg-097d6054c8eb73a49"
+                ],
+                "self": false,
+                "to_port": 5432
+              }
+            ],
+            "name": "renoveja-aurora-20260316210405020800000006",
+            "name_prefix": "renoveja-aurora-",
+            "owner_id": "064212133215",
+            "revoke_rules_on_delete": false,
+            "tags": {
+              "Name": "renoveja-aurora-sg"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-aurora-sg",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
+          "dependencies": [
+            "aws_security_group.alb",
+            "aws_security_group.ecs",
+            "aws_subnet.private",
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "ecs",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:security-group/sg-097d6054c8eb73a49",
+            "description": "Managed by Terraform",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "",
+                "from_port": 0,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "-1",
+                "security_groups": [],
+                "self": false,
+                "to_port": 0
+              }
+            ],
+            "id": "sg-097d6054c8eb73a49",
+            "ingress": [
+              {
+                "cidr_blocks": [],
+                "description": "",
+                "from_port": 8080,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [
+                  "sg-0484c04e915115f3f"
+                ],
+                "self": false,
+                "to_port": 8080
+              }
+            ],
+            "name": "renoveja-ecs-20260316210402279600000004",
+            "name_prefix": "renoveja-ecs-",
+            "owner_id": "064212133215",
+            "revoke_rules_on_delete": false,
+            "tags": {
+              "Name": "renoveja-ecs-sg"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-ecs-sg",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
+          "dependencies": [
+            "aws_security_group.alb",
+            "aws_vpc.main"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "redis",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:security-group/sg-0194d026315ddbb96",
+            "description": "Managed by Terraform",
+            "egress": [],
+            "id": "sg-0194d026315ddbb96",
+            "ingress": [
+              {
+                "cidr_blocks": [],
+                "description": "",
+                "from_port": 6379,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [
+                  "sg-097d6054c8eb73a49"
+                ],
+                "self": false,
+                "to_port": 6379
+              }
+            ],
+            "name": "renoveja-redis-20260316210405019800000005",
+            "name_prefix": "renoveja-redis-",
+            "owner_id": "064212133215",
+            "revoke_rules_on_delete": false,
+            "tags": {
+              "Name": "renoveja-redis-sg"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-redis-sg",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
+          "dependencies": [
+            "aws_security_group.alb",
+            "aws_security_group.ecs",
+            "aws_vpc.main"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:subnet/subnet-03eb30c698c982e01",
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "sa-east-1a",
+            "availability_zone_id": "sae1-az1",
+            "cidr_block": "10.0.10.0/24",
+            "customer_owned_ipv4_pool": "",
+            "enable_dns64": false,
+            "enable_lni_at_device_index": 0,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "id": "subnet-03eb30c698c982e01",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_association_id": "",
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": false,
+            "map_public_ip_on_launch": false,
+            "outpost_arn": "",
+            "owner_id": "064212133215",
+            "private_dns_hostname_type_on_launch": "ip-name",
+            "tags": {
+              "Name": "renoveja-private-1"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-private-1",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        },
+        {
+          "index_key": 1,
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:subnet/subnet-0709ef2de2b2580fd",
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "sa-east-1b",
+            "availability_zone_id": "sae1-az2",
+            "cidr_block": "10.0.11.0/24",
+            "customer_owned_ipv4_pool": "",
+            "enable_dns64": false,
+            "enable_lni_at_device_index": 0,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "id": "subnet-0709ef2de2b2580fd",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_association_id": "",
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": false,
+            "map_public_ip_on_launch": false,
+            "outpost_arn": "",
+            "owner_id": "064212133215",
+            "private_dns_hostname_type_on_launch": "ip-name",
+            "tags": {
+              "Name": "renoveja-private-2"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-private-2",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "public",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:subnet/subnet-09295e48859cc4ff3",
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "sa-east-1a",
+            "availability_zone_id": "sae1-az1",
+            "cidr_block": "10.0.1.0/24",
+            "customer_owned_ipv4_pool": "",
+            "enable_dns64": false,
+            "enable_lni_at_device_index": 0,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "id": "subnet-09295e48859cc4ff3",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_association_id": "",
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": false,
+            "map_public_ip_on_launch": true,
+            "outpost_arn": "",
+            "owner_id": "064212133215",
+            "private_dns_hostname_type_on_launch": "ip-name",
+            "tags": {
+              "Name": "renoveja-public-1"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-public-1",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        },
+        {
+          "index_key": 1,
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:subnet/subnet-03f6b033e924a25e8",
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "sa-east-1b",
+            "availability_zone_id": "sae1-az2",
+            "cidr_block": "10.0.2.0/24",
+            "customer_owned_ipv4_pool": "",
+            "enable_dns64": false,
+            "enable_lni_at_device_index": 0,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "id": "subnet-03f6b033e924a25e8",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_association_id": "",
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": false,
+            "map_public_ip_on_launch": true,
+            "outpost_arn": "",
+            "owner_id": "064212133215",
+            "private_dns_hostname_type_on_launch": "ip-name",
+            "tags": {
+              "Name": "renoveja-public-2"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-public-2",
+              "Project": "renoveja"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06b68772f388099da"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "aws_vpc.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_vpc",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:sa-east-1:064212133215:vpc/vpc-06b68772f388099da",
+            "assign_generated_ipv6_cidr_block": false,
+            "cidr_block": "10.0.0.0/16",
+            "default_network_acl_id": "acl-00cc4e4eecb100117",
+            "default_route_table_id": "rtb-0f85c9ef103c5868c",
+            "default_security_group_id": "sg-08be3cf2a8d061d4e",
+            "dhcp_options_id": "dopt-0d9b195fcfc119882",
+            "enable_dns_hostnames": true,
+            "enable_dns_support": true,
+            "enable_network_address_usage_metrics": false,
+            "id": "vpc-06b68772f388099da",
+            "instance_tenancy": "default",
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_association_id": "",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_network_border_group": "",
+            "ipv6_ipam_pool_id": "",
+            "ipv6_netmask_length": 0,
+            "main_route_table_id": "rtb-0f85c9ef103c5868c",
+            "owner_id": "064212133215",
+            "tags": {
+              "Name": "renoveja-vpc"
+            },
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Name": "renoveja-vpc",
+              "Project": "renoveja"
+            }
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_wafv2_web_acl",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "application_integration_url": "",
+            "arn": "arn:aws:wafv2:sa-east-1:064212133215:regional/webacl/renoveja-waf/b5e216e6-8bf4-4ee5-b329-d26e1b3800ad",
+            "association_config": [],
+            "capacity": 952,
+            "captcha_config": [],
+            "challenge_config": [],
+            "custom_response_body": [],
+            "data_protection_config": [],
+            "default_action": [
+              {
+                "allow": [
+                  {
+                    "custom_request_handling": []
+                  }
+                ],
+                "block": []
+              }
+            ],
+            "description": "WAF para API RenoveJa+",
+            "id": "b5e216e6-8bf4-4ee5-b329-d26e1b3800ad",
+            "lock_token": "63c29b3f-1301-46ad-9626-5db89696c2d7",
+            "name": "renoveja-waf",
+            "name_prefix": "",
+            "rule": [
+              {
+                "action": [
+                  {
+                    "allow": [
+                      {
+                        "custom_request_handling": []
+                      }
+                    ],
+                    "block": [],
+                    "captcha": [],
+                    "challenge": [],
+                    "count": []
+                  }
+                ],
+                "captcha_config": [],
+                "challenge_config": [],
+                "name": "allow-multipart-uploads",
+                "override_action": [],
+                "priority": 0,
+                "rule_label": [],
+                "statement": [
+                  {
+                    "and_statement": [],
+                    "asn_match_statement": [],
+                    "byte_match_statement": [],
+                    "geo_match_statement": [],
+                    "ip_set_reference_statement": [],
+                    "label_match_statement": [],
+                    "managed_rule_group_statement": [],
+                    "not_statement": [],
+                    "or_statement": [
+                      {
+                        "statement": [
+                          {
+                            "and_statement": [],
+                            "asn_match_statement": [],
+                            "byte_match_statement": [
+                              {
+                                "field_to_match": [
+                                  {
+                                    "all_query_arguments": [],
+                                    "body": [],
+                                    "cookies": [],
+                                    "header_order": [],
+                                    "headers": [],
+                                    "ja3_fingerprint": [],
+                                    "ja4_fingerprint": [],
+                                    "json_body": [],
+                                    "method": [],
+                                    "query_string": [],
+                                    "single_header": [],
+                                    "single_query_argument": [],
+                                    "uri_fragment": [],
+                                    "uri_path": [
+                                      {}
+                                    ]
+                                  }
+                                ],
+                                "positional_constraint": "CONTAINS",
+                                "search_string": "/api/auth/avatar",
+                                "text_transformation": [
+                                  {
+                                    "priority": 0,
+                                    "type": "NONE"
+                                  }
+                                ]
+                              }
+                            ],
+                            "geo_match_statement": [],
+                            "ip_set_reference_statement": [],
+                            "label_match_statement": [],
+                            "not_statement": [],
+                            "or_statement": [],
+                            "regex_match_statement": [],
+                            "regex_pattern_set_reference_statement": [],
+                            "size_constraint_statement": [],
+                            "sqli_match_statement": [],
+                            "xss_match_statement": []
+                          },
+                          {
+                            "and_statement": [],
+                            "asn_match_statement": [],
+                            "byte_match_statement": [
+                              {
+                                "field_to_match": [
+                                  {
+                                    "all_query_arguments": [],
+                                    "body": [],
+                                    "cookies": [],
+                                    "header_order": [],
+                                    "headers": [],
+                                    "ja3_fingerprint": [],
+                                    "ja4_fingerprint": [],
+                                    "json_body": [],
+                                    "method": [],
+                                    "query_string": [],
+                                    "single_header": [],
+                                    "single_query_argument": [],
+                                    "uri_fragment": [],
+                                    "uri_path": [
+                                      {}
+                                    ]
+                                  }
+                                ],
+                                "positional_constraint": "CONTAINS",
+                                "search_string": "/api/certificates/upload",
+                                "text_transformation": [
+                                  {
+                                    "priority": 0,
+                                    "type": "NONE"
+                                  }
+                                ]
+                              }
+                            ],
+                            "geo_match_statement": [],
+                            "ip_set_reference_statement": [],
+                            "label_match_statement": [],
+                            "not_statement": [],
+                            "or_statement": [],
+                            "regex_match_statement": [],
+                            "regex_pattern_set_reference_statement": [],
+                            "size_constraint_statement": [],
+                            "sqli_match_statement": [],
+                            "xss_match_statement": []
+                          },
+                          {
+                            "and_statement": [],
+                            "asn_match_statement": [],
+                            "byte_match_statement": [
+                              {
+                                "field_to_match": [
+                                  {
+                                    "all_query_arguments": [],
+                                    "body": [],
+                                    "cookies": [],
+                                    "header_order": [],
+                                    "headers": [],
+                                    "ja3_fingerprint": [],
+                                    "ja4_fingerprint": [],
+                                    "json_body": [],
+                                    "method": [],
+                                    "query_string": [],
+                                    "single_header": [],
+                                    "single_query_argument": [],
+                                    "uri_fragment": [],
+                                    "uri_path": [
+                                      {}
+                                    ]
+                                  }
+                                ],
+                                "positional_constraint": "CONTAINS",
+                                "search_string": "/api/requests/prescription",
+                                "text_transformation": [
+                                  {
+                                    "priority": 0,
+                                    "type": "NONE"
+                                  }
+                                ]
+                              }
+                            ],
+                            "geo_match_statement": [],
+                            "ip_set_reference_statement": [],
+                            "label_match_statement": [],
+                            "not_statement": [],
+                            "or_statement": [],
+                            "regex_match_statement": [],
+                            "regex_pattern_set_reference_statement": [],
+                            "size_constraint_statement": [],
+                            "sqli_match_statement": [],
+                            "xss_match_statement": []
+                          },
+                          {
+                            "and_statement": [],
+                            "asn_match_statement": [],
+                            "byte_match_statement": [
+                              {
+                                "field_to_match": [
+                                  {
+                                    "all_query_arguments": [],
+                                    "body": [],
+                                    "cookies": [],
+                                    "header_order": [],
+                                    "headers": [],
+                                    "ja3_fingerprint": [],
+                                    "ja4_fingerprint": [],
+                                    "json_body": [],
+                                    "method": [],
+                                    "query_string": [],
+                                    "single_header": [],
+                                    "single_query_argument": [],
+                                    "uri_fragment": [],
+                                    "uri_path": [
+                                      {}
+                                    ]
+                                  }
+                                ],
+                                "positional_constraint": "CONTAINS",
+                                "search_string": "/api/requests/exam",
+                                "text_transformation": [
+                                  {
+                                    "priority": 0,
+                                    "type": "NONE"
+                                  }
+                                ]
+                              }
+                            ],
+                            "geo_match_statement": [],
+                            "ip_set_reference_statement": [],
+                            "label_match_statement": [],
+                            "not_statement": [],
+                            "or_statement": [],
+                            "regex_match_statement": [],
+                            "regex_pattern_set_reference_statement": [],
+                            "size_constraint_statement": [],
+                            "sqli_match_statement": [],
+                            "xss_match_statement": []
+                          },
+                          {
+                            "and_statement": [],
+                            "asn_match_statement": [],
+                            "byte_match_statement": [
+                              {
+                                "field_to_match": [
+                                  {
+                                    "all_query_arguments": [],
+                                    "body": [],
+                                    "cookies": [],
+                                    "header_order": [],
+                                    "headers": [],
+                                    "ja3_fingerprint": [],
+                                    "ja4_fingerprint": [],
+                                    "json_body": [],
+                                    "method": [],
+                                    "query_string": [],
+                                    "single_header": [],
+                                    "single_query_argument": [],
+                                    "uri_fragment": [],
+                                    "uri_path": [
+                                      {}
+                                    ]
+                                  }
+                                ],
+                                "positional_constraint": "CONTAINS",
+                                "search_string": "/api/consultation/transcribe",
+                                "text_transformation": [
+                                  {
+                                    "priority": 0,
+                                    "type": "NONE"
+                                  }
+                                ]
+                              }
+                            ],
+                            "geo_match_statement": [],
+                            "ip_set_reference_statement": [],
+                            "label_match_statement": [],
+                            "not_statement": [],
+                            "or_statement": [],
+                            "regex_match_statement": [],
+                            "regex_pattern_set_reference_statement": [],
+                            "size_constraint_statement": [],
+                            "sqli_match_statement": [],
+                            "xss_match_statement": []
+                          }
+                        ]
+                      }
+                    ],
+                    "rate_based_statement": [],
+                    "regex_match_statement": [],
+                    "regex_pattern_set_reference_statement": [],
+                    "rule_group_reference_statement": [],
+                    "size_constraint_statement": [],
+                    "sqli_match_statement": [],
+                    "xss_match_statement": []
+                  }
+                ],
+                "visibility_config": [
+                  {
+                    "cloudwatch_metrics_enabled": true,
+                    "metric_name": "renoveja-allow-uploads",
+                    "sampled_requests_enabled": true
+                  }
+                ]
+              },
+              {
+                "action": [
+                  {
+                    "allow": [],
+                    "block": [
+                      {
+                        "custom_response": []
+                      }
+                    ],
+                    "captcha": [],
+                    "challenge": [],
+                    "count": []
+                  }
+                ],
+                "captcha_config": [],
+                "challenge_config": [],
+                "name": "rate-limit",
+                "override_action": [],
+                "priority": 3,
+                "rule_label": [],
+                "statement": [
+                  {
+                    "and_statement": [],
+                    "asn_match_statement": [],
+                    "byte_match_statement": [],
+                    "geo_match_statement": [],
+                    "ip_set_reference_statement": [],
+                    "label_match_statement": [],
+                    "managed_rule_group_statement": [],
+                    "not_statement": [],
+                    "or_statement": [],
+                    "rate_based_statement": [
+                      {
+                        "aggregate_key_type": "IP",
+                        "custom_key": [],
+                        "evaluation_window_sec": 300,
+                        "forwarded_ip_config": [],
+                        "limit": 500,
+                        "scope_down_statement": []
+                      }
+                    ],
+                    "regex_match_statement": [],
+                    "regex_pattern_set_reference_statement": [],
+                    "rule_group_reference_statement": [],
+                    "size_constraint_statement": [],
+                    "sqli_match_statement": [],
+                    "xss_match_statement": []
+                  }
+                ],
+                "visibility_config": [
+                  {
+                    "cloudwatch_metrics_enabled": true,
+                    "metric_name": "renoveja-rate-limit",
+                    "sampled_requests_enabled": true
+                  }
+                ]
+              },
+              {
+                "action": [],
+                "captcha_config": [],
+                "challenge_config": [],
+                "name": "aws-bad-inputs",
+                "override_action": [
+                  {
+                    "count": [],
+                    "none": [
+                      {}
+                    ]
+                  }
+                ],
+                "priority": 2,
+                "rule_label": [],
+                "statement": [
+                  {
+                    "and_statement": [],
+                    "asn_match_statement": [],
+                    "byte_match_statement": [],
+                    "geo_match_statement": [],
+                    "ip_set_reference_statement": [],
+                    "label_match_statement": [],
+                    "managed_rule_group_statement": [
+                      {
+                        "managed_rule_group_configs": [],
+                        "name": "AWSManagedRulesKnownBadInputsRuleSet",
+                        "rule_action_override": [],
+                        "scope_down_statement": [],
+                        "vendor_name": "AWS",
+                        "version": ""
+                      }
+                    ],
+                    "not_statement": [],
+                    "or_statement": [],
+                    "rate_based_statement": [],
+                    "regex_match_statement": [],
+                    "regex_pattern_set_reference_statement": [],
+                    "rule_group_reference_statement": [],
+                    "size_constraint_statement": [],
+                    "sqli_match_statement": [],
+                    "xss_match_statement": []
+                  }
+                ],
+                "visibility_config": [
+                  {
+                    "cloudwatch_metrics_enabled": true,
+                    "metric_name": "renoveja-bad-inputs",
+                    "sampled_requests_enabled": true
+                  }
+                ]
+              },
+              {
+                "action": [],
+                "captcha_config": [],
+                "challenge_config": [],
+                "name": "aws-common-rules",
+                "override_action": [
+                  {
+                    "count": [],
+                    "none": [
+                      {}
+                    ]
+                  }
+                ],
+                "priority": 1,
+                "rule_label": [],
+                "statement": [
+                  {
+                    "and_statement": [],
+                    "asn_match_statement": [],
+                    "byte_match_statement": [],
+                    "geo_match_statement": [],
+                    "ip_set_reference_statement": [],
+                    "label_match_statement": [],
+                    "managed_rule_group_statement": [
+                      {
+                        "managed_rule_group_configs": [],
+                        "name": "AWSManagedRulesCommonRuleSet",
+                        "rule_action_override": [],
+                        "scope_down_statement": [],
+                        "vendor_name": "AWS",
+                        "version": ""
+                      }
+                    ],
+                    "not_statement": [],
+                    "or_statement": [],
+                    "rate_based_statement": [],
+                    "regex_match_statement": [],
+                    "regex_pattern_set_reference_statement": [],
+                    "rule_group_reference_statement": [],
+                    "size_constraint_statement": [],
+                    "sqli_match_statement": [],
+                    "xss_match_statement": []
+                  }
+                ],
+                "visibility_config": [
+                  {
+                    "cloudwatch_metrics_enabled": true,
+                    "metric_name": "renoveja-common-rules",
+                    "sampled_requests_enabled": true
+                  }
+                ]
+              }
+            ],
+            "rule_json": null,
+            "scope": "REGIONAL",
+            "tags": {},
+            "tags_all": {
+              "Environment": "prod",
+              "ManagedBy": "terraform",
+              "Project": "renoveja"
+            },
+            "token_domains": [],
+            "visibility_config": [
+              {
+                "cloudwatch_metrics_enabled": true,
+                "metric_name": "renoveja-waf",
+                "sampled_requests_enabled": true
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_wafv2_web_acl_association",
+      "name": "alb",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "arn:aws:wafv2:sa-east-1:064212133215:regional/webacl/renoveja-waf/b5e216e6-8bf4-4ee5-b329-d26e1b3800ad,arn:aws:elasticloadbalancing:sa-east-1:064212133215:loadbalancer/app/renoveja-alb/fba7020345418a84",
+            "resource_arn": "arn:aws:elasticloadbalancing:sa-east-1:064212133215:loadbalancer/app/renoveja-alb/fba7020345418a84",
+            "timeouts": null,
+            "web_acl_arn": "arn:aws:wafv2:sa-east-1:064212133215:regional/webacl/renoveja-waf/b5e216e6-8bf4-4ee5-b329-d26e1b3800ad"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDB9LCJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
+          "dependencies": [
+            "aws_lb.main",
+            "aws_security_group.alb",
+            "aws_subnet.public",
+            "aws_vpc.main",
+            "aws_wafv2_web_acl.main",
+            "data.aws_availability_zones.available"
+          ]
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
