@@ -74,7 +74,7 @@ export function VideoFrameDaily({
   const frameRef = useRef<DailyCall | null>(null);
   /** Evita recriar iframe quando o pai re-renderiza e passa nova referência de callback. */
   const onCallJoinedRef = useRef(onCallJoined);
-  onCallJoinedRef.current = onCallJoined;
+  useEffect(() => { onCallJoinedRef.current = onCallJoined; }, [onCallJoined]);
 
   useEffect(() => {
     const container = containerRef.current;

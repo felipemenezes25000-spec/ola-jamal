@@ -102,7 +102,7 @@ export function AIEvidencePanel({ evidence }: AIEvidencePanelProps) {
             {/* Linha 2: Achado principal (resumo GPT) */}
             {item.clinicalRelevance && (
               <p className="text-sm text-gray-200 leading-snug">
-                {item.clinicalRelevance.replace(/^[✅⚠️ℹ️🚨📎]\s?/, '')}
+                {item.clinicalRelevance.replace(/^(?:✅|⚠️|ℹ️|🚨|📎)\s?/, '')}
               </p>
             )}
 
