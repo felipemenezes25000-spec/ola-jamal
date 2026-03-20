@@ -21,6 +21,55 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { spacing, borderRadius, shadows } from '../../lib/designSystem';
 import type { DesignColors } from '../../lib/designSystem';
 import { isExpoGo } from '../../lib/expo-go';
+import * as Sentry from '@sentry/react-native';
+
+class VideoErrorBoundary extends React.Component<
+  { children: React.ReactNode; onReset: () => void; colors: any },
+  { hasError: boolean; error: Error | null }
+> {
+  state = { hasError: false, error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // Report to Sentry so we can debug
+    try {
+      Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
+    } catch {}
+    if (__DEV__) console.error('[VideoErrorBoundary] Caught:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const { colors, onReset } = this.props;
+      return (
+        <View style={{ flex: 1, backgroundColor: colors?.background ?? '#000', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Ionicons name="warning-outline" size={56} color={colors?.error ?? '#ef4444'} />
+          <Text style={{ fontSize: 18, fontWeight: '700', color: colors?.text ?? '#fff', marginTop: 16, textAlign: 'center' }}>
+            Erro na videochamada
+          </Text>
+          <Text style={{ fontSize: 14, color: colors?.textSecondary ?? '#aaa', marginTop: 8, textAlign: 'center', lineHeight: 22 }}>
+            Ocorreu um erro inesperado.{'\n'}Tente novamente ou volte para o pedido.
+          </Text>
+          {__DEV__ && this.state.error && (
+            <Text style={{ fontSize: 11, color: '#f87171', marginTop: 12, textAlign: 'center', maxWidth: 300 }}>
+              {this.state.error.message}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={{ marginTop: 20, backgroundColor: colors?.primary ?? '#0EA5E9', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 }}
+            onPress={() => { this.setState({ hasError: false, error: null }); onReset(); }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function VideoRequestIdRoute() {
   const router = useRouter();
@@ -148,7 +197,11 @@ export default function VideoRequestIdRoute() {
     );
   }
 
-  return <Inner />;
+  return (
+    <VideoErrorBoundary colors={colors} onReset={() => { setInner(null); setLoadError(null); import('../../components/video/VideoCallScreenInner').then((m) => setInner(() => m.default)).catch((e) => setLoadError(e?.message ?? 'Erro')); }}>
+      <Inner />
+    </VideoErrorBoundary>
+  );
 }
 
 // FIX #21: Tip recebe colors e styles via props para evitar recriar styles por instância

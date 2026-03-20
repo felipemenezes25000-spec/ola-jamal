@@ -156,13 +156,11 @@ export default function VideoCallScreenInner() {
       }
     },
     onCallEnded: (reason) => {
-      // Skip navigation if we're already handling leave in onEndPress .then() callback
-      // This prevents the double router.back() bug that makes patient unable to rejoin
       if (leavingRef.current && reason === 'left') return;
       if (reason === 'ejected') Alert.alert('Tempo esgotado', 'O tempo contratado expirou.');
       if (reason === 'meeting-ended') Alert.alert('Sessão encerrada', 'A videochamada foi encerrada.');
-      cleanup();
-      router.back();
+      try { cleanup(); } catch (e) { if (__DEV__) console.warn('[VideoCall] cleanup error:', e); }
+      try { router.back(); } catch (e) { if (__DEV__) console.warn('[VideoCall] router.back error:', e); }
     },
     onError: (msg) => setError(msg),
   });
@@ -340,8 +338,8 @@ export default function VideoCallScreenInner() {
         // 1. Room + request em paralelo (independentes)
         const results = await Promise.race([
           Promise.all([
-            createDailyRoom(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] createDailyRoom failed:', e); }),
-            fetchRequestById(rid),
+            createDailyRoom(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] createDailyRoom failed:', e); return null; }),
+            fetchRequestById(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] fetchRequestById failed:', e); return null; }),
           ]),
           timeoutPromise,
         ]);
@@ -352,7 +350,11 @@ export default function VideoCallScreenInner() {
         if (req?.status) setRequestStatus(req.status);
 
         // 2. Join token (precisa da sala criada)
-        const joinData = await Promise.race([fetchJoinToken(rid), timeoutPromise]);
+        const joinData = await Promise.race([fetchJoinToken(rid), timeoutPromise]) as any;
+        if (!joinData?.roomUrl || !joinData?.token) {
+          if (!cancelled) setError('Não foi possível obter acesso à sala. Tente novamente.');
+          return;
+        }
         if (cancelled) return;
         if (timeoutId) clearTimeout(timeoutId);
         setRoomUrl(joinData.roomUrl);
@@ -547,8 +549,9 @@ export default function VideoCallScreenInner() {
   useEffect(() => {
     if (Platform.OS !== 'android' || callState !== 'joined') return;
     try {
-      if (!ExpoPip.isAvailable?.()) return;
-      ExpoPip.setPictureInPictureParams?.({
+      if (typeof ExpoPip?.isAvailable !== 'function' || !ExpoPip.isAvailable()) return;
+      if (typeof ExpoPip?.setPictureInPictureParams !== 'function') return;
+      ExpoPip.setPictureInPictureParams({
         autoEnterEnabled: true,
         seamlessResizeEnabled: true,
         title: isDoctor ? 'Consulta — Paciente' : 'Consulta — Médico',
@@ -556,15 +559,15 @@ export default function VideoCallScreenInner() {
         width: 360,
         height: 480,
       });
-    } catch {
-      /* nativo pode falhar em alguns OEMs / API — não derrubar a chamada */
+    } catch (e) {
+      if (__DEV__) console.warn('[VideoCall] PiP setup failed:', e);
     }
     return () => {
       try {
-        ExpoPip.setPictureInPictureParams?.({ autoEnterEnabled: false });
-      } catch {
-        /* ignore */
-      }
+        if (typeof ExpoPip?.setPictureInPictureParams === 'function') {
+          ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
+        }
+      } catch {}
     };
   }, [callState, isDoctor]);
 
@@ -633,9 +636,8 @@ export default function VideoCallScreenInner() {
           onPress: () => {
             leavingRef.current = true;
             leave().then(() => {
-              cleanup();
-              // Navigate to request-detail (not back) so patient sees clear rejoin button
-              nav.replace(router, `/request-detail/${rid}`);
+              try { cleanup(); } catch {}
+              try { nav.replace(router, `/request-detail/${rid}`); } catch { try { router.back(); } catch {} }
             }).catch(() => { leavingRef.current = false; });
           },
         },
@@ -688,7 +690,7 @@ export default function VideoCallScreenInner() {
   const hasMeds = Array.isArray(anamnesis?.medicamentos_sugeridos) && anamnesis.medicamentos_sugeridos.length > 0;
   const hasExams = Array.isArray(anamnesis?.exames_sugeridos) && anamnesis.exames_sugeridos.length > 0;
   const hasSug = suggestions.length > 0;
-  const hasEv = evidence.some((e) => e.title?.trim());
+  const hasEv = Array.isArray(evidence) && evidence.length > 0 && evidence.some((e) => e.title?.trim());
   const panelHas = hasAna || hasMeds || hasExams || hasSug || hasEv;
 
   const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH + 20, 0] });
