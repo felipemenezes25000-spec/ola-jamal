@@ -71,6 +71,29 @@ function getAndroidApiLevel(): number {
   return typeof Platform.Version === 'number' ? Platform.Version : parseInt(String(Platform.Version), 10);
 }
 
+const INIT_TIMEOUT_MESSAGE =
+  'Conexão demorou demais. Verifique sua internet e tente novamente.';
+
+/** Só conta após permissões. Fase 2 com timer novo (evita “roubar” tempo do join token). */
+const INIT_PHASE1_MS = 35_000;
+const INIT_PHASE2_MS = 30_000;
+
+function createTimeoutRace(ms: number) {
+  let id: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<never>((_, reject) => {
+    id = setTimeout(() => reject(new Error(INIT_TIMEOUT_MESSAGE)), ms);
+  });
+  return {
+    promise,
+    clear: () => {
+      if (id !== undefined) {
+        clearTimeout(id);
+        id = undefined;
+      }
+    },
+  };
+}
+
 // ──── Main Screen ────
 
 export default function VideoCallScreenInner() {
@@ -211,9 +234,7 @@ export default function VideoCallScreenInner() {
 
   // SignalR connectSignalR / disconnectSignalR provided by useVideoCallEvents hook above
 
-  // ── Init: create room + fetch token (timeout 25s evita loading infinito) ──
-
-  const INIT_TIMEOUT_MS = 25_000;
+  // ── Init: após permissões → sala+request (fase 1) → token (fase 2), cada uma com timeout próprio ──
 
   useEffect(() => {
     if (!rid) {
@@ -222,14 +243,7 @@ export default function VideoCallScreenInner() {
       return;
     }
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error('Conexão demorou demais. Verifique sua internet e tente novamente.')),
-        INIT_TIMEOUT_MS,
-      );
-    });
+    let clearActiveTimeout: (() => void) | undefined;
 
     (async () => {
       try {
@@ -335,33 +349,47 @@ export default function VideoCallScreenInner() {
           }
         }
 
-        // 1. Room + request em paralelo (independentes)
-        const results = await Promise.race([
-          Promise.all([
-            createDailyRoom(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] createDailyRoom failed:', e); return null; }),
-            fetchRequestById(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] fetchRequestById failed:', e); return null; }),
-          ]),
-          timeoutPromise,
-        ]);
+        // 1. Room + request em paralelo (independentes) — timer não inclui permissões
+        const t1 = createTimeoutRace(INIT_PHASE1_MS);
+        clearActiveTimeout = t1.clear;
+        let results: [Awaited<ReturnType<typeof createDailyRoom>> | null, Awaited<ReturnType<typeof fetchRequestById>> | null];
+        try {
+          results = await Promise.race([
+            Promise.all([
+              createDailyRoom(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] createDailyRoom failed:', e); return null; }),
+              fetchRequestById(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] fetchRequestById failed:', e); return null; }),
+            ]),
+            t1.promise,
+          ]);
+        } finally {
+          t1.clear();
+          clearActiveTimeout = undefined;
+        }
         if (cancelled) return;
-        const req = Array.isArray(results) ? results[1] : null;
+        const req = results[1];
         if (req?.contractedMinutes) setContractedMinutes(req.contractedMinutes);
         if (req?.consultationStartedAt) setConsultationStartedAt(req.consultationStartedAt);
         if (req?.status) setRequestStatus(req.status);
 
-        // 2. Join token (precisa da sala criada)
-        const joinData = await Promise.race([fetchJoinToken(rid), timeoutPromise]) as any;
+        // 2. Join token (precisa da sala criada) — novo deadline, não compartilha o da fase 1
+        const t2 = createTimeoutRace(INIT_PHASE2_MS);
+        clearActiveTimeout = t2.clear;
+        let joinData: Awaited<ReturnType<typeof fetchJoinToken>>;
+        try {
+          joinData = await Promise.race([fetchJoinToken(rid), t2.promise]);
+        } finally {
+          t2.clear();
+          clearActiveTimeout = undefined;
+        }
         if (!joinData?.roomUrl || !joinData?.token) {
           if (!cancelled) setError('Não foi possível obter acesso à sala. Tente novamente.');
           return;
         }
         if (cancelled) return;
-        if (timeoutId) clearTimeout(timeoutId);
         setRoomUrl(joinData.roomUrl);
         setMeetingToken(joinData.token);
         if (joinData.contractedMinutes != null) setContractedMinutes(joinData.contractedMinutes);
       } catch (e: any) {
-        if (timeoutId) clearTimeout(timeoutId);
         if (!cancelled) setError(e?.message || 'Erro ao iniciar videochamada');
       } finally {
         if (!cancelled) setLoading(false);
@@ -370,7 +398,7 @@ export default function VideoCallScreenInner() {
 
     return () => {
       cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
+      clearActiveTimeout?.();
     };
   }, [rid, initKey]);
 

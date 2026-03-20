@@ -206,6 +206,10 @@ resource "aws_ecs_service" "api" {
     container_port   = 8080
   }
 
+  # .NET 8 app needs ~20-30s to boot and run migrations before health check passes.
+  # Without this, ECS starts checking immediately (0s) and kills the task in a crash loop.
+  health_check_grace_period_seconds = 120
+
   depends_on = [aws_lb_listener.https]
 
   lifecycle {

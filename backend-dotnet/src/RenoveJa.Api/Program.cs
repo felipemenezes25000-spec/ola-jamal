@@ -283,7 +283,14 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Sus", policy => policy.RequireRole("sus", "admin"));
 });
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    // Prevent zombie connections from accumulating during ECS deploys/restarts.
+    // Default is 30s keep-alive / 90s timeout; tighten for mobile clients on unreliable networks.
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.HandshakeTimeout = TimeSpan.FromSeconds(10);
+});
 
 // Add CORS - configurado por ambiente
 builder.Services.AddCors(options =>

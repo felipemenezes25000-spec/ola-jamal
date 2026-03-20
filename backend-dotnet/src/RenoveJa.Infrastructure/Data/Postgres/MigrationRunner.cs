@@ -534,6 +534,12 @@ public static class MigrationRunner
     /// <summary>
     /// Log de verificações e downloads de receitas (anti-fraude, auditoria LGPD).
     /// </summary>
+    private static readonly string[] ChronicConditionMigrations =
+    {
+        "ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS has_chronic_condition BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE public.encounters ADD COLUMN IF NOT EXISTS is_presential TEXT NOT NULL DEFAULT 'false'",
+    };
+
     private static readonly string[] PrescriptionVerificationLogsMigrations =
     {
         """
@@ -594,7 +600,8 @@ public static class MigrationRunner
             ("document_security", DocumentSecurityMigrations),
             ("prescription_verification_logs", PrescriptionVerificationLogsMigrations),
             ("cleanup_supabase_urls", CleanupSupabaseUrlsMigrations),
-            ("fix_encounter_patient_id", FixEncounterPatientIdMigrations)
+            ("fix_encounter_patient_id", FixEncounterPatientIdMigrations),
+            ("chronic_condition", ChronicConditionMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)
