@@ -126,7 +126,7 @@ export async function cancelRequest(id: string) {
 }
 
 export async function markRequestDelivered(id: string) {
-  const res = await authFetch(`/api/requests/${id}/deliver`, { method: 'POST' });
+  const res = await authFetch(`/api/requests/${id}/mark-delivered`, { method: 'POST' });
   if (!res.ok) throw new Error('Erro ao marcar como entregue');
   return res.json();
 }

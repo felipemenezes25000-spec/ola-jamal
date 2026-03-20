@@ -9,6 +9,13 @@ internal class MigrationRunnerLogger { }
 
 public static class MigrationRunner
 {
+    private static readonly string[] RefreshTokenMigrations =
+    {
+        "ALTER TABLE auth_tokens ADD COLUMN IF NOT EXISTS refresh_token TEXT",
+        "ALTER TABLE auth_tokens ADD COLUMN IF NOT EXISTS refresh_token_expires_at TIMESTAMPTZ",
+        "CREATE INDEX IF NOT EXISTS idx_auth_tokens_refresh_token ON auth_tokens (refresh_token) WHERE refresh_token IS NOT NULL"
+    };
+
     private static readonly string[] PasswordResetTokensMigrations =
     {
         """
@@ -566,6 +573,7 @@ public static class MigrationRunner
 
         var allMigrations = new (string Name, string[] Sqls)[]
         {
+            ("refresh_tokens", RefreshTokenMigrations),
             ("password_reset_tokens", PasswordResetTokensMigrations),
             ("request_ai_columns", RequestAiColumns),
             ("prescription_profile_fields", PrescriptionProfileFieldsMigrations),

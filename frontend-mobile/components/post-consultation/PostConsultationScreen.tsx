@@ -4,7 +4,7 @@
  * O médico revisa, edita e assina tudo de uma vez.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -185,6 +185,11 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   // ── State: Senha do certificado (para assinatura ICP-Brasil) ──
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [certPassword, setCertPassword] = useState('');
+  const certPasswordRef = useRef('');
+  const updateCertPassword = useCallback((v: string) => {
+    certPasswordRef.current = v;
+    setCertPassword(v);
+  }, []);
 
   // ── State: Modals (add/edit med & exam) ──
   const [medModalVisible, setMedModalVisible] = useState(false);
@@ -309,17 +314,23 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       Alert.alert('Limite excedido', 'Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
       return;
     }
-    setCertPassword('');
+    updateCertPassword('');
     setPasswordModalVisible(true);
   };
 
   const handleSubmit = async () => {
+    const password = certPasswordRef.current.trim();
     setPasswordModalVisible(false);
     setSubmitting(true);
+    if (!password) {
+      Alert.alert('Erro', 'Senha do certificado é obrigatória.');
+      setSubmitting(false);
+      return;
+    }
     try {
       const payload: PostConsultationEmitRequest = {
         requestId: request.id,
-        certificatePassword: certPassword.trim() || undefined,
+        certificatePassword: password,
         mainIcd10Code: certCid || detectedCid || undefined,
         anamnesis: request.consultationAnamnesis ?? undefined,
         structuredAnamnesis: request.consultationAnamnesis ?? undefined,
@@ -660,7 +671,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
               <TextInput
                 style={S.input}
                 value={certPassword}
-                onChangeText={setCertPassword}
+                onChangeText={updateCertPassword}
                 placeholder="Senha do certificado"
                 placeholderTextColor={colors.textMuted}
                 secureTextEntry
