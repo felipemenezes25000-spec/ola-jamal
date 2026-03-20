@@ -12,7 +12,9 @@ export default {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
+    // Daily.co (@daily-co/react-native-webrtc) ainda costuma crashar nativamente com Fabric/Nova Arquitetura em vários devices.
+    // Manter false até o ecossistema Daily+RN estabilizar (vide "Entrar na Sala de Vídeo").
+    newArchEnabled: false,
     scheme: "renoveja",
     splash: {
       image: "./assets/splash-icon.png",
@@ -52,7 +54,8 @@ export default {
         "android.permission.FOREGROUND_SERVICE_MICROPHONE",
         "android.permission.FOREGROUND_SERVICE_PHONE_CALL",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH_CONNECT"
       ]
     },
     web: {

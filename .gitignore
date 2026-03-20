@@ -18,6 +18,9 @@ backend-dotnet/publish-test/
 coverage/
 *.lcov
 
+# Frames PNG extraídos localmente (ffmpeg / análise de vídeo)
+extracted-frames-*/
+
 # Environment / secrets
 .env
 .env.local

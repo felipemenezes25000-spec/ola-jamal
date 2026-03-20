@@ -28,6 +28,8 @@ import {
   Platform,
   BackHandler,
   AppState,
+  Linking,
+  PermissionsAndroid,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
@@ -35,6 +37,9 @@ import { setAndroidOngoingMeetingActive } from '../../lib/dailyAndroidForeground
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DailyMediaView } from '@daily-co/react-native-daily-js';
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker';
+import * as Notifications from 'expo-notifications';
 import ExpoPip from 'expo-pip';
 
 import { useAppTheme } from '../../lib/ui/useAppTheme';
@@ -60,6 +65,11 @@ import { useConsultationTimer } from '../../hooks/useConsultationTimer';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PANEL_WIDTH = Math.min(380, SCREEN_W * 0.9);
+
+function getAndroidApiLevel(): number {
+  if (Platform.OS !== 'android') return 0;
+  return typeof Platform.Version === 'number' ? Platform.Version : parseInt(String(Platform.Version), 10);
+}
 
 // ──── Main Screen ────
 
@@ -208,7 +218,11 @@ export default function VideoCallScreenInner() {
   const INIT_TIMEOUT_MS = 25_000;
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid) {
+      setLoading(false);
+      setError('Pedido inválido. Volte e abra a consulta novamente.');
+      return;
+    }
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -221,6 +235,108 @@ export default function VideoCallScreenInner() {
 
     (async () => {
       try {
+        // Antes do Daily/WebRTC: permissões + sessão de áudio.
+        // Android: PermissionsAndroid (CAMERA/RECORD_AUDIO) alinha ao stack nativo do WebRTC; API 33+ precisa de
+        // notificações para o foreground service da chamada; API 31+ Bluetooth opcional para fone.
+        // iOS: expo-av + ImagePicker em sequência; setAudioModeAsync evita mic mudo.
+        if (Platform.OS === 'android') {
+          const recordResult = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          );
+          if (recordResult !== PermissionsAndroid.RESULTS.GRANTED) {
+            if (!cancelled) {
+              setError(
+                'É necessário permitir o microfone para a videoconsulta. Abra as configurações do app e ative o microfone, depois toque em Tentar novamente.',
+              );
+            }
+            return;
+          }
+          const cameraResult = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+          );
+          if (cameraResult !== PermissionsAndroid.RESULTS.GRANTED) {
+            if (!cancelled) {
+              setError(
+                'É necessário permitir a câmera para a videoconsulta. Abra as configurações do app e ative a câmera, depois toque em Tentar novamente.',
+              );
+            }
+            return;
+          }
+          const apiLevel = getAndroidApiLevel();
+          if (apiLevel >= 33) {
+            const notif = await Notifications.requestPermissionsAsync();
+            if (notif.status !== 'granted') {
+              if (!cancelled) {
+                setError(
+                  'No Android 13 ou mais novo, ative as notificações para este app. A videoconsulta usa um serviço em primeiro plano (câmera e microfone) e o sistema exige notificação. Depois toque em Tentar novamente.',
+                );
+              }
+              return;
+            }
+          }
+          if (apiLevel >= 31) {
+            try {
+              await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+                {
+                  title: 'Bluetooth (opcional)',
+                  message:
+                    'Permite ao app usar fone Bluetooth na consulta. Se preferir, toque em negar e use o alto-falante do aparelho.',
+                  buttonPositive: 'Permitir',
+                  buttonNegative: 'Agora não',
+                },
+              );
+            } catch (btErr) {
+              if (__DEV__) console.warn('[VideoCall] BLUETOOTH_CONNECT request failed:', btErr);
+            }
+          }
+          try {
+            await Audio.setAudioModeAsync({
+              allowsRecordingIOS: true,
+              playsInSilentModeIOS: true,
+              staysActiveInBackground: true,
+              interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+              interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+              shouldDuckAndroid: true,
+              playThroughEarpieceAndroid: false,
+            });
+          } catch (audioModeErr) {
+            if (__DEV__) console.warn('[VideoCall] setAudioModeAsync failed:', audioModeErr);
+          }
+        } else if (Platform.OS !== 'web') {
+          const micPerm = await Audio.requestPermissionsAsync();
+          if (micPerm.status !== 'granted') {
+            if (!cancelled) {
+              setError(
+                'É necessário permitir o microfone para a videoconsulta. Abra as configurações do app e ative o microfone, depois toque em Tentar novamente.',
+              );
+            }
+            return;
+          }
+          const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+          if (camPerm.status !== 'granted') {
+            if (!cancelled) {
+              setError(
+                'É necessário permitir a câmera para a videoconsulta. Abra as configurações do app e ative a câmera, depois toque em Tentar novamente.',
+              );
+            }
+            return;
+          }
+          try {
+            await Audio.setAudioModeAsync({
+              allowsRecordingIOS: true,
+              playsInSilentModeIOS: true,
+              staysActiveInBackground: true,
+              interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+              interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+              shouldDuckAndroid: true,
+              playThroughEarpieceAndroid: false,
+            });
+          } catch (audioModeErr) {
+            if (__DEV__) console.warn('[VideoCall] setAudioModeAsync failed:', audioModeErr);
+          }
+        }
+
         // 1. Room + request em paralelo (independentes)
         const results = await Promise.race([
           Promise.all([
@@ -430,17 +546,25 @@ export default function VideoCallScreenInner() {
   // — arrastável, redimensionável (pinch/double-tap), chamada continua em segundo plano
   useEffect(() => {
     if (Platform.OS !== 'android' || callState !== 'joined') return;
-    if (!ExpoPip.isAvailable?.()) return;
-    ExpoPip.setPictureInPictureParams?.({
-      autoEnterEnabled: true,
-      seamlessResizeEnabled: true,
-      title: isDoctor ? 'Consulta — Paciente' : 'Consulta — Médico',
-      subtitle: 'Arraste para mover • Toque para expandir',
-      width: 360,
-      height: 480,
-    });
+    try {
+      if (!ExpoPip.isAvailable?.()) return;
+      ExpoPip.setPictureInPictureParams?.({
+        autoEnterEnabled: true,
+        seamlessResizeEnabled: true,
+        title: isDoctor ? 'Consulta — Paciente' : 'Consulta — Médico',
+        subtitle: 'Arraste para mover • Toque para expandir',
+        width: 360,
+        height: 480,
+      });
+    } catch {
+      /* nativo pode falhar em alguns OEMs / API — não derrubar a chamada */
+    }
     return () => {
-      ExpoPip.setPictureInPictureParams?.({ autoEnterEnabled: false });
+      try {
+        ExpoPip.setPictureInPictureParams?.({ autoEnterEnabled: false });
+      } catch {
+        /* ignore */
+      }
     };
   }, [callState, isDoctor]);
 
@@ -450,7 +574,11 @@ export default function VideoCallScreenInner() {
 
   const cleanup = useCallback(() => {
     if (Platform.OS === 'android' && ExpoPip.setPictureInPictureParams) {
-      ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
+      try {
+        ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
+      } catch {
+        /* ignore */
+      }
     }
     dailyTranscription.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] dailyTranscription stop failed:', e); });
     if (useFallbackRef.current) {
@@ -541,6 +669,14 @@ export default function VideoCallScreenInner() {
       <Text style={S.errText}>{error || errorMessage || 'Erro na chamada'}</Text>
       <TouchableOpacity style={S.retryBtn} onPress={async () => { await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
         <Text style={S.retryTxt}>Tentar novamente</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[S.retryBtn, { marginTop: 10, backgroundColor: colors.surfaceSecondary }]}
+        onPress={() => { Linking.openSettings().catch(() => {}); }}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir configurações do aplicativo"
+      >
+        <Text style={[S.retryTxt, { color: colors.text }]}>Abrir configurações</Text>
       </TouchableOpacity>
       <TouchableOpacity style={{ marginTop: 8, padding: 10 }} onPress={() => router.back()}>
         <Text style={{ color: colors.textMuted }}>Voltar</Text>
