@@ -86,9 +86,15 @@ Formas de rodar:
 
 Obter o endpoint do RDS: `aws rds describe-db-instances --region sa-east-1 --query "DBInstances[?DBInstanceIdentifier=='renoveja-postgres'].Endpoint.Address" --output text`
 
+## WAF (ALB da API)
+
+O Web ACL `renoveja-waf` (regional) tem uma regra de prioridade **0** que faz **Allow** em paths com corpos que costumam disparar falso positivo nas regras gerenciadas (upload multipart, JSON clínico). Inclui **`/api/post-consultation`** (emit, documentos, token, download). Ver `waf.tf`.
+
 ## CORS (origens permitidas)
 
-A API usa `Cors:AllowedOrigins` para permitir requisições de `medico.renovejasaude.com.br`, `admin.renovejasaude.com.br`, etc. O `infra/task-definition.json` já inclui as env vars `Cors__AllowedOrigins__0` a `__4`.
+A API **une** (`Program.cs`) a lista `Cors:AllowedOrigins` (ECS/SSM/appsettings) com uma lista padrão no código (inclui `medico.renovejasaude.com.br`, `app.`, `admin.`, etc.). Assim, um SSM com só parte dos hosts não remove o portal médico.
+
+O `infra/task-definition.json` já inclui as env vars `Cors__AllowedOrigins__0` a `__4`.
 
 Para gerenciar CORS via AWS Parameter Store (alterar sem redeploy):
 

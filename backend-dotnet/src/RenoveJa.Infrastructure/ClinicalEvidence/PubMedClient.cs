@@ -39,40 +39,44 @@ public sealed class PubMedClient
         if (searchTerms.Count == 0)
             return new List<PubMedArticle>();
 
+        // Tier 1+2 em paralelo: Cochrane + Meta-análise (economiza ~500ms)
+        var cochraneTask = ESearchAsync(BuildCochraneQuery(searchTerms), 3, cancellationToken);
+        var metaTask = ESearchAsync(BuildMetaAnalysisQuery(searchTerms), 3, cancellationToken);
+        await Task.WhenAll(cochraneTask, metaTask);
+
+        var allIds = new HashSet<string>();
         var articles = new List<PubMedArticle>();
 
-        // Tier 1: Cochrane Reviews (gold standard)
-        var cochraneIds = await ESearchAsync(
-            BuildCochraneQuery(searchTerms), Math.Min(3, maxResults), cancellationToken);
+        // Cochrane primeiro (gold standard)
+        var cochraneIds = cochraneTask.Result;
         if (cochraneIds.Count > 0)
         {
             var cochraneArticles = await EFetchAsync(cochraneIds, cancellationToken);
             foreach (var a in cochraneArticles)
                 a.EvidenceLevel = "Revisão Sistemática Cochrane";
             articles.AddRange(cochraneArticles);
+            foreach (var id in cochraneIds) allIds.Add(id);
         }
 
-        // Tier 2: Meta-análises (se Cochrane não trouxe o suficiente)
+        // Meta-análises (desduplicando com Cochrane)
         if (articles.Count < maxResults)
         {
-            var metaIds = await ESearchAsync(
-                BuildMetaAnalysisQuery(searchTerms), Math.Min(3, maxResults - articles.Count), cancellationToken);
-            var newIds = metaIds.Where(id => !articles.Any(a => a.Pmid == id)).ToList();
-            if (newIds.Count > 0)
+            var metaIds = metaTask.Result.Where(id => !allIds.Contains(id)).ToList();
+            if (metaIds.Count > 0)
             {
-                var metaArticles = await EFetchAsync(newIds, cancellationToken);
+                var metaArticles = await EFetchAsync(metaIds.Take(maxResults - articles.Count).ToList(), cancellationToken);
                 foreach (var a in metaArticles)
                     a.EvidenceLevel = "Meta-análise";
                 articles.AddRange(metaArticles);
+                foreach (var id in metaIds) allIds.Add(id);
             }
         }
 
-        // Tier 3: RCTs (se ainda não tem o suficiente)
+        // Tier 3: RCTs (só se precisa de mais)
         if (articles.Count < maxResults)
         {
-            var rctIds = await ESearchAsync(
-                BuildRctQuery(searchTerms), Math.Min(3, maxResults - articles.Count), cancellationToken);
-            var newIds = rctIds.Where(id => !articles.Any(a => a.Pmid == id)).ToList();
+            var rctIds = await ESearchAsync(BuildRctQuery(searchTerms), 3, cancellationToken);
+            var newIds = rctIds.Where(id => !allIds.Contains(id)).Take(maxResults - articles.Count).ToList();
             if (newIds.Count > 0)
             {
                 var rctArticles = await EFetchAsync(newIds, cancellationToken);
@@ -82,11 +86,10 @@ public sealed class PubMedClient
             }
         }
 
-        // Tier 4: Busca geral (fallback para diagnósticos raros)
+        // Tier 4: Busca geral (fallback para diagnósticos raros — só se 0 resultados)
         if (articles.Count == 0)
         {
-            var generalIds = await ESearchAsync(
-                BuildGeneralQuery(searchTerms), Math.Min(4, maxResults), cancellationToken);
+            var generalIds = await ESearchAsync(BuildGeneralQuery(searchTerms), Math.Min(4, maxResults), cancellationToken);
             if (generalIds.Count > 0)
             {
                 var generalArticles = await EFetchAsync(generalIds, cancellationToken);

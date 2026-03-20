@@ -192,15 +192,20 @@ Analise e retorne JSON com os artigos relevantes que confirmam ou contestam a hi
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
             client.Timeout = TimeSpan.FromSeconds(20);
 
+            // Usa gpt-4o por padrão; se falhar e Gemini estiver configurado, faz fallback
+            var model = "gpt-4o";
+            var baseUrl = "https://api.openai.com/v1";
+            var maxTokens = 2000;
+
             var requestBody = new
             {
-                model = "gpt-4o",
+                model,
                 messages = new object[]
                 {
                     new { role = "system", content = systemPrompt },
                     new { role = "user", content = userContent }
                 },
-                max_tokens = 2000,
+                max_tokens = maxTokens,
                 temperature = 0.05
             };
 
@@ -210,13 +215,47 @@ Analise e retorne JSON com os artigos relevantes que confirmam ou contestam a hi
             });
 
             using var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync("https://api.openai.com/v1/chat/completions", content, ct);
+            var response = await client.PostAsync($"{baseUrl}/chat/completions", content, ct);
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("[ClinicalEvidence] GPT-4o retornou {StatusCode}", response.StatusCode);
-                // Fallback: retorna artigos brutos
-                return articles.Take(5).Select(a => BuildFallbackDto(a)).ToList();
+                _logger.LogWarning("[ClinicalEvidence] GPT-4o retornou {StatusCode}. Tentando fallback Gemini.", response.StatusCode);
+
+                // Fallback: Gemini
+                var geminiKey = _config.Value?.GeminiApiKey?.Trim();
+                if (!string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_"))
+                {
+                    var geminiBaseUrl = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl)
+                        ? _config.Value!.GeminiApiBaseUrl!.Trim()
+                        : "https://generativelanguage.googleapis.com/v1beta/openai";
+                    client.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", geminiKey);
+
+                    var geminiBody = JsonSerializer.Serialize(new
+                    {
+                        model = "gemini-2.5-flash",
+                        messages = requestBody.messages,
+                        max_tokens = 2000,
+                        temperature = 0.05
+                    }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+
+                    using var geminiContent = new StringContent(geminiBody, Encoding.UTF8, "application/json");
+                    var geminiResponse = await client.PostAsync($"{geminiBaseUrl}/chat/completions", geminiContent, ct);
+                    if (geminiResponse.IsSuccessStatusCode)
+                    {
+                        response = geminiResponse;
+                        _logger.LogInformation("[ClinicalEvidence] Fallback Gemini OK.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[ClinicalEvidence] Fallback Gemini também falhou: {StatusCode}", geminiResponse.StatusCode);
+                        return articles.Take(5).Select(a => BuildFallbackDto(a)).ToList();
+                    }
+                }
+                else
+                {
+                    return articles.Take(5).Select(a => BuildFallbackDto(a)).ToList();
+                }
             }
 
             var responseJson = await response.Content.ReadAsStringAsync(ct);

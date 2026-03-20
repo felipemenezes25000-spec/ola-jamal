@@ -11,8 +11,8 @@ resource "aws_wafv2_web_acl" "main" {
     allow {}
   }
 
-  # Permite upload multipart — AWS Managed Rules bloqueiam multipart/form-data
-  # (CrossSiteScripting_BODY, SQLi_BODY, SizeRestrictions_BODY interpretam binário como ataque)
+  # Permite upload multipart e corpos JSON “pesados” — Managed Rules podem dar falso positivo
+  # (multipart: binário; JSON: texto clínico, CID, listas em post-consultation).
   rule {
     name     = "allow-multipart-uploads"
     priority = 0
@@ -78,6 +78,20 @@ resource "aws_wafv2_web_acl" "main" {
         statement {
           byte_match_statement {
             search_string         = "/api/consultation/transcribe"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+            positional_constraint = "CONTAINS"
+          }
+        }
+        # Pós-consulta: emit, listagem de documentos, token, download (evita 403 HTML do WAF no app/web)
+        statement {
+          byte_match_statement {
+            search_string         = "/api/post-consultation"
             field_to_match {
               uri_path {}
             }

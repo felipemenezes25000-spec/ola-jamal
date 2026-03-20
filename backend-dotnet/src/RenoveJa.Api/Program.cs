@@ -318,11 +318,24 @@ builder.Services.AddCors(options =>
         catch { return false; }
     }
 
+    // Une origens do appsettings/ECS/SSM com a lista padrão do código. Assim, se Cors:AllowedOrigins
+    // na AWS tiver só parte dos hosts (ex.: site + admin), medico/app continuam permitidos.
+    static string[] MergeCorsOrigins(string[] defaults, string[]? fromConfig)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var o in defaults)
+            if (!string.IsNullOrWhiteSpace(o)) set.Add(o.Trim());
+        if (fromConfig != null)
+            foreach (var o in fromConfig)
+                if (!string.IsNullOrWhiteSpace(o)) set.Add(o.Trim());
+        return [.. set];
+    }
+
     // Policy restritiva para produção (default)
     options.AddDefaultPolicy(policy =>
     {
         var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
-        var origins = (allowedOrigins != null && allowedOrigins.Length > 0) ? allowedOrigins : defaultOrigins;
+        var origins = MergeCorsOrigins(defaultOrigins, allowedOrigins);
 
         policy.SetIsOriginAllowed(origin => IsAllowedOrigin(origin, origins))
               .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

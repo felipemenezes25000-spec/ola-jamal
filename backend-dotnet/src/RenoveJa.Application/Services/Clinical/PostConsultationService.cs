@@ -646,7 +646,8 @@ public class PostConsultationService(
     }
 
     /// <summary>
-    /// Autoriza emissão se requests.doctor_id == médico OU se o encounter da consulta aponta o mesmo como practitioner (user id).
+    /// Autoriza emissão se requests.doctor_id == médico, se o encounter aponta o practitioner,
+    /// ou se o médico editou a conduta neste pedido (ConductUpdatedBy — alinha com divergências legadas doctor_id/encounter).
     /// </summary>
     private async Task<bool> CanDoctorEmitPostConsultationAsync(
         MedicalRequest medicalRequest,
@@ -655,6 +656,9 @@ public class PostConsultationService(
         CancellationToken cancellationToken)
     {
         if (medicalRequest.DoctorId == doctorUserId)
+            return true;
+
+        if (medicalRequest.ConductUpdatedBy == doctorUserId)
             return true;
 
         var encounter = await encounterRepository.GetBySourceRequestIdAsync(requestId, cancellationToken);
