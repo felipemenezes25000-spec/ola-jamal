@@ -140,12 +140,22 @@ public class PostgresClient
         "data"
     };
 
+    /// <summary>
+    /// document_access_log.metadata é JSONB; sem ::jsonb o INSERT pode falhar (PG 42804 text vs jsonb).
+    /// </summary>
+    private static readonly HashSet<string> JsonbColumnsDocumentAccessLog = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "metadata"
+    };
+
     private static bool NeedsJsonbCast(string tableName, string columnName)
     {
         if (tableName.Equals("requests", StringComparison.OrdinalIgnoreCase))
             return JsonbColumnsRequests.Contains(columnName);
         if (tableName.Equals("notifications", StringComparison.OrdinalIgnoreCase))
             return JsonbColumnsNotifications.Contains(columnName);
+        if (tableName.Equals("document_access_log", StringComparison.OrdinalIgnoreCase))
+            return JsonbColumnsDocumentAccessLog.Contains(columnName);
         return false;
     }
 

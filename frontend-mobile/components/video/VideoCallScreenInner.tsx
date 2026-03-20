@@ -52,6 +52,7 @@ import {
 import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDailyCall } from '../../hooks/useDailyCall';
+import { useExpoPipMode } from '../../hooks/useExpoPipMode';
 import { useDailyTranscription } from '../../hooks/useDailyTranscription';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useRequestUpdated } from '../../hooks/useRequestUpdated';
@@ -78,8 +79,8 @@ export default function VideoCallScreenInner() {
   const rid = (Array.isArray(requestId) ? requestId[0] : requestId) ?? '';
   const isDoctor = user?.role === 'doctor';
 
-  // PiP: layout simplificado quando em janela flutuante (Android; no iOS retorna false)
-  const isInPipMode = (ExpoPip?.useIsInPip?.() ?? { isInPipMode: false }).isInPipMode;
+  // PiP: hook estável (evita optional chaining no hook — corrompe ordem com React 19)
+  const isInPipMode = useExpoPipMode();
 
   // Core state
   const [loading, setLoading] = useState(true);
@@ -428,9 +429,12 @@ export default function VideoCallScreenInner() {
       const call = callRef.current;
       if (!call) return;
       try {
-        const r = call.setLocalVideo?.(true) as void | Promise<void> | undefined;
-        if (r && typeof (r as Promise<void>).then === 'function') {
-          (r as Promise<void>).catch(() => {});
+        const setVideo = call.setLocalVideo;
+        if (typeof setVideo === 'function') {
+          const r = setVideo.call(call, true) as void | Promise<void> | undefined;
+          if (r != null && typeof (r as Promise<void>).then === 'function') {
+            (r as Promise<void>).catch(() => {});
+          }
         }
       } catch {
         /* ignore */

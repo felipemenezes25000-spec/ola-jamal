@@ -10,7 +10,7 @@
  * Re-exports all types from sub-hooks for backward compatibility.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useDailyJoin } from './useDailyJoin';
 import { useQualityMonitor } from './useQualityMonitor';
 
@@ -68,39 +68,98 @@ export function useDailyCall({
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
 
-  // FIX M6: Use functional updater to avoid stale closure on isMuted/isCameraOff
-  const toggleMute = useCallback(async () => {
+  /** Espelho do estado para toggle sem efeitos colaterais dentro do updater do setState (Strict Mode pode rodar o updater 2x e quebrar o Daily). */
+  const isMutedRef = useRef(false);
+  const isCameraOffRef = useRef(false);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isCameraOffRef.current = isCameraOff; }, [isCameraOff]);
+
+  /**
+   * Atualiza estado da UI depois que o Daily confirma (Promise), para não montar DailyMediaView
+   * antes do track existir — evita TypeError em MediaStream/toURL em alguns Android.
+   */
+  const toggleMute = useCallback((): void | Promise<void> => {
     const call = callRef.current;
     if (!call) return;
-    setIsMuted((prev) => {
-      const newMuted = !prev;
-      try {
-        const result = call.setLocalAudio?.(!newMuted);
-        if (result && typeof result.catch === 'function') {
-          result.catch((e: unknown) => { if (__DEV__) console.warn('[useDailyCall] setLocalAudio failed:', e); });
-        }
-      } catch (e) {
-        if (__DEV__) console.warn('[useDailyCall] setLocalAudio error:', e);
+    const prevMuted = isMutedRef.current;
+    const nextMuted = !prevMuted;
+    isMutedRef.current = nextMuted;
+    const applyUi = () => setIsMuted(nextMuted);
+    const revertUi = () => {
+      isMutedRef.current = prevMuted;
+      setIsMuted(prevMuted);
+    };
+    try {
+      const setAudio = call.setLocalAudio;
+      if (typeof setAudio !== 'function') {
+        revertUi();
+        if (__DEV__) console.warn('[useDailyCall] setLocalAudio não disponível');
+        return;
       }
-      return newMuted;
-    });
+      let r: unknown;
+      try {
+        r = setAudio.call(call, !nextMuted);
+      } catch (e) {
+        revertUi();
+        if (__DEV__) console.warn('[useDailyCall] setLocalAudio error:', e);
+        return;
+      }
+      if (r != null && typeof (r as PromiseLike<unknown>).then === 'function') {
+        return Promise.resolve(r)
+          .then(applyUi)
+          .catch((e: unknown) => {
+            revertUi();
+            if (__DEV__) console.warn('[useDailyCall] setLocalAudio failed:', e);
+          });
+      }
+    } catch (e) {
+      revertUi();
+      if (__DEV__) console.warn('[useDailyCall] setLocalAudio error:', e);
+      return;
+    }
+    applyUi();
   }, [callRef]);
 
-  const toggleCamera = useCallback(async () => {
+  const toggleCamera = useCallback((): void | Promise<void> => {
     const call = callRef.current;
     if (!call) return;
-    setIsCameraOff((prev) => {
-      const newOff = !prev;
-      try {
-        const result = call.setLocalVideo?.(!newOff);
-        if (result && typeof result.catch === 'function') {
-          result.catch((e: unknown) => { if (__DEV__) console.warn('[useDailyCall] setLocalVideo failed:', e); });
-        }
-      } catch (e) {
-        if (__DEV__) console.warn('[useDailyCall] setLocalVideo error:', e);
+    const prevOff = isCameraOffRef.current;
+    const nextOff = !prevOff;
+    isCameraOffRef.current = nextOff;
+    const applyUi = () => setIsCameraOff(nextOff);
+    const revertUi = () => {
+      isCameraOffRef.current = prevOff;
+      setIsCameraOff(prevOff);
+    };
+    try {
+      const setVideo = call.setLocalVideo;
+      if (typeof setVideo !== 'function') {
+        revertUi();
+        if (__DEV__) console.warn('[useDailyCall] setLocalVideo não disponível');
+        return;
       }
-      return newOff;
-    });
+      let r: unknown;
+      try {
+        r = setVideo.call(call, !nextOff);
+      } catch (e) {
+        revertUi();
+        if (__DEV__) console.warn('[useDailyCall] setLocalVideo error:', e);
+        return;
+      }
+      if (r != null && typeof (r as PromiseLike<unknown>).then === 'function') {
+        return Promise.resolve(r)
+          .then(applyUi)
+          .catch((e: unknown) => {
+            revertUi();
+            if (__DEV__) console.warn('[useDailyCall] setLocalVideo failed:', e);
+          });
+      }
+    } catch (e) {
+      revertUi();
+      if (__DEV__) console.warn('[useDailyCall] setLocalVideo error:', e);
+      return;
+    }
+    applyUi();
   }, [callRef]);
 
   // FIX #16: Só atualiza isFrontCamera APÓS cycleCamera() ser bem-sucedido.

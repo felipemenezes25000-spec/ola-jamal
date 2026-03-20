@@ -84,6 +84,13 @@ export interface UseDailyJoinReturn {
 let globalCallInstance: DailyCall | null = null;
 let destroyPromise: Promise<void> | null = null;
 
+/**
+ * Enquanto leave()+destroy() rodam por ação do app, o Daily dispara `left-meeting` no meio do await.
+ * Se onCallEnded navegar/desmontar antes do destroy(), o cleanup de unmount pode chamar leave() de novo
+ * no mesmo objeto → erros nativos / mensagens tipo DailyIframe/DailyFrame.
+ */
+let programmaticLeaveInProgress = false;
+
 /** Serializes join/leave so two concurrent join() calls cannot both pass ensurePreviousDestroyed
  *  before createCallObject() (React Strict Mode / double effect / rapid re-entry). */
 let dailyOpChain: Promise<void> = Promise.resolve();
@@ -99,11 +106,13 @@ async function ensurePreviousDestroyed(): Promise<void> {
     await destroyPromise;
   }
   if (globalCallInstance) {
+    programmaticLeaveInProgress = true;
     destroyPromise = globalCallInstance
       .leave()
       .then(() => globalCallInstance?.destroy())
       .catch(() => {})
       .finally(() => {
+        programmaticLeaveInProgress = false;
         globalCallInstance = null;
         destroyPromise = null;
       });
@@ -260,7 +269,9 @@ export function useDailyJoin({
 
         call.on('left-meeting' as DailyEvent, () => {
           setCallState('idle');
-          onCallEndedRef.current?.('left');
+          if (!programmaticLeaveInProgress) {
+            onCallEndedRef.current?.('left');
+          }
         });
 
         call.on('error' as DailyEvent, (event: DailyErrorEvent) => {
@@ -309,6 +320,7 @@ export function useDailyJoin({
     if (!call) return;
 
     await runDailyOpExclusive(async () => {
+      programmaticLeaveInProgress = true;
       try {
         setCallState('leaving');
         setAndroidOngoingMeetingActive(false);
@@ -324,6 +336,7 @@ export function useDailyJoin({
       } catch {
         // swallow — already left
       } finally {
+        programmaticLeaveInProgress = false;
         if (callRef.current === call) {
           callRef.current = null;
         }
@@ -356,12 +369,14 @@ export function useDailyJoin({
       const call = callRef.current;
       if (call) {
         callRef.current = null;
+        programmaticLeaveInProgress = true;
         // Track the async destroy so the next mount can await it
         destroyPromise = call
           .leave()
           .then(() => call.destroy())
           .catch(() => {})
           .finally(() => {
+            programmaticLeaveInProgress = false;
             globalCallInstance = null;
             destroyPromise = null;
           });

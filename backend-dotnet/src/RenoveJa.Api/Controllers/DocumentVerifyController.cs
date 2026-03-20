@@ -241,9 +241,11 @@ public class DocumentVerifyController(
     [HttpPost("{documentId}/dispense-by-code")]
     public async Task<IActionResult> DispenseDocumentByCode(
         Guid documentId,
-        [FromBody] DispenseByCodeRequest request,
+        [FromBody] DispenseByCodeRequest? request,
         CancellationToken ct)
     {
+        if (request is null)
+            return BadRequest(new { error = "Corpo da requisição inválido." });
         if (string.IsNullOrWhiteSpace(request.Code))
             return BadRequest(new { error = "Código de verificação é obrigatório." });
         if (string.IsNullOrWhiteSpace(request.PharmacyName) || string.IsNullOrWhiteSpace(request.PharmacistName))

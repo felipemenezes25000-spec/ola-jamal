@@ -165,6 +165,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IClinicalEvidenceService, RenoveJa.Infrastructure.ClinicalEvidence.ClinicalEvidenceService>();
 
         services.AddScoped<RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisLlmClient>();
+        services.AddScoped<RenoveJa.Infrastructure.ConsultationAnamnesis.CidLlmValidator>();
         services.AddScoped<IConsultationAnamnesisService, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisService>();
         services.AddScoped<ISoapNotesService, RenoveJa.Infrastructure.SoapNotes.SoapNotesService>();
 

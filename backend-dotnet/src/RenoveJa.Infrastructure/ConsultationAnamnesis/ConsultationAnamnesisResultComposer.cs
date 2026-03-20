@@ -49,7 +49,38 @@ internal static class ConsultationAnamnesisResultComposer
             {
                 AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "cid_sugerido");
             }
-            AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "confianca_cid");
+            // MELHORIA 3: Validar grounding e forçar confiança baixa se score < 50
+            var groundingReport = CidGroundingValidator.Validate(transcriptSoFar, cleaned);
+            var confiancaOriginal = root.TryGetProperty("confianca_cid", out var confEl) ? confEl.GetString()?.Trim() ?? "" : "";
+            var hasCritico = groundingReport.Issues.Any(i => i.StartsWith("CRÍTICO"));
+
+            if (groundingReport.Score < 50 || hasCritico)
+            {
+                // Forçar confiança baixa — o médico verá alerta visual
+                enrichedObj["confianca_cid"] = JsonSerializer.Serialize("baixa");
+                if (!string.Equals(confiancaOriginal, "baixa", StringComparison.OrdinalIgnoreCase))
+                    logger.LogWarning("[Anamnese] Confiança rebaixada de '{Original}' para 'baixa' — grounding score={Score}, issues CRÍTICO={HasCritico}",
+                        confiancaOriginal, groundingReport.Score, hasCritico);
+            }
+            else if (groundingReport.Score < 70 && string.Equals(confiancaOriginal, "alta", StringComparison.OrdinalIgnoreCase))
+            {
+                // Score entre 50-70 com confiança alta → rebaixar para média
+                enrichedObj["confianca_cid"] = JsonSerializer.Serialize("media");
+                logger.LogWarning("[Anamnese] Confiança rebaixada de 'alta' para 'media' — grounding score={Score} insuficiente para alta.",
+                    groundingReport.Score);
+            }
+            else
+            {
+                AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "confianca_cid");
+            }
+
+            // Salvar issues de grounding no JSON para o frontend exibir
+            if (groundingReport.Issues.Length > 0)
+            {
+                enrichedObj["grounding_issues"] = JsonSerializer.Serialize(groundingReport.Issues);
+                enrichedObj["grounding_score"] = JsonSerializer.Serialize(groundingReport.Score);
+            }
+
             AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "raciocinio_clinico");
             AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "denominador_comum");
             AnamnesisResponseParser.CopyArrayIfExists(root, enrichedObj, "alertas_vermelhos");
