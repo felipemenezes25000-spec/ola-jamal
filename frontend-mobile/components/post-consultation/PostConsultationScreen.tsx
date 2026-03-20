@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { emitPostConsultationDocuments } from '../../lib/api-requests';
+import { getApiErrorMessage } from '../../lib/api-client';
 import type { RequestResponseDto } from '../../types/database';
 import type {
   PostConsultationEmitRequest,
@@ -319,7 +320,8 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   };
 
   const handleSubmit = async () => {
-    const password = certPasswordRef.current.trim();
+    // Ref + state: evita senha vazia se houver dessincronia ref/React em inputs seguros
+    const password = (certPasswordRef.current.trim() || certPassword.trim());
     setPasswordModalVisible(false);
     setSubmitting(true);
     if (!password) {
@@ -376,8 +378,8 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
         detail,
         [{ text: 'OK', onPress: result.documentsEmitted > 0 ? onComplete : undefined }]
       );
-    } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Não foi possível emitir os documentos.');
+    } catch (err: unknown) {
+      Alert.alert('Erro', getApiErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

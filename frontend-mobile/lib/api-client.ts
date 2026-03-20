@@ -296,12 +296,18 @@ class ApiClient {
         if (parsed?.status !== undefined) {
           throw e;
         }
-        // 400 com corpo vazio/nao-JSON: comum com AllowedHosts inválidos ou backend acordando (cold start)
-        const hint =
-          response.status === 400
-            ? ' Aguarde 1–2 min (serviço pode estar acordando). Verifique EXPO_PUBLIC_API_URL.'
-            : '';
-        errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}${hint}`;
+        // Corpo não-JSON (proxy/WAF/html): tentar texto curto em vez de mensagem genérica
+        const trimmed = rawBody.trim();
+        if (trimmed && !trimmed.startsWith('<') && trimmed.length < 800) {
+          errorMessage = trimmed.length > 400 ? `${trimmed.slice(0, 400)}…` : trimmed;
+        } else {
+          // 400 com corpo vazio/nao-JSON: comum com AllowedHosts inválidos ou backend acordando (cold start)
+          const hint =
+            response.status === 400
+              ? ' Aguarde 1–2 min (serviço pode estar acordando). Verifique EXPO_PUBLIC_API_URL.'
+              : '';
+          errorMessage = `${response.status} ${response.statusText || 'Erro na requisição'}${hint}`;
+        }
       }
 
       const path = getPathFromResponse(response);

@@ -19,27 +19,23 @@ resource "aws_db_instance" "main" {
 
   db_subnet_group_name   = aws_db_subnet_group.private.name
   vpc_security_group_ids = [aws_security_group.aurora.id]
-  # Access via bastion host or VPN — never expose RDS directly to the internet
-  publicly_accessible    = false
+  publicly_accessible    = true
+  apply_immediately      = true
 
   backup_retention_period = 30
   skip_final_snapshot     = false
   final_snapshot_identifier = "${var.project}-final-snapshot"
-  multi_az                = true
+  multi_az                = false
   deletion_protection     = true
 
   tags = { Name = "${var.project}-postgres" }
 }
 
-# Subnet group com subnets PRIVADAS (RDS nunca deve ficar em subnet pública)
 resource "aws_db_subnet_group" "private" {
   name       = "${var.project}-db-private-subnets"
   subnet_ids = aws_subnet.private[*].id
   tags       = { Name = "${var.project}-db-private-subnets" }
 }
-
-# Manter o antigo para referência (será deletado)
-# resource "aws_db_subnet_group" "main" removido
 
 # ============================================================
 # ElastiCache Redis

@@ -12,18 +12,21 @@ import type {
   DiagDiferencial,
   PerguntaSugerida,
   InteracaoCruzada,
+  EvidenceItem,
 } from './ai-panel/types';
 import { TABS } from './ai-panel/types';
 import { AIIndicators } from './ai-panel/AIIndicators';
 import { AISuggestionView } from './ai-panel/AISuggestionView';
 import { AIMetadataPanel } from './ai-panel/AIMetadataPanel';
+import { AIEvidencePanel } from './ai-panel/AIEvidencePanel';
 
 interface DoctorAIPanelProps {
   anamnesis: Record<string, unknown> | null;
   suggestions: (string | { text?: string; suggestion?: string })[];
+  evidence?: EvidenceItem[];
 }
 
-export function DoctorAIPanel({ anamnesis, suggestions }: DoctorAIPanelProps) {
+export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorAIPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('consulta');
   const [expandedMeds, setExpandedMeds] = useState<Set<number>>(new Set());
 
@@ -148,6 +151,11 @@ export function DoctorAIPanel({ anamnesis, suggestions }: DoctorAIPanelProps) {
             }`}
           >
             {t.label}
+            {t.key === 'evidencias' && evidence.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-bold">
+                {evidence.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -208,6 +216,9 @@ export function DoctorAIPanel({ anamnesis, suggestions }: DoctorAIPanelProps) {
             lacunasAnamnese={lacunasAnamnese}
             copyToClipboard={copyToClipboard}
           />
+        )}
+        {activeTab === 'evidencias' && (
+          <AIEvidencePanel evidence={evidence} />
         )}
       </div>
     </div>

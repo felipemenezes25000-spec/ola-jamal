@@ -160,6 +160,10 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IRxNormService, RenoveJa.Infrastructure.RxNorm.RxNormService>();
 
+        // Clinical Evidence: PubMed/Cochrane → GPT-4o validation (apoio à decisão durante consulta)
+        services.AddScoped<RenoveJa.Infrastructure.ClinicalEvidence.PubMedClient>();
+        services.AddScoped<IClinicalEvidenceService, RenoveJa.Infrastructure.ClinicalEvidence.ClinicalEvidenceService>();
+
         services.AddScoped<RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisLlmClient>();
         services.AddScoped<IConsultationAnamnesisService, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisService>();
         services.AddScoped<ISoapNotesService, RenoveJa.Infrastructure.SoapNotes.SoapNotesService>();

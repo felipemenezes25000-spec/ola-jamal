@@ -12,15 +12,18 @@ namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 public class ConsultationAnamnesisService : IConsultationAnamnesisService
 {
     private readonly ConsultationAnamnesisLlmClient _llmClient;
+    private readonly IClinicalEvidenceService _evidenceService;
     private readonly ILogger<ConsultationAnamnesisService> _logger;
     private readonly IAiInteractionLogRepository _aiInteractionLogRepository;
 
     public ConsultationAnamnesisService(
         ConsultationAnamnesisLlmClient llmClient,
+        IClinicalEvidenceService evidenceService,
         ILogger<ConsultationAnamnesisService> logger,
         IAiInteractionLogRepository aiInteractionLogRepository)
     {
         _llmClient = llmClient;
+        _evidenceService = evidenceService;
         _logger = logger;
         _aiInteractionLogRepository = aiInteractionLogRepository;
     }
@@ -74,7 +77,7 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         }
 
         var cleaned = AnamnesisResponseParser.CleanJsonResponse(content);
-        return await ConsultationAnamnesisResultComposer.TryComposeAsync(
+        var composed = await ConsultationAnamnesisResultComposer.TryComposeAsync(
             cleaned,
             transcriptSoFar,
             _logger,
@@ -83,5 +86,24 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             llmResult.PromptHash,
             llmResult.StartedAt,
             cancellationToken);
+
+        if (composed == null)
+            return null;
+
+        // Buscar evidências clínicas (Cochrane/PubMed → GPT-4o validação) em background.
+        // Se falhar, retorna resultado sem evidência (não bloqueia anamnese).
+        IReadOnlyList<EvidenceItemDto> evidence;
+        try
+        {
+            evidence = await _evidenceService.SearchEvidenceAsync(composed.AnamnesisJson, cancellationToken);
+            _logger.LogInformation("[Anamnese IA v2] Evidências clínicas: {Count} itens encontrados.", evidence.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Anamnese IA v2] Falha ao buscar evidências clínicas. Continuando sem evidência.");
+            evidence = Array.Empty<EvidenceItemDto>();
+        }
+
+        return new ConsultationAnamnesisResult(composed.AnamnesisJson, composed.Suggestions, evidence);
     }
 }

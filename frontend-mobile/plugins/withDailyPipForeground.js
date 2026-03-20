@@ -1,14 +1,17 @@
 /**
- * Config plugin para manter câmera/microfone ativos em PiP (Picture-in-Picture).
- * Adiciona phoneCall ao foregroundServiceType do Daily e permissão FOREGROUND_SERVICE_PHONE_CALL.
- * Necessário para chamadas continuarem em background/PiP no Android.
+ * Foreground service do Daily: câmera + microfone + phoneCall (Android 14+).
+ * phoneCall alinha o tipo de serviço a chamadas em andamento (expectativa do SO, similar a Discord/WhatsApp).
  * @see https://docs.daily.co/reference/android/installation
  */
 const { withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
 
+const DAILY_FGS_TYPES = 'camera|microphone|phoneCall';
+
 function withDailyPipForeground(config) {
   config = AndroidConfig.Permissions.withPermissions(config, [
     'android.permission.FOREGROUND_SERVICE_PHONE_CALL',
+    'android.permission.FOREGROUND_SERVICE_CAMERA',
+    'android.permission.FOREGROUND_SERVICE_MICROPHONE',
   ]);
 
   config = withAndroidManifest(config, (config) => {
@@ -20,12 +23,7 @@ function withDailyPipForeground(config) {
       (s) => (s?.$?.['android:name'] ?? '') === 'com.daily.reactlibrary.DailyOngoingMeetingForegroundService'
     );
     if (service?.$) {
-      const current = service.$['android:foregroundServiceType'] || '';
-      if (!current.includes('phoneCall')) {
-        const types = current ? current.split('|').filter(Boolean) : ['camera', 'microphone'];
-        if (!types.includes('phoneCall')) types.push('phoneCall');
-        service.$['android:foregroundServiceType'] = types.join('|');
-      }
+      service.$['android:foregroundServiceType'] = DAILY_FGS_TYPES;
     }
 
     return config;

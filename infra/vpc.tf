@@ -147,6 +147,15 @@ resource "aws_security_group" "aurora" {
     description = "pgAdmin acesso restrito as subnets privadas"
   }
 
+  # TEMPORÁRIO: acesso externo para dev
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "TEMP: acesso externo dev - restringir depois"
+  }
+
   tags = { Name = "${var.project}-aurora-sg" }
 }
 

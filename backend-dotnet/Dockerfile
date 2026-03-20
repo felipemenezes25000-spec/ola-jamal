@@ -41,7 +41,8 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=15s \
-  CMD wget -q --spider http://localhost:8080/api/health/live || exit 1
+# Health check delegado ao ALB target group (mais confiável que Docker HEALTHCHECK).
+# Docker HEALTHCHECK com start-period curto causava ciclo de restart no ECS.
+HEALTHCHECK NONE
 
 ENTRYPOINT ["dotnet", "RenoveJa.Api.dll"]

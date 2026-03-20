@@ -27,9 +27,11 @@ import {
   Animated,
   Platform,
   BackHandler,
+  AppState,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
+import { setAndroidOngoingMeetingActive } from '../../lib/dailyAndroidForeground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DailyMediaView } from '@daily-co/react-native-daily-js';
@@ -413,6 +415,30 @@ export default function VideoCallScreenInner() {
     return () => clearTimeout(t);
   }, [callState]);
 
+  // Background / retorno: reforçar FGS (Android) + reativar vídeo se OEM pausou.
+  useEffect(() => {
+    if (callState !== 'joined' || isCameraOff) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') {
+        setAndroidOngoingMeetingActive(true);
+        return;
+      }
+      if (state !== 'active') return;
+      setAndroidOngoingMeetingActive(true);
+      const call = callRef.current;
+      if (!call) return;
+      try {
+        const r = call.setLocalVideo?.(true) as void | Promise<void> | undefined;
+        if (r && typeof (r as Promise<void>).then === 'function') {
+          (r as Promise<void>).catch(() => {});
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+    return () => sub.remove();
+  }, [callState, isCameraOff, callRef]);
+
   // Picture-in-Picture (Android): ao minimizar, pop-up flutuante estilo WhatsApp/Discord
   // — arrastável, redimensionável (pinch/double-tap), chamada continua em segundo plano
   useEffect(() => {
@@ -571,14 +597,25 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Local PiP — oculto em PiP (SurfaceView conflita com janela pequena Android) */}
-      {localParticipant?.videoTrack?.persistentTrack != null && !isCameraOff && !isInPipMode && (
-        <View collapsable={false} style={[S.pip, { top: insets.top + 52 }]}>
+      {/*
+        Local preview: em PiP Android NÃO desmontar o DailyMediaView — isso parava o surface e o outro lado via tela preta.
+        Em PiP: mantemos o mesmo track num view mínimo quase invisível (keep-alive) para o encoder continuar enviando.
+      */}
+      {localParticipant?.videoTrack?.persistentTrack != null && !isCameraOff && (
+        <View
+          collapsable={false}
+          pointerEvents={isInPipMode ? 'none' : 'auto'}
+          style={isInPipMode ? S.pipLocalKeepAlive : [S.pip, { top: insets.top + 52 }]}
+        >
           <DailyMediaView
             videoTrack={localParticipant.videoTrack.persistentTrack}
-            audioTrack={null} mirror={isFrontCamera} zOrder={1} style={S.pipVid} objectFit="cover"
+            audioTrack={null}
+            mirror={isFrontCamera}
+            zOrder={1}
+            style={S.pipVid}
+            objectFit="cover"
           />
-          {isMuted && (
+          {!isInPipMode && isMuted && (
             <View style={S.pipMute}><Ionicons name="mic-off" size={10} color={colors.white} /></View>
           )}
         </View>
@@ -745,6 +782,18 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   waitSub: { color: colors.textSecondary, fontSize: 13 },
 
   pip: { position: 'absolute', left: 12, width: 100, height: 136, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.primary, zIndex: 15, backgroundColor: colors.surface },
+  /** Mantém surface local ativo em PiP — não usar opacity:0 sozinho em alguns devices (encoder pode parar). */
+  pipLocalKeepAlive: {
+    position: 'absolute',
+    right: 4,
+    bottom: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+    overflow: 'hidden',
+    opacity: 0.04,
+    zIndex: 6,
+  },
   pipRemote: { position: 'absolute', right: 12, top: 8, width: 100, height: 136, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.primary, zIndex: 15, backgroundColor: colors.surface },
   pipVid: { flex: 1 },
   pipMute: { position: 'absolute', bottom: 4, left: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center' },

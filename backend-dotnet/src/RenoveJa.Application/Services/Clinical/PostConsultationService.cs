@@ -44,8 +44,12 @@ public class PostConsultationService(
         var medicalRequest = await requestRepository.GetByIdAsync(request.RequestId, cancellationToken)
             ?? throw new InvalidOperationException("Request not found");
 
-        if (medicalRequest.DoctorId != doctorUserId)
-            throw new UnauthorizedAccessException("Only the assigned doctor can emit post-consultation documents");
+        // requests.doctor_id deve ser o user id do médico; em dados legados/race pode divergir do encounter.
+        // Fonte de verdade para quem realizou a teleconsulta: encounters.practitioner_id (user id).
+        if (!await CanDoctorEmitPostConsultationAsync(medicalRequest, doctorUserId, request.RequestId, cancellationToken))
+            throw new UnauthorizedAccessException(
+                "Apenas o médico que realizou esta consulta pode emitir e assinar os documentos. " +
+                "Verifique se está logado na conta correta ou se o pedido foi atribuído a outro profissional.");
 
         if (medicalRequest.RequestType != RequestType.Consultation)
             throw new InvalidOperationException("Post-consultation documents can only be emitted for consultations");
@@ -639,5 +643,21 @@ public class PostConsultationService(
             signResult.SignedPdfHash ?? "", "SHA-256", signResult.SignatureId ?? "",
             signResult.SignedAt ?? DateTime.UtcNow, true, null, null, ct);
         return true;
+    }
+
+    /// <summary>
+    /// Autoriza emissão se requests.doctor_id == médico OU se o encounter da consulta aponta o mesmo como practitioner (user id).
+    /// </summary>
+    private async Task<bool> CanDoctorEmitPostConsultationAsync(
+        MedicalRequest medicalRequest,
+        Guid doctorUserId,
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        if (medicalRequest.DoctorId == doctorUserId)
+            return true;
+
+        var encounter = await encounterRepository.GetBySourceRequestIdAsync(requestId, cancellationToken);
+        return encounter != null && encounter.PractitionerId == doctorUserId;
     }
 }

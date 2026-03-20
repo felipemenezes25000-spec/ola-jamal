@@ -68,12 +68,28 @@ export interface DoctorAIPanelProps {
   suggestions: (string | { text?: string; suggestion?: string })[];
 }
 
-export type TabKey = 'consulta' | 'perguntas';
+export type TabKey = 'consulta' | 'perguntas' | 'evidencias';
 
 export const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'consulta', label: 'Consulta', icon: 'document-text' },
   { key: 'perguntas', label: 'Perguntas', icon: 'help-circle' },
+  { key: 'evidencias', label: 'Evidências', icon: 'library' },
 ];
+
+/** Item de evidência clínica (PubMed/Cochrane) recebido via SignalR. */
+export interface EvidenceItem {
+  title: string;
+  abstract?: string;
+  source: string;
+  translatedAbstract?: string;
+  relevantExcerpts?: string[];
+  clinicalRelevance?: string;
+  provider?: string;
+  url?: string;
+  conexaoComPaciente?: string;
+  nivelEvidencia?: string;
+  motivoSelecao?: string;
+}
 
 export const ANA_FIELDS: { key: string; label: string; icon: string }[] = [
   { key: 'queixa_principal', label: 'Queixa Principal', icon: 'chatbubble' },

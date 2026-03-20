@@ -74,7 +74,14 @@ export function useDailyCall({
     if (!call) return;
     setIsMuted((prev) => {
       const newMuted = !prev;
-      call.setLocalAudio(!newMuted).catch((e) => { if (__DEV__) console.warn('[useDailyCall] setLocalAudio failed:', e); });
+      try {
+        const result = call.setLocalAudio?.(!newMuted);
+        if (result && typeof result.catch === 'function') {
+          result.catch((e: unknown) => { if (__DEV__) console.warn('[useDailyCall] setLocalAudio failed:', e); });
+        }
+      } catch (e) {
+        if (__DEV__) console.warn('[useDailyCall] setLocalAudio error:', e);
+      }
       return newMuted;
     });
   }, [callRef]);
@@ -84,7 +91,14 @@ export function useDailyCall({
     if (!call) return;
     setIsCameraOff((prev) => {
       const newOff = !prev;
-      call.setLocalVideo(!newOff).catch((e) => { if (__DEV__) console.warn('[useDailyCall] setLocalVideo failed:', e); });
+      try {
+        const result = call.setLocalVideo?.(!newOff);
+        if (result && typeof result.catch === 'function') {
+          result.catch((e: unknown) => { if (__DEV__) console.warn('[useDailyCall] setLocalVideo failed:', e); });
+        }
+      } catch (e) {
+        if (__DEV__) console.warn('[useDailyCall] setLocalVideo error:', e);
+      }
       return newOff;
     });
   }, [callRef]);
@@ -97,11 +111,13 @@ export function useDailyCall({
     if (!call) return;
 
     try {
+      if (typeof call.cycleCamera !== 'function') {
+        if (__DEV__) console.warn('[useDailyCall] cycleCamera não disponível');
+        return;
+      }
       await call.cycleCamera();
-      // Sucesso: agora sim inverte o estado
       setIsFrontCamera((prev) => !prev);
     } catch (e) {
-      // Dispositivo não suporta cycleCamera — não inverte o estado
       if (__DEV__) console.warn('[useDailyCall] cycleCamera falhou:', e);
     }
   }, [callRef]);

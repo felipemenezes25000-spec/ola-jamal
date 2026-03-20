@@ -71,7 +71,8 @@ public class PostConsultationController(
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(403, new { error = ex.Message });
+            // Mobile/api-client lê `error` ou `message` — enviar os dois para parsing consistente.
+            return StatusCode(403, new { error = ex.Message, message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {

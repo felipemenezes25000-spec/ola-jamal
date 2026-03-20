@@ -13,7 +13,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Platform, NativeModules } from 'react-native';
+import { setAndroidOngoingMeetingActive } from '../lib/dailyAndroidForeground';
 import Daily, {
   DailyCall,
   DailyEvent,
@@ -149,9 +149,11 @@ export function useDailyJoin({
 
   const updateParticipants = useCallback(() => {
     const call = callRef.current;
-    if (!call) return;
+    if (!call || typeof call.participants !== 'function') return;
 
     const participants = call.participants();
+    if (!participants) return;
+
     if (participants.local) {
       setLocalParticipant(extractTrack(participants.local));
     }
@@ -192,24 +194,15 @@ export function useDailyJoin({
         callRef.current = call;
         globalCallInstance = call;
 
+        // Android: inicia FGS/notificação ANTES do join — se o usuário minimizar durante a conexão, o SO já trata como chamada ativa (padrão Discord).
+        setAndroidOngoingMeetingActive(true);
+
         // --- Event handlers ---
 
         call.on('joined-meeting' as DailyEvent, () => {
           setCallState('joined');
           updateParticipants();
-          // Foreground service mantém câmera/microfone ativos em PiP (Android)
-          if (Platform.OS === 'android') {
-            const DailyNativeUtils = NativeModules.DailyNativeUtils;
-            if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
-              DailyNativeUtils.setShowOngoingMeetingNotification(
-                true,
-                'Consulta em andamento',
-                'Toque para expandir',
-                'ic_daily_videocam_24dp',
-                'renoveja-call'
-              );
-            }
-          }
+          setAndroidOngoingMeetingActive(true);
         });
 
         call.on('participant-joined' as DailyEvent, (event: DailyParticipantEvent) => {
@@ -318,12 +311,7 @@ export function useDailyJoin({
     await runDailyOpExclusive(async () => {
       try {
         setCallState('leaving');
-        if (Platform.OS === 'android') {
-          const DailyNativeUtils = NativeModules.DailyNativeUtils;
-          if (DailyNativeUtils?.setShowOngoingMeetingNotification) {
-            DailyNativeUtils.setShowOngoingMeetingNotification(false, '', '', '', 'renoveja-call');
-          }
-        }
+        setAndroidOngoingMeetingActive(false);
         call.off('joined-meeting' as DailyEvent);
         call.off('participant-joined' as DailyEvent);
         call.off('participant-updated' as DailyEvent);
@@ -346,6 +334,21 @@ export function useDailyJoin({
       }
     });
   }, []);
+
+  /**
+   * Ao trocar sala/token (outro request, retry, token renovado), encerrar a sessão anterior.
+   * Sem isso, callState pode ficar "joined" e o auto-join não entra na sala nova.
+   */
+  const prevRoomTokenRef = useRef<{ roomUrl: string; token: string } | null>(null);
+  useEffect(() => {
+    const prev = prevRoomTokenRef.current;
+    prevRoomTokenRef.current = { roomUrl, token };
+    if (!prev) return;
+    if (prev.roomUrl === roomUrl && prev.token === token) return;
+    if (callRef.current) {
+      void leave();
+    }
+  }, [roomUrl, token, leave]);
 
   // --- Cleanup on unmount ---
   useEffect(() => {

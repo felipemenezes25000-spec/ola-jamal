@@ -8,6 +8,7 @@ using RenoveJa.Application.DTOs.Consultation;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
+using RenoveJa.Infrastructure.ConsultationAnamnesis;
 
 namespace RenoveJa.Api.Controllers;
 
@@ -196,8 +197,16 @@ public class ConsultationController(
                             await hubContext.Clients.Group(group)
                                 .SendAsync("EvidenceUpdate", new EvidenceUpdateDto(result.Evidence));
                         }
-                        logger.LogInformation("[Transcribe] Anamnese IA OK: RequestId={RequestId} suggestions={Count} evidence={EvidenceCount}",
-                            requestId, result.Suggestions.Count, result.Evidence.Count);
+                        // Grounding report: valida se CID está fundamentado no transcript
+                        var groundingReport = CidGroundingValidator.Validate(fullText, result.AnamnesisJson);
+                        await hubContext.Clients.Group(group)
+                            .SendAsync("GroundingUpdate", groundingReport);
+                        if (!groundingReport.IsGrounded)
+                            logger.LogWarning("[Transcribe] GROUNDING FALHOU: RequestId={RequestId} Score={Score} Issues={Issues}",
+                                requestId, groundingReport.Score, string.Join(" | ", groundingReport.Issues));
+
+                        logger.LogInformation("[Transcribe] Anamnese IA OK: RequestId={RequestId} suggestions={Count} evidence={EvidenceCount} grounding={Score}",
+                            requestId, result.Suggestions.Count, result.Evidence.Count, groundingReport.Score);
                     }
                     else
                     {
@@ -326,8 +335,16 @@ public class ConsultationController(
                             await hubContext.Clients.Group(group)
                                 .SendAsync("EvidenceUpdate", new EvidenceUpdateDto(result.Evidence));
                         }
-                        logger.LogInformation("[TranscribeText] Anamnese IA OK: RequestId={RequestId} suggestions={Count}",
-                            requestId, result.Suggestions.Count);
+                        // Grounding report: valida se CID está fundamentado no transcript
+                        var groundingReport = CidGroundingValidator.Validate(fullText, result.AnamnesisJson);
+                        await hubContext.Clients.Group(group)
+                            .SendAsync("GroundingUpdate", groundingReport);
+                        if (!groundingReport.IsGrounded)
+                            logger.LogWarning("[TranscribeText] GROUNDING FALHOU: RequestId={RequestId} Score={Score} Issues={Issues}",
+                                requestId, groundingReport.Score, string.Join(" | ", groundingReport.Issues));
+
+                        logger.LogInformation("[TranscribeText] Anamnese IA OK: RequestId={RequestId} suggestions={Count} grounding={Score}",
+                            requestId, result.Suggestions.Count, groundingReport.Score);
                     }
                 }
                 catch (Exception ex)
