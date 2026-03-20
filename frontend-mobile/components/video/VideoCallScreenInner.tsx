@@ -47,7 +47,6 @@ import {
   fetchRequestById,
   autoFinishConsultation,
   reportCallConnected,
-  getTimeBankBalance,
 } from '../../lib/api';
 import { createDailyRoom, fetchJoinToken } from '../../lib/api-daily';
 import { useAuth } from '../../contexts/AuthContext';
@@ -109,10 +108,6 @@ export default function VideoCallScreenInner() {
   // Doctor: timer control — médico controla quando iniciar a contagem
   const [timerStarted, setTimerStarted] = useState(false);
   const timerStartedRef = useRef(false);
-
-  // Patient: time bank
-  const [bankBalance, setBankBalance] = useState<{ minutes: number; seconds: number } | null>(null);
-  const [, setConsultationType] = useState<string>('medico_clinico');
 
   // Transcrição: Daily.co (Deepgram) primário; Whisper fallback quando Deepgram falha
   const canStartRecording = consultationStartedAt || requestStatus === 'in_consultation' || requestStatus === 'paid';
@@ -318,18 +313,6 @@ export default function VideoCallScreenInner() {
     handleStartTimer().catch((e) => { if (__DEV__) console.warn('[VideoCall] handleStartTimer failed:', e); });
   }, [callState, isDoctor, rid, remoteParticipant, handleStartTimer]);
 
-  // Patient: load time bank balance
-  useEffect(() => {
-    if (isDoctor || !rid) return;
-    fetchRequestById(rid)
-      .then(r => {
-        if (r.consultationType) setConsultationType(r.consultationType);
-        return getTimeBankBalance(r.consultationType || 'medico_clinico');
-      })
-      .then(res => setBankBalance({ minutes: res.balanceMinutes, seconds: res.balanceSeconds }))
-      .catch((e) => { if (__DEV__) console.warn('[VideoCall] fetchRequestById/getTimeBankBalance failed:', e); });
-  }, [isDoctor, rid]);
-
   // Report call connected: ambos reportam ao entrar na sala (não esperam ver o outro — evita timer zerado).
   // Backend define consultationStartedAt quando médico E paciente tiverem reportado.
   useEffect(() => {
@@ -517,7 +500,7 @@ export default function VideoCallScreenInner() {
       Alert.alert('Sair da chamada', msg, [
         { text: 'Continuar', style: 'cancel' },
         {
-          text: unusedMin > 0 ? 'Sair e guardar saldo' : 'Sair',
+          text: 'Sair da chamada',
           style: 'destructive',
           onPress: () => {
             leavingRef.current = true;
@@ -677,17 +660,9 @@ export default function VideoCallScreenInner() {
         </View>
       )}
 
-      {/* Patient: Time Bank Balance — oculto em PiP */}
-      {!isInPipMode && !isDoctor && bankBalance && bankBalance.minutes > 0 && (
-        <View style={[S.bankBadge, { top: insets.top + 60 }]}>
-          <Ionicons name="time-outline" size={14} color={colors.success} />
-          <Text style={S.bankText}>Saldo: {bankBalance.minutes} min</Text>
-        </View>
-      )}
-
       {/* Patient: indicador de transcrição Daily.co ou Whisper fallback — oculto em PiP */}
       {!isInPipMode && !isDoctor && callState === 'joined' && (
-        <View style={[(dailyTranscription.isTranscribing || useFallbackTranscription) ? S.recIndicatorActive : S.recIndicatorMuted, { top: insets.top + 60 + (bankBalance && bankBalance.minutes > 0 ? 44 : 0) }]}>
+        <View style={[(dailyTranscription.isTranscribing || useFallbackTranscription) ? S.recIndicatorActive : S.recIndicatorMuted, { top: insets.top + 60 }]}>
           {(dailyTranscription.isTranscribing || useFallbackTranscription) ? (
             <>
               <View style={S.recDot} />
@@ -919,10 +894,6 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.white },
   recText: { color: colors.white, fontSize: 12, fontWeight: '600' },
   recCountdownText: { color: 'rgba(255,255,255,0.95)', fontSize: 13, fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
-
-  // Patient: Time Bank Badge
-  bankBadge: { position: 'absolute', left: 12, zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(22,163,74,0.2)' },
-  bankText: { color: colors.success, fontSize: 12, fontWeight: '600' },
 
   // Patient: Early leave hint
   earlyLeaveHint: { position: 'absolute', left: 12, right: 12, zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(30,41,59,0.92)' },

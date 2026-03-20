@@ -32,14 +32,14 @@ const s = theme.spacing;
 const r = theme.borderRadius;
 const t = theme.typography;
 
-const SALDO_DESC =
-  'Saldo em banco de horas. O profissional está disponível para dúvidas e orientações pontuais. Não para acompanhamento.';
+const PROFESSIONAL_TYPE_DESC =
+  'O profissional está disponível para dúvidas e orientações pontuais. Não é adequado para acompanhamento contínuo.';
 
 const CONSULTATION_DURATION_MINUTES = 15;
 
 const CONSULTATION_TYPES = [
-  { key: 'psicologo' as const, label: 'Psicólogo', desc: SALDO_DESC },
-  { key: 'medico_clinico' as const, label: 'Médico Clínico', desc: SALDO_DESC },
+  { key: 'psicologo' as const, label: 'Psicólogo', desc: PROFESSIONAL_TYPE_DESC },
+  { key: 'medico_clinico' as const, label: 'Médico Clínico', desc: PROFESSIONAL_TYPE_DESC },
 ];
 
 const NARROW_BREAKPOINT = 400;
