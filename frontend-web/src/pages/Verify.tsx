@@ -27,12 +27,19 @@ function isAllowedDownloadUrl(url: string): boolean {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Formata ISO string da API para exibição em pt-BR (apenas dados retornados pela API). */
+const TZ_BR = 'America/Sao_Paulo';
+
 function formatIsoDate(iso: string | null | undefined): string {
   if (!iso) return '';
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: TZ_BR,
+    });
   } catch {
     return iso;
   }
@@ -49,6 +56,7 @@ function formatIsoDateTime(iso: string | null | undefined): string {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: TZ_BR,
     });
   } catch {
     return iso;

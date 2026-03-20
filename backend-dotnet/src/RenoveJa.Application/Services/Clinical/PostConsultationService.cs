@@ -412,11 +412,7 @@ public class PostConsultationService(
         return $"{frontendBase}/{documentId}";
     }
 
-    private static readonly TimeZoneInfo BrasiliaTimeZone =
-        TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "E. South America Standard Time" : "America/Sao_Paulo");
-
-    private static DateTime GetBrasiliaNow() =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTimeZone);
+    private static DateTime GetBrasiliaNow() => BrazilDateTime.Now;
 
     private static string FormatPatientAddress(Patient patient)
     {

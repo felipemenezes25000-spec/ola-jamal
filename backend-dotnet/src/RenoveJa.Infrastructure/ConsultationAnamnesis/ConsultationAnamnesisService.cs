@@ -105,13 +105,20 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
 
                 if (!validation.IsValid)
                 {
-                    _logger.LogWarning("[Anamnese] CID '{Cid}' REPROVADO pelo validador LLM: {Reason}. Sugestão: {Suggested}",
-                        cidFromResult, validation.Reason, validation.SuggestedCid);
-
-                    // Substituir CID no JSON se temos sugestão válida
-                    if (!string.IsNullOrWhiteSpace(validation.SuggestedCid))
+                    if (string.Equals(validation.ValidatorConfidence, "baixa", StringComparison.OrdinalIgnoreCase))
                     {
-                        composed = ReplaceCidInResult(composed, validation.SuggestedCid, validation.Reason, _logger);
+                        _logger.LogInformation("[Anamnese] CID '{Cid}' reprovado pelo validador MAS com confiança baixa — mantendo original.", cidFromResult);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[Anamnese] CID '{Cid}' REPROVADO pelo validador LLM: {Reason}. Sugestão: {Suggested}",
+                            cidFromResult, validation.Reason, validation.SuggestedCid);
+
+                        // Substituir CID no JSON se temos sugestão válida
+                        if (!string.IsNullOrWhiteSpace(validation.SuggestedCid))
+                        {
+                            composed = ReplaceCidInResult(composed, validation.SuggestedCid, validation.Reason, _logger);
+                        }
                     }
                 }
             }

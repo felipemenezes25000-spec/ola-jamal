@@ -53,26 +53,44 @@ public sealed class CidLlmValidator
         var model = GetValidationModel();
         var (_, baseUrl) = ResolveProvider(model);
 
-        var systemPrompt = @"Você é um validador de CID-10 para telemedicina brasileira.
-Responda APENAS com JSON: {""valid"": true/false, ""reason"": ""..."", ""suggested_cid"": ""CÓDIGO - Descrição""}
-- ""valid"": true se o CID é razoável para os sintomas do transcript
-- ""valid"": false se o CID não tem NENHUMA relação com o que o paciente relatou
-- ""suggested_cid"": se false, sugira o CID mais provável com base no transcript (formato: ""CÓDIGO - Descrição"")
-- ""reason"": explicação em 1 frase
+        var systemPrompt = @"Você é um validador de CID-10 para telemedicina brasileira. REGRAS ESTRITAS:
 
-REGRAS:
-- CID de álcool (F10.x) é INVÁLIDO se paciente não mencionou álcool
-- CID de tireoide (E04.x) é INVÁLIDO se paciente não mencionou pescoço/tireoide
-- Avalie APENAS se o CID tem coerência com os SINTOMAS relatados, não com a conduta
-- Responda APENAS o JSON, nada mais";
+RESPONDA APENAS com JSON válido, SEM markdown, SEM explicações:
+{""valid"": true/false, ""reason"": ""..."", ""suggested_cid"": ""CÓDIGO - Descrição"", ""confidence"": ""alta/media/baixa""}
 
-        var userContent = $@"TRANSCRIPT: {(transcript.Length > 1500 ? transcript[..1500] : transcript)}
+CRITÉRIOS DE VALIDAÇÃO:
+1. ""valid"": true SOMENTE se o CID tem relação DIRETA com sintomas relatados pelo paciente
+2. ""valid"": false se o CID não tem NENHUMA relação com o transcript
+3. ""suggested_cid"": se false, sugira o CID MAIS PROVÁVEL baseado APENAS no que o paciente disse
+4. ""confidence"": sua confiança na validação (alta = certeza, media = provável, baixa = incerto)
 
-CID SUGERIDO: {cidSugerido}
+REGRAS ANTI-ALUCINAÇÃO (OBRIGATÓRIO):
+- CID de substância (F10-F19) é INVÁLIDO se paciente NÃO mencionou uso de substâncias
+- CID de tireoide (E04-E07) é INVÁLIDO se paciente NÃO mencionou pescoço/tireoide/TSH
+- CID endócrino (E10-E66) requer menção de sintomas endócrinos específicos
+- CID psiquiátrico (F20-F99) requer menção de sintomas psiquiátricos
+- CID cardiovascular (I00-I99) requer menção de sintomas cardíacos
+- CID respiratório (J00-J99) requer menção de sintomas respiratórios
+- NUNCA sugira CID baseado em inferência — use APENAS o que o paciente DISSE
+- Se o transcript é curto ou ambíguo, prefira CIDs genéricos (R00-R99 — sintomas)
+- Se não há informação suficiente, responda: {""valid"": false, ""reason"": ""Dados insuficientes"", ""suggested_cid"": ""R69 - Causas desconhecidas de morbidade"", ""confidence"": ""baixa""}
 
-DIAGNÓSTICO DIFERENCIAL: {diagnosticoDiferencialJson ?? "não disponível"}
+CATEGORIAS R (SINTOMAS/SINAIS) — use quando não há diagnóstico claro:
+- R05 Tosse | R10 Dor abdominal | R11 Náusea/vômito | R50 Febre | R51 Cefaleia
+- R53 Mal-estar/fadiga | R42 Tontura | R06 Dispneia | R00 Palpitações
+- R69 Causas desconhecidas de morbidade (fallback genérico)";
 
-O CID ""{cidSugerido}"" é válido para este transcript?";
+        var userContent = $@"TRANSCRIPT DA CONSULTA (o que o paciente realmente disse):
+---
+{(transcript.Length > 2000 ? transcript[..2000] : transcript)}
+---
+
+CID SUGERIDO PELA IA: {cidSugerido}
+
+DIAGNÓSTICO DIFERENCIAL DA IA: {diagnosticoDiferencialJson ?? "não disponível"}
+
+TAREFA: O CID ""{cidSugerido}"" é coerente com o que o paciente relatou no transcript acima?
+Lembre-se: valide APENAS com base no que o paciente DISSE, não em inferências.";
 
         try
         {
@@ -84,7 +102,7 @@ O CID ""{cidSugerido}"" é válido para este transcript?";
                     new { role = "system", content = (object)systemPrompt },
                     new { role = "user", content = (object)userContent }
                 },
-                max_tokens = 200,
+                max_tokens = 300,
                 temperature = 0.0
             };
 
@@ -120,11 +138,12 @@ O CID ""{cidSugerido}"" é válido para este transcript?";
             var isValid = resultRoot.TryGetProperty("valid", out var validEl) && validEl.GetBoolean();
             var reason = resultRoot.TryGetProperty("reason", out var reasonEl) ? reasonEl.GetString() : null;
             var suggestedCid = resultRoot.TryGetProperty("suggested_cid", out var sugEl) ? sugEl.GetString() : null;
+            var validatorConfidence = resultRoot.TryGetProperty("confidence", out var confEl) ? confEl.GetString() : "media";
 
-            _logger.LogInformation("[CidValidator] CID '{Cid}' validado: valid={Valid}, reason={Reason}, suggested={Suggested}",
-                cidSugerido, isValid, reason, suggestedCid);
+            _logger.LogInformation("[CidValidator] CID '{Cid}' validado: valid={Valid}, reason={Reason}, suggested={Suggested}, confidence={Confidence}",
+                cidSugerido, isValid, reason, suggestedCid, validatorConfidence);
 
-            return new CidValidationResult(isValid, reason, suggestedCid);
+            return new CidValidationResult(isValid, reason, suggestedCid, validatorConfidence);
         }
         catch (OperationCanceledException)
         {
@@ -169,7 +188,7 @@ O CID ""{cidSugerido}"" é válido para este transcript?";
     }
 }
 
-public sealed record CidValidationResult(bool IsValid, string? Reason, string? SuggestedCid)
+public sealed record CidValidationResult(bool IsValid, string? Reason, string? SuggestedCid, string? ValidatorConfidence = "media")
 {
-    public static CidValidationResult FailOpen() => new(true, null, null);
+    public static CidValidationResult FailOpen() => new(true, null, null, null);
 }

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RenoveJa.Application;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Enums;
 
@@ -49,7 +50,7 @@ public class DevSampleController : ControllerBase
                 "Paracetamol 750mg — 1 comprimido 8/8h — 15 comprimidos"
             },
             PrescriptionType: "simples",
-            EmissionDate: DateTime.UtcNow,
+            EmissionDate: BrazilDateTime.Now,
             PatientAddress: "Rua das Flores, 100 — Centro — São Paulo/SP",
             PatientBirthDate: new DateTime(1985, 3, 15),
             AccessCode: GenerateAccessCode(requestId),
@@ -93,7 +94,7 @@ public class DevSampleController : ControllerBase
                 "Hemograma completo"
             },
             Notes: "Paciente em acompanhamento para rastreamento de diabetes e função tireoidiana.",
-            EmissionDate: DateTime.UtcNow,
+            EmissionDate: BrazilDateTime.Now,
             AccessCode: GenerateAccessCode(requestId),
             PatientBirthDate: new DateTime(1978, 7, 22),
             PatientPhone: "(21) 99876-5432",

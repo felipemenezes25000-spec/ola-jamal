@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using iText.IO.Font.Constants;
 using iText.IO.Image;
@@ -12,6 +13,7 @@ using iText.Layout.Properties;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using QRCoder;
+using RenoveJa.Application;
 using RenoveJa.Application.Configuration;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Application.Services;
@@ -187,7 +189,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             var (f, fb, fi) = CreateFonts();
 
             // Header
-            AddCompactHeader(doc, "SOLICITAÇÃO DE EXAMES", $"Res. CFM nº 2.381/2024 · Emissão: {data.EmissionDate:dd/MM/yyyy}", fb, f);
+            AddCompactHeader(doc, "SOLICITAÇÃO DE EXAMES", $"Res. CFM nº 2.381/2024 · Emissão: {BrazilDateTime.FormatDate(data.EmissionDate)}", fb, f);
 
             // Patient
             AddSectionLabel(doc, "PACIENTE", fb);
@@ -242,7 +244,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         doc.SetMargins(36, 36, 36, 36);
         var (f, fb, fi) = CreateFonts();
 
-        AddMedicationPages(doc, data, meds, "RECEITA SIMPLES", $"Emissão: {data.EmissionDate:dd/MM/yyyy}", null, qrUrl, displayUrl, accessCode, f, fb, fi, includeGenderAge: false);
+        AddMedicationPages(doc, data, meds, "RECEITA SIMPLES", $"Emissão: {BrazilDateTime.FormatDate(data.EmissionDate)}", null, qrUrl, displayUrl, accessCode, f, fb, fi, includeGenderAge: false);
         doc.Close();
     }
 
@@ -261,10 +263,10 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         doc.SetMargins(36, 36, 36, 36);
         var (f, fb, fi) = CreateFonts();
 
-        var validUntil = data.EmissionDate.AddDays(10).ToString("dd/MM/yyyy");
+        var validUntil = BrazilDateTime.ToBrasiliaWallClock(data.EmissionDate).Date.AddDays(10).ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("pt-BR"));
         var warning = $"Validade: 10 dias — válida até {validUntil}";
 
-        AddMedicationPages(doc, data, meds, "RECEITA DE ANTIMICROBIANO", $"RDC 471/2021 · Emissão: {data.EmissionDate:dd/MM/yyyy}", warning, qrUrl, displayUrl, accessCode, f, fb, fi, includeGenderAge: true);
+        AddMedicationPages(doc, data, meds, "RECEITA DE ANTIMICROBIANO", $"RDC 471/2021 · Emissão: {BrazilDateTime.FormatDate(data.EmissionDate)}", warning, qrUrl, displayUrl, accessCode, f, fb, fi, includeGenderAge: true);
         doc.Close();
     }
 
@@ -283,7 +285,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         doc.SetMargins(36, 36, 36, 36);
         var (f, fb, fi) = CreateFonts();
 
-        var validUntil = data.EmissionDate.AddDays(30).ToString("dd/MM/yyyy");
+        var validUntil = BrazilDateTime.ToBrasiliaWallClock(data.EmissionDate).Date.AddDays(30).ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("pt-BR"));
         var warning = $"Validade: 30 dias — válida até {validUntil} (art. 35 §3º)";
 
         for (int i = 0; i < meds.Count; i++)
@@ -455,7 +457,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         }
 
         AddInfoCell(grid, "Telefone", !string.IsNullOrWhiteSpace(d.PatientPhone) ? d.PatientPhone : "—", fb, f);
-        AddInfoCell(grid, "Data de Emissão", d.EmissionDate.ToString("dd/MM/yyyy 'às' HH:mm"), fb, f);
+        AddInfoCell(grid, "Data de Emissão", BrazilDateTime.FormatDateTime(d.EmissionDate), fb, f);
 
         if (!string.IsNullOrWhiteSpace(d.PatientAddress))
         {
@@ -477,7 +479,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
         AddInfoCell(grid, "CPF", !string.IsNullOrWhiteSpace(d.PatientCpf) ? FormatCpf(d.PatientCpf) : "—", fb, f);
         AddInfoCell(grid, "Nascimento", d.PatientBirthDate.HasValue ? d.PatientBirthDate.Value.ToString("dd/MM/yyyy") : "—", fb, f);
         AddInfoCell(grid, "Telefone", !string.IsNullOrWhiteSpace(d.PatientPhone) ? d.PatientPhone : "—", fb, f);
-        AddInfoCell(grid, "Data de Emissão", d.EmissionDate.ToString("dd/MM/yyyy 'às' HH:mm"), fb, f);
+        AddInfoCell(grid, "Data de Emissão", BrazilDateTime.FormatDateTime(d.EmissionDate), fb, f);
 
         if (!string.IsNullOrWhiteSpace(d.PatientAddress))
         {
@@ -678,7 +680,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             .SetMarginTop(2);
         p.Add(new Text("Importante: ").SetFont(fi).SetFontSize(7).SetFontColor(TextLight));
         p.Add(new Text("Verifique autenticidade em validar.iti.gov.br\n").SetFont(f).SetFontSize(7).SetFontColor(TextLight));
-        p.Add(new Text($"Assinado digitalmente conforme ICP-Brasil (MP 2.200-2/2001) por Dr(a). {doctorName} em {emission:dd/MM/yyyy 'às' HH:mm}.")
+        p.Add(new Text($"Assinado digitalmente conforme ICP-Brasil (MP 2.200-2/2001) por Dr(a). {doctorName} em {BrazilDateTime.FormatDateTime(emission)}.")
             .SetFont(f).SetFontSize(7).SetFontColor(TextLight));
         doc.Add(p);
     }
@@ -935,19 +937,19 @@ public class PrescriptionPdfService : IPrescriptionPdfService
             // ── Período de afastamento ──
             if (data.LeaveDays.HasValue && data.LeaveDays.Value > 0)
             {
-                var startDate = data.LeaveStartDate ?? data.EmissionDate;
-                var endDate = startDate.AddDays(data.LeaveDays.Value - 1);
+                var startDate = BrazilDateTime.ToBrasiliaWallClock(data.LeaveStartDate ?? data.EmissionDate);
+                var endDate = startDate.Date.AddDays(data.LeaveDays.Value - 1);
                 var periodStr = data.LeavePeriod == "meio_periodo" ? " (meio período)" : "";
 
                 document.Add(new Paragraph(
                     $"Período de afastamento: {data.LeaveDays} dia(s){periodStr}\n" +
-                    $"De {startDate:dd/MM/yyyy} a {endDate:dd/MM/yyyy}")
+                    $"De {BrazilDateTime.FormatDate(startDate)} a {endDate.ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("pt-BR"))}")
                     .SetFont(regular).SetFontSize(11).SetFontColor(TextDark)
                     .SetMarginBottom(20));
             }
 
             // ── Data e local ──
-            document.Add(new Paragraph($"São Paulo, {data.EmissionDate:dd 'de' MMMM 'de' yyyy}")
+            document.Add(new Paragraph($"São Paulo, {BrazilDateTime.FormatLongDate(data.EmissionDate)}")
                 .SetFont(regular).SetFontSize(11).SetFontColor(TextMedium)
                 .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(30));
 

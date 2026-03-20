@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -111,22 +110,7 @@ internal static class RequestHelpers
     }
 
     /// <summary>Retorna a data/hora atual em horário de Brasília (America/Sao_Paulo), com fallback para UTC.</summary>
-    internal static DateTime GetBrazilNow()
-    {
-        try
-        {
-            var timeZoneId = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? "E. South America Standard Time"
-                : "America/Sao_Paulo";
-
-            var tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
-        }
-        catch
-        {
-            return DateTime.UtcNow;
-        }
-    }
+    internal static DateTime GetBrazilNow() => BrazilDateTime.Now;
 
     internal static string GenerateAutoObservation(
         RequestType requestType,

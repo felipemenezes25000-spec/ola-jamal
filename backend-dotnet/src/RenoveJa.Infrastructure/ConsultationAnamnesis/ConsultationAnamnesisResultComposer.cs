@@ -23,6 +23,89 @@ internal static class ConsultationAnamnesisResultComposer
     {
         try
         {
+            // SEGURANÇA: Transcript curto → forçar saída conservadora (evitar preenchimento por inferência)
+            var wordCount = transcriptSoFar.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            if (wordCount < 100)
+            {
+                logger.LogWarning("[Anamnese IA v2] Transcript curto ({WordCount} palavras) — forçando saída conservadora.", wordCount);
+
+                // Ainda tentar parsear, mas forçar confiança baixa e adicionar alerta
+                try
+                {
+                    using var shortParsed = JsonDocument.Parse(cleaned);
+                    var shortRoot = shortParsed.RootElement;
+
+                    var conservativeObj = new Dictionary<string, object>();
+
+                    // Copiar anamnese se existir
+                    if (shortRoot.TryGetProperty("anamnesis", out var shortAna) && shortAna.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var prop in shortAna.EnumerateObject())
+                            conservativeObj[prop.Name] = prop.Value.GetRawText();
+                    }
+
+                    // Forçar confiança baixa
+                    conservativeObj["confianca_cid"] = "\"baixa\"";
+                    conservativeObj["transcript_curto"] = "true";
+                    conservativeObj["transcript_palavras"] = wordCount.ToString();
+
+                    // Copiar CID mas sinalizar como não confiável
+                    if (shortRoot.TryGetProperty("cid_sugerido", out var shortCidEl))
+                        conservativeObj["cid_sugerido"] = shortCidEl.GetRawText();
+
+                    // Adicionar alerta de transcript curto
+                    conservativeObj["grounding_issues"] = JsonSerializer.Serialize(new[]
+                    {
+                        $"ALERTA: Transcript com apenas {wordCount} palavras — dados insuficientes para diagnóstico confiável.",
+                        "Confiança forçada para 'baixa' devido a transcript curto."
+                    });
+                    conservativeObj["grounding_score"] = "30";
+
+                    // Copiar outros campos úteis
+                    AnamnesisResponseParser.CopyIfExists(shortRoot, conservativeObj, "raciocinio_clinico");
+                    AnamnesisResponseParser.CopyArrayIfExists(shortRoot, conservativeObj, "perguntas_sugeridas");
+                    AnamnesisResponseParser.CopyArrayIfExists(shortRoot, conservativeObj, "lacunas_anamnese");
+
+                    var conservativeJson = "{" + string.Join(",", conservativeObj.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
+
+                    var conservativeSuggestions = new List<string>
+                    {
+                        "⚠️ Transcript curto — dados insuficientes para diagnóstico confiável.",
+                        "Recomenda-se continuar a anamnese antes de definir conduta.",
+                        "Pergunte sobre: queixa principal, duração, intensidade, fatores de melhora/piora."
+                    };
+
+                    // Extrair perguntas sugeridas se existirem
+                    var shortSuggestions = AnamnesisResponseParser.ExtractSuggestions(shortRoot);
+                    if (shortSuggestions.Count > 0)
+                        conservativeSuggestions.AddRange(shortSuggestions);
+
+                    // Log interaction
+                    try
+                    {
+                        await aiInteractionLogRepository.LogAsync(AiInteractionLog.Create(
+                            serviceName: ConsultationAnamnesisLlmClient.AiInteractionServiceName,
+                            modelName: anamnesisModel,
+                            promptHash: promptHash,
+                            success: true,
+                            responseSummary: $"[TRANSCRIPT_CURTO:{wordCount}w] " + (cleaned.Length > 400 ? cleaned[..400] : cleaned),
+                            durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds), cancellationToken);
+                    }
+                    catch (Exception logEx)
+                    {
+                        logger.LogWarning(logEx, "[Anamnese IA v2] Falha ao gravar log (transcript curto).");
+                    }
+
+                    logger.LogInformation("[Anamnese IA v2] SUCESSO (conservador): transcript curto {WordCount}w, forçando confiança baixa.", wordCount);
+                    return new ConsultationAnamnesisResult(conservativeJson, conservativeSuggestions, Array.Empty<EvidenceItemDto>());
+                }
+                catch (Exception shortEx)
+                {
+                    logger.LogWarning(shortEx, "[Anamnese IA v2] Falha ao processar transcript curto — continuando fluxo normal.");
+                    // Fall through to normal processing
+                }
+            }
+
             using var parsed = JsonDocument.Parse(cleaned);
             var root = parsed.RootElement;
 
@@ -53,6 +136,16 @@ internal static class ConsultationAnamnesisResultComposer
             var groundingReport = CidGroundingValidator.Validate(transcriptSoFar, cleaned);
             var confiancaOriginal = root.TryGetProperty("confianca_cid", out var confEl) ? confEl.GetString()?.Trim() ?? "" : "";
             var hasCritico = groundingReport.Issues.Any(i => i.StartsWith("CRÍTICO"));
+
+            // Transcript médio (100-200 palavras) → cap confiança em "media" no máximo
+            if (wordCount >= 100 && wordCount < 200)
+            {
+                if (string.Equals(confiancaOriginal, "alta", StringComparison.OrdinalIgnoreCase))
+                {
+                    enrichedObj["confianca_cid"] = JsonSerializer.Serialize("media");
+                    logger.LogWarning("[Anamnese] Confiança rebaixada de 'alta' para 'media' — transcript médio ({WordCount} palavras).", wordCount);
+                }
+            }
 
             if (groundingReport.Score < 50 || hasCritico)
             {

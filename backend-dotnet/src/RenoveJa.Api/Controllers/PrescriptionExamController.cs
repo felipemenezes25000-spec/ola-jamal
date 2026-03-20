@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RenoveJa.Application;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
@@ -149,7 +150,7 @@ public class PrescriptionExamController(
             "Clínica Geral",
             request.Medications ?? new List<string>(),
             request.PrescriptionType ?? "simples",
-            DateTime.UtcNow,
+            BrazilDateTime.Now,
             PrescriptionKind: kind);
 
         var result = await pdfService.GenerateAndUploadAsync(pdfData, cancellationToken);
