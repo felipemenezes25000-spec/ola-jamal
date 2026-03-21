@@ -85,6 +85,9 @@ public sealed class OrphanedRoomCleanupService(
 
                 await dailyService.DeleteRoomAsync(roomName, ct);
 
+                // Mark video_room as 'ended' so it won't be picked up again
+                await MarkVideoRoomEndedAsync(videoRoomId, ct);
+
                 logger.LogInformation(
                     "[OrphanedRoomCleanup] Deleted orphaned Daily room — RoomName={RoomName} RequestId={RequestId} RequestStatus={RequestStatus} VideoRoomId={VideoRoomId}",
                     roomName, requestId, status, videoRoomId);
@@ -136,5 +139,20 @@ public sealed class OrphanedRoomCleanupService(
         }
 
         return results;
+    }
+
+    private async Task MarkVideoRoomEndedAsync(Guid videoRoomId, CancellationToken ct)
+    {
+        var connectionString = dbConfig.Value.DatabaseUrl;
+        if (string.IsNullOrEmpty(connectionString)) return;
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(ct);
+
+        await using var cmd = new NpgsqlCommand(
+            "UPDATE video_rooms SET status = 'ended', ended_at = NOW() WHERE id = @id",
+            connection);
+        cmd.Parameters.AddWithValue("id", videoRoomId);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 }

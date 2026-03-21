@@ -511,6 +511,7 @@ public class RequestServiceFullTests
                 new Mock<IAuditService>().Object,
                 _requestEventsPublisherMock.Object, pushDispatcherMock.Object,
                 _documentTokenServiceMock.Object, _apiConfigMock.Object,
+                Options.Create(new DailyConfig()),
                 new Mock<ISoapNotesService>().Object,
                 new Mock<IStartConsultationRecording>().Object,
                 new Mock<IRecordingSyncService>().Object,

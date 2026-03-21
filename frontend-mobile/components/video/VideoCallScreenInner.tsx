@@ -150,6 +150,7 @@ export default function VideoCallScreenInner() {
   const {
     anamnesis, suggestions, evidence,
     isAiActive, transcriptionError,
+    consultationEnded,
     connectSignalR, disconnectSignalR,
   } = useVideoCallEvents(rid, isDoctor);
 
@@ -632,6 +633,23 @@ export default function VideoCallScreenInner() {
     router.back();
   }, [isDoctor, leave, rid, cleanup, router]);
   doEndRef.current = doEnd;
+
+  // When backend signals ConsultationEnded via SignalR, leave Daily and navigate away
+  useEffect(() => {
+    if (!consultationEnded || leavingRef.current) return;
+    leavingRef.current = true;
+    setEnding(true);
+    leave()
+      .then(() => {
+        try { cleanup(); } catch {}
+        if (isDoctor) {
+          try { nav.replace(router, `/post-consultation-emit/${rid}`); } catch { try { router.back(); } catch {} }
+        } else {
+          try { nav.replace(router, `/request-detail/${rid}`); } catch { try { router.back(); } catch {} }
+        }
+      })
+      .catch(() => { leavingRef.current = false; });
+  }, [consultationEnded, leave, cleanup, isDoctor, rid, router]);
 
   const confirmEnd = useCallback(async () => {
     if (leavingRef.current) return;

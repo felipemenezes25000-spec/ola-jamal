@@ -30,6 +30,7 @@ public class ConsultationLifecycleService(
     IPushNotificationDispatcher pushDispatcher,
     IDocumentTokenService documentTokenService,
     IOptions<ApiConfig> apiConfig,
+    IOptions<DailyConfig> dailyConfig,
     ISoapNotesService soapNotesService,
     IStartConsultationRecording startConsultationRecording,
     IRecordingSyncService recordingSyncService,
@@ -76,7 +77,7 @@ public class ConsultationLifecycleService(
             request.Approve(0);
             request = await requestRepository.UpdateAsync(request, cancellationToken);
 
-            var roomName = $"consultation-{request.Id}";
+            var roomName = dailyConfig.Value.GetRoomName(request.Id);
             var videoRoom = VideoRoom.Create(request.Id, roomName);
             videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 

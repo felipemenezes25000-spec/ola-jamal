@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 using RenoveJa.Api.Hubs;
+using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
@@ -19,6 +21,7 @@ public class ConsultationWorkflowController(
     IConsultationEncounterService consultationEncounterService,
     IRequestRepository requestRepository,
     IDailyVideoService dailyVideoService,
+    IOptions<DailyConfig> dailyConfig,
     IHubContext<VideoSignalingHub> hubContext,
     PostgresClient db,
     ILogger<ConsultationWorkflowController> logger) : ControllerBase
@@ -158,7 +161,7 @@ public class ConsultationWorkflowController(
         await hubContext.Clients.Group(group).SendAsync("ConsultationEnded", id.ToString(), cancellationToken);
 
         // Deletar sala Daily para impedir reconexão (fire-and-forget, não bloqueia resposta)
-        var roomName = $"consultation-{id}";
+        var roomName = dailyConfig.Value.GetRoomName(id);
         _ = dailyVideoService.DeleteRoomAsync(roomName, CancellationToken.None)
             .ContinueWith(t =>
             {
@@ -213,7 +216,7 @@ public class ConsultationWorkflowController(
             // Notificar + deletar sala (mesma lógica do FinishConsultation)
             var group = VideoSignalingHub.GroupName(id.ToString());
             await hubContext.Clients.Group(group).SendAsync("ConsultationEnded", id.ToString(), cancellationToken);
-            var roomName = $"consultation-{id}";
+            var roomName = dailyConfig.Value.GetRoomName(id);
             _ = dailyVideoService.DeleteRoomAsync(roomName, CancellationToken.None)
                 .ContinueWith(t =>
                 {

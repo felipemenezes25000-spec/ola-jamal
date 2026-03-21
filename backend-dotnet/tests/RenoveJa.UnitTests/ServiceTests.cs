@@ -361,6 +361,7 @@ public class ExtendedRequestServiceTests
                 new Mock<IAuditService>().Object,
                 _requestEventsPublisherMock.Object, pushDispatcherMock.Object,
                 _documentTokenServiceMock.Object, _apiConfigMock.Object,
+                Options.Create(new RenoveJa.Application.Configuration.DailyConfig()),
                 new Mock<RenoveJa.Application.Interfaces.ISoapNotesService>().Object,
                 new Mock<RenoveJa.Application.Interfaces.IStartConsultationRecording>().Object,
                 new Mock<RenoveJa.Application.Interfaces.IRecordingSyncService>().Object,
