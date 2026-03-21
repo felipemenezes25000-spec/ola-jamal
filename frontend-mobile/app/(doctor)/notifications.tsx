@@ -102,7 +102,7 @@ export default function DoctorNotifications() {
       setAllNotifications(data.items || []);
       if (withFeedback) showToast({ message: 'Alertas atualizados', type: 'success' });
     } catch (e: unknown) {
-      if ((e as { status?: number })?.status !== 401) console.error(e);
+      if ((e as { status?: number })?.status !== 401 && __DEV__) console.error(e);
       if (withFeedback) showToast({ message: 'Não foi possível atualizar', type: 'error' });
     } finally {
       setLoading(false);
@@ -140,7 +140,7 @@ export default function DoctorNotifications() {
         router.push(`/doctor-request/${requestId}`);
       }
     } catch (e) {
-      console.warn('Failed to mark notification as read:', e);
+      if (__DEV__) console.warn('Failed to mark notification as read:', e);
     }
   };
 
@@ -152,7 +152,7 @@ export default function DoctorNotifications() {
       haptics.success();
       showToast({ message: 'Todos marcados como lidos', type: 'success' });
     } catch (e) {
-      console.warn('Failed to mark all notifications as read:', e);
+      if (__DEV__) console.warn('Failed to mark all notifications as read:', e);
     }
   };
 

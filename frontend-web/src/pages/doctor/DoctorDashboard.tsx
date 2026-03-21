@@ -253,10 +253,10 @@ export default function DoctorDashboard() {
                         <p className="font-semibold text-sm">{consultasAtivas.length} consulta(s) aguardando atendimento</p>
                         <p className="text-xs text-muted-foreground">
                           {(() => {
-                            const withAccepted = consultasAtivas.find(r => r.consultationAcceptedAt);
-                            if (withAccepted?.consultationAcceptedAt) {
-                              const min = getMinutesSince(withAccepted.consultationAcceptedAt);
-                              return min < 60 ? `Aceita há ${min}min` : `Aceita há ${Math.floor(min / 60)}h`;
+                            const withStarted = consultasAtivas.find(r => r.consultationStartedAt);
+                            if (withStarted?.consultationStartedAt) {
+                              const min = getMinutesSince(withStarted.consultationStartedAt);
+                              return min < 60 ? `Iniciada há ${min}min` : `Iniciada há ${Math.floor(min / 60)}h`;
                             }
                             return 'Clique para iniciar videochamada com IA integrada';
                           })()}

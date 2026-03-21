@@ -16,6 +16,16 @@ interface RequestEvent {
 
 type EventHandler = (event: RequestEvent) => void;
 
+export interface EvidenceItemDto {
+  title: string;
+  abstract: string;
+  source: string;
+  translatedAbstract?: string;
+  relevantExcerpts?: string[];
+  clinicalRelevance?: string;
+  provider?: string;
+}
+
 // Dynamic import of @microsoft/signalr to avoid bundling if not needed
 let signalR: typeof import('@microsoft/signalr') | null = null;
 
@@ -131,7 +141,7 @@ export function useVideoSignaling(requestId: string | undefined) {
   const [transcript, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<unknown[]>([]);
-  const [evidence, setEvidence] = useState<unknown[]>([]);
+  const [evidence, setEvidence] = useState<EvidenceItemDto[]>([]);
   const [consultationEnded, setConsultationEnded] = useState(false);
   useEffect(() => {
     if (!requestId) return;
@@ -177,9 +187,18 @@ export function useVideoSignaling(requestId: string | undefined) {
         setSuggestions(Array.isArray(items) ? items : []);
       });
 
-      connection.on('EvidenceUpdate', (data: { items?: unknown[]; Items?: unknown[]; evidence?: unknown[] }) => {
-        const items = data.items ?? data.Items ?? data.evidence ?? [];
-        setEvidence(Array.isArray(items) ? items : []);
+      connection.on('EvidenceUpdate', (data: { items?: Record<string, unknown>[]; Items?: Record<string, unknown>[]; evidence?: Record<string, unknown>[] }) => {
+        const raw = data.items ?? data.Items ?? data.evidence ?? [];
+        if (!Array.isArray(raw)) { setEvidence([]); return; }
+        setEvidence(raw.map((e): EvidenceItemDto => ({
+          title: String(e?.title ?? e?.Title ?? ''),
+          abstract: String(e?.abstract ?? e?.Abstract ?? ''),
+          source: String(e?.source ?? e?.Source ?? ''),
+          translatedAbstract: e?.translatedAbstract != null ? String(e.translatedAbstract) : undefined,
+          relevantExcerpts: Array.isArray(e?.relevantExcerpts) ? (e.relevantExcerpts as string[]) : (Array.isArray(e?.RelevantExcerpts) ? (e.RelevantExcerpts as string[]) : undefined),
+          clinicalRelevance: e?.clinicalRelevance != null ? String(e.clinicalRelevance) : (e?.ClinicalRelevance != null ? String(e.ClinicalRelevance) : undefined),
+          provider: String(e?.provider ?? e?.Provider ?? 'PubMed'),
+        })));
       });
 
       // VideoSignalingHub envia "Joined" após JoinRoom; o protocolo pode expor como "joined" → sem .on() o SignalR avisa no console.

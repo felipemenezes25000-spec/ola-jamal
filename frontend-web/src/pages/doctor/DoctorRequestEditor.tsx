@@ -149,12 +149,12 @@ export default function DoctorRequestEditor() {
         if (data.type === 'consultation' && prefill?.length) {
           setMedications(prefill.map((m) => ({ name: m.name || '', dosage: m.dosage || '', frequency: m.frequency || '', duration: m.duration || '' })));
         } else if (data.medications?.length) {
-          setMedications(data.medications);
+          setMedications(data.medications.map((m) => ({ name: m, dosage: '', frequency: '', duration: '' })));
         } else if (data.type === 'prescription') {
           setMedications([{ name: '', dosage: '', frequency: '', duration: '' }]);
         }
         if (data.exams?.length) {
-          setExams(data.exams);
+          setExams(data.exams.map((e) => ({ name: e, notes: '' })));
         } else if (data.type === 'exam') {
           setExams([{ name: '', notes: '' }]);
         }

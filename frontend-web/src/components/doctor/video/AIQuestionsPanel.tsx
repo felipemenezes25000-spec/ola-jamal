@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { HelpCircle, AlertTriangle, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ParsedAnamnesisAi } from './ai-panel-types';
+import type { ParsedAnamnesisAi } from './ai-panel/types';
 
 function copyToClipboard(text: string, label: string) {
   navigator.clipboard.writeText(text).then(

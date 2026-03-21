@@ -511,7 +511,7 @@ export default function DoctorPatientRecord() {
                   .map(req => {
                     const reqType = req.type || (req as { requestType?: string }).requestType || '';
                     const Icon = getTypeIcon(reqType);
-                    const items = reqType === 'prescription' ? (req.medications?.map(m => m.name) ?? []) : (req.exams?.map(e => e.name) ?? []);
+                    const items = reqType === 'prescription' ? (req.medications ?? []) : (req.exams ?? []);
                     const statusInfo = getStatusInfo(req.status);
                     return (
                       <Card key={req.id} className="shadow-sm hover:shadow-md cursor-pointer transition-all group" onClick={() => navigate(`/pedidos/${req.id}`)}>

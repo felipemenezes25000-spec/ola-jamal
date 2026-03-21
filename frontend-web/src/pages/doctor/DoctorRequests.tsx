@@ -72,7 +72,8 @@ export default function DoctorRequests() {
       const q = search.toLowerCase();
       result = result.filter(r =>
         r.patientName?.toLowerCase().includes(q) ||
-        r.description?.toLowerCase().includes(q)
+        r.symptoms?.toLowerCase().includes(q) ||
+        r.notes?.toLowerCase().includes(q)
       );
     }
     result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

@@ -2,7 +2,7 @@
  * doctor-api-requests.ts — Request CRUD, actions, stats, and AI re-analysis.
  */
 
-import { authFetch } from './doctor-api-auth';
+import { authFetch, getApiBase } from './doctor-api-auth';
 import type { MedicalRequest, DoctorStats } from './doctorApi';
 
 // ── Normalize ──
@@ -76,7 +76,7 @@ export async function approveRequest(id: string) {
 export async function rejectRequest(id: string, reason?: string) {
   const res = await authFetch(`/api/requests/${id}/reject`, {
     method: 'POST',
-    body: JSON.stringify({ reason: reason || '' }),
+    body: JSON.stringify({ rejectionReason: reason || '' }),
   });
   if (!res.ok) throw new Error('Erro ao recusar');
   return res.json();
@@ -85,7 +85,7 @@ export async function rejectRequest(id: string, reason?: string) {
 export async function signRequest(id: string, password: string) {
   const res = await authFetch(`/api/requests/${id}/sign`, {
     method: 'POST',
-    body: JSON.stringify({ certificatePassword: password }),
+    body: JSON.stringify({ pfxPassword: password }),
   });
   if (!res.ok) throw new Error('Erro ao assinar');
   return res.json();
@@ -138,10 +138,12 @@ export async function generatePdf(id: string): Promise<{ success: boolean; pdfUr
 }
 
 export async function getDocumentDownloadUrl(id: string): Promise<string> {
-  const res = await authFetch(`/api/requests/${id}/document-download-url`);
+  const baseUrl = getApiBase();
+  const res = await authFetch(`/api/requests/${id}/document-token`, { method: 'POST' });
   if (!res.ok) throw new Error('Erro ao obter URL de download');
   const data = await res.json();
-  return typeof data === 'string' ? data : (data?.url ?? data?.downloadUrl ?? '');
+  const docToken = typeof data === 'string' ? data : (data?.token ?? '');
+  return `${baseUrl}/api/requests/${id}/document?token=${encodeURIComponent(docToken)}`;
 }
 
 export async function getDoctorQueue(specialty?: string) {

@@ -5,7 +5,7 @@
 import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, ShieldX, Activity, GitBranch, Star, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import type { DiagDiferencial, ParsedAnamnesisAi } from './ai-panel-types';
+import type { DiagDiferencial, ParsedAnamnesisAi } from './ai-panel/types';
 
 const GRAVITY_CONFIG: Record<string, { color: string; label: string; icon: typeof Shield }> = {
   leve: { color: 'text-emerald-400', label: 'Leve', icon: Shield },

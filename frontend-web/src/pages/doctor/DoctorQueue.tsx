@@ -121,8 +121,8 @@ export default function DoctorQueue() {
                             <Clock className="h-3 w-3" />
                             {formatDateSafe(item.createdAt)}
                           </span>
-                          {item.description && (
-                            <span className="truncate max-w-[200px]">{item.description}</span>
+                          {item.symptoms && (
+                            <span className="truncate max-w-[200px]">{item.symptoms}</span>
                           )}
                         </div>
                       </div>

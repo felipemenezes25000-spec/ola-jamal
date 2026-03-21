@@ -168,13 +168,10 @@ class ApiClient {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  /** Headers comuns a todas as requisições (ex.: ngrok exige header para não devolver página HTML no browser). */
+  /** Headers comuns a todas as requisições. */
   private getCommonHeaders(): Record<string, string> {
-    // Always send ngrok header: on web the baseUrl is empty (relative URLs via proxy),
-    // but the proxy target may still be behind ngrok.
     return {
       'X-Correlation-Id': generateCorrelationId(),
-      'ngrok-skip-browser-warning': 'true',
     };
   }
 

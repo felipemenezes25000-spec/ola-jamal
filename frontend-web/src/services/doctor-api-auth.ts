@@ -9,7 +9,7 @@ import type { DoctorUser, DoctorProfile } from './doctorApi';
 
 // ── API Base & Auth Helpers ──
 
-function getApiBase(): string {
+export function getApiBase(): string {
   const env = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '');
   if (env) return env;
   if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
@@ -79,7 +79,6 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-  headers['ngrok-skip-browser-warning'] = 'true';
   // Fallback: send Authorization header if legacy localStorage token exists.
   // New logins use HttpOnly cookies (sent automatically via credentials: 'include').
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -112,7 +111,7 @@ export async function loginDoctor(email: string, password: string) {
   if (!base) throw new Error('URL da API não configurada.');
   const res = await fetch(`${base}/api/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
     credentials: 'include',
   });
@@ -154,7 +153,7 @@ export async function registerDoctorFull(payload: {
   if (!base) throw new Error('URL da API não configurada.');
   const res = await fetch(`${base}/api/auth/register-doctor`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     credentials: 'include',
   });
@@ -170,7 +169,7 @@ export async function logoutDoctor() {
   try {
     const base = getApiBase();
     const token = getToken();
-    const headers: Record<string, string> = { 'ngrok-skip-browser-warning': 'true' };
+    const headers: Record<string, string> = {};
     // Send Authorization header as fallback if legacy token exists
     if (token) headers['Authorization'] = `Bearer ${token}`;
     await fetch(`${base}/api/auth/logout`, {
@@ -227,7 +226,7 @@ export async function updateAvatar(file: File) {
 
 export async function changePassword(currentPassword: string, newPassword: string) {
   const res = await authFetch('/api/auth/change-password', {
-    method: 'POST',
+    method: 'PATCH',
     body: JSON.stringify({ currentPassword, newPassword }),
   });
   if (!res.ok) throw new Error('Erro ao alterar senha');
@@ -238,7 +237,7 @@ export async function forgotPassword(email: string) {
   const base = getApiBase();
   const res = await fetch(`${base}/api/auth/forgot-password`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
     credentials: 'include',
   });

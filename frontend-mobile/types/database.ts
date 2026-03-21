@@ -314,7 +314,7 @@ export interface PushTokenDto {
 export type EncounterTypeName = 'teleconsultation' | 'prescriptionRenewal' | 'examOrder' | 'followUp' | 'orientation';
 
 /** Tipos de documento médico (DocumentType enum, serializado como camelCase string) */
-export type DocumentTypeName = 'prescription' | 'examOrder' | 'medicalReport';
+export type DocumentTypeName = 'prescription' | 'examOrder' | 'medicalReport' | 'medicalCertificate';
 
 export interface PatientSummaryDto {
   id: string;

@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Loader2, ArrowLeft, User, Calendar,
-  Phone, Mail, AlertTriangle,
+  Phone, AlertTriangle,
   Shield, ChevronRight, Stethoscope,
 } from 'lucide-react';
 
@@ -246,11 +246,7 @@ export default function DoctorRequestDetail() {
                         </div>
                         <div>
                           <p className="font-semibold">{request.patientName}</p>
-                          {request.patientEmail && (
-                            <p className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Mail className="h-3 w-3" /> {request.patientEmail}
-                            </p>
-                          )}
+                          {/* patientEmail not available in backend DTO — use PatientSidePanel for contact info */}
                         </div>
                         {request.patientId && (
                           <Button variant="outline" size="sm" onClick={() => navigate(`/paciente/${request.patientId}`)} className="ml-auto gap-1">
@@ -318,12 +314,11 @@ export default function DoctorRequestDetail() {
                   <PrescriptionImageGallery images={request.examImages!} label="Imagens do exame" iconBgColor="bg-amber-100" />
                 )}
 
-                {/* Detalhes / sintomas */}
-                {(request.description || symptomsList.length > 0) && (
+                {/* Sintomas */}
+                {symptomsList.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                     <Card className="shadow-sm">
                       <CardContent className="p-5 space-y-3">
-                        {request.description && <p className="text-sm">{request.description}</p>}
                         {symptomsList.length > 0 && (
                           <div>
                             <p className="text-xs font-medium text-muted-foreground mb-2">Sintomas relatados</p>

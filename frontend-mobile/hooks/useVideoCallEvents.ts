@@ -4,7 +4,8 @@
  * Extracted from VideoCallScreenInner to isolate the SignalR connection logic
  * and real-time state updates (transcript, anamnesis, suggestions, evidence).
  *
- * Only connects for doctors — patients receive updates via request polling.
+ * Both doctors and patients connect to receive ConsultationEnded events.
+ * Only doctors receive clinical data (transcript, anamnesis, suggestions, evidence).
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -30,7 +31,7 @@ export interface VideoCallEventsReturn {
   evidence: EvidenceItem[];
   setEvidence: React.Dispatch<React.SetStateAction<EvidenceItem[]>>;
   isAiActive: boolean;
-  transcriptionError: string | null;
+  signalRError: string | null;
   consultationEnded: boolean;
   connectSignalR: () => Promise<void>;
   disconnectSignalR: () => Promise<void>;
@@ -45,12 +46,12 @@ export function useVideoCallEvents(
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [isAiActive, setIsAiActive] = useState(false);
-  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [signalRError, setSignalRError] = useState<string | null>(null);
   const [consultationEnded, setConsultationEnded] = useState(false);
   const signalRRef = useRef<{ stop: () => Promise<void> } | null>(null);
 
   const connectSignalR = useCallback(async () => {
-    if (!requestId || !isDoctor) return;
+    if (!requestId) return;
     // FIX NM-3: Stop the previous connection before starting a new one
     // (e.g., when requestId changes and connectSignalR is re-created)
     if (signalRRef.current) {
@@ -84,51 +85,55 @@ export function useVideoCallEvents(
       }
       const conn = builder.build();
 
-      conn.on('TranscriptUpdate', (data: Record<string, unknown>) => {
-        const text = String(data?.fullText ?? data?.FullText ?? data?.fullTranscript ?? '');
-        if (text) {
-          setTranscript(text);
-          setIsAiActive(true);
-          setTranscriptionError(null);
-        }
-      });
-
-      conn.on('AnamnesisUpdate', (data: Record<string, unknown>) => {
-        const json = String(data?.anamnesisJson ?? data?.AnamnesisJson ?? '');
-        try { if (json) setAnamnesis(JSON.parse(json) as Record<string, unknown>); } catch {}
-      });
-
-      conn.on('SuggestionUpdate', (data: Record<string, unknown>) => {
-        // Backend envia SuggestionUpdateDto(Items) — JSON camelCase: items
-        const items = data?.items ?? data?.Items ?? data?.suggestions ?? data?.Suggestions ?? [];
-        if (Array.isArray(items)) setSuggestions(items);
-      });
-
-      conn.on('TranscriptionError', (data: Record<string, unknown>) => {
-        const msg = String(data?.message ?? data?.Message ?? 'Erro na transcrição');
-        setTranscriptionError(msg);
-      });
-
-      // Backend notifica quando consulta é encerrada — desconecta SignalR
+      // FIX: Both doctor and patient listen to ConsultationEnded so the call
+      // is properly torn down for everyone when the consultation finishes.
       conn.on('ConsultationEnded', () => {
         setConsultationEnded(true);
         conn.stop().catch(() => {});
       });
 
-      conn.on('EvidenceUpdate', (data: Record<string, unknown>) => {
-        const items = (data?.items ?? data?.Items ?? []) as Record<string, unknown>[];
-        if (Array.isArray(items)) {
-          setEvidence(items.map((e): EvidenceItem => ({
-            title: String(e?.title ?? e?.Title ?? ''),
-            abstract: String(e?.abstract ?? e?.Abstract ?? ''),
-            source: String(e?.source ?? e?.Source ?? ''),
-            translatedAbstract: e?.translatedAbstract != null ? String(e.translatedAbstract) : undefined,
-            relevantExcerpts: Array.isArray(e?.relevantExcerpts) ? (e.relevantExcerpts as string[]) : (Array.isArray(e?.RelevantExcerpts) ? (e.RelevantExcerpts as string[]) : undefined),
-            clinicalRelevance: e?.clinicalRelevance != null ? String(e.clinicalRelevance) : (e?.ClinicalRelevance != null ? String(e.ClinicalRelevance) : undefined),
-            provider: String(e?.provider ?? e?.Provider ?? 'PubMed'),
-          })));
-        }
+      // Listen for hub-level Error events (sent by VideoSignalingHub)
+      conn.on('Error', (message: string) => {
+        if (__DEV__) console.warn('[SignalR] Hub error:', message);
+        setSignalRError(message);
       });
+
+      // Doctor-only events: transcript, anamnesis, suggestions, evidence
+      if (isDoctor) {
+        conn.on('TranscriptUpdate', (data: Record<string, unknown>) => {
+          const text = String(data?.fullText ?? data?.FullText ?? data?.fullTranscript ?? '');
+          if (text) {
+            setTranscript(text);
+            setIsAiActive(true);
+          }
+        });
+
+        conn.on('AnamnesisUpdate', (data: Record<string, unknown>) => {
+          const json = String(data?.anamnesisJson ?? data?.AnamnesisJson ?? '');
+          try { if (json) setAnamnesis(JSON.parse(json) as Record<string, unknown>); } catch {}
+        });
+
+        conn.on('SuggestionUpdate', (data: Record<string, unknown>) => {
+          // Backend envia SuggestionUpdateDto(Items) — JSON camelCase: items
+          const items = data?.items ?? data?.Items ?? data?.suggestions ?? data?.Suggestions ?? [];
+          if (Array.isArray(items)) setSuggestions(items);
+        });
+
+        conn.on('EvidenceUpdate', (data: Record<string, unknown>) => {
+          const items = (data?.items ?? data?.Items ?? []) as Record<string, unknown>[];
+          if (Array.isArray(items)) {
+            setEvidence(items.map((e): EvidenceItem => ({
+              title: String(e?.title ?? e?.Title ?? ''),
+              abstract: String(e?.abstract ?? e?.Abstract ?? ''),
+              source: String(e?.source ?? e?.Source ?? ''),
+              translatedAbstract: e?.translatedAbstract != null ? String(e.translatedAbstract) : undefined,
+              relevantExcerpts: Array.isArray(e?.relevantExcerpts) ? (e.relevantExcerpts as string[]) : (Array.isArray(e?.RelevantExcerpts) ? (e.RelevantExcerpts as string[]) : undefined),
+              clinicalRelevance: e?.clinicalRelevance != null ? String(e.clinicalRelevance) : (e?.ClinicalRelevance != null ? String(e.ClinicalRelevance) : undefined),
+              provider: String(e?.provider ?? e?.Provider ?? 'PubMed'),
+            })));
+          }
+        });
+      }
 
       await conn.start();
       await conn.invoke('JoinRoom', requestId);
@@ -153,7 +158,7 @@ export function useVideoCallEvents(
     evidence,
     setEvidence,
     isAiActive,
-    transcriptionError,
+    signalRError,
     consultationEnded,
     connectSignalR,
     disconnectSignalR,

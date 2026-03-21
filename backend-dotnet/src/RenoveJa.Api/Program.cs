@@ -121,7 +121,7 @@ else if (string.Equals(Environment.GetEnvironmentVariable("AllowedHosts"), "*", 
 
 // Escutar em todas as interfaces (0.0.0.0) para acesso via IP na rede (ex: 192.168.15.69:5000)
 // Se ASPNETCORE_URLS já estiver definido (ex: em produção), não sobrescreve.
-// Em plataformas como Railway, a variável PORT é injetada (ex.: 8080) e precisa ser respeitada.
+// Em plataformas como AWS ECS, a variável PORT é injetada (ex.: 8080) e precisa ser respeitada.
 var urlsEnv = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 if (string.IsNullOrWhiteSpace(urlsEnv))
 {
@@ -218,7 +218,7 @@ builder.Services.AddInfrastructureServices();
 
 builder.Services.AddHttpClient();
 
-// ForwardedHeaders: respeita X-Forwarded-For e X-Forwarded-Proto quando atrás de proxy (Render, Railway, nginx)
+// ForwardedHeaders: respeita X-Forwarded-For e X-Forwarded-Proto quando atrás de proxy (AWS ALB/ECS)
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;

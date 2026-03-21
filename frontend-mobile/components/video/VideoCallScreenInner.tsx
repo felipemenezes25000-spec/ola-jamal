@@ -162,7 +162,7 @@ export default function VideoCallScreenInner() {
   // Anamnesis & Transcript (doctor) — SignalR real-time via extracted hook
   const {
     anamnesis, suggestions, evidence,
-    isAiActive, transcriptionError,
+    isAiActive, signalRError,
     consultationEnded,
     connectSignalR, disconnectSignalR,
   } = useVideoCallEvents(rid, isDoctor);
@@ -884,14 +884,14 @@ export default function VideoCallScreenInner() {
       )}
 
       {/* Doctor: aviso quando transcrição falha OU indicador de fallback Whisper */}
-      {!isInPipMode && isDoctor && (transcriptionError || dailyTranscription.error || useFallbackTranscription) && (
+      {!isInPipMode && isDoctor && (signalRError || dailyTranscription.error || useFallbackTranscription) && (
         <View style={[S.recIndicator, {
           top: insets.top + 60 + 140,
           backgroundColor: useFallbackTranscription ? colors.success + '30' : colors.warning + '40',
         }]}>
           <Ionicons name={useFallbackTranscription ? 'mic' : 'warning'} size={14} color={useFallbackTranscription ? colors.success : colors.warning} />
           <Text style={[S.recText, { color: useFallbackTranscription ? colors.success : colors.warning }]}>
-            {useFallbackTranscription ? 'Transcrição via Whisper (fallback)' : (transcriptionError || dailyTranscription.error)}
+            {useFallbackTranscription ? 'Transcrição via Whisper (fallback)' : (signalRError || dailyTranscription.error)}
           </Text>
         </View>
       )}

@@ -35,10 +35,12 @@ export type ExameSugerido =
       preparo_paciente?: string;
       prazo_resultado?: string;
       urgencia?: string;
+      justificativa?: string;
     };
 
 export type DiagDiferencial = {
-  hipotese: string;
+  hipotese?: string;
+  descricao?: string;
   cid: string;
   probabilidade: string;
   probabilidade_percentual?: number;
@@ -56,12 +58,36 @@ export type PerguntaSugerida = {
 };
 
 export type InteracaoCruzada = {
-  medicamento_a: string;
-  medicamento_b: string;
-  tipo: 'grave' | 'moderada' | 'leve';
+  medicamentos?: string[];
+  medicamento_a?: string;
+  medicamento_b?: string;
+  tipo: string;
+  gravidade?: string;
   descricao: string;
   conduta?: string;
 };
+
+/** Legacy type used by AIMedicationsPanel — simpler shape for parsed AI JSON. */
+export interface MedicamentoSugerido {
+  nome: string;
+  dose?: string;
+  via?: string;
+  frequencia?: string;
+  duracao?: string;
+  observacoes?: string;
+  posologia?: string;
+}
+
+/** Parsed AI anamnesis JSON from SignalR AnamnesisUpdate events. */
+export interface ParsedAnamnesisAi {
+  classificacao_gravidade?: string;
+  diagnostico_diferencial?: DiagDiferencial[];
+  medicamentos_sugeridos?: (MedicamentoSugerido | string)[];
+  exames_sugeridos?: ExameSugerido[];
+  interacoes_cruzadas?: InteracaoCruzada[];
+  perguntas_sugeridas?: string[];
+  red_flags?: string[];
+}
 
 export interface DoctorAIPanelProps {
   anamnesis: Record<string, unknown> | null;

@@ -61,7 +61,7 @@ export async function getActiveCertificate(): Promise<CertificateInfo | null> {
 
 export async function uploadCertificate(file: File, password: string) {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('pfxFile', file);
   formData.append('password', password);
   const res = await authFetch('/api/certificates/upload', { method: 'POST', body: formData });
   if (!res.ok) throw new Error('Erro ao enviar certificado');

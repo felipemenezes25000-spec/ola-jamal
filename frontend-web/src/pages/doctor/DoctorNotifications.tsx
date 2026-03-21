@@ -163,7 +163,7 @@ export default function DoctorNotifications() {
                 </p>
                 <div className="space-y-2">
                   {group.items.map((item, i) => {
-                    const Icon = getCategoryIcon(item.type);
+                    const Icon = getCategoryIcon(item.notificationType);
                     return (
                       <motion.div
                         key={item.id}
@@ -185,7 +185,7 @@ export default function DoctorNotifications() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm ${!item.read ? 'font-semibold' : 'font-medium'}`}>{item.title}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.body}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.message}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span className="text-xs text-muted-foreground">{getTimeAgo(item.createdAt)}</span>

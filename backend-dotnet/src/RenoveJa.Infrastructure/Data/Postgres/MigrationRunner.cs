@@ -384,8 +384,8 @@ public static class MigrationRunner
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_outbox_events_idempotency_key ON public.outbox_events(idempotency_key)"
     };
 
-    /// <summary>Limpa URLs do Supabase Storage que ficaram gravadas no banco RDS.</summary>
-    private static readonly string[] CleanupSupabaseUrlsMigrations =
+    /// <summary>Limpa URLs legadas de storage externo que ficaram gravadas no banco RDS.</summary>
+    private static readonly string[] CleanupLegacyStorageUrlsMigrations =
     {
         "UPDATE public.users SET avatar_url = NULL WHERE avatar_url LIKE '%supabase.co%'",
         "UPDATE public.requests SET signed_document_url = NULL WHERE signed_document_url LIKE '%supabase.co%'",
@@ -615,7 +615,7 @@ public static class MigrationRunner
             ("encounter_enrichment", EncounterEnrichmentMigrations),
             ("document_security", DocumentSecurityMigrations),
             ("prescription_verification_logs", PrescriptionVerificationLogsMigrations),
-            ("cleanup_supabase_urls", CleanupSupabaseUrlsMigrations),
+            ("cleanup_legacy_storage_urls", CleanupLegacyStorageUrlsMigrations),
             ("fix_encounter_patient_id", FixEncounterPatientIdMigrations),
             ("chronic_condition", ChronicConditionMigrations),
             ("prescriptions_table", PrescriptionsTableMigrations),

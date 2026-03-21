@@ -155,11 +155,7 @@ export default function DoctorVideoCall() {
           setRoomUrl(tokenData.roomUrl ? `${tokenData.roomUrl}?t=${tokenData.token}` : null);
           setContractedMinutes(tokenData.contractedMinutes ?? data.contractedMinutes ?? null);
         } catch {
-          if (data.videoRoomUrl) {
-            setRoomUrl(data.videoRoomUrl);
-          } else {
-            setError('Não foi possível obter o link da videochamada');
-          }
+          setError('Não foi possível obter o link da videochamada');
         }
       } catch {
         if (!cancelled) setError('Erro ao carregar dados da consulta');

@@ -123,10 +123,10 @@ export default function DoctorConsultations() {
                                 <Calendar className="h-3 w-3" />
                                 {new Date(req.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </span>
-                              {req.consultationAcceptedAt && (
+                              {req.consultationStartedAt && (
                                 <span className="flex items-center gap-1">
                                   <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                  Aceita em {new Date(req.consultationAcceptedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                  Iniciada em {new Date(req.consultationStartedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </span>
                               )}
                             </div>

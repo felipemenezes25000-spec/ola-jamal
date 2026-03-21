@@ -79,7 +79,7 @@ export default function VideoRequestIdRoute() {
     import('../../components/video/VideoCallScreenInner')
       .then((m) => setInner(() => m.default))
       .catch((e) => {
-        console.warn('[Video] Falha ao carregar módulo:', e?.message);
+        if (__DEV__) console.warn('[Video] Falha ao carregar módulo:', e?.message);
         setLoadError(e?.message ?? 'Não foi possível iniciar a videochamada.');
       });
   }, []);

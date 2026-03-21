@@ -43,18 +43,15 @@ export interface DoctorProfile {
 export interface MedicalRequest {
   id: string;
   patientName: string;
-  patientEmail?: string;
   patientId?: string;
   doctorId?: string | null;
   type: 'prescription' | 'exam' | 'consultation';
   status: string;
   createdAt: string;
   updatedAt?: string;
-  description?: string;
-  symptoms?: string[];
-  medications?: Medication[];
-  exams?: ExamItem[];
-  images?: string[];
+  symptoms?: string | null;
+  medications?: string[] | null;
+  exams?: string[] | null;
   prescriptionImages?: string[];
   examImages?: string[];
   notes?: string;
@@ -65,8 +62,6 @@ export interface MedicalRequest {
   anamnesisData?: Record<string, unknown>;
   transcriptionText?: string;
   signedDocumentUrl?: string;
-  consultationAcceptedAt?: string;
-  videoRoomUrl?: string;
   rejectionReason?: string;
   // AI fields
   aiSummaryForDoctor?: string;
@@ -81,8 +76,6 @@ export interface MedicalRequest {
   consultationType?: string;
   contractedMinutes?: number;
   consultationStartedAt?: string;
-  doctorCallConnectedAt?: string;
-  patientCallConnectedAt?: string;
   // Access
   accessCode?: string;
   signedAt?: string;
@@ -90,8 +83,12 @@ export interface MedicalRequest {
   consultationTranscript?: string | null;
   consultationAnamnesis?: string | null;
   consultationAiSuggestions?: string | null;
+  /** Artigos científicos que apoiam o CID sugerido. */
+  consultationEvidence?: string | null;
   /** Notas SOAP geradas pela IA após a consulta (JSON com subjective/objective/assessment/plan/medical_terms). */
   consultationSoapNotes?: string | null;
+  /** Indica se existe gravação de vídeo da consulta. */
+  consultationHasRecording?: boolean;
   patientBirthDate?: string | null;
   patientGender?: string | null;
   examQuickPackages?: ExamQuickPackageDto[] | null;
@@ -121,8 +118,8 @@ export interface ExamItem {
 export interface NotificationItem {
   id: string;
   title: string;
-  body: string;
-  type: string;
+  message: string;
+  notificationType: string;
   read: boolean;
   createdAt: string;
   data?: Record<string, unknown>;

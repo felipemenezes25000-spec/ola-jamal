@@ -12,9 +12,7 @@ export async function fetchSpecialties(): Promise<Specialty[]> {
   // Uses plain fetch (no auth required for specialties list)
   const env = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '');
   const base = env || (typeof window !== 'undefined' ? window.location.origin : '');
-  const res = await fetch(`${base}/api/specialties`, {
-    headers: { 'ngrok-skip-browser-warning': 'true' },
-  });
+  const res = await fetch(`${base}/api/specialties`);
   if (!res.ok) return [];
   return res.json();
 }
