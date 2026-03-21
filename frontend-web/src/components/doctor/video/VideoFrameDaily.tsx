@@ -112,6 +112,9 @@ export function VideoFrameDaily({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
+  // Guard against duplicate onCallLeft invocations (left-meeting + error can both fire)
+  const callLeftFiredRef = useRef(false);
+
   // --- Bug #9: retry handler ---
   const handleRetry = useCallback(() => {
     setConnectionTimedOut(false);
@@ -162,6 +165,7 @@ export function VideoFrameDaily({
     if (!container || !roomUrl) return;
 
     destroyedRef.current = false;
+    callLeftFiredRef.current = false;
     // Reset all state when roomUrl/retryKey changes — intentional synchronous setState
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMeetingJoined(false);
@@ -253,18 +257,18 @@ export function VideoFrameDaily({
         }
       });
 
-      // --- Bug #2: left-meeting handler — cleanup all state ---
+      // --- Bug #2: left-meeting handler — cleanup all state (guard against double-fire) ---
       frame.on('left-meeting', () => {
-        if (!destroyedRef.current) {
-          setMeetingJoined(false);
-          setScreenShareActive(false);
-          setReconnecting(false);
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          onCallLeftRef.current?.();
+        if (destroyedRef.current || callLeftFiredRef.current) return;
+        callLeftFiredRef.current = true;
+        setMeetingJoined(false);
+        setScreenShareActive(false);
+        setReconnecting(false);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
         }
+        onCallLeftRef.current?.();
       });
 
       // --- Bug #4: network-connection handler for reconnecting UI ---
@@ -345,9 +349,10 @@ export function VideoFrameDaily({
         }
       });
 
-      // --- Bug #2: handle unexpected errors that end the call ---
+      // --- Bug #2: handle unexpected errors that end the call (guard against double-fire) ---
       frame.on('error', (event) => {
-        if (destroyedRef.current) return;
+        if (destroyedRef.current || callLeftFiredRef.current) return;
+        callLeftFiredRef.current = true;
         console.error('[VideoFrameDaily] Daily error:', event);
         const ev = event as { errorMsg?: string };
         toast.error(ev.errorMsg ?? 'Erro na videochamada. Tente reconectar.');

@@ -250,6 +250,7 @@ builder.Services.AddHostedService<BackgroundRecordingStarter>();
 builder.Services.AddScoped<IRecordingSyncService, RecordingSyncService>();
 builder.Services.AddHostedService<RecordingSyncBackgroundService>();
 builder.Services.AddHostedService<OrphanedRoomCleanupService>();
+builder.Services.AddHostedService<RenoveJa.Infrastructure.ClinicalEvidence.EvidenceCacheStartupCleaner>();
 builder.Services.AddScoped<RenoveJa.Infrastructure.Storage.S3MigrationService>();
 builder.Services.AddHttpClient("LediPec");
 builder.Services.AddHttpClient("Rnds");

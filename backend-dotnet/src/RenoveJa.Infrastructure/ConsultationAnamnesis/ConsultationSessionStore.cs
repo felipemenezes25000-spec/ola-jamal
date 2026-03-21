@@ -199,6 +199,14 @@ public class ConsultationSessionStore : IConsultationSessionStore
         return ((string?)values[0], (string?)values[1]);
     }
 
+    public string? GetEvidenceJson(Guid requestId)
+    {
+        var key = KeyPrefix + requestId;
+        var db = Db;
+        if (!db.KeyExists(key)) return null;
+        return (string?)db.HashGet(key, FieldEvidenceJson);
+    }
+
     public ConsultationSessionData? GetAndRemove(Guid requestId)
     {
         var key = KeyPrefix + requestId;

@@ -91,8 +91,8 @@ public sealed class ClinicalEvidenceService : IClinicalEvidenceService
             if (articles.Count == 0)
             {
                 _logger.LogInformation("[ClinicalEvidence] PubMed retornou 0 artigos para termos={Terms}", string.Join(" | ", searchTerms));
-                // Cache vazio por 24h pra não rebater de novo em diagnósticos sem literatura
-                await SetCacheAsync(cacheKey, Array.Empty<EvidenceItemDto>(), TimeSpan.FromHours(24));
+                // NÃO cachear resultados vazios — evita cache poisoning quando PubMed está com rate limit.
+                // Na próxima consulta com mesmo CID, tentará novamente no PubMed.
                 return Array.Empty<EvidenceItemDto>();
             }
 

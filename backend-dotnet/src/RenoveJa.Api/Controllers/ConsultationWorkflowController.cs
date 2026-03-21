@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using RenoveJa.Api.Hubs;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
 using RenoveJa.Infrastructure.Data.Postgres;
+using RenoveJa.Infrastructure.Video;
 using System.Security.Claims;
 
 namespace RenoveJa.Api.Controllers;
@@ -15,6 +18,8 @@ public class ConsultationWorkflowController(
     IRequestService requestService,
     IConsultationEncounterService consultationEncounterService,
     IRequestRepository requestRepository,
+    IDailyVideoService dailyVideoService,
+    IHubContext<VideoSignalingHub> hubContext,
     PostgresClient db,
     ILogger<ConsultationWorkflowController> logger) : ControllerBase
 {
@@ -147,6 +152,20 @@ public class ConsultationWorkflowController(
     {
         var doctorId = GetUserId();
         var request = await requestService.FinishConsultationAsync(id, doctorId, dto, cancellationToken);
+
+        // Notificar todos os participantes via SignalR que a consulta terminou
+        var group = VideoSignalingHub.GroupName(id.ToString());
+        await hubContext.Clients.Group(group).SendAsync("ConsultationEnded", id.ToString(), cancellationToken);
+
+        // Deletar sala Daily para impedir reconexão (fire-and-forget, não bloqueia resposta)
+        var roomName = $"consultation-{id}";
+        _ = dailyVideoService.DeleteRoomAsync(roomName, CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "[FinishConsultation] Falha ao deletar sala Daily {RoomName}", roomName);
+            }, TaskContinuationOptions.OnlyOnFaulted);
+
         return Ok(request);
     }
 
@@ -190,6 +209,18 @@ public class ConsultationWorkflowController(
         {
             var userId = GetUserId();
             var request = await requestService.AutoFinishConsultationAsync(id, userId, cancellationToken);
+
+            // Notificar + deletar sala (mesma lógica do FinishConsultation)
+            var group = VideoSignalingHub.GroupName(id.ToString());
+            await hubContext.Clients.Group(group).SendAsync("ConsultationEnded", id.ToString(), cancellationToken);
+            var roomName = $"consultation-{id}";
+            _ = dailyVideoService.DeleteRoomAsync(roomName, CancellationToken.None)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        logger.LogWarning(t.Exception, "[AutoFinish] Falha ao deletar sala Daily {RoomName}", roomName);
+                }, TaskContinuationOptions.OnlyOnFaulted);
+
             return Ok(request);
         }
         catch (KeyNotFoundException ex)

@@ -31,6 +31,7 @@ export interface VideoCallEventsReturn {
   setEvidence: React.Dispatch<React.SetStateAction<EvidenceItem[]>>;
   isAiActive: boolean;
   transcriptionError: string | null;
+  consultationEnded: boolean;
   connectSignalR: () => Promise<void>;
   disconnectSignalR: () => Promise<void>;
 }
@@ -45,6 +46,7 @@ export function useVideoCallEvents(
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [isAiActive, setIsAiActive] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [consultationEnded, setConsultationEnded] = useState(false);
   const signalRRef = useRef<{ stop: () => Promise<void> } | null>(null);
 
   const connectSignalR = useCallback(async () => {
@@ -107,6 +109,12 @@ export function useVideoCallEvents(
         setTranscriptionError(msg);
       });
 
+      // Backend notifica quando consulta é encerrada — desconecta SignalR
+      conn.on('ConsultationEnded', () => {
+        setConsultationEnded(true);
+        conn.stop().catch(() => {});
+      });
+
       conn.on('EvidenceUpdate', (data: Record<string, unknown>) => {
         const items = (data?.items ?? data?.Items ?? []) as Record<string, unknown>[];
         if (Array.isArray(items)) {
@@ -146,6 +154,7 @@ export function useVideoCallEvents(
     setEvidence,
     isAiActive,
     transcriptionError,
+    consultationEnded,
     connectSignalR,
     disconnectSignalR,
   };

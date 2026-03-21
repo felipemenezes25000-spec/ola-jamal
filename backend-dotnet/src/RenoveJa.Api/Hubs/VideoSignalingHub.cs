@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RenoveJa.Application.DTOs.Consultation;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
 
 namespace RenoveJa.Api.Hubs;
@@ -11,7 +12,7 @@ namespace RenoveJa.Api.Hubs;
 /// <summary>
 /// SignalR hub for WebRTC signaling: exchange SDP (offer/answer) and ICE candidates
 /// between patient and doctor in a consultation room. Room is identified by requestId.
-/// Ao entrar na sala, envia estado atual (transcript, anamnese, sugestões) para garantir que apareça.
+/// Ao entrar na sala, envia estado atual (transcript, anamnese, sugestões, evidências) para garantir que apareça.
 /// </summary>
 [Authorize]
 public class VideoSignalingHub(
@@ -28,6 +29,7 @@ public class VideoSignalingHub(
 
     /// <summary>
     /// Join the signaling room for the given request. Validates that the user is the patient or doctor of that request.
+    /// Blocks joining if consultation is already finished (prevents chat after end).
     /// </summary>
     public async Task JoinRoom(string requestId)
     {
@@ -57,13 +59,27 @@ public class VideoSignalingHub(
             return;
         }
 
+        // Block joining if consultation already ended — prevents chat/signaling after finish
+        var canJoin = request.Status is RequestStatus.InConsultation
+            or RequestStatus.Paid
+            or RequestStatus.ConsultationReady;
+        if (!canJoin)
+        {
+            logger.LogWarning("User {UserId} tried to join finished consultation {RequestId} (status={Status})",
+                userGuid, requestId, request.Status);
+            await Clients.Caller.SendAsync("ConsultationEnded", requestId);
+            return;
+        }
+
         var group = GroupName(requestId);
         await Groups.AddToGroupAsync(Context.ConnectionId, group);
         logger.LogInformation("User {UserId} joined video room {RequestId}", userGuid, requestId);
 
-        // Sincronizar estado atual para garantir que anamnese e perguntas apareçam (evita tela vazia)
+        // Sincronizar estado atual para garantir que anamnese, evidências e perguntas apareçam (evita tela vazia)
         var transcript = sessionStore.GetTranscript(reqId);
         var (anamnesisJson, suggestionsJson) = sessionStore.GetAnamnesisState(reqId);
+        var evidenceJson = sessionStore.GetEvidenceJson(reqId);
+
         if (!string.IsNullOrEmpty(transcript))
             await Clients.Caller.SendAsync("TranscriptUpdate", new TranscriptUpdateDto(transcript));
         if (!string.IsNullOrEmpty(anamnesisJson))
@@ -81,6 +97,18 @@ public class VideoSignalingHub(
                 var suggestions = JsonSerializer.Deserialize<string[]>(suggestionsJson);
                 if (suggestions != null && suggestions.Length > 0)
                     await Clients.Caller.SendAsync("SuggestionUpdate", new SuggestionUpdateDto(suggestions));
+            }
+            catch { /* ignore parse */ }
+        }
+        // Enviar evidências clínicas armazenadas na sessão (fix: antes não eram enviadas no join)
+        if (!string.IsNullOrEmpty(evidenceJson))
+        {
+            try
+            {
+                var evidenceItems = JsonSerializer.Deserialize<List<EvidenceItemDto>>(evidenceJson,
+                    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                if (evidenceItems != null && evidenceItems.Count > 0)
+                    await Clients.Caller.SendAsync("EvidenceUpdate", new EvidenceUpdateDto(evidenceItems));
             }
             catch { /* ignore parse */ }
         }

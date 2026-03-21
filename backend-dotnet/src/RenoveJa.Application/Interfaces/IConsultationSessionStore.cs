@@ -21,6 +21,9 @@ public interface IConsultationSessionStore
     /// <summary>Obtém o último estado de anamnese/sugestões (para passar ao próximo passo da IA).</summary>
     (string? AnamnesisJson, string? SuggestionsJson) GetAnamnesisState(Guid requestId);
 
+    /// <summary>Obtém evidências clínicas armazenadas na sessão.</summary>
+    string? GetEvidenceJson(Guid requestId);
+
     /// <summary>Remove a sessão e retorna os dados para persistência. Retorna null se não houver sessão.</summary>
     ConsultationSessionData? GetAndRemove(Guid requestId);
 }

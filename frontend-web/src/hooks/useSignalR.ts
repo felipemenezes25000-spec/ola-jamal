@@ -132,6 +132,7 @@ export function useVideoSignaling(requestId: string | undefined) {
   const [anamnesis, setAnamnesis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<unknown[]>([]);
   const [evidence, setEvidence] = useState<unknown[]>([]);
+  const [consultationEnded, setConsultationEnded] = useState(false);
   useEffect(() => {
     if (!requestId) return;
     let cancelled = false;
@@ -186,6 +187,12 @@ export function useVideoSignaling(requestId: string | undefined) {
       connection.on('Joined', onJoinedAck);
       connection.on('joined', onJoinedAck);
 
+      // Backend notifica quando consulta é encerrada pelo médico — impede chat/sinalização posterior
+      connection.on('ConsultationEnded', () => {
+        setConsultationEnded(true);
+        connection.stop().catch(() => {});
+      });
+
       const onHubError = (msg: unknown) => {
         if (import.meta.env.DEV) console.warn('[SignalR Video] Hub:', msg);
       };
@@ -222,5 +229,5 @@ export function useVideoSignaling(requestId: string | undefined) {
     };
   }, [requestId]);
 
-  return { connected, transcript, anamnesis, suggestions, evidence };
+  return { connected, transcript, anamnesis, suggestions, evidence, consultationEnded };
 }
