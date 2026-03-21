@@ -364,10 +364,6 @@ export async function autoFinishConsultation(requestId: string): Promise<Request
   return apiClient.post(`/api/requests/${requestId}/auto-finish-consultation`, {});
 }
 
-export async function getTimeBankBalance(consultationType: string): Promise<{ balanceSeconds: number; balanceMinutes: number; consultationType: string }> {
-  return apiClient.get(`/api/requests/time-bank?consultationType=${encodeURIComponent(consultationType)}`);
-}
-
 /** Paciente cancela o pedido (apenas antes do pagamento). */
 export async function cancelRequest(requestId: string): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/cancel`, {});

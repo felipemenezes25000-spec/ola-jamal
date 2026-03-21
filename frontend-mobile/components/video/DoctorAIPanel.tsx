@@ -90,14 +90,6 @@ function getGravityConfig(colors: any): Record<string, { color: string; label: s
   };
 }
 
-function getConfidenceConfig(colors: any): Record<string, { color: string; label: string }> {
-  return {
-    alta: { color: colors.success, label: 'Confiança Alta' },
-    media: { color: colors.warning, label: 'Confiança Média' },
-    baixa: { color: colors.destructive, label: 'Confiança Baixa' },
-  };
-}
-
 // ── Anamnesis field definitions (source: lib/domain/anamnesis.ts) ──
 
 const ANA_FIELDS = SHARED_ANA_FIELDS;
@@ -109,22 +101,20 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
   const { colors } = useAppTheme({ scheme: 'dark', role: 'doctor' });
   const S = useMemo(() => makeStyles(colors), [colors]);
   const GRAVITY_CONFIG = useMemo(() => getGravityConfig(colors), [colors]);
-  const CONFIDENCE_CONFIG = useMemo(() => getConfidenceConfig(colors), [colors]);
-
   const [activeTab, setActiveTab] = useState<TabKey>('consulta');
   const [expandedEvidence, setExpandedEvidence] = useState<Set<number>>(new Set());
   const [expandedMeds, setExpandedMeds] = useState<Set<number>>(new Set());
 
   // Parse derived data
-  const cidSugerido = (anamnesis?.cid_sugerido as string) ?? '';
-  const cidDescricao = (anamnesis?.cid_descricao as string) ?? '';
-  const confiancaCid = (anamnesis?.confianca_cid as string) ?? '';
   const denominadorComum = (anamnesis?.denominador_comum as string) ?? '';
   const gravidade = (anamnesis?.classificacao_gravidade as string) ?? '';
   const diagDiferencial: DiagDiferencial[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.diagnostico_diferencial) ? (anamnesis!.diagnostico_diferencial as DiagDiferencial[]) : []; }
     catch { return []; }
   }, [anamnesis]);
+  const primaryDiag = diagDiferencial.length > 0 ? diagDiferencial[0] : null;
+  const primaryCid = primaryDiag?.cid ?? '';
+  const primaryHipotese = primaryDiag?.hipotese ?? '';
   const exameFisicoDirigido = (anamnesis?.exame_fisico_dirigido as string) ?? '';
   const orientacoesPaciente: string[] = useMemo(() => {
     try { return Array.isArray(anamnesis?.orientacoes_paciente) ? (anamnesis!.orientacoes_paciente as string[]) : []; }
@@ -201,8 +191,8 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
 
   const buildFullSummary = useCallback(() => {
     const parts: string[] = [];
-    if (cidSugerido) parts.push(`HIPÓTESE: ${cidSugerido}${cidDescricao ? ` — ${cidDescricao}` : ''}`);
     if (gravidade && GRAVITY_CONFIG[gravidade]) parts.push(`GRAVIDADE: ${GRAVITY_CONFIG[gravidade].label}`);
+    if (primaryHipotese) parts.push(`HIPÓTESE PRINCIPAL: ${primaryHipotese}${primaryCid ? ` (${primaryCid})` : ''}`);
     if (diagDiferencial.length > 0) {
       parts.push('\nDIAGNÓSTICO DIFERENCIAL:');
       diagDiferencial.forEach((dd, i) => parts.push(`${i + 1}. ${dd.hipotese} (${dd.cid}) — ${dd.probabilidade}`));
@@ -237,7 +227,7 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
       criteriosRetorno.forEach(c => parts.push(`\u26A0\uFE0F ${c}`));
     }
     return parts.join('\n');
-  }, [cidSugerido, cidDescricao, gravidade, GRAVITY_CONFIG, diagDiferencial, anamnesis, meds, exames, orientacoesPaciente, criteriosRetorno]);
+  }, [gravidade, GRAVITY_CONFIG, primaryHipotese, primaryCid, diagDiferencial, anamnesis, meds, exames, orientacoesPaciente, criteriosRetorno]);
 
   return (
     <View style={S.container}>
@@ -312,40 +302,14 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
             <AIIndicators
               gravidade={gravidade}
               denominadorComum={denominadorComum}
-              cidSugerido={cidSugerido}
-              cidDescricao={cidDescricao}
-              confiancaCid={confiancaCid}
+              primaryCid={primaryCid}
+              primaryHipotese={primaryHipotese}
               alertasVermelhos={alertasVermelhos}
               diagDiferencial={diagDiferencial}
               gravityConfig={GRAVITY_CONFIG}
-              confidenceConfig={CONFIDENCE_CONFIG}
               colors={colors}
               copyToClipboard={copyToClipboard}
             />
-
-            {/* CID card */}
-            {cidSugerido.length > 0 && (
-              <View style={S.cidCard}>
-                <View style={S.cidHeader}>
-                  <Ionicons name="medical" size={16} color={colors.primary} />
-                  <Text style={S.cidLabel}>HIPÓTESE DIAGNÓSTICA</Text>
-                  {confiancaCid && CONFIDENCE_CONFIG[confiancaCid] && (
-                    <View style={[S.confidenceBadge, { backgroundColor: CONFIDENCE_CONFIG[confiancaCid].color + '15' }]}>
-                      <View style={[S.confidenceDot, { backgroundColor: CONFIDENCE_CONFIG[confiancaCid].color }]} />
-                      <Text style={[S.confidenceText, { color: CONFIDENCE_CONFIG[confiancaCid].color }]}>
-                        {CONFIDENCE_CONFIG[confiancaCid].label}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={S.cidValue}>{cidSugerido}</Text>
-                {cidDescricao ? <Text style={S.cidDescricao}>{cidDescricao}</Text> : null}
-                <TouchableOpacity style={S.cidCopy} onPress={() => copyToClipboard(cidSugerido + (cidDescricao ? ` — ${cidDescricao}` : ''), 'CID')}>
-                  <Ionicons name="copy-outline" size={12} color={colors.primary} />
-                  <Text style={S.cidCopyText}>Copiar CID</Text>
-                </TouchableOpacity>
-              </View>
-            )}
 
             {/* Red alerts */}
             {alertasVermelhos.length > 0 && (

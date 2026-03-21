@@ -85,13 +85,20 @@ public sealed class BackgroundRecordingStarter(
 
                 var roomName = dailyConfig.GetRoomName(requestId);
 
-                await videoService.StartRecordingAsync(roomName, ct);
+                var started = await videoService.StartRecordingAsync(roomName, ct);
 
-                logger.LogInformation(
-                    "Cloud recording started for request {RequestId} (room {RoomName}) on attempt {Attempt}",
-                    requestId, roomName, attempt + 1);
+                if (started)
+                {
+                    logger.LogInformation(
+                        "Cloud recording started for request {RequestId} (room {RoomName}) on attempt {Attempt}",
+                        requestId, roomName, attempt + 1);
+                    return;
+                }
 
-                return;
+                logger.LogWarning(
+                    "Daily API returned false for recording start on request {RequestId} (attempt {Attempt}/{MaxRetries})",
+                    requestId, attempt + 1, MaxRetries);
+                // Continue to next retry
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

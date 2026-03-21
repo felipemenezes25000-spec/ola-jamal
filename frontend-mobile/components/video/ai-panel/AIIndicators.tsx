@@ -12,13 +12,11 @@ import { makeStyles } from './types';
 interface AIIndicatorsProps {
   gravidade: string;
   denominadorComum?: string;
-  cidSugerido: string;
-  cidDescricao: string;
-  confiancaCid: string;
+  primaryCid?: string;
+  primaryHipotese?: string;
   alertasVermelhos: string[];
   diagDiferencial: DiagDiferencial[];
   gravityConfig: Record<string, { color: string; label: string; icon: string }>;
-  confidenceConfig: Record<string, { color: string; label: string }>;
   colors: PanelColors;
   copyToClipboard: (text: string, label: string) => void;
 }
@@ -26,13 +24,11 @@ interface AIIndicatorsProps {
 export function AIIndicators({
   gravidade,
   denominadorComum,
-  cidSugerido,
-  cidDescricao,
-  confiancaCid,
+  primaryCid = '',
+  primaryHipotese = '',
   alertasVermelhos,
   diagDiferencial,
   gravityConfig,
-  confidenceConfig,
   colors,
   copyToClipboard,
 }: AIIndicatorsProps) {
@@ -61,39 +57,31 @@ export function AIIndicators({
         </View>
       ) : null}
 
-      {/* CID card */}
-      <View style={S.cidCard}>
-        <View style={S.cidHeader}>
-          <Ionicons name="medical" size={16} color={colors.primary} />
-          <Text style={S.cidLabel}>HIPÓTESE DIAGNÓSTICA (CID)</Text>
-          {confiancaCid && confidenceConfig[confiancaCid] && (
-            <View style={[S.confidenceBadge, { backgroundColor: confidenceConfig[confiancaCid].color + '15' }]}>
-              <View style={[S.confidenceDot, { backgroundColor: confidenceConfig[confiancaCid].color }]} />
-              <Text style={[S.confidenceText, { color: confidenceConfig[confiancaCid].color }]}>
-                {confidenceConfig[confiancaCid].label}
+      {/* Primary hypothesis card */}
+      {primaryCid ? (
+        <View style={[S.cidCard, { backgroundColor: colors.primarySoft, borderColor: colors.primary + '40' }]}>
+          <View style={S.cidHeader}>
+            <Ionicons name="medical" size={14} color={colors.primary} />
+            <Text style={S.cidLabel}>HIPÓTESE PRINCIPAL</Text>
+          </View>
+          <Text style={S.cidValue}>{primaryHipotese}{primaryCid ? ` (${primaryCid})` : ''}</Text>
+          {diagDiferencial.length > 0 && diagDiferencial[0].probabilidade ? (
+            <View style={[S.confidenceBadge, { backgroundColor: (diagDiferencial[0].probabilidade === 'alta' ? colors.success : diagDiferencial[0].probabilidade === 'media' ? colors.warning : colors.textMuted) + '15' }]}>
+              <View style={[S.confidenceDot, { backgroundColor: diagDiferencial[0].probabilidade === 'alta' ? colors.success : diagDiferencial[0].probabilidade === 'media' ? colors.warning : colors.textMuted }]} />
+              <Text style={[S.confidenceText, { color: diagDiferencial[0].probabilidade === 'alta' ? colors.success : diagDiferencial[0].probabilidade === 'media' ? colors.warning : colors.textMuted }]}>
+                {diagDiferencial[0].probabilidade_percentual != null ? `${diagDiferencial[0].probabilidade_percentual}%` : diagDiferencial[0].probabilidade}
               </Text>
             </View>
-          )}
+          ) : null}
+          <TouchableOpacity
+            style={S.cidCopy}
+            onPress={() => copyToClipboard(`${primaryHipotese} (${primaryCid})`, 'Hipótese principal')}
+          >
+            <Ionicons name="copy-outline" size={11} color={colors.primary} />
+            <Text style={S.cidCopyText}>Copiar</Text>
+          </TouchableOpacity>
         </View>
-        {cidSugerido.length > 0 ? (
-          <>
-            <Text style={S.cidValue}>{cidSugerido}</Text>
-            {cidDescricao ? <Text style={S.cidDescricao}>{cidDescricao}</Text> : null}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <TouchableOpacity style={S.cidCopy} onPress={() => copyToClipboard(cidSugerido + (cidDescricao ? ` — ${cidDescricao}` : ''), 'CID')}>
-                <Ionicons name="copy-outline" size={12} color={colors.primary} />
-                <Text style={S.cidCopyText}>Copiar CID</Text>
-              </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, opacity: 0.6 }}>
-                <Ionicons name="sync-outline" size={10} color={colors.textMuted} />
-                <Text style={{ fontSize: 9, color: colors.textMuted }}>Atualiza conforme a consulta</Text>
-              </View>
-            </View>
-          </>
-        ) : (
-          <Text style={S.cidPlaceholder}>Aguardando dados da transcrição para sugerir CID</Text>
-        )}
-      </View>
+      ) : null}
 
       {/* Red alerts */}
       {alertasVermelhos.length > 0 && (

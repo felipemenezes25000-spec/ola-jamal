@@ -10,17 +10,7 @@ internal static partial class AnamnesisResponseParser
     {
         var terms = new List<string>();
 
-        if (root.TryGetProperty("cid_sugerido", out var cidEl))
-        {
-            var cidStr = cidEl.GetString() ?? "";
-            var match = CidCodeRegex.Match(cidStr);
-            if (match.Success)
-                terms.Add(match.Groups[1].Value);
-            var descPart = cidStr.Contains('-') ? cidStr.Split('-', 2)[1].Trim() : "";
-            if (descPart.Length > 10)
-                terms.Add(descPart[..Math.Min(60, descPart.Length)]);
-        }
-
+        // Extrair CIDs e descrições do diagnóstico diferencial (fonte principal de termos de busca)
         if (root.TryGetProperty("diagnostico_diferencial", out var ddEl) && ddEl.ValueKind == JsonValueKind.Array)
         {
             foreach (var dd in ddEl.EnumerateArray())
@@ -31,6 +21,18 @@ internal static partial class AnamnesisResponseParser
                     var ddMatch = CidCodeRegex.Match(ddCidStr);
                     if (ddMatch.Success && terms.Count < 5)
                         terms.Add(ddMatch.Groups[1].Value);
+                    // Também extrair descrição do CID para busca textual
+                    var ddDescPart = ddCidStr.Contains('—') ? ddCidStr.Split('—', 2)[1].Trim()
+                        : ddCidStr.Contains('-') ? ddCidStr.Split('-', 2)[1].Trim() : "";
+                    if (ddDescPart.Length > 10 && terms.Count < 6)
+                        terms.Add(ddDescPart[..Math.Min(60, ddDescPart.Length)]);
+                }
+                // Extrair nome da hipótese (ex: "Toxoplasmose adquirida")
+                if (dd.TryGetProperty("hipotese", out var ddHip) && terms.Count < 6)
+                {
+                    var hipStr = ddHip.GetString()?.Trim() ?? "";
+                    if (hipStr.Length > 5)
+                        terms.Add(hipStr[..Math.Min(60, hipStr.Length)]);
                 }
             }
         }
@@ -61,22 +63,18 @@ internal static partial class AnamnesisResponseParser
     internal static string BuildClinicalContextForPrompt(JsonElement root)
     {
         var parts = new List<string>();
-        if (root.TryGetProperty("cid_sugerido", out var cidEl))
-        {
-            var cid = cidEl.GetString()?.Trim() ?? "";
-            if (!string.IsNullOrEmpty(cid))
-                parts.Add($"Hipótese diagnóstica (CID): {cid}");
-        }
         if (root.TryGetProperty("diagnostico_diferencial", out var ddEl) && ddEl.ValueKind == JsonValueKind.Array)
         {
             var dds = new List<string>();
             foreach (var dd in ddEl.EnumerateArray())
             {
-                if (dd.TryGetProperty("hipotese", out var h))
-                    dds.Add(h.GetString() ?? "");
+                var hipotese = dd.TryGetProperty("hipotese", out var h) ? h.GetString() ?? "" : "";
+                var cid = dd.TryGetProperty("cid", out var c) ? c.GetString() ?? "" : "";
+                if (!string.IsNullOrEmpty(hipotese))
+                    dds.Add(!string.IsNullOrEmpty(cid) ? $"{hipotese} ({cid})" : hipotese);
             }
             if (dds.Count > 0)
-                parts.Add($"Diagnósticos diferenciais: {string.Join("; ", dds)}");
+                parts.Add($"Diagnóstico diferencial: {string.Join("; ", dds)}");
         }
         if (root.TryGetProperty("anamnesis", out var anaEl2) && anaEl2.ValueKind == JsonValueKind.Object)
         {

@@ -206,39 +206,6 @@ public static class MigrationRunner
         "CREATE INDEX IF NOT EXISTS idx_doctor_patient_notes_doctor_patient ON public.doctor_patient_notes(doctor_id, patient_id)"
     };
 
-    private static readonly string[] ConsultationTimeBankMigrations =
-    {
-        """
-        CREATE TABLE IF NOT EXISTS public.consultation_time_bank (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-            consultation_type TEXT NOT NULL DEFAULT 'medico_clinico',
-            balance_seconds INTEGER NOT NULL DEFAULT 0,
-            last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-        """,
-        "ALTER TABLE public.consultation_time_bank ADD COLUMN IF NOT EXISTS consultation_type TEXT NOT NULL DEFAULT 'medico_clinico'",
-        "ALTER TABLE public.consultation_time_bank ADD COLUMN IF NOT EXISTS balance_seconds INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE public.consultation_time_bank ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
-        "CREATE INDEX IF NOT EXISTS idx_consultation_time_bank_patient_type ON public.consultation_time_bank(patient_id, consultation_type)",
-        """
-        CREATE TABLE IF NOT EXISTS public.consultation_time_bank_transactions (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            patient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-            request_id UUID REFERENCES public.requests(id) ON DELETE SET NULL,
-            consultation_type TEXT NOT NULL DEFAULT 'medico_clinico',
-            delta_seconds INTEGER NOT NULL DEFAULT 0,
-            reason TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-        """,
-        "ALTER TABLE public.consultation_time_bank_transactions ADD COLUMN IF NOT EXISTS patient_id UUID REFERENCES public.users(id) ON DELETE CASCADE",
-        "ALTER TABLE public.consultation_time_bank_transactions ADD COLUMN IF NOT EXISTS consultation_type TEXT NOT NULL DEFAULT 'medico_clinico'",
-        "ALTER TABLE public.consultation_time_bank_transactions ADD COLUMN IF NOT EXISTS delta_seconds INTEGER NOT NULL DEFAULT 0",
-        "CREATE INDEX IF NOT EXISTS idx_ctb_transactions_patient ON public.consultation_time_bank_transactions(patient_id)"
-    };
-
     private static readonly string[] AiInteractionLogsMigrations =
     {
         """
@@ -592,7 +559,7 @@ public static class MigrationRunner
             ("user_push_preferences", UserPushPreferencesMigrations),
             ("doctor_approval_status", DoctorApprovalStatusMigrations),
             ("doctor_patient_notes", DoctorPatientNotesMigrations),
-            ("consultation_time_bank", ConsultationTimeBankMigrations),
+
             ("ai_interaction_logs", AiInteractionLogsMigrations),
             ("prontuario", ProntuarioMigrations),
             ("care_plans", CarePlanMigrations),

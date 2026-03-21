@@ -25,7 +25,6 @@ namespace RenoveJa.Application.Services.Requests;
 /// <summary>
 /// Serviço de solicitações médicas: receita, exame, consulta, aprovação, rejeição, assinatura e sala de vídeo.
 /// </summary>
-#pragma warning disable CS9113 // consultationTimeBankRepository reserved for future use
 public class RequestService(
     IRequestRepository requestRepository,
     IUserRepository userRepository,
@@ -36,7 +35,6 @@ public class RequestService(
     IAiReadingService aiReadingService,
     IOptions<ApiConfig> apiConfig,
     IDocumentTokenService documentTokenService,
-    IConsultationTimeBankRepository consultationTimeBankRepository,
     IAiConductSuggestionService aiConductSuggestionService,
     IRequestEventsPublisher requestEventsPublisher,
     INewRequestBatchService newRequestBatchService,
@@ -46,7 +44,6 @@ public class RequestService(
     IConsultationLifecycleService consultationLifecycleService,
     ISignatureService signatureService,
     ILogger<RequestService> logger) : IRequestService
-#pragma warning restore CS9113
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
 
@@ -237,7 +234,6 @@ public class RequestService(
             logger?.LogWarning(ex, "Falha ao gerar AutoObservation para consulta {RequestId}. Prosseguindo sem ela.", medicalRequest.Id);
         }
 
-        // Banco de horas: débito só ao finalizar a consulta (não na criação). Se cancelar, nada foi debitado.
         // Serviço gratuito — preço efetivo 0
 
         medicalRequest.SetEffectivePrice(0);
@@ -727,8 +723,6 @@ public class RequestService(
 
         if (!RequestHelpers.CancellableStatuses.Contains(request.Status))
             throw new InvalidOperationException("Request can only be cancelled before payment is confirmed");
-
-        // Banco de horas: débito só ao finalizar. Cancelamento não debitou nada.
 
         request.Cancel();
         request = await requestRepository.UpdateAsync(request, cancellationToken);
@@ -1269,9 +1263,5 @@ public class RequestService(
 
     public Task<RequestResponseDto> AutoFinishConsultationAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
         => consultationLifecycleService.AutoFinishConsultationAsync(id, userId, cancellationToken);
-
-    public Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(
-        Guid userId, string consultationType, CancellationToken cancellationToken = default)
-        => consultationLifecycleService.GetTimeBankBalanceAsync(userId, consultationType, cancellationToken);
 
 }

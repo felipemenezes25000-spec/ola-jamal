@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -33,9 +34,16 @@ public class VideoController(
     IOptions<DailyConfig> dailyConfig,
     ILogger<VideoController> logger) : ControllerBase
 {
+    // Bug fix #5: Simple in-memory rate limiter for room creation.
+    // Key = requestId, Value = last creation timestamp.
+    // Max 1 room creation per consultation per minute.
+    private static readonly ConcurrentDictionary<Guid, DateTime> _roomCreationTimestamps = new();
+    private static readonly TimeSpan RoomCreationCooldown = TimeSpan.FromMinutes(1);
+
     /// <summary>
     /// Cria sala de vídeo no Daily.co e persiste no banco.
     /// Idempotente: se já existir, retorna a sala existente.
+    /// Rate limited: max 1 creation per consultation per minute.
     /// </summary>
     [Authorize]
     [HttpPost("rooms")]
@@ -43,6 +51,19 @@ public class VideoController(
         [FromBody] CreateVideoRoomRequestDto dto,
         CancellationToken cancellationToken)
     {
+        // Bug fix #5: Rate limit — max 1 room creation per consultation per minute.
+        var now = DateTime.UtcNow;
+        if (_roomCreationTimestamps.TryGetValue(dto.RequestId, out var lastCreation)
+            && (now - lastCreation) < RoomCreationCooldown)
+        {
+            var retryAfter = (int)(RoomCreationCooldown - (now - lastCreation)).TotalSeconds + 1;
+            logger.LogWarning(
+                "[VideoController] Room creation rate limited — RequestId={RequestId} RetryAfterSeconds={RetryAfter}",
+                dto.RequestId, retryAfter);
+            Response.Headers["Retry-After"] = retryAfter.ToString();
+            return StatusCode(429, new { message = "Sala já foi criada recentemente. Aguarde antes de tentar novamente.", retryAfterSeconds = retryAfter });
+        }
+
         var localRoom = await videoService.CreateRoomAsync(dto, cancellationToken);
 
         var config = dailyConfig.Value;
@@ -55,6 +76,12 @@ public class VideoController(
                 maxParticipants: 2,
                 expiryMinutes: config.DefaultRoomExpiryMinutes,
                 cancellationToken);
+
+            // Record successful creation timestamp for rate limiting
+            _roomCreationTimestamps[dto.RequestId] = DateTime.UtcNow;
+
+            // Periodically clean up old entries to prevent memory growth
+            CleanupStaleRateLimitEntries();
 
             return Ok(new
             {
@@ -69,8 +96,24 @@ public class VideoController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create Daily room for request {RequestId}", dto.RequestId);
+            logger.LogError(ex,
+                "[VideoController] Failed to create Daily room — RequestId={RequestId} RoomName={RoomName} UserId={UserId}",
+                dto.RequestId, roomName, User.FindFirstValue(ClaimTypes.NameIdentifier));
             return StatusCode(502, new { message = "Falha ao criar sala de vídeo. Tente novamente." });
+        }
+    }
+
+    /// <summary>Remove rate limit entries older than 10 minutes to prevent unbounded memory growth.</summary>
+    private static void CleanupStaleRateLimitEntries()
+    {
+        // Only clean up occasionally (rough check — not synchronized, which is fine for a best-effort cleanup)
+        if (_roomCreationTimestamps.Count < 100) return;
+
+        var cutoff = DateTime.UtcNow.AddMinutes(-10);
+        foreach (var kvp in _roomCreationTimestamps)
+        {
+            if (kvp.Value < cutoff)
+                _roomCreationTimestamps.TryRemove(kvp.Key, out _);
         }
     }
 
@@ -130,8 +173,9 @@ public class VideoController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create Daily meeting token for user {UserId}, request {RequestId}",
-                userId, dto.RequestId);
+            logger.LogError(ex,
+                "[VideoController] Failed to create Daily meeting token — UserId={UserId} RequestId={RequestId} RoomName={RoomName} IsDoctor={IsDoctor}",
+                userId, dto.RequestId, roomName, isDoctor);
             return StatusCode(502, new { message = "Falha ao gerar token de acesso à sala." });
         }
     }
@@ -209,7 +253,7 @@ public class VideoController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create Daily transcription test room for user {UserId}", userId);
+            logger.LogError(ex, "[VideoController] Failed to create Daily transcription test room — UserId={UserId} RoomName={RoomName}", userId, roomName);
             return StatusCode(502, new { message = "Falha ao criar sala de teste. Verifique DAILY_API_KEY." });
         }
     }

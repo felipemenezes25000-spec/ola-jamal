@@ -22,7 +22,10 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
   let title: string;
   let subtitle: string;
 
-  if (callState === 'joining') {
+  if (callState === 'reconnecting') {
+    title = 'Reconectando...';
+    subtitle = 'Conexão instável — tentando reconectar automaticamente';
+  } else if (callState === 'joining') {
     title = 'Entrando na sala...';
     subtitle = isDoctor ? 'O paciente será notificado' : 'Conectando à sala do médico...';
   } else if (isDoctor && timerStarted) {

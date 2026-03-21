@@ -18,6 +18,9 @@ public sealed class PubMedClient
     private const string UserAgent = "RenoveJaPlus/1.0 (Telemedicine clinical decision support; contact: dev@renovejasaude.com.br)";
     private const int MaxResults = 8;
 
+    /// <summary>Throttle requests to stay under PubMed's 3 req/s limit (no API key).</summary>
+    private static readonly SemaphoreSlim _throttle = new(2, 2);
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<PubMedClient> _logger;
 
@@ -39,16 +42,12 @@ public sealed class PubMedClient
         if (searchTerms.Count == 0)
             return new List<PubMedArticle>();
 
-        // Tier 1+2 em paralelo: Cochrane + Meta-análise (economiza ~500ms)
-        var cochraneTask = ESearchAsync(BuildCochraneQuery(searchTerms), 3, cancellationToken);
-        var metaTask = ESearchAsync(BuildMetaAnalysisQuery(searchTerms), 3, cancellationToken);
-        await Task.WhenAll(cochraneTask, metaTask);
-
+        // Tier 1+2 sequencial: Cochrane, depois Meta-análise (evita 429 rate limit — PubMed = 3 req/s sem API key)
         var allIds = new HashSet<string>();
         var articles = new List<PubMedArticle>();
 
         // Cochrane primeiro (gold standard)
-        var cochraneIds = cochraneTask.Result;
+        var cochraneIds = await ESearchAsync(BuildCochraneQuery(searchTerms), 3, cancellationToken);
         if (cochraneIds.Count > 0)
         {
             var cochraneArticles = await EFetchAsync(cochraneIds, cancellationToken);
@@ -61,7 +60,8 @@ public sealed class PubMedClient
         // Meta-análises (desduplicando com Cochrane)
         if (articles.Count < maxResults)
         {
-            var metaIds = metaTask.Result.Where(id => !allIds.Contains(id)).ToList();
+            var metaResult = await ESearchAsync(BuildMetaAnalysisQuery(searchTerms), 3, cancellationToken);
+            var metaIds = metaResult.Where(id => !allIds.Contains(id)).ToList();
             if (metaIds.Count > 0)
             {
                 var metaArticles = await EFetchAsync(metaIds.Take(maxResults - articles.Count).ToList(), cancellationToken);
@@ -104,6 +104,7 @@ public sealed class PubMedClient
 
     private async Task<List<string>> ESearchAsync(string query, int retMax, CancellationToken ct)
     {
+        await _throttle.WaitAsync(ct);
         try
         {
             var client = CreateClient();
@@ -111,6 +112,15 @@ public sealed class PubMedClient
             _logger.LogDebug("[PubMed ESearch] query={Query} retMax={RetMax}", query, retMax);
 
             var response = await client.GetAsync(url, ct);
+
+            // Retry once on 429 (Too Many Requests) with 1s backoff
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                _logger.LogWarning("[PubMed ESearch] 429 TooManyRequests — retrying in 1s for query={Query}", query);
+                await Task.Delay(1000, ct);
+                response = await client.GetAsync(url, ct);
+            }
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("[PubMed ESearch] HTTP {StatusCode} para query={Query}", response.StatusCode, query);
@@ -137,6 +147,10 @@ public sealed class PubMedClient
         {
             _logger.LogWarning(ex, "[PubMed ESearch] Erro na busca: query={Query}", query);
             return new List<string>();
+        }
+        finally
+        {
+            _throttle.Release();
         }
     }
 

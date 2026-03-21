@@ -167,6 +167,7 @@ export default function VideoCallScreenInner() {
     callRef,
     callState, localParticipant, remoteParticipant,
     isMuted, isCameraOff, isFrontCamera, quality, errorMessage,
+    isReconnecting,
     join, leave, toggleMute, toggleCamera, flipCamera,
   } = useDailyCall({
     roomUrl: roomUrl ?? '',
@@ -737,7 +738,11 @@ export default function VideoCallScreenInner() {
   return (
     <View style={S.container}>
       {/* Remote video — full screen normal; overlay pequeno em PiP */}
-      {remoteParticipant?.videoTrack?.persistentTrack != null && !ending && callState === 'joined' ? (
+      {/* Bug #3: Validate track.state === 'playable' before rendering DailyMediaView */}
+      {remoteParticipant?.videoTrack?.persistentTrack != null
+        && remoteParticipant.videoTrack.state === 'playable'
+        && !ending
+        && (callState === 'joined' || callState === 'reconnecting') ? (
         <View collapsable={false} style={remoteIsMain ? S.remote : S.pipRemote}>
           <DailyMediaView
             videoTrack={remoteParticipant.videoTrack.persistentTrack}
@@ -760,7 +765,11 @@ export default function VideoCallScreenInner() {
         Local preview: em PiP Android NÃO desmontar o DailyMediaView — isso parava o surface e o outro lado via tela preta.
         Em PiP: mantemos o mesmo track num view mínimo quase invisível (keep-alive) para o encoder continuar enviando.
       */}
-      {localParticipant?.videoTrack?.persistentTrack != null && !isCameraOff && !ending && callState === 'joined' && (
+      {/* Bug #3: Also validate local track.state === 'playable' */}
+      {localParticipant?.videoTrack?.persistentTrack != null
+        && localParticipant.videoTrack.state === 'playable'
+        && !isCameraOff && !ending
+        && (callState === 'joined' || callState === 'reconnecting') && (
         <View
           collapsable={false}
           pointerEvents={isInPipMode ? 'none' : 'auto'}
@@ -777,6 +786,15 @@ export default function VideoCallScreenInner() {
           {!isInPipMode && isMuted && (
             <View style={S.pipMute}><Ionicons name="mic-off" size={10} color={colors.white} /></View>
           )}
+        </View>
+      )}
+
+      {/* Bug #6: Reconnecting overlay — shown during network issues */}
+      {!isInPipMode && (isReconnecting || callState === 'reconnecting') && (
+        <View style={S.reconnectOverlay}>
+          <ActivityIndicator size="small" color={colors.white} />
+          <Text style={S.reconnectText}>Reconectando...</Text>
+          <Text style={S.reconnectSub}>Verifique sua conexão com a internet</Text>
         </View>
       )}
 
@@ -1066,6 +1084,11 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.white },
   recText: { color: colors.white, fontSize: 12, fontWeight: '600' },
   recCountdownText: { color: 'rgba(255,255,255,0.95)', fontSize: 13, fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
+
+  // Reconnecting overlay (Bug #6)
+  reconnectOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  reconnectText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  reconnectSub: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
 
   // Patient: Early leave hint
   earlyLeaveHint: { position: 'absolute', left: 12, right: 12, zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(30,41,59,0.92)' },

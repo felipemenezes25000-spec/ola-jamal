@@ -8,6 +8,10 @@
  * - Participant tracking (local + remote)
  * - Android foreground service notification
  * - Cleanup on unmount
+ * - Sentry breadcrumbs & error capture for all video events
+ * - 30s timeout on call.join()
+ * - Automatic reconnect on network change (WiFi→4G)
+ * - Proper event listener cleanup on unmount
  *
  * Does NOT handle: media controls (mute/camera/flip) or network quality monitoring.
  */
@@ -20,6 +24,8 @@ import Daily, {
   DailyParticipant,
   DailyTrackState,
 } from '@daily-co/react-native-daily-js';
+import { captureException as sentryCaptureException } from '@sentry/react-native';
+import { addBreadcrumb as sentryAddBreadcrumb } from '@sentry/core';
 
 // Tipos locais para eventos do Daily.co cujos tipos do pacote estão incompletos
 interface DailyParticipantEvent {
@@ -35,12 +41,19 @@ interface DailyErrorEvent {
   errorMsg?: string;
   action?: string;
 }
+interface DailyNetworkEvent {
+  type?: string;
+  event?: string;
+  threshold?: string;
+  quality?: number;
+}
 
 export type CallState =
   | 'idle'
   | 'joining'
   | 'joined'
   | 'leaving'
+  | 'reconnecting'
   | 'error';
 
 export interface ParticipantTrack {
@@ -74,6 +87,8 @@ export interface UseDailyJoinReturn {
   localParticipant: ParticipantTrack | null;
   remoteParticipant: ParticipantTrack | null;
   errorMessage: string | null;
+  /** True when reconnecting after network change */
+  isReconnecting: boolean;
   join: () => Promise<void>;
   leave: () => Promise<void>;
 }
@@ -104,6 +119,9 @@ function runDailyOpExclusive<T>(fn: () => Promise<T>): Promise<T> {
 /** Small delay to let Daily's native singleton registry clear after destroy(). */
 const POST_DESTROY_DELAY_MS = 300;
 
+/** Timeout for call.join() — prevents indefinite hang */
+const JOIN_TIMEOUT_MS = 30_000;
+
 async function ensurePreviousDestroyed(): Promise<void> {
   if (destroyPromise) {
     await destroyPromise;
@@ -125,6 +143,26 @@ async function ensurePreviousDestroyed(): Promise<void> {
   }
 }
 
+/** Creates a timeout promise that rejects after `ms` milliseconds. Returns a cancel function. */
+function createJoinTimeout(ms: number): { promise: Promise<never>; clear: () => void } {
+  let id: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<never>((_, reject) => {
+    id = setTimeout(
+      () => reject(new Error('Tempo limite para entrar na sala excedido. Verifique sua internet e tente novamente.')),
+      ms,
+    );
+  });
+  return {
+    promise,
+    clear: () => {
+      if (id !== undefined) {
+        clearTimeout(id);
+        id = undefined;
+      }
+    },
+  };
+}
+
 export function useDailyJoin({
   roomUrl,
   token,
@@ -138,6 +176,7 @@ export function useDailyJoin({
   const [localParticipant, setLocalParticipant] = useState<ParticipantTrack | null>(null);
   const [remoteParticipant, setRemoteParticipant] = useState<ParticipantTrack | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   // FIX M9: Store callbacks in refs to avoid stale closures in Daily event handlers
   const onRemoteJoinedRef = useRef(onRemoteJoined);
@@ -148,6 +187,9 @@ export function useDailyJoin({
   onErrorRef.current = onError;
   const isDoctorRef = useRef(isDoctor);
   isDoctorRef.current = isDoctor;
+
+  // Track registered event handlers for proper cleanup (Bug #7)
+  const registeredHandlersRef = useRef<Array<{ event: string; handler: (evt?: any) => void }>>([]);
 
   // --- Helpers ---
 
@@ -180,6 +222,24 @@ export function useDailyJoin({
     }
   }, [extractTrack]);
 
+  /** Register an event handler and track it for cleanup (Bug #7) */
+  const registerHandler = useCallback((call: DailyCall, event: string, handler: (evt?: any) => void) => {
+    call.on(event as DailyEvent, handler);
+    registeredHandlersRef.current.push({ event, handler });
+  }, []);
+
+  /** Remove all registered event handlers from a call object (Bug #7) */
+  const removeAllHandlers = useCallback((call: DailyCall) => {
+    for (const { event, handler } of registeredHandlersRef.current) {
+      try {
+        call.off(event as DailyEvent, handler);
+      } catch {
+        // swallow — call may already be destroyed
+      }
+    }
+    registeredHandlersRef.current = [];
+  }, []);
+
   // --- Join ---
 
   const join = useCallback(async () => {
@@ -194,6 +254,14 @@ export function useDailyJoin({
 
         setCallState('joining');
         setErrorMessage(null);
+        setIsReconnecting(false);
+
+        sentryAddBreadcrumb({
+          category: 'video.call',
+          message: 'Joining Daily.co call',
+          level: 'info',
+          data: { roomUrl },
+        });
 
         // Wait for any previous Daily instance to be fully destroyed
         await ensurePreviousDestroyed();
@@ -214,6 +282,11 @@ export function useDailyJoin({
             const msg = createErr instanceof Error ? createErr.message : '';
             if (msg.includes('Duplicate') && attempt < 2) {
               if (__DEV__) console.warn(`[useDailyJoin] createCallObject attempt ${attempt + 1} hit duplicate — retrying`);
+              sentryAddBreadcrumb({
+                category: 'video.call',
+                message: `createCallObject duplicate — retry ${attempt + 1}`,
+                level: 'warning',
+              });
               await new Promise(r => setTimeout(r, (attempt + 1) * 300));
               continue;
             }
@@ -228,26 +301,62 @@ export function useDailyJoin({
         // Android: inicia FGS/notificação ANTES do join — se o usuário minimizar durante a conexão, o SO já trata como chamada ativa (padrão Discord).
         setAndroidOngoingMeetingActive(true);
 
-        // --- Event handlers ---
+        // --- Event handlers (Bug #7: all tracked via registerHandler for proper cleanup) ---
 
-        call.on('joined-meeting' as DailyEvent, () => {
+        const onJoinedMeeting = () => {
           setCallState('joined');
+          setIsReconnecting(false);
           updateParticipants();
           setAndroidOngoingMeetingActive(true);
-        });
+          sentryAddBreadcrumb({
+            category: 'video.call',
+            message: 'Joined Daily.co meeting',
+            level: 'info',
+          });
+        };
+        registerHandler(call, 'joined-meeting', onJoinedMeeting);
 
-        call.on('participant-joined' as DailyEvent, (event: DailyParticipantEvent) => {
+        const onParticipantJoined = (event: DailyParticipantEvent) => {
           updateParticipants();
           if (event && !event.participant?.local) {
             onRemoteJoinedRef.current?.();
+            sentryAddBreadcrumb({
+              category: 'video.call',
+              message: 'Remote participant joined',
+              level: 'info',
+              data: { participantId: event.participant?.session_id },
+            });
           }
-        });
+        };
+        registerHandler(call, 'participant-joined', onParticipantJoined);
 
-        call.on('participant-updated' as DailyEvent, () => {
+        const onParticipantUpdated = () => {
           updateParticipants();
-        });
+        };
+        registerHandler(call, 'participant-updated', onParticipantUpdated);
 
-        call.on('participant-left' as DailyEvent, (event: DailyParticipantEvent) => {
+        // Bug #3: track-started/track-stopped for proper track state transitions
+        const onTrackStarted = () => {
+          updateParticipants();
+          sentryAddBreadcrumb({
+            category: 'video.track',
+            message: 'Track started',
+            level: 'info',
+          });
+        };
+        registerHandler(call, 'track-started', onTrackStarted);
+
+        const onTrackStopped = () => {
+          updateParticipants();
+          sentryAddBreadcrumb({
+            category: 'video.track',
+            message: 'Track stopped',
+            level: 'info',
+          });
+        };
+        registerHandler(call, 'track-stopped', onTrackStopped);
+
+        const onParticipantLeft = (event: DailyParticipantEvent) => {
           const participant = event?.participant;
           const localSessionId = call.participants()?.local?.session_id;
 
@@ -260,6 +369,16 @@ export function useDailyJoin({
               reason: event?.reason,
             });
           }
+
+          sentryAddBreadcrumb({
+            category: 'video.call',
+            message: 'Participant left',
+            level: 'info',
+            data: {
+              isLocal: participant?.session_id === localSessionId,
+              reason: event?.reason,
+            },
+          });
 
           const isLocalParticipant =
             participant?.session_id != null &&
@@ -279,46 +398,121 @@ export function useDailyJoin({
             if (__DEV__) console.warn('[useDailyJoin] onCallEnded(ejected)');
             onCallEndedRef.current?.('ejected');
           }
-        });
+        };
+        registerHandler(call, 'participant-left', onParticipantLeft);
 
-        call.on('meeting-ended' as DailyEvent, (event: DailyMeetingEndedEvent) => {
+        const onMeetingEnded = (event: DailyMeetingEndedEvent) => {
           if (__DEV__) {
             console.warn('[useDailyJoin] meeting-ended', { isDoctor, event });
           }
+          sentryAddBreadcrumb({
+            category: 'video.call',
+            message: 'Meeting ended',
+            level: 'info',
+          });
           setCallState('idle');
           onCallEndedRef.current?.('meeting-ended');
-        });
+        };
+        registerHandler(call, 'meeting-ended', onMeetingEnded);
 
-        call.on('left-meeting' as DailyEvent, () => {
+        const onLeftMeeting = () => {
+          sentryAddBreadcrumb({
+            category: 'video.call',
+            message: 'Left meeting',
+            level: 'info',
+            data: { programmatic: programmaticLeaveInProgress },
+          });
           setCallState('idle');
           if (!programmaticLeaveInProgress) {
             onCallEndedRef.current?.('left');
           }
-        });
+        };
+        registerHandler(call, 'left-meeting', onLeftMeeting);
 
-        call.on('error' as DailyEvent, (event: DailyErrorEvent) => {
+        const onError = (event: DailyErrorEvent) => {
           const msg = event?.error?.msg ?? event?.errorMsg ?? 'Erro na chamada de vídeo';
+          sentryCaptureException(new Error(`Daily.co error: ${msg}`), {
+            tags: { component: 'useDailyJoin' },
+            extra: { event },
+          });
+          sentryAddBreadcrumb({
+            category: 'video.call',
+            message: `Daily error: ${msg}`,
+            level: 'error',
+          });
           setCallState('error');
           setErrorMessage(msg);
           onErrorRef.current?.(msg);
-        });
+        };
+        registerHandler(call, 'error', onError);
 
-        // --- Join the call ---
-        await call.join({ url: roomUrl, token });
+        // Bug #4: Network change detection and automatic reconnect
+        const onNetworkConnection = (event: DailyNetworkEvent) => {
+          sentryAddBreadcrumb({
+            category: 'video.network',
+            message: `Network connection event: ${event?.type ?? event?.event ?? 'unknown'}`,
+            level: 'warning',
+            data: event,
+          });
+          if (__DEV__) console.warn('[useDailyJoin] network-connection', event);
+
+          const eventType = event?.type ?? event?.event ?? '';
+          if (eventType === 'interrupted' || eventType === 'change') {
+            setIsReconnecting(true);
+            setCallState('reconnecting');
+          }
+          if (eventType === 'connected') {
+            setIsReconnecting(false);
+            setCallState('joined');
+          }
+        };
+        registerHandler(call, 'network-connection', onNetworkConnection);
+
+        const onNetworkQualityChange = (event: DailyNetworkEvent) => {
+          const threshold = event?.threshold;
+          if (threshold === 'very-low') {
+            sentryAddBreadcrumb({
+              category: 'video.network',
+              message: 'Network quality very low',
+              level: 'warning',
+              data: event,
+            });
+            setIsReconnecting(true);
+            setCallState('reconnecting');
+          } else if (threshold === 'low') {
+            // Low but not very-low — show warning but don't set reconnecting
+            sentryAddBreadcrumb({
+              category: 'video.network',
+              message: 'Network quality low',
+              level: 'warning',
+              data: event,
+            });
+          } else if (threshold === 'good' && isReconnecting) {
+            setIsReconnecting(false);
+            setCallState('joined');
+          }
+        };
+        registerHandler(call, 'network-quality-change', onNetworkQualityChange);
+
+        // --- Join the call with timeout (Bug #2) ---
+        const joinTimeout = createJoinTimeout(JOIN_TIMEOUT_MS);
+        try {
+          await Promise.race([
+            call.join({ url: roomUrl, token }),
+            joinTimeout.promise,
+          ]);
+        } catch (joinErr) {
+          joinTimeout.clear();
+          throw joinErr;
+        }
+        joinTimeout.clear();
       });
     } catch (err: unknown) {
       // FIX NM-7: Clean up event handlers and destroy call object on join failure
-      // TS não liga atribuição dentro do callback async ao catch; falha costuma ser em call.join() após create.
       const callToCleanup = createdCall as DailyCall | null;
       if (callToCleanup) {
         try {
-          callToCleanup.off('joined-meeting' as DailyEvent);
-          callToCleanup.off('participant-joined' as DailyEvent);
-          callToCleanup.off('participant-updated' as DailyEvent);
-          callToCleanup.off('participant-left' as DailyEvent);
-          callToCleanup.off('meeting-ended' as DailyEvent);
-          callToCleanup.off('left-meeting' as DailyEvent);
-          callToCleanup.off('error' as DailyEvent);
+          removeAllHandlers(callToCleanup);
           await callToCleanup.destroy();
         } catch {
           // swallow — best-effort cleanup
@@ -327,13 +521,21 @@ export function useDailyJoin({
         globalCallInstance = null;
       }
       const msg = err instanceof Error ? err.message : 'Não foi possível entrar na sala';
+
+      // Bug #1: Capture exception in Sentry
+      sentryCaptureException(err instanceof Error ? err : new Error(msg), {
+        tags: { component: 'useDailyJoin', action: 'join' },
+        extra: { roomUrl },
+      });
+
       setCallState('error');
       setErrorMessage(msg);
+      setIsReconnecting(false);
       onErrorRef.current?.(msg);
     }
   // FIX M9: removed callback deps — refs are used inside, so join() is stable
   // eslint-disable-next-line react-hooks/exhaustive-deps -- isDoctor/callbacks accessed via refs
-  }, [roomUrl, token, updateParticipants]);
+  }, [roomUrl, token, updateParticipants, registerHandler, removeAllHandlers, isReconnecting]);
 
   // --- Leave ---
 
@@ -346,13 +548,16 @@ export function useDailyJoin({
       try {
         setCallState('leaving');
         setAndroidOngoingMeetingActive(false);
-        call.off('joined-meeting' as DailyEvent);
-        call.off('participant-joined' as DailyEvent);
-        call.off('participant-updated' as DailyEvent);
-        call.off('participant-left' as DailyEvent);
-        call.off('meeting-ended' as DailyEvent);
-        call.off('left-meeting' as DailyEvent);
-        call.off('error' as DailyEvent);
+
+        sentryAddBreadcrumb({
+          category: 'video.call',
+          message: 'Leaving Daily.co call',
+          level: 'info',
+        });
+
+        // Bug #7: Remove all tracked handlers instead of manual .off() calls
+        removeAllHandlers(call);
+
         await call.leave();
         await call.destroy();
       } catch {
@@ -364,11 +569,12 @@ export function useDailyJoin({
         }
         globalCallInstance = null;
         setCallState('idle');
+        setIsReconnecting(false);
         setLocalParticipant(null);
         setRemoteParticipant(null);
       }
     });
-  }, []);
+  }, [removeAllHandlers]);
 
   /**
    * Ao trocar sala/token (outro request, retry, token renovado), encerrar a sessão anterior.
@@ -385,11 +591,14 @@ export function useDailyJoin({
     }
   }, [roomUrl, token, leave]);
 
-  // --- Cleanup on unmount ---
+  // --- Cleanup on unmount (Bug #7: ensures all listeners are removed) ---
   useEffect(() => {
     return () => {
       const call = callRef.current;
       if (call) {
+        // Bug #7: Remove all tracked event handlers
+        removeAllHandlers(call);
+
         callRef.current = null;
         programmaticLeaveInProgress = true;
         // Track the async destroy so the next mount can await it.
@@ -406,6 +615,7 @@ export function useDailyJoin({
           });
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
@@ -414,6 +624,7 @@ export function useDailyJoin({
     localParticipant,
     remoteParticipant,
     errorMessage,
+    isReconnecting,
     join,
     leave,
   };

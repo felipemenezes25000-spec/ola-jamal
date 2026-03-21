@@ -16,6 +16,7 @@ import { spacing, borderRadius, typography } from '../../lib/themeDoctor';
 import { AppButton, AIActionSheet } from '../ui';
 import { showToast } from '../ui/Toast';
 import { parseAnamnesis, extractCid, displayMedicamento, displayExame } from '../../lib/domain/anamnesis';
+import type { DiagnosticoDiferencial } from '../../lib/domain/anamnesis';
 
 export interface ConductFormData {
   queixaDuracao: string;
@@ -142,8 +143,18 @@ export function ConductForm({
           next.evolucao = consultationTranscript.trim();
         }
         if (!next.hipoteseCid.trim()) {
-          const cid = extractCid(anamnesis);
-          if (cid) next.hipoteseCid = cid + (anamnesis.cid_descricao ? ` — ${anamnesis.cid_descricao}` : '');
+          const dd = anamnesis.diagnostico_diferencial;
+          if (Array.isArray(dd) && dd.length > 0) {
+            const first = dd[0];
+            if (typeof first === 'object' && first !== null && 'cid' in first) {
+              const diagItem = first as DiagnosticoDiferencial;
+              const cid = diagItem.cid?.trim();
+              const hipotese = diagItem.hipotese?.trim();
+              if (cid) {
+                next.hipoteseCid = hipotese ? `${cid} — ${hipotese}` : cid;
+              }
+            }
+          }
         }
         if (!next.conduta.trim() && aiSuggestion) next.conduta = aiSuggestion;
         if (!next.conduta.trim() && consultationSuggestions?.length) {
@@ -190,14 +201,7 @@ export function ConductForm({
       setForm((prev) => ({ ...prev, conduta: prev.conduta ? `${prev.conduta}\n\n${aiSuggestion}` : aiSuggestion }));
     }
 
-    const anamnesis = parseAnamnesis(anamnesisJson);
-    if (anamnesis) {
-      const cid = extractCid(anamnesis);
-      if (cid && !form.hipoteseCid.trim()) {
-        setForm((prev) => ({ ...prev, hipoteseCid: cid }));
-      }
-    }
-  }, [aiSuggestion, anamnesisJson, form.hipoteseCid]);
+  }, [aiSuggestion]);
 
   const prefillFromAnamnesis = useCallback(() => {
     const anamnesis = parseAnamnesis(anamnesisJson);
@@ -210,10 +214,6 @@ export function ConductForm({
       }
       if (!next.evolucao.trim() && anamnesis.historia_doenca_atual) {
         next.evolucao = typeof anamnesis.historia_doenca_atual === 'string' ? anamnesis.historia_doenca_atual : '';
-      }
-      if (!next.hipoteseCid.trim()) {
-        const cid = extractCid(anamnesis);
-        if (cid) next.hipoteseCid = cid + (anamnesis.cid_descricao ? ` — ${anamnesis.cid_descricao}` : '');
       }
       return next;
     });

@@ -6,17 +6,26 @@
  * - useQualityMonitor: network quality polling
  *
  * Adds: media control functions (toggleMute, toggleCamera, flipCamera).
+ * Adds: Sentry error capture for media control failures (Bug #1, #5).
+ * Adds: Retry mechanism for audio mode failure (Bug #5).
  *
  * Re-exports all types from sub-hooks for backward compatibility.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Alert } from 'react-native';
 import { useDailyJoin } from './useDailyJoin';
 import { useQualityMonitor } from './useQualityMonitor';
+import { captureException as sentryCaptureException } from '@sentry/react-native';
+import { addBreadcrumb as sentryAddBreadcrumb } from '@sentry/core';
 
 // Re-export types so existing imports from useDailyCall still work
 export type { CallState, ParticipantTrack } from './useDailyJoin';
 export type { ConnectionQuality } from './useQualityMonitor';
+
+/** Max retries for audio/video toggle failures (Bug #5) */
+const MEDIA_TOGGLE_MAX_RETRIES = 2;
+const MEDIA_TOGGLE_RETRY_DELAY_MS = 500;
 
 interface UseDailyCallOptions {
   /** URL da sala Daily.co (ex: https://renove.daily.co/consult-xxx) */
@@ -48,6 +57,7 @@ export function useDailyCall({
     localParticipant,
     remoteParticipant,
     errorMessage,
+    isReconnecting,
     join,
     leave,
   } = useDailyJoin({
@@ -60,7 +70,7 @@ export function useDailyCall({
   });
 
   // --- Network quality polling (auto-starts when joined) ---
-  const { quality } = useQualityMonitor(callRef, callState === 'joined');
+  const { quality } = useQualityMonitor(callRef, callState === 'joined' || callState === 'reconnecting');
 
   // --- Media controls ---
 
@@ -73,6 +83,50 @@ export function useDailyCall({
   const isCameraOffRef = useRef(false);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isCameraOffRef.current = isCameraOff; }, [isCameraOff]);
+
+  /**
+   * Bug #5: Retry helper for audio/video toggle with exponential backoff.
+   * Shows user feedback on final failure.
+   */
+  const retryMediaToggle = useCallback(async (
+    action: () => unknown,
+    actionName: string,
+    maxRetries: number = MEDIA_TOGGLE_MAX_RETRIES,
+  ): Promise<boolean> => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = action();
+        if (result != null && typeof (result as PromiseLike<unknown>).then === 'function') {
+          await Promise.resolve(result);
+        }
+        return true;
+      } catch (e) {
+        if (__DEV__) console.warn(`[useDailyCall] ${actionName} attempt ${attempt + 1} failed:`, e);
+
+        if (attempt === maxRetries) {
+          // Final failure — capture in Sentry and show user feedback
+          sentryCaptureException(e instanceof Error ? e : new Error(`${actionName} failed after ${maxRetries + 1} attempts`), {
+            tags: { component: 'useDailyCall', action: actionName },
+          });
+          Alert.alert(
+            'Erro no áudio/vídeo',
+            `Não foi possível ${actionName === 'setLocalAudio' ? 'alterar o microfone' : 'alterar a câmera'}. Tente novamente em alguns segundos.`,
+            [{ text: 'OK' }],
+          );
+          return false;
+        }
+
+        sentryAddBreadcrumb({
+          category: 'video.media',
+          message: `${actionName} retry ${attempt + 1}/${maxRetries}`,
+          level: 'warning',
+        });
+
+        await new Promise(r => setTimeout(r, MEDIA_TOGGLE_RETRY_DELAY_MS * (attempt + 1)));
+      }
+    }
+    return false;
+  }, []);
 
   /**
    * Atualiza estado da UI depois que o Daily confirma (Promise), para não montar DailyMediaView
@@ -94,31 +148,50 @@ export function useDailyCall({
       if (typeof setAudio !== 'function') {
         revertUi();
         if (__DEV__) console.warn('[useDailyCall] setLocalAudio não disponível');
+        sentryAddBreadcrumb({
+          category: 'video.media',
+          message: 'setLocalAudio not available',
+          level: 'warning',
+        });
         return;
       }
       let r: unknown;
       try {
         r = setAudio.call(call, !nextMuted);
       } catch (e) {
-        revertUi();
-        if (__DEV__) console.warn('[useDailyCall] setLocalAudio error:', e);
-        return;
+        // Bug #5: Retry on sync failure
+        return retryMediaToggle(
+          () => setAudio.call(call, !nextMuted),
+          'setLocalAudio',
+        ).then((success) => {
+          if (success) applyUi();
+          else revertUi();
+        });
       }
       if (r != null && typeof (r as PromiseLike<unknown>).then === 'function') {
         return Promise.resolve(r)
           .then(applyUi)
           .catch((e: unknown) => {
-            revertUi();
-            if (__DEV__) console.warn('[useDailyCall] setLocalAudio failed:', e);
+            // Bug #5: Retry on async failure
+            return retryMediaToggle(
+              () => setAudio.call(call, !nextMuted),
+              'setLocalAudio',
+            ).then((success) => {
+              if (success) applyUi();
+              else revertUi();
+            });
           });
       }
     } catch (e) {
       revertUi();
+      sentryCaptureException(e instanceof Error ? e : new Error('setLocalAudio outer error'), {
+        tags: { component: 'useDailyCall', action: 'toggleMute' },
+      });
       if (__DEV__) console.warn('[useDailyCall] setLocalAudio error:', e);
       return;
     }
     applyUi();
-  }, [callRef]);
+  }, [callRef, retryMediaToggle]);
 
   const toggleCamera = useCallback((): void | Promise<void> => {
     const call = callRef.current;
@@ -136,31 +209,48 @@ export function useDailyCall({
       if (typeof setVideo !== 'function') {
         revertUi();
         if (__DEV__) console.warn('[useDailyCall] setLocalVideo não disponível');
+        sentryAddBreadcrumb({
+          category: 'video.media',
+          message: 'setLocalVideo not available',
+          level: 'warning',
+        });
         return;
       }
       let r: unknown;
       try {
         r = setVideo.call(call, !nextOff);
       } catch (e) {
-        revertUi();
-        if (__DEV__) console.warn('[useDailyCall] setLocalVideo error:', e);
-        return;
+        return retryMediaToggle(
+          () => setVideo.call(call, !nextOff),
+          'setLocalVideo',
+        ).then((success) => {
+          if (success) applyUi();
+          else revertUi();
+        });
       }
       if (r != null && typeof (r as PromiseLike<unknown>).then === 'function') {
         return Promise.resolve(r)
           .then(applyUi)
           .catch((e: unknown) => {
-            revertUi();
-            if (__DEV__) console.warn('[useDailyCall] setLocalVideo failed:', e);
+            return retryMediaToggle(
+              () => setVideo.call(call, !nextOff),
+              'setLocalVideo',
+            ).then((success) => {
+              if (success) applyUi();
+              else revertUi();
+            });
           });
       }
     } catch (e) {
       revertUi();
+      sentryCaptureException(e instanceof Error ? e : new Error('setLocalVideo outer error'), {
+        tags: { component: 'useDailyCall', action: 'toggleCamera' },
+      });
       if (__DEV__) console.warn('[useDailyCall] setLocalVideo error:', e);
       return;
     }
     applyUi();
-  }, [callRef]);
+  }, [callRef, retryMediaToggle]);
 
   // FIX #16: Só atualiza isFrontCamera APÓS cycleCamera() ser bem-sucedido.
   // Anteriormente, o estado era invertido antes do await, e o catch silenciava a falha,
@@ -177,6 +267,9 @@ export function useDailyCall({
       await call.cycleCamera();
       setIsFrontCamera((prev) => !prev);
     } catch (e) {
+      sentryCaptureException(e instanceof Error ? e : new Error('cycleCamera failed'), {
+        tags: { component: 'useDailyCall', action: 'flipCamera' },
+      });
       if (__DEV__) console.warn('[useDailyCall] cycleCamera falhou:', e);
     }
   }, [callRef]);
@@ -190,6 +283,8 @@ export function useDailyCall({
     isFrontCamera,
     quality,
     errorMessage,
+    /** True when reconnecting after network change */
+    isReconnecting,
     join,
     leave,
     toggleMute,

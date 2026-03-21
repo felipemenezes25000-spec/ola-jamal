@@ -18,22 +18,22 @@ internal static class AnamnesisPrompts
     {
         return """
 ═══════════════════════════════════════════════════════════════
-REGRA #1 — CID E CONTEXTO (LEIA PRIMEIRO — MÁXIMA PRIORIDADE)
+REGRA #1 — DIAGNÓSTICO DIFERENCIAL E CONTEXTO (LEIA PRIMEIRO — MÁXIMA PRIORIDADE)
 ═══════════════════════════════════════════════════════════════
-O CID DEVE derivar EXCLUSIVAMENTE dos sintomas, sinais e dados epidemiológicos que o paciente RELATOU no transcript.
+O diagnóstico diferencial DEVE derivar EXCLUSIVAMENTE dos sintomas, sinais e dados epidemiológicos que o paciente RELATOU no transcript.
 
 PROIBIDO (alucinação grave — NUNCA faça):
 - Usar CID de órgão/sistema que o paciente NÃO mencionou no transcript
 - Inventar sintomas que não estão no transcript
 - Preservar CID de chamada anterior por inércia
 - Usar CID de etilismo/álcool (F10.x) se o paciente NÃO mencionou consumo de álcool — em habitos_vida use "Nega etilismo" ou "Não informado"
-- cid_sugerido DIFERENTE dos CIDs em diagnostico_diferencial — o cid_sugerido DEVE ser um dos CIDs listados no diagnostico_diferencial
 
 OBRIGATÓRIO:
 - Use o código MAIS ESPECÍFICO possível (subcategoria, ex: B58.9, não B58)
-- O campo "raciocinio_clinico" DEVE ser preenchido ANTES de cid_sugerido — nele você lista os sintomas extraídos e justifica o CID
+- O campo "raciocinio_clinico" DEVE ser preenchido ANTES do diagnóstico diferencial — nele você lista os sintomas extraídos e justifica as hipóteses
 - Se o paciente mencionou DADO EPIDEMIOLÓGICO (contato com gatos, viagens, alimentos), use-o ativamente no diagnóstico diferencial
 - Se o médico mencionou um CID ou diagnóstico no final da consulta, CONSIDERE-O fortemente
+- NÃO gere o campo "cid_sugerido" — ele foi REMOVIDO. O médico escolherá a hipótese correta do diagnostico_diferencial
 
 ═══════════════════════════════════════════════════════════════
 REGRA #0 — CAPRICHE NO PREENCHIMENTO (MÁXIMA PRIORIDADE)
@@ -80,13 +80,9 @@ Responda em um ÚNICO JSON válido com EXATAMENTE estes campos (nesta ordem):
     "outros": "Informação adicional relevante não coberta acima"
   },
 
-  "raciocinio_clinico": "OBRIGATÓRIO. Antes de definir o CID, escreva aqui seu raciocínio em 3-5 frases: (1) Quais são os achados-chave? (2) Qual sistema/órgão está envolvido? (3) Qual dado epidemiológico é relevante? (4) Por que este CID e não outro? Exemplo: 'Paciente com fadiga há 14 dias + febre baixa intermitente (37.5°C) + linfonodomegalia cervical posterior + contato com gatos (limpa caixa de areia). Tríade clássica de toxoplasmose adquirida em imunocompetente. CID B58.9 é mais específico que B27.9 (mono) pelo dado epidemiológico de contato com fezes de gato.'",
+  "raciocinio_clinico": "OBRIGATÓRIO. Antes de definir o diagnóstico diferencial, escreva aqui seu raciocínio em 3-5 frases: (1) Quais são os achados-chave? (2) Qual sistema/órgão está envolvido? (3) Qual dado epidemiológico é relevante? (4) Por que estas hipóteses e não outras? Exemplo: 'Paciente com fadiga há 14 dias + febre baixa intermitente (37.5°C) + linfonodomegalia cervical posterior + contato com gatos (limpa caixa de areia). Tríade clássica de toxoplasmose adquirida em imunocompetente. B58.9 é mais específico que B27.9 (mono) pelo dado epidemiológico de contato com fezes de gato.'",
 
   "denominador_comum": "Categoria ampla que unifica as hipóteses. Ex: 'Síndrome linfoproliferativa infecciosa', 'Síndrome gripal'. O médico vê primeiro o denominador, depois as probabilidades.",
-
-  "cid_sugerido": "Formato: 'CÓDIGO - Descrição'. OBRIGATÓRIO: deve ser EXATAMENTE um dos CIDs do campo diagnostico_diferencial (copie o cid do primeiro item com probabilidade 'alta'). DEVE ter suporte EXPLÍCITO no transcript. NUNCA use F10.x (álcool) se o paciente não mencionou consumo de álcool.",
-
-  "confianca_cid": "alta | media | baixa",
 
   "diagnostico_diferencial": [
     {
@@ -166,7 +162,7 @@ Responda em um ÚNICO JSON válido com EXATAMENTE estes campos (nesta ordem):
 
   "lacunas_anamnese": ["Informações ESSENCIAIS faltando. 2-5 itens. Array vazio se completa."],
 
-  "suggestions": ["5-10 frases ENRIQUECIDAS para prontuário. ESTRUTURA OBRIGATÓRIA cobrindo os 4 CAMPOS: (1) Queixa e duração: resumo em 1-2 frases. (2) Evolução/Anamnese: resumo da HDA em 2-3 frases. (3) Hipótese diagnóstica: 'Pode ser X ou Y' com CIDs. (4) Conduta: medicamentos com dose/posologia + exames + orientações para 'o que fazer enquanto os exames não saem'. Cada suggestion deve ser DETALHADA — nomes concretos de medicamentos, doses, exames. O médico deve conseguir copiar e colar com mínimas edições."]
+  "suggestions": ["5-10 frases ENRIQUECIDAS para prontuário. ESTRUTURA OBRIGATÓRIA cobrindo os 4 CAMPOS: (1) Queixa e duração: resumo em 1-2 frases. (2) Evolução/Anamnese: resumo da HDA em 2-3 frases. (3) Diagnóstico diferencial: 'Pode ser X ou Y' com as hipóteses do diagnostico_diferencial. (4) Conduta: medicamentos com dose/posologia + exames + orientações para 'o que fazer enquanto os exames não saem'. Cada suggestion deve ser DETALHADA — nomes concretos de medicamentos, doses, exames. O médico deve conseguir copiar e colar com mínimas edições."]
 }
 
 ═══ REGRAS CRÍTICAS — SUGGESTIONS (MEGA ASSERTIVAS, ENRIQUECIDAS, SEM VAZIOS) ═══
@@ -220,16 +216,14 @@ FLUXO CLÍNICO OBRIGATÓRIO (hipótese → conduta):
 - Medicamentos e exames DEVEM estar explícita e logicamente ligados às hipóteses do diagnóstico diferencial
 - O médico precisa ver: hipóteses → o que prescrever → o que solicitar → orientações
 
-═══ REGRA CRÍTICA — CONFIANÇA ALTA = TUDO BATE ═══
-Use confianca_cid = "alta" SOMENTE quando:
-- O CID tem suporte EXPLÍCITO no transcript (sintomas, sinais, dados epidemiológicos)
+═══ REGRA CRÍTICA — QUALIDADE DO DIAGNÓSTICO DIFERENCIAL ═══
+Cada hipótese do diagnostico_diferencial DEVE ter suporte EXPLÍCITO no transcript:
 - O raciocinio_clinico cita EXATAMENTE o que o paciente disse
-- A queixa_principal e o diagnóstico diferencial estão alinhados com o CID
-- Medicamentos e exames são coerentes com o quadro
+- A queixa_principal e o diagnóstico diferencial estão alinhados
+- Medicamentos e exames são coerentes com as hipóteses
+- Probabilidades refletem a força das evidências no transcript
 
-Se faltar evidência no transcript para um CID ou houver inconsistência entre qualquer campo → use confianca_cid = "media" ou "baixa".
-
-QUANDO confianca_cid = "alta":
+Quando a primeira hipótese tem probabilidade "alta":
 - Posologia OBRIGATÓRIA: "X comprimidos de Xmg de [nome] de X em X horas por X dias"
 - "melhora_esperada" OBRIGATÓRIO: "Melhora em X dias" ou "Alívio em X horas"
 
@@ -256,22 +250,20 @@ REGRA #1 REPETIDA — VALIDAÇÃO ANTES DE RESPONDER
 ═══════════════════════════════════════════════════════════════
 Antes de escrever o JSON, valide:
 1. O campo "raciocinio_clinico" cita os achados-chave do transcript?
-2. O cid_sugerido é EXATAMENTE um dos CIDs em diagnostico_diferencial? (OBRIGATÓRIO — copie do primeiro item com probabilidade 'alta')
-3. O cid_sugerido tem suporte EXPLÍCITO no transcript (sintomas, sinais, dados epidemiológicos)?
-4. O paciente MENCIONOU álcool? Se NÃO → NUNCA use F10.x. Use "Nega etilismo" em habitos_vida.
-5. O CID cobre o QUADRO COMPLETO (não apenas um sintoma isolado)?
-6. Dados epidemiológicos (animais, viagens, exposições) foram considerados?
-7. confianca_cid = "alta" SOMENTE se todos os campos acima batem — se não, use "media" ou "baixa"
-8. Medicamentos são coerentes com o CID?
-9. Exames investigam as hipóteses do diagnóstico diferencial?
-10. As suggestions incluem orientação para "o que fazer enquanto os exames não saem"? (OBRIGATÓRIO)
-11. Cada suggestion cita NOMES CONCRETOS (hipóteses do diferencial, medicamentos, exames)? Se não tiver dados suficientes, use UMA frase honesta: "Dados iniciais — continuar anamnese para definir hipóteses e conduta."
+2. NUNCA gere o campo "cid_sugerido" nem "confianca_cid" — eles foram REMOVIDOS do sistema.
+3. Cada hipótese do diagnostico_diferencial tem suporte EXPLÍCITO no transcript?
+4. O paciente MENCIONOU álcool? Se NÃO → NUNCA use F10.x em nenhuma hipótese. Use "Nega etilismo" em habitos_vida.
+5. Os CIDs do diferencial cobrem o QUADRO COMPLETO (não apenas um sintoma isolado)?
+6. Dados epidemiológicos (animais, viagens, exposições) foram considerados nas probabilidades?
+7. Medicamentos são coerentes com as hipóteses do diferencial?
+8. Exames investigam as hipóteses do diagnóstico diferencial?
+9. As suggestions incluem orientação para "o que fazer enquanto os exames não saem"? (OBRIGATÓRIO)
+10. Cada suggestion cita NOMES CONCRETOS (hipóteses do diferencial, medicamentos, exames)? Se não tiver dados suficientes, use UMA frase honesta: "Dados iniciais — continuar anamnese para definir hipóteses e conduta."
 
 BLOQUEIO ABSOLUTO DE CID F10.x (ALCOOLISMO):
-- LITERALMENTE: se o transcript NÃO contém as palavras "álcool", "beber", "bebida", "cerveja", "vinho", "cachaça", "etilismo", "etilista" → F10.x é PROIBIDO
+- LITERALMENTE: se o transcript NÃO contém as palavras "álcool", "beber", "bebida", "cerveja", "vinho", "cachaça", "etilismo", "etilista" → F10.x é PROIBIDO em QUALQUER hipótese
 - Se paciente disse "nega etilismo" → isso CONFIRMA que NÃO é F10.x
 - Este erro é GRAVÍSSIMO: diagnosticar dependência de álcool para paciente que NÃO bebe é negligência médica
-- Na DÚVIDA, use CID do sintoma predominante (ex: M25.5 para dor articular, R23.3 para equimoses)
 ═══════════════════════════════════════════════════════════════
 """;
     }
@@ -312,7 +304,7 @@ ETAPA 3 — RACIOCÍNIO DIAGNÓSTICO: Com os dados extraídos, raciocine:
 • Qual dado epidemiológico é CHAVE para o diagnóstico diferencial?
 • O CID deve cobrir o quadro COMPLETO, não apenas um sintoma isolado.
 
-SOMENTE DEPOIS das 3 etapas, gere o JSON com cid_sugerido coerente.";
+SOMENTE DEPOIS das 3 etapas, gere o JSON com diagnostico_diferencial coerente. NÃO gere o campo cid_sugerido — ele foi removido.";
 
         if (string.IsNullOrWhiteSpace(previousAnamnesisJson))
         {
@@ -323,10 +315,10 @@ SOMENTE DEPOIS das 3 etapas, gere o JSON com cid_sugerido coerente.";
 
         return $@"{reasoningInstruction}
 
-ANAMNESE ANTERIOR (use como REFERÊNCIA, mas RECALCULE TUDO — especialmente cid_sugerido e diagnostico_diferencial — do ZERO com base no transcript completo abaixo. O CID anterior pode estar ERRADO. Não o preserve por inércia.):
+ANAMNESE ANTERIOR (use como REFERÊNCIA, mas RECALCULE TUDO — especialmente o diagnostico_diferencial — do ZERO com base no transcript completo abaixo. As hipóteses anteriores podem estar ERRADAS. Não as preserve por inércia.):
 {previousAnamnesisJson}
 
-REGRA ABSOLUTA: Ignore o cid_sugerido anterior. Derive o CID EXCLUSIVAMENTE do transcript abaixo, seguindo as 3 etapas acima.
+REGRA ABSOLUTA: Ignore qualquer cid_sugerido anterior. Derive o diagnóstico diferencial EXCLUSIVAMENTE do transcript abaixo, seguindo as 3 etapas acima. NÃO gere o campo cid_sugerido.
 
 {transcriptBlock}";
     }

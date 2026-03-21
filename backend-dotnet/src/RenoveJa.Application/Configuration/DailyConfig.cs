@@ -26,6 +26,12 @@ public class DailyConfig
     /// </summary>
     public string WebhookSecret { get; set; } = string.Empty;
 
+    /// <summary>Minutos restantes antes da expiração para considerar o token "quase expirado" e regenerar. Padrão: 5.</summary>
+    public int TokenRefreshThresholdMinutes { get; set; } = 5;
+
+    /// <summary>Máximo de segundos no passado para aceitar eventos de webhook. Padrão: 300 (5 min).</summary>
+    public int WebhookMaxEventAgeSeconds { get; set; } = 300;
+
     /// <summary>
     /// Gera o nome da sala dado o requestId.
     /// Convenção: room_name = "consult-{requestId:N}" (ex: consult-550e8400e29b41d4a716446655440000).

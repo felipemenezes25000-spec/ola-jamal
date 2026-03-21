@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -31,6 +32,9 @@ public interface IDailyVideoService
 
     /// <summary>Inicia gravação cloud na sala via API (POST /rooms/:name/recordings/start). Garante gravação mesmo se o token não iniciar.</summary>
     Task<bool> StartRecordingAsync(string roomName, CancellationToken ct = default);
+
+    /// <summary>Verifica se uma sala existe no Daily.co. Retorna true se existir.</summary>
+    Task<bool> RoomExistsAsync(string roomName, CancellationToken ct = default);
 }
 
 /// <summary>Metadados de uma gravação Daily (para auditoria).</summary>
@@ -65,6 +69,13 @@ public class DailyVideoService : IDailyVideoService
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    // --- Circuit breaker state (static — shared across scoped DI instances) ---
+    private const int CircuitBreakerThreshold = 5;
+    private static readonly TimeSpan CircuitBreakerCooldown = TimeSpan.FromSeconds(30);
+    private static int _consecutiveFailures;
+    private static DateTime _circuitOpenedAt = DateTime.MinValue;
+    private static readonly object _cbLock = new();
+
     public DailyVideoService(
         HttpClient httpClient,
         IOptions<DailyConfig> config,
@@ -79,12 +90,76 @@ public class DailyVideoService : IDailyVideoService
             new AuthenticationHeaderValue("Bearer", _config.ApiKey);
     }
 
+    /// <summary>Throws if circuit breaker is open (Daily considered down).</summary>
+    private void ThrowIfCircuitOpen()
+    {
+        lock (_cbLock)
+        {
+            if (_consecutiveFailures < CircuitBreakerThreshold)
+                return;
+
+            var elapsed = DateTime.UtcNow - _circuitOpenedAt;
+            if (elapsed < CircuitBreakerCooldown)
+            {
+                _logger.LogWarning("[DailyCircuitBreaker] Circuit OPEN — {Failures} consecutive failures, cooldown {Remaining:F0}s remaining.",
+                    _consecutiveFailures, (CircuitBreakerCooldown - elapsed).TotalSeconds);
+                throw new InvalidOperationException(
+                    $"Daily.co circuit breaker open ({_consecutiveFailures} consecutive failures). Retry after {(CircuitBreakerCooldown - elapsed).TotalSeconds:F0}s.");
+            }
+
+            // Cooldown expired — half-open, allow probe
+            _logger.LogInformation("[DailyCircuitBreaker] Half-open — allowing probe request.");
+        }
+    }
+
+    /// <summary>Record a successful call — resets circuit breaker.</summary>
+    private void RecordSuccess()
+    {
+        lock (_cbLock)
+        {
+            if (_consecutiveFailures > 0)
+            {
+                _logger.LogInformation("[DailyCircuitBreaker] Circuit CLOSED — recovered after {Failures} failures.", _consecutiveFailures);
+                _consecutiveFailures = 0;
+            }
+        }
+    }
+
+    /// <summary>Record a failed call — may trip circuit breaker.</summary>
+    private void RecordFailure()
+    {
+        lock (_cbLock)
+        {
+            _consecutiveFailures++;
+            if (_consecutiveFailures >= CircuitBreakerThreshold)
+            {
+                _circuitOpenedAt = DateTime.UtcNow;
+                _logger.LogError("[DailyCircuitBreaker] Circuit OPEN — {Failures} consecutive failures. Blocking for {Cooldown}s.",
+                    _consecutiveFailures, CircuitBreakerCooldown.TotalSeconds);
+            }
+        }
+    }
+
+    /// <summary>Checks if an HTTP status code is transient (worth retrying).</summary>
+    private static bool IsTransientError(HttpStatusCode statusCode)
+        => statusCode is HttpStatusCode.RequestTimeout
+            or HttpStatusCode.TooManyRequests
+            or HttpStatusCode.InternalServerError
+            or HttpStatusCode.BadGateway
+            or HttpStatusCode.ServiceUnavailable
+            or HttpStatusCode.GatewayTimeout;
+
     public async Task<DailyRoomResult> CreateRoomAsync(
         string roomName,
         int maxParticipants = 2,
         int expiryMinutes = 120,
         CancellationToken ct = default)
     {
+        ThrowIfCircuitOpen();
+
+        const int maxRetries = 3;
+        var retryDelays = new[] { 500, 1500, 3000 }; // ms — exponential backoff
+
         var expiry = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).ToUnixTimeSeconds();
 
         // eject_at_room_exp: quando a sala expira (exp), todos os participantes são ejetados.
@@ -109,43 +184,79 @@ public class DailyVideoService : IDailyVideoService
         };
 
         var json = JsonSerializer.Serialize(body, JsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync("rooms", content, ct);
-
-        if (!response.IsSuccessStatusCode)
+        for (var attempt = 0; attempt < maxRetries; attempt++)
         {
-            var errorBody = await response.Content.ReadAsStringAsync(ct);
-
-            // 409 Conflict ou 400 com "already exists" — sala já existe no Daily, reutilizar
-            var isRoomExists = response.StatusCode == System.Net.HttpStatusCode.Conflict
-                || (response.StatusCode == System.Net.HttpStatusCode.BadRequest
-                    && errorBody.Contains("already exists", StringComparison.OrdinalIgnoreCase));
-
-            if (isRoomExists)
+            try
             {
-                _logger.LogInformation("Daily room {RoomName} already exists, fetching it", roomName);
-                return await GetRoomAsync(roomName, ct);
-            }
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync("rooms", content, ct);
 
-            _logger.LogError("Daily API error creating room: {Status} {Body}", response.StatusCode, errorBody);
-            throw new InvalidOperationException($"Daily API error: {response.StatusCode} — {errorBody}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync(ct);
+
+                    // 409 Conflict ou 400 com "already exists" — sala já existe no Daily, reutilizar
+                    var isRoomExists = response.StatusCode == HttpStatusCode.Conflict
+                        || (response.StatusCode == HttpStatusCode.BadRequest
+                            && errorBody.Contains("already exists", StringComparison.OrdinalIgnoreCase));
+
+                    if (isRoomExists)
+                    {
+                        RecordSuccess();
+                        _logger.LogInformation("Daily room {RoomName} already exists, fetching it", roomName);
+                        return await GetRoomAsync(roomName, ct);
+                    }
+
+                    // Retry only on transient errors
+                    if (IsTransientError(response.StatusCode) && attempt < maxRetries - 1)
+                    {
+                        RecordFailure();
+                        _logger.LogWarning("Daily API transient error creating room (attempt {Attempt}/{Max}): {Status} {Body}",
+                            attempt + 1, maxRetries, response.StatusCode, errorBody);
+                        await Task.Delay(retryDelays[attempt], ct);
+                        continue;
+                    }
+
+                    RecordFailure();
+                    _logger.LogError("Daily API error creating room — RoomName={RoomName} Status={Status} Body={Body} MaxParticipants={MaxParticipants} ExpiryMinutes={ExpiryMinutes}",
+                        roomName, response.StatusCode, errorBody, maxParticipants, expiryMinutes);
+                    throw new InvalidOperationException($"Daily API error: {response.StatusCode} — {errorBody}");
+                }
+
+                var result = await JsonSerializer.DeserializeAsync<DailyRoomResponse>(
+                    await response.Content.ReadAsStreamAsync(ct), JsonOptions, ct);
+
+                RecordSuccess();
+                _logger.LogInformation("Daily room created: {RoomName} ({RoomUrl})", result!.Name, result.Url);
+
+                return new DailyRoomResult(
+                    result.Name,
+                    result.Url,
+                    result.Id,
+                    DateTimeOffset.FromUnixTimeSeconds(result.CreatedAt).UtcDateTime,
+                    result.Config?.Exp != null
+                        ? DateTimeOffset.FromUnixTimeSeconds(result.Config.Exp.Value).UtcDateTime
+                        : null
+                );
+            }
+            catch (HttpRequestException ex) when (attempt < maxRetries - 1)
+            {
+                RecordFailure();
+                _logger.LogWarning(ex, "Daily API network error creating room (attempt {Attempt}/{Max})", attempt + 1, maxRetries);
+                await Task.Delay(retryDelays[attempt], ct);
+            }
+            catch (TaskCanceledException ex) when (!ct.IsCancellationRequested && attempt < maxRetries - 1)
+            {
+                RecordFailure();
+                _logger.LogWarning(ex, "Daily API timeout creating room (attempt {Attempt}/{Max})", attempt + 1, maxRetries);
+                await Task.Delay(retryDelays[attempt], ct);
+            }
         }
 
-        var result = await JsonSerializer.DeserializeAsync<DailyRoomResponse>(
-            await response.Content.ReadAsStreamAsync(ct), JsonOptions, ct);
-
-        _logger.LogInformation("Daily room created: {RoomName} ({RoomUrl})", result!.Name, result.Url);
-
-        return new DailyRoomResult(
-            result.Name,
-            result.Url,
-            result.Id,
-            DateTimeOffset.FromUnixTimeSeconds(result.CreatedAt).UtcDateTime,
-            result.Config?.Exp != null
-                ? DateTimeOffset.FromUnixTimeSeconds(result.Config.Exp.Value).UtcDateTime
-                : null
-        );
+        // Should not reach here, but safety net
+        RecordFailure();
+        throw new InvalidOperationException($"Failed to create Daily room {roomName} after {maxRetries} attempts.");
     }
 
     public async Task DeleteRoomAsync(string roomName, CancellationToken ct = default)
@@ -170,6 +281,11 @@ public class DailyVideoService : IDailyVideoService
         int? ejectAfterSeconds = null,
         CancellationToken ct = default)
     {
+        ThrowIfCircuitOpen();
+
+        var requestId = Guid.NewGuid().ToString("N")[..8]; // correlation id for debugging
+        var tokenExpiryUnix = DateTimeOffset.UtcNow.AddHours(2).ToUnixTimeSeconds();
+
         var properties = new Dictionary<string, object>
         {
             ["room_name"] = roomName,
@@ -180,13 +296,11 @@ public class DailyVideoService : IDailyVideoService
             ["start_cloud_recording"] = isOwner,
             ["start_audio_off"] = false,
             ["start_video_off"] = false,
+            ["exp"] = tokenExpiryUnix,
         };
 
         if (ejectAfterSeconds.HasValue)
             properties["eject_after_elapsed"] = ejectAfterSeconds.Value;
-
-        // Token expira em 2 horas
-        properties["exp"] = DateTimeOffset.UtcNow.AddHours(2).ToUnixTimeSeconds();
 
         var body = new { properties };
         var json = JsonSerializer.Serialize(body, JsonOptions);
@@ -197,15 +311,90 @@ public class DailyVideoService : IDailyVideoService
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError("Daily API error creating token: {Status} {Body}", response.StatusCode, errorBody);
+            _logger.LogError(
+                "Daily API error creating token: {Status} {Body} — RequestId={CorrelationId} RoomName={RoomName} UserId={UserId}",
+                response.StatusCode, errorBody, requestId, roomName, userId);
             throw new InvalidOperationException($"Daily meeting token error: {response.StatusCode}");
         }
 
         var result = await JsonSerializer.DeserializeAsync<DailyTokenResponse>(
             await response.Content.ReadAsStreamAsync(ct), JsonOptions, ct);
 
-        _logger.LogInformation("Daily meeting token created for user {UserId} in room {RoomName}", userId, roomName);
-        return result!.Token;
+        var token = result!.Token;
+
+        // Bug fix #1: Validate token expiry before returning to client.
+        // Decode the JWT payload (second segment) to verify exp claim is fresh.
+        var thresholdMinutes = _config.TokenRefreshThresholdMinutes > 0 ? _config.TokenRefreshThresholdMinutes : 5;
+        if (!ValidateTokenExpiry(token, thresholdMinutes, out var expiresAt))
+        {
+            _logger.LogWarning(
+                "Daily token near expiry or expired (ExpiresAt={ExpiresAt}), regenerating — CorrelationId={CorrelationId} RoomName={RoomName} UserId={UserId}",
+                expiresAt, requestId, roomName, userId);
+
+            // Regenerate with a fresh exp
+            properties["exp"] = DateTimeOffset.UtcNow.AddHours(2).ToUnixTimeSeconds();
+            var retryBody = new { properties };
+            var retryJson = JsonSerializer.Serialize(retryBody, JsonOptions);
+            var retryContent = new StringContent(retryJson, Encoding.UTF8, "application/json");
+
+            var retryResponse = await _httpClient.PostAsync("meeting-tokens", retryContent, ct);
+            if (!retryResponse.IsSuccessStatusCode)
+            {
+                var retryError = await retryResponse.Content.ReadAsStringAsync(ct);
+                _logger.LogError(
+                    "Daily API error on token regeneration: {Status} {Body} — CorrelationId={CorrelationId} RoomName={RoomName} UserId={UserId}",
+                    retryResponse.StatusCode, retryError, requestId, roomName, userId);
+                throw new InvalidOperationException($"Daily meeting token regeneration error: {retryResponse.StatusCode}");
+            }
+
+            var retryResult = await JsonSerializer.DeserializeAsync<DailyTokenResponse>(
+                await retryResponse.Content.ReadAsStreamAsync(ct), JsonOptions, ct);
+            token = retryResult!.Token;
+        }
+
+        _logger.LogInformation(
+            "Daily meeting token created — CorrelationId={CorrelationId} RoomName={RoomName} UserId={UserId} IsOwner={IsOwner}",
+            requestId, roomName, userId, isOwner);
+        return token;
+    }
+
+    /// <summary>
+    /// Validates that a Daily JWT token's exp claim is at least <paramref name="thresholdMinutes"/> in the future.
+    /// Returns false if token is expired or close to expiry.
+    /// </summary>
+    private static bool ValidateTokenExpiry(string token, int thresholdMinutes, out DateTimeOffset expiresAt)
+    {
+        expiresAt = DateTimeOffset.MinValue;
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length < 2) return false;
+
+            // Pad base64url to standard base64
+            var payload = parts[1];
+            payload = payload.Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4)
+            {
+                case 2: payload += "=="; break;
+                case 3: payload += "="; break;
+            }
+
+            var jsonBytes = Convert.FromBase64String(payload);
+            using var doc = JsonDocument.Parse(jsonBytes);
+            if (doc.RootElement.TryGetProperty("exp", out var expProp) && expProp.ValueKind == JsonValueKind.Number)
+            {
+                var exp = expProp.GetInt64();
+                expiresAt = DateTimeOffset.FromUnixTimeSeconds(exp);
+                var remaining = expiresAt - DateTimeOffset.UtcNow;
+                return remaining.TotalMinutes >= thresholdMinutes;
+            }
+
+            return false; // no exp claim
+        }
+        catch
+        {
+            return false; // malformed token — treat as expired
+        }
     }
 
     public async Task<IReadOnlyList<DailyRecordingInfo>> ListRecordingsByRoomAsync(string roomName, CancellationToken ct = default)
@@ -215,7 +404,7 @@ public class DailyVideoService : IDailyVideoService
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogWarning("Daily API error listing recordings for room {RoomName}: {Status} {Body}", roomName, response.StatusCode, errorBody);
+            _logger.LogWarning("Daily API error listing recordings — RoomName={RoomName} Status={Status} Body={Body}", roomName, response.StatusCode, errorBody);
             return Array.Empty<DailyRecordingInfo>();
         }
 
@@ -237,7 +426,7 @@ public class DailyVideoService : IDailyVideoService
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogWarning("Daily API error getting recording access link {RecordingId}: {Status} {Body}", recordingId, response.StatusCode, errorBody);
+            _logger.LogWarning("Daily API error getting recording access link — RecordingId={RecordingId} Status={Status} Body={Body}", recordingId, response.StatusCode, errorBody);
             return (null, null);
         }
         using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
@@ -249,21 +438,49 @@ public class DailyVideoService : IDailyVideoService
 
     public async Task<bool> StartRecordingAsync(string roomName, CancellationToken ct = default)
     {
+        ThrowIfCircuitOpen();
+
         var body = new { type = "cloud", layout = new { preset = "default" } };
         var json = JsonSerializer.Serialize(body, JsonOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"rooms/{Uri.EscapeDataString(roomName)}/recordings/start", content, ct);
-
-        if (response.IsSuccessStatusCode)
+        try
         {
-            _logger.LogInformation("[Daily] Gravação iniciada na sala {RoomName}", roomName);
-            return true;
-        }
+            var response = await _httpClient.PostAsync($"rooms/{Uri.EscapeDataString(roomName)}/recordings/start", content, ct);
 
-        var errorBody = await response.Content.ReadAsStringAsync(ct);
-        _logger.LogWarning("[Daily] Falha ao iniciar gravação em {RoomName}: {Status} {Body}", roomName, response.StatusCode, errorBody);
-        return false;
+            if (response.IsSuccessStatusCode)
+            {
+                RecordSuccess();
+                _logger.LogInformation("[Daily] Gravação iniciada — RoomName={RoomName}", roomName);
+                return true;
+            }
+
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            if (IsTransientError(response.StatusCode))
+                RecordFailure();
+            _logger.LogWarning("[Daily] Falha ao iniciar gravação — RoomName={RoomName} Status={Status} Body={Body}", roomName, response.StatusCode, errorBody);
+            return false;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            RecordFailure();
+            _logger.LogWarning(ex, "[Daily] Network/timeout error starting recording — RoomName={RoomName}", roomName);
+            return false;
+        }
+    }
+
+    public async Task<bool> RoomExistsAsync(string roomName, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"rooms/{Uri.EscapeDataString(roomName)}", ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Daily] Error checking room existence — RoomName={RoomName}", roomName);
+            return false;
+        }
     }
 
     private async Task<DailyRoomResult> GetRoomAsync(string roomName, CancellationToken ct)

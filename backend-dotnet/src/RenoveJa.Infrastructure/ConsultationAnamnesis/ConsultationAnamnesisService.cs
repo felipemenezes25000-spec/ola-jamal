@@ -12,20 +12,17 @@ namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 public class ConsultationAnamnesisService : IConsultationAnamnesisService
 {
     private readonly ConsultationAnamnesisLlmClient _llmClient;
-    private readonly CidLlmValidator _cidValidator;
     private readonly IClinicalEvidenceService _evidenceService;
     private readonly ILogger<ConsultationAnamnesisService> _logger;
     private readonly IAiInteractionLogRepository _aiInteractionLogRepository;
 
     public ConsultationAnamnesisService(
         ConsultationAnamnesisLlmClient llmClient,
-        CidLlmValidator cidValidator,
         IClinicalEvidenceService evidenceService,
         ILogger<ConsultationAnamnesisService> logger,
         IAiInteractionLogRepository aiInteractionLogRepository)
     {
         _llmClient = llmClient;
-        _cidValidator = cidValidator;
         _evidenceService = evidenceService;
         _logger = logger;
         _aiInteractionLogRepository = aiInteractionLogRepository;
@@ -93,41 +90,6 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         if (composed == null)
             return null;
 
-        // MELHORIA 2: Segundo pass — validar CID com LLM separado
-        try
-        {
-            var cidFromResult = ExtractCidFromJson(composed.AnamnesisJson);
-            if (!string.IsNullOrWhiteSpace(cidFromResult))
-            {
-                var diffJson = ExtractFieldFromJson(composed.AnamnesisJson, "diagnostico_diferencial");
-                var validation = await _cidValidator.ValidateCidAsync(
-                    transcriptSoFar, cidFromResult, diffJson, cancellationToken);
-
-                if (!validation.IsValid)
-                {
-                    if (string.Equals(validation.ValidatorConfidence, "baixa", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogInformation("[Anamnese] CID '{Cid}' reprovado pelo validador MAS com confiança baixa — mantendo original.", cidFromResult);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("[Anamnese] CID '{Cid}' REPROVADO pelo validador LLM: {Reason}. Sugestão: {Suggested}",
-                            cidFromResult, validation.Reason, validation.SuggestedCid);
-
-                        // Substituir CID no JSON se temos sugestão válida
-                        if (!string.IsNullOrWhiteSpace(validation.SuggestedCid))
-                        {
-                            composed = ReplaceCidInResult(composed, validation.SuggestedCid, validation.Reason, _logger);
-                        }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[Anamnese] Falha na validação LLM do CID — continuando com CID original.");
-        }
-
         // Buscar evidências clínicas (Cochrane/PubMed → GPT-4o validação) em background.
         // Se falhar, retorna resultado sem evidência (não bloqueia anamnese).
         IReadOnlyList<EvidenceItemDto> evidence;
@@ -145,58 +107,4 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         return new ConsultationAnamnesisResult(composed.AnamnesisJson, composed.Suggestions, evidence);
     }
 
-    private static string? ExtractCidFromJson(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("cid_sugerido", out var el)
-                ? el.GetString()?.Trim() : null;
-        }
-        catch { return null; }
-    }
-
-    private static string? ExtractFieldFromJson(string json, string field)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty(field, out var el)
-                ? el.GetRawText() : null;
-        }
-        catch { return null; }
-    }
-
-    private static ConsultationAnamnesisResult ReplaceCidInResult(
-        ConsultationAnamnesisResult original, string newCid, string? reason, ILogger logger)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(original.AnamnesisJson);
-            var root = doc.RootElement;
-            var dict = new Dictionary<string, string>();
-
-            foreach (var prop in root.EnumerateObject())
-            {
-                if (prop.Name == "cid_sugerido")
-                    dict[prop.Name] = JsonSerializer.Serialize(newCid);
-                else if (prop.Name == "confianca_cid")
-                    dict[prop.Name] = JsonSerializer.Serialize("baixa");
-                else
-                    dict[prop.Name] = prop.Value.GetRawText();
-            }
-
-            // Adicionar motivo da correção
-            dict["cid_correcao_motivo"] = JsonSerializer.Serialize(reason ?? "CID reprovado pelo validador LLM");
-
-            var newJson = "{" + string.Join(",", dict.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
-            logger.LogInformation("[Anamnese] CID substituído pelo validador LLM: {NewCid}", newCid);
-            return new ConsultationAnamnesisResult(newJson, original.Suggestions, original.Evidence);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "[Anamnese] Falha ao substituir CID — mantendo original.");
-            return original;
-        }
-    }
 }

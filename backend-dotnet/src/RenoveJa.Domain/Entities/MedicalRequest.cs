@@ -536,8 +536,7 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    /// <summary>Define o preço efetivo da consulta (após descontos do banco de horas), sem alterar o status.</summary>
-    /// <remarks>Persiste Price=0 quando consulta é gratuita (banco de horas cobre 100%).</remarks>
+    /// <summary>Define o preço efetivo da consulta, sem alterar o status.</summary>
     public void SetEffectivePrice(decimal price)
     {
         if (price < 0) throw new DomainException("Price cannot be negative");

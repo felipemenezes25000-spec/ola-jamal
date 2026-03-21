@@ -142,12 +142,12 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
 
             Responda APENAS com JSON válido, sem markdown:
             {
-              "conduct_suggestion": "Conduta estruturada em formato narrativo (até 8 linhas). Estruture: (1) Hipótese diagnóstica provável com CID, (2) Orientação terapêutica geral, (3) Cuidados específicos, (4) Retorno/acompanhamento. Use linguagem profissional médica.",
+              "conduct_suggestion": "Conduta estruturada em formato narrativo (até 8 linhas). Estruture: (1) Diagnóstico diferencial provável, (2) Orientação terapêutica geral, (3) Cuidados específicos, (4) Retorno/acompanhamento. Use linguagem profissional médica.",
 
               "soap_template": {
                 "subjetivo": "S — Resumo da queixa principal e HDA em 2-3 frases",
                 "objetivo": "O — O que examinar / sinais vitais relevantes",
-                "avaliacao": "A — Hipótese diagnóstica principal + CID-10 + diferenciais",
+                "avaliacao": "A — Diagnóstico diferencial principal + CID-10 dos diferenciais",
                 "plano": "P — Conduta: medicação, exames, orientações, retorno"
               },
 
@@ -165,7 +165,7 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
 
               "criterios_retorno": ["Sinais de alarme para retorno antecipado. 2-3 itens em linguagem acessível. Ex: 'Se a febre não baixar em 48h', 'Se surgir falta de ar ou dor no peito'"],
 
-              "cid_sugerido": "Código CID-10 mais provável — Descrição. Ex: 'J06.9 - Infecção aguda das vias aéreas superiores não especificada'. APENAS códigos válidos CID-10."
+              "diagnostico_diferencial_resumo": "Hipóteses diagnósticas principais com CIDs. Ex: 'J06.9 - IVAS (mais provável); J20.9 - Bronquite aguda (diferencial)'. NÃO gere campo cid_sugerido."
             }
             """;
     }
@@ -304,10 +304,10 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
             var orientacoes = ParseStringArray(root, "orientacoes_paciente");
             var criteriosRetorno = ParseStringArray(root, "criterios_retorno");
 
-            // Parse CID sugerido
-            string? cidSugerido = null;
-            if (root.TryGetProperty("cid_sugerido", out var cid) && cid.ValueKind == JsonValueKind.String)
-                cidSugerido = cid.GetString()?.Trim();
+            // Parse diagnóstico diferencial resumo
+            string? diagDiferencialResumo = null;
+            if (root.TryGetProperty("diagnostico_diferencial_resumo", out var ddr) && ddr.ValueKind == JsonValueKind.String)
+                diagDiferencialResumo = ddr.GetString()?.Trim();
 
             // Build enriched conduct with SOAP
             if (!string.IsNullOrWhiteSpace(soapAvaliacao) || !string.IsNullOrWhiteSpace(soapPlano))
@@ -322,8 +322,8 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
                 if (soapAvaliacao is { Length: > 0 }) soapFull.AppendLine($"A: {soapAvaliacao}");
                 if (soapPlano is { Length: > 0 }) soapFull.AppendLine($"P: {soapPlano}");
 
-                if (cidSugerido is { Length: > 0 })
-                    soapFull.AppendLine($"\nCID: {cidSugerido}");
+                if (diagDiferencialResumo is { Length: > 0 })
+                    soapFull.AppendLine($"\nDiagnóstico diferencial: {diagDiferencialResumo}");
 
                 if (orientacoes.Count > 0)
                 {

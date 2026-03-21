@@ -138,7 +138,7 @@ export function AIMetadataPanel({
         <View style={S.badge}><Ionicons name="sparkles" size={10} color={colors.primary} /><Text style={S.badgeTxt}>IA</Text></View>
       </View>
       <Text style={S.evIntro}>
-        Artigos de PubMed, Europe PMC e outras bases que apoiam hipótese diagnóstica e conduta para este caso.
+        Artigos de PubMed, Europe PMC e outras bases que apoiam diagnóstico diferencial e conduta para este caso.
       </Text>
       {filteredEvidence.length > 0 ? (
         filteredEvidence.map((e, i) => {
@@ -205,7 +205,7 @@ export function AIMetadataPanel({
           <Ionicons name="library-outline" size={24} color={colors.primary} />
           <Text style={S.evEmptyTitle}>Evidências em breve</Text>
           <Text style={S.evEmptySub}>
-            Artigos científicos serão buscados automaticamente quando houver hipótese diagnóstica (CID) e dados da consulta. A IA seleciona trechos relevantes e explica a conexão com o caso do paciente.
+            Artigos científicos serão buscados automaticamente quando houver diagnóstico diferencial e dados da consulta. A IA seleciona trechos relevantes e explica a conexão com o caso do paciente.
           </Text>
         </View>
       )}

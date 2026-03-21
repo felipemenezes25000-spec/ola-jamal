@@ -181,7 +181,6 @@ function AnamnesisCard_Fn({
               >
                 <Text style={[
                   S.fieldValue,
-                  key === 'cid_sugerido' && { color: colors.primary, fontFamily: typography.fontFamily.bold },
                   !display && editable && { color: colors.textMuted, fontStyle: 'italic' },
                 ]}>
                   {display || (editable ? 'Toque para preencher' : '')}

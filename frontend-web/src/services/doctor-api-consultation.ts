@@ -1,6 +1,6 @@
 /**
  * doctor-api-consultation.ts — Consultation flow, conduct, content,
- * recordings, time bank, transcription, AI assistant, and care plans.
+ * recordings, transcription, AI assistant, and care plans.
  */
 
 import { authFetch } from './doctor-api-auth';
@@ -55,14 +55,6 @@ export async function getRecordings(id: string): Promise<{ recordings: Recording
 export async function getTranscriptDownloadUrl(id: string): Promise<{ url: string }> {
   const res = await authFetch(`/api/requests/${id}/transcript-download-url`);
   if (!res.ok) throw new Error('Erro ao buscar transcrição');
-  return res.json();
-}
-
-// ── Time Bank ──
-
-export async function getTimeBank() {
-  const res = await authFetch('/api/requests/time-bank');
-  if (!res.ok) throw new Error('Erro ao buscar banco de horas');
   return res.json();
 }
 

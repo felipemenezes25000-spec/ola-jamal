@@ -181,7 +181,7 @@ public class ConsultationWorkflowController(
 
     /// <summary>
     /// Encerramento automático da consulta pelo app quando o timer de minutos contratados expirar.
-    /// Pode ser chamado pelo paciente ou médico. Credita minutos não usados ao banco de horas.
+    /// Pode ser chamado pelo paciente ou médico.
     /// </summary>
     [HttpPost("{id}/auto-finish-consultation")]
     public async Task<IActionResult> AutoFinishConsultation(Guid id, CancellationToken cancellationToken)
@@ -206,15 +206,4 @@ public class ConsultationWorkflowController(
         }
     }
 
-    /// <summary>
-    /// Retorna o saldo do banco de horas do paciente para o tipo de consulta especificado.
-    /// GET /api/requests/time-bank?consultationType=psicologo
-    /// </summary>
-    [HttpGet("time-bank")]
-    public async Task<IActionResult> GetTimeBankBalance([FromQuery] string consultationType = "medico_clinico", CancellationToken cancellationToken = default)
-    {
-        var userId = GetUserId();
-        var (balanceSeconds, balanceMinutes, type) = await requestService.GetTimeBankBalanceAsync(userId, consultationType, cancellationToken);
-        return Ok(new { balanceSeconds, balanceMinutes, consultationType = type });
-    }
 }

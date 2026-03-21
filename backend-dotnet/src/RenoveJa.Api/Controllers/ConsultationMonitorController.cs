@@ -94,8 +94,6 @@ public class ConsultationMonitorController(
             {
                 grounding.IsGrounded,
                 grounding.Score,
-                grounding.CidSugerido,
-                grounding.ConfiancaCid,
                 grounding.Issues,
                 symptomAnalysis = new
                 {
@@ -160,8 +158,6 @@ public class ConsultationMonitorController(
                 {
                     grounding.IsGrounded,
                     grounding.Score,
-                    grounding.CidSugerido,
-                    grounding.ConfiancaCid,
                     issueCount = grounding.Issues.Length,
                     issues = grounding.Issues,
                     matchedSymptoms = grounding.MatchedSymptoms.Length,

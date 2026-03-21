@@ -99,9 +99,8 @@ export function AIEvidencePanel({ evidence }: AIEvidencePanelProps) {
         </div>
         <p className="text-sm text-gray-300 font-semibold mb-1">Evidências em breve</p>
         <p className="text-xs text-gray-600 max-w-[280px] leading-relaxed">
-          Artigos científicos (Cochrane, PubMed) serão buscados automaticamente quando a IA
-          identificar uma hipótese diagnóstica com CID. A busca prioriza revisões sistemáticas
-          e meta-análises.
+          Artigos científicos (Cochrane, PubMed) serão buscados automaticamente quando houver
+          diagnóstico diferencial. A busca prioriza revisões sistemáticas e meta-análises.
         </p>
         <div className="flex items-center gap-1.5 mt-4 text-[10px] text-gray-600">
           <Loader2 className="h-3 w-3 animate-spin" />

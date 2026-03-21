@@ -1,5 +1,5 @@
 /**
- * AIIndicators — Gravidade Manchester, CID sugerido, alertas vermelhos,
+ * AIIndicators — Gravidade Manchester, alertas vermelhos,
  * diagnóstico diferencial para a tab Consulta.
  */
 import {
@@ -7,13 +7,13 @@ import {
   AlertCircle,
   AlertTriangle,
   XCircle,
-  Stethoscope,
-  Copy,
-  RefreshCw,
   GitBranch,
+  Copy,
+  Star,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { DiagDiferencial } from './types';
-import { getGravityConfig, getConfidenceConfig } from './types';
+import { getGravityConfig } from './types';
 
 const GRAVITY_ICONS: Record<string, typeof ShieldCheck> = {
   verde: ShieldCheck,
@@ -25,26 +25,22 @@ const GRAVITY_ICONS: Record<string, typeof ShieldCheck> = {
 interface AIIndicatorsProps {
   gravidade: string;
   denominadorComum?: string;
-  cidSugerido: string;
-  cidDescricao: string;
-  confiancaCid: string;
   alertasVermelhos: string[];
   diagDiferencial: DiagDiferencial[];
-  copyToClipboard: (text: string, label: string) => void;
+  primaryCid?: string;
+  primaryHipotese?: string;
+  copyToClipboard?: (text: string, label: string) => void;
 }
 
 export function AIIndicators({
   gravidade,
   denominadorComum,
-  cidSugerido,
-  cidDescricao,
-  confiancaCid,
   alertasVermelhos,
   diagDiferencial,
-  copyToClipboard,
+  primaryCid,
+  primaryHipotese,
 }: AIIndicatorsProps) {
   const GRAVITY_CONFIG = getGravityConfig();
-  const CONFIDENCE_CONFIG = getConfidenceConfig();
 
   return (
     <>
@@ -84,46 +80,6 @@ export function AIIndicators({
         </div>
       )}
 
-      {/* CID sugerido */}
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Stethoscope className="h-4 w-4 text-primary" aria-hidden />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-              Hipótese Diagnóstica (CID)
-            </span>
-          </div>
-          {confiancaCid && CONFIDENCE_CONFIG[confiancaCid] && (
-            <span
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold ${CONFIDENCE_CONFIG[confiancaCid].color}`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
-              {CONFIDENCE_CONFIG[confiancaCid].label}
-            </span>
-          )}
-        </div>
-        {cidSugerido ? (
-          <>
-            <p className="text-sm font-bold text-gray-200">{cidSugerido}</p>
-            {cidDescricao && <p className="text-xs text-gray-400">{cidDescricao}</p>}
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => copyToClipboard(cidSugerido + (cidDescricao ? ` — ${cidDescricao}` : ''), 'CID')}
-                className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline"
-              >
-                <Copy className="h-3 w-3" /> Copiar CID
-              </button>
-              <span className="flex items-center gap-1 text-[9px] text-gray-600 opacity-60">
-                <RefreshCw className="h-2.5 w-2.5" /> Atualiza conforme a consulta
-              </span>
-            </div>
-          </>
-        ) : (
-          <p className="text-xs text-gray-500 italic">Aguardando dados da transcrição para sugerir CID</p>
-        )}
-      </div>
-
       {/* Alertas vermelhos */}
       {alertasVermelhos.length > 0 && (
         <div className="rounded-xl border border-red-800/50 bg-red-950/30 p-3 space-y-2">
@@ -136,6 +92,43 @@ export function AIIndicators({
               ⚠️ {a}
             </p>
           ))}
+        </div>
+      )}
+
+      {/* Hipótese Principal */}
+      {primaryHipotese && (
+        <div className="rounded-xl border-2 border-primary/50 bg-primary/10 p-3 space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Star className="h-4 w-4 text-primary fill-primary" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                Hipotese Principal
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const text = primaryCid ? `${primaryCid} — ${primaryHipotese}` : primaryHipotese;
+                await navigator.clipboard.writeText(text);
+                toast.success('Hipotese copiada');
+              }}
+              className="p-1 rounded hover:bg-primary/20 transition-colors"
+              title="Copiar hipotese"
+            >
+              <Copy className="h-3.5 w-3.5 text-primary" />
+            </button>
+          </div>
+          <p className="text-sm font-bold text-gray-200">{primaryHipotese}</p>
+          {primaryCid && (
+            <p className="text-xs font-semibold text-primary">{primaryCid}</p>
+          )}
+          {diagDiferencial[0]?.probabilidade && (
+            <span className="inline-block text-xs font-semibold text-primary px-2 py-0.5 rounded-md bg-primary/20 mt-1">
+              {diagDiferencial[0].probabilidade_percentual != null
+                ? `${diagDiferencial[0].probabilidade_percentual}%`
+                : diagDiferencial[0].probabilidade}
+            </span>
+          )}
         </div>
       )}
 

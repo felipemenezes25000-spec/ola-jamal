@@ -38,9 +38,6 @@ export interface InteracaoCruzada {
 
 export interface ParsedAnamnesisAi {
   classificacao_gravidade?: string;
-  cid_sugerido?: string;
-  cid_descricao?: string;
-  confianca_cid?: string;
   diagnostico_diferencial?: DiagDiferencial[];
   medicamentos_sugeridos?: MedicamentoSugerido[];
   exames_sugeridos?: ExameSugerido[];

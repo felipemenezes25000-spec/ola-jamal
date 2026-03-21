@@ -11,7 +11,7 @@ namespace RenoveJa.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/admin/migration")]
-[AllowAnonymous]
+[Authorize(Roles = "admin")]
 public class AdminMigrationController(
     S3MigrationService migrationService,
     IConfiguration configuration,

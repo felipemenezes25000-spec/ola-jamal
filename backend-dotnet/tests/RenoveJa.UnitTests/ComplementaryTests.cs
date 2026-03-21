@@ -467,7 +467,6 @@ public class RequestServiceFullTests
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
     private readonly Mock<IOptions<ApiConfig>> _apiConfigMock = new();
     private readonly Mock<IDocumentTokenService> _documentTokenServiceMock = new();
-    private readonly Mock<IConsultationTimeBankRepository> _consultationTimeBankRepoMock = new();
     private readonly Mock<IAiConductSuggestionService> _aiConductSuggestionServiceMock = new();
     private readonly Mock<IRequestEventsPublisher> _requestEventsPublisherMock = new();
     private readonly Mock<ISignedRequestClinicalSyncService> _signedRequestClinicalSyncMock = new();
@@ -495,7 +494,7 @@ public class RequestServiceFullTests
             _userRepoMock.Object, _doctorRepoMock.Object,
             _notificationRepoMock.Object, _pushSenderMock.Object, pushDispatcherMock.Object, _aiReadingMock.Object,
             _apiConfigMock.Object,
-            _documentTokenServiceMock.Object, _consultationTimeBankRepoMock.Object,
+            _documentTokenServiceMock.Object,
             _aiConductSuggestionServiceMock.Object,
             _requestEventsPublisherMock.Object,
             new Mock<INewRequestBatchService>().Object,
@@ -508,7 +507,7 @@ public class RequestServiceFullTests
             new ConsultationLifecycleService(
                 _requestRepoMock.Object, _userRepoMock.Object,
                 _videoRoomRepoMock.Object, _consultationAnamnesisRepoMock.Object,
-                _consultationSessionStoreMock.Object, _consultationTimeBankRepoMock.Object,
+                _consultationSessionStoreMock.Object,
                 _consultationEncounterServiceMock.Object, storageServiceMock.Object,
                 new Mock<IAuditService>().Object,
                 _requestEventsPublisherMock.Object, pushDispatcherMock.Object,

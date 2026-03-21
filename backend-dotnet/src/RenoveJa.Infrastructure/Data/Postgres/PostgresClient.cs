@@ -27,9 +27,13 @@ public class PostgresClient
         if (!_connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase) && !_connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
             _connectionString += ";Maximum Pool Size=20;Minimum Pool Size=2;Connection Idle Lifetime=300;Timeout=15";
 
-        // Include Error Detail para revelar valores em FK violations (debug PG 23503)
+        // Include Error Detail apenas em Development — em produção revela dados sensíveis (CPFs, emails) nos logs
         if (!_connectionString.Contains("Include Error Detail", StringComparison.OrdinalIgnoreCase))
-            _connectionString += ";Include Error Detail=true";
+        {
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+            var includeDetail = env.Equals("Development", StringComparison.OrdinalIgnoreCase);
+            _connectionString += $";Include Error Detail={includeDetail}";
+        }
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -149,7 +153,18 @@ public class PostgresClient
     // ===== Helpers =====
 
     private static string SanitizeTable(string table) => new(table.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
-    private static string ParseSelect(string? select) => string.IsNullOrWhiteSpace(select) || select == "*" ? "*" : select.Contains('(') ? "*" : select;
+    private static readonly System.Text.RegularExpressions.Regex SafeSelectPattern = new(@"^[a-zA-Z0-9_., *]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static string ParseSelect(string? select)
+    {
+        if (string.IsNullOrWhiteSpace(select) || select == "*")
+            return "*";
+        if (select.Contains('('))
+            return "*";
+        if (!SafeSelectPattern.IsMatch(select))
+            throw new ArgumentException($"Invalid select parameter: contains disallowed characters.");
+        return select;
+    }
 
     private static readonly HashSet<string> JsonbColumnsRequests = new(StringComparer.OrdinalIgnoreCase)
     {

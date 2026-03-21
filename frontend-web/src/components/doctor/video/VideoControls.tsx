@@ -3,14 +3,28 @@
  *
  * VideoTopBar: status indicators, timer, patient name, action buttons.
  * VideoFrame: Daily.co iframe with expand/minimize toggle.
+ *
+ * Bug fix #6: Debounced action buttons to prevent double-click issues.
  */
 
+import { useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, User, ExternalLink, PhoneOff,
   Timer, Sparkles, Maximize2, Minimize2,
 } from 'lucide-react';
+
+/** #6: Generic debounce hook for click handlers (300ms default) */
+function useDebouncedAction(fn: () => void, delayMs = 300): () => void {
+  const lastCallRef = useRef(0);
+  return useCallback(() => {
+    const now = Date.now();
+    if (now - lastCallRef.current < delayMs) return;
+    lastCallRef.current = now;
+    fn();
+  }, [fn, delayMs]);
+}
 
 function formatTimer(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -45,6 +59,10 @@ export function VideoTopBar({
   onFinish,
   onBack,
 }: VideoTopBarProps) {
+  // #6: Debounce finish/back buttons to prevent double-click
+  const debouncedFinish = useDebouncedAction(onFinish);
+  const debouncedBack = useDebouncedAction(onBack);
+
   return (
     <div className="flex items-center justify-between px-4 py-2.5 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800 shrink-0">
       <div className="flex items-center gap-4">
@@ -52,9 +70,9 @@ export function VideoTopBar({
           variant="ghost" size="icon"
           onClick={() => {
             if (consultationStarted) {
-              onFinish();
+              debouncedFinish();
             } else {
-              onBack();
+              debouncedBack();
             }
           }}
           className="text-gray-400 hover:text-white hover:bg-gray-800"
@@ -108,7 +126,7 @@ export function VideoTopBar({
         <Button
           size="sm"
           className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
-          onClick={onFinish}
+          onClick={debouncedFinish}
         >
           <PhoneOff className="h-3.5 w-3.5" /> Encerrar
         </Button>

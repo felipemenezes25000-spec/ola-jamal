@@ -1,6 +1,6 @@
 /**
  * DoctorAIPanel — Painel lateral do médico durante a videoconsulta (web).
- * Gravidade Manchester, CID, alertas, diferencial, anamnese, meds, exames, orientações, perguntas.
+ * Gravidade Manchester, alertas, diferencial, anamnese, meds, exames, orientações, perguntas.
  */
 import { useState, useMemo, useCallback } from 'react';
 import { Lightbulb, AlertTriangle } from 'lucide-react';
@@ -30,9 +30,6 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorA
   const [activeTab, setActiveTab] = useState<TabKey>('consulta');
   const [expandedMeds, setExpandedMeds] = useState<Set<number>>(new Set());
 
-  const cidSugerido = (anamnesis?.cid_sugerido as string) ?? '';
-  const cidDescricao = (anamnesis?.cid_descricao as string) ?? '';
-  const confiancaCid = (anamnesis?.confianca_cid as string) ?? '';
   const denominadorComum = (anamnesis?.denominador_comum as string)?.trim() || undefined;
   const gravidade = (anamnesis?.classificacao_gravidade as string) ?? '';
   const diagDiferencial: DiagDiferencial[] = useMemo(() => {
@@ -115,6 +112,9 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorA
     }
   }, [anamnesis]);
 
+  const primaryHipotese = diagDiferencial.length > 0 ? (diagDiferencial[0].hipotese ?? '') : '';
+  const primaryCid = diagDiferencial.length > 0 ? (diagDiferencial[0].cid ?? '') : '';
+
   const hasAna = anamnesis && Object.keys(anamnesis).length > 0;
 
   const parsedSuggestions = useMemo(() => {
@@ -165,11 +165,10 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorA
             <AIIndicators
               gravidade={gravidade}
               denominadorComum={denominadorComum}
-              cidSugerido={cidSugerido}
-              cidDescricao={cidDescricao}
-              confiancaCid={confiancaCid}
               alertasVermelhos={alertasVermelhos}
               diagDiferencial={diagDiferencial}
+              primaryCid={primaryCid}
+              primaryHipotese={primaryHipotese}
               copyToClipboard={copyToClipboard}
             />
             <AISuggestionView

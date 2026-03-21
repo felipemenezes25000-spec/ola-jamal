@@ -44,14 +44,8 @@ internal static class ConsultationAnamnesisResultComposer
                             conservativeObj[prop.Name] = prop.Value.GetRawText();
                     }
 
-                    // Forçar confiança baixa
-                    conservativeObj["confianca_cid"] = "\"baixa\"";
                     conservativeObj["transcript_curto"] = "true";
                     conservativeObj["transcript_palavras"] = wordCount.ToString();
-
-                    // Copiar CID mas sinalizar como não confiável
-                    if (shortRoot.TryGetProperty("cid_sugerido", out var shortCidEl))
-                        conservativeObj["cid_sugerido"] = shortCidEl.GetRawText();
 
                     // Adicionar alerta de transcript curto
                     conservativeObj["grounding_issues"] = JsonSerializer.Serialize(new[]
@@ -117,55 +111,9 @@ internal static class ConsultationAnamnesisResultComposer
                     enrichedObj[prop.Name] = prop.Value.GetRawText();
             }
 
-            var cidRaw = root.TryGetProperty("cid_sugerido", out var cidEl) ? cidEl.GetString()?.Trim() ?? "" : "";
-            cidRaw = AnamnesisResponseParser.EnsureCidCoherentWithDifferential(root, cidRaw, logger, transcriptSoFar);
-            if (!string.IsNullOrEmpty(cidRaw))
-            {
-                var cidValidado = Cid10Database.IsValid(cidRaw)
-                    ? cidRaw
-                    : Cid10Database.Search(cidRaw, 1).FirstOrDefault()?.Code ?? cidRaw;
-                enrichedObj["cid_sugerido"] = JsonSerializer.Serialize(cidValidado);
-                if (Cid10Database.GetDescription(cidValidado) is { } desc)
-                    enrichedObj["cid_descricao"] = JsonSerializer.Serialize(desc);
-            }
-            else
-            {
-                AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "cid_sugerido");
-            }
-            // MELHORIA 3: Validar grounding e forçar confiança baixa se score < 50
+            // Grounding validation — detect hallucinated symptoms/arguments
             var groundingReport = CidGroundingValidator.Validate(transcriptSoFar, cleaned);
-            var confiancaOriginal = root.TryGetProperty("confianca_cid", out var confEl) ? confEl.GetString()?.Trim() ?? "" : "";
             var hasCritico = groundingReport.Issues.Any(i => i.StartsWith("CRÍTICO"));
-
-            // Transcript médio (100-200 palavras) → cap confiança em "media" no máximo
-            if (wordCount >= 100 && wordCount < 200)
-            {
-                if (string.Equals(confiancaOriginal, "alta", StringComparison.OrdinalIgnoreCase))
-                {
-                    enrichedObj["confianca_cid"] = JsonSerializer.Serialize("media");
-                    logger.LogWarning("[Anamnese] Confiança rebaixada de 'alta' para 'media' — transcript médio ({WordCount} palavras).", wordCount);
-                }
-            }
-
-            if (groundingReport.Score < 50 || hasCritico)
-            {
-                // Forçar confiança baixa — o médico verá alerta visual
-                enrichedObj["confianca_cid"] = JsonSerializer.Serialize("baixa");
-                if (!string.Equals(confiancaOriginal, "baixa", StringComparison.OrdinalIgnoreCase))
-                    logger.LogWarning("[Anamnese] Confiança rebaixada de '{Original}' para 'baixa' — grounding score={Score}, issues CRÍTICO={HasCritico}",
-                        confiancaOriginal, groundingReport.Score, hasCritico);
-            }
-            else if (groundingReport.Score < 70 && string.Equals(confiancaOriginal, "alta", StringComparison.OrdinalIgnoreCase))
-            {
-                // Score entre 50-70 com confiança alta → rebaixar para média
-                enrichedObj["confianca_cid"] = JsonSerializer.Serialize("media");
-                logger.LogWarning("[Anamnese] Confiança rebaixada de 'alta' para 'media' — grounding score={Score} insuficiente para alta.",
-                    groundingReport.Score);
-            }
-            else
-            {
-                AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "confianca_cid");
-            }
 
             // Salvar issues de grounding no JSON para o frontend exibir
             if (groundingReport.Issues.Length > 0)

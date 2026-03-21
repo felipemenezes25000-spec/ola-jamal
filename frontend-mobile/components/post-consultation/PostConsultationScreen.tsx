@@ -45,9 +45,19 @@ interface Props {
 // ── Helpers ──
 
 function extractCidFromAnamnesis(anamnesis: AnamnesisData | null): string | null {
-  const cid = anamnesis?.cid_sugerido;
-  if (cid == null || typeof cid !== 'string') return null;
-  return cid.toUpperCase().replace(/\./g, '').trim();
+  if (!anamnesis) return null;
+  // Extract from first diagnostico_diferencial item
+  const dd = anamnesis.diagnostico_diferencial;
+  if (Array.isArray(dd) && dd.length > 0) {
+    const first = dd[0];
+    if (typeof first === 'object' && first !== null && 'cid' in first) {
+      const cid = (first as { cid?: string }).cid;
+      if (typeof cid === 'string' && cid.trim().length > 0) {
+        return cid.toUpperCase().replace(/\./g, '').trim();
+      }
+    }
+  }
+  return null;
 }
 
 function buildMedsFromAnamnesis(anamnesis: AnamnesisData | null): PrescriptionItemEmit[] {

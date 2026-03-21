@@ -55,14 +55,6 @@ function parseAnamnesis(json: string | null | undefined): Record<string, unknown
   }
 }
 
-function extractCid(anamnesis: Record<string, unknown>): string | null {
-  for (const key of ['cid_sugerido', 'cid', 'cidPrincipal']) {
-    const v = anamnesis[key];
-    if (typeof v === 'string' && v.trim()) return v.trim();
-  }
-  return null;
-}
-
 function displayMedicamento(m: unknown): string {
   if (typeof m === 'string') return m;
   if (typeof m !== 'object' || !m) return '';
@@ -155,6 +147,19 @@ const FIELDS: {
   },
 ];
 
+/** Extract CID from the first diagnostico_diferencial item. */
+function extractCid(anamnesis: Record<string, unknown> | null): string {
+  if (!anamnesis) return '';
+  const dd = anamnesis.diagnostico_diferencial;
+  if (!Array.isArray(dd) || dd.length === 0) return '';
+  const first = dd[0] as Record<string, string> | undefined;
+  if (!first) return '';
+  const cid = first.cid ?? '';
+  const hipotese = first.hipotese ?? '';
+  if (cid && hipotese) return `${cid} — ${hipotese}`;
+  return cid || hipotese;
+}
+
 // ── Component ──
 
 export function ConductForm({
@@ -213,8 +218,8 @@ export function ConductForm({
           next.evolucao = consultationTranscript.trim();
         }
         if (!next.hipoteseCid.trim()) {
-          const cid = extractCid(anamnesis);
-          if (cid) next.hipoteseCid = cid + (anamnesis.cid_descricao ? ` — ${anamnesis.cid_descricao}` : '');
+          const cidFromDiag = extractCid(anamnesis);
+          if (cidFromDiag) next.hipoteseCid = cidFromDiag;
         }
         if (!next.conduta.trim() && aiSuggestion) {
           next.conduta = aiSuggestion;
@@ -269,14 +274,8 @@ export function ConductForm({
     } else {
       setForm((prev) => ({ ...prev, conduta: prev.conduta ? `${prev.conduta}\n\n${aiSuggestion}` : aiSuggestion }));
     }
-    // Also try to fill CID from anamnesis
-    const anamnesis = parseAnamnesis(anamnesisJson);
-    if (anamnesis && !form.hipoteseCid.trim()) {
-      const cid = extractCid(anamnesis);
-      if (cid) setForm((prev) => ({ ...prev, hipoteseCid: cid + (anamnesis.cid_descricao ? ` — ${anamnesis.cid_descricao}` : '') }));
-    }
     toast.success('Sugestão da IA aplicada');
-  }, [aiSuggestion, anamnesisJson, form.hipoteseCid]);
+  }, [aiSuggestion]);
 
   const prefillFromAnamnesis = useCallback(() => {
     const anamnesis = parseAnamnesis(anamnesisJson);
@@ -291,8 +290,8 @@ export function ConductForm({
         next.evolucao = anamnesis.historia_doenca_atual;
       }
       if (!next.hipoteseCid.trim()) {
-        const cid = extractCid(anamnesis);
-        if (cid) next.hipoteseCid = cid + (anamnesis.cid_descricao ? ` — ${anamnesis.cid_descricao}` : '');
+        const cidFromDiag = extractCid(anamnesis);
+        if (cidFromDiag) next.hipoteseCid = cidFromDiag;
       }
       return next;
     });

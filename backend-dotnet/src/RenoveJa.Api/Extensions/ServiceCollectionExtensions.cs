@@ -62,7 +62,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserPushPreferencesRepository, UserPushPreferencesRepository>();
         services.AddScoped<ICertificateRepository, CertificateRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-        services.AddScoped<IConsultationTimeBankRepository, ConsultationTimeBankRepository>();
+
         services.AddScoped<IPatientRepository, PatientRepository>();
         services.AddScoped<IEncounterRepository, EncounterRepository>();
         services.AddScoped<IMedicalDocumentRepository, MedicalDocumentRepository>();
@@ -165,7 +165,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IClinicalEvidenceService, RenoveJa.Infrastructure.ClinicalEvidence.ClinicalEvidenceService>();
 
         services.AddScoped<RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisLlmClient>();
-        services.AddScoped<RenoveJa.Infrastructure.ConsultationAnamnesis.CidLlmValidator>();
         services.AddScoped<IConsultationAnamnesisService, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationAnamnesisService>();
         services.AddScoped<ISoapNotesService, RenoveJa.Infrastructure.SoapNotes.SoapNotesService>();
 
@@ -233,6 +232,14 @@ public static class ServiceCollectionExtensions
                 out var exp) ? exp : 120;
             // Secret para validação de webhooks do Daily.co (configurar no Dashboard Daily: Developers → Webhooks)
             options.WebhookSecret = (envVars.GetValueOrDefault("DAILY_WEBHOOK_SECRET") ?? Environment.GetEnvironmentVariable("DAILY_WEBHOOK_SECRET") ?? "").Trim();
+            // Token refresh threshold (minutes remaining before regeneration)
+            options.TokenRefreshThresholdMinutes = int.TryParse(
+                envVars.GetValueOrDefault("DAILY_TOKEN_REFRESH_THRESHOLD_MINUTES") ?? Environment.GetEnvironmentVariable("DAILY_TOKEN_REFRESH_THRESHOLD_MINUTES"),
+                out var threshold) ? threshold : 5;
+            // Max event age for webhook replay protection (seconds)
+            options.WebhookMaxEventAgeSeconds = int.TryParse(
+                envVars.GetValueOrDefault("DAILY_WEBHOOK_MAX_EVENT_AGE_SECONDS") ?? Environment.GetEnvironmentVariable("DAILY_WEBHOOK_MAX_EVENT_AGE_SECONDS"),
+                out var maxAge) ? maxAge : 300;
         });
 
         return services;

@@ -278,7 +278,7 @@ export function AISuggestionView({
             );
           })}
           <p className="text-[10px] text-gray-600 italic">
-            Exames priorizados por hipótese diagnóstica • Código TUSS quando disponível • Decisão final do médico
+            Exames priorizados por diagnóstico diferencial • Código TUSS quando disponível • Decisão final do médico
           </p>
         </div>
       )}

@@ -89,12 +89,6 @@ const EXAM_PACKAGES = [
   { key: 'hepatico', name: 'Perfil hepático', exams: ['TGO','TGP','GGT','Fosfatase alcalina','Bilirrubinas','Albumina','Proteínas totais','TAP/INR','LDH'], just: 'Perfil hepático.' },
 ];
 
-function extractCid(anam: Record<string, unknown> | null): string | null {
-  if (!anam) return null;
-  const c = (anam.cid_sugerido as string) ?? null;
-  return c ? c.toUpperCase().replace(/\./g, '').trim() : null;
-}
-
 function extractMedsFromAnamnesis(anam: Record<string, unknown> | null): PrescriptionItemEmit[] {
   if (!anam?.medicamentos_sugeridos) return [];
   const arr = anam.medicamentos_sugeridos as Array<Record<string, string> | string>;
@@ -136,7 +130,13 @@ export default function DoctorPostConsultationEmit() {
     try { return JSON.parse(request.consultationAnamnesis); } catch { return null; }
   }, [request?.consultationAnamnesis]);
 
-  const detectedCid = useMemo(() => extractCid(anamnesis), [anamnesis]);
+  const detectedCid: string | null = useMemo(() => {
+    if (!anamnesis) return null;
+    const dd = anamnesis.diagnostico_diferencial;
+    if (!Array.isArray(dd) || dd.length === 0) return null;
+    const first = dd[0] as Record<string, string> | undefined;
+    return first?.cid ?? null;
+  }, [anamnesis]);
   const cidPkg = detectedCid ? CID_PACKAGES[detectedCid] : null;
 
   /** Pacotes do backend (idade/sexo) ou lista estática. */

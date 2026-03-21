@@ -30,6 +30,4 @@ public interface IConsultationLifecycleService
     Task<string?> GetRecordingDownloadUrlAsync(
         Guid id, Guid userId, int expiresInSeconds = 3600, CancellationToken cancellationToken = default);
 
-    Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(
-        Guid userId, string consultationType, CancellationToken cancellationToken = default);
 }

@@ -59,9 +59,6 @@ export interface AnamnesisData {
   outros?: string;
 
   denominador_comum?: string;
-  cid_sugerido?: string;
-  cid_descricao?: string;
-  confianca_cid?: 'alta' | 'media' | 'baixa';
   classificacao_gravidade?: 'verde' | 'amarelo' | 'laranja' | 'vermelho';
   alertas_vermelhos?: string[];
   diagnostico_diferencial?: DiagnosticoDiferencial[] | string[];
@@ -120,7 +117,6 @@ export const ANA_FIELDS_COMPACT: AnaFieldDef[] = [
   { key: 'sintomas', label: 'Sintomas', icon: 'thermometer', severity: 'warning' },
   { key: 'medicamentos_em_uso', label: 'Medicamentos em Uso', icon: 'medical', severity: 'info' },
   { key: 'alergias', label: 'Alergias', icon: 'warning', severity: 'danger' },
-  { key: 'cid_sugerido', label: 'CID Sugerido', icon: 'code-slash', severity: 'success' },
   { key: 'outros', label: 'Outras Informações', icon: 'ellipsis-horizontal', severity: 'neutral' },
 ];
 
@@ -177,8 +173,16 @@ export function extractAllergies(data: AnamnesisData | null): string[] {
 
 export function extractCid(data: AnamnesisData | null): string | null {
   if (!data) return null;
-  const cid = data.cid_sugerido;
-  return typeof cid === 'string' && cid.trim().length > 0 ? cid.trim() : null;
+  // Extract from first diagnostico_diferencial item if available
+  const dd = data.diagnostico_diferencial;
+  if (Array.isArray(dd) && dd.length > 0) {
+    const first = dd[0];
+    if (typeof first === 'object' && first !== null && 'cid' in first) {
+      const cid = (first as DiagnosticoDiferencial).cid;
+      if (typeof cid === 'string' && cid.trim().length > 0) return cid.trim();
+    }
+  }
+  return null;
 }
 
 export function extractCidFromJson(json: string | null | undefined): string | null {

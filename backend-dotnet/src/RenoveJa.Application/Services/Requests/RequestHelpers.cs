@@ -48,7 +48,7 @@ internal static class RequestHelpers
         };
     }
 
-    /// <summary>Extrai código CID-10 da anamnese JSON (cid_sugerido, cid, cidPrincipal). Retorna até 10 caracteres.</summary>
+    /// <summary>Extrai código CID-10 da anamnese JSON — usa a primeira hipótese do diagnostico_diferencial com probabilidade mais alta. Retorna até 10 caracteres.</summary>
     internal static string? ExtractIcd10FromAnamnesis(string? anamnesisJson, ILogger? logger = null)
     {
         if (string.IsNullOrWhiteSpace(anamnesisJson)) return null;
@@ -56,20 +56,25 @@ internal static class RequestHelpers
         {
             var doc = JsonDocument.Parse(anamnesisJson);
             var root = doc.RootElement;
-            foreach (var key in new[] { "cid_sugerido", "cid", "cidPrincipal" })
+
+            // Extrair do primeiro item do diagnostico_diferencial (ordenado por probabilidade pela IA)
+            if (root.TryGetProperty("diagnostico_diferencial", out var ddEl) && ddEl.ValueKind == JsonValueKind.Array)
             {
-                if (root.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String)
+                foreach (var dd in ddEl.EnumerateArray())
                 {
-                    var v = p.GetString()?.Trim();
-                    if (string.IsNullOrEmpty(v)) continue;
-                    var code = v.Split(new[] { ' ', '-', '—' }, 2, StringSplitOptions.RemoveEmptyEntries)[0];
-                    return code.Length > 10 ? code[..10] : code;
+                    if (dd.TryGetProperty("cid", out var cidProp) && cidProp.ValueKind == JsonValueKind.String)
+                    {
+                        var cidStr = cidProp.GetString()?.Trim();
+                        if (string.IsNullOrEmpty(cidStr)) continue;
+                        var code = cidStr.Split(new[] { ' ', '-', '—' }, 2, StringSplitOptions.RemoveEmptyEntries)[0];
+                        return code.Length > 10 ? code[..10] : code;
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            logger?.LogDebug(ex, "ExtractIcd10FromAnamnesis: JSON inválido ou sem cid/cid_sugerido/cidPrincipal");
+            logger?.LogDebug(ex, "ExtractIcd10FromAnamnesis: JSON inválido ou sem diagnostico_diferencial");
         }
         return null;
     }

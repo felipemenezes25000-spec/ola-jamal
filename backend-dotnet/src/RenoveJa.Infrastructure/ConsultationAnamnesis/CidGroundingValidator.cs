@@ -18,8 +18,6 @@ public static class CidGroundingValidator
             return new GroundingReport(
                 IsGrounded: false,
                 Score: 0,
-                CidSugerido: null,
-                ConfiancaCid: null,
                 Issues: new[] { "Anamnese ainda não gerada." },
                 TranscriptSymptoms: Array.Empty<string>(),
                 AnamnesisSymptoms: Array.Empty<string>(),
@@ -39,7 +37,7 @@ public static class CidGroundingValidator
         catch
         {
             return new GroundingReport(
-                IsGrounded: false, Score: 0, CidSugerido: null, ConfiancaCid: null,
+                IsGrounded: false, Score: 0,
                 Issues: new[] { "Falha ao parsear JSON da anamnese." },
                 TranscriptSymptoms: Array.Empty<string>(),
                 AnamnesisSymptoms: Array.Empty<string>(),
@@ -85,13 +83,7 @@ public static class CidGroundingValidator
                 ungrounded.Add(symptom);
         }
 
-        // 4. CID sugerido
-        var cidSugerido = root.TryGetProperty("cid_sugerido", out var cidEl)
-            ? cidEl.GetString()?.Trim() : null;
-        var confiancaCid = root.TryGetProperty("confianca_cid", out var confEl)
-            ? confEl.GetString()?.Trim() : null;
-
-        // 5. Diagnóstico diferencial grounding
+        // 4. Diagnóstico diferencial grounding
         var diffReport = new List<DiferencialGrounding>();
         if (root.TryGetProperty("diagnostico_diferencial", out var ddEl) && ddEl.ValueKind == JsonValueKind.Array)
         {
@@ -133,50 +125,29 @@ public static class CidGroundingValidator
             }
         }
 
-        // 6. Verificações específicas
-        if (!string.IsNullOrWhiteSpace(cidSugerido))
+        // 5. Verificar se raciocínio clínico cita algo do transcript
+        var raciocinio = root.TryGetProperty("raciocinio_clinico", out var racEl)
+            ? racEl.GetString()?.ToLowerInvariant() ?? "" : "";
+        if (!string.IsNullOrWhiteSpace(raciocinio))
         {
-            var cidCode = Regex.Match(cidSugerido, @"\b([A-Z]\d{2}(?:\.\d+)?)\b").Groups[1].Value;
-
-            // CID de substância sem menção no transcript
-            if (IsSubstanceCidWithoutEvidence(cidCode, transcriptLower))
-                issues.Add($"CRÍTICO: CID {cidCode} (substância) sem menção no transcript!");
-
-            // MELHORIA 1: Validação cruzada CID × sintomas esperados
-            var cidMismatch = ValidateCidAgainstExpectedSymptoms(cidCode, transcriptLower);
-            if (cidMismatch != null)
-                issues.Add(cidMismatch);
-
-            // Verificar se raciocínio clínico cita algo do transcript
-            var raciocinio = root.TryGetProperty("raciocinio_clinico", out var racEl)
-                ? racEl.GetString()?.ToLowerInvariant() ?? "" : "";
-            if (!string.IsNullOrWhiteSpace(raciocinio))
-            {
-                var racWords = raciocinio.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Where(w => w.Length > 4).ToArray();
-                var racInTranscript = racWords.Count(w => transcriptLower.Contains(w));
-                var racRatio = racWords.Length > 0 ? (double)racInTranscript / racWords.Length : 0;
-                if (racRatio < 0.2)
-                    issues.Add($"ALERTA: Raciocínio clínico pouco fundamentado no transcript (apenas {racRatio * 100:F0}% das palavras).");
-            }
+            var racWords = raciocinio.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length > 4).ToArray();
+            var racInTranscript = racWords.Count(w => transcriptLower.Contains(w));
+            var racRatio = racWords.Length > 0 ? (double)racInTranscript / racWords.Length : 0;
+            if (racRatio < 0.2)
+                issues.Add($"ALERTA: Raciocínio clínico pouco fundamentado no transcript (apenas {racRatio * 100:F0}% das palavras).");
         }
 
-        // 7. Validação de campos alucinados (sintomas, medicamentos, antecedentes, argumentos)
+        // 6. Validação de campos alucinados (sintomas, medicamentos, antecedentes, argumentos)
         issues.AddRange(ValidateSymptomsAgainstTranscript(root, transcriptLower));
         issues.AddRange(ValidateMedicationsAgainstCid(root, transcriptLower));
         issues.AddRange(ValidateAntecedentsAgainstTranscript(root, transcriptLower));
         issues.AddRange(ValidateDifferentialArguments(root, transcriptLower));
 
-        // Confiança alta sem grounding forte
-        if (string.Equals(confiancaCid, "alta", StringComparison.OrdinalIgnoreCase))
-        {
-            if (ungrounded.Count > matched.Count)
-                issues.Add("ALERTA: Confiança 'alta' mas maioria dos sintomas sem base no transcript.");
-
-            var highProbUngrounded = diffReport.Where(d => d.ProbabilidadePercentual >= 50 && !d.ArgumentosAFavorGrounded).ToList();
-            if (highProbUngrounded.Count > 0)
-                issues.Add($"CRÍTICO: Confiança 'alta' mas hipótese principal sem argumentos fundamentados no transcript.");
-        }
+        // Hipótese de alta probabilidade sem grounding forte
+        var highProbUngrounded = diffReport.Where(d => d.ProbabilidadePercentual >= 50 && !d.ArgumentosAFavorGrounded).ToList();
+        if (highProbUngrounded.Count > 0)
+            issues.Add($"CRÍTICO: Hipótese principal sem argumentos fundamentados no transcript.");
 
         // Score geral
         var symptomScore = anamnesisSymptoms.Count > 0
@@ -188,8 +159,6 @@ public static class CidGroundingValidator
         return new GroundingReport(
             IsGrounded: overallScore >= 50 && issues.Count(i => i.StartsWith("CRÍTICO")) == 0,
             Score: Math.Round(overallScore, 1),
-            CidSugerido: cidSugerido,
-            ConfiancaCid: confiancaCid,
             Issues: issues.ToArray(),
             TranscriptSymptoms: transcriptSymptoms.ToArray(),
             AnamnesisSymptoms: anamnesisSymptoms.ToArray(),
@@ -1079,8 +1048,6 @@ public static class CidGroundingValidator
 public record GroundingReport(
     bool IsGrounded,
     double Score,
-    string? CidSugerido,
-    string? ConfiancaCid,
     string[] Issues,
     string[] TranscriptSymptoms,
     string[] AnamnesisSymptoms,

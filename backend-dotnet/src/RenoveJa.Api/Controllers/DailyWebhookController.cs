@@ -22,6 +22,7 @@ public class DailyWebhookController(
     IStorageService storageService,
     IConsultationAnamnesisRepository consultationAnamnesisRepository,
     IRequestRepository requestRepository,
+    IVideoRoomRepository videoRoomRepository,
     IHttpClientFactory httpClientFactory,
     IOptions<DailyConfig> dailyConfig,
     ILogger<DailyWebhookController> logger) : ControllerBase
@@ -69,9 +70,22 @@ public class DailyWebhookController(
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawBody));
             var computed = Convert.ToBase64String(hash);
 
-            if (!string.Equals(computed, signature, StringComparison.Ordinal))
+            // Use constant-time comparison to prevent timing attacks on HMAC validation
+            var computedBytes = Convert.FromBase64String(computed);
+            byte[] signatureBytes;
+            try
             {
-                logger.LogWarning("[DailyWebhook] HMAC inválido. Esperado={Expected}, Recebido={Received}", computed[..Math.Min(8, computed.Length)] + "...", signature[..Math.Min(8, signature.Length)] + "...");
+                signatureBytes = Convert.FromBase64String(signature);
+            }
+            catch (FormatException)
+            {
+                logger.LogWarning("[DailyWebhook] HMAC signature não é base64 válido.");
+                return Unauthorized();
+            }
+
+            if (!CryptographicOperations.FixedTimeEquals(computedBytes, signatureBytes))
+            {
+                logger.LogWarning("[DailyWebhook] HMAC inválido (constant-time check failed).");
                 return Unauthorized();
             }
         }
@@ -82,9 +96,40 @@ public class DailyWebhookController(
             return Ok();
         }
 
+        // Bug fix #4: Reject replay of old events — timestamp validation.
+        // Daily sends event_ts (Unix seconds) in the payload. Reject if too old.
+        var maxEventAgeSeconds = dailyConfig.Value.WebhookMaxEventAgeSeconds > 0
+            ? dailyConfig.Value.WebhookMaxEventAgeSeconds
+            : 300;
+        var eventTimestamp = payload.GetEventTimestamp();
+        if (eventTimestamp.HasValue)
+        {
+            var eventTime = DateTimeOffset.FromUnixTimeSeconds(eventTimestamp.Value);
+            var age = DateTimeOffset.UtcNow - eventTime;
+            if (age.TotalSeconds > maxEventAgeSeconds)
+            {
+                logger.LogWarning(
+                    "[DailyWebhook] Rejecting stale event — Type={EventType} EventTs={EventTs} AgeSeconds={AgeSeconds} MaxAgeSeconds={MaxAge}",
+                    payload.Type, eventTimestamp.Value, (int)age.TotalSeconds, maxEventAgeSeconds);
+                return Ok(new { ignored = true, reason = "Event too old" });
+            }
+            // Also reject events from the future (clock skew > 60s)
+            if (age.TotalSeconds < -60)
+            {
+                logger.LogWarning(
+                    "[DailyWebhook] Rejecting future-dated event — Type={EventType} EventTs={EventTs} AgeSeconds={AgeSeconds}",
+                    payload.Type, eventTimestamp.Value, (int)age.TotalSeconds);
+                return Ok(new { ignored = true, reason = "Event timestamp in the future" });
+            }
+        }
+        else
+        {
+            logger.LogWarning("[DailyWebhook] Event has no event_ts timestamp — Type={EventType}. Allowing for backward compatibility.", payload.Type);
+        }
+
         if (payload.Type != "recording.ready-to-download")
         {
-            logger.LogDebug("[DailyWebhook] Evento ignorado: {Type}", payload.Type);
+            logger.LogDebug("[DailyWebhook] Evento ignorado — Type={EventType}", payload.Type);
             return Ok();
         }
 
@@ -99,23 +144,49 @@ public class DailyWebhookController(
         var prefix = $"{dailyConfig.Value.RoomPrefix}-";
         if (!roomName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
         {
-            logger.LogWarning("[DailyWebhook] room_name não começa com {Prefix}: {RoomName}", prefix, roomName);
+            logger.LogWarning("[DailyWebhook] room_name não começa com prefixo esperado — Prefix={Prefix} RoomName={RoomName}", prefix, roomName);
             return Ok();
         }
 
         var requestIdStr = roomName[prefix.Length..];
         if (!Guid.TryParse(requestIdStr, out var requestId))
         {
-            logger.LogWarning("[DailyWebhook] room_name não contém requestId válido: {RoomName}", roomName);
+            logger.LogWarning("[DailyWebhook] room_name não contém requestId válido — RoomName={RoomName}", roomName);
             return Ok();
         }
 
         var request = await requestRepository.GetByIdAsync(requestId, cancellationToken);
         if (request == null || request.RequestType != Domain.Enums.RequestType.Consultation)
         {
-            logger.LogWarning("[DailyWebhook] Request não encontrado ou não é consulta: {RequestId}", requestId);
+            logger.LogWarning("[DailyWebhook] Request não encontrado ou não é consulta — RequestId={RequestId} RoomName={RoomName} RecordingId={RecordingId}",
+                requestId, roomName, recordingId);
             return Ok();
         }
+
+        // Bug fix #3: Validate that the recording's room matches the consultation's expected room name.
+        var expectedRoomName = dailyConfig.Value.GetRoomName(requestId);
+        if (!string.Equals(roomName, expectedRoomName, StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(
+                "[DailyWebhook] Recording room mismatch — RecordingId={RecordingId} RecordingRoom={RecordingRoom} ExpectedRoom={ExpectedRoom} RequestId={RequestId}",
+                recordingId, roomName, expectedRoomName, requestId);
+            return Ok(new { ignored = true, reason = "Room name mismatch" });
+        }
+
+        // Additional validation: verify a VideoRoom record exists in DB for this request with matching room name
+        var videoRoom = await videoRoomRepository.GetByRequestIdAsync(requestId, cancellationToken);
+        if (videoRoom != null && !string.Equals(videoRoom.RoomName, roomName, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(videoRoom.RoomName, $"consultation-{requestId}", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(
+                "[DailyWebhook] VideoRoom DB record room name does not match webhook — DbRoomName={DbRoomName} WebhookRoomName={WebhookRoomName} RequestId={RequestId} RecordingId={RecordingId}",
+                videoRoom.RoomName, roomName, requestId, recordingId);
+            // Don't reject — the DB may store a different naming convention (consultation-{id} vs consult-{id:N})
+        }
+
+        logger.LogInformation(
+            "[DailyWebhook] Processing recording — RequestId={RequestId} RecordingId={RecordingId} RoomName={RoomName} PatientId={PatientId}",
+            requestId, recordingId, roomName, request.PatientId);
 
         // Retry: até 4 tentativas (download + upload). Retorna 503 em falha para Daily reenviar webhook.
         const int maxAttempts = 4;
@@ -129,7 +200,9 @@ public class DailyWebhookController(
             var (downloadLink, _) = await dailyVideoService.GetRecordingAccessLinkAsync(recordingId, 3600, cancellationToken);
             if (string.IsNullOrEmpty(downloadLink))
             {
-                logger.LogWarning("[DailyWebhook] Tentativa {Attempt}/{Max}: link de download vazio para {RecordingId}.", attempt, maxAttempts, recordingId);
+                logger.LogWarning(
+                    "[DailyWebhook] Tentativa {Attempt}/{Max}: link de download vazio — RecordingId={RecordingId} RequestId={RequestId}",
+                    attempt, maxAttempts, recordingId, requestId);
                 if (attempt < maxAttempts) await Task.Delay(baseDelayMs * (1 << (attempt - 1)), cancellationToken);
                 continue;
             }
@@ -146,7 +219,9 @@ public class DailyWebhookController(
                 await using var videoStream = await response.Content.ReadAsStreamAsync(cancellationToken);
                 if (streamSize == 0 && (videoStream == null || !videoStream.CanRead))
                 {
-                    logger.LogWarning("[DailyWebhook] Tentativa {Attempt}/{Max}: stream vazio para {RecordingId}.", attempt, maxAttempts, recordingId);
+                    logger.LogWarning(
+                        "[DailyWebhook] Tentativa {Attempt}/{Max}: stream vazio — RecordingId={RecordingId} RequestId={RequestId}",
+                        attempt, maxAttempts, recordingId, requestId);
                     if (attempt < maxAttempts) await Task.Delay(baseDelayMs * (1 << (attempt - 1)), cancellationToken);
                     continue;
                 }
@@ -157,7 +232,9 @@ public class DailyWebhookController(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "[DailyWebhook] Tentativa {Attempt}/{Max} falhou para {RecordingId}.", attempt, maxAttempts, recordingId);
+                logger.LogWarning(ex,
+                    "[DailyWebhook] Tentativa {Attempt}/{Max} falhou — RecordingId={RecordingId} RequestId={RequestId}",
+                    attempt, maxAttempts, recordingId, requestId);
             }
 
             if (attempt < maxAttempts)
@@ -166,12 +243,16 @@ public class DailyWebhookController(
 
         if (uploadResult == null || !uploadResult.Success || string.IsNullOrEmpty(uploadResult.Url))
         {
-            logger.LogError("[DailyWebhook] Todas as {Max} tentativas falharam. RequestId={RequestId} RecordingId={RecordingId}. Retornando 503 para Daily reenviar.", maxAttempts, requestId, recordingId);
+            logger.LogError(
+                "[DailyWebhook] Todas as {Max} tentativas falharam — RequestId={RequestId} RecordingId={RecordingId} RoomName={RoomName}. Retornando 503.",
+                maxAttempts, requestId, recordingId, roomName);
             return StatusCode(503, new { error = "Falha ao processar gravação. Daily reenviará o webhook." });
         }
 
         var savedUrl = uploadResult.Url!;
-        logger.LogInformation("[DailyWebhook] Gravação enviada à AWS (stream): RequestId={RequestId} Path={Path} ContentLength={Size}", requestId, path, streamSize);
+        logger.LogInformation(
+            "[DailyWebhook] Gravação enviada à AWS — RequestId={RequestId} RecordingId={RecordingId} Path={Path} ContentLength={Size}",
+            requestId, recordingId, path, streamSize);
 
         var existing = await consultationAnamnesisRepository.GetByRequestIdAsync(requestId, cancellationToken);
         if (existing != null)
@@ -220,6 +301,13 @@ public class DailyWebhookController(
     {
         public string? Type { get; set; }
         public DailyWebhookPayloadInner? Payload { get; set; }
+
+        /// <summary>Unix timestamp (seconds) when the event was generated by Daily. Used for replay protection.</summary>
+        public long? EventTs { get; set; }
+        public long? event_ts { get; set; }
+
+        /// <summary>Gets the event timestamp, preferring the camelCase field.</summary>
+        public long? GetEventTimestamp() => EventTs ?? event_ts;
     }
 
     public class DailyWebhookPayloadInner

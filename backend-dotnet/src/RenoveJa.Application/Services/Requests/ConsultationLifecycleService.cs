@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,6 @@ public class ConsultationLifecycleService(
     IVideoRoomRepository videoRoomRepository,
     IConsultationAnamnesisRepository consultationAnamnesisRepository,
     IConsultationSessionStore consultationSessionStore,
-    IConsultationTimeBankRepository consultationTimeBankRepository,
     IConsultationEncounterService consultationEncounterService,
     IStorageService storageService,
     IAuditService auditService,
@@ -38,6 +38,13 @@ public class ConsultationLifecycleService(
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
 
+    // Per-consultation lock to prevent concurrent accept/start race conditions.
+    // Uses a static ConcurrentDictionary so the locks survive across scoped service instances.
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _consultationLocks = new();
+
+    private static SemaphoreSlim GetLockFor(Guid consultationId)
+        => _consultationLocks.GetOrAdd(consultationId, _ => new SemaphoreSlim(1, 1));
+
     private Task PublishRequestUpdatedAsync(MedicalRequest request, string? message = null, CancellationToken cancellationToken = default)
         => requestEventsPublisher.NotifyRequestUpdatedAsync(
             request.Id, request.PatientId, request.DoctorId,
@@ -46,82 +53,101 @@ public class ConsultationLifecycleService(
     public async Task<(RequestResponseDto Request, VideoRoomResponseDto VideoRoom)> AcceptConsultationAsync(
         Guid id, Guid doctorId, CancellationToken cancellationToken = default)
     {
-        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
-        if (request == null)
-            throw new KeyNotFoundException("Request not found");
+        var semaphore = GetLockFor(id);
+        await semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+            if (request == null)
+                throw new KeyNotFoundException("Request not found");
 
-        if (request.RequestType != RequestType.Consultation)
-            throw new InvalidOperationException("Only consultation requests can create video rooms");
+            if (request.RequestType != RequestType.Consultation)
+                throw new InvalidOperationException("Only consultation requests can create video rooms");
 
-        if (request.Status != RequestStatus.SearchingDoctor)
-            throw new InvalidOperationException($"Consulta só pode ser aceita quando está em 'searching_doctor'. Status atual: {request.Status}");
+            // Re-check status after acquiring lock to prevent two doctors from accepting simultaneously
+            if (request.Status != RequestStatus.SearchingDoctor)
+                throw new InvalidOperationException($"Consulta só pode ser aceita quando está em 'searching_doctor'. Status atual: {request.Status}");
 
-        var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
-        if (doctor == null || !doctor.IsDoctor())
-            throw new InvalidOperationException("Doctor not found");
+            var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
+            if (doctor == null || !doctor.IsDoctor())
+                throw new InvalidOperationException("Doctor not found");
 
-        request.AssignDoctor(doctorId, doctor.Name);
-        request.Approve(0);
-        request = await requestRepository.UpdateAsync(request, cancellationToken);
+            request.AssignDoctor(doctorId, doctor.Name);
+            request.Approve(0);
+            request = await requestRepository.UpdateAsync(request, cancellationToken);
 
-        var roomName = $"consultation-{request.Id}";
-        var videoRoom = VideoRoom.Create(request.Id, roomName);
-        videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
+            var roomName = $"consultation-{request.Id}";
+            var videoRoom = VideoRoom.Create(request.Id, roomName);
+            videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 
-        await PublishRequestUpdatedAsync(request, "Médico aceitou — consulta confirmada", cancellationToken);
-        await pushDispatcher.SendAsync(PushNotificationRules.ConsultationScheduled(request.PatientId, request.Id, isDoctor: false), cancellationToken);
-        return (RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService), RequestHelpers.MapVideoRoomToDto(videoRoom));
+            await PublishRequestUpdatedAsync(request, "Médico aceitou — consulta confirmada", cancellationToken);
+            await pushDispatcher.SendAsync(PushNotificationRules.ConsultationScheduled(request.PatientId, request.Id, isDoctor: false), cancellationToken);
+            return (RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService), RequestHelpers.MapVideoRoomToDto(videoRoom));
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     public async Task<RequestResponseDto> StartConsultationAsync(Guid id, Guid doctorId, CancellationToken cancellationToken = default)
     {
-        var request = await requestRepository.GetByIdAsync(id, cancellationToken);
-        if (request == null)
-            throw new KeyNotFoundException("Request not found");
-
-        if (request.RequestType != RequestType.Consultation)
-            throw new InvalidOperationException("Only consultation requests can be started");
-
-        if (request.DoctorId.HasValue && request.DoctorId != doctorId)
-            throw new UnauthorizedAccessException("Only the assigned doctor can start this consultation");
-
-        if (!request.DoctorId.HasValue || request.DoctorId == Guid.Empty)
-        {
-            var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
-            if (doctor == null || !doctor.IsDoctor())
-                throw new UnauthorizedAccessException("User is not a doctor");
-            request.AssignDoctor(doctorId, doctor.Name);
-            request = await requestRepository.UpdateAsync(request, cancellationToken);
-        }
-
-        // Aceitar Paid (fluxo normal) ou ConsultationReady (legado/race condition com accept)
-        if (request.Status != RequestStatus.Paid && request.Status != RequestStatus.ConsultationReady)
-            throw new InvalidOperationException($"Consultation can only be started when status is Paid or ConsultationReady. Current status: {request.Status}.");
-
-        request.StartConsultation();
-        request = await requestRepository.UpdateAsync(request, cancellationToken);
-
-        var videoRoom = await videoRoomRepository.GetByRequestIdAsync(id, cancellationToken);
-        if (videoRoom != null && videoRoom.Status == VideoRoomStatus.Waiting)
-        {
-            videoRoom.Start();
-            await videoRoomRepository.UpdateAsync(videoRoom, cancellationToken);
-        }
-
-        // Garantir gravação de vídeo: iniciar via API Daily (independente do token)
+        var semaphore = GetLockFor(id);
+        await semaphore.WaitAsync(cancellationToken);
         try
         {
-            await startConsultationRecording.StartRecordingAsync(id, cancellationToken);
+            var request = await requestRepository.GetByIdAsync(id, cancellationToken);
+            if (request == null)
+                throw new KeyNotFoundException("Request not found");
+
+            if (request.RequestType != RequestType.Consultation)
+                throw new InvalidOperationException("Only consultation requests can be started");
+
+            if (request.DoctorId.HasValue && request.DoctorId != doctorId)
+                throw new UnauthorizedAccessException("Only the assigned doctor can start this consultation");
+
+            if (!request.DoctorId.HasValue || request.DoctorId == Guid.Empty)
+            {
+                var doctor = await userRepository.GetByIdAsync(doctorId, cancellationToken);
+                if (doctor == null || !doctor.IsDoctor())
+                    throw new UnauthorizedAccessException("User is not a doctor");
+                request.AssignDoctor(doctorId, doctor.Name);
+                request = await requestRepository.UpdateAsync(request, cancellationToken);
+            }
+
+            // Re-check status after acquiring lock to prevent concurrent start race conditions
+            if (request.Status != RequestStatus.Paid && request.Status != RequestStatus.ConsultationReady)
+                throw new InvalidOperationException($"Consultation can only be started when status is Paid or ConsultationReady. Current status: {request.Status}.");
+
+            request.StartConsultation();
+            request = await requestRepository.UpdateAsync(request, cancellationToken);
+
+            var videoRoom = await videoRoomRepository.GetByRequestIdAsync(id, cancellationToken);
+            if (videoRoom != null && videoRoom.Status == VideoRoomStatus.Waiting)
+            {
+                videoRoom.Start();
+                await videoRoomRepository.UpdateAsync(videoRoom, cancellationToken);
+            }
+
+            // Garantir gravação de vídeo: iniciar via API Daily (independente do token)
+            try
+            {
+                await startConsultationRecording.StartRecordingAsync(id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[StartConsultation] Falha ao iniciar gravação Daily para request {RequestId}", id);
+            }
+
+            await PublishRequestUpdatedAsync(request, "Médico na sala", cancellationToken);
+            await pushDispatcher.SendAsync(PushNotificationRules.DoctorReady(request.PatientId, request.Id), cancellationToken);
+
+            return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
         }
-        catch (Exception ex)
+        finally
         {
-            logger.LogWarning(ex, "[StartConsultation] Falha ao iniciar gravação Daily para request {RequestId}", id);
+            semaphore.Release();
         }
-
-        await PublishRequestUpdatedAsync(request, "Médico na sala", cancellationToken);
-        await pushDispatcher.SendAsync(PushNotificationRules.DoctorReady(request.PatientId, request.Id), cancellationToken);
-
-        return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
     }
 
     public async Task<RequestResponseDto> ReportCallConnectedAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
@@ -189,40 +215,6 @@ public class ConsultationLifecycleService(
         {
             videoRoom.End();
             await videoRoomRepository.UpdateAsync(videoRoom, cancellationToken);
-        }
-
-        // Debitar do banco de horas apenas os minutos efetivamente utilizados
-        if (request.ContractedMinutes.HasValue && !string.IsNullOrWhiteSpace(request.ConsultationType))
-        {
-            try
-            {
-                var usedSeconds = videoRoom?.DurationSeconds ?? 0;
-                if (usedSeconds > 0)
-                {
-                    var contractedSeconds = request.ContractedMinutes.Value * 60;
-                    var pricePerMinute = request.PricePerMinute ?? 6.99m;
-                    var amount = request.Price?.Amount ?? 0;
-
-                    var freeSeconds = amount <= 0
-                        ? contractedSeconds
-                        : (int)Math.Max(0, contractedSeconds - (int)Math.Ceiling((double)(amount / pricePerMinute)) * 60);
-
-                    var toDebit = Math.Min(usedSeconds, freeSeconds);
-                    if (toDebit > 0)
-                    {
-                        await consultationTimeBankRepository.DebitAsync(
-                            request.PatientId, request.ConsultationType, toDebit, request.Id, cancellationToken);
-
-                        logger.LogInformation(
-                            "[FinishConsultation] Debitado {Seconds}s do banco de horas de {PatientId} ({Type}) — usado na consulta",
-                            toDebit, request.PatientId, request.ConsultationType);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Falha ao debitar banco de horas para request {RequestId}", id);
-            }
         }
 
         // Persistir transcrição e anamnese da consulta no prontuário
@@ -488,11 +480,4 @@ public class ConsultationLifecycleService(
         logger.LogWarning("[RecordingSync] Gravação não encontrada após todas as tentativas para RequestId={RequestId}. Webhook ou acesso manual necessário.", requestId);
     }
 
-    public async Task<(int BalanceSeconds, int BalanceMinutes, string ConsultationType)> GetTimeBankBalanceAsync(
-        Guid userId, string consultationType, CancellationToken cancellationToken = default)
-    {
-        var normalizedType = string.IsNullOrWhiteSpace(consultationType) ? "medico_clinico" : consultationType;
-        var balanceSeconds = await consultationTimeBankRepository.GetBalanceSecondsAsync(userId, normalizedType, cancellationToken);
-        return (balanceSeconds, balanceSeconds / 60, normalizedType);
-    }
 }

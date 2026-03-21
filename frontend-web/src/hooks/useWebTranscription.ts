@@ -2,6 +2,10 @@
  * useWebTranscription — Envia transcrição Daily.co para o backend no web.
  * Usa Daily React SDK (useTranscription) para acessar transcription-message.
  * Médico inicia transcrição ao entrar; envia chunks ao backend.
+ *
+ * Bug fixes:
+ * - #1: Only starts transcription after meetingJoined is true (gated by parent with 150ms buffer)
+ * - #5: visibilitychange does NOT pause transcription — we keep sending regardless of tab state
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -12,6 +16,8 @@ interface UseWebTranscriptionOptions {
   requestId: string | null;
   /** Se a consulta já iniciou (status InConsultation/Paid) — backend só aceita envio quando true */
   consultationActive: boolean;
+  /** Whether the meeting has been fully joined (with buffer). Gated by parent. */
+  meetingJoined: boolean;
   /** Callback quando envio ao backend falha */
   onSendError?: (message: string) => void;
   /** Callback quando envio ao backend tem sucesso */
@@ -21,6 +27,7 @@ interface UseWebTranscriptionOptions {
 export function useWebTranscription({
   requestId,
   consultationActive,
+  meetingJoined,
   onSendError,
   onSendSuccess,
 }: UseWebTranscriptionOptions): void {
@@ -28,6 +35,8 @@ export function useWebTranscription({
   const onSendErrorRef = useRef(onSendError);
   const onSendSuccessRef = useRef(onSendSuccess);
   const startedRef = useRef(false);
+  /** #5: Track whether we should keep transcribing even when tab is hidden */
+  const tabHiddenRef = useRef(false);
 
   useEffect(() => {
     consultationActiveRef.current = consultationActive;
@@ -40,6 +49,17 @@ export function useWebTranscription({
     startedRef.current = false;
   }, [requestId]);
 
+  // #5: Track visibility but do NOT stop transcription — just mark for logging
+  useEffect(() => {
+    function handleVisibilityChange() {
+      tabHiddenRef.current = document.visibilityState === 'hidden';
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   const localSessionId = useLocalSessionId();
   const meetingState = useMeetingState();
 
@@ -47,6 +67,7 @@ export function useWebTranscription({
     async (text: string, speaker: 'medico' | 'paciente', startTimeSeconds?: number) => {
       if (!requestId || !text?.trim()) return;
       if (!consultationActiveRef.current) return;
+      // #5: We explicitly do NOT check tabHiddenRef — keep sending even when tab is hidden
       try {
         await transcribeText(requestId, text.trim(), speaker, startTimeSeconds);
         onSendSuccessRef.current?.();
@@ -92,8 +113,15 @@ export function useWebTranscription({
     onTranscriptionMessage: handleMessage,
   });
 
+  // #1: Only start transcription when meetingJoined is true (which has the 150ms buffer)
+  // AND meetingState is 'joined-meeting' — double-gate for safety
   useEffect(() => {
-    if (meetingState === 'joined-meeting' && !startedRef.current && requestId) {
+    if (
+      meetingJoined &&
+      meetingState === 'joined-meeting' &&
+      !startedRef.current &&
+      requestId
+    ) {
       startedRef.current = true;
       try {
         startTranscription?.({ language: 'pt-BR' });
@@ -101,5 +129,5 @@ export function useWebTranscription({
         startedRef.current = false;
       }
     }
-  }, [meetingState, requestId, startTranscription]);
+  }, [meetingJoined, meetingState, requestId, startTranscription]);
 }

@@ -200,16 +200,21 @@ public class NpgsqlDataClient
         return new string(table.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
     }
 
+    private static readonly System.Text.RegularExpressions.Regex SafeSelectPattern = new(@"^[a-zA-Z0-9_., *]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
     private static string ParseSelect(string? select)
     {
         if (string.IsNullOrWhiteSpace(select) || select == "*")
             return "*";
 
         // PostgREST select: "id,name,email" or "id,name,doctor_profiles(id,crm)"
-        // For now, handle simple comma-separated columns
         // Nested selects (joins) are not supported — fallback to *
         if (select.Contains('('))
             return "*";
+
+        // Sanitize: only allow alphanumeric, underscores, dots, commas, spaces, and *
+        if (!SafeSelectPattern.IsMatch(select))
+            throw new ArgumentException($"Invalid select parameter: contains disallowed characters.");
 
         return select;
     }

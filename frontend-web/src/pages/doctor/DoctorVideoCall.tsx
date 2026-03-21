@@ -177,6 +177,23 @@ export default function DoctorVideoCall() {
     }
   }, [requestId]);
 
+  // Bug #2: Handle left-meeting (voluntary leave or unexpected disconnection)
+  const handleCallLeft = useCallback(() => {
+    // Stop the timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    // If consultation was active, navigate to summary; otherwise back to request
+    if (consultationStarted && requestId) {
+      toast.info('Videochamada encerrada.');
+      navigate(`/resumo-consulta/${requestId}`);
+    } else if (requestId) {
+      toast.info('Videochamada encerrada.');
+      navigate(`/pedidos/${requestId}`);
+    }
+  }, [consultationStarted, requestId, navigate]);
+
   // Save notes
   const handleSaveNotes = async () => {
     if (!requestId) return;
@@ -276,18 +293,21 @@ export default function DoctorVideoCall() {
       />
 
       {/* ── Main Content: Video + AI Panel ── */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Bug #10: flex-col on small screens for responsive layout */}
+      <div className="flex-1 flex max-md:flex-col overflow-hidden">
         <VideoFrameDaily
           roomUrl={roomUrl}
           requestId={requestId ?? null}
           isExpanded={isExpanded}
           onToggleExpand={() => setIsExpanded(!isExpanded)}
           onCallJoined={handleIframeLoad}
+          onCallLeft={handleCallLeft}
           consultationActive={consultationStarted}
         />
 
         {/* ── AI Clinical Panel ── */}
-        <div className={`bg-gray-900 border-l border-gray-800 flex flex-col transition-all duration-300 ${isExpanded ? 'w-[60%]' : 'w-[40%]'}`}>
+        {/* Bug #10: responsive — full width on small screens */}
+        <div className={`bg-gray-900 border-l border-gray-800 flex flex-col transition-all duration-300 ${isExpanded ? 'w-[60%]' : 'w-[40%]'} max-md:!w-full max-md:flex-1 max-md:border-l-0 max-md:border-t`}>
           {/* Patient alerts */}
           {patient?.allergies && patient.allergies.length > 0 && (
             <div className="px-4 py-2 bg-red-950/50 border-b border-red-900/50 flex items-center gap-2">
