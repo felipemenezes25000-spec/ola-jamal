@@ -44,6 +44,14 @@ interface Props {
 
 // ── Helpers ──
 
+/** Extract only the ICD-10 code (e.g. "J06.9") from an AI-generated string
+ *  that may contain a description like "J06.9 — Infecção aguda das vias aéreas". */
+function extractCidCode(raw: string): string {
+  // Match ICD-10 pattern: letter + digits + optional dot + digits (e.g. J06.9, A01.23, Z76)
+  const m = raw.match(/[A-Z]\d{2}(?:\.\d{1,2})?/i);
+  return m ? m[0].toUpperCase() : raw.toUpperCase().slice(0, 10);
+}
+
 function extractCidFromAnamnesis(anamnesis: AnamnesisData | null): string | null {
   if (!anamnesis) return null;
   // Extract from first diagnostico_diferencial item
@@ -53,7 +61,7 @@ function extractCidFromAnamnesis(anamnesis: AnamnesisData | null): string | null
     if (typeof first === 'object' && first !== null && 'cid' in first) {
       const cid = (first as { cid?: string }).cid;
       if (typeof cid === 'string' && cid.trim().length > 0) {
-        return cid.toUpperCase().replace(/\./g, '').trim();
+        return extractCidCode(cid.trim());
       }
     }
   }

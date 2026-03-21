@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
@@ -35,11 +36,28 @@ public class PostConsultationService(
     IAuditService auditService,
     ILogger<PostConsultationService> logger) : IPostConsultationService
 {
+    /// <summary>Extract only the ICD-10 code portion (e.g. "J06.9") from a string
+    /// that may contain a description like "J06.9 — Infecção aguda". Truncates to 20 chars max.</summary>
+    private static string? SanitizeIcd10(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var m = Regex.Match(raw, @"[A-Z]\d{2}(?:\.\d{1,2})?", RegexOptions.IgnoreCase);
+        var code = m.Success ? m.Value.ToUpperInvariant() : raw.Trim();
+        return code.Length > 20 ? code[..20] : code;
+    }
+
     public async Task<PostConsultationEmitResponse> EmitDocumentsAsync(
         Guid doctorUserId,
         PostConsultationEmitRequest request,
         CancellationToken cancellationToken = default)
     {
+        // Sanitizar ICD-10 codes antes de qualquer persistência
+        request = request with { MainIcd10Code = SanitizeIcd10(request.MainIcd10Code) };
+        if (request.MedicalCertificate != null)
+            request = request with { MedicalCertificate = request.MedicalCertificate with { Icd10Code = SanitizeIcd10(request.MedicalCertificate.Icd10Code) } };
+        if (request.Referral != null)
+            request = request with { Referral = request.Referral with { Icd10Code = SanitizeIcd10(request.Referral.Icd10Code) } };
+
         // ── 1. Validar request e acesso ──
         var medicalRequest = await requestRepository.GetByIdAsync(request.RequestId, cancellationToken)
             ?? throw new InvalidOperationException("Request not found");

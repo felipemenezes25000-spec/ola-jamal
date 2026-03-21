@@ -564,6 +564,15 @@ public static class MigrationRunner
         "CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON public.audit_logs(entity_type, entity_id) WHERE entity_id IS NOT NULL",
     };
 
+    // ICD-10 codes are max ~7 chars (e.g. "A01.23") but AI may produce longer values;
+    // widen from VARCHAR(10) to VARCHAR(20) to accommodate edge cases.
+    private static readonly string[] Icd10ColumnWidenMigrations =
+    {
+        "ALTER TABLE public.medical_documents ALTER COLUMN icd10_code TYPE VARCHAR(20)",
+        "ALTER TABLE public.encounters ALTER COLUMN main_icd10_code TYPE VARCHAR(20)",
+        "ALTER TABLE public.patient_conditions ALTER COLUMN icd10_code TYPE VARCHAR(20)",
+    };
+
     /// <summary>
     /// Executa todas as migrations. Só roda se DatabaseUrl estiver definida.
     /// </summary>
@@ -610,7 +619,8 @@ public static class MigrationRunner
             ("fix_encounter_patient_id", FixEncounterPatientIdMigrations),
             ("chronic_condition", ChronicConditionMigrations),
             ("prescriptions_table", PrescriptionsTableMigrations),
-            ("audit_logs_schema_fix", AuditLogsSchemaFixMigrations)
+            ("audit_logs_schema_fix", AuditLogsSchemaFixMigrations),
+            ("icd10_column_widen", Icd10ColumnWidenMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)
