@@ -18,7 +18,8 @@ namespace RenoveJa.Infrastructure.ClinicalEvidence;
 /// </summary>
 public sealed class ClinicalEvidenceService : IClinicalEvidenceService
 {
-    private const string CacheKeyPrefix = "clinical:evidence:";
+    // v2: cache key includes translation version — invalidates old PT-only caches
+    private const string CacheKeyPrefix = "clinical:evidence:v2:";
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromDays(14);
     private const int MaxAbstractCharsForGpt = 6000;
 
@@ -79,9 +80,13 @@ public sealed class ClinicalEvidenceService : IClinicalEvidenceService
                 return cached;
             }
 
+            // Traduzir termos PT→EN para PubMed (indexado em inglês)
+            var englishTerms = await TranslateTermsToEnglishAsync(searchTerms, cancellationToken);
+            _logger.LogInformation("[ClinicalEvidence] Termos PT: {PtTerms} → EN: {EnTerms}",
+                string.Join(" | ", searchTerms), string.Join(" | ", englishTerms));
+
             // Buscar no PubMed (cascata: Cochrane > Meta > RCT > geral)
-            _logger.LogInformation("[ClinicalEvidence] Buscando PubMed: termos={Terms}", string.Join(" | ", searchTerms));
-            var articles = await _pubMedClient.SearchAsync(searchTerms, 6, cancellationToken);
+            var articles = await _pubMedClient.SearchAsync(englishTerms, 6, cancellationToken);
 
             if (articles.Count == 0)
             {
@@ -317,6 +322,217 @@ Analise e retorne JSON com os artigos relevantes que confirmam ou contestam a hi
             _logger.LogWarning(ex, "[ClinicalEvidence] Erro ao filtrar com GPT-4o. Retornando artigos brutos.");
             return articles.Take(5).Select(a => BuildFallbackDto(a)).ToList();
         }
+    }
+
+    // ── Translation PT→EN for PubMed ──
+
+    /// <summary>
+    /// CID codes (e.g. H66, E10) são mantidos e convertidos para MeSH terms via GPT-4o-mini.
+    /// Termos descritivos em português são traduzidos para inglês médico (MeSH-compatible).
+    /// Usa gpt-4o-mini (rápido e barato) com fallback para dicionário estático.
+    /// </summary>
+    private async Task<List<string>> TranslateTermsToEnglishAsync(
+        List<string> portugueseTerms,
+        CancellationToken ct)
+    {
+        if (portugueseTerms.Count == 0)
+            return portugueseTerms;
+
+        // Separar CID codes dos termos descritivos
+        var cidCodes = new List<string>();
+        var descriptiveTerms = new List<string>();
+        foreach (var term in portugueseTerms)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch(term, @"^[A-Z]\d{2}(\.\d+)?$"))
+                cidCodes.Add(term);
+            else
+                descriptiveTerms.Add(term);
+        }
+
+        // Se só tem CID codes, usar como MeSH terms direto
+        if (descriptiveTerms.Count == 0)
+            return cidCodes;
+
+        // Tentar tradução via LLM (gpt-4o-mini: ~100ms, ~$0.0001)
+        try
+        {
+            var apiKey = _config.Value?.ApiKey?.Trim();
+            if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR_"))
+            {
+                // Sem API key: tentar fallback Gemini
+                return await TranslateWithGeminiFallbackAsync(cidCodes, descriptiveTerms, ct)
+                    ?? FallbackStaticTranslation(cidCodes, descriptiveTerms);
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            client.Timeout = TimeSpan.FromSeconds(8);
+
+            var termsJoined = string.Join("\n", descriptiveTerms.Select((t, i) => $"{i + 1}. {t}"));
+            var prompt = $@"Translate these Portuguese medical terms to English MeSH-compatible terms for PubMed search.
+Return ONLY a JSON array of English terms, one per input line. Keep terms concise (2-4 words max).
+If a term contains an ICD code (like H66, E10), return the standard English disease name for that code.
+
+Portuguese terms:
+{termsJoined}
+
+Example: [""otitis media"", ""ear pain and fever""]";
+
+            var requestBody = new
+            {
+                model = "gpt-4o-mini",
+                messages = new object[]
+                {
+                    new { role = "user", content = prompt }
+                },
+                max_tokens = 200,
+                temperature = 0.0
+            };
+
+            var jsonBody = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            });
+
+            using var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync("https://api.openai.com/v1/chat/completions", content, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("[ClinicalEvidence] Tradução GPT-4o-mini falhou: {StatusCode}. Usando fallback.", response.StatusCode);
+                return await TranslateWithGeminiFallbackAsync(cidCodes, descriptiveTerms, ct)
+                    ?? FallbackStaticTranslation(cidCodes, descriptiveTerms);
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync(ct);
+            using var responseDoc = JsonDocument.Parse(responseJson);
+            var gptContent = responseDoc.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString() ?? "[]";
+
+            // Limpar markdown fences
+            gptContent = gptContent.Trim();
+            if (gptContent.StartsWith("```json")) gptContent = gptContent[7..];
+            if (gptContent.StartsWith("```")) gptContent = gptContent[3..];
+            if (gptContent.EndsWith("```")) gptContent = gptContent[..^3];
+            gptContent = gptContent.Trim();
+
+            var translated = JsonSerializer.Deserialize<List<string>>(gptContent);
+            if (translated == null || translated.Count == 0)
+                return FallbackStaticTranslation(cidCodes, descriptiveTerms);
+
+            // Combinar CID codes + termos traduzidos
+            var result = new List<string>(cidCodes);
+            result.AddRange(translated.Where(t => !string.IsNullOrWhiteSpace(t)));
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[ClinicalEvidence] Erro na tradução PT→EN. Usando fallback.");
+            return FallbackStaticTranslation(cidCodes, descriptiveTerms);
+        }
+    }
+
+    /// <summary>Fallback Gemini para tradução quando OpenAI falha.</summary>
+    private async Task<List<string>?> TranslateWithGeminiFallbackAsync(
+        List<string> cidCodes,
+        List<string> descriptiveTerms,
+        CancellationToken ct)
+    {
+        var geminiKey = _config.Value?.GeminiApiKey?.Trim();
+        if (string.IsNullOrEmpty(geminiKey) || geminiKey.Contains("YOUR_"))
+            return null;
+
+        try
+        {
+            var geminiBaseUrl = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl)
+                ? _config.Value!.GeminiApiBaseUrl!.Trim()
+                : "https://generativelanguage.googleapis.com/v1beta/openai";
+
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", geminiKey);
+            client.Timeout = TimeSpan.FromSeconds(8);
+
+            var termsJoined = string.Join("\n", descriptiveTerms.Select((t, i) => $"{i + 1}. {t}"));
+            var prompt = $@"Translate these Portuguese medical terms to English MeSH-compatible terms for PubMed search.
+Return ONLY a JSON array of English terms. Keep terms concise (2-4 words max).
+
+Portuguese terms:
+{termsJoined}";
+
+            var requestBody = new
+            {
+                model = "gemini-2.5-flash",
+                messages = new object[]
+                {
+                    new { role = "user", content = prompt }
+                },
+                max_tokens = 200,
+                temperature = 0.0
+            };
+
+            var jsonBody = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            });
+
+            using var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync($"{geminiBaseUrl}/chat/completions", content, ct);
+
+            if (!response.IsSuccessStatusCode) return null;
+
+            var responseJson = await response.Content.ReadAsStringAsync(ct);
+            using var responseDoc = JsonDocument.Parse(responseJson);
+            var gptContent = responseDoc.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString() ?? "[]";
+
+            gptContent = gptContent.Trim();
+            if (gptContent.StartsWith("```json")) gptContent = gptContent[7..];
+            if (gptContent.StartsWith("```")) gptContent = gptContent[3..];
+            if (gptContent.EndsWith("```")) gptContent = gptContent[..^3];
+            gptContent = gptContent.Trim();
+
+            var translated = JsonSerializer.Deserialize<List<string>>(gptContent);
+            if (translated == null || translated.Count == 0) return null;
+
+            var result = new List<string>(cidCodes);
+            result.AddRange(translated.Where(t => !string.IsNullOrWhiteSpace(t)));
+            _logger.LogInformation("[ClinicalEvidence] Tradução Gemini OK: {Count} termos", result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[ClinicalEvidence] Fallback Gemini para tradução falhou.");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Fallback estático quando LLM está indisponível.
+    /// Usa CID codes como MeSH terms (PubMed aceita H66[MeSH Terms]) e
+    /// tenta tradução básica removendo preposições/artigos PT.
+    /// </summary>
+    private static List<string> FallbackStaticTranslation(List<string> cidCodes, List<string> descriptiveTerms)
+    {
+        var result = new List<string>(cidCodes);
+        // CID codes sozinhos já funcionam razoavelmente no PubMed
+        // Para termos descritivos, usar como está (PubMed tem algum matching cross-language via MeSH)
+        // Melhor que nada — pelo menos os CID codes vão trazer resultados
+        foreach (var term in descriptiveTerms)
+        {
+            // Se o termo contém um CID code embutido (ex: "H66 - Otite média"), extrair o código
+            var cidMatch = System.Text.RegularExpressions.Regex.Match(term, @"\b([A-Z]\d{2}(?:\.\d+)?)\b");
+            if (cidMatch.Success)
+                result.Add(cidMatch.Groups[1].Value);
+        }
+        return result.Count > 0 ? result : descriptiveTerms;
     }
 
     // ── Cache helpers ──

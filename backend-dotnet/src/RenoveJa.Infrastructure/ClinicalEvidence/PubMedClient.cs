@@ -255,30 +255,41 @@ public sealed class PubMedClient
     }
 
     // ── Query builders ──
+    // Termos devem chegar em inglês (traduzidos por ClinicalEvidenceService).
+    // CID codes (ex: H66) são usados como MeSH Terms para matching preciso.
+
+    /// <summary>Formata um termo para PubMed: CID codes viram MeSH query, texto vira busca livre.</summary>
+    private static string FormatTerm(string term)
+    {
+        // CID code → MeSH term lookup (PubMed automatic term mapping handles ICD→MeSH)
+        if (System.Text.RegularExpressions.Regex.IsMatch(term, @"^[A-Z]\d{2}(\.\d+)?$"))
+            return $"{term}[MeSH Terms]";
+        return $"({term})";
+    }
 
     private static string BuildCochraneQuery(List<string> terms)
     {
-        var mainTerm = terms.First();
-        return $"\"Cochrane Database Syst Rev\"[Journal] AND ({mainTerm}) AND (\"last 5 years\"[PDat])";
+        var mainTerm = FormatTerm(terms.First());
+        return $"\"Cochrane Database Syst Rev\"[Journal] AND {mainTerm} AND (\"last 5 years\"[PDat])";
     }
 
     private static string BuildMetaAnalysisQuery(List<string> terms)
     {
-        var mainTerm = terms.First();
-        var extra = terms.Count > 1 ? $" AND ({terms[1]})" : "";
-        return $"({mainTerm}){extra} AND (meta-analysis[pt]) AND (\"last 5 years\"[PDat])";
+        var mainTerm = FormatTerm(terms.First());
+        var extra = terms.Count > 1 ? $" AND {FormatTerm(terms[1])}" : "";
+        return $"{mainTerm}{extra} AND (meta-analysis[pt]) AND (\"last 5 years\"[PDat])";
     }
 
     private static string BuildRctQuery(List<string> terms)
     {
-        var mainTerm = terms.First();
-        var extra = terms.Count > 1 ? $" AND ({terms[1]})" : "";
-        return $"({mainTerm}){extra} AND (randomized controlled trial[pt]) AND (\"last 5 years\"[PDat])";
+        var mainTerm = FormatTerm(terms.First());
+        var extra = terms.Count > 1 ? $" AND {FormatTerm(terms[1])}" : "";
+        return $"{mainTerm}{extra} AND (randomized controlled trial[pt]) AND (\"last 5 years\"[PDat])";
     }
 
     private static string BuildGeneralQuery(List<string> terms)
     {
-        var combined = string.Join(" AND ", terms.Take(3).Select(t => $"({t})"));
+        var combined = string.Join(" AND ", terms.Take(3).Select(t => FormatTerm(t)));
         return $"{combined} AND (\"last 5 years\"[PDat]) AND (hasabstract)";
     }
 }

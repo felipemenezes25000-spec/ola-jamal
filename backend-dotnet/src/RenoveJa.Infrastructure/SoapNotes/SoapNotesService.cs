@@ -19,8 +19,8 @@ public class SoapNotesService : ISoapNotesService
     private readonly IOptions<OpenAIConfig> _config;
     private readonly ILogger<SoapNotesService> _logger;
 
-    private const string OpenAiUrl = "https://api.openai.com/v1/chat/completions";
-    private const string GeminiUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
+    private const string OpenAiBaseUrl = "https://api.openai.com/v1";
+    private const string GeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -80,7 +80,7 @@ public class SoapNotesService : ISoapNotesService
             try
             {
                 var fallback = await CallProviderAsync(
-                    systemPrompt, userPrompt, geminiKey, GeminiUrl, "gemini-2.5-flash", cancellationToken);
+                    systemPrompt, userPrompt, geminiKey, GeminiBaseUrl, "gemini-2.5-flash", cancellationToken);
                 if (fallback != null)
                 {
                     _logger.LogInformation("[SOAP] Notas SOAP geradas via fallback Gemini.");
@@ -100,13 +100,13 @@ public class SoapNotesService : ISoapNotesService
     {
         var openAiKey = _config.Value?.ApiKey?.Trim();
         if (!string.IsNullOrEmpty(openAiKey) && !openAiKey.Contains("YOUR_"))
-            return (openAiKey, OpenAiUrl, _config.Value?.Model ?? "gpt-4o");
+            return (openAiKey, OpenAiBaseUrl, _config.Value?.Model ?? "gpt-4o");
 
         var geminiKey = _config.Value?.GeminiApiKey?.Trim();
         if (!string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_"))
-            return (geminiKey, GeminiUrl, "gemini-2.5-flash");
+            return (geminiKey, GeminiBaseUrl, "gemini-2.5-flash");
 
-        return (string.Empty, OpenAiUrl, "gpt-4o");
+        return (string.Empty, OpenAiBaseUrl, "gpt-4o");
     }
 
     private async Task<SoapNotesResult?> CallProviderAsync(
