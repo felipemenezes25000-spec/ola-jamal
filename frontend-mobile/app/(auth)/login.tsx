@@ -113,10 +113,8 @@ export default function Login() {
       const user = await signIn(result.data.email, result.data.password);
       const dest = !user.profileComplete
         ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
-        : user.role === 'doctor'
+        : user.role === 'doctor' || user.role === 'admin'
         ? '/(doctor)/dashboard'
-        : user.role === 'admin' || user.role === 'sus'
-        ? '/(sus)/dashboard'
         : '/(patient)/home';
       setTimeout(() => nav.replace(router, dest as any), 0);
     } catch (error: unknown) {

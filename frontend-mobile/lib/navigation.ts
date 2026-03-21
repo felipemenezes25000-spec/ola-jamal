@@ -37,13 +37,6 @@ export type AppRoute =
   | '/(doctor)/requests'
   | '/(doctor)/profile'
   | '/(doctor)/notifications'
-  // SUS
-  | '/(sus)/dashboard'
-  | '/(sus)/agenda'
-  | '/(sus)/atendimento'
-  | '/(sus)/cidadaos'
-  | '/(sus)/exportacao'
-  | '/(sus)/relatorios'
   // Shared
   | '/onboarding'
   | '/terms'

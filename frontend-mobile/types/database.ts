@@ -2,7 +2,7 @@
 // USER & AUTH TYPES (matches Auth/AuthDtos.cs)
 // ============================================
 
-export type UserRole = 'patient' | 'doctor' | 'admin' | 'sus';
+export type UserRole = 'patient' | 'doctor' | 'admin';
 
 export interface UserDto {
   id: string;
