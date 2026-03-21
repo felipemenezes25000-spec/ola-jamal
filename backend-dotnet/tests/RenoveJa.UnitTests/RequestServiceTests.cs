@@ -58,7 +58,6 @@ public class RequestServiceTests
         var documentTokenServiceMock = new Mock<IDocumentTokenService>();
         var storageServiceMock = new Mock<IStorageService>();
         var requestEventsPublisherMock = new Mock<IRequestEventsPublisher>();
-        var newRequestBatchServiceMock = new Mock<INewRequestBatchService>();
         var signedRequestClinicalSyncMock = new Mock<ISignedRequestClinicalSyncService>();
         var consultationEncounterServiceMock = new Mock<IConsultationEncounterService>();
         var auditServiceMock = new Mock<IAuditService>();
@@ -83,7 +82,6 @@ public class RequestServiceTests
             documentTokenServiceMock.Object,
             _aiConductSuggestionServiceMock.Object,
             requestEventsPublisherMock.Object,
-            newRequestBatchServiceMock.Object,
             auditServiceMock.Object,
             requestApprovalService,
             new RequestQueryService(

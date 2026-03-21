@@ -347,7 +347,6 @@ public class ExtendedRequestServiceTests
             _documentTokenServiceMock.Object,
             _aiConductSuggestionServiceMock.Object,
             _requestEventsPublisherMock.Object,
-            new Mock<INewRequestBatchService>().Object,
             new Mock<IAuditService>().Object,
             requestApprovalService,
             new RenoveJa.Application.Services.Requests.RequestQueryService(

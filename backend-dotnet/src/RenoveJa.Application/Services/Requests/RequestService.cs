@@ -37,7 +37,6 @@ public class RequestService(
     IDocumentTokenService documentTokenService,
     IAiConductSuggestionService aiConductSuggestionService,
     IRequestEventsPublisher requestEventsPublisher,
-    INewRequestBatchService newRequestBatchService,
     IAuditService auditService,
     IRequestApprovalService requestApprovalService,
     IRequestQueryService requestQueryService,
