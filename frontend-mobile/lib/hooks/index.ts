@@ -32,9 +32,6 @@ export {
   requestDetailKeys,
 } from './useRequestDetailQuery';
 
-// ── Doctor Actions (mutations) ──────────────────────────────────
-export { useDoctorActions } from './useDoctorActions';
-
 // ── Create Request (mutations) ──────────────────────────────────
 export {
   useCreatePrescription,
