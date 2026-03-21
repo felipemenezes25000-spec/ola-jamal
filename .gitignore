@@ -20,6 +20,16 @@ coverage/
 
 # Frames PNG extraídos localmente (ffmpeg / análise de vídeo)
 extracted-frames-*/
+video-frames/
+
+# Design reference screenshots (usar Figma/wiki)
+reference-screens/
+
+# Playwright MCP local artifacts
+.playwright-mcp/
+
+# Coverage reports (generated output)
+coverage-report.txt
 
 # Environment / secrets
 .env
