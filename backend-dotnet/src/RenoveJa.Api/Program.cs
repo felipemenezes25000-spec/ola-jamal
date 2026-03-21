@@ -205,9 +205,6 @@ builder.Services.AddHostedService<RecordingSyncBackgroundService>();
 builder.Services.AddHostedService<OrphanedRoomCleanupService>();
 builder.Services.AddHostedService<RenoveJa.Infrastructure.ClinicalEvidence.EvidenceCacheStartupCleaner>();
 builder.Services.AddScoped<RenoveJa.Infrastructure.Storage.S3MigrationService>();
-builder.Services.AddHttpClient("LediPec");
-builder.Services.AddHttpClient("Rnds");
-
 // HttpContextAccessor for CurrentUserService
 builder.Services.AddHttpContextAccessor();
 
@@ -234,8 +231,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Patient", policy => policy.RequireRole("patient"));
     options.AddPolicy("Doctor", policy => policy.RequireRole("doctor"));
-    options.AddPolicy("Admin", policy => policy.RequireRole("admin", "sus"));
-    options.AddPolicy("Sus", policy => policy.RequireRole("sus", "admin"));
+    options.AddPolicy("Admin", policy => policy.RequireRole("admin"));
 });
 
 builder.Services.AddSignalR(options =>

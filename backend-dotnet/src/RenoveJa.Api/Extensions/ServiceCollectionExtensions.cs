@@ -23,8 +23,6 @@ using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.Repositories;
 using RenoveJa.Infrastructure.Storage;
 using RenoveJa.Infrastructure.Video;
-using RenoveJa.Infrastructure.Ledi;
-using RenoveJa.Infrastructure.Rnds;
 using RenoveJa.Api.Services;
 using StackExchange.Redis;
 
@@ -91,8 +89,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVideoService, VideoService>();
         services.AddScoped<IDoctorService, DoctorService>();
         services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<ILediExportService, LediExportService>();
-        services.AddScoped<IRndsService, RndsService>();
         services.AddScoped<IAuditEventService, AuditEventService>();
         services.AddScoped<IClinicalRecordService, ClinicalRecordService>();
         services.AddScoped<IPostConsultationService, PostConsultationService>();
@@ -213,9 +209,6 @@ public static class ServiceCollectionExtensions
         services.Configure<InfoSimplesConfig>(config.GetSection(InfoSimplesConfig.SectionName));
         services.Configure<CertificateEncryptionConfig>(config.GetSection(CertificateEncryptionConfig.SectionName));
         services.Configure<VerificationConfig>(config.GetSection(VerificationConfig.SectionName));
-        services.Configure<LediConfig>(config.GetSection("Ledi"));
-        services.Configure<RndsConfig>(config.GetSection("Rnds"));
-
         services.Configure<ApiConfig>(options =>
         {
             options.BaseUrl = EnvOrConfig(envVars, config, "Api__BaseUrl", "Api:BaseUrl");
