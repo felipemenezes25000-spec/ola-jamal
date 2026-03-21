@@ -300,9 +300,16 @@ public class DocumentVerifyController(
 
             return Ok(new { success = true, message = "Documento marcado como dispensado/utilizado.", dispenseCount = dispenseCount + 1 });
         }
+        catch (Npgsql.NpgsqlException ex)
+        {
+            logger.LogError(ex, "Dispense-by-code DB error for document {DocumentId}: {SqlState} {DbMessage}",
+                documentId, ex.SqlState, ex.Message);
+            return StatusCode(503, new { error = "Serviço temporariamente indisponível. Tente novamente em alguns segundos." });
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Dispense-by-code failed for document {DocumentId}", documentId);
+            logger.LogError(ex, "Dispense-by-code failed for document {DocumentId}: {ExType} {ExMessage}",
+                documentId, ex.GetType().Name, ex.Message);
             return BadRequest(new { error = "Erro ao registrar dispensação. Tente novamente." });
         }
     }
@@ -361,9 +368,16 @@ public class DocumentVerifyController(
 
             return Ok(new { success = true, message = "Documento marcado como dispensado.", dispenseCount = dispenseCount + 1 });
         }
+        catch (Npgsql.NpgsqlException ex)
+        {
+            logger.LogError(ex, "Dispense DB error for document {DocumentId}: {SqlState} {DbMessage}",
+                documentId, ex.SqlState, ex.Message);
+            return StatusCode(503, new { error = "Serviço temporariamente indisponível. Tente novamente em alguns segundos." });
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Dispense failed for document {DocumentId}", documentId);
+            logger.LogError(ex, "Dispense failed for document {DocumentId}: {ExType} {ExMessage}",
+                documentId, ex.GetType().Name, ex.Message);
             return BadRequest(new { error = "Erro ao registrar dispensação. Tente novamente." });
         }
     }
