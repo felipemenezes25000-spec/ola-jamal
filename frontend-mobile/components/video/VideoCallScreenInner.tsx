@@ -624,6 +624,7 @@ export default function VideoCallScreenInner() {
     if (leavingRef.current) return;
     if (isDoctor && !autoFinish) { setShowNotes(true); return; }
     leavingRef.current = true;
+    setEnding(true);
     await leave();
     if (autoFinish) { try { await autoFinishConsultation(rid); } catch {} }
     cleanup();
@@ -667,6 +668,7 @@ export default function VideoCallScreenInner() {
           style: 'destructive',
           onPress: () => {
             leavingRef.current = true;
+            setEnding(true);
             leave().then(() => {
               try { cleanup(); } catch {}
               try { nav.replace(router, `/request-detail/${rid}`); } catch { try { router.back(); } catch {} }
@@ -735,7 +737,7 @@ export default function VideoCallScreenInner() {
   return (
     <View style={S.container}>
       {/* Remote video — full screen normal; overlay pequeno em PiP */}
-      {remoteParticipant?.videoTrack?.persistentTrack != null ? (
+      {remoteParticipant?.videoTrack?.persistentTrack != null && !ending && callState === 'joined' ? (
         <View collapsable={false} style={remoteIsMain ? S.remote : S.pipRemote}>
           <DailyMediaView
             videoTrack={remoteParticipant.videoTrack.persistentTrack}
@@ -758,7 +760,7 @@ export default function VideoCallScreenInner() {
         Local preview: em PiP Android NÃO desmontar o DailyMediaView — isso parava o surface e o outro lado via tela preta.
         Em PiP: mantemos o mesmo track num view mínimo quase invisível (keep-alive) para o encoder continuar enviando.
       */}
-      {localParticipant?.videoTrack?.persistentTrack != null && !isCameraOff && (
+      {localParticipant?.videoTrack?.persistentTrack != null && !isCameraOff && !ending && callState === 'joined' && (
         <View
           collapsable={false}
           pointerEvents={isInPipMode ? 'none' : 'auto'}
