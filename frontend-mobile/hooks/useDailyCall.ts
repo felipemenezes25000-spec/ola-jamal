@@ -158,7 +158,7 @@ export function useDailyCall({
       let r: unknown;
       try {
         r = setAudio.call(call, !nextMuted);
-      } catch (e) {
+      } catch (_e) {
         // Bug #5: Retry on sync failure
         return retryMediaToggle(
           () => setAudio.call(call, !nextMuted),
@@ -219,7 +219,7 @@ export function useDailyCall({
       let r: unknown;
       try {
         r = setVideo.call(call, !nextOff);
-      } catch (e) {
+      } catch (_e) {
         return retryMediaToggle(
           () => setVideo.call(call, !nextOff),
           'setLocalVideo',

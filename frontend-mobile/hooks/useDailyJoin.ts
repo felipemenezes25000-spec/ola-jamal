@@ -189,7 +189,7 @@ export function useDailyJoin({
   isDoctorRef.current = isDoctor;
 
   // Track registered event handlers for proper cleanup (Bug #7)
-  const registeredHandlersRef = useRef<Array<{ event: string; handler: (evt?: any) => void }>>([]);
+  const registeredHandlersRef = useRef<{ event: string; handler: (evt?: any) => void }[]>([]);
 
   // --- Helpers ---
 

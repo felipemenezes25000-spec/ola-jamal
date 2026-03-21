@@ -15,7 +15,7 @@ import type { DesignColors } from '../../lib/designSystem';
 import { spacing, borderRadius, typography } from '../../lib/themeDoctor';
 import { AppButton, AIActionSheet } from '../ui';
 import { showToast } from '../ui/Toast';
-import { parseAnamnesis, extractCid, displayMedicamento, displayExame } from '../../lib/domain/anamnesis';
+import { parseAnamnesis, displayMedicamento, displayExame } from '../../lib/domain/anamnesis';
 import type { DiagnosticoDiferencial } from '../../lib/domain/anamnesis';
 
 export interface ConductFormData {
