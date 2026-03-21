@@ -590,6 +590,30 @@ Portuguese terms:
         MotivoSelecao: null
     );
 
+    public async Task<int> ClearCacheAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var server = _redis.GetServers().FirstOrDefault();
+            if (server == null) return 0;
+
+            var db = _redis.GetDatabase();
+            var keys = server.Keys(pattern: CacheKeyPrefix + "*").ToArray();
+            if (keys.Length == 0) return 0;
+
+            foreach (var key in keys)
+                await db.KeyDeleteAsync(key);
+
+            _logger.LogWarning("[ClinicalEvidence] Cache limpo: {Count} chaves removidas", keys.Length);
+            return keys.Length;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[ClinicalEvidence] Erro ao limpar cache");
+            return 0;
+        }
+    }
+
     private static string TruncateAbstract(string text, int maxLen)
     {
         if (string.IsNullOrEmpty(text)) return "";

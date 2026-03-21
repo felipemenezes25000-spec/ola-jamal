@@ -19,4 +19,7 @@ public interface IClinicalEvidenceService
     Task<IReadOnlyList<EvidenceItemDto>> SearchEvidenceAsync(
         string anamnesisJson,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Limpa todo o cache Redis de evidências clínicas.</summary>
+    Task<int> ClearCacheAsync(CancellationToken cancellationToken = default);
 }

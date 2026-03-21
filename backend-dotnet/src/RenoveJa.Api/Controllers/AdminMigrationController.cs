@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RenoveJa.Application.Interfaces;
 using RenoveJa.Infrastructure.Storage;
 
 namespace RenoveJa.Api.Controllers;
@@ -14,6 +15,7 @@ namespace RenoveJa.Api.Controllers;
 [Authorize(Roles = "admin")]
 public class AdminMigrationController(
     S3MigrationService migrationService,
+    IClinicalEvidenceService clinicalEvidenceService,
     IConfiguration configuration,
     ILogger<AdminMigrationController> logger) : ControllerBase
 {
@@ -54,5 +56,29 @@ public class AdminMigrationController(
             errors = result.Errors,
             error_details = result.ErrorDetails.Take(50)
         });
+    }
+
+    /// <summary>
+    /// POST /api/admin/migration/clear-evidence-cache
+    /// Limpa todo o cache Redis de evidências clínicas (PubMed/GPT).
+    /// Útil após fix de rate limiting ou quando cache tem resultados vazios envenenados.
+    /// </summary>
+    [HttpPost("clear-evidence-cache")]
+    public async Task<IActionResult> ClearEvidenceCache(CancellationToken ct)
+    {
+        var expectedKey = configuration["ADMIN_MIGRATION_KEY"]
+            ?? Environment.GetEnvironmentVariable("ADMIN_MIGRATION_KEY");
+
+        if (!string.IsNullOrWhiteSpace(expectedKey))
+        {
+            var providedKey = Request.Headers["X-Admin-Key"].ToString();
+            if (!string.Equals(providedKey, expectedKey, StringComparison.Ordinal))
+                return Unauthorized(new { error = "Invalid X-Admin-Key." });
+        }
+
+        logger.LogWarning("[Admin] Limpeza de cache de evidências clínicas solicitada.");
+        var deleted = await clinicalEvidenceService.ClearCacheAsync(ct);
+
+        return Ok(new { cleared = deleted, message = $"{deleted} cache entries removed" });
     }
 }
