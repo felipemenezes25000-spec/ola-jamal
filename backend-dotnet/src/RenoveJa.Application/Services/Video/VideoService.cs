@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using RenoveJa.Application.Configuration;
 using RenoveJa.Application.DTOs.Video;
 using RenoveJa.Domain.Entities;
 using RenoveJa.Domain.Interfaces;
@@ -19,7 +21,8 @@ public interface IVideoService
 /// </summary>
 public class VideoService(
     IVideoRoomRepository videoRoomRepository,
-    IRequestRepository requestRepository) : IVideoService
+    IRequestRepository requestRepository,
+    IOptions<DailyConfig> dailyConfig) : IVideoService
 {
     /// <summary>
     /// Cria uma sala de vídeo para uma solicitação de consulta (idempotente: retorna existente se já houver).
@@ -36,7 +39,7 @@ public class VideoService(
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
-        var roomName = $"consultation-{request.Id}";
+        var roomName = dailyConfig.Value.GetRoomName(request.Id);
         var videoRoom = VideoRoom.Create(request.Id, roomName);
         videoRoom = await videoRoomRepository.CreateAsync(videoRoom, cancellationToken);
 

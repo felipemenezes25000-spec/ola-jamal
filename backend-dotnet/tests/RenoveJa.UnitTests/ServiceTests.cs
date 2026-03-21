@@ -141,7 +141,7 @@ public class VideoServiceTests
 
     public VideoServiceTests()
     {
-        _sut = new VideoService(_videoRepoMock.Object, _requestRepoMock.Object);
+        _sut = new VideoService(_videoRepoMock.Object, _requestRepoMock.Object, Options.Create(new RenoveJa.Application.Configuration.DailyConfig()));
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class VideoServiceTests
         var result = await _sut.CreateRoomAsync(dto);
 
         result.Should().NotBeNull();
-        result.RoomName.Should().StartWith("consultation-");
+        result.RoomName.Should().StartWith("consult-");
         result.Status.Should().Be("waiting");
     }
 
