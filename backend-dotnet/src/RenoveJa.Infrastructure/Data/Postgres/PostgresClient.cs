@@ -184,6 +184,15 @@ public class PostgresClient
         "metadata"
     };
 
+    /// <summary>
+    /// audit_logs.metadata é JSONB; old_values e new_values são TEXT.
+    /// Sem ::jsonb o INSERT falha com PG 42804.
+    /// </summary>
+    private static readonly HashSet<string> JsonbColumnsAuditLogs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "metadata"
+    };
+
     private static bool NeedsJsonbCast(string tableName, string columnName)
     {
         if (tableName.Equals("requests", StringComparison.OrdinalIgnoreCase))
@@ -192,6 +201,8 @@ public class PostgresClient
             return JsonbColumnsNotifications.Contains(columnName);
         if (tableName.Equals("document_access_log", StringComparison.OrdinalIgnoreCase))
             return JsonbColumnsDocumentAccessLog.Contains(columnName);
+        if (tableName.Equals("audit_logs", StringComparison.OrdinalIgnoreCase))
+            return JsonbColumnsAuditLogs.Contains(columnName);
         return false;
     }
 

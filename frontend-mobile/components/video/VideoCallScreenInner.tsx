@@ -124,6 +124,9 @@ export default function VideoCallScreenInner() {
   const [contractedMinutes, setContractedMinutes] = useState<number | null>(null);
   const [consultationStartedAt, setConsultationStartedAt] = useState<string | null>(null);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
+  /** Ref shadows — kept in sync via effects; used inside useCallback to avoid adding state to deps. */
+  const consultationStartedAtRef = useRef<string | null>(null);
+  const requestStatusRef = useRef<string | null>(null);
 
   // Auto-finish callback ref (set after doEnd is defined below)
   const doEndRef = useRef<(autoFinish?: boolean) => Promise<void>>(async () => {});
@@ -136,11 +139,21 @@ export default function VideoCallScreenInner() {
   useEffect(() => {
     connReportedRef.current = false;
     leavingRef.current = false;
+    timerStartedRef.current = false;
+    startingConsultationRef.current = false;
+    consultationStartedAtRef.current = null;
+    requestStatusRef.current = null;
   }, [rid]);
+
+  // Keep ref shadows in sync with state (used inside useCallback to avoid state deps).
+  useEffect(() => { consultationStartedAtRef.current = consultationStartedAt; }, [consultationStartedAt]);
+  useEffect(() => { requestStatusRef.current = requestStatus; }, [requestStatus]);
 
   // Doctor: timer control — médico controla quando iniciar a contagem
   const [timerStarted, setTimerStarted] = useState(false);
   const timerStartedRef = useRef(false);
+  /** In-flight guard: prevents a second startConsultation call while the first await is pending. */
+  const startingConsultationRef = useRef(false);
 
   // Transcrição: Daily.co (Deepgram) primário; Whisper fallback quando Deepgram falha
   const canStartRecording = consultationStartedAt || requestStatus === 'in_consultation' || requestStatus === 'paid';
@@ -413,31 +426,44 @@ export default function VideoCallScreenInner() {
   // Doctor: start consultation + connect SignalR. Auto-start quando paciente entra (evita perder transcrição).
   // Ponto 4: StartConsultation → status InConsultation; ReportCallConnected (ambos) → ConsultationStartedAt.
   const handleStartTimer = useCallback(async () => {
-    if (!rid || timerStartedRef.current) return;
+    if (!rid) return;
+    // Guard 1: already started (idempotent — button or auto-start may fire together).
+    if (timerStartedRef.current) return;
+    // Guard 2: API call already in-flight (prevents double call during the async await window).
+    if (startingConsultationRef.current) return;
+    startingConsultationRef.current = true;
     timerStartedRef.current = true;
     setTimerStarted(true);
     try {
-      const result = await startConsultation(rid);
-      // Backend retorna { request, chronicWarning }.
-      const req = result.request;
+      // Guard 3: if the server already advanced the status to InConsultation (e.g. on remount),
+      // skip the POST to avoid InvalidOperationException and just sync local state.
+      const alreadyInConsultation =
+        requestStatusRef.current === 'InConsultation' ||
+        requestStatusRef.current === 'in_consultation' ||
+        !!consultationStartedAtRef.current;
 
-      // Aviso de paciente crônico (CFM 2.314/2022) — exibir ao médico
-      if (result.chronicWarning) {
-        Alert.alert(
-          'Atenção — Paciente Crônico',
-          result.chronicWarning,
-          [{ text: 'Entendido', style: 'default' }],
-        );
-      }
+      let startedAt: string | null = null;
+      if (!alreadyInConsultation) {
+        const result = await startConsultation(rid);
+        // Backend retorna { request, chronicWarning }.
+        const req = result.request;
 
-      // If not set yet (waiting for both parties), we start the timer locally
-      // so the doctor sees immediate feedback.
-      if (req.consultationStartedAt) {
-        setConsultationStartedAt(req.consultationStartedAt);
+        // Aviso de paciente crônico (CFM 2.314/2022) — exibir ao médico
+        if (result.chronicWarning) {
+          Alert.alert(
+            'Atenção — Paciente Crônico',
+            result.chronicWarning,
+            [{ text: 'Entendido', style: 'default' }],
+          );
+        }
+
+        startedAt = req.consultationStartedAt ?? new Date().toISOString();
       } else {
-        // Start timer locally — the server will sync later
-        setConsultationStartedAt(new Date().toISOString());
+        // Already in consultation — use existing value or fall back to now
+        startedAt = consultationStartedAtRef.current ?? new Date().toISOString();
       }
+
+      setConsultationStartedAt(startedAt);
       // Also report doctor as connected to help trigger server-side timer
       reportCallConnected(rid).catch((e) => { if (__DEV__) console.warn('[VideoCall] reportCallConnected failed:', e); });
       connectSignalR();
@@ -445,13 +471,15 @@ export default function VideoCallScreenInner() {
     } catch (e: unknown) {
       if (__DEV__) console.warn('Failed to start consultation:', e instanceof Error ? e.message : e);
       // Still set local timer so UI isn't stuck
-      if (!consultationStartedAt) {
+      if (!consultationStartedAtRef.current) {
         setConsultationStartedAt(new Date().toISOString());
       }
       // Conectar SignalR mesmo em falha — anamnese/transcrição em tempo real devem funcionar
       connectSignalR();
+    } finally {
+      startingConsultationRef.current = false;
     }
-  }, [rid, connectSignalR, consultationStartedAt]);
+  }, [rid, connectSignalR]);
 
   // Auto-start robusto: quando médico e paciente já estão conectados na sala,
   // inicia consulta automaticamente para evitar perder transcrição por falta de clique.

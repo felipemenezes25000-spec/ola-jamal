@@ -174,7 +174,7 @@ public class ConsultationEncounterService(
         var patient = Patient.CreateFromUser(
             user.Id,
             user.Name,
-            user.Cpf ?? string.Empty,
+            user.Cpf,
             user.BirthDate,
             user.Gender,
             socialName: null,

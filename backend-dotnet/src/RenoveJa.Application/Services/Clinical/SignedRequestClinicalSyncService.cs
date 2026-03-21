@@ -53,7 +53,7 @@ public class SignedRequestClinicalSyncService(
                 patient = Patient.CreateFromUser(
                     user.Id,
                     user.Name,
-                    user.Cpf ?? "00000000000",
+                    user.Cpf,
                     user.BirthDate,
                     user.Gender,
                     null,

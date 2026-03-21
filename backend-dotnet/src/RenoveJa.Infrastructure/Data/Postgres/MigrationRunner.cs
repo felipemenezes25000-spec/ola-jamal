@@ -548,6 +548,23 @@ public static class MigrationRunner
     };
 
     /// <summary>
+    /// Corrige audit_logs: adiciona colunas que AuditLogModel espera mas que a DDL original não tinha.
+    /// old_values/new_values/correlation_id são TEXT; metadata é JSONB (PostgresClient já emite ::jsonb cast).
+    /// Colunas legadas (user_email, user_role, details, endpoint, http_method, status_code,
+    /// event_timestamp, duration) permanecem intactas — remoção seria DDL destrutiva.
+    /// </summary>
+    private static readonly string[] AuditLogsSchemaFixMigrations =
+    {
+        "ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS old_values TEXT",
+        "ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS new_values TEXT",
+        "ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS correlation_id TEXT",
+        // metadata: adicionar como JSONB se não existir; se já existir como JSONB, o IF NOT EXISTS é no-op
+        "ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS metadata JSONB",
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON public.audit_logs(user_id) WHERE user_id IS NOT NULL",
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON public.audit_logs(entity_type, entity_id) WHERE entity_id IS NOT NULL",
+    };
+
+    /// <summary>
     /// Executa todas as migrations. Só roda se DatabaseUrl estiver definida.
     /// </summary>
     public static async Task RunAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
@@ -592,7 +609,8 @@ public static class MigrationRunner
             ("cleanup_supabase_urls", CleanupSupabaseUrlsMigrations),
             ("fix_encounter_patient_id", FixEncounterPatientIdMigrations),
             ("chronic_condition", ChronicConditionMigrations),
-            ("prescriptions_table", PrescriptionsTableMigrations)
+            ("prescriptions_table", PrescriptionsTableMigrations),
+            ("audit_logs_schema_fix", AuditLogsSchemaFixMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)

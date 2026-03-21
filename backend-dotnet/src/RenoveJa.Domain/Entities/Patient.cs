@@ -77,7 +77,7 @@ public class Patient : AggregateRoot
     public static Patient CreateFromUser(
         Guid userId,
         string name,
-        string cpf,
+        string? cpf,
         DateTime? birthDate,
         string? sex,
         string? socialName,
@@ -94,7 +94,11 @@ public class Patient : AggregateRoot
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Patient name is required");
 
-        var normalizedCpf = NormalizeAndValidateCpf(cpf);
+        // CPF may be absent for users who registered via OAuth and have not yet completed
+        // their profile. We store an empty string so the patients row can be created and the
+        // encounter can proceed. A proper CPF can be captured later when the user fills in
+        // their profile. Full CPF validation is enforced at the prescription-signing step.
+        var normalizedCpf = NormalizeAndValidateCpf(cpf, required: false);
 
         return new Patient(
             Guid.NewGuid(),
@@ -112,10 +116,19 @@ public class Patient : AggregateRoot
             zipCode);
     }
 
-    private static string NormalizeAndValidateCpf(string cpf)
+    /// <summary>
+    /// Normalizes a CPF string to digits only.
+    /// When <paramref name="required"/> is true an empty/null CPF throws <see cref="DomainException"/>.
+    /// When false an empty/null CPF is accepted and stored as an empty string.
+    /// </summary>
+    private static string NormalizeAndValidateCpf(string? cpf, bool required = true)
     {
         if (string.IsNullOrWhiteSpace(cpf))
-            throw new DomainException("CPF is required");
+        {
+            if (required)
+                throw new DomainException("CPF is required");
+            return string.Empty;
+        }
 
         var digits = new string(cpf.Where(char.IsDigit).ToArray());
         if (digits.Length != 11)
