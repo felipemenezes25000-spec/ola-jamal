@@ -10,6 +10,13 @@ namespace RenoveJa.Application;
 public static class BrazilDateTime
 {
     private static readonly TimeZoneInfo BrasilTz = CreateBrasilTz();
+    private static readonly CultureInfo PtBr = CreatePtBr();
+
+    private static readonly string[] MesesPtBr =
+    [
+        "", "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    ];
 
     private static TimeZoneInfo CreateBrasilTz()
     {
@@ -24,6 +31,12 @@ public static class BrazilDateTime
         {
             return TimeZoneInfo.Utc;
         }
+    }
+
+    private static CultureInfo CreatePtBr()
+    {
+        try { return new CultureInfo("pt-BR"); }
+        catch { return CultureInfo.InvariantCulture; }
     }
 
     /// <summary>Instante atual no relógio de Brasília (emissão de receitas/documentos).</summary>
@@ -49,12 +62,15 @@ public static class BrazilDateTime
     }
 
     public static string FormatDate(DateTime value) =>
-        ToBrasiliaWallClock(value).ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("pt-BR"));
+        ToBrasiliaWallClock(value).ToString("dd/MM/yyyy", PtBr);
 
     public static string FormatDateTime(DateTime value) =>
-        ToBrasiliaWallClock(value).ToString("dd/MM/yyyy 'às' HH:mm", CultureInfo.GetCultureInfo("pt-BR"));
+        ToBrasiliaWallClock(value).ToString("dd/MM/yyyy 'às' HH:mm", PtBr);
 
     /// <summary>Ex.: "15 de março de 2026" (pt-BR, fuso Brasília).</summary>
-    public static string FormatLongDate(DateTime value) =>
-        ToBrasiliaWallClock(value).ToString("dd 'de' MMMM 'de' yyyy", CultureInfo.GetCultureInfo("pt-BR"));
+    public static string FormatLongDate(DateTime value)
+    {
+        var dt = ToBrasiliaWallClock(value);
+        return $"{dt.Day} de {MesesPtBr[dt.Month]} de {dt.Year}";
+    }
 }

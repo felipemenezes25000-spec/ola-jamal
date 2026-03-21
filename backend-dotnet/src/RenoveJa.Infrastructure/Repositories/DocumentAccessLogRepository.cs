@@ -24,7 +24,9 @@ public class DocumentAccessLogRepository(PostgresClient db) : IDocumentAccessLog
             Metadata = entry.Metadata,
             CreatedAt = DateTime.UtcNow,
         };
-        await db.InsertAsync<AccessLogModel>(TableName, model, ct);
+        // Usa InsertWithoutReturn para evitar RETURNING * — Npgsql 8.x não faz
+        // cast implícito JSONB→string, e o resultado do INSERT não é utilizado.
+        await db.InsertWithoutReturnAsync(TableName, model, ct);
     }
 
     public async Task<List<DocumentAccessEntry>> GetByDocumentIdAsync(Guid documentId, int limit = 50, CancellationToken ct = default)

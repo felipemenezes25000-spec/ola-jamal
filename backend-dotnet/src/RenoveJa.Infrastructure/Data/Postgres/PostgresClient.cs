@@ -15,6 +15,7 @@ public class PostgresClient
 {
     private readonly string _connectionString;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly NpgsqlDataSource _dataSource;
 
     public PostgresClient(IOptions<DatabaseConfig> config)
     {
@@ -37,11 +38,17 @@ public class PostgresClient
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
         DefaultTypeMap.MatchNamesWithUnderscores = true;
+
+        // Npgsql 8.x: JSONB não é mais mapeado para string automaticamente.
+        // EnableDynamicJson permite cast implícito JSONB↔CLR types (string, JsonDocument, etc.)
+        var dsBuilder = new NpgsqlDataSourceBuilder(_connectionString);
+        dsBuilder.EnableDynamicJson();
+        _dataSource = dsBuilder.Build();
     }
 
     public PostgresClient(HttpClient httpClient, IOptions<DatabaseConfig> config) : this(config) { }
 
-    private NpgsqlConnection CreateConnection() => new(_connectionString);
+    private NpgsqlConnection CreateConnection() => _dataSource.CreateConnection();
 
     /// <summary>Expõe criação de conexão para repositórios que precisam de SQL raw (ex: queries com OR complexo).</summary>
     internal NpgsqlConnection CreateConnectionPublic() => new(_connectionString);
@@ -89,6 +96,20 @@ public class PostgresClient
         await conn.OpenAsync(cancellationToken);
         var result = await conn.QueryFirstOrDefaultAsync<T>(new CommandDefinition(sql, new DynamicParameters(paramDict), cancellationToken: cancellationToken));
         return result ?? throw new InvalidOperationException($"Insert failed: no data returned. Table: {tableName}");
+    }
+
+    /// <summary>
+    /// INSERT sem RETURNING * — evita problemas de mapeamento JSONB→string no Npgsql 8.x
+    /// quando o resultado do INSERT não é necessário.
+    /// </summary>
+    public async Task InsertWithoutReturnAsync(string table, object data, CancellationToken cancellationToken = default)
+    {
+        var tableName = SanitizeTable(table);
+        var (columns, paramNames, paramDict) = BuildInsertParams(data, tableName);
+        var sql = $"INSERT INTO public.{tableName} ({columns}) VALUES ({paramNames})";
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+        await conn.ExecuteAsync(new CommandDefinition(sql, new DynamicParameters(paramDict), cancellationToken: cancellationToken));
     }
 
     public async Task<T> UpdateAsync<T>(string table, string filter, object data, CancellationToken cancellationToken = default)
