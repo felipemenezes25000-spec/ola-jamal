@@ -53,19 +53,12 @@ public class AdminDoctorsController(
             };
         }
 
-        var all = await doctorRepository.GetAllAsync(cancellationToken);
-        if (filterStatus.HasValue)
-        {
-            all = all.Where(d => d.ApprovalStatus == filterStatus.Value).ToList();
-        }
-
-        var totalCount = all.Count;
+        var offset = (page - 1) * pageSize;
+        var (pagedProfiles, totalCount) = await doctorRepository.GetPagedByApprovalStatusAsync(
+            filterStatus, offset, pageSize, cancellationToken);
 
         if (totalCount == 0)
             return Ok(new { items = Array.Empty<DoctorListResponseDto>(), totalCount = 0, page, pageSize });
-
-        // NH-5: apply pagination
-        var pagedProfiles = all.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
         var userIds = pagedProfiles.Select(d => d.UserId).Distinct();
         var users = await userRepository.GetByIdsAsync(userIds, cancellationToken);
@@ -139,8 +132,8 @@ public class AdminDoctorsController(
             .ContinueWith(t =>
             {
                 if (t.IsFaulted)
-                    logger.LogDebug(t.Exception?.InnerException, "Failed to notify doctor about approval");
-            }, TaskScheduler.Default);
+                    logger.LogWarning(t.Exception, "Failed to notify doctor about approval, DoctorProfileId={DoctorProfileId}", id);
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
         return Ok(new
         {
@@ -178,8 +171,8 @@ public class AdminDoctorsController(
             .ContinueWith(t =>
             {
                 if (t.IsFaulted)
-                    logger.LogDebug(t.Exception?.InnerException, "Failed to notify doctor about rejection");
-            }, TaskScheduler.Default);
+                    logger.LogWarning(t.Exception, "Failed to notify doctor about rejection, DoctorProfileId={DoctorProfileId}", id);
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
         return Ok(new
         {

@@ -19,7 +19,6 @@ namespace RenoveJa.Api.Controllers;
 [ApiController]
 [Route("api/requests")]
 [Authorize]
-#pragma warning disable CS9113 // logger reserved for future logging
 public class ClinicalRecordsController(
     IRequestService requestService,
     IClinicalSummaryService clinicalSummaryService,
@@ -31,7 +30,6 @@ public class ClinicalRecordsController(
     IDailyVideoService dailyVideoService,
     IOptions<DailyConfig> dailyConfig,
     ILogger<ClinicalRecordsController> logger) : ControllerBase
-#pragma warning restore CS9113
 {
     // ───────────────────── Helpers ─────────────────────
 
@@ -128,7 +126,12 @@ public class ClinicalRecordsController(
     {
         var doctorId = GetUserId();
         var requests = await requestService.GetPatientRequestsAsync(doctorId, patientId, cancellationToken);
-        _ = auditEventService.LogReadAsync(doctorId, "PatientRequests", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
+        _ = auditEventService.LogReadAsync(doctorId, "PatientRequests", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Audit log failed for PatientRequests read by DoctorId={DoctorId}, PatientId={PatientId}", doctorId, patientId);
+            }, TaskContinuationOptions.OnlyOnFaulted);
         return Ok(requests);
     }
 
@@ -145,7 +148,12 @@ public class ClinicalRecordsController(
         var profile = await requestService.GetPatientProfileForDoctorAsync(doctorId, patientId, cancellationToken);
         if (profile == null)
             return NotFound(new { error = "Paciente não encontrado ou sem acesso." });
-        _ = auditEventService.LogReadAsync(doctorId, "PatientProfile", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
+        _ = auditEventService.LogReadAsync(doctorId, "PatientProfile", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Audit log failed for PatientProfile read by DoctorId={DoctorId}, PatientId={PatientId}", doctorId, patientId);
+            }, TaskContinuationOptions.OnlyOnFaulted);
         return Ok(profile);
     }
 
@@ -286,7 +294,12 @@ public class ClinicalRecordsController(
         var notes = await doctorPatientNotesRepository.GetNotesAsync(doctorId, patientId, cancellationToken);
         var doctorNotes = notes.Select(n => new DoctorNoteDto(n.Id, n.NoteType, n.Content, n.RequestId, n.CreatedAt, n.UpdatedAt)).ToList();
 
-        _ = auditEventService.LogReadAsync(doctorId, "PatientClinicalSummary", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
+        _ = auditEventService.LogReadAsync(doctorId, "PatientClinicalSummary", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Audit log failed for PatientClinicalSummary read by DoctorId={DoctorId}, PatientId={PatientId}", doctorId, patientId);
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
         return Ok(new { summary = narrative, fallback, structured = structuredDto, doctorNotes });
     }
@@ -330,8 +343,18 @@ public class ClinicalRecordsController(
             ["patient_id"] = patientId,
             ["created_at"] = entity.CreatedAt
         };
-        _ = auditService.LogModificationAsync(doctorId, "Create", "DoctorPatientNote", entity.Id, oldValues: null, newValues: newValues, cancellationToken: CancellationToken.None);
-        _ = auditEventService.LogReadAsync(doctorId, "DoctorPatientNote", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
+        _ = auditService.LogModificationAsync(doctorId, "Create", "DoctorPatientNote", entity.Id, oldValues: null, newValues: newValues, cancellationToken: CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Audit log failed for DoctorPatientNote creation by DoctorId={DoctorId}, NoteId={NoteId}", doctorId, entity.Id);
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        _ = auditEventService.LogReadAsync(doctorId, "DoctorPatientNote", patientId, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Audit log failed for DoctorPatientNote read by DoctorId={DoctorId}, PatientId={PatientId}", doctorId, patientId);
+            }, TaskContinuationOptions.OnlyOnFaulted);
         return Ok(note);
     }
 
@@ -392,7 +415,12 @@ public class ClinicalRecordsController(
 
         if (bytes == null || bytes.Length == 0)
             return NotFound(new { error = "Documento assinado não disponível ou você não tem permissão para acessá-lo." });
-        _ = auditEventService.LogReadAsync(null, "SignedDocument", id, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
+        _ = auditEventService.LogReadAsync(null, "SignedDocument", id, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Audit log failed for SignedDocument read, DocumentId={DocumentId}", id);
+            }, TaskContinuationOptions.OnlyOnFaulted);
         return File(bytes, "application/pdf", $"documento-{id}.pdf");
     }
 

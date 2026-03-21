@@ -301,7 +301,12 @@ public class RequestsController(
 
         var userId = GetUserId();
         var request = await requestService.GetRequestByIdAsync(resolvedId.Value, userId, cancellationToken);
-        _ = auditEventService.LogReadAsync(userId, "Request", resolvedId.Value, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None);
+        _ = auditEventService.LogReadAsync(userId, "Request", resolvedId.Value, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Audit log failed for Request read by UserId={UserId}, RequestId={RequestId}", userId, resolvedId.Value);
+            }, TaskContinuationOptions.OnlyOnFaulted);
         return Ok(request);
     }
 }

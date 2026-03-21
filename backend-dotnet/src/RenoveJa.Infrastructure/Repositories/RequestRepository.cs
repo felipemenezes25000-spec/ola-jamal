@@ -92,12 +92,14 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         return models.Select(MapToDomain).ToList();
     }
 
-    public async Task<List<MedicalRequest>> GetByStatusAsync(RequestStatus status, CancellationToken cancellationToken = default)
+    public async Task<List<MedicalRequest>> GetByStatusAsync(RequestStatus status, int? limit = null, CancellationToken cancellationToken = default)
     {
         var statusStr = SnakeCaseHelper.ToSnakeCase(status.ToString());
         var models = await db.GetAllAsync<RequestModel>(
             TableName,
             filter: $"status=eq.{statusStr}",
+            orderBy: "created_at.asc",
+            limit: limit,
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();

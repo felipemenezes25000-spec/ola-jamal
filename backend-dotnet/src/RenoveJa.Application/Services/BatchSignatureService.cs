@@ -174,8 +174,8 @@ public class BatchSignatureService(
                 .ContinueWith(t =>
                 {
                     if (t.IsFaulted)
-                        logger.LogDebug(t.Exception?.InnerException, "Failed to notify doctor about batch signature completion");
-                }, TaskScheduler.Default);
+                        logger.LogWarning(t.Exception, "Failed to notify doctor about batch signature completion, DoctorId={DoctorId}, SignedCount={SignedCount}", doctorUserId, signedCount);
+                }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
         return new BatchSignatureResult(signedCount, failedCount, results,

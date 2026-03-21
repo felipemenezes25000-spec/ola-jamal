@@ -34,6 +34,7 @@ public class RndsController(
     /// POST /api/rnds/auth/test
     /// </summary>
     [HttpPost("auth/test")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> TestAuth(CancellationToken ct)
     {
         logger.LogInformation("RNDS: Auth test requested by {User}", User.Identity?.Name);
@@ -42,9 +43,9 @@ public class RndsController(
         return Ok(new
         {
             success = result.Success,
+            tokenLength = result.AccessToken?.Length ?? 0,
             expiresAt = result.ExpiresAt,
             error = result.ErrorMessage,
-            tokenPreview = result.AccessToken?[..Math.Min(20, result.AccessToken.Length)] + "...",
         });
     }
 

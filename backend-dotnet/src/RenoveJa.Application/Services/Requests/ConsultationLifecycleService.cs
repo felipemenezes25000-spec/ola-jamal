@@ -323,7 +323,12 @@ public class ConsultationLifecycleService(
 
         // Gravação: disparar sync em background (Daily pode levar 2-5 min para processar).
         // Usa scope próprio para evitar disposed scoped services.
-        _ = SyncRecordingsAsync(id);
+        _ = SyncRecordingsAsync(id)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    logger.LogWarning(t.Exception, "Background recording sync failed for RequestId={RequestId}", id);
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
         // FIX B30: Execute SOAP notes generation inline (awaited) instead of Task.Run with scoped services.
         // Task.Run captures scoped services (consultationAnamnesisRepository, soapNotesService, storageService)

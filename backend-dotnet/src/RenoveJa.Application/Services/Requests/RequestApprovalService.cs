@@ -53,8 +53,8 @@ public class RequestApprovalService(
             .ContinueWith(t =>
             {
                 if (t.IsFaulted)
-                    logger.LogWarning(t.Exception?.InnerException, "AI conduct suggestion failed for {RequestId}", requestIdForBackground);
-            }, TaskScheduler.Default);
+                    logger.LogWarning(t.Exception, "AI conduct suggestion failed for RequestId={RequestId}", requestIdForBackground);
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
         await requestEventsPublisher.NotifyRequestUpdatedAsync(
             request.Id,

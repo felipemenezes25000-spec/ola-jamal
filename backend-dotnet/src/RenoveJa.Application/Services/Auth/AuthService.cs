@@ -52,9 +52,7 @@ public class AuthService(
         {
             var token = AuthToken.Create(user.Id);
             await tokenRepository.CreateAsync(token, cancellationToken);
-            // LGPD compliance risk: fire-and-forget means consent records can be silently lost
-            // on transient failures. TODO: replace with outbox/retry pattern to guarantee persistence.
-            _ = RecordInitialConsentsAsync(user.Id, CancellationToken.None);
+            await RecordInitialConsentsWithRetryAsync(user.Id);
             return new AuthResponseDto(MapUserToDto(user), token.Token, RefreshToken: token.RefreshToken);
         }
         catch
@@ -271,7 +269,7 @@ public class AuthService(
             user.CompleteProfile(request.Phone, request.Cpf, request.BirthDate, request.Street, request.Number, request.Neighborhood, request.Complement, request.City, request.State, request.PostalCode);
             user = await userRepository.UpdateAsync(user, cancellationToken);
         }
-        _ = RecordInitialConsentsAsync(user.Id, CancellationToken.None);
+        await RecordInitialConsentsWithRetryAsync(user.Id);
         return MapUserToDto(user);
     }
 
@@ -398,28 +396,58 @@ public class AuthService(
             authToken.RefreshToken);
     }
 
+    /// <summary>
+    /// Records LGPD consent with retry logic. Does NOT block registration on failure,
+    /// but logs a CRITICAL error with full context so it can be manually reconciled.
+    /// </summary>
+    private async Task RecordInitialConsentsWithRetryAsync(Guid userId)
+    {
+        const int maxRetries = 3;
+        const int delayMs = 1000;
+        var consentTypes = new[] { nameof(ConsentType.PrivacyPolicy), nameof(ConsentType.Telemedicine), nameof(ConsentType.DataSharing) };
+
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                await RecordInitialConsentsAsync(userId, CancellationToken.None);
+                return; // success
+            }
+            catch (Exception ex)
+            {
+                if (attempt < maxRetries)
+                {
+                    logger.LogWarning(ex,
+                        "[AUTH][LGPD] Attempt {Attempt}/{MaxRetries} failed to record consents for userId={UserId}. Retrying in {DelayMs}ms.",
+                        attempt, maxRetries, userId, delayMs);
+                    await Task.Delay(delayMs);
+                }
+                else
+                {
+                    logger.LogCritical(ex,
+                        "[AUTH][LGPD] All {MaxRetries} attempts FAILED to record LGPD consents for userId={UserId}. " +
+                        "ConsentTypes=[{ConsentTypes}]. MANUAL RECONCILIATION REQUIRED.",
+                        maxRetries, userId, string.Join(", ", consentTypes));
+                }
+            }
+        }
+    }
+
     private async Task RecordInitialConsentsAsync(Guid userId, CancellationToken cancellationToken)
     {
-        try
-        {
-            var patient = await clinicalRecordService.EnsurePatientFromUserAsync(userId, cancellationToken);
-            var now = DateTime.UtcNow;
-            const string channel = "app_registration";
-            const string version = "v1.0";
-            var privacyConsent = ConsentRecord.Create(patient.Id, ConsentType.PrivacyPolicy, LegalBasis.ContractExecution, "Aceite da Política de Privacidade durante cadastro", now, channel, version);
-            await consentRepository.CreateAsync(privacyConsent, cancellationToken);
-            patient.LinkConsentRecord(privacyConsent.Id);
-            var telemedicineConsent = ConsentRecord.Create(patient.Id, ConsentType.Telemedicine, LegalBasis.HealthCareProvision, "Aceite dos Termos de Uso e condições de telemedicina durante cadastro", now, channel, version);
-            await consentRepository.CreateAsync(telemedicineConsent, cancellationToken);
-            patient.LinkConsentRecord(telemedicineConsent.Id);
-            var dataSharingConsent = ConsentRecord.Create(patient.Id, ConsentType.DataSharing, LegalBasis.HealthCareProvision, "Consentimento para compartilhamento de dados com médicos para prestação de serviço de saúde", now, channel, version);
-            await consentRepository.CreateAsync(dataSharingConsent, cancellationToken);
-            patient.LinkConsentRecord(dataSharingConsent.Id);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "[AUTH][LGPD] Falha ao registrar consents LGPD para userId={UserId}. AÇÃO NECESSÁRIA: consents devem ser registrados manualmente.", userId);
-        }
+        var patient = await clinicalRecordService.EnsurePatientFromUserAsync(userId, cancellationToken);
+        var now = DateTime.UtcNow;
+        const string channel = "app_registration";
+        const string version = "v1.0";
+        var privacyConsent = ConsentRecord.Create(patient.Id, ConsentType.PrivacyPolicy, LegalBasis.ContractExecution, "Aceite da Política de Privacidade durante cadastro", now, channel, version);
+        await consentRepository.CreateAsync(privacyConsent, cancellationToken);
+        patient.LinkConsentRecord(privacyConsent.Id);
+        var telemedicineConsent = ConsentRecord.Create(patient.Id, ConsentType.Telemedicine, LegalBasis.HealthCareProvision, "Aceite dos Termos de Uso e condições de telemedicina durante cadastro", now, channel, version);
+        await consentRepository.CreateAsync(telemedicineConsent, cancellationToken);
+        patient.LinkConsentRecord(telemedicineConsent.Id);
+        var dataSharingConsent = ConsentRecord.Create(patient.Id, ConsentType.DataSharing, LegalBasis.HealthCareProvision, "Consentimento para compartilhamento de dados com médicos para prestação de serviço de saúde", now, channel, version);
+        await consentRepository.CreateAsync(dataSharingConsent, cancellationToken);
+        patient.LinkConsentRecord(dataSharingConsent.Id);
     }
 
     /// <summary>Presigned URL para avatar S3 privado (1h).</summary>

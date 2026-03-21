@@ -97,6 +97,28 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
         return (items, totalCount);
     }
 
+    public async Task<(List<DoctorProfile> Items, int TotalCount)> GetPagedByApprovalStatusAsync(
+        DoctorApprovalStatus? approvalStatus, int offset, int limit, CancellationToken cancellationToken = default)
+    {
+        string? filter = null;
+        if (approvalStatus.HasValue)
+        {
+            var statusStr = approvalStatus.Value.ToString().ToLowerInvariant();
+            filter = $"approval_status=eq.{statusStr}";
+        }
+
+        var models = await db.GetAllAsync<DoctorProfileModel>(
+            TableName,
+            filter: filter,
+            limit: limit,
+            offset: offset,
+            cancellationToken: cancellationToken);
+
+        var totalCount = await db.CountAsync(TableName, filter: filter, cancellationToken: cancellationToken);
+        var items = models.Select(MapToDomain).ToList();
+        return (items, totalCount);
+    }
+
     public async Task<DoctorProfile> CreateAsync(DoctorProfile doctorProfile, CancellationToken cancellationToken = default)
     {
         var model = MapToModel(doctorProfile);

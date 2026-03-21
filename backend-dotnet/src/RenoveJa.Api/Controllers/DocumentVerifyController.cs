@@ -117,8 +117,8 @@ public class DocumentVerifyController(
                 .ContinueWith(t =>
                 {
                     if (t.IsFaulted)
-                        logger.LogDebug(t.Exception?.InnerException, "Failed to notify patient about verification");
-                }, TaskScheduler.Default);
+                        logger.LogWarning(t.Exception, "Failed to notify patient about document verification, DocumentId={DocumentId}", docId);
+                }, TaskContinuationOptions.OnlyOnFaulted);
 
             return Ok(new
             {
@@ -295,8 +295,8 @@ public class DocumentVerifyController(
                 .ContinueWith(t =>
                 {
                     if (t.IsFaulted)
-                        logger.LogDebug(t.Exception?.InnerException, "Failed to notify patient about dispensation");
-                }, TaskScheduler.Default);
+                        logger.LogWarning(t.Exception, "Failed to notify patient about dispensation, DocumentId={DocumentId}", documentId);
+                }, TaskContinuationOptions.OnlyOnFaulted);
 
             return Ok(new { success = true, message = "Documento marcado como dispensado/utilizado.", dispenseCount = dispenseCount + 1 });
         }
@@ -356,8 +356,8 @@ public class DocumentVerifyController(
                 .ContinueWith(t =>
                 {
                     if (t.IsFaulted)
-                        logger.LogDebug(t.Exception?.InnerException, "Failed to notify patient about dispensation");
-                }, TaskScheduler.Default);
+                        logger.LogWarning(t.Exception, "Failed to notify patient about dispensation, DocumentId={DocumentId}", documentId);
+                }, TaskContinuationOptions.OnlyOnFaulted);
 
             return Ok(new { success = true, message = "Documento marcado como dispensado.", dispenseCount = dispenseCount + 1 });
         }

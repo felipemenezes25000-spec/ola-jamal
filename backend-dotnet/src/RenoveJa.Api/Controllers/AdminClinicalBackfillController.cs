@@ -27,19 +27,19 @@ public class AdminClinicalBackfillController(
     /// </summary>
     [HttpPost("signed-requests")]
     public async Task<IActionResult> BackfillSignedRequests(
-        [FromQuery] int? limit = null,
+        [FromQuery] int limit = 100,
         CancellationToken cancellationToken = default)
     {
-        var signed = await requestRepository.GetByStatusAsync(RequestStatus.Signed, cancellationToken);
+        // Cap at 500 to prevent unbounded queries
+        var effectiveLimit = Math.Clamp(limit, 1, 500);
+
+        var signed = await requestRepository.GetByStatusAsync(RequestStatus.Signed, effectiveLimit, cancellationToken);
         var toSync = signed
             .Where(r => r.RequestType == RequestType.Prescription || r.RequestType == RequestType.Exam)
             .Where(r => r.DoctorId.HasValue)
             .Where(r => !string.IsNullOrWhiteSpace(r.SignedDocumentUrl) && !string.IsNullOrWhiteSpace(r.SignatureId))
             .Where(r => r.SignedAt.HasValue)
             .ToList();
-
-        if (limit.HasValue && limit.Value > 0)
-            toSync = toSync.Take(limit.Value).ToList();
 
         var synced = 0;
         var skipped = 0;
@@ -96,9 +96,13 @@ public class AdminClinicalBackfillController(
     /// Lista requests assinados que ainda não têm documento clínico (dry-run).
     /// </summary>
     [HttpGet("signed-requests-pending")]
-    public async Task<IActionResult> GetPendingBackfill(CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetPendingBackfill(
+        [FromQuery] int limit = 100,
+        CancellationToken cancellationToken = default)
     {
-        var signed = await requestRepository.GetByStatusAsync(RequestStatus.Signed, cancellationToken);
+        var effectiveLimit = Math.Clamp(limit, 1, 500);
+
+        var signed = await requestRepository.GetByStatusAsync(RequestStatus.Signed, effectiveLimit, cancellationToken);
         var pending = new List<object>();
 
         foreach (var r in signed.Where(x =>
@@ -114,7 +118,7 @@ public class AdminClinicalBackfillController(
                 pending.Add(new { r.Id, r.RequestType, r.CreatedAt, r.SignedAt });
         }
 
-        return Ok(new { count = pending.Count, items = pending });
+        return Ok(new { count = pending.Count, items = pending, limitApplied = effectiveLimit });
     }
 
     private async Task<(Guid certId, string? certSubject)> GetCertificateForRequestAsync(
