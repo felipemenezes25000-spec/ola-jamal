@@ -101,6 +101,9 @@ function runDailyOpExclusive<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Small delay to let Daily's native singleton registry clear after destroy(). */
+const POST_DESTROY_DELAY_MS = 300;
+
 async function ensurePreviousDestroyed(): Promise<void> {
   if (destroyPromise) {
     await destroyPromise;
@@ -117,6 +120,8 @@ async function ensurePreviousDestroyed(): Promise<void> {
         destroyPromise = null;
       });
     await destroyPromise;
+    // Daily's native bridge needs time to release the singleton after JS destroy() resolves.
+    await new Promise(r => setTimeout(r, POST_DESTROY_DELAY_MS));
   }
 }
 
@@ -195,10 +200,27 @@ export function useDailyJoin({
 
         if (callRef.current) return;
 
-        const call = Daily.createCallObject({
-          audioSource: true,
-          videoSource: true,
-        });
+        // Retry createCallObject — Daily's native singleton may not be released
+        // immediately after destroy(). Two retries with exponential back-off.
+        let call: DailyCall | null = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            call = Daily.createCallObject({
+              audioSource: true,
+              videoSource: true,
+            });
+            break; // success
+          } catch (createErr: unknown) {
+            const msg = createErr instanceof Error ? createErr.message : '';
+            if (msg.includes('Duplicate') && attempt < 2) {
+              if (__DEV__) console.warn(`[useDailyJoin] createCallObject attempt ${attempt + 1} hit duplicate — retrying`);
+              await new Promise(r => setTimeout(r, (attempt + 1) * 300));
+              continue;
+            }
+            throw createErr;
+          }
+        }
+        if (!call) return; // should never happen, but guard for TS
         createdCall = call;
         callRef.current = call;
         globalCallInstance = call;
@@ -370,10 +392,12 @@ export function useDailyJoin({
       if (call) {
         callRef.current = null;
         programmaticLeaveInProgress = true;
-        // Track the async destroy so the next mount can await it
+        // Track the async destroy so the next mount can await it.
+        // Includes post-destroy delay so the next createCallObject() doesn't race.
         destroyPromise = call
           .leave()
           .then(() => call.destroy())
+          .then(() => new Promise<void>(r => setTimeout(r, POST_DESTROY_DELAY_MS)))
           .catch(() => {})
           .finally(() => {
             programmaticLeaveInProgress = false;

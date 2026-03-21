@@ -198,7 +198,7 @@ export default function VideoRequestIdRoute() {
   }
 
   return (
-    <VideoErrorBoundary colors={colors} onReset={() => { setInner(null); setLoadError(null); import('../../components/video/VideoCallScreenInner').then((m) => setInner(() => m.default)).catch((e) => setLoadError(e?.message ?? 'Erro')); }}>
+    <VideoErrorBoundary colors={colors} onReset={() => { setInner(null); setLoadError(null); setTimeout(() => { import('../../components/video/VideoCallScreenInner').then((m) => setInner(() => m.default)).catch((e) => setLoadError(e?.message ?? 'Erro')); }, 500); }}>
       <Inner />
     </VideoErrorBoundary>
   );
