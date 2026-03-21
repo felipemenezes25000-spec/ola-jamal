@@ -26,8 +26,29 @@ public class AuditMiddleware(
         "/api/verify"
     ];
 
+    /// <summary>
+    /// Paths que não precisam de audit (health checks do ALB, métricas, favicon).
+    /// Evita desperdício de conexões DB com requests de infraestrutura.
+    /// </summary>
+    private static readonly string[] SkipPaths =
+    [
+        "/api/health",
+        "/health",
+        "/healthz",
+        "/favicon.ico"
+    ];
+
     public async Task InvokeAsync(HttpContext context)
     {
+        var path = context.Request.Path.Value ?? "";
+
+        // Skip audit for infrastructure endpoints (health checks, etc.)
+        if (ShouldSkipAudit(path))
+        {
+            await next(context);
+            return;
+        }
+
         var stopwatch = Stopwatch.StartNew();
 
         // FIX #68: Wrap em try/finally para garantir audit mesmo quando next() lança exceção
@@ -40,7 +61,6 @@ public class AuditMiddleware(
             stopwatch.Stop();
 
             // Capturar TUDO do context antes que ele seja disposed
-            var path = context.Request.Path.Value ?? "";
             var method = context.Request.Method;
             var statusCode = context.Response.StatusCode;
             var ipAddress = context.Connection.RemoteIpAddress?.ToString();
@@ -84,6 +104,16 @@ public class AuditMiddleware(
                 logger.LogError("Audit channel is full; entry dropped for {Method} {Path}. Consider scaling audit consumer.", method, path);
             }
         }
+    }
+
+    private static bool ShouldSkipAudit(string path)
+    {
+        foreach (var skip in SkipPaths)
+        {
+            if (path.StartsWith(skip, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>
