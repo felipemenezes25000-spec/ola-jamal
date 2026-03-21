@@ -37,15 +37,19 @@ internal static partial class AnamnesisResponseParser
             }
         }
 
-        if (root.TryGetProperty("anamnesis", out var anaEl) && anaEl.ValueKind == JsonValueKind.Object)
+        // Try nested anamnesis object first; if not found, look at root level
+        // (ConsultationAnamnesisResultComposer flattens anamnesis props to root)
+        var anamnesisSource = root.TryGetProperty("anamnesis", out var anaEl) && anaEl.ValueKind == JsonValueKind.Object
+            ? anaEl
+            : root;
         {
-            if (anaEl.TryGetProperty("queixa_principal", out var qpEl))
+            if (anamnesisSource.TryGetProperty("queixa_principal", out var qpEl))
             {
                 var qp = (qpEl.ValueKind == JsonValueKind.String ? qpEl.GetString() : qpEl.GetRawText())?.Trim('"').Trim() ?? "";
                 if (qp.Length > 20)
                     terms.Add(qp[..Math.Min(80, qp.Length)]);
             }
-            if (anaEl.TryGetProperty("sintomas", out var sintEl))
+            if (anamnesisSource.TryGetProperty("sintomas", out var sintEl))
             {
                 var sint = sintEl.ValueKind == JsonValueKind.String
                     ? sintEl.GetString()?.Trim('"').Trim()
@@ -76,15 +80,18 @@ internal static partial class AnamnesisResponseParser
             if (dds.Count > 0)
                 parts.Add($"Diagnóstico diferencial: {string.Join("; ", dds)}");
         }
-        if (root.TryGetProperty("anamnesis", out var anaEl2) && anaEl2.ValueKind == JsonValueKind.Object)
+        // Try nested anamnesis object first; if not found, look at root level (flattened by composer)
+        var anamnesisCtx = root.TryGetProperty("anamnesis", out var anaEl2) && anaEl2.ValueKind == JsonValueKind.Object
+            ? anaEl2
+            : root;
         {
-            if (anaEl2.TryGetProperty("queixa_principal", out var qpEl))
+            if (anamnesisCtx.TryGetProperty("queixa_principal", out var qpEl))
             {
                 var qp = (qpEl.ValueKind == JsonValueKind.String ? qpEl.GetString() : qpEl.GetRawText())?.Trim('"').Trim() ?? "";
                 if (!string.IsNullOrEmpty(qp))
                     parts.Add($"Queixa principal: {qp}");
             }
-            if (anaEl2.TryGetProperty("sintomas", out var sintEl))
+            if (anamnesisCtx.TryGetProperty("sintomas", out var sintEl))
             {
                 var sint = sintEl.ValueKind == JsonValueKind.String
                     ? sintEl.GetString()?.Trim('"').Trim()

@@ -176,16 +176,8 @@ public class ConsultationController(
                     {
                         var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
                         var evidenceJson = result.Evidence.Count > 0
-                            ? System.Text.Json.JsonSerializer.Serialize(result.Evidence.Select(e => new
-                            {
-                                provider = e.Provider,
-                                url = e.Url,
-                                title = e.Title,
-                                source = e.Source,
-                                translatedAbstract = e.TranslatedAbstract,
-                                clinicalRelevance = e.ClinicalRelevance,
-                                relevantExcerpts = e.RelevantExcerpts
-                            }))
+                            ? System.Text.Json.JsonSerializer.Serialize(result.Evidence,
+                                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })
                             : null;
                         sessionStore.UpdateAnamnesis(requestId, result.AnamnesisJson, suggestionsJson, evidenceJson);
                         await hubContext.Clients.Group(group)
@@ -314,16 +306,8 @@ public class ConsultationController(
                     {
                         var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
                         var evidenceJson = result.Evidence.Count > 0
-                            ? System.Text.Json.JsonSerializer.Serialize(result.Evidence.Select(e => new
-                            {
-                                provider = e.Provider,
-                                url = e.Url,
-                                title = e.Title,
-                                source = e.Source,
-                                translatedAbstract = e.TranslatedAbstract,
-                                clinicalRelevance = e.ClinicalRelevance,
-                                relevantExcerpts = e.RelevantExcerpts
-                            }))
+                            ? System.Text.Json.JsonSerializer.Serialize(result.Evidence,
+                                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })
                             : null;
                         sessionStore.UpdateAnamnesis(requestId, result.AnamnesisJson, suggestionsJson, evidenceJson);
                         await hubContext.Clients.Group(group)
