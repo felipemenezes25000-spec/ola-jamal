@@ -1,6 +1,6 @@
 # Plano de Refatoração — RequestService (2.900 linhas → 5-6 serviços)
 
-## Status: PARCIAL — fase 1 entregue (`RequestHelpers`, `RequestQueryService`, `ConsultationLifecycleService`, `SignatureService`). As seções 1–6 abaixo (**PrescriptionWorkflowService**, **ExamWorkflowService**, etc.) são **ainda não implementadas** — roadmap para reduzir `RequestService` além da fase 1. Ver [../CLAUDE.md](../CLAUDE.md) para o quadro atualizado.
+## Status: FASE 1 CONCLUÍDA — `RequestHelpers`, `RequestQueryService`, `ConsultationLifecycleService`, `SignatureService` foram extraídos e registrados em `ServiceCollectionExtensions.cs`. `AuditMiddleware` foi migrado para `AuditChannel` + `AuditBackgroundService`. `MedicalRequest.Reconstitute` usa `MedicalRequestSnapshot`. As seções abaixo (PrescriptionWorkflowService, ExamWorkflowService, ConsultationWorkflowService) são **roadmap futuro** para reduzir `RequestService` além da fase 1. Ver [../CLAUDE.md](../CLAUDE.md) para o quadro completo.
 
 ## Problema
 `RequestService.cs` tem ~2.900 linhas e 61 dependências injetadas no construtor.

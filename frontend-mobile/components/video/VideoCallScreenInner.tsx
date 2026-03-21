@@ -635,6 +635,9 @@ export default function VideoCallScreenInner() {
   useEffect(() => { useFallbackRef.current = useFallbackTranscription; }, [useFallbackTranscription]);
 
   const cleanup = useCallback(() => {
+    // Dismiss Android foreground notification
+    try { setAndroidOngoingMeetingActive(false); } catch { /* ignore */ }
+
     if (Platform.OS === 'android' && typeof ExpoPip?.setPictureInPictureParams === 'function') {
       try {
         ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
@@ -803,6 +806,7 @@ export default function VideoCallScreenInner() {
             callState={callState}
             isDoctor={isDoctor}
             timerStarted={timerStarted}
+            remoteParticipantPresent={remoteParticipant != null}
           />
         </View>
       )}

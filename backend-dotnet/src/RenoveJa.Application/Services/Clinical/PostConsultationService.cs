@@ -33,6 +33,7 @@ public class PostConsultationService(
     IOptions<VerificationConfig> verificationConfig,
     DuplicateDocumentGuard duplicateGuard,
     IPushNotificationDispatcher pushDispatcher,
+    IRequestEventsPublisher requestEventsPublisher,
     IAuditService auditService,
     ILogger<PostConsultationService> logger) : IPostConsultationService
 {
@@ -352,6 +353,15 @@ public class PostConsultationService(
             }
             await pushDispatcher.SendAsync(
                 PushNotificationRules.PostConsultationDocumentsReady(medicalRequest.PatientId, medicalRequest.Id),
+                cancellationToken);
+
+            // Notificar via SignalR (ConsultationEnded) para o frontend atualizar em tempo real
+            await requestEventsPublisher.NotifyRequestUpdatedAsync(
+                medicalRequest.Id,
+                medicalRequest.PatientId,
+                medicalRequest.DoctorId,
+                Helpers.EnumHelper.ToSnakeCase(medicalRequest.Status),
+                "Consulta finalizada — documentos emitidos",
                 cancellationToken);
         }
 

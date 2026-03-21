@@ -33,7 +33,6 @@ Voltar ao repositório: [README principal](../README.md) · [CLAUDE.md](../CLAUD
 
 | Documento | Descrição |
 |-----------|-----------|
-| [ANALISE_PONTA_A_PONTA.md](architecture/ANALISE_PONTA_A_PONTA.md) | Análise ponta a ponta: arquitetura, stack, rotas, riscos |
 | [FLUXO_RECEITA_TELAS_E_STATUS.md](architecture/FLUXO_RECEITA_TELAS_E_STATUS.md) | Fluxo completo de receita, telas e status |
 
 ### [compliance/](compliance/) — LGPD e contratos
@@ -67,7 +66,6 @@ Voltar ao repositório: [README principal](../README.md) · [CLAUDE.md](../CLAUD
 | Documento | Descrição |
 |-----------|-----------|
 | [CUTOVER_REQUESTS_TO_CLINICAL.md](infra/CUTOVER_REQUESTS_TO_CLINICAL.md) | Cutover de requests para modelo clínico |
-| [MIGRATION_VERIFY_TO_MED_RENEW.md](infra/MIGRATION_VERIFY_TO_MED_RENEW.md) | Migração do fluxo Verify para MedRenew |
 | [PLANO_RECUPERACAO_ESCALABILIDADE.md](infra/PLANO_RECUPERACAO_ESCALABILIDADE.md) | Plano de recuperação e escalabilidade |
 
 ### [technical/](technical/) — Documentação técnica
@@ -88,7 +86,6 @@ Voltar ao repositório: [README principal](../README.md) · [CLAUDE.md](../CLAUD
 | Documento | Descrição |
 |-----------|-----------|
 | [ANDROID_STUDIO_ERROS.md](troubleshooting/ANDROID_STUDIO_ERROS.md) | Erros comuns do Android Studio |
-| [BUGS_DARK_LIGHT_MODE.md](troubleshooting/BUGS_DARK_LIGHT_MODE.md) | Bugs de dark/light mode |
 
 ### [deploy/](deploy/) — Deploy
 

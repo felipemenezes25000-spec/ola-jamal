@@ -516,6 +516,9 @@ export function useDailyJoin({
   // --- Cleanup on unmount (Bug #7: ensures all listeners are removed) ---
   useEffect(() => {
     return () => {
+      // Dismiss Android foreground notification on unmount
+      try { setAndroidOngoingMeetingActive(false); } catch { /* ignore — Daily may already be destroyed */ }
+
       const call = callRef.current;
       if (call) {
         // Bug #7: Remove all tracked event handlers

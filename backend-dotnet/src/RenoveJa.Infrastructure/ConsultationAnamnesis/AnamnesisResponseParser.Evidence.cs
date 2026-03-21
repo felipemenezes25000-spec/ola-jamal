@@ -46,7 +46,7 @@ internal static partial class AnamnesisResponseParser
             if (anamnesisSource.TryGetProperty("queixa_principal", out var qpEl))
             {
                 var qp = (qpEl.ValueKind == JsonValueKind.String ? qpEl.GetString() : qpEl.GetRawText())?.Trim('"').Trim() ?? "";
-                if (qp.Length > 20)
+                if (qp.Length > 5)
                     terms.Add(qp[..Math.Min(80, qp.Length)]);
             }
             if (anamnesisSource.TryGetProperty("sintomas", out var sintEl))

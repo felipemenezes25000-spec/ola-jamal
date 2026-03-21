@@ -9,6 +9,8 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { nav } from '../../lib/navigation';
+import type { AppRoute } from '../../lib/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { Ionicons } from '@expo/vector-icons';
@@ -106,15 +108,15 @@ export default function SusDashboard() {
           <SectionHeader title="Ações rápidas" />
           <View style={styles.actionsGrid}>
             {[
-              { label: 'Novo Cidadão', desc: 'Cadastrar paciente SUS', icon: 'person-add-outline' as const, route: '/(sus)/cidadaos', color: SUS_GREEN },
-              { label: 'Agenda', desc: 'Fila do dia', icon: 'calendar-outline' as const, route: '/(sus)/agenda', color: '#3B82F6' },
-              { label: 'Atendimento', desc: 'Consulta SOAP', icon: 'medkit-outline' as const, route: '/(sus)/atendimento', color: '#059669' },
-              { label: 'Exportar', desc: 'Enviar ao e-SUS', icon: 'cloud-upload-outline' as const, route: '/(sus)/exportacao', color: '#8B5CF6' },
+              { label: 'Novo Cidadão', desc: 'Cadastrar paciente SUS', icon: 'person-add-outline' as const, route: '/(sus)/cidadaos' as AppRoute, color: SUS_GREEN },
+              { label: 'Agenda', desc: 'Fila do dia', icon: 'calendar-outline' as const, route: '/(sus)/agenda' as AppRoute, color: '#3B82F6' },
+              { label: 'Atendimento', desc: 'Consulta SOAP', icon: 'medkit-outline' as const, route: '/(sus)/atendimento' as AppRoute, color: '#059669' },
+              { label: 'Exportar', desc: 'Enviar ao e-SUS', icon: 'cloud-upload-outline' as const, route: '/(sus)/exportacao' as AppRoute, color: '#8B5CF6' },
             ].map((action, i) => (
               <Pressable
                 key={i}
                 style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] }]}
-                onPress={() => { haptics.selection(); router.push(action.route as any); }}
+                onPress={() => { haptics.selection(); nav.push(router, action.route); }}
               >
                 <View style={[styles.actionIcon, { backgroundColor: action.color + '14' }]}>
                   <Ionicons name={action.icon} size={20} color={action.color} />

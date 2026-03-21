@@ -14,10 +14,12 @@ interface VideoCallWaitingProps {
   callState: string;
   isDoctor: boolean;
   timerStarted: boolean;
+  /** True when the remote participant is in the room (camera may be off). */
+  remoteParticipantPresent: boolean;
 }
 
 export const VideoCallWaiting = React.memo(function VideoCallWaiting({
-  colors, callState, isDoctor, timerStarted,
+  colors, callState, isDoctor, timerStarted, remoteParticipantPresent,
 }: VideoCallWaitingProps) {
   let title: string;
   let subtitle: string;
@@ -28,6 +30,10 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
   } else if (callState === 'joining') {
     title = 'Entrando na sala...';
     subtitle = isDoctor ? 'O paciente será notificado' : 'Conectando à sala do médico...';
+  } else if (remoteParticipantPresent) {
+    // Participant is in the room but their camera is off
+    title = 'Câmera desligada';
+    subtitle = 'O participante está na chamada com a câmera desativada';
   } else if (isDoctor && timerStarted) {
     title = 'Paciente saiu da chamada';
     subtitle = 'O paciente pode voltar enquanto houver tempo.\nSó você (médico) encerra a consulta — Res. CFM nº 2.454/2026.';

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DoctorLayout } from '@/components/doctor/DoctorLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,19 +57,73 @@ export default function DoctorDashboard() {
   }, [loadData]);
 
   // Real-time updates via SignalR
+  // P1-8: Enhanced handler — when status is in_consultation, show countdown toast
+  //       with auto-navigation to video call (parity with mobile GlobalRequestUpdatedToast).
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const { connected: realtimeConnected } = useRequestEvents(
     useCallback((event: { requestId: string; status: string; message?: string }) => {
-      toast.info(`Pedido atualizado: ${event.status}`, {
-        description: event.message || 'Um pedido foi atualizado',
-        action: {
-          label: 'Ver',
-          onClick: () => navigate(`/pedidos/${event.requestId}`),
-        },
-      });
+      const statusNorm = (event.status || '').toLowerCase().replace(/-/g, '_');
+
+      // Consulta iniciada — auto-navigate com countdown (como no mobile)
+      if (statusNorm === 'in_consultation' && event.requestId) {
+        // Não redirecionar se já está na tela de vídeo
+        if (window.location.pathname.includes(`/video/${event.requestId}`)) {
+          loadData();
+          return;
+        }
+
+        let remaining = 5;
+        const toastId = toast.info(`Consulta iniciada! Entrando em ${remaining}s...`, {
+          duration: 7000,
+          action: {
+            label: 'Entrar agora',
+            onClick: () => {
+              if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+              navigate(`/video/${event.requestId}`);
+            },
+          },
+        });
+
+        countdownRef.current = setInterval(() => {
+          remaining -= 1;
+          if (remaining <= 0) {
+            if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+            toast.dismiss(toastId);
+            navigate(`/video/${event.requestId}`);
+          } else {
+            toast.info(`Consulta iniciada! Entrando em ${remaining}s...`, {
+              id: toastId,
+              duration: 7000,
+              action: {
+                label: 'Entrar agora',
+                onClick: () => {
+                  if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+                  navigate(`/video/${event.requestId}`);
+                },
+              },
+            });
+          }
+        }, 1000);
+      } else {
+        toast.info(`Pedido atualizado: ${event.status}`, {
+          description: event.message || 'Um pedido foi atualizado',
+          action: {
+            label: 'Ver',
+            onClick: () => navigate(`/pedidos/${event.requestId}`),
+          },
+        });
+      }
+
       // Refresh data on event
       loadData();
     }, [loadData, navigate])
   );
+
+  // Cleanup countdown on unmount
+  useEffect(() => {
+    return () => { if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; } };
+  }, []);
 
   const pendentes = requests.filter(r => isActionableStatus(r.status));
   const consultasAtivas = requests.filter(r =>
