@@ -36,8 +36,6 @@ using System.Threading.RateLimiting;
 using Serilog;
 using Microsoft.AspNetCore.Rewrite;
 using Microsoft.AspNetCore.HttpOverrides;
-using Sentry;
-
 // Carrega .env da pasta do projeto e configura variaveis de ambiente
 static string? FindEnvPath()
 {
@@ -114,51 +112,6 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Sentry: captura erros em tempo real (SENTRY_DSN no .env ou variáveis do Render)
-var sentryDsn = _envVars.GetValueOrDefault("SENTRY_DSN") ?? Environment.GetEnvironmentVariable("SENTRY_DSN");
-if (!string.IsNullOrWhiteSpace(sentryDsn))
-{
-    builder.WebHost.UseSentry(o =>
-    {
-        o.Dsn = sentryDsn.Trim();
-        o.Environment = builder.Environment.EnvironmentName;
-        o.TracesSampleRate = 0.1;
-        o.EnableLogs = true; // Logs estruturados: ILogger/Serilog → Sentry
-        o.SendDefaultPii = false;
-        o.Debug = !builder.Environment.IsProduction(); // Ver logs do SDK em dev
-        // Só envia Warning+ ao Sentry: reduz ruído, foca em erros e latência
-        o.SetBeforeSendLog(static log =>
-        {
-            if (log.Level is Sentry.SentryLogLevel.Trace or Sentry.SentryLogLevel.Debug or Sentry.SentryLogLevel.Info)
-                return null;
-            // Extrai categoria de [TAG] na mensagem: [API], [WEBHOOK-EVENT], etc.
-            var msg = log.Message ?? "";
-            if (msg.Length >= 3 && msg[0] == '[')
-            {
-                var end = msg.IndexOf(']');
-                if (end > 1) log.SetAttribute("log.category", msg[1..end]);
-            }
-            return log;
-        });
-        // Descarta 503/502 de APIs de IA (transitórios; já temos retry + fallback)
-        o.SetBeforeSend((evt, hint) =>
-        {
-            if (hint.Items.TryGetValue(Sentry.HintTypes.HttpResponseMessage, out var responseHint)
-                && responseHint is HttpResponseMessage resp
-                && resp.RequestMessage?.RequestUri != null)
-            {
-                var url = resp.RequestMessage.RequestUri.ToString();
-                var status = (int)resp.StatusCode;
-                var isAiApi = url.Contains("generativelanguage.googleapis.com", StringComparison.OrdinalIgnoreCase)
-                    || url.Contains("api.openai.com", StringComparison.OrdinalIgnoreCase);
-                if (isAiApi && (status == 502 || status == 503))
-                    return null; // Não reportar ao Sentry
-            }
-            return evt;
-        });
-    });
-}
 
 // AllowedHosts: em dev aceita localhost, ngrok e IP da LAN ("*"). Em Production, só aceita "*" se .env tiver AllowedHosts=* (ex.: ngrok local).
 if (!builder.Environment.IsProduction())
@@ -577,21 +530,6 @@ app.UseMiddleware<AuditMiddleware>();
 app.MapControllers();
 app.MapHub<VideoSignalingHub>("/hubs/video");
 app.MapHub<RequestsHub>("/hubs/requests");
-
-// Endpoint de verificação do Sentry (disponível sempre que SENTRY_DSN estiver configurado)
-if (!string.IsNullOrWhiteSpace(sentryDsn))
-{
-    app.MapGet("/api/sentry-test", (HttpContext ctx) =>
-    {
-        var throwError = string.Equals(ctx.Request.Query["error"], "true", StringComparison.OrdinalIgnoreCase);
-        if (throwError)
-        {
-            throw new InvalidOperationException("Teste de erro Sentry - este erro deve aparecer em Issues");
-        }
-        SentrySdk.CaptureMessage("Hello Sentry");
-        return Results.Ok(new { message = "Teste enviado ao Sentry" });
-    });
-}
 
 // Log para debug: URL que o app deve usar
 var apiBaseUrl = app.Configuration["Api__BaseUrl"]?.Trim();

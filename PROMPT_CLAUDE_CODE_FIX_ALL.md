@@ -25,7 +25,6 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=598286841038-j095u3iopiqltpgbvu0f5od924etobk7.a
 EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=598286841038-780e9kksjoscthg0g611virnchlb7kcr.apps.googleusercontent.com
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=598286841038-28ili7c5stg5524sicropmm7s7nkq936.apps.googleusercontent.com
 
-EXPO_PUBLIC_SENTRY_DSN=https://ac8dc5b18591d998f8a06f1a2a1b9495@o4511004670558208.ingest.us.sentry.io/4511052781912065
 ```
 
 BUG #2 — signInWithGoogle aceita token nulo/vazio (loop de 401)
@@ -291,9 +290,6 @@ Na lista doctorPaths dentro de isDoctorPortal(), remova '/login' e adicione come
       // '/login' removido: conflita com rotas públicas no mesmo host
       '/registro',
 ```
-
-BUG #13 — Sentry DSN ausente no .env.production
-Já corrigido no BUG #1.
 
 BUG #14 — .env.local pode estar tracked no git
 Execute no terminal:

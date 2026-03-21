@@ -4,8 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
-using Sentry;
-
 namespace RenoveJa.Application.Services.Notifications;
 
 /// <summary>
@@ -53,7 +51,6 @@ public class CertificateExpiryReminderService : BackgroundService
                 else
                 {
                     _logger.LogError(ex, "Erro ao enviar lembretes de certificado expirando");
-                    SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "CertificateExpiryReminderService"));
                 }
             }
 

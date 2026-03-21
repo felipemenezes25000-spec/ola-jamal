@@ -42,7 +42,6 @@
 --   - Teste de restauração mensal
 --
 -- 2.5 MONITORAMENTO
---   - Sentry: erros em tempo real
 --   - Logs estruturados: Microsoft.Extensions.Logging
 --   - Alertas de falha de autenticação (debounce 401)
 

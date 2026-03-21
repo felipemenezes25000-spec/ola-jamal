@@ -40,7 +40,6 @@ Referência completa das variáveis necessárias para o backend RenoveJá+.
 | `AWS_S3_PUBLIC_BASE_URL` | — | URL base CloudFront para URLs públicas (opcional) | Opcional |
 
 **Estrutura de paths no S3:** ver [STORAGE_S3_ESTRUTURA.md](STORAGE_S3_ESTRUTURA.md) — pedidos (receita/exame), consultas (transcrição/gravação), usuários (avatar/certificados), planos de cuidado.
-| `SENTRY_DSN` | — | DSN Sentry — desativa se vazio | Opcional |
 | `ASPNETCORE_ENVIRONMENT` | — | `Development` ou `Production` | Opcional |
 
 ---

@@ -5,8 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Domain.Interfaces;
-using Sentry;
-
 namespace RenoveJa.Infrastructure.Notifications;
 
 /// <summary>
@@ -55,7 +53,6 @@ public class ExpoPushReceiptChecker : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Falha ao verificar push receipts");
-                SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "ExpoPushReceiptChecker"));
             }
 
             await Task.Delay(CheckInterval, stoppingToken);
@@ -133,7 +130,6 @@ public class ExpoPushReceiptChecker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao consultar Expo receipts API");
-            SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "ExpoPushReceiptChecker.CheckReceipts"));
             foreach (var e in entries)
                 _pendingTickets.Enqueue(e);
         }

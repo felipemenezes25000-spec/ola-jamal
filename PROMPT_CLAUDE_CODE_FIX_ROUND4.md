@@ -129,26 +129,6 @@ on:
     branches: [main]
 ```
 
-BUG #53 — Deploy frontend não inclui Sentry DSN
-Arquivo: .github/workflows/deploy-aws.yml
-Substituir o bloco "Create .env.production":
-```yaml
-      - name: Create .env.production
-        run: |
-          cat > .env.production << EOF
-          VITE_API_URL=https://api.renovejasaude.com.br
-          EOF
-```
-Por:
-```yaml
-      - name: Create .env.production
-        run: |
-          cat > .env.production << EOF
-          VITE_API_URL=https://api.renovejasaude.com.br
-          VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
-          EOF
-```
-
 BUG #54 — S3StorageService.UploadStreamAsync bufferiza tudo em memória
 Arquivo: backend-dotnet/src/RenoveJa.Infrastructure/Storage/S3StorageService.cs
 Adicionar comentário TODO antes do método:

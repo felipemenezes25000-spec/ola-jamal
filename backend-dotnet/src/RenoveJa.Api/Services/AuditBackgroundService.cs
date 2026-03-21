@@ -1,7 +1,5 @@
 using System.Threading.Channels;
 using RenoveJa.Application.Interfaces;
-using Sentry;
-
 namespace RenoveJa.Api.Services;
 
 /// <summary>
@@ -106,12 +104,6 @@ public sealed class AuditBackgroundService(
                 logger.LogError(ex,
                     "Audit persist failed after {MaxRetries} attempts for {Action} on {EntityType}",
                     MaxRetries, entry.Action, entry.EntityType);
-                SentrySdk.CaptureException(ex, scope =>
-                {
-                    scope.SetTag("job", "AuditBackgroundService");
-                    scope.SetExtra("action", entry.Action);
-                    scope.SetExtra("entityType", entry.EntityType);
-                });
             }
         }
     }

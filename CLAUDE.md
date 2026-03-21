@@ -29,7 +29,6 @@ ola-jamal/
 | Transcrição | Daily.co (Deepgram) — não Whisper como principal |
 | Vídeo     | Daily.co |
 | Assinatura | ICP-Brasil PAdES (iText7 + BouncyCastle) |
-| Monitoramento | Sentry (todos os módulos) |
 
 ---
 

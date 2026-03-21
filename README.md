@@ -65,7 +65,6 @@ Plataforma de **telemedicina** completa para renovação de receitas, pedidos de
 | PDF           | iText7 (receitas, exames, atestados com QR Code) |
 | Push          | Expo Push Notifications |
 | Deploy        | AWS (backend + web) · EAS Build (mobile) |
-| Monitoramento | Sentry (todos os módulos) |
 
 ---
 
@@ -228,7 +227,7 @@ terraform init && terraform plan && terraform apply
 
 - **Backend:** `backend-dotnet/docs/VARIAVEIS_AMBIENTE.md` e `backend-dotnet/README.md`
 - **Mobile:** `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, etc. — ver `.env.example`
-- **Web:** `VITE_API_URL`, `VITE_FORMSPREE_FORM_ID`, `VITE_SENTRY_DSN` — ver `.env.example`
+- **Web:** `VITE_API_URL`, `VITE_FORMSPREE_FORM_ID` — ver `.env.example`
 
 Nunca commitar `.env` ou chaves; usar `.env.example` como modelo.
 
@@ -280,7 +279,7 @@ Nunca commitar `.env` ou chaves; usar `.env.example` como modelo.
 
 ---
 
-**RenoveJá+** — .NET 8 · Expo 54 · PostgreSQL · AWS · Daily.co · OpenAI · Gemini · ICP-Brasil · Sentry
+**RenoveJá+** — .NET 8 · Expo 54 · PostgreSQL · AWS · Daily.co · OpenAI · Gemini · ICP-Brasil
 
 ## Notas técnicas
 

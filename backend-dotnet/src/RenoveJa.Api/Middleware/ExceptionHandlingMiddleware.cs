@@ -3,8 +3,6 @@ using System.Text.Json;
 using FluentValidation;
 using RenoveJa.Application.Exceptions;
 using RenoveJa.Domain.Exceptions;
-using Sentry;
-
 namespace RenoveJa.Api.Middleware;
 
 /// <summary>
@@ -46,8 +44,6 @@ public class ExceptionHandlingMiddleware(
                 "[EXCEPTION] {Method} {Path} | {ExceptionType}: {Message} | Inner: {Inner}",
                 method, path, ex.GetType().Name, ex.Message,
                 ex.InnerException?.Message ?? "-");
-            // Envia ao Sentry (o middleware captura antes do SDK; sem isso nada chega em Issues)
-            SentrySdk.CaptureException(ex);
             await HandleExceptionAsync(context, ex);
         }
     }

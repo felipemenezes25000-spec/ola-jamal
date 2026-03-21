@@ -45,7 +45,7 @@ public class ApiRequestLoggingMiddleware(RequestDelegate next, ILogger<ApiReques
 
             if (isError || isSlow)
             {
-                // Warning+ vai ao Sentry; Info fica só em Console/File
+                // Warning+ para erros importantes; Info fica só em Console/File
                 var logLevel = status >= 500 ? LogLevel.Error
                     : (status >= 400 || isSlow) ? LogLevel.Warning
                     : LogLevel.Information;

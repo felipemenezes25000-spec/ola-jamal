@@ -49,8 +49,6 @@ export default defineConfig({
           if (id.includes('framer-motion') || id.includes('sonner') || id.includes('lucide-react')) {
             return 'vendor-ui';
           }
-          // Sentry — monitoramento (carregado sob demanda)
-          if (id.includes('@sentry/')) return 'vendor-sentry';
         },
       },
     },

@@ -1,5 +1,3 @@
-// Inicializa Sentry o mais cedo possível — antes de qualquer outro import
-import '../lib/sentry';
 import React, { useEffect, useCallback, useState } from 'react';
 import { Platform, View, StyleSheet, LogBox } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
@@ -39,7 +37,7 @@ const queryClient = new QueryClient({
       refetchOnReconnect: false,
     },
   },
-  // Erros de queries/mutations -> Sentry + analytics (captura silenciosa global)
+  // Erros de queries/mutations -> analytics (captura silenciosa global)
   queryCache: new QueryCache({
     onError: (error, query) => {
       const path = String(query.queryKey[0] ?? 'unknown');

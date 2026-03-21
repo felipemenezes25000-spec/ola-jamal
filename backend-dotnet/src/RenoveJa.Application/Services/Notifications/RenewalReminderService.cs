@@ -5,8 +5,6 @@ using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Enums;
 using RenoveJa.Domain.Interfaces;
-using Sentry;
-
 namespace RenoveJa.Application.Services.Notifications;
 
 /// <summary>
@@ -47,7 +45,6 @@ public class RenewalReminderService : BackgroundService
                 else
                 {
                     _logger.LogError(ex, "Erro ao enviar lembretes de renovacao de receita");
-                    SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "RenewalReminderService"));
                 }
             }
 

@@ -3,14 +3,13 @@
  *
  * Manages:
  * - DailyCall object creation and ref
- * - Call state machine (idle → joining → joined → leaving → idle)
+ * - Call state machine (idle -> joining -> joined -> leaving -> idle)
  * - Event handlers (participant-joined/left, meeting-ended, error)
  * - Participant tracking (local + remote)
  * - Android foreground service notification
  * - Cleanup on unmount
- * - Sentry breadcrumbs & error capture for all video events
  * - 30s timeout on call.join()
- * - Automatic reconnect on network change (WiFi→4G)
+ * - Automatic reconnect on network change (WiFi->4G)
  * - Proper event listener cleanup on unmount
  *
  * Does NOT handle: media controls (mute/camera/flip) or network quality monitoring.
@@ -24,8 +23,6 @@ import Daily, {
   DailyParticipant,
   DailyTrackState,
 } from '@daily-co/react-native-daily-js';
-import { captureException as sentryCaptureException } from '@sentry/react-native';
-import { addBreadcrumb as sentryAddBreadcrumb } from '@sentry/core';
 
 // Tipos locais para eventos do Daily.co cujos tipos do pacote estão incompletos
 interface DailyParticipantEvent {
@@ -93,7 +90,7 @@ export interface UseDailyJoinReturn {
   leave: () => Promise<void>;
 }
 
-// ── Module-level singleton guard ──
+// -- Module-level singleton guard --
 // Prevents "Duplicate DailyIframe instances are not allowed" when the previous
 // screen's async destroy() hasn't finished before the next screen calls createCallObject().
 let globalCallInstance: DailyCall | null = null;
@@ -102,7 +99,7 @@ let destroyPromise: Promise<void> | null = null;
 /**
  * Enquanto leave()+destroy() rodam por ação do app, o Daily dispara `left-meeting` no meio do await.
  * Se onCallEnded navegar/desmontar antes do destroy(), o cleanup de unmount pode chamar leave() de novo
- * no mesmo objeto → erros nativos / mensagens tipo DailyIframe/DailyFrame.
+ * no mesmo objeto -> erros nativos / mensagens tipo DailyIframe/DailyFrame.
  */
 let programmaticLeaveInProgress = false;
 
@@ -256,12 +253,8 @@ export function useDailyJoin({
         setErrorMessage(null);
         setIsReconnecting(false);
 
-        sentryAddBreadcrumb({
-          category: 'video.call',
-          message: 'Joining Daily.co call',
-          level: 'info',
-          data: { roomUrl },
-        });
+        // eslint-disable-next-line no-console -- intentional in __DEV__
+        if (__DEV__) console.log('[useDailyJoin] Joining Daily.co call', { roomUrl });
 
         // Wait for any previous Daily instance to be fully destroyed
         await ensurePreviousDestroyed();
@@ -282,11 +275,6 @@ export function useDailyJoin({
             const msg = createErr instanceof Error ? createErr.message : '';
             if (msg.includes('Duplicate') && attempt < 2) {
               if (__DEV__) console.warn(`[useDailyJoin] createCallObject attempt ${attempt + 1} hit duplicate — retrying`);
-              sentryAddBreadcrumb({
-                category: 'video.call',
-                message: `createCallObject duplicate — retry ${attempt + 1}`,
-                level: 'warning',
-              });
               await new Promise(r => setTimeout(r, (attempt + 1) * 300));
               continue;
             }
@@ -308,11 +296,8 @@ export function useDailyJoin({
           setIsReconnecting(false);
           updateParticipants();
           setAndroidOngoingMeetingActive(true);
-          sentryAddBreadcrumb({
-            category: 'video.call',
-            message: 'Joined Daily.co meeting',
-            level: 'info',
-          });
+          // eslint-disable-next-line no-console -- intentional in __DEV__
+          if (__DEV__) console.log('[useDailyJoin] Joined Daily.co meeting');
         };
         registerHandler(call, 'joined-meeting', onJoinedMeeting);
 
@@ -320,12 +305,8 @@ export function useDailyJoin({
           updateParticipants();
           if (event && !event.participant?.local) {
             onRemoteJoinedRef.current?.();
-            sentryAddBreadcrumb({
-              category: 'video.call',
-              message: 'Remote participant joined',
-              level: 'info',
-              data: { participantId: event.participant?.session_id },
-            });
+            // eslint-disable-next-line no-console -- intentional in __DEV__
+            if (__DEV__) console.log('[useDailyJoin] Remote participant joined', { participantId: event.participant?.session_id });
           }
         };
         registerHandler(call, 'participant-joined', onParticipantJoined);
@@ -338,21 +319,11 @@ export function useDailyJoin({
         // Bug #3: track-started/track-stopped for proper track state transitions
         const onTrackStarted = () => {
           updateParticipants();
-          sentryAddBreadcrumb({
-            category: 'video.track',
-            message: 'Track started',
-            level: 'info',
-          });
         };
         registerHandler(call, 'track-started', onTrackStarted);
 
         const onTrackStopped = () => {
           updateParticipants();
-          sentryAddBreadcrumb({
-            category: 'video.track',
-            message: 'Track stopped',
-            level: 'info',
-          });
         };
         registerHandler(call, 'track-stopped', onTrackStopped);
 
@@ -369,16 +340,6 @@ export function useDailyJoin({
               reason: event?.reason,
             });
           }
-
-          sentryAddBreadcrumb({
-            category: 'video.call',
-            message: 'Participant left',
-            level: 'info',
-            data: {
-              isLocal: participant?.session_id === localSessionId,
-              reason: event?.reason,
-            },
-          });
 
           const isLocalParticipant =
             participant?.session_id != null &&
@@ -401,27 +362,18 @@ export function useDailyJoin({
         };
         registerHandler(call, 'participant-left', onParticipantLeft);
 
-        const onMeetingEnded = (event: DailyMeetingEndedEvent) => {
+        const onMeetingEnded = (_event: DailyMeetingEndedEvent) => {
           if (__DEV__) {
-            console.warn('[useDailyJoin] meeting-ended', { isDoctor, event });
+            console.warn('[useDailyJoin] meeting-ended', { isDoctor });
           }
-          sentryAddBreadcrumb({
-            category: 'video.call',
-            message: 'Meeting ended',
-            level: 'info',
-          });
           setCallState('idle');
           onCallEndedRef.current?.('meeting-ended');
         };
         registerHandler(call, 'meeting-ended', onMeetingEnded);
 
         const onLeftMeeting = () => {
-          sentryAddBreadcrumb({
-            category: 'video.call',
-            message: 'Left meeting',
-            level: 'info',
-            data: { programmatic: programmaticLeaveInProgress },
-          });
+          // eslint-disable-next-line no-console -- intentional in __DEV__
+          if (__DEV__) console.log('[useDailyJoin] Left meeting', { programmatic: programmaticLeaveInProgress });
           setCallState('idle');
           if (!programmaticLeaveInProgress) {
             onCallEndedRef.current?.('left');
@@ -431,15 +383,8 @@ export function useDailyJoin({
 
         const onError = (event: DailyErrorEvent) => {
           const msg = event?.error?.msg ?? event?.errorMsg ?? 'Erro na chamada de vídeo';
-          sentryCaptureException(new Error(`Daily.co error: ${msg}`), {
-            tags: { component: 'useDailyJoin' },
-            extra: { event },
-          });
-          sentryAddBreadcrumb({
-            category: 'video.call',
-            message: `Daily error: ${msg}`,
-            level: 'error',
-          });
+          // eslint-disable-next-line no-console -- intentional in __DEV__
+          if (__DEV__) console.error('[useDailyJoin] Daily error:', msg, event);
           setCallState('error');
           setErrorMessage(msg);
           onErrorRef.current?.(msg);
@@ -448,12 +393,6 @@ export function useDailyJoin({
 
         // Bug #4: Network change detection and automatic reconnect
         const onNetworkConnection = (event: DailyNetworkEvent) => {
-          sentryAddBreadcrumb({
-            category: 'video.network',
-            message: `Network connection event: ${event?.type ?? event?.event ?? 'unknown'}`,
-            level: 'warning',
-            data: event,
-          });
           if (__DEV__) console.warn('[useDailyJoin] network-connection', event);
 
           const eventType = event?.type ?? event?.event ?? '';
@@ -471,22 +410,11 @@ export function useDailyJoin({
         const onNetworkQualityChange = (event: DailyNetworkEvent) => {
           const threshold = event?.threshold;
           if (threshold === 'very-low') {
-            sentryAddBreadcrumb({
-              category: 'video.network',
-              message: 'Network quality very low',
-              level: 'warning',
-              data: event,
-            });
+            if (__DEV__) console.warn('[useDailyJoin] Network quality very low', event);
             setIsReconnecting(true);
             setCallState('reconnecting');
           } else if (threshold === 'low') {
-            // Low but not very-low — show warning but don't set reconnecting
-            sentryAddBreadcrumb({
-              category: 'video.network',
-              message: 'Network quality low',
-              level: 'warning',
-              data: event,
-            });
+            if (__DEV__) console.warn('[useDailyJoin] Network quality low', event);
           } else if (threshold === 'good' && isReconnecting) {
             setIsReconnecting(false);
             setCallState('joined');
@@ -522,11 +450,8 @@ export function useDailyJoin({
       }
       const msg = err instanceof Error ? err.message : 'Não foi possível entrar na sala';
 
-      // Bug #1: Capture exception in Sentry
-      sentryCaptureException(err instanceof Error ? err : new Error(msg), {
-        tags: { component: 'useDailyJoin', action: 'join' },
-        extra: { roomUrl },
-      });
+      // eslint-disable-next-line no-console -- intentional in __DEV__
+      if (__DEV__) console.error('[useDailyJoin] Join failed:', msg);
 
       setCallState('error');
       setErrorMessage(msg);
@@ -549,11 +474,8 @@ export function useDailyJoin({
         setCallState('leaving');
         setAndroidOngoingMeetingActive(false);
 
-        sentryAddBreadcrumb({
-          category: 'video.call',
-          message: 'Leaving Daily.co call',
-          level: 'info',
-        });
+        // eslint-disable-next-line no-console -- intentional in __DEV__
+        if (__DEV__) console.log('[useDailyJoin] Leaving Daily.co call');
 
         // Bug #7: Remove all tracked handlers instead of manual .off() calls
         removeAllHandlers(call);

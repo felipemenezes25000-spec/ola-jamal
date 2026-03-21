@@ -1,11 +1,10 @@
 /**
  * GlobalErrorBoundary — captura erros de renderização no nível raiz da web app.
- * Reporta ao Sentry e exibe tela de fallback em vez de tela branca.
+ * Exibe tela de fallback em vez de tela branca.
  *
  * Uso: envolver <App /> em main.tsx
  */
 import { Component, ErrorInfo, ReactNode } from 'react';
-import * as Sentry from '@sentry/react';
 
 interface Props {
   children: ReactNode;
@@ -32,20 +31,6 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    const { errorId } = this.state;
-
-    // Reporta ao Sentry com o componentStack completo
-    Sentry.captureException(error, {
-      extra: {
-        componentStack: errorInfo.componentStack,
-        errorId,
-      },
-      tags: {
-        'crash.level': 'global',
-        'crash.source': 'GlobalErrorBoundary',
-      },
-    });
-
     if (import.meta.env.DEV) {
       console.error('[GlobalErrorBoundary] Crash capturado:', error);
       console.error('[GlobalErrorBoundary] Stack de componentes:', errorInfo.componentStack);

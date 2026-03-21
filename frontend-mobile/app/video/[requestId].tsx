@@ -21,7 +21,6 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { spacing, borderRadius, shadows } from '../../lib/designSystem';
 import type { DesignColors } from '../../lib/designSystem';
 import { isExpoGo } from '../../lib/expo-go';
-import * as Sentry from '@sentry/react-native';
 
 class VideoErrorBoundary extends React.Component<
   { children: React.ReactNode; onReset: () => void; colors: any },
@@ -34,10 +33,6 @@ class VideoErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // Report to Sentry so we can debug
-    try {
-      Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
-    } catch {}
     if (__DEV__) console.error('[VideoErrorBoundary] Caught:', error, info.componentStack);
   }
 

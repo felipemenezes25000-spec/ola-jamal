@@ -3,12 +3,10 @@
  *
  * Starts/stops automatically based on the `enabled` flag (tied to call state).
  * Polls every 5 seconds when active.
- * Reports quality drops to Sentry as breadcrumbs.
  */
 
 import { useState, useEffect, useRef } from 'react';
 import type { DailyCall } from '@daily-co/react-native-daily-js';
-import { addBreadcrumb as sentryAddBreadcrumb } from '@sentry/core';
 
 export type ConnectionQuality = 'good' | 'poor' | 'bad' | 'unknown';
 
@@ -43,14 +41,10 @@ export function useQualityMonitor(
           else if (threshold === 'low') newQuality = 'poor';
           else newQuality = 'bad';
 
-          // Log quality transitions to Sentry as breadcrumbs
-          if (newQuality !== prevQualityRef.current && prevQualityRef.current !== 'unknown') {
-            sentryAddBreadcrumb({
-              category: 'video.quality',
-              message: `Connection quality: ${prevQualityRef.current} → ${newQuality}`,
-              level: newQuality === 'bad' ? 'warning' : 'info',
-              data: { from: prevQualityRef.current, to: newQuality, threshold },
-            });
+          // Log quality transitions in dev
+          if (__DEV__ && newQuality !== prevQualityRef.current && prevQualityRef.current !== 'unknown') {
+            // eslint-disable-next-line no-console -- intentional in __DEV__
+            console.log(`[useQualityMonitor] Connection quality: ${prevQualityRef.current} -> ${newQuality}`);
           }
 
           prevQualityRef.current = newQuality;

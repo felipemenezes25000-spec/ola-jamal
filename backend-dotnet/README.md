@@ -114,7 +114,6 @@ Ver `docs/VARIAVEIS_AMBIENTE.md` para lista completa. As principais:
 | `Smtp__*` | Config SMTP (recuperação de senha) | Para e-mail |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciais AWS (dev local) | Dev local |
 | `AWS_S3_PRESCRIPTIONS_BUCKET` | Bucket S3 receitas (default: `renoveja-prescriptions`) | Opcional |
-| `SENTRY_DSN` | DSN Sentry — desativa se vazio | Opcional |
 
 ---
 

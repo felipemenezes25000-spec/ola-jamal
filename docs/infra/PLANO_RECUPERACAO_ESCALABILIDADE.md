@@ -17,7 +17,7 @@
   - Validação de integridade: ~1 hora
 
 ### 1.3 Procedimento de restauração
-1. Identificar ponto de falha (via Sentry + logs)
+1. Identificar ponto de falha (via logs)
 2. Acessar AWS RDS Console → Databases → Snapshots
 3. Selecionar snapshot mais recente antes da falha
 4. Restaurar para instância temporária para validação
@@ -44,7 +44,6 @@
 | Ataque/invasão | Dados comprometidos | Backup limpo + reset credenciais | 2-8 horas |
 
 ### 2.2 Monitoramento
-- **Sentry**: erros em tempo real, alertas por email/Slack
 - **Health check**: `/api/health` verificado a cada 30 segundos
 - **Uptime monitoring**: serviço externo (ex: UptimeRobot, Better Uptime)
 
@@ -67,7 +66,7 @@
 | Banco | AWS RDS t3.small | 100GB, produção |
 | Frontend Web | AWS CloudFront + S3 (já na conta) | Custo conforme uso |
 | CDN/Assets | AWS S3 | Incluso |
-| Monitoramento | Sentry Team | R$130/mês |
+| Monitoramento | CloudWatch | R$50-100/mês |
 | **Total estimado** | | **R$455-655/mês** |
 
 ### 3.3 Escala municipal completa (35+ UBS, 500+ usuários)
@@ -78,7 +77,7 @@
 | Banco | AWS RDS t3.medium+ | R$500-1000/mês |
 | Cache | Redis (ElastiCache) | R$200-400/mês |
 | CDN | CloudFront | R$100/mês |
-| Monitoramento | Sentry + Datadog | R$300-600/mês |
+| Monitoramento | CloudWatch + Datadog | R$300-600/mês |
 | Backup extra | S3 cross-region | R$50-100/mês |
 | **Total estimado** | | **R$1.650-3.600/mês** |
 
@@ -93,7 +92,6 @@
 - **Equipe técnica**: a definir
 - **AWS Support:** console.aws.amazon.com
 - **AWS Support**: via console
-- **Sentry**: alertas automáticos configurados
 
 ## 5. Revisão
 

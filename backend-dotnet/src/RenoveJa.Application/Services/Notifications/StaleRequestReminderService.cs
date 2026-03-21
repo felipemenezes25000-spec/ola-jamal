@@ -4,8 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Interfaces;
-using Sentry;
-
 namespace RenoveJa.Application.Services.Notifications;
 
 /// <summary>
@@ -46,7 +44,6 @@ public class StaleRequestReminderService : BackgroundService
                 else
                 {
                     _logger.LogError(ex, "Erro ao enviar lembretes de pedidos parados");
-                    SentrySdk.CaptureException(ex, scope => scope.SetTag("job", "StaleRequestReminderService"));
                 }
             }
 

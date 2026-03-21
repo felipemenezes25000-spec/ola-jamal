@@ -3,7 +3,7 @@
  *
  * Diferente de ErrorBoundary (por tela), este componente envolve TODO o app
  * e garante que qualquer crash nos providers/contexts (AuthContext, QueryClient,
- * NotificationProvider etc.) seja capturado, reportado ao Sentry e exiba uma
+ * NotificationProvider etc.) seja capturado e exiba uma
  * tela de recuperação em vez de fechar silenciosamente.
  *
  * Uso: envolver o <RootLayout> inteiro em _layout.tsx
@@ -11,7 +11,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable, SafeAreaView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Sentry } from '../lib/sentry';
 import { trackError } from '../lib/analytics';
 
 interface Props {
@@ -41,23 +40,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const { errorId } = this.state;
 
-    // 1. Sentry: captura com contexto completo da stack de componentes
-    const sentryId = (Sentry as typeof Sentry | undefined)?.captureException?.(error, {
-      extra: {
-        componentStack: errorInfo.componentStack,
-        errorId,
-        platform: Platform.OS,
-      },
-      tags: {
-        'crash.level': 'global',
-        'crash.source': 'GlobalErrorBoundary',
-      },
-    });
-
-    // 2. Analytics: registra o crash para funnel/relatório de saúde do app
+    // Analytics: registra o crash para funnel/relatório de saúde do app
     try {
       trackError('global_crash', error.message, 'RootLayout', {
-        sentry_id: sentryId ?? 'not_captured',
         error_id: errorId ?? '',
         error_name: error.name,
       });

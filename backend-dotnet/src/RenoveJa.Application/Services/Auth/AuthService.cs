@@ -181,7 +181,7 @@ public class AuthService(
         if (!string.IsNullOrWhiteSpace(config?.AndroidClientId))
             allowedAudiences.Add(config.AndroidClientId.Trim());
 
-        // Debug token decoding removido: vazava aud/iss em logs de produção (Sentry)
+        // Debug token decoding removido: vazava aud/iss em logs de produção
         // Para debug local, usar breakpoint ou condicional __DEV__
 
         GoogleJsonWebSignature.Payload payload;

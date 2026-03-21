@@ -59,7 +59,7 @@ Organização em camadas: Domain → Application → Infrastructure → API.
 - **Qualidade:** 26 test files, Zod, normalizers, design system, acessibilidade.
 - **CI:** GitHub Actions — typecheck + lint + test + build em todos os módulos.
 - **Domain-driven:** `lib/domain/` com requestUiModel, requestGuards, getRequestUiState.
-- **Infra:** AWS (backend + frontend-web), AWS S3, Sentry.
+- **Infra:** AWS (backend + frontend-web), AWS S3.
 - **Docs:** debug, fluxo receita, assinatura PAdES, MercadoPago, variáveis de ambiente.
 
 ---

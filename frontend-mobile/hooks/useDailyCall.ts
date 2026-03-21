@@ -6,7 +6,6 @@
  * - useQualityMonitor: network quality polling
  *
  * Adds: media control functions (toggleMute, toggleCamera, flipCamera).
- * Adds: Sentry error capture for media control failures (Bug #1, #5).
  * Adds: Retry mechanism for audio mode failure (Bug #5).
  *
  * Re-exports all types from sub-hooks for backward compatibility.
@@ -16,8 +15,6 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useDailyJoin } from './useDailyJoin';
 import { useQualityMonitor } from './useQualityMonitor';
-import { captureException as sentryCaptureException } from '@sentry/react-native';
-import { addBreadcrumb as sentryAddBreadcrumb } from '@sentry/core';
 
 // Re-export types so existing imports from useDailyCall still work
 export type { CallState, ParticipantTrack } from './useDailyJoin';
@@ -104,10 +101,7 @@ export function useDailyCall({
         if (__DEV__) console.warn(`[useDailyCall] ${actionName} attempt ${attempt + 1} failed:`, e);
 
         if (attempt === maxRetries) {
-          // Final failure — capture in Sentry and show user feedback
-          sentryCaptureException(e instanceof Error ? e : new Error(`${actionName} failed after ${maxRetries + 1} attempts`), {
-            tags: { component: 'useDailyCall', action: actionName },
-          });
+          // Final failure — show user feedback
           Alert.alert(
             'Erro no áudio/vídeo',
             `Não foi possível ${actionName === 'setLocalAudio' ? 'alterar o microfone' : 'alterar a câmera'}. Tente novamente em alguns segundos.`,
@@ -115,12 +109,6 @@ export function useDailyCall({
           );
           return false;
         }
-
-        sentryAddBreadcrumb({
-          category: 'video.media',
-          message: `${actionName} retry ${attempt + 1}/${maxRetries}`,
-          level: 'warning',
-        });
 
         await new Promise(r => setTimeout(r, MEDIA_TOGGLE_RETRY_DELAY_MS * (attempt + 1)));
       }
@@ -148,11 +136,6 @@ export function useDailyCall({
       if (typeof setAudio !== 'function') {
         revertUi();
         if (__DEV__) console.warn('[useDailyCall] setLocalAudio não disponível');
-        sentryAddBreadcrumb({
-          category: 'video.media',
-          message: 'setLocalAudio not available',
-          level: 'warning',
-        });
         return;
       }
       let r: unknown;
@@ -171,7 +154,7 @@ export function useDailyCall({
       if (r != null && typeof (r as PromiseLike<unknown>).then === 'function') {
         return Promise.resolve(r)
           .then(applyUi)
-          .catch((e: unknown) => {
+          .catch(() => {
             // Bug #5: Retry on async failure
             return retryMediaToggle(
               () => setAudio.call(call, !nextMuted),
@@ -184,9 +167,6 @@ export function useDailyCall({
       }
     } catch (e) {
       revertUi();
-      sentryCaptureException(e instanceof Error ? e : new Error('setLocalAudio outer error'), {
-        tags: { component: 'useDailyCall', action: 'toggleMute' },
-      });
       if (__DEV__) console.warn('[useDailyCall] setLocalAudio error:', e);
       return;
     }
@@ -209,11 +189,6 @@ export function useDailyCall({
       if (typeof setVideo !== 'function') {
         revertUi();
         if (__DEV__) console.warn('[useDailyCall] setLocalVideo não disponível');
-        sentryAddBreadcrumb({
-          category: 'video.media',
-          message: 'setLocalVideo not available',
-          level: 'warning',
-        });
         return;
       }
       let r: unknown;
@@ -231,7 +206,7 @@ export function useDailyCall({
       if (r != null && typeof (r as PromiseLike<unknown>).then === 'function') {
         return Promise.resolve(r)
           .then(applyUi)
-          .catch((e: unknown) => {
+          .catch(() => {
             return retryMediaToggle(
               () => setVideo.call(call, !nextOff),
               'setLocalVideo',
@@ -243,9 +218,6 @@ export function useDailyCall({
       }
     } catch (e) {
       revertUi();
-      sentryCaptureException(e instanceof Error ? e : new Error('setLocalVideo outer error'), {
-        tags: { component: 'useDailyCall', action: 'toggleCamera' },
-      });
       if (__DEV__) console.warn('[useDailyCall] setLocalVideo error:', e);
       return;
     }
@@ -267,9 +239,6 @@ export function useDailyCall({
       await call.cycleCamera();
       setIsFrontCamera((prev) => !prev);
     } catch (e) {
-      sentryCaptureException(e instanceof Error ? e : new Error('cycleCamera failed'), {
-        tags: { component: 'useDailyCall', action: 'flipCamera' },
-      });
       if (__DEV__) console.warn('[useDailyCall] cycleCamera falhou:', e);
     }
   }, [callRef]);

@@ -1,10 +1,9 @@
 /**
- * Logger estruturado: categorias, níveis e atributos.
- * Em produção só envia warn+ ao Sentry. Info/debug ficam no console.
+ * Logger estruturado: categorias, niveis e atributos.
+ * Logs sao emitidos via console.
  *
  * Categorias sugeridas: auth | api | payment | video | request | verify | ui
  */
-import { Sentry } from './sentry';
 
 export type LogCategory =
   | 'auth'
@@ -20,15 +19,6 @@ export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 type LogAttrs = Record<string, string | number | boolean | undefined>;
 
-const SENTRY_MIN_LEVEL: LogLevel = 'warn';
-const LEVEL_ORDER: LogLevel[] = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'];
-
-function shouldSendToSentry(level: LogLevel): boolean {
-  const minIdx = LEVEL_ORDER.indexOf(SENTRY_MIN_LEVEL);
-  const levelIdx = LEVEL_ORDER.indexOf(level);
-  return levelIdx >= minIdx;
-}
-
 function log(
   level: LogLevel,
   category: LogCategory,
@@ -40,20 +30,11 @@ function log(
     Object.entries(payload).filter(([, v]) => v !== undefined)
   ) as Record<string, string | number | boolean>;
 
-  if (typeof Sentry !== 'undefined' && Sentry.logger && shouldSendToSentry(level)) {
-    const fn = Sentry.logger[level];
-    if (typeof fn === 'function') {
-      fn.call(Sentry.logger, message, safeAttrs);
-    }
-  }
-
-  if (import.meta.env.DEV) {
-    const prefix = `[${category}]`;
-    const args = [prefix, message, ...(Object.keys(safeAttrs).length ? [safeAttrs] : [])];
-    if (level === 'error' || level === 'fatal') console.error(...args);
-    else if (level === 'warn') console.warn(...args);
-    else console.log(...args);
-  }
+  const prefix = `[${category}]`;
+  const args = [prefix, message, ...(Object.keys(safeAttrs).length ? [safeAttrs] : [])];
+  if (level === 'error' || level === 'fatal') console.error(...args);
+  else if (level === 'warn') console.warn(...args);
+  else console.log(...args);
 }
 
 export const logger = {
@@ -69,12 +50,9 @@ export const logger = {
     log('error', category, msg, attrs),
   fatal: (category: LogCategory, msg: string, attrs?: LogAttrs) =>
     log('fatal', category, msg, attrs),
-  /** Para erros com exceção: usa Sentry.captureException + log */
+  /** Para erros com excecao: loga no console */
   exception: (category: LogCategory, err: unknown, msg?: string, attrs?: LogAttrs) => {
     const message = msg ?? (err instanceof Error ? err.message : String(err));
     log('error', category, message, attrs);
-    if (typeof Sentry !== 'undefined' && Sentry.captureException) {
-      Sentry.captureException(err, { extra: { ...attrs, 'log.category': category } });
-    }
   },
 };

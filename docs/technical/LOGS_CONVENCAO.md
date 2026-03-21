@@ -1,30 +1,30 @@
-# Convenção de Logs — Organização e Sentry
+# Convenção de Logs — Organização
 
 ## Objetivo
 
-- **Sentry**: só erros, avisos e latência (Warning+)
+- **Logs estruturados**: erros, avisos e latência (Warning+)
 - **Console/File**: tudo (incluindo Info/Debug) para debug local
 - **Categorias**: filtrar por domínio (auth, api, payment, etc.)
-- **Atributos**: `userId`, `requestId`, `duration`, etc. para busca no Sentry
+- **Atributos**: `userId`, `requestId`, `duration`, etc. para busca nos logs
 
 ---
 
 ## Backend (.NET)
 
-### O que vai ao Sentry
+### Níveis de log
 
-| Nível   | Vai ao Sentry? | Uso típico                    |
+| Nível   | Destino        | Uso típico                    |
 |---------|----------------|-------------------------------|
-| Trace   | Não            | Debug muito detalhado         |
-| Debug   | Não            | Diagnóstico em dev            |
-| Info    | Não            | Fluxo normal                 |
-| Warning | Sim            | Erros recuperáveis, lentidão   |
-| Error   | Sim            | Falhas que precisam atenção   |
-| Fatal   | Sim            | Falhas críticas               |
+| Trace   | Arquivo/Console | Debug muito detalhado         |
+| Debug   | Arquivo/Console | Diagnóstico em dev            |
+| Info    | Arquivo/Console | Fluxo normal                 |
+| Warning | Arquivo/Console + Alerta | Erros recuperáveis, lentidão   |
+| Error   | Arquivo/Console + Alerta | Falhas que precisam atenção   |
+| Fatal   | Arquivo/Console + Alerta | Falhas críticas               |
 
 ### Categoria via prefixo `[TAG]`
 
-Use prefixo na mensagem para o Sentry extrair `log.category`:
+Use prefixo na mensagem para categorização:
 
 | Tag                    | Uso                           |
 |------------------------|-------------------------------|
@@ -50,7 +50,7 @@ O `ApiRequestLoggingMiddleware` registra como **Warning** quando:
 - Status >= 400 (4xx/5xx)
 - Duração >= 3s (lento)
 
-Assim, erros e latência aparecem no Sentry.
+Assim, erros e latência aparecem nos logs estruturados.
 
 ---
 
@@ -58,7 +58,7 @@ Assim, erros e latência aparecem no Sentry.
 
 ### Logger estruturado
 
-Use `lib/logger` em vez de `console.log` ou `Sentry.logger` direto:
+Use `lib/logger` em vez de `console.log` direto:
 
 ```ts
 import { logger } from '../lib/logger';
@@ -67,7 +67,7 @@ import { logger } from '../lib/logger';
 logger.info('api', 'Requisição iniciada', { endpoint: '/orders', userId });
 logger.debug('payment', 'Cache lookup', { key: 'order_123' });
 
-// Erros e avisos: vão ao Sentry
+// Erros e avisos: registrados e reportados
 logger.warn('api', 'Rate limit próximo', { current: 95, max: 100 });
 logger.error('payment', 'Pagamento falhou', { orderId, reason: 'card_declined' });
 logger.exception('auth', err, 'Login falhou', { provider: 'google' });
@@ -86,26 +86,16 @@ logger.exception('auth', err, 'Login falhou', { provider: 'google' });
 | `ui`      | Erros de interface    |
 | `general` | Outros                |
 
-### Frontend: o que vai ao Sentry
+### Frontend: o que é reportado
 
 - Só `warn`, `error`, `fatal` e `exception`
 - `info` e `debug` ficam só no console (em dev)
 
 ---
 
-## No Sentry
-
-- **Filtrar por categoria**: `log.category:API` ou `log.category:API`
-- **Filtrar por nível**: `level:error` ou `level:warn`
-- **Buscar por atributo**: `userId:abc123`, `requestId:xyz789`
-- **Erros**: Issues → stack traces
-- **Logs**: Explore → Logs → filtros e colunas
-
----
-
 ## Resumo
 
-| Camada   | Info/Debug      | Warning+ | Categorias              |
-|----------|-----------------|----------|-------------------------|
-| Backend  | Console + File  | Sentry   | `[TAG]` na mensagem     |
-| Frontend | Console (dev)   | Sentry   | `logger.warn('api', …)` |
+| Camada   | Info/Debug      | Warning+          | Categorias              |
+|----------|-----------------|-------------------|-------------------------|
+| Backend  | Console + File  | Log + Alerta      | `[TAG]` na mensagem     |
+| Frontend | Console (dev)   | Log + Alerta      | `logger.warn('api', …)` |

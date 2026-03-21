@@ -1,7 +1,6 @@
 /**
  * Setup executado antes do framework de testes (setupFiles).
  * Mock de AsyncStorage para evitar "NativeModule: AsyncStorage is null" em testes RN.
- * Mock de Sentry para evitar ESM "export" não parseável pelo Jest em testes de integração.
  */
 /* eslint-env jest */
 
@@ -21,25 +20,6 @@ jest.mock('expo-constants', () => ({
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
-
-jest.mock('@sentry/react-native', () => ({
-  init: jest.fn(),
-  captureException: jest.fn(),
-  captureMessage: jest.fn(),
-  addBreadcrumb: jest.fn(),
-  setContext: jest.fn(),
-  setExtra: jest.fn(),
-  setTag: jest.fn(),
-  setUser: jest.fn(),
-  logger: {
-    trace: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    fatal: jest.fn(),
-  },
-}));
 
 // ESM-only; evita "Unexpected token 'export'" em testes de integração que importam api/lib.
 jest.mock('expo-file-system/legacy', () => ({

@@ -2,7 +2,7 @@
 
 Índice central da documentação do projeto. Use este arquivo para navegar por **guias**, **arquitetura**, **compliance** e **troubleshooting**.
 
-> **Stack:** .NET 8 · PostgreSQL (RDS) · AWS S3 · Expo 54 · Vite/React · Mercado Pago · Daily.co · OpenAI/Gemini · ICP-Brasil · Sentry
+> **Stack:** .NET 8 · PostgreSQL (RDS) · AWS S3 · Expo 54 · Vite/React · Mercado Pago · Daily.co · OpenAI/Gemini · ICP-Brasil
 
 Voltar ao repositório: [README principal](../README.md) · [CLAUDE.md](../CLAUDE.md)
 
@@ -76,7 +76,7 @@ Voltar ao repositório: [README principal](../README.md) · [CLAUDE.md](../CLAUD
 |-----------|-----------|
 | [ANALISE_COMPLETA_RENOVEJA.md](technical/ANALISE_COMPLETA_RENOVEJA.md) | Análise completa do repositório |
 | [ENV_SEPARACAO.md](technical/ENV_SEPARACAO.md) | Separação de variáveis de ambiente por módulo |
-| [LOGS_CONVENCAO.md](technical/LOGS_CONVENCAO.md) | Convenção de logs estruturados (Sentry) |
+| [LOGS_CONVENCAO.md](technical/LOGS_CONVENCAO.md) | Convenção de logs estruturados |
 | [triage-ai-guardrails.md](technical/triage-ai-guardrails.md) | Guardrails da triagem IA |
 | [VALIDACAO_TRIAGEM_CONDUTA.md](technical/VALIDACAO_TRIAGEM_CONDUTA.md) | Validação triagem/conduta médica |
 | [WHATSAPP_ENVIO_DOCUMENTO.md](technical/WHATSAPP_ENVIO_DOCUMENTO.md) | Envio de documento via WhatsApp |

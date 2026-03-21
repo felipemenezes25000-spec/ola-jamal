@@ -1,19 +1,5 @@
 import { logger, logApiError } from '../logger';
 
-jest.mock('../sentry', () => ({
-  Sentry: {
-    logger: {
-      trace: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      fatal: jest.fn(),
-    },
-    captureException: jest.fn(),
-  },
-}));
-
 describe('logger', () => {
   it('expõe trace, debug, info, warn, error, fatal', () => {
     expect(typeof logger.trace).toBe('function');
@@ -30,7 +16,7 @@ describe('logger', () => {
     expect(() => logger.error('auth', 'err')).not.toThrow();
   });
 
-  it('exception chama log e captureException', () => {
+  it('exception chama log sem lançar', () => {
     const err = new Error('test');
     expect(() => logger.exception('api', err)).not.toThrow();
   });
