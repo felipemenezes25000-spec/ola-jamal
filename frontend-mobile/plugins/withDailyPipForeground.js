@@ -26,6 +26,17 @@ function withDailyPipForeground(config) {
       service.$['android:foregroundServiceType'] = DAILY_FGS_TYPES;
     }
 
+    // PiP requires smallestScreenSize in configChanges to prevent Activity recreation
+    const activity = AndroidConfig.Manifest.getMainActivity(manifest);
+    if (activity?.$) {
+      const current = activity.$['android:configChanges'] || '';
+      if (!current.includes('smallestScreenSize')) {
+        activity.$['android:configChanges'] = current
+          ? current + '|smallestScreenSize'
+          : 'keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode';
+      }
+    }
+
     return config;
   });
 

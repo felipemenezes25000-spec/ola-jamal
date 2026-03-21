@@ -179,7 +179,8 @@ export default function VideoCallScreenInner() {
       }
     },
     onCallEnded: (reason) => {
-      if (leavingRef.current && reason === 'left') return;
+      if (leavingRef.current) return;
+      leavingRef.current = true;
       if (reason === 'ejected') Alert.alert('Tempo esgotado', 'O tempo contratado expirou.');
       if (reason === 'meeting-ended') Alert.alert('Sessão encerrada', 'A videochamada foi encerrada.');
       try { cleanup(); } catch (e) { if (__DEV__) console.warn('[VideoCall] cleanup error:', e); }
@@ -604,7 +605,7 @@ export default function VideoCallScreenInner() {
   useEffect(() => { useFallbackRef.current = useFallbackTranscription; }, [useFallbackTranscription]);
 
   const cleanup = useCallback(() => {
-    if (Platform.OS === 'android' && ExpoPip.setPictureInPictureParams) {
+    if (Platform.OS === 'android' && typeof ExpoPip?.setPictureInPictureParams === 'function') {
       try {
         ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
       } catch {
@@ -620,7 +621,9 @@ export default function VideoCallScreenInner() {
 
   // End call
   const doEnd = useCallback(async (autoFinish = false) => {
+    if (leavingRef.current) return;
     if (isDoctor && !autoFinish) { setShowNotes(true); return; }
+    leavingRef.current = true;
     await leave();
     if (autoFinish) { try { await autoFinishConsultation(rid); } catch {} }
     cleanup();
@@ -629,13 +632,14 @@ export default function VideoCallScreenInner() {
   doEndRef.current = doEnd;
 
   const confirmEnd = useCallback(async () => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
     setShowNotes(false);
     setEnding(true);
     await leave();
     try {
       await finishConsultation(rid, clinicalNotes.trim() ? { clinicalNotes: clinicalNotes.trim() } : undefined);
     } catch {}
-    setEnding(false);
     cleanup();
     // Médico vai para tela de pós-consulta (emissão de receita + exames + atestado)
     nav.replace(router, `/post-consultation-emit/${rid}`);

@@ -50,9 +50,12 @@ const BASE_URL =
     ? process.env.EXPO_PUBLIC_API_URL.trim().replace(/\/$/, '')
     : getDefaultBaseUrl();
 
-/** Timeout para evitar loading infinito quando a API está inacessível.
- *  API (AWS) pode levar até 60s para cold start, então usamos 60s. */
+/** Timeout padrão para evitar loading infinito quando a API está inacessível.
+ *  API (AWS) pode levar até ~60s para cold start. */
 const REQUEST_TIMEOUT_MS = 60_000;
+
+/** POST /api/post-consultation/emit — assinatura ICP-Brasil + vários PDFs + S3; costuma ser > 60s. */
+export const POST_CONSULTATION_EMIT_TIMEOUT_MS = 180_000;
 
 export interface ApiError {
   message: string;
@@ -176,9 +179,9 @@ class ApiClient {
   }
 
   /** Executa fetch com timeout e combina signal do caller (navegação/desmontagem) com signal de timeout. */
-  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  private async fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number = REQUEST_TIMEOUT_MS): Promise<Response> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const start = Date.now();
     const endpoint = url.replace(this.baseUrl, '').split('?')[0];
 
@@ -369,10 +372,11 @@ class ApiClient {
   private async fetchWithAuthRetry<T>(
     url: string,
     init: RequestInit,
+    timeoutMs: number = REQUEST_TIMEOUT_MS,
   ): Promise<T> {
     const isAuthEndpoint = /\/api\/auth\/(login|register|refresh|google|forgot-password|reset-password)/.test(url);
 
-    const response = await this.fetchWithTimeout(url, init);
+    const response = await this.fetchWithTimeout(url, init, timeoutMs);
 
     if (response.status === 401 && !isAuthEndpoint) {
       // Try to refresh the token before giving up
@@ -381,7 +385,7 @@ class ApiClient {
         // Rebuild auth header with the new token and retry
         const newAuthHeaders = await this.getAuthHeader();
         const retryHeaders = { ...init.headers, ...newAuthHeaders } as Record<string, string>;
-        const retryResponse = await this.fetchWithTimeout(url, { ...init, headers: retryHeaders });
+        const retryResponse = await this.fetchWithTimeout(url, { ...init, headers: retryHeaders }, timeoutMs);
         return this.handleResponse<T>(retryResponse);
       }
       // Refresh failed — parse and throw the original 401 (which triggers onUnauthorized)
@@ -434,7 +438,20 @@ class ApiClient {
     return response.blob();
   }
 
-  async post<T>(path: string, body?: unknown, isMultipart: boolean = false): Promise<T> {
+  /**
+   * @param third `true` = multipart (legado). Ou objeto com `isMultipart` e/ou `timeoutMs` para rotas longas.
+   */
+  async post<T>(
+    path: string,
+    body?: unknown,
+    third?: boolean | { isMultipart?: boolean; timeoutMs?: number },
+  ): Promise<T> {
+    const isMultipart = typeof third === 'boolean' ? third : third?.isMultipart ?? false;
+    const timeoutMs =
+      typeof third === 'object' && third !== null && typeof third.timeoutMs === 'number'
+        ? third.timeoutMs
+        : REQUEST_TIMEOUT_MS;
+
     const authHeaders = await this.getAuthHeader();
 
     const headers: Record<string, string> = {
@@ -452,11 +469,15 @@ class ApiClient {
       bodyData = JSON.stringify(body ?? {});
     }
 
-    return this.fetchWithAuthRetry<T>(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers,
-      body: bodyData,
-    });
+    return this.fetchWithAuthRetry<T>(
+      `${this.baseUrl}${path}`,
+      {
+        method: 'POST',
+        headers,
+        body: bodyData,
+      },
+      timeoutMs,
+    );
   }
 
   async put<T>(path: string, body?: unknown): Promise<T> {

@@ -38,7 +38,7 @@ export function useQualityMonitor(
           else if (threshold === 'low') setQuality('poor');
           else setQuality('bad');
         }
-      });
+      }).catch(() => { /* ignore — call may be in transitional state */ });
     }, 5000);
 
     return () => {

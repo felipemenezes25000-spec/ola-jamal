@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../lib/api-client';
 import { AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../lib/constants/storage-keys';
@@ -338,10 +338,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async (googleToken: string, role?: UserRole): Promise<UserDto> => {
-    try {
-      const response = await apiClient.post<AuthResponseDto>('/api/auth/google', { googleToken, role });
+    const applyGoogleAuthResponse = async (response: AuthResponseDto): Promise<UserDto> => {
       if (!response?.user) throw new Error('Resposta inválida do servidor.');
-      if (response.token == null || response.token === '') throw new Error('Servidor não retornou token de acesso. Tente novamente.');
+      if (response.token == null || response.token === '') {
+        throw new Error('Servidor não retornou token de acesso. Tente novamente.');
+      }
       await setSecureItem(AUTH_TOKEN_KEY, response.token);
       if (response.refreshToken) await setSecureItem(REFRESH_TOKEN_KEY, response.refreshToken);
       apiClient.setTokenCache(response.token);
@@ -354,9 +355,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setUser(response.user);
       return response.user;
-    } catch (error: unknown) {
-      if (__DEV__) console.error('Google sign in error:', error);
-      const msg = error instanceof Error ? error.message : (error as { message?: string })?.message;
+    };
+
+    const getErrMsg = (error: unknown): string =>
+      error instanceof Error ? error.message : ((error as { message?: string })?.message ?? '');
+
+    /** Timeout do api-client (60s) — comum após deploy/cold start do ECS; uma nova tentativa costuma resolver. */
+    const isApiTimeout = (error: unknown): boolean => getErrMsg(error).includes('demorou');
+
+    try {
+      const response = await apiClient.post<AuthResponseDto>('/api/auth/google', { googleToken, role });
+      return await applyGoogleAuthResponse(response);
+    } catch (first: unknown) {
+      if (isApiTimeout(first)) {
+        if (__DEV__) console.warn('[Auth] Google login: timeout na API, nova tentativa em 2,5s…');
+        await new Promise((r) => setTimeout(r, 2500));
+        try {
+          const response = await apiClient.post<AuthResponseDto>('/api/auth/google', { googleToken, role });
+          return await applyGoogleAuthResponse(response);
+        } catch (second: unknown) {
+          if (__DEV__) console.error('Google sign in error (após retry):', second);
+          const msg = getErrMsg(second);
+          throw new Error(msg || 'Erro ao fazer login com Google');
+        }
+      }
+      if (__DEV__) console.error('Google sign in error:', first);
+      const msg = getErrMsg(first);
       throw new Error(msg || 'Erro ao fazer login com Google');
     }
   }, []);

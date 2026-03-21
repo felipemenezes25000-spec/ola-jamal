@@ -1,4 +1,4 @@
-import { apiClient } from './api-client';
+import { apiClient, POST_CONSULTATION_EMIT_TIMEOUT_MS } from './api-client';
 import type {
   RequestResponseDto,
   RequestStatus,
@@ -422,7 +422,8 @@ export async function emitPostConsultationDocuments(
 ): Promise<PostConsultationEmitResponse> {
   const res = await apiClient.post<PostConsultationEmitResponse>(
     '/api/post-consultation/emit',
-    data
+    data,
+    { timeoutMs: POST_CONSULTATION_EMIT_TIMEOUT_MS },
   );
   return res;
 }

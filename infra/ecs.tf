@@ -91,6 +91,8 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = aws_subnet.public[*].id
+  # Padrão AWS = 60s — insuficiente para POST assinatura ICP-Brasil + PDFs (pós-consulta).
+  idle_timeout = 180
 }
 
 resource "aws_lb_target_group" "api" {
@@ -157,8 +159,8 @@ resource "aws_ecs_task_definition" "api" {
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
-    name  = "api"
-    image = "${aws_ecr_repository.api.repository_url}:latest"
+    name         = "api"
+    image        = "${aws_ecr_repository.api.repository_url}:latest"
     portMappings = [{ containerPort = 8080, protocol = "tcp" }]
     environment = [
       { name = "ASPNETCORE_ENVIRONMENT", value = "Production" },
@@ -199,6 +201,14 @@ resource "aws_ecs_service" "api" {
     security_groups  = [aws_security_group.ecs.id]
     assign_public_ip = false
   }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
 
   load_balancer {
     target_group_arn = aws_lb_target_group.api.arn
