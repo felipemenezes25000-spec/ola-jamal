@@ -152,6 +152,8 @@ export default function VideoCallScreenInner() {
   // Doctor: timer control — médico controla quando iniciar a contagem
   const [timerStarted, setTimerStarted] = useState(false);
   const timerStartedRef = useRef(false);
+  /** Paciente chegou a entrar na sala (Daily) nesta sessão — evita "saiu" antes de ele entrar */
+  const [remoteEverJoined, setRemoteEverJoined] = useState(false);
   /** In-flight guard: prevents a second startConsultation call while the first await is pending. */
   const startingConsultationRef = useRef(false);
 
@@ -204,6 +206,10 @@ export default function VideoCallScreenInner() {
     onError: (msg) => setError(msg),
   });
 
+  useEffect(() => {
+    if (remoteParticipant) setRemoteEverJoined(true);
+  }, [remoteParticipant]);
+
   // Server-synced timer + countdown alerts — extracted hook
   const { callSeconds, setCallSeconds } = useConsultationTimer(
     consultationStartedAt,
@@ -220,6 +226,7 @@ export default function VideoCallScreenInner() {
     setRoomUrl(null);
     setMeetingToken(null);
     setCallSeconds(0);
+    setRemoteEverJoined(false);
   }, [rid, setCallSeconds]);
 
   const dailyTranscription = useDailyTranscription({
@@ -807,6 +814,7 @@ export default function VideoCallScreenInner() {
             isDoctor={isDoctor}
             timerStarted={timerStarted}
             remoteParticipantPresent={remoteParticipant != null}
+            remoteEverJoined={remoteEverJoined}
           />
         </View>
       )}

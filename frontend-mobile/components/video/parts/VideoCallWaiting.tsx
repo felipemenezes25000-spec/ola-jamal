@@ -1,7 +1,7 @@
 /**
  * VideoCallWaiting — Tela de espera quando o outro participante não entrou.
  *
- * 4 estados: joining, aguardando (médico/paciente), paciente voltou, paciente saiu.
+ * Estados: joining, aguardando, câmera off, paciente saiu (só se já entrou antes), consulta iniciada sem paciente na sala.
  */
 
 import React from 'react';
@@ -16,10 +16,12 @@ interface VideoCallWaitingProps {
   timerStarted: boolean;
   /** True when the remote participant is in the room (camera may be off). */
   remoteParticipantPresent: boolean;
+  /** True if remote was ever present this session — distingue "nunca entrou" de "saiu". */
+  remoteEverJoined: boolean;
 }
 
 export const VideoCallWaiting = React.memo(function VideoCallWaiting({
-  colors, callState, isDoctor, timerStarted, remoteParticipantPresent,
+  colors, callState, isDoctor, timerStarted, remoteParticipantPresent, remoteEverJoined,
 }: VideoCallWaitingProps) {
   let title: string;
   let subtitle: string;
@@ -34,9 +36,13 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
     // Participant is in the room but their camera is off
     title = 'Câmera desligada';
     subtitle = 'O participante está na chamada com a câmera desativada';
-  } else if (isDoctor && timerStarted) {
+  } else if (isDoctor && timerStarted && remoteEverJoined) {
+    // Só mostra "saiu" se o paciente chegou a aparecer na sala (Daily participant)
     title = 'Paciente saiu da chamada';
     subtitle = 'O paciente pode voltar enquanto houver tempo.\nSó você (médico) encerra a consulta — Res. CFM nº 2.454/2026.';
+  } else if (isDoctor && timerStarted && !remoteEverJoined) {
+    title = 'Consulta iniciada';
+    subtitle = 'Aguardando o paciente entrar na chamada. Timer e transcrição já estão ativos.';
   } else if (!isDoctor && timerStarted) {
     title = 'Você voltou à sala';
     subtitle = 'Aguardando o médico na sala. Sua consulta continua.';
