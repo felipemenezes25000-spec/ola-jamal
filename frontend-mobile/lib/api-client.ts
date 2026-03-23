@@ -8,6 +8,10 @@ import { getSecureItem, setSecureItem } from './secure-storage';
 let last401LogAt = 0;
 const LOG_401_DEBOUNCE_MS = 3000;
 
+/** 403 nestes caminhos é regra de negócio (sem permissão ao recurso), não “conta banida” — não deslogar. */
+const SKIP_FORBIDDEN_LOGOUT_PATH =
+  /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/|video\/)/;
+
 function getPathFromResponse(response: Response): string {
   try {
     const base = typeof response.url === 'string' && response.url.startsWith('/')
@@ -268,8 +272,8 @@ class ApiClient {
             this.onUnauthorized();
           }
           const path = getPathFromResponse(response);
-          // 403 em avatar/senha/requests/documentos/PDF: não deslogar — pode ser validação (ex.: médico pendente, tipo de arquivo, sem permissão ao documento)
-          const skipForbiddenLogout = /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/)/.test(path);
+          // 403 em avatar/senha/requests/vídeo/etc.: não deslogar — validação de recurso (ex.: join-token sem ser participante)
+          const skipForbiddenLogout = SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
           if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
             this.onForbidden(errorMessage);
           }
@@ -325,7 +329,7 @@ class ApiClient {
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled && !skipUnauthorizedCallback) {
         this.onUnauthorized();
       }
-      const skipForbiddenLogout = /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/)/.test(path);
+      const skipForbiddenLogout = SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
       if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
         this.onForbidden(errorMessage);
       }

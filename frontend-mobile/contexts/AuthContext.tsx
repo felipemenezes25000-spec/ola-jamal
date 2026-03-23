@@ -189,8 +189,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             clearTimeout(timeoutId);
             const status = (err as { status?: number })?.status;
             const isAborted = err instanceof Error && err.name === 'AbortError';
-            if (status === 401 || status === 403) {
-              // Token inválido ou expirado: desloga
+            // Só 401 indica token inválido/expirado. 403 em /me é incomum; não deslogar (evita falso positivo).
+            if (status === 401) {
               clearAuth();
             } else if (!isAborted) {
               // Falha de rede ou 5xx — mantém sessão cacheada (já está exibindo)
