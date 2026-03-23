@@ -23,6 +23,19 @@ function getPathFromResponse(response: Response): string {
   }
 }
 
+/** Pathname confiável: no RN `response.url` costuma vir vazio → usar sempre a URL da requisição. */
+function resolveApiPath(response: Response, requestUrl?: string): string {
+  if (requestUrl) {
+    try {
+      const p = new URL(requestUrl).pathname;
+      if (p) return p;
+    } catch {
+      /* fall through */
+    }
+  }
+  return getPathFromResponse(response);
+}
+
 /** Gera um ID de correlação de 16 hex para rastrear a requisição no backend. */
 function generateCorrelationId(): string {
   const chars = '0123456789abcdef';
@@ -233,7 +246,11 @@ class ApiClient {
    * The `skipUnauthorizedCallback` flag suppresses the onUnauthorized callback —
    * used when the caller will handle 401 via token refresh + retry.
    */
-  private async handleResponse<T>(response: Response, skipUnauthorizedCallback = false): Promise<T> {
+  private async handleResponse<T>(
+    response: Response,
+    skipUnauthorizedCallback = false,
+    requestUrl?: string,
+  ): Promise<T> {
     if (!response.ok) {
       let errorMessage = `Erro ${response.status}: Ocorreu um erro na requisição`;
       let errors: Record<string, string[]> | undefined;
@@ -271,9 +288,10 @@ class ApiClient {
             unauthorizedHandled = true;
             this.onUnauthorized();
           }
-          const path = getPathFromResponse(response);
-          // 403 em avatar/senha/requests/vídeo/etc.: não deslogar — validação de recurso (ex.: join-token sem ser participante)
-          const skipForbiddenLogout = SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
+          const path = resolveApiPath(response, requestUrl);
+          // RN: response.url vazio → path "unknown" não pode assumir logout em 403
+          const skipForbiddenLogout =
+            path === 'unknown' || SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
           if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
             this.onForbidden(errorMessage);
           }
@@ -314,7 +332,7 @@ class ApiClient {
         }
       }
 
-      const path = getPathFromResponse(response);
+      const path = resolveApiPath(response, requestUrl);
       const bodyExtra = rawBody ? { body: rawBody.slice(0, 200) } : undefined;
       if (response.status === 401) {
         const now = Date.now();
@@ -329,7 +347,8 @@ class ApiClient {
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled && !skipUnauthorizedCallback) {
         this.onUnauthorized();
       }
-      const skipForbiddenLogout = SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
+      const skipForbiddenLogout =
+        path === 'unknown' || SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
       if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
         this.onForbidden(errorMessage);
       }
@@ -387,13 +406,13 @@ class ApiClient {
         const newAuthHeaders = await this.getAuthHeader();
         const retryHeaders = { ...init.headers, ...newAuthHeaders } as Record<string, string>;
         const retryResponse = await this.fetchWithTimeout(url, { ...init, headers: retryHeaders }, timeoutMs);
-        return this.handleResponse<T>(retryResponse);
+        return this.handleResponse<T>(retryResponse, false, url);
       }
       // Refresh failed — parse and throw the original 401 (which triggers onUnauthorized)
-      return this.handleResponse<T>(response);
+      return this.handleResponse<T>(response, false, url);
     }
 
-    return this.handleResponse<T>(response);
+    return this.handleResponse<T>(response, false, url);
   }
 
   async get<T>(path: string, params?: Record<string, string | number | boolean | undefined | null>, options?: { signal?: AbortSignal }): Promise<T> {
