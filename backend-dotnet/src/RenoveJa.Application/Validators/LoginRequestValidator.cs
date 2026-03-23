@@ -11,10 +11,10 @@ public class LoginRequestValidator : AbstractValidator<LoginRequestDto>
     public LoginRequestValidator()
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Invalid email format");
+            .NotEmpty().WithMessage("Informe o e-mail.")
+            .EmailAddress().WithMessage("E-mail inválido.");
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Password is required");
+            .NotEmpty().WithMessage("Informe a senha.");
     }
 }

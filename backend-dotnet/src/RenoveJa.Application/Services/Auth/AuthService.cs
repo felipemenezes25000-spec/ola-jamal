@@ -128,7 +128,7 @@ public class AuthService(
         var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
         if (user == null)
             throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (!VerifyPasswordAgainstHash(request.Password, user.PasswordHash, user.Id))
             throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
 
         // Verificar aprovação do médico ANTES de criar token (evita tokens órfãos no banco)
@@ -338,7 +338,7 @@ public class AuthService(
             throw new ArgumentException("A nova senha deve ter no mínimo 8 caracteres.");
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("Usuário não encontrado.");
-        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+        if (!VerifyPasswordAgainstHash(currentPassword, user.PasswordHash, user.Id))
             throw new UnauthorizedAccessException("Senha atual incorreta.");
         var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.UpdatePassword(newHash);
@@ -473,6 +473,23 @@ public class AuthService(
             user.CreatedAt, user.UpdatedAt, user.ProfileComplete,
             user.Street, user.Number, user.Neighborhood, user.Complement,
             user.City, user.State, user.PostalCode);
+    }
+
+    /// <summary>
+    /// Verifica senha com BCrypt. Hash inválido/vazio não deve lançar — evita 500 no login (ex.: dados legados).
+    /// </summary>
+    private bool VerifyPasswordAgainstHash(string password, string passwordHash, Guid userId)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash)) return false;
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+        }
+        catch (SaltParseException ex)
+        {
+            logger.LogWarning(ex, "Password hash inválido ou corrompido (UserId={UserId})", userId);
+            return false;
+        }
     }
 
     private static UserDto MapUserToDto(User user)

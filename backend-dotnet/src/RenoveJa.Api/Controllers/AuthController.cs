@@ -21,6 +21,7 @@ public class AuthController(
     IValidator<RegisterRequestDto> registerValidator,
     IValidator<RegisterDoctorRequestDto> registerDoctorValidator,
     IValidator<CompleteProfileRequestDto> completeProfileValidator,
+    IValidator<LoginRequestDto> loginValidator,
     ILogger<AuthController> logger) : ControllerBase
 {
     /// <summary>
@@ -112,6 +113,10 @@ public class AuthController(
         [FromBody] LoginRequestDto request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await loginValidator.ValidateAsync(request!, cancellationToken);
+        if (!validationResult.IsValid)
+            throw new ValidationException(validationResult.Errors);
+
         try
         {
             logger.LogInformation("[Auth] Login attempt");
