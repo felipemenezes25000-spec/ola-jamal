@@ -8,10 +8,6 @@ import { getSecureItem, setSecureItem } from './secure-storage';
 let last401LogAt = 0;
 const LOG_401_DEBOUNCE_MS = 3000;
 
-/** 403 nestes caminhos é regra de negócio (sem permissão ao recurso), não “conta banida” — não deslogar. */
-const SKIP_FORBIDDEN_LOGOUT_PATH =
-  /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/|video\/)/;
-
 function getPathFromResponse(response: Response): string {
   try {
     const base = typeof response.url === 'string' && response.url.startsWith('/')
@@ -89,12 +85,10 @@ export interface ApiError {
 }
 
 type OnUnauthorizedCallback = () => void | Promise<void>;
-type OnForbiddenCallback = (message?: string) => void | Promise<void>;
 
 class ApiClient {
   private baseUrl: string;
   private onUnauthorized: OnUnauthorizedCallback | null = null;
-  private onForbidden: OnForbiddenCallback | null = null;
 
   /**
    * Mutex for token refresh: when a 401 triggers a refresh, concurrent requests
@@ -159,9 +153,8 @@ class ApiClient {
     this.onUnauthorized = cb;
   }
 
-  setOnForbidden(cb: OnForbiddenCallback | null) {
-    this.onForbidden = cb;
-  }
+  /** @deprecated 403 não desloga mais; mantido para compat. com mocks antigos. */
+  setOnForbidden(_cb: unknown) {}
 
   /** Cache em memória do token para evitar AsyncStorage em toda requisição (P1 performance). */
   private tokenCache: string | null | undefined = undefined;
@@ -242,7 +235,9 @@ class ApiClient {
   }
 
   /**
-   * Handles non-ok responses: parses error body, triggers callbacks (401/403), logs.
+   * Handles non-ok responses: parses error body, triggers onUnauthorized em 401, logs.
+   * 403 não dispara logout global — o backend usa Forbid() em quase todo recurso (vídeo, pedido, documento, médico pendente).
+   * Sessão inválida: apenas 401 (+ refresh falho).
    * The `skipUnauthorizedCallback` flag suppresses the onUnauthorized callback —
    * used when the caller will handle 401 via token refresh + retry.
    */
@@ -289,12 +284,6 @@ class ApiClient {
             this.onUnauthorized();
           }
           const path = resolveApiPath(response, requestUrl);
-          // RN: response.url vazio → path "unknown" não pode assumir logout em 403
-          const skipForbiddenLogout =
-            path === 'unknown' || SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
-          if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
-            this.onForbidden(errorMessage);
-          }
           if (response.status === 401) {
             const now = Date.now();
             if (now - last401LogAt > LOG_401_DEBOUNCE_MS) {
@@ -346,11 +335,6 @@ class ApiClient {
 
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled && !skipUnauthorizedCallback) {
         this.onUnauthorized();
-      }
-      const skipForbiddenLogout =
-        path === 'unknown' || SKIP_FORBIDDEN_LOGOUT_PATH.test(path);
-      if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
-        this.onForbidden(errorMessage);
       }
 
       const error: ApiError = {

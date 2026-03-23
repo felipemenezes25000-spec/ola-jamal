@@ -233,17 +233,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       lastClearAt = now;
       clearAuth();
     });
-    apiClient.setOnForbidden(async (message) => {
-      if (message) {
-        try {
-          await AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, message);
-        } catch {}
-      }
-      clearAuth();
-    });
     return () => {
       apiClient.setOnUnauthorized(null);
-      apiClient.setOnForbidden(null);
     };
   }, [clearAuth]);
 
