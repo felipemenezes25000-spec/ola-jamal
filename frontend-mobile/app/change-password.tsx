@@ -8,8 +8,10 @@ import { changePasswordSchema } from '../lib/validation/schemas';
 import { useAppTheme } from '../lib/ui/useAppTheme';
 import type { DesignColors } from '../lib/designSystem';
 import { uiTokens } from '../lib/ui/tokens';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 export default function ChangePasswordScreen() {
+  useRequireAuth();
   const router = useRouter();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);

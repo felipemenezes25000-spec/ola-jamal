@@ -159,7 +159,7 @@ public class AuthService(
     public async Task<UserDto> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
-        if (user == null) throw new InvalidOperationException("User not found");
+        if (user == null) throw new UnauthorizedAccessException("Sessão inválida.");
         return await MapUserToDtoAsync(user);
     }
 
@@ -377,9 +377,13 @@ public class AuthService(
         if (user == null)
             throw new UnauthorizedAccessException("Usuário não encontrado.");
 
-        // Rotate: generate new access token + new refresh token
+        // Rotate: generate new access token + new refresh token (optimistic concurrency)
+        var previousRefreshToken = authToken.RefreshToken
+            ?? throw new UnauthorizedAccessException("Refresh token inválido.");
         authToken.RotateTokens();
-        await tokenRepository.UpdateAsync(authToken, cancellationToken);
+        var rotated = await tokenRepository.TryRotateAsync(authToken, previousRefreshToken, cancellationToken);
+        if (rotated == null)
+            throw new UnauthorizedAccessException("Token já foi rotacionado por outra requisição. Faça login novamente.");
 
         DoctorProfileDto? doctorProfile = null;
         if (user.IsDoctor())

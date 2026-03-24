@@ -657,7 +657,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     },
     previewCard: {
       width: '100%',
-      maxWidth: 360,
+      maxWidth: 500,
       backgroundColor: colors.surface,
       borderRadius: 18,
       padding: 18,

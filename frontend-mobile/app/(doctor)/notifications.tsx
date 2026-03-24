@@ -41,21 +41,18 @@ function getAlertCategory(item: NotificationResponseDto): AlertCategory {
   if (type.includes('consultation') || type.includes('doctor_ready') || type.includes('no_show') ||
       t.includes('consulta') || status.includes('consultation')) return 'consultation';
   if (type.includes('new_request') || type.includes('request_assigned') || type.includes('request_status') ||
-      type.includes('payment') || type.includes('paid') || status === 'paid' ||
       t.includes('solicitação') || t.includes('pedido') || t.includes('nova')) return 'new_request';
   return 'system';
 }
 
 function getDoctorVisual(item: NotificationResponseDto, colors: DesignColors): NotificationVisual {
   const type = ((item.data?.type as string) || '').toLowerCase();
-  const status = ((item.data?.status as string) || '').toLowerCase();
+  const _status = ((item.data?.status as string) || '').toLowerCase();
 
   if (type.includes('new_request') || type.includes('request_assigned'))
     return { icon: 'document-text', color: colors.info, label: 'Novo pedido' };
   if (type.includes('signing_failed'))
     return { icon: 'alert-circle', color: colors.error, label: 'Falha assinatura' };
-  if (status === 'paid' || type.includes('paid'))
-    return { icon: 'card', color: colors.success, label: 'Pago' };
   if (type.includes('consultation'))
     return { icon: 'videocam', color: colors.accent, label: 'Consulta' };
   if (type.includes('reminder'))

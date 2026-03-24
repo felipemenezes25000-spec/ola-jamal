@@ -10,6 +10,7 @@ import { spacing } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { fetchAddressByCep } from '../../lib/viacep';
+import { isValidCpf } from '../../lib/validation/cpf';
 
 function onlyDigits(s: string) {
   return (s || '').replace(/\D/g, '');
@@ -93,6 +94,7 @@ export default function CompleteProfileScreen() {
 
     if (!cp) err.cpf = 'CPF é obrigatório.';
     else if (cp.length !== 11) err.cpf = 'O CPF deve ter 11 dígitos.';
+    else if (!isValidCpf(cp)) err.cpf = 'CPF inválido. Verifique os dígitos.';
 
     // Endereço obrigatório para paciente e médico
     if (!str) err.street = 'Rua é obrigatória.';

@@ -270,15 +270,13 @@ export default function VideoCallScreenInner() {
 
     (async () => {
       try {
-        // Antes do Daily/WebRTC: permissões + sessão de áudio.
-        // Android: PermissionsAndroid (CAMERA/RECORD_AUDIO) alinha ao stack nativo do WebRTC; API 33+ precisa de
-        // notificações para o foreground service da chamada; API 31+ Bluetooth opcional para fone.
-        // iOS: expo-av + ImagePicker em sequência; setAudioModeAsync evita mic mudo.
+        // Permissões já foram pedidas no login (useAppPermissions).
+        // Aqui apenas verificamos se estão concedidas e configuramos o áudio.
         if (Platform.OS === 'android') {
-          const recordResult = await PermissionsAndroid.request(
+          const hasMic = await PermissionsAndroid.check(
             PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           );
-          if (recordResult !== PermissionsAndroid.RESULTS.GRANTED) {
+          if (!hasMic) {
             if (!cancelled) {
               setError(
                 'É necessário permitir o microfone para a videoconsulta. Abra as configurações do app e ative o microfone, depois toque em Tentar novamente.',
@@ -286,10 +284,10 @@ export default function VideoCallScreenInner() {
             }
             return;
           }
-          const cameraResult = await PermissionsAndroid.request(
+          const hasCam = await PermissionsAndroid.check(
             PermissionsAndroid.PERMISSIONS.CAMERA,
           );
-          if (cameraResult !== PermissionsAndroid.RESULTS.GRANTED) {
+          if (!hasCam) {
             if (!cancelled) {
               setError(
                 'É necessário permitir a câmera para a videoconsulta. Abra as configurações do app e ative a câmera, depois toque em Tentar novamente.',
@@ -299,7 +297,7 @@ export default function VideoCallScreenInner() {
           }
           const apiLevel = getAndroidApiLevel();
           if (apiLevel >= 33) {
-            const notif = await Notifications.requestPermissionsAsync();
+            const notif = await Notifications.getPermissionsAsync();
             if (notif.status !== 'granted') {
               if (!cancelled) {
                 setError(
@@ -307,22 +305,6 @@ export default function VideoCallScreenInner() {
                 );
               }
               return;
-            }
-          }
-          if (apiLevel >= 31) {
-            try {
-              await PermissionsAndroid.request(
-                PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-                {
-                  title: 'Bluetooth (opcional)',
-                  message:
-                    'Permite ao app usar fone Bluetooth na consulta. Se preferir, toque em negar e use o alto-falante do aparelho.',
-                  buttonPositive: 'Permitir',
-                  buttonNegative: 'Agora não',
-                },
-              );
-            } catch (btErr) {
-              if (__DEV__) console.warn('[VideoCall] BLUETOOTH_CONNECT request failed:', btErr);
             }
           }
           try {
@@ -339,7 +321,7 @@ export default function VideoCallScreenInner() {
             if (__DEV__) console.warn('[VideoCall] setAudioModeAsync failed:', audioModeErr);
           }
         } else if (Platform.OS !== 'web') {
-          const micPerm = await Audio.requestPermissionsAsync();
+          const micPerm = await Audio.getPermissionsAsync();
           if (micPerm.status !== 'granted') {
             if (!cancelled) {
               setError(
@@ -348,7 +330,7 @@ export default function VideoCallScreenInner() {
             }
             return;
           }
-          const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+          const camPerm = await ImagePicker.getCameraPermissionsAsync();
           if (camPerm.status !== 'granted') {
             if (!cancelled) {
               setError(
@@ -509,6 +491,12 @@ export default function VideoCallScreenInner() {
     });
   }, [callState, rid, isDoctor]);
 
+  // Patient: conectar SignalR ao entrar na chamada (para receber ConsultationEnded, RequestUpdated)
+  useEffect(() => {
+    if (isDoctor || callState !== 'joined' || !rid) return;
+    connectSignalR();
+  }, [isDoctor, callState, rid, connectSignalR]);
+
   // Patient: ao entrar na chamada, busca status imediatamente e após 500ms (Daily pode atrasar participant list)
   useEffect(() => {
     if (isDoctor || !rid || callState !== 'joined') return;
@@ -657,6 +645,15 @@ export default function VideoCallScreenInner() {
       audioRecorderRef.current.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] audioRecorder stop failed:', e); });
     }
     disconnectSignalR();
+    // Reset iOS audio mode para não interferir com áudio do app/sistema após a chamada
+    if (Platform.OS === 'ios') {
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: false,
+        staysActiveInBackground: false,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+      }).catch(() => {});
+    }
   }, [disconnectSignalR, dailyTranscription]);
 
   // End call
@@ -686,7 +683,12 @@ export default function VideoCallScreenInner() {
           try { nav.replace(router, `/request-detail/${rid}`); } catch { try { router.back(); } catch {} }
         }
       })
-      .catch(() => { leavingRef.current = false; });
+      .catch(() => {
+        leavingRef.current = false;
+        setEnding(false);
+        // Consulta encerrada no servidor — navegar de volta mesmo em falha
+        try { router.back(); } catch {}
+      });
   }, [consultationEnded, leave, cleanup, isDoctor, rid, router]);
 
   const confirmEnd = useCallback(async () => {
@@ -760,7 +762,7 @@ export default function VideoCallScreenInner() {
     <View style={[S.container, S.center]}>
       <Ionicons name="alert-circle" size={56} color={colors.error} />
       <Text style={S.errText}>{error || errorMessage || 'Erro na chamada'}</Text>
-      <TouchableOpacity style={S.retryBtn} onPress={async () => { await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
+      <TouchableOpacity style={S.retryBtn} onPress={async () => { leavingRef.current = false; await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
         <Text style={S.retryTxt}>Tentar novamente</Text>
       </TouchableOpacity>
       <TouchableOpacity

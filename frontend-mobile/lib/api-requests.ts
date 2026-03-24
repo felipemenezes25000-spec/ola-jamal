@@ -49,6 +49,11 @@ export async function createPrescriptionRequest(
       } as unknown as Blob);
     }
 
+    // Enviar medications também no multipart (senão são perdidos)
+    if (data.medications && data.medications.length > 0) {
+      data.medications.forEach((med) => formData.append('medications', med));
+    }
+
     return apiClient.post('/api/requests/prescription', formData, true);
   }
 

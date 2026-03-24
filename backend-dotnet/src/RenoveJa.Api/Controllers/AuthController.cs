@@ -144,7 +144,7 @@ public class AuthController(
     /// Realiza rotação: gera novo access token + novo refresh token e invalida os anteriores.
     /// </summary>
     [HttpPost("refresh")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting("auth-refresh")]
     public async Task<ActionResult<AuthResponseDto>> RefreshToken(
         [FromBody] RefreshTokenRequestDto request,
         CancellationToken cancellationToken)
@@ -195,7 +195,12 @@ public class AuthController(
         // Read token from cookie (web) or Authorization header (mobile)
         var token = Request.Cookies[BearerAuthenticationHandler.AuthCookieName];
         if (string.IsNullOrWhiteSpace(token))
-            token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            token = authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? authHeader["Bearer ".Length..].Trim()
+                : authHeader;
+        }
 
         await authService.LogoutAsync(token, cancellationToken);
         ClearAuthCookie();

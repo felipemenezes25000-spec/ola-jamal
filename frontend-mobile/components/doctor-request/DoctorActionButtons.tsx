@@ -34,6 +34,9 @@ interface DoctorActionButtonsProps {
   isInQueue: boolean;
 }
 
+const flexOne = { flex: 1 } as const;
+const flexOneHalf = { flex: 1.5 } as const;
+
 function DoctorActionButtons_Fn({
   canApprove,
   canReject,
@@ -73,7 +76,7 @@ function DoctorActionButtons_Fn({
             <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
               <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={flexOne}>
               <Text style={styles.formTitle}>Assinatura Digital ICP-Brasil</Text>
               <Text style={styles.formDesc}>Digite a senha do seu certificado A1 para concluir.</Text>
             </View>
@@ -96,7 +99,7 @@ function DoctorActionButtons_Fn({
               title="Cancelar"
               variant="outline"
               onPress={onToggleSignForm}
-              style={{ flex: 1 }}
+              style={flexOne}
             />
             <AppButton
               title="Assinar Documento"
@@ -105,7 +108,7 @@ function DoctorActionButtons_Fn({
               onPress={onSign}
               loading={actionLoading}
               disabled={certPassword.length === 0}
-              style={{ flex: 1.5 }}
+              style={flexOneHalf}
             />
           </View>
         </DoctorCard>
@@ -118,7 +121,7 @@ function DoctorActionButtons_Fn({
             <View style={[styles.iconWrap, { backgroundColor: colors.errorLight }]}>
               <Ionicons name="close-circle" size={20} color={colors.error} />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={flexOne}>
               <Text style={[styles.formTitle, { color: colors.error }]}>Rejeitar Pedido</Text>
               <Text style={styles.formDesc}>O motivo será enviado ao paciente.</Text>
             </View>
@@ -140,7 +143,7 @@ function DoctorActionButtons_Fn({
               title="Voltar"
               variant="outline"
               onPress={onToggleRejectForm}
-              style={{ flex: 1 }}
+              style={flexOne}
             />
             <AppButton
               title="Confirmar Rejeição"
@@ -149,7 +152,7 @@ function DoctorActionButtons_Fn({
               onPress={onReject}
               loading={actionLoading}
               disabled={rejectionReason.trim().length === 0}
-              style={{ flex: 1.5 }}
+              style={flexOneHalf}
             />
           </View>
         </DoctorCard>

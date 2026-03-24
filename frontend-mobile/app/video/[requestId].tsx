@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 // FIX #9: Unificado imports — spacing, borderRadius e shadows todos de designSystem
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { spacing, borderRadius, shadows } from '../../lib/designSystem';
 import type { DesignColors } from '../../lib/designSystem';
@@ -68,6 +69,7 @@ class VideoErrorBoundary extends React.Component<
 
 export default function VideoRequestIdRoute() {
   const router = useRouter();
+  const { ready } = useRequireAuth();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -75,6 +77,7 @@ export default function VideoRequestIdRoute() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!ready) return;
     if (isExpoGo) return;
     import('../../components/video/VideoCallScreenInner')
       .then((m) => setInner(() => m.default))
@@ -82,7 +85,7 @@ export default function VideoRequestIdRoute() {
         if (__DEV__) console.warn('[Video] Falha ao carregar módulo:', e?.message);
         setLoadError(e?.message ?? 'Não foi possível iniciar a videochamada.');
       });
-  }, []);
+  }, [ready]);
 
   // Expo Go ou módulo não disponível → instruções amigáveis para o usuário
   if (isExpoGo || loadError) {

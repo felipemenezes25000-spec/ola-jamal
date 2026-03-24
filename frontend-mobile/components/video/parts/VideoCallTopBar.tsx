@@ -34,7 +34,7 @@ export const VideoCallTopBar = React.memo(function VideoCallTopBar({
   colors, topInset, quality, callSeconds, contractedMinutes, isAiActive,
 }: VideoCallTopBarProps) {
   const qColor = quality === 'good' ? colors.success : quality === 'poor' ? colors.warning : quality === 'bad' ? colors.error : colors.textMuted;
-  const rem = contractedMinutes ? contractedMinutes * 60 - callSeconds : null;
+  const rem = contractedMinutes ? Math.max(0, contractedMinutes * 60 - callSeconds) : null;
   const urgent = rem != null && rem <= 120;
   const critical = rem != null && rem <= 60;
   const timerStr = contractedMinutes ? `${fmt(callSeconds)} / ${fmt(contractedMinutes * 60)}` : fmt(callSeconds);
@@ -59,11 +59,14 @@ export const VideoCallTopBar = React.memo(function VideoCallTopBar({
         critical && { backgroundColor: colors.destructive },
       ]}>
         <Ionicons name="time-outline" size={14} color={critical ? colors.white : urgent ? colors.warning : colors.textMuted} />
-        <Text style={[
-          S.tTxt, { color: colors.text },
-          urgent && { color: colors.warning },
-          critical && { color: colors.white },
-        ]}>
+        <Text
+          allowFontScaling={false}
+          style={[
+            S.tTxt, { color: colors.text },
+            urgent && { color: colors.warning },
+            critical && { color: colors.white },
+          ]}
+        >
           {timerStr}
         </Text>
       </View>

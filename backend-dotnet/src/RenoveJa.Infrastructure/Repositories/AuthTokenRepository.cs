@@ -62,6 +62,18 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
         return MapToDomain(updated);
     }
 
+    public async Task<AuthToken?> TryRotateAsync(AuthToken authToken, string previousRefreshToken, CancellationToken cancellationToken = default)
+    {
+        var model = MapToModel(authToken);
+        // Optimistic concurrency: só atualiza se o refresh_token antigo ainda bater
+        var updated = await db.UpdateAsync<AuthTokenModel>(
+            TableName,
+            $"id=eq.{authToken.Id}&refresh_token=eq.{previousRefreshToken}",
+            model,
+            cancellationToken);
+        return updated != null ? MapToDomain(updated) : null;
+    }
+
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await db.DeleteAsync(TableName, $"id=eq.{id}", cancellationToken);

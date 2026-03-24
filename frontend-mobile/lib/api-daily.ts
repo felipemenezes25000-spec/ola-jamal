@@ -32,14 +32,8 @@ export async function fetchJoinToken(requestId: string): Promise<DailyJoinTokenR
   return apiClient.post('/api/video/join-token', { requestId });
 }
 
-/** Busca sala por request ID. */
-export async function fetchVideoRoomByRequest(requestId: string): Promise<DailyRoomResponse | null> {
-  try {
-    return await apiClient.get(`/api/video/by-request/${requestId}`);
-  } catch {
-    return null;
-  }
-}
+/** Busca sala por request ID. Re-exporta de api-video (fonte canônica). */
+export { fetchVideoRoomByRequest } from './api-video';
 
 /** Cria sala de teste para transcrição via Daily.co (sem consulta ativa). */
 export async function fetchTranscriptionTestRoom(): Promise<{

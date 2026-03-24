@@ -176,6 +176,7 @@ export default function DoctorQueue() {
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="search"
+            accessibilityLabel="Buscar solicitações"
           />
           {searchText.length > 0 && (
             <TouchableOpacity onPress={() => { setSearchText(''); haptics.light(); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>

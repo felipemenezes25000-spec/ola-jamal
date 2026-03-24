@@ -11,8 +11,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, type AppThemeRole } from '../../lib/ui/useAppTheme';
 
-const LOGIN_FOCUS_DEBUG = __DEV__ && false;
-
 export interface AppInputProps extends Omit<TextInputProps, 'role'> {
   label?: string;
   required?: boolean;
@@ -49,7 +47,6 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
   const focusUpdateScheduled = useRef(false);
 
   const handleFocus = useCallback((e: any) => {
-    if (LOGIN_FOCUS_DEBUG && _logLabel) console.warn('[LOGIN_FOCUS] onFocus', _logLabel);
     onFocus?.(e);
     if (focusUpdateScheduled.current) return;
     focusUpdateScheduled.current = true;
@@ -57,18 +54,16 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
       setFocused(true);
       focusUpdateScheduled.current = false;
     });
-  }, [onFocus, _logLabel]);
+  }, [onFocus]);
 
   const handleBlur = useCallback((e: any) => {
-    if (LOGIN_FOCUS_DEBUG && _logLabel) console.warn('[LOGIN_FOCUS] onBlur', _logLabel);
     onBlur?.(e);
     setFocused(false);
-  }, [onBlur, _logLabel]);
+  }, [onBlur]);
 
   const handleChangeText = useCallback((text: string) => {
-    if (LOGIN_FOCUS_DEBUG && _logLabel) console.warn('[LOGIN_FOCUS] onChangeText', _logLabel, 'len=', text.length);
     onChangeText?.(text);
-  }, [onChangeText, _logLabel]);
+  }, [onChangeText]);
 
   const borderColor = error
     ? colors.error

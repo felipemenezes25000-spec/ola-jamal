@@ -128,6 +128,7 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
     /// Valida um CRM consultando o CFM via InfoSimples API.
     /// Body: { "crm": "123456", "uf": "SP" }
     /// </summary>
+    [Authorize]
     [HttpPost("validate-crm")]
     [EnableRateLimiting("auth")]
     public async Task<IActionResult> ValidateCrm(

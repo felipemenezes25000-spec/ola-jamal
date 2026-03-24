@@ -65,9 +65,9 @@ export function useConsultationTimer(
     }
     if (remaining <= 0 && !autoFinishedRef.current) {
       autoFinishedRef.current = true;
-      Alert.alert('Tempo esgotado', 'O tempo contratado expirou.', [{
-        text: 'OK', onPress: onAutoFinish,
-      }]);
+      // Disparar auto-finish imediatamente — alert é apenas informativo
+      onAutoFinish();
+      Alert.alert('Tempo esgotado', 'O tempo contratado expirou.');
     }
   }, [callSeconds, contractedMinutes, onAutoFinish, isActive]);
 

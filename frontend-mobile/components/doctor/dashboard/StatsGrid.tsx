@@ -27,7 +27,7 @@ interface MetricProps {
   labelSize: number;
 }
 
-function Metric({ value, label, valueColor, fontSize, labelSize }: MetricProps) {
+const Metric = React.memo(function Metric({ value, label, valueColor, fontSize, labelSize }: MetricProps) {
   return (
     <View style={styles.metric}>
       <Text
@@ -42,7 +42,7 @@ function Metric({ value, label, valueColor, fontSize, labelSize }: MetricProps) 
       </Text>
     </View>
   );
-}
+});
 
 function StatsGrid_Fn({ stats, responsive, onPressPedidos, onPressConsultas }: StatsGridProps) {
   const { typography } = responsive;

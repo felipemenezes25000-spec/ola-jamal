@@ -31,7 +31,7 @@ import { getDateGroupForSection, timeAgoShort } from '../../lib/utils/format';
 
 type NotificationFilterKey = 'all' | 'request' | 'consultation';
 
-/** Categoriza notificação para filtros do paciente (fluxo de pagamento removido) */
+/** Categoriza notificação para filtros do paciente */
 function categorizeNotification(item: NotificationResponseDto): Exclude<NotificationFilterKey, 'all'> {
   const t = (item.title || '').toLowerCase();
   const data = item.data || {};
@@ -66,7 +66,7 @@ function getNotificationVisual(item: NotificationResponseDto, colors: DesignColo
     return { icon: 'videocam', color: colors.accent, bgColor: colors.accentSoft, label: 'Consulta' };
   }
   // Aprovado
-  if (status === 'paid' || status === 'approved' || status === 'approvedpendingpayment') {
+  if (status === 'approved') {
     return { icon: 'thumbs-up', color: colors.info, bgColor: colors.infoLight, label: 'Aprovado' };
   }
   // Em análise
@@ -219,12 +219,12 @@ export default function PatientNotifications() {
         </View>
         <View style={styles.cardContent}>
           <View style={styles.titleRow}>
-            <Text style={[styles.cardTitle, !item.read && styles.cardTitleUnread]} numberOfLines={1}>
+            <Text style={[styles.cardTitle, !item.read && styles.cardTitleUnread]} numberOfLines={1} ellipsizeMode="tail">
               {item.title}
             </Text>
             {!item.read && <View style={styles.unreadDot} />}
           </View>
-          <Text style={styles.cardMessage} numberOfLines={2}>{item.message}</Text>
+          <Text style={styles.cardMessage} numberOfLines={2} ellipsizeMode="tail">{item.message}</Text>
           <View style={styles.metaRow}>
             <Text style={styles.cardDate}>{timeAgoShort(item.createdAt)}</Text>
             <View style={[styles.categoryBadge, { backgroundColor: isDark ? visual.color + '15' : visual.bgColor }]}>

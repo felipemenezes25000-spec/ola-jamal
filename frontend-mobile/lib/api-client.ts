@@ -86,6 +86,14 @@ export interface ApiError {
 
 type OnUnauthorizedCallback = () => void | Promise<void>;
 
+/**
+ * Resultado do refresh:
+ * - 'success': token renovado com sucesso
+ * - 'invalid': refresh token inválido/expirado (401) → logout é correto
+ * - 'error': erro de rede/servidor → NÃO deslogar, manter sessão
+ */
+type RefreshResult = 'success' | 'invalid' | 'error';
+
 class ApiClient {
   private baseUrl: string;
   private onUnauthorized: OnUnauthorizedCallback | null = null;
@@ -94,7 +102,7 @@ class ApiClient {
    * Mutex for token refresh: when a 401 triggers a refresh, concurrent requests
    * wait for the same refresh promise instead of firing multiple refresh calls.
    */
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<RefreshResult> | null = null;
 
   constructor(baseUrl: string = BASE_URL) {
     this.baseUrl = baseUrl;
@@ -102,10 +110,10 @@ class ApiClient {
 
   /**
    * Attempts to refresh the access token using the stored refresh token.
-   * Returns true if refresh succeeded, false otherwise.
+   * Returns the result so callers can decide whether to logout or not.
    * Uses a mutex so concurrent 401s share a single refresh call.
    */
-  async tryRefreshToken(): Promise<boolean> {
+  async tryRefreshToken(): Promise<RefreshResult> {
     // If a refresh is already in progress, wait for it
     if (this.refreshPromise) {
       return this.refreshPromise;
@@ -119,10 +127,10 @@ class ApiClient {
     }
   }
 
-  private async executeRefresh(): Promise<boolean> {
+  private async executeRefresh(): Promise<RefreshResult> {
     try {
       const refreshToken = await getSecureItem(REFRESH_TOKEN_KEY);
-      if (!refreshToken) return false;
+      if (!refreshToken) return 'invalid';
 
       const response = await this.fetchWithTimeout(`${this.baseUrl}/api/auth/refresh`, {
         method: 'POST',
@@ -133,19 +141,25 @@ class ApiClient {
         body: JSON.stringify({ refreshToken }),
       });
 
-      if (!response.ok) return false;
+      if (!response.ok) {
+        // 401/403 do endpoint de refresh = token realmente inválido → logout correto
+        if (response.status === 401 || response.status === 403) return 'invalid';
+        // 429 (rate limit), 500, 502, etc. = problema transitório → NÃO deslogar
+        return 'error';
+      }
 
       const data = await response.json();
-      if (!data?.token || !data?.refreshToken) return false;
+      if (!data?.token || !data?.refreshToken) return 'invalid';
 
       // Persist the new tokens
       await setSecureItem(AUTH_TOKEN_KEY, data.token);
       await setSecureItem(REFRESH_TOKEN_KEY, data.refreshToken);
       this.tokenCache = data.token;
 
-      return true;
+      return 'success';
     } catch {
-      return false;
+      // Erro de rede (offline, timeout, DNS) → NÃO deslogar
+      return 'error';
     }
   }
 
@@ -369,7 +383,12 @@ class ApiClient {
 
   /**
    * Executes an authenticated fetch. On 401, attempts to refresh the token
-   * and retries the request once. If refresh fails, triggers onUnauthorized.
+   * and retries the request once.
+   *
+   * Refresh results:
+   * - 'success': retry com novo token
+   * - 'invalid': refresh token expirado → onUnauthorized (logout)
+   * - 'error': rede/servidor falhou → NÃO deslogar, propagar erro sem callback
    *
    * Auth endpoints (login, register, refresh) bypass the retry logic.
    */
@@ -383,16 +402,20 @@ class ApiClient {
     const response = await this.fetchWithTimeout(url, init, timeoutMs);
 
     if (response.status === 401 && !isAuthEndpoint) {
-      // Try to refresh the token before giving up
-      const refreshed = await this.tryRefreshToken();
-      if (refreshed) {
+      const refreshResult = await this.tryRefreshToken();
+      if (refreshResult === 'success') {
         // Rebuild auth header with the new token and retry
         const newAuthHeaders = await this.getAuthHeader();
         const retryHeaders = { ...init.headers, ...newAuthHeaders } as Record<string, string>;
         const retryResponse = await this.fetchWithTimeout(url, { ...init, headers: retryHeaders }, timeoutMs);
         return this.handleResponse<T>(retryResponse, false, url);
       }
-      // Refresh failed — parse and throw the original 401 (which triggers onUnauthorized)
+      if (refreshResult === 'error') {
+        // Rede/servidor falhou no refresh — NÃO deslogar.
+        // Propagar o 401 original sem disparar onUnauthorized (skipUnauthorizedCallback = true).
+        return this.handleResponse<T>(response, true, url);
+      }
+      // 'invalid' — refresh token realmente expirado/inválido → dispara onUnauthorized (logout)
       return this.handleResponse<T>(response, false, url);
     }
 
@@ -424,13 +447,30 @@ class ApiClient {
     });
   }
 
-  /** GET que retorna Blob (ex.: PDF). */
+  /** GET que retorna Blob (ex.: PDF). Com retry de token em 401. */
   async getBlob(path: string): Promise<Blob> {
-    const authHeaders = await this.getAuthHeader();
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
-      method: 'GET',
-      headers: { ...this.getCommonHeaders(), ...authHeaders },
-    });
+    const url = `${this.baseUrl}${path}`;
+
+    const doFetch = async () => {
+      const authHeaders = await this.getAuthHeader();
+      return this.fetchWithTimeout(url, {
+        method: 'GET',
+        headers: { ...this.getCommonHeaders(), ...authHeaders },
+      });
+    };
+
+    let response = await doFetch();
+
+    // 401 → tentar refresh e retry (mesmo padrão do fetchWithAuthRetry)
+    if (response.status === 401) {
+      const refreshResult = await this.tryRefreshToken();
+      if (refreshResult === 'success') {
+        response = await doFetch();
+      } else if (refreshResult === 'invalid' && this.onUnauthorized) {
+        this.onUnauthorized();
+      }
+    }
+
     if (!response.ok) {
       let msg = 'Erro ao obter recurso';
       try {

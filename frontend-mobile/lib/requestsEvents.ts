@@ -38,6 +38,8 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
   const token = await getToken();
   if (!token) return false;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SignalR HubConnection tipo dinâmico
+  let conn: any = null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic SignalR
     const signalR = require('@microsoft/signalr');
@@ -60,7 +62,7 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
     if (signalR.LogLevel != null) {
       builder.configureLogging(signalR.LogLevel.Warning);
     }
-    const conn = builder.build();
+    conn = builder.build();
 
     conn.onclose((error: Error | undefined) => {
       if (__DEV__) console.warn('[RequestsEvents] Conexão fechada:', error?.message);
@@ -93,6 +95,8 @@ export async function startRequestsEventsConnection(): Promise<boolean> {
     connection = conn;
     return true;
   } catch (e) {
+    // Timeout: conn.start() pode completar em background — limpar para evitar conexão órfã
+    try { conn?.stop(); } catch {}
     if (__DEV__) {
       console.warn('[RequestsEvents] Connection failed. Updates em tempo real desativados. Use pull-to-refresh nas telas de pedidos para atualizar.', e);
     }

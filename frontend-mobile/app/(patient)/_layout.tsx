@@ -8,6 +8,7 @@ import { TabBarIcon } from '../../components/ui/TabBarIcon';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
+import { useAppPermissions } from '../../hooks/useAppPermissions';
 
 const TAB_BAR_BASE_HEIGHT = 56;
 const TAB_BAR_PADDING_TOP = 8;
@@ -19,6 +20,7 @@ export default function PatientLayout() {
   const { unreadCount } = useNotifications();
   const { colors, scheme } = useAppTheme();
   const isDark = scheme === 'dark';
+  useAppPermissions();
 
   const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
   const tabBarPaddingBottom = Math.max(10, insets.bottom + (Platform.OS === 'ios' ? 4 : 8));
@@ -69,6 +71,7 @@ export default function PatientLayout() {
         tabBarIconStyle: {
           marginBottom: 2,
         },
+        tabBarAllowFontScaling: false,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '700',

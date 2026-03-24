@@ -86,7 +86,7 @@ public class PostConsultationController(
             logger.LogError(ex,
                 "Post-consultation emit unexpected error for request {RequestId}: {Message}",
                 request.RequestId, ex.Message);
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new { error = "Erro inesperado ao emitir documentos. Tente novamente." });
         }
     }
 

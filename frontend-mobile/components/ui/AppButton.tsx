@@ -172,6 +172,7 @@ export function AppButton({
                   },
                 ]}
                 numberOfLines={1}
+                allowFontScaling={false}
               >
                 {title}
               </Text>

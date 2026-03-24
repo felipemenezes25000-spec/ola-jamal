@@ -118,8 +118,6 @@ public class RequestService(
 
         if (req != null && req.Status != RequestStatus.Rejected)
         {
-            // Paciente acabou de enviar — push "Pedido enviado" desnecessário
-            // await pushDispatcher.SendAsync(PushNotificationRules.Submitted(userId, req.Id, RequestType.Prescription), cancellationToken);
             await NotifyAvailableDoctorsOfNewRequestAsync("receita", req, cancellationToken);
             await requestEventsPublisher.NotifyNewRequestToDoctorsAsync(req.Id, "submitted", "Nova receita na fila", cancellationToken);
         }
@@ -178,8 +176,6 @@ public class RequestService(
 
         if (req != null && req.Status != RequestStatus.Rejected)
         {
-            // Paciente acabou de enviar — push "Pedido enviado" desnecessário
-            // await pushDispatcher.SendAsync(PushNotificationRules.Submitted(userId, req.Id, RequestType.Exam), cancellationToken);
             await NotifyAvailableDoctorsOfNewRequestAsync("exame", req, cancellationToken);
             await requestEventsPublisher.NotifyNewRequestToDoctorsAsync(req.Id, "submitted", "Novo exame na fila", cancellationToken);
         }
@@ -239,9 +235,6 @@ public class RequestService(
 
         // Salvar AutoObservation + preço efetivo em uma única operação
         medicalRequest = await requestRepository.UpdateAsync(medicalRequest, cancellationToken) ?? medicalRequest;
-
-        // Paciente acabou de enviar — push "Pedido enviado" desnecessário
-        // await pushDispatcher.SendAsync(PushNotificationRules.Submitted(userId, medicalRequest.Id, RequestType.Consultation), cancellationToken);
 
         await NotifyAvailableDoctorsOfNewRequestAsync("consulta", medicalRequest, cancellationToken);
         await requestEventsPublisher.NotifyNewRequestToDoctorsAsync(medicalRequest.Id, "submitted", "Nova consulta na fila", cancellationToken);

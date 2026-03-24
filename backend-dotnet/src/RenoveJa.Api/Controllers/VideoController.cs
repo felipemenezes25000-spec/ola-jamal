@@ -51,6 +51,14 @@ public class VideoController(
         [FromBody] CreateVideoRoomRequestDto dto,
         CancellationToken cancellationToken)
     {
+        // IDOR check: só participantes da consulta podem criar sala
+        var userId = GetUserId();
+        var request = await requestRepository.GetByIdAsync(dto.RequestId, cancellationToken);
+        if (request == null)
+            return NotFound(new { message = "Solicitação não encontrada." });
+        if (request.PatientId != userId && request.DoctorId != userId)
+            return StatusCode(403, new { error = "Acesso negado a esta consulta." });
+
         // Bug fix #5: Rate limit — max 1 room creation per consultation per minute.
         var now = DateTime.UtcNow;
         if (_roomCreationTimestamps.TryGetValue(dto.RequestId, out var lastCreation)

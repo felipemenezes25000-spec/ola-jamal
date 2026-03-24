@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   Dimensions,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -100,7 +99,7 @@ export default function OnboardingScreen() {
         {/* Skip */}
         {!isLast && (
           <Pressable
-            style={styles.skipBtn}
+            style={[styles.skipBtn, { top: insets.top + 10 }]}
             onPress={skip}
             accessibilityRole="button"
             accessibilityLabel="Pular introdução"
@@ -189,7 +188,7 @@ function makeStyles(colors: DesignColors) {
   },
   skipBtn: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 40,
+    top: 0,
     right: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,

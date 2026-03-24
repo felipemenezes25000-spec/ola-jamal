@@ -290,7 +290,6 @@ public class DailyWebhookController(
         return Ok(new
         {
             webhook_configured = isConfigured,
-            secret_length = isConfigured ? secret!.Length : 0,
             endpoint = "/api/webhooks/daily",
             expected_events = new[] { "recording.ready-to-download" }
         });

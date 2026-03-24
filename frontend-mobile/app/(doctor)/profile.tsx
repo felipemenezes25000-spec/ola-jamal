@@ -713,7 +713,7 @@ function makeStyles(colors: DesignColors, _isDark: boolean) {
     },
     previewCard: {
       width: '100%',
-      maxWidth: 360,
+      maxWidth: 500,
       borderRadius: 16,
       padding: 20,
     },

@@ -20,6 +20,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { useListBottomPadding } from '../../lib/ui/responsive';
@@ -56,6 +57,7 @@ const TAB_CONFIG: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyp
 ];
 
 export default function DoctorPatientProntuario() {
+  useRequireAuth('doctor');
   const { patientId } = useLocalSearchParams<{ patientId: string }>();
   const id = Array.isArray(patientId) ? patientId[0] : patientId ?? '';
   const router = useRouter();

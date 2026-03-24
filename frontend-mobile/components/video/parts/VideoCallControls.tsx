@@ -45,7 +45,7 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         style={[S.cb, { backgroundColor: isMuted ? 'rgba(239,68,68,0.6)' : btnBg }]}
         onPress={onToggleMute}
         accessibilityRole="button"
-        accessibilityLabel={isMuted ? 'Microfone mudo, toque para ativar' : 'Microfone ativo, toque para mutar'}
+        accessibilityLabel={isMuted ? 'Ativar microfone' : 'Silenciar microfone'}
       >
         <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={22} color={colors.white} />
         <Text style={[S.cLbl, { color: colors.white }]}>{isMuted ? 'Mudo' : 'Mic'}</Text>
@@ -54,20 +54,21 @@ export const VideoCallControls = React.memo(function VideoCallControls({
         style={[S.cb, { backgroundColor: isCameraOff ? 'rgba(239,68,68,0.6)' : btnBg }]}
         onPress={onToggleCamera}
         accessibilityRole="button"
-        accessibilityLabel={isCameraOff ? 'Câmera desligada' : 'Câmera ligada'}
+        accessibilityLabel={isCameraOff ? 'Ligar câmera' : 'Desligar câmera'}
       >
         <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={22} color={colors.white} />
         <Text style={[S.cLbl, { color: colors.white }]}>{isCameraOff ? 'Off' : 'Câm'}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[S.cb, { backgroundColor: btnBg }]} onPress={onFlipCamera}
-        accessibilityRole="button" accessibilityLabel="Virar câmera">
+        accessibilityRole="button" accessibilityLabel="Trocar câmera">
         <Ionicons name="camera-reverse-outline" size={22} color={colors.white} />
         <Text style={[S.cLbl, { color: colors.white }]}>Virar</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[S.cb, S.endCb, { backgroundColor: colors.destructive }]}
         onPress={onEnd} disabled={ending}
-        accessibilityLabel={isDoctor ? 'Encerrar consulta' : 'Sair da chamada'}
+        accessibilityRole="button"
+        accessibilityLabel="Encerrar chamada"
       >
         {ending ? (
           <ActivityIndicator size="small" color={colors.white} />

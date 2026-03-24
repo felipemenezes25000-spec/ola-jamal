@@ -9,6 +9,7 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -59,7 +60,7 @@ export default function DoctorConsultations() {
 
   const { subscribe, isConnected } = useRequestsEvents();
   const invalidateDoctorRequests = useInvalidateDoctorRequests();
-  const { data: requests = [], isLoading, refetch } = useDoctorRequestsQuery(isConnected);
+  const { data: requests = [], isLoading, isError, refetch } = useDoctorRequestsQuery(isConnected);
 
   const queryClient = useQueryClient();
   useFocusEffect(useCallback(() => {
@@ -84,6 +85,13 @@ export default function DoctorConsultations() {
     [consultations]
   );
   const list = tab === 'active' ? active : history;
+
+  const sortedList = useMemo(
+    () => [...list].sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    ),
+    [list]
+  );
 
   const onRefresh = useCallback(async () => {
     haptics.light();
@@ -167,6 +175,14 @@ export default function DoctorConsultations() {
         <View style={styles.loadingWrap}>
           <SkeletonList count={6} />
         </View>
+      ) : isError && list.length === 0 ? (
+        <AppEmptyState
+          icon="alert-circle-outline"
+          title="Erro ao carregar"
+          subtitle="Verifique sua conexão e tente novamente."
+          actionLabel="Tentar novamente"
+          onAction={() => refetch()}
+        />
       ) : empty ? (
         <AppEmptyState
           icon="videocam-outline"
@@ -176,9 +192,7 @@ export default function DoctorConsultations() {
       ) : (
         <FadeIn visible duration={200} fromY={8} delay={30}>
           <FlatList
-            data={list.sort((a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            )}
+            data={sortedList}
             keyExtractor={keyExtractor}
             getItemLayout={(_: unknown, i: number) => ({ length: 98, offset: 98 * i, index: i })}
             renderItem={renderItem}
@@ -187,6 +201,10 @@ export default function DoctorConsultations() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
             }
             showsVerticalScrollIndicator={false}
+            windowSize={7}
+            maxToRenderPerBatch={10}
+            initialNumToRender={8}
+            removeClippedSubviews={Platform.OS !== 'web'}
           />
         </FadeIn>
       )}

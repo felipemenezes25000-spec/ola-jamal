@@ -377,11 +377,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    try {
-      await apiClient.post('/api/auth/logout', {});
-    } catch (error) {
-      if (__DEV__) console.warn('Logout API error (local logout will continue):', error);
-    }
+    // Unregister push token ANTES de invalidar sessão (logout invalida o auth token)
     try {
       const pushToken = getLastRegisteredPushToken();
       if (pushToken) {
@@ -390,6 +386,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // Ignore — token pode já estar inválido
+    }
+    try {
+      await apiClient.post('/api/auth/logout', {});
+    } catch (error) {
+      if (__DEV__) console.warn('Logout API error (local logout will continue):', error);
     }
     try {
       await clearAuth();
@@ -418,12 +419,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
     } catch (error) {
       if (__DEV__) console.error('Error refreshing user:', error);
-      await clearAuth();
+      const status = (error as { status?: number })?.status;
+      // Só 401 indica sessão inválida. 403/500/rede → manter sessão cacheada.
+      if (status === 401) {
+        await clearAuth();
+      }
     }
   }, [clearAuth]);
 
   const refreshDoctorProfile = useCallback(async () => {
-    if (user?.role !== 'doctor') return;
+    if (userRef.current?.role !== 'doctor') return;
     try {
       const profile = await apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
       if (profile) {
@@ -433,7 +438,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (__DEV__) console.error('Error refreshing doctor profile:', error);
     }
-  }, [user?.role]);
+  }, []);
 
   const completeProfile = useCallback(async (data: CompleteProfileData): Promise<UserDto> => {
     try {

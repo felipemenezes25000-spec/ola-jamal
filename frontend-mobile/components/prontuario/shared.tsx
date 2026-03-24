@@ -124,17 +124,14 @@ export function QuickStat({ icon, count, label, color }: QuickStatProps) {
   const { colors } = useAppTheme({ role: 'doctor' });
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+    <View style={sharedStyles.quickStatContainer}>
+      <View style={sharedStyles.quickStatRow}>
         <Ionicons name={icon} size={14} color={color} />
-        <Text style={{
-          fontSize: 18, fontFamily: typography.fontFamily.bold,
-          fontWeight: '700', color: colors.text,
-        }}>
+        <Text style={[sharedStyles.quickStatValue, { color: colors.text }]}>
           {count}
         </Text>
       </View>
-      <Text style={{ fontSize: 11, color: colors.textMuted }}>{label}</Text>
+      <Text style={[sharedStyles.quickStatLabel, { color: colors.textMuted }]}>{label}</Text>
     </View>
   );
 }
@@ -151,16 +148,13 @@ export function FieldRow({ icon, label, value }: FieldRowProps) {
   const { colors } = useAppTheme({ role: 'doctor' });
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 3 }}>
-      <Ionicons name={icon} size={14} color={colors.textMuted} style={{ marginTop: 2 }} />
-      <View style={{ flex: 1 }}>
-        <Text style={{
-          fontSize: 11, fontFamily: typography.fontFamily.bold,
-          color: colors.textMuted, letterSpacing: 0.3, textTransform: 'uppercase',
-        }}>
+    <View style={sharedStyles.fieldRowContainer}>
+      <Ionicons name={icon} size={14} color={colors.textMuted} style={sharedStyles.fieldRowIcon} />
+      <View style={sharedStyles.flexOne}>
+        <Text style={[sharedStyles.fieldRowLabel, { color: colors.textMuted }]}>
           {label}
         </Text>
-        <Text style={{ fontSize: 13, color: colors.text, lineHeight: 19 }}>{value}</Text>
+        <Text style={[sharedStyles.fieldRowValue, { color: colors.text }]}>{value}</Text>
       </View>
     </View>
   );
@@ -212,7 +206,7 @@ export function CompactHeader({
           )}
         </View>
 
-        <View style={{ width: 44 }} />
+        <View style={sharedStyles.headerSpacer} />
       </View>
     </LinearGradient>
   );
@@ -275,14 +269,9 @@ export function EmptySection({ icon, message }: EmptySectionProps) {
   const { colors } = useAppTheme({ role: 'doctor' });
 
   return (
-    <View style={{
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      paddingVertical: 12, paddingHorizontal: 4,
-    }}>
+    <View style={sharedStyles.emptySectionContainer}>
       <Ionicons name={icon} size={18} color={colors.textMuted} />
-      <Text style={{
-        fontSize: 13, color: colors.textMuted, fontStyle: 'italic', flex: 1,
-      }}>
+      <Text style={[sharedStyles.emptySectionText, { color: colors.textMuted }]}>
         {message}
       </Text>
     </View>
@@ -295,10 +284,45 @@ export function Disclaimer({ text }: { text?: string }) {
   const { colors } = useAppTheme({ role: 'doctor' });
 
   return (
-    <Text style={{
-      fontSize: 12, color: colors.textMuted, fontStyle: 'italic', marginTop: spacing.md,
-    }}>
+    <Text style={[sharedStyles.disclaimerText, { color: colors.textMuted }]}>
       {text ?? 'Orientação geral · Decisão clínica sempre do médico'}
     </Text>
   );
 }
+
+// ─── Estilos estáticos compartilhados (sem cor — cores via inline) ─────
+const sharedStyles = StyleSheet.create({
+  quickStatContainer: { flex: 1, alignItems: 'center', gap: 2 },
+  quickStatRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  quickStatValue: {
+    fontSize: 18,
+    fontFamily: typography.fontFamily.bold,
+    fontWeight: '700',
+  },
+  quickStatLabel: { fontSize: 11 },
+  fieldRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 3,
+  },
+  fieldRowIcon: { marginTop: 2 },
+  flexOne: { flex: 1 },
+  fieldRowLabel: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily.bold,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  fieldRowValue: { fontSize: 13, lineHeight: 19 },
+  headerSpacer: { width: 44 },
+  emptySectionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  emptySectionText: { fontSize: 13, fontStyle: 'italic', flex: 1 },
+  disclaimerText: { fontSize: 12, fontStyle: 'italic', marginTop: spacing.md },
+});

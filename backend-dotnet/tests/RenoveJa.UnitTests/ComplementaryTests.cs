@@ -268,7 +268,7 @@ public class AuthServiceExtendedTests
             .ReturnsAsync((User?)null);
 
         Func<Task> act = () => _sut.GetMeAsync(Guid.NewGuid());
-        await act.Should().ThrowAsync<InvalidOperationException>();
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
     }
 
     [Fact]

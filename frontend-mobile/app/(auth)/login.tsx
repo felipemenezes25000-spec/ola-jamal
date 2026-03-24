@@ -31,7 +31,6 @@ import { validate } from '../../lib/validation';
 import { loginSchema } from '../../lib/validation/schemas';
 import { COMPANY } from '../../lib/company';
 
-const LOG_RENDER = __DEV__ && false;
 const SMALL_SCREEN_HEIGHT = 700;
 
 // FIX #3: Removido GOOGLE_FALLBACK hardcoded. Se env vars não estiverem presentes,
@@ -84,10 +83,6 @@ export default function Login() {
   }, []);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-  if (LOG_RENDER) console.warn('[Login] render #', renderCount.current);
 
   const handleEmailChange = useCallback((text: string) => {
     setEmail(text);

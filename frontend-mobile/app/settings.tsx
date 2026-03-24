@@ -13,12 +13,14 @@ import { humanizeError } from '../lib/errors/humanizeError';
 import { useColorSchemeContext } from '../contexts/ColorSchemeContext';
 import { haptics } from '../lib/haptics';
 import { isExpoGo } from '../lib/expo-go';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 /**
  * Tela de configurações acessada por "Configurações" na aba Perfil.
  * Contém opções de assistente, aparência, notificações e categorias de push.
  */
 export default function SettingsScreen() {
+  useRequireAuth();
   const [pushEnabled, setPushEnabled] = useState(false);
   // null = ainda carregando, false = sem token, true = token registrado
   const [hasToken, setHasToken] = useState<boolean | null>(null);

@@ -10,6 +10,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { PulsingNotificationIcon } from '../../components/PulsingNotificationIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
+import { useAppPermissions } from '../../hooks/useAppPermissions';
 
 const TAB_BAR_BASE_HEIGHT = 56;
 const TAB_BAR_PADDING_TOP = 8;
@@ -22,6 +23,7 @@ export default function DoctorLayout() {
   const hasUnread = unreadCount > 0;
   const { colors, scheme } = useAppTheme({ role: 'doctor' });
   const isDark = scheme === 'dark';
+  useAppPermissions();
 
   const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
   const tabBarPaddingBottom = Math.max(10, insets.bottom + (Platform.OS === 'ios' ? 4 : 8));
@@ -72,6 +74,7 @@ export default function DoctorLayout() {
           tabBarIconStyle: {
             marginBottom: 2,
           },
+          tabBarAllowFontScaling: false,
           tabBarLabelStyle: {
             fontSize: 11,
             fontWeight: '700',

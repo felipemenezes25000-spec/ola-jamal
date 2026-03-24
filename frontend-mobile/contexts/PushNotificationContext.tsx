@@ -98,9 +98,11 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
         catch { path = deepLink.replace('renoveja://', '/') || '/'; }
         const allowed = [
           '/request-detail/', '/doctor-request/', '/consultation-summary/',
-          '/video/', '/doctor-requests', '/doctor-settings', '/doctor-home',
+          '/video/', '/doctor-requests', '/settings', '/doctor-dashboard',
+          '/post-consultation-emit/', '/doctor-patient/',
         ];
-        const isAllowed = allowed.some((p) => path.startsWith(p) || path === p.slice(0, -1));
+        const norm = (s: string) => s.endsWith('/') ? s.slice(0, -1) : s;
+        const isAllowed = allowed.some((p) => norm(path).startsWith(norm(p)) || norm(path) === norm(p));
         if (isAllowed && !path.includes('..')) {
           Linking.openURL(deepLink).catch((e) => { if (__DEV__) console.warn('[Push] openURL failed:', e); });
         }

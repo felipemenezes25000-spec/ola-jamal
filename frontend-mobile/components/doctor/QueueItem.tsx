@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DesignColors } from '../../lib/designSystem';
@@ -69,11 +69,14 @@ export const QueueItem = React.memo(function QueueItem({
     ? colors.success
     : colors.primary;
 
-  const initials = (request.patientName || 'P')
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
+  const initials = useMemo(
+    () => (request.patientName || 'P')
+      .split(' ')
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? '')
+      .join(''),
+    [request.patientName]
+  );
 
   return (
     <Pressable

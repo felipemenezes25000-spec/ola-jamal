@@ -26,6 +26,7 @@ import { fetchSpecialties, uploadCertificate } from '../../lib/api';
 import { SPECIALTIES_FALLBACK } from '../../lib/constants/specialties';
 import { RegisterAddressFields } from '../../components/register/RegisterAddressFields';
 import { RegisterDoctorForm } from '../../components/register/RegisterDoctorForm';
+import { showToast } from '../../components/ui/Toast';
 
 const s = spacing;
 
@@ -134,7 +135,9 @@ export default function Register() {
         setNeighborhood((prev) => result.neighborhood || prev);
         setCity((prev) => result.city || prev);
         setState((prev) => result.state || prev);
-      }).catch(() => {});
+      }).catch(() => {
+        showToast({ message: 'Não foi possível buscar o CEP', type: 'error' });
+      });
     }
   };
 
@@ -162,7 +165,9 @@ export default function Register() {
         setProfessionalNeighborhood((prev) => result.neighborhood || prev);
         setProfessionalCity((prev) => result.city || prev);
         setProfessionalState((prev) => result.state || prev);
-      }).catch(() => {});
+      }).catch(() => {
+        showToast({ message: 'Não foi possível buscar o CEP', type: 'error' });
+      });
     }
   };
 

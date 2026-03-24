@@ -69,13 +69,6 @@ public static class PushNotificationRules
 
     // ── Paciente: Pedidos ─────────────────────────────────────────────────
 
-    public static PushNotificationRequest Submitted(Guid userId, Guid requestId, RequestType requestType) =>
-        BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.Submitted,
-            "Pedido enviado ✅",
-            "Recebemos sua solicitação. Um profissional vai analisar em breve.",
-            targetRole: "patient",
-            channel: PushChannel.Quiet, highPriority: false);
-
     public static PushNotificationRequest InReview(Guid userId, Guid requestId, RequestType requestType) =>
         BuildRequest(userId, "request_status_changed", requestId, requestType, RequestStatus.InReview,
             "Seu pedido está em análise",
@@ -255,7 +248,7 @@ public static class PushNotificationRules
         new(doctorUserId,
             "Certificado digital vencendo",
             $"Seu certificado vence em {daysLeft} dias. Renove para continuar assinando.",
-            new PushNotificationPayload("certificate_expiring_soon", "renoveja://doctor-settings", PushCategory.System,
+            new PushNotificationPayload("certificate_expiring_soon", "renoveja://settings", PushCategory.System,
                 $"cert_expiry_{doctorUserId:N}_{daysLeft}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 TargetRole: "doctor"),
             PushChannel.Default, true, BypassQuietHours: true);
@@ -265,7 +258,7 @@ public static class PushNotificationRules
         new(doctorId,
             "Certificado Digital Cadastrado",
             $"Seu certificado digital foi cadastrado e validado com sucesso. Válido até {validUntil}.",
-            new PushNotificationPayload("certificate_uploaded", "renoveja://doctor-settings", PushCategory.System,
+            new PushNotificationPayload("certificate_uploaded", "renoveja://settings", PushCategory.System,
                 $"cert_{doctorId:N}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 300}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 TargetRole: "doctor"),
             PushChannel.Default, true, false);
@@ -313,7 +306,7 @@ public static class PushNotificationRules
         new(doctorUserId,
             "Cadastro aprovado!",
             "Seu cadastro foi aprovado. Você já pode atender pacientes.",
-            new PushNotificationPayload("doctor_approved", "renoveja://doctor-home", PushCategory.System,
+            new PushNotificationPayload("doctor_approved", "renoveja://doctor-dashboard", PushCategory.System,
                 $"admin_approval_{doctorUserId:N}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 TargetRole: "doctor"),
             PushChannel.Default, true, true);
@@ -323,7 +316,7 @@ public static class PushNotificationRules
         new(doctorUserId,
             "Cadastro não aprovado",
             "Seu cadastro precisa de ajustes. Verifique as orientações.",
-            new PushNotificationPayload("doctor_rejected", "renoveja://doctor-settings", PushCategory.System,
+            new PushNotificationPayload("doctor_rejected", "renoveja://settings", PushCategory.System,
                 $"admin_rejection_{doctorUserId:N}", DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 TargetRole: "doctor"),
             PushChannel.Default, true, false);

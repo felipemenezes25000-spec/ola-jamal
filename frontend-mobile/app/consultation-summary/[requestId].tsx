@@ -275,6 +275,7 @@ export default function ConsultationSummaryScreen() {
               <Text
                 style={S.transcriptText}
                 numberOfLines={expandedTranscript ? undefined : 8}
+                ellipsizeMode="tail"
               >
                 {transcript}
               </Text>

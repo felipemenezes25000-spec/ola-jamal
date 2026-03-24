@@ -69,8 +69,10 @@ export async function getPatientProfileForDoctor(
     return await apiClient.get<PatientProfileForDoctorDto>(
       `/api/requests/by-patient/${patientId}/profile`
     );
-  } catch {
-    return null;
+  } catch (error: unknown) {
+    // 404 = paciente sem perfil → ok. Outros erros → propagar para UI mostrar erro.
+    if ((error as { status?: number })?.status === 404) return null;
+    throw error;
   }
 }
 
@@ -110,8 +112,10 @@ export async function getPatientClinicalSummary(
       `/api/requests/by-patient/${patientId}/summary`
     );
     return data ?? { summary: null, fallback: null };
-  } catch {
-    return { summary: null, fallback: null };
+  } catch (error: unknown) {
+    // 404 = sem dados → retorno vazio. Outros erros → propagar.
+    if ((error as { status?: number })?.status === 404) return { summary: null, fallback: null };
+    throw error;
   }
 }
 
