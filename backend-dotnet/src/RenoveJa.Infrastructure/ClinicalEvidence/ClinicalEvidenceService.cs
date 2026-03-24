@@ -594,6 +594,12 @@ Portuguese terms:
     {
         try
         {
+            if (!_redis.IsConnected)
+            {
+                _logger.LogDebug("[ClinicalEvidence] Redis indisponível — ignorando limpeza de cache");
+                return 0;
+            }
+
             var server = _redis.GetServers().FirstOrDefault();
             if (server == null) return 0;
 
