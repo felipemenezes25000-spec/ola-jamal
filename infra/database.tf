@@ -17,7 +17,7 @@ resource "aws_db_instance" "main" {
   username = "postgres"
   password = var.db_password
 
-  db_subnet_group_name   = aws_db_subnet_group.private.name
+  db_subnet_group_name   = aws_db_subnet_group.public_access.name
   vpc_security_group_ids = [aws_security_group.aurora.id]
   publicly_accessible    = true
   apply_immediately      = true
@@ -31,10 +31,10 @@ resource "aws_db_instance" "main" {
   tags = { Name = "${var.project}-postgres" }
 }
 
-resource "aws_db_subnet_group" "private" {
-  name       = "${var.project}-db-private-subnets"
-  subnet_ids = aws_subnet.private[*].id
-  tags       = { Name = "${var.project}-db-private-subnets" }
+resource "aws_db_subnet_group" "public_access" {
+  name       = "${var.project}-db-public-access"
+  subnet_ids = aws_subnet.public[*].id
+  tags       = { Name = "${var.project}-db-public-access" }
 }
 
 # ============================================================

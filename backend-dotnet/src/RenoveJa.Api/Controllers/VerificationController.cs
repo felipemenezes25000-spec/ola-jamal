@@ -213,7 +213,7 @@ public class VerificationController(
         }
     }
 
-    public sealed class DispenseRequest
+    public sealed class VerificationDispenseRequest
     {
         public string? AccessCode { get; set; }
         public string? PharmacyName { get; set; }
@@ -226,7 +226,7 @@ public class VerificationController(
     [HttpPost("{id:guid}/dispense")]
     public async Task<IActionResult> MarkDispensed(
         Guid id,
-        [FromBody] DispenseRequest request,
+        [FromBody] VerificationDispenseRequest request,
         CancellationToken cancellationToken)
     {
         var code = request.AccessCode?.Trim() ?? string.Empty;
