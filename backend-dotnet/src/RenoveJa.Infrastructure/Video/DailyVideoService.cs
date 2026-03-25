@@ -35,6 +35,9 @@ public interface IDailyVideoService
 
     /// <summary>Verifica se uma sala existe no Daily.co. Retorna true se existir.</summary>
     Task<bool> RoomExistsAsync(string roomName, CancellationToken ct = default);
+
+    /// <summary>Deleta uma gravação do Daily.co pelo recordingId (idempotente).</summary>
+    Task DeleteRecordingAsync(string recordingId, CancellationToken ct = default);
 }
 
 /// <summary>Metadados de uma gravação Daily (para auditoria).</summary>
@@ -271,6 +274,20 @@ public class DailyVideoService : IDailyVideoService
 
         var errorBody = await response.Content.ReadAsStringAsync(ct);
         _logger.LogWarning("Daily API error deleting room {RoomName}: {Status} {Body}", roomName, response.StatusCode, errorBody);
+    }
+
+    public async Task DeleteRecordingAsync(string recordingId, CancellationToken ct = default)
+    {
+        var response = await _httpClient.DeleteAsync($"recordings/{recordingId}", ct);
+
+        if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _logger.LogInformation("Daily recording deleted: {RecordingId}", recordingId);
+            return;
+        }
+
+        var errorBody = await response.Content.ReadAsStringAsync(ct);
+        _logger.LogWarning("Daily API error deleting recording {RecordingId}: {Status} {Body}", recordingId, response.StatusCode, errorBody);
     }
 
     public async Task<string> CreateMeetingTokenAsync(

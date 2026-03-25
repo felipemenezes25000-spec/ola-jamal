@@ -274,6 +274,16 @@ public class DailyWebhookController(
             await consultationAnamnesisRepository.CreateAsync(entity, cancellationToken);
         }
 
+        // Deletar gravação do Daily.co após upload para S3
+        try
+        {
+            await dailyVideoService.DeleteRecordingAsync(recordingId, cancellationToken);
+        }
+        catch (Exception delEx)
+        {
+            logger.LogWarning(delEx, "[DailyWebhook] Falha ao deletar gravação do Daily RecordingId={RecordingId} (já salva no S3)", recordingId);
+        }
+
         return Ok();
     }
 

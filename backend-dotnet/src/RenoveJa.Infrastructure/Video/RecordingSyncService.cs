@@ -90,6 +90,17 @@ public class RecordingSyncService(
             }
 
             logger.LogInformation("[RecordingSync] Gravação sincronizada: RequestId={RequestId} Path={Path}", requestId, path);
+
+            // Deletar gravação do Daily.co após upload para S3
+            try
+            {
+                await dailyVideoService.DeleteRecordingAsync(recordingId, cancellationToken);
+            }
+            catch (Exception delEx)
+            {
+                logger.LogWarning(delEx, "[RecordingSync] Falha ao deletar gravação do Daily RecordingId={RecordingId} (já salva no S3)", recordingId);
+            }
+
             return true;
         }
         catch (Exception ex)
