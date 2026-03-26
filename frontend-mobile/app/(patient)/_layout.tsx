@@ -140,6 +140,12 @@ export default function PatientLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="dados"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
     </ErrorBoundary>
   );

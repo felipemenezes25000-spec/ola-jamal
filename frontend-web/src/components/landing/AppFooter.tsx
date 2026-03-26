@@ -11,9 +11,10 @@ const footerLinks = {
     { name: 'Contato', href: '#contact' },
   ],
   legal: [
+    { name: 'Privacidade (LGPD)', href: '/privacidade' },
+    { name: 'Termos de Uso', href: '/termos' },
     { name: 'Cookies', href: '/cookies' },
     { name: 'Contato', href: 'mailto:contato@renovejasaude.com.br' },
-    { name: 'Privacidade (LGPD)', href: 'mailto:privacidade@renovejasaude.com.br' },
     { name: 'WhatsApp', href: 'https://wa.me/5511986318000' },
   ],
 };

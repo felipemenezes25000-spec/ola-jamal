@@ -10,6 +10,8 @@ const Index = lazy(() => import('@/pages/Index'));
 const Verify = lazy(() => import('@/pages/Verify'));
 const RecuperarSenha = lazy(() => import('@/pages/RecuperarSenha'));
 const Cookies = lazy(() => import('@/pages/Cookies'));
+const PublicPrivacy = lazy(() => import('@/pages/PublicPrivacy'));
+const PublicTerms = lazy(() => import('@/pages/PublicTerms'));
 const AdminLogin = lazy(() => import('@/pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
 const AdminMedicos = lazy(() => import('@/pages/admin/AdminMedicos'));
@@ -48,7 +50,9 @@ function isDoctorPortal(): boolean {
     path === '/' ||
     path.startsWith('/verify') ||
     path.startsWith('/recuperar-senha') ||
-    path.startsWith('/cookies')
+    path.startsWith('/cookies') ||
+    path.startsWith('/privacidade') ||
+    path.startsWith('/termos')
   )
     return false;
 
@@ -122,6 +126,8 @@ export default function App() {
         <Route path="/verify/:id" element={<Verify />} />
         <Route path="/recuperar-senha" element={<RecuperarSenha />} />
         <Route path="/cookies" element={<Cookies />} />
+        <Route path="/privacidade" element={<PublicPrivacy />} />
+        <Route path="/termos" element={<PublicTerms />} />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />

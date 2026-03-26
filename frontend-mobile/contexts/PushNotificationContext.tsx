@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { Platform, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
+import { nav, type AppRoute } from '../lib/navigation';
 import { useAuth } from './AuthContext';
 import { registerPushToken } from '../lib/api';
 import { setLastRegisteredPushToken } from '../lib/pushTokenRegistry';
@@ -115,7 +116,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
         const path = effectiveRole === 'doctor'
           ? `/doctor-request/${requestId}`
           : `/request-detail/${requestId}`;
-        router.push(path as import('../lib/navigation').AppRoute);
+        nav.push(router, path as AppRoute);
       }
     },
     [router]

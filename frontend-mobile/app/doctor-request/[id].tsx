@@ -201,7 +201,7 @@ export default function DoctorRequestDetail() {
           <DoctorCard style={s.cardMargin}>
             <TouchableOpacity
               style={[s.pdfBtn, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }]}
-              onPress={() => router.push(`/post-consultation-emit/${request.id}`)}
+              onPress={() => nav.push(router, `/post-consultation-emit/${request.id}`)}
               accessibilityRole="button"
               accessibilityLabel="Emitir documentos da consulta"
             >

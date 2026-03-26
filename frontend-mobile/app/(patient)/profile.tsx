@@ -190,6 +190,13 @@ export default function PatientProfile() {
           iconColor: colors.primary,
           iconBg: colors.primarySoft,
         },
+        {
+          icon: 'download-outline' as const,
+          label: 'Exportar Meus Dados',
+          onPress: () => router.push('/dados' as any),
+          iconColor: colors.info,
+          iconBg: colors.infoLight,
+        },
       ],
     },
     {

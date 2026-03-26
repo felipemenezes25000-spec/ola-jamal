@@ -39,6 +39,7 @@ import { getNextBestActionForRequest, type NextActionIntent } from '../../lib/do
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useModalVisibility } from '../../contexts/ModalVisibilityContext';
 import { ConsultationDocumentsCard } from '../../components/post-consultation/ConsultationDocumentsCard';
+import { ConsultationConsentModal } from '../../components/consultation/ConsultationConsentModal';
 import { DocumentValidityBadge } from '../../components/post-consultation/DocumentValidityBadge';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -136,6 +137,7 @@ export default function RequestDetailScreen() {
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [documentActionLoading, setDocumentActionLoading] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
   const videoModalShownRef = useRef(false);
   const lastVideoModalRequestIdRef = useRef<string | null>(null);
   const { isConnected } = useNetworkStatus();
@@ -158,6 +160,7 @@ export default function RequestDetailScreen() {
   // Modal visibility: deve ficar ANTES de qualquer early return para respeitar Rules of Hooks
   const isModalVisible =
     (showVideoModal && request && ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation') ||
+    showConsentModal ||
     selectedImageUri !== null;
 
   useEffect(() => {
@@ -436,7 +439,7 @@ export default function RequestDetailScreen() {
         {canJoinVideo && (
           <TouchableOpacity
             style={styles.videoReadyBanner}
-            onPress={() => { setShowVideoModal(false); nav.replace(router, `/video/${request.id}`); }}
+            onPress={() => { setShowVideoModal(false); setShowConsentModal(true); }}
             activeOpacity={0.85}
           >
             <Ionicons name="videocam" size={28} color={colors.white} />
@@ -758,7 +761,7 @@ export default function RequestDetailScreen() {
             </Text>
             <TouchableOpacity
               style={styles.videoModalBtn}
-              onPress={() => { setShowVideoModal(false); nav.replace(router, `/video/${request.id}`); }}
+              onPress={() => { setShowVideoModal(false); setShowConsentModal(true); }}
               activeOpacity={0.85}
             >
               <Text style={styles.videoModalBtnText}>Entrar agora</Text>
@@ -773,6 +776,17 @@ export default function RequestDetailScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Modal de consentimento pré-teleconsulta (CFM 2.314/2022) */}
+      <ConsultationConsentModal
+        visible={showConsentModal}
+        requestId={request.id}
+        onAccepted={() => {
+          setShowConsentModal(false);
+          nav.replace(router, `/video/${request.id}`);
+        }}
+        onDeclined={() => setShowConsentModal(false)}
+      />
 
       {/* Modal com zoom nas imagens */}
       <Modal

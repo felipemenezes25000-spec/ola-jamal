@@ -564,6 +564,9 @@ public static class MigrationRunner
         "CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON public.audit_logs(entity_type, entity_id) WHERE entity_id IS NOT NULL",
     };
 
+    // consent_type is stored as TEXT in consent_records, so adding TelemedicineSession = 5
+    // to the ConsentType enum requires no schema migration — the new value is persisted as text.
+
     // ICD-10 codes are max ~7 chars (e.g. "A01.23") but AI may produce longer values;
     // widen from VARCHAR(10) to VARCHAR(20) to accommodate edge cases.
     private static readonly string[] Icd10ColumnWidenMigrations =

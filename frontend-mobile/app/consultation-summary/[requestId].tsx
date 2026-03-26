@@ -16,6 +16,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { nav } from '../../lib/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
@@ -312,7 +313,7 @@ export default function ConsultationSummaryScreen() {
       <View style={[S.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity
           style={[S.actionBtn, { backgroundColor: colors.primary }]}
-          onPress={() => router.push(`/post-consultation-emit/${rid}`)}
+          onPress={() => nav.push(router, `/post-consultation-emit/${rid}`)}
         >
           <Ionicons name="document-text" size={20} color={colors.white} />
           <Text style={S.actionBtnText}>Emitir documentos</Text>

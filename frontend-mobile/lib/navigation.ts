@@ -45,6 +45,7 @@ export type AppRoute =
   | '/settings'
   | '/about'
   | '/change-password'
+  | '/dados'
   | '/certificate/upload'
   | '/new-request/prescription'
   | '/new-request/exam'
