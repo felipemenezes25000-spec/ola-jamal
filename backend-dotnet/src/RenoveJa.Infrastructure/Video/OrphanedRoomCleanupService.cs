@@ -16,6 +16,7 @@ namespace RenoveJa.Infrastructure.Video;
 public sealed class OrphanedRoomCleanupService(
     IServiceScopeFactory scopeFactory,
     IOptions<DatabaseConfig> dbConfig,
+    PostgresClient postgresClient,
     ILogger<OrphanedRoomCleanupService> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(10);
@@ -114,16 +115,9 @@ public sealed class OrphanedRoomCleanupService(
 
     private async Task<List<(string RoomName, Guid VideoRoomId, Guid RequestId, string Status)>> GetOrphanedRoomsAsync(CancellationToken ct)
     {
-        var connectionString = dbConfig.Value.DatabaseUrl;
-        if (string.IsNullOrEmpty(connectionString))
-        {
-            logger.LogWarning("[OrphanedRoomCleanup] DatabaseUrl is not configured; skipping cycle");
-            return [];
-        }
-
         var results = new List<(string, Guid, Guid, string)>();
 
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = postgresClient.CreateConnectionPublic();
         await connection.OpenAsync(ct);
 
         await using var cmd = new NpgsqlCommand(OrphanedRoomsSql, connection);
@@ -143,10 +137,7 @@ public sealed class OrphanedRoomCleanupService(
 
     private async Task MarkVideoRoomEndedAsync(Guid videoRoomId, CancellationToken ct)
     {
-        var connectionString = dbConfig.Value.DatabaseUrl;
-        if (string.IsNullOrEmpty(connectionString)) return;
-
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = postgresClient.CreateConnectionPublic();
         await connection.OpenAsync(ct);
 
         await using var cmd = new NpgsqlCommand(

@@ -148,6 +148,7 @@ export default function DoctorDashboard() {
       color: 'text-orange-500',
       bg: 'bg-orange-500/10',
       urgent: (stats?.pendingCount ?? pendentes.length) > 0,
+      filterParam: 'pending',
     },
     {
       label: 'Em análise',
@@ -155,6 +156,7 @@ export default function DoctorDashboard() {
       icon: Brain,
       color: 'text-blue-500',
       bg: 'bg-blue-500/10',
+      filterParam: 'in_review',
     },
     {
       label: 'Concluídos',
@@ -162,6 +164,7 @@ export default function DoctorDashboard() {
       icon: CheckCircle2,
       color: 'text-emerald-500',
       bg: 'bg-emerald-500/10',
+      filterParam: 'completed',
     },
   ];
 
@@ -254,7 +257,10 @@ export default function DoctorDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08 }}
                 >
-                  <Card className={`shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 border-border/50 ${stat.urgent ? 'ring-1 ring-orange-300' : ''}`}>
+                  <Card
+                    className={`shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 border-border/50 cursor-pointer ${stat.urgent ? 'ring-1 ring-orange-300' : ''}`}
+                    onClick={() => navigate(`/pedidos?status=${stat.filterParam}`)}
+                  >
                     <CardContent className="p-5">
                       <div className="flex items-center justify-between">
                         <div>

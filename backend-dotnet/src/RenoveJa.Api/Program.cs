@@ -192,7 +192,7 @@ builder.Services.AddRenoveJaConfiguration(builder.Configuration, _envVars);
 builder.Services.AddMemoryCache();
 
 // PostgresClient usa Npgsql direto (sem HTTP)
-builder.Services.AddScoped<PostgresClient>();
+builder.Services.AddSingleton<PostgresClient>();
 builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);

@@ -26,10 +26,23 @@ function normalizeRequest(data: Record<string, unknown>): Record<string, unknown
   return data;
 }
 
+/**
+ * Normaliza a lista de requests preservando o wrapper de paginação { items, totalCount, page, pageSize }.
+ * Se o backend retornar um array puro (legado), retorna o array normalizado.
+ */
 function normalizeList(raw: unknown): unknown {
-  const arr = Array.isArray(raw) ? raw : (raw as Record<string, unknown>)?.items ?? (raw as Record<string, unknown>)?.data ?? raw;
-  if (Array.isArray(arr)) {
-    return arr.map((item: Record<string, unknown>) => normalizeRequest({ ...item }));
+  if (Array.isArray(raw)) {
+    return raw.map((item: Record<string, unknown>) => normalizeRequest({ ...item }));
+  }
+  const obj = raw as Record<string, unknown> | null;
+  if (obj && typeof obj === 'object') {
+    const arr = (obj.items ?? obj.data) as Record<string, unknown>[] | undefined;
+    if (Array.isArray(arr)) {
+      return {
+        ...obj,
+        items: arr.map((item) => normalizeRequest({ ...item })),
+      };
+    }
   }
   return raw;
 }

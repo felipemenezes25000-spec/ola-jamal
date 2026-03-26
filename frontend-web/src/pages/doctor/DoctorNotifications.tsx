@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DoctorLayout } from '@/components/doctor/DoctorLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/ui/pagination';
 import {
   getNotifications, markNotificationRead,
   type NotificationItem,
@@ -14,7 +15,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Loader2, Bell, BellOff, CheckCheck, FileText,
-  CreditCard, Stethoscope, ChevronRight,
+  CreditCard, Stethoscope, ChevronRight, Clock, ExternalLink,
 } from 'lucide-react';
 
 function getCategoryIcon(type: string | undefined) {
@@ -37,6 +38,24 @@ function getTimeAgo(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
+/** Notificações temporais (ex: "consulta em X min") com mais de 2h são expiradas. */
+function isExpiredTemporal(item: NotificationItem): boolean {
+  const msg = (item.message ?? '').toLowerCase();
+  const title = (item.title ?? '').toLowerCase();
+  const temporal = msg.includes('começa em') || msg.includes('minuto') || msg.includes('toque para entrar')
+    || title.includes('começa em') || title.includes('minuto') || title.includes('toque para entrar');
+  if (!temporal) return false;
+  const ageMs = Date.now() - new Date(item.createdAt).getTime();
+  return ageMs > 2 * 60 * 60 * 1000; // 2 horas
+}
+
+/** Extrai requestId do data (pode vir camelCase ou PascalCase do backend). */
+function getRequestId(item: NotificationItem): string | undefined {
+  const d = item.data;
+  if (!d) return undefined;
+  return (d.requestId ?? d.RequestId ?? d.request_id) as string | undefined;
+}
+
 function groupByDate(items: NotificationItem[]) {
   const groups: { label: string; items: NotificationItem[] }[] = [];
   const today = new Date().toDateString();
@@ -57,6 +76,8 @@ function groupByDate(items: NotificationItem[]) {
   return groups;
 }
 
+const PAGE_SIZE = 20;
+
 export default function DoctorNotifications() {
   const navigate = useNavigate();
   const { unreadCount, decrementUnreadCount, markAllReadOptimistic } = useNotifications();
@@ -65,25 +86,36 @@ export default function DoctorNotifications() {
     document.title = unreadCount > 0 ? `Alertas (${unreadCount}) — RenoveJá+` : 'Alertas — RenoveJá+';
     return () => { document.title = 'RenoveJá+'; };
   }, [unreadCount]);
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const fetchNotifications = useCallback(() => {
-    getNotifications({ page: 1, pageSize: 50 })
-      .then(data => setNotifications(parseApiList<NotificationItem>(data)))
-      .catch(() => setNotifications([]))
+  const fetchNotifications = useCallback((p: number) => {
+    getNotifications({ page: p, pageSize: PAGE_SIZE })
+      .then(data => {
+        const parsed = data as { items?: NotificationItem[]; totalCount?: number } | NotificationItem[];
+        if (Array.isArray(parsed)) {
+          setNotifications(parsed);
+          setTotalCount(parsed.length);
+        } else {
+          setNotifications(parsed.items ?? parseApiList<NotificationItem>(data));
+          setTotalCount(parsed.totalCount ?? 0);
+        }
+      })
+      .catch(() => { setNotifications([]); setTotalCount(0); })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    fetchNotifications(page);
+  }, [page, fetchNotifications]);
 
-  // Refresh list on SignalR events
   useRequestEvents(
     useCallback(() => {
-      fetchNotifications();
-    }, [fetchNotifications]),
+      fetchNotifications(page);
+    }, [fetchNotifications, page]),
   );
 
   const handleMarkRead = async (item: NotificationItem) => {
@@ -100,7 +132,7 @@ export default function DoctorNotifications() {
   };
 
   const handleNavigate = (item: NotificationItem) => {
-    const requestId = item.data?.requestId as string | undefined;
+    const requestId = getRequestId(item);
     if (requestId) navigate(`/pedidos/${requestId}`);
   };
 
@@ -114,9 +146,14 @@ export default function DoctorNotifications() {
     }
   };
 
-  const groups = groupByDate(
-    [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  );
+  const handlePageChange = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const sorted = [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const groups = groupByDate(sorted);
+  const hasAnyUnread = notifications.some(n => !n.read);
 
   return (
     <DoctorLayout>
@@ -134,7 +171,7 @@ export default function DoctorNotifications() {
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">Central de alertas</p>
           </div>
-          {unreadCount > 0 && (
+          {(unreadCount > 0 || hasAnyUnread) && (
             <Button variant="outline" size="sm" onClick={handleMarkAllRead} className="gap-2">
               <CheckCheck className="h-4 w-4" />
               Marcar todas como lidas
@@ -155,54 +192,107 @@ export default function DoctorNotifications() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {groups.map(group => (
-              <div key={group.label}>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
-                  {group.label}
-                </p>
-                <div className="space-y-2">
-                  {group.items.map((item, i) => {
-                    const Icon = getCategoryIcon(item.notificationType);
-                    return (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                      >
-                        <Card
-                          className={`shadow-sm hover:shadow-md transition-all cursor-pointer group ${
-                            !item.read ? 'border-primary/20 bg-primary/[0.02]' : 'border-border/50'
-                          }`}
-                          onClick={() => handleMarkRead(item)}
-                        >
-                          <CardContent className="p-4 flex items-center gap-4">
-                            <div className={`p-2.5 rounded-xl shrink-0 ${
-                              !item.read ? 'bg-primary/10' : 'bg-muted'
-                            }`}>
-                              <Icon className={`h-4 w-4 ${!item.read ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm ${!item.read ? 'font-semibold' : 'font-medium'}`}>{item.title}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.message}</p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-xs text-muted-foreground">{getTimeAgo(item.createdAt)}</span>
-                              {!item.read && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+          <>
+            <div className="space-y-6">
+              {groups.map(group => (
+                <div key={group.label}>
+                  {/* Separador de data — contraste alto em dark mode */}
+                  <div className="flex items-center gap-3 mb-3 px-1">
+                    <p className="text-xs font-bold text-foreground/70 dark:text-foreground/60 uppercase tracking-wider whitespace-nowrap">
+                      {group.label}
+                    </p>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((item, i) => {
+                      const Icon = getCategoryIcon(item.notificationType);
+                      const expired = isExpiredTemporal(item);
+                      const requestId = getRequestId(item);
+                      const hasLink = !!requestId;
+
+                      return (
+                        <motion.div key={item.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                          <Card
+                            className={`relative overflow-hidden transition-all cursor-pointer group ${
+                              expired
+                                ? 'border-border/30 shadow-none opacity-50'
+                                : !item.read
+                                  ? 'border-primary/30 bg-primary/[0.06] shadow-md ring-1 ring-primary/10 hover:shadow-lg'
+                                  : 'border-border/50 shadow-sm opacity-80 hover:shadow-md'
+                            }`}
+                            onClick={() => handleMarkRead(item)}
+                          >
+                            <CardContent className="p-4 flex items-center gap-4">
+                              {/* Barra lateral colorida para não lidas */}
+                              {!item.read && !expired && (
+                                <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-primary" />
                               )}
-                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
+                              <div className={`p-2.5 rounded-xl shrink-0 ${
+                                expired
+                                  ? 'bg-muted/50'
+                                  : !item.read ? 'bg-primary/15' : 'bg-muted'
+                              }`}>
+                                {expired
+                                  ? <Clock className="h-4 w-4 text-muted-foreground/50" />
+                                  : <Icon className={`h-4 w-4 ${!item.read ? 'text-primary' : 'text-muted-foreground'}`} />
+                                }
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className={`text-sm ${
+                                    expired
+                                      ? 'font-medium text-muted-foreground/60 line-through decoration-muted-foreground/30'
+                                      : !item.read ? 'font-bold text-foreground' : 'font-medium text-muted-foreground'
+                                  }`}>
+                                    {item.title}
+                                  </p>
+                                  {expired && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground/60 font-medium shrink-0">
+                                      Expirada
+                                    </span>
+                                  )}
+                                </div>
+                                <p className={`text-xs mt-0.5 line-clamp-2 ${
+                                  expired
+                                    ? 'text-muted-foreground/40'
+                                    : !item.read ? 'text-muted-foreground' : 'text-muted-foreground/70'
+                                }`}>
+                                  {item.message}
+                                </p>
+                                {/* Link para o pedido */}
+                                {hasLink && !expired && (
+                                  <p className="text-[11px] text-primary/70 mt-1 flex items-center gap-1 group-hover:text-primary transition-colors">
+                                    <ExternalLink className="h-3 w-3" />
+                                    Ver pedido
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`text-xs ${
+                                  expired
+                                    ? 'text-muted-foreground/40'
+                                    : !item.read ? 'text-primary font-medium' : 'text-muted-foreground'
+                                }`}>
+                                  {getTimeAgo(item.createdAt)}
+                                </span>
+                                {!item.read && !expired && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />}
+                                <ChevronRight className={`h-4 w-4 transition-opacity ${
+                                  hasLink
+                                    ? 'text-muted-foreground opacity-0 group-hover:opacity-100'
+                                    : 'hidden'
+                                }`} />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={handlePageChange} />
+          </>
         )}
       </div>
     </DoctorLayout>

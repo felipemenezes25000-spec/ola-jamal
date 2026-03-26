@@ -129,9 +129,13 @@ export function isAuthenticated(): boolean {
   return true;
 }
 
-export async function getDoctors(status?: string) {
-  const query = status && status !== "all" ? `?status=${status}` : "";
-  const res = await authFetch(`/api/admin/doctors${query}`);
+export async function getDoctors(params?: { status?: string; page?: number; pageSize?: number }) {
+  const query = new URLSearchParams();
+  if (params?.status && params.status !== "all") query.set("status", params.status);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+  const qs = query.toString();
+  const res = await authFetch(`/api/admin/doctors${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error("Erro ao buscar médicos");
   return res.json();
 }

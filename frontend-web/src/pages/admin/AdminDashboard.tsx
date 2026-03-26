@@ -3,25 +3,41 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserCheck, UserX, Clock, Loader2 } from "lucide-react";
 import { getDoctors } from "@/services/adminApi";
-import { ApiDoctor } from "@/types/doctor";
+// Stats via paginated totalCount — no full list needed
 import { motion } from "framer-motion";
 
 const AdminDashboard = () => {
-  const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [counts, setCounts] = useState({ total: 0, pendentes: 0, aprovados: 0, recusados: 0 });
+
   useEffect(() => {
-    getDoctors()
-      .then((data) => setDoctors(Array.isArray(data) ? data : []))
+    // Busca contagens por status em paralelo — cada chamada retorna totalCount do backend
+    Promise.all([
+      getDoctors({ page: 1, pageSize: 1 }),
+      getDoctors({ status: 'pending', page: 1, pageSize: 1 }),
+      getDoctors({ status: 'approved', page: 1, pageSize: 1 }),
+      getDoctors({ status: 'rejected', page: 1, pageSize: 1 }),
+    ])
+      .then(([all, pend, appr, rej]) => {
+        const getCount = (d: unknown) => {
+          if (d && typeof d === 'object' && 'totalCount' in d) return (d as { totalCount: number }).totalCount;
+          if (Array.isArray(d)) return d.length;
+          return 0;
+        };
+        setCounts({
+          total: getCount(all),
+          pendentes: getCount(pend),
+          aprovados: getCount(appr),
+          recusados: getCount(rej),
+        });
+      })
       .catch(() => setError('Falha ao carregar dados'))
       .finally(() => setLoading(false));
   }, []);
 
-  const total = doctors.length;
-  const pendentes = doctors.filter((d) => d.approvalStatus === "pending").length;
-  const aprovados = doctors.filter((d) => d.approvalStatus === "approved").length;
-  const recusados = doctors.filter((d) => d.approvalStatus === "rejected").length;
+  const { total, pendentes, aprovados, recusados } = counts;
 
   const stats = [
     { label: "Total de Médicos", value: total, icon: Users, color: "text-primary" },

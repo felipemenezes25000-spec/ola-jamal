@@ -139,10 +139,10 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         var pendingFilter = "status=in.(submitted,paid)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
         var pendingCount = await db.CountAsync(TableName, pendingFilter, cancellationToken);
 
-        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,signed,consultation_ready,in_consultation,pending_post_consultation)";
+        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,consultation_ready,consultation_accepted,in_consultation,pending_post_consultation)";
         var inReviewCount = await db.CountAsync(TableName, inReviewFilter, cancellationToken);
 
-        var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(completed,delivered,consultation_finished)";
+        var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(signed,completed,delivered,consultation_finished)";
         var completedCount = await db.CountAsync(TableName, completedFilter, cancellationToken);
 
         var totalEarnings = 0m;
@@ -397,11 +397,20 @@ WHERE (
         var parameters = new DynamicParameters();
         parameters.Add("DoctorId", doctorId);
 
-        // Filtros opcionais
+        // Filtros opcionais — status aceita valor único ("signed") ou lista separada por vírgula ("signed,completed,delivered")
         if (!string.IsNullOrWhiteSpace(status))
         {
-            baseSql += " AND status = @StatusFilter";
-            parameters.Add("StatusFilter", status);
+            var statuses = status.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (statuses.Length == 1)
+            {
+                baseSql += " AND status = @StatusFilter";
+                parameters.Add("StatusFilter", statuses[0]);
+            }
+            else
+            {
+                baseSql += " AND status = ANY(@StatusFilters)";
+                parameters.Add("StatusFilters", statuses);
+            }
         }
         if (!string.IsNullOrWhiteSpace(type))
         {

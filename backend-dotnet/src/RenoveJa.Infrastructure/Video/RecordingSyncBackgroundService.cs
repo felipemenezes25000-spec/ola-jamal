@@ -17,6 +17,7 @@ namespace RenoveJa.Infrastructure.Video;
 public sealed class RecordingSyncBackgroundService(
     IServiceScopeFactory scopeFactory,
     IOptions<DatabaseConfig> dbConfig,
+    PostgresClient postgresClient,
     ILogger<RecordingSyncBackgroundService> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
@@ -105,16 +106,9 @@ public sealed class RecordingSyncBackgroundService(
 
     private async Task<List<Guid>> GetUnsyncedConsultationIdsAsync(CancellationToken ct)
     {
-        var connectionString = dbConfig.Value.DatabaseUrl;
-        if (string.IsNullOrEmpty(connectionString))
-        {
-            logger.LogWarning("[RecordingSyncBg] DatabaseUrl is not configured; skipping cycle");
-            return [];
-        }
-
         var ids = new List<Guid>();
 
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = postgresClient.CreateConnectionPublic();
         await connection.OpenAsync(ct);
 
         await using var cmd = new NpgsqlCommand(UnsyncedConsultationsSql, connection);
