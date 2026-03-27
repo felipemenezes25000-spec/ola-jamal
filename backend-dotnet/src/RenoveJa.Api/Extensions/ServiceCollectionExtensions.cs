@@ -149,6 +149,8 @@ public static class ServiceCollectionExtensions
                 ?? "localhost:6379";
             var redisConfig = ConfigurationOptions.Parse(redisConnectionString);
             redisConfig.AbortOnConnectFail = false; // Allow startup even if Redis is temporarily unavailable
+            redisConfig.ConnectTimeout = 2000;      // 2s instead of 5s default — reduces delay when Redis is offline
+            redisConfig.SyncTimeout = 1000;          // 1s sync timeout — prevents 5s blocking per call
             return ConnectionMultiplexer.Connect(redisConfig);
         });
         services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();

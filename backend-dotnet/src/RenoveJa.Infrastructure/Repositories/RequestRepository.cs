@@ -136,10 +136,15 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
 
     public async Task<(int PendingCount, int InReviewCount, int CompletedCount, decimal TotalEarnings)> GetDoctorStatsAsync(Guid doctorId, CancellationToken cancellationToken = default)
     {
-        var pendingFilter = "status=in.(submitted,paid)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
-        var pendingCount = await db.CountAsync(TableName, pendingFilter, cancellationToken);
+        // Pendentes: (1) disponíveis para qualquer médico (sem assignment) + (2) deste médico aguardando emissão de documentos
+        var pendingUnassignedFilter = "status=in.(submitted,paid,searching_doctor)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
+        var pendingUnassignedCount = await db.CountAsync(TableName, pendingUnassignedFilter, cancellationToken);
+        var pendingPostFilter = $"doctor_id=eq.{doctorId}&status=eq.pending_post_consultation";
+        var pendingPostCount = await db.CountAsync(TableName, pendingPostFilter, cancellationToken);
+        var pendingCount = pendingUnassignedCount + pendingPostCount;
 
-        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,consultation_ready,consultation_accepted,in_consultation,pending_post_consultation)";
+        // Em análise: atribuídos a este médico em estados ativos (sem pending_post_consultation, que agora é "Pendente")
+        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,consultation_ready,consultation_accepted,in_consultation)";
         var inReviewCount = await db.CountAsync(TableName, inReviewFilter, cancellationToken);
 
         var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(signed,completed,delivered,consultation_finished)";

@@ -80,6 +80,9 @@ export default function DoctorVideoCall() {
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
+  // Guard: prevent StrictMode double-mount from calling startConsultation twice
+  const startingRef = useRef(false);
+
   // SignalR real-time
   const { connected: signalConnected, transcript, anamnesis, suggestions, evidence } = useVideoSignaling(requestId);
 
@@ -129,17 +132,22 @@ export default function DoctorVideoCall() {
           try { setPatient(await getPatientProfile(data.patientId)); } catch { /* paciente opcional */ }
         }
 
-        // Start consultation if not already
+        // Start consultation if not already (guard prevents StrictMode double-fire)
         const statusLower = (data.status ?? '').toLowerCase();
         const needsStart = ['paid', 'consultation_accepted', 'consultation_ready'].includes(statusLower);
-        if (needsStart) {
+        if (needsStart && !startingRef.current) {
+          startingRef.current = true;
           try {
             const result = await startConsultation(requestId);
             if (result.chronicWarning) {
               toast.warning(result.chronicWarning, { duration: 8000 });
             }
-            setConsultationStarted(true);
-          } catch { /* startConsultation já iniciado */ }
+            if (!cancelled) setConsultationStarted(true);
+          } catch {
+            /* startConsultation já iniciado — backend retorna sucesso idempotente */
+          } finally {
+            startingRef.current = false;
+          }
         } else if (data.status?.toLowerCase().includes('in_consultation')) {
           setConsultationStarted(true);
           // Recover timer if consultation already started

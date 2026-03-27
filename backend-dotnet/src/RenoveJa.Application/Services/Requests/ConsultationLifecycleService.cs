@@ -117,6 +117,13 @@ public class ConsultationLifecycleService(
             }
 
             // Re-check status after acquiring lock to prevent concurrent start race conditions
+            // Idempotent: if already InConsultation by the same doctor (e.g. joined from PC + phone), return success
+            if (request.Status == RequestStatus.InConsultation && request.DoctorId == doctorId)
+            {
+                logger.LogInformation("[StartConsultation] Already InConsultation by same doctor — returning idempotent success. RequestId={RequestId} DoctorId={DoctorId}", id, doctorId);
+                return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
+            }
+
             if (request.Status != RequestStatus.Paid && request.Status != RequestStatus.ConsultationReady)
                 throw new InvalidOperationException($"Consultation can only be started when status is Paid or ConsultationReady. Current status: {request.Status}.");
 
@@ -205,6 +212,12 @@ public class ConsultationLifecycleService(
 
         var canFinish = request.Status == RequestStatus.InConsultation
             || request.Status == RequestStatus.Paid;
+        // Idempotent: if already past InConsultation (e.g. first call transitioned status but failed on Redis/downstream), return success
+        if (!canFinish && (request.Status == RequestStatus.PendingPostConsultation || request.Status == RequestStatus.ConsultationFinished))
+        {
+            logger.LogInformation("[FinishConsultation] Already Finished — returning idempotent success. RequestId={RequestId}", id);
+            return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
+        }
         if (!canFinish)
             throw new InvalidOperationException("Consultation must be in progress to be finished");
 

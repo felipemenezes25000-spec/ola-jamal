@@ -108,7 +108,7 @@ export function getStatusInfo(status: string): StatusInfo {
 }
 
 export function isActionableStatus(status: string): boolean {
-  const actionable = ['submitted', 'pending', 'paid', 'in_review', 'searching_doctor', 'consultation_accepted', 'consultation_ready', 'in_consultation', 'approved', 'approved_pending_payment'];
+  const actionable = ['submitted', 'pending', 'paid', 'in_review', 'searching_doctor', 'consultation_accepted', 'consultation_ready', 'in_consultation', 'approved', 'approved_pending_payment', 'pending_post_consultation'];
   const normalized = normalizeStatus(status);
   return actionable.includes(normalized) || actionable.includes(status);
 }

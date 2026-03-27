@@ -76,9 +76,19 @@ public class VideoSignalingHub(
         logger.LogInformation("User {UserId} joined video room {RequestId}", userGuid, requestId);
 
         // Sincronizar estado atual para garantir que anamnese, evidências e perguntas apareçam (evita tela vazia)
-        var transcript = sessionStore.GetTranscript(reqId);
-        var (anamnesisJson, suggestionsJson) = sessionStore.GetAnamnesisState(reqId);
-        var evidenceJson = sessionStore.GetEvidenceJson(reqId);
+        // Chamadas Redis sequenciais — se a primeira falhar (Redis offline), pular as demais para não bloquear 3×timeout
+        string transcript = string.Empty;
+        string? anamnesisJson = null, suggestionsJson = null, evidenceJson = null;
+        try
+        {
+            transcript = sessionStore.GetTranscript(reqId);
+            (anamnesisJson, suggestionsJson) = sessionStore.GetAnamnesisState(reqId);
+            evidenceJson = sessionStore.GetEvidenceJson(reqId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Redis indisponível ao sincronizar estado no JoinRoom — continuando sem estado. RequestId={RequestId}", requestId);
+        }
 
         if (!string.IsNullOrEmpty(transcript))
             await Clients.Caller.SendAsync("TranscriptUpdate", new TranscriptUpdateDto(transcript));
