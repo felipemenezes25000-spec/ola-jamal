@@ -80,8 +80,11 @@ export async function getDoctorStats(): Promise<DoctorStats> {
 
 // ── Request Actions ──
 
-export async function approveRequest(id: string) {
-  const res = await authFetch(`/api/requests/${id}/approve`, { method: 'POST' });
+export async function approveRequest(id: string, dto?: { price?: number; medications?: string[]; exams?: string[]; notes?: string }) {
+  const res = await authFetch(`/api/requests/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(dto ?? {}),
+  });
   if (!res.ok) throw new Error('Erro ao aprovar');
   return res.json();
 }

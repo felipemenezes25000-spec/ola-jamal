@@ -38,3 +38,15 @@ export {
   useCreateExam,
   useCreateConsultation,
 } from './useCreateRequest';
+
+// ── Payment ────────────────────────────────────────────────────
+export {
+  usePaymentQuery,
+  usePixCodeQuery,
+  usePaymentByRequestQuery,
+  useSyncPaymentStatus,
+  useInvalidatePayment,
+  usePaymentQueryHelpers,
+  paymentKeys,
+  PaymentRedirectError,
+} from './usePaymentQuery';

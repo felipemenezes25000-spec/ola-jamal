@@ -70,6 +70,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAiInteractionLogRepository, AiInteractionLogRepository>();
         services.AddScoped<IDoctorPatientNotesRepository, DoctorPatientNotesRepository>();
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
+
+        // Payment repositories
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
+        services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<ISavedCardRepository, SavedCardRepository>();
         return services;
     }
 
@@ -99,6 +105,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConsultationEncounterService, ConsultationEncounterService>();
         services.AddScoped<ISignedRequestClinicalSyncService, SignedRequestClinicalSyncService>();
         services.AddScoped<IVerificationService, RenoveJa.Application.Services.Verification.VerificationService>();
+
+        // Payment services
+        services.AddScoped<IPaymentService, RenoveJa.Application.Services.Payments.PaymentService>();
+        services.AddScoped<IPaymentWebhookHandler, RenoveJa.Application.Services.Payments.PaymentWebhookHandler>();
         return services;
     }
 
@@ -132,6 +142,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPushNotificationSender, RenoveJa.Infrastructure.Notifications.ExpoPushService>();
         services.AddScoped<IPushNotificationDispatcher, RenoveJa.Application.Services.Notifications.PushNotificationDispatcher>();
         services.AddScoped<IEmailService, RenoveJa.Infrastructure.Email.SmtpEmailService>();
+
+        // Mercado Pago
+        services.AddScoped<IMercadoPagoService, RenoveJa.Infrastructure.Payments.MercadoPagoService>();
 
         services.AddScoped<IAiReadingService, OpenAiReadingService>();
         services.AddScoped<IAiPrescriptionGeneratorService, OpenAiPrescriptionGeneratorService>();
@@ -215,6 +228,15 @@ public static class ServiceCollectionExtensions
         {
             options.BaseUrl = EnvOrConfig(envVars, config, "Api__BaseUrl", "Api:BaseUrl");
             options.DocumentTokenSecret = EnvOrConfig(envVars, config, "Api__DocumentTokenSecret", "Api:DocumentTokenSecret");
+        });
+
+        services.Configure<MercadoPagoConfig>(options =>
+        {
+            options.AccessToken = EnvOrConfig(envVars, config, "MercadoPago__AccessToken", "MercadoPago:AccessToken");
+            options.NotificationUrl = EnvOrConfig(envVars, config, "MercadoPago__NotificationUrl", "MercadoPago:NotificationUrl");
+            options.PublicKey = EnvOrConfig(envVars, config, "MercadoPago__PublicKey", "MercadoPago:PublicKey");
+            options.WebhookSecret = EnvOrConfig(envVars, config, "MercadoPago__WebhookSecret", "MercadoPago:WebhookSecret");
+            options.RedirectBaseUrl = EnvOrConfig(envVars, config, "MercadoPago__RedirectBaseUrl", "MercadoPago:RedirectBaseUrl");
         });
 
         services.Configure<DailyConfig>(options =>

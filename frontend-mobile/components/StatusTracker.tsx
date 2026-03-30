@@ -16,14 +16,16 @@ interface Step {
 const PRESCRIPTION_STEPS: Step[] = [
   { key: 'submitted', label: 'Enviado', shortLabel: 'Enviado', icon: 'paper-plane-outline', statuses: ['submitted'] },
   { key: 'review', label: STATUS_LABELS_PT.in_review, shortLabel: 'Em análise', icon: 'eye-outline', statuses: ['analyzing', 'in_review'] },
-  { key: 'approved', label: 'Aguardando assinatura', shortLabel: 'Assinatura', icon: 'document-text-outline', statuses: ['approved_pending_payment', 'pending_payment', 'paid'] },
+  { key: 'payment', label: 'Pagamento', shortLabel: 'Pagamento', icon: 'card-outline', statuses: ['approved_pending_payment', 'pending_payment'] },
+  { key: 'signing', label: 'Aguardando assinatura', shortLabel: 'Assinatura', icon: 'document-text-outline', statuses: ['paid'] },
   { key: 'signed', label: 'Assinado', shortLabel: 'Assinado', icon: 'shield-checkmark-outline', statuses: ['signed'] },
   { key: 'delivered', label: 'Entregue', shortLabel: 'Entregue', icon: 'checkmark-done-circle-outline', statuses: ['delivered', 'completed'] },
 ];
 
 const CONSULTATION_STEPS: Step[] = [
   { key: 'searching', label: 'Buscando médico', shortLabel: 'Buscando', icon: 'search-outline', statuses: ['searching_doctor'] },
-  { key: 'ready', label: 'Consulta pronta', shortLabel: 'Pronta', icon: 'checkmark-circle-outline', statuses: ['approved_pending_payment', 'pending_payment', 'paid'] },
+  { key: 'payment', label: 'Pagamento', shortLabel: 'Pagamento', icon: 'card-outline', statuses: ['approved_pending_payment', 'pending_payment'] },
+  { key: 'ready', label: 'Consulta pronta', shortLabel: 'Pronta', icon: 'checkmark-circle-outline', statuses: ['paid', 'consultation_ready'] },
   { key: 'in_consultation', label: 'Em consulta', shortLabel: 'Em consulta', icon: 'videocam-outline', statuses: ['in_consultation'] },
   { key: 'finished', label: 'Finalizada', shortLabel: 'Finalizada', icon: 'checkmark-done-circle-outline', statuses: ['consultation_finished'] },
 ];

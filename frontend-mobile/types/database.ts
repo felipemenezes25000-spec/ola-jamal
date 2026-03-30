@@ -384,3 +384,25 @@ export type User = UserDto;
 export type DoctorProfile = DoctorProfileDto;
 export type Request = RequestResponseDto;
 export type Notification = NotificationResponseDto;
+
+// ============================================
+// PAYMENT TYPES (matches Payments/PaymentDtos.cs)
+// ============================================
+
+export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'refunded';
+
+export interface PaymentResponseDto {
+  id: string;
+  requestId: string;
+  userId: string;
+  amount: number;
+  status: PaymentStatus;
+  paymentMethod: string;
+  externalId: string | null;
+  pixQrCode: string | null;
+  pixQrCodeBase64: string | null;
+  pixCopyPaste: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
