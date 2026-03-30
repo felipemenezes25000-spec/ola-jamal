@@ -187,16 +187,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
           .catch((err: unknown) => {
             clearTimeout(timeoutId);
-            const status = (err as { status?: number })?.status;
             const isAborted = err instanceof Error && err.name === 'AbortError';
-            // Só 401 indica token inválido/expirado. 403 em /me é incomum; não deslogar (evita falso positivo).
-            if (status === 401) {
-              clearAuth();
-            } else if (!isAborted) {
-              // Falha de rede ou 5xx — mantém sessão cacheada (já está exibindo)
-              if (__DEV__) console.warn('[AuthContext] Validação bg falhou (rede/servidor), mantendo sessão em cache:', err);
+            // FIX: NÃO chamar clearAuth aqui. O fetchWithAuthRetry já gerencia 401:
+            // - refresh 'success' → retry automático (nunca chega aqui)
+            // - refresh 'invalid' → onUnauthorized callback já dispara clearAuth
+            // - refresh 'error' (rede/servidor) → NÃO deslogar (skipUnauthorizedCallback=true)
+            // Chamar clearAuth diretamente causava logout em falha de rede durante refresh.
+            if (!isAborted && __DEV__) {
+              console.warn('[AuthContext] Validação bg falhou, mantendo sessão em cache:', err);
             }
-            // AbortError (timeout 6s) → mantém sessão cacheada silenciosamente
           });
         return;
       }
@@ -226,7 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let lastClearAt = 0;
-    const UNAUTHORIZED_DEBOUNCE_MS = 2000;
+    const UNAUTHORIZED_DEBOUNCE_MS = 5000;
     apiClient.setOnUnauthorized(() => {
       const now = Date.now();
       if (now - lastClearAt < UNAUTHORIZED_DEBOUNCE_MS) return;
