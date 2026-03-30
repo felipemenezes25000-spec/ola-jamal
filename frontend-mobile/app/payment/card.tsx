@@ -8,7 +8,6 @@ import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMercadoPagoPublicKey, fetchRequestById, fetchSavedCards, createPayment, payWithSavedCard } from '../../lib/api';
 import { getApiErrorMessage } from '../../lib/api-client';
-import { getDisplayPrice } from '../../lib/config/pricing';
 import { spacing } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
