@@ -75,6 +75,15 @@ function makeWrapper() {
   return Wrapper;
 }
 
+/** renderHook + flush async AuthContext.loadStoredUser to avoid act() warnings */
+async function renderHookAsync<T>(hook: () => T, wrapper?: ReturnType<typeof makeWrapper>) {
+  let hookResult: { result: { current: T } } | undefined;
+  await act(async () => {
+    hookResult = renderHook(hook, { wrapper: wrapper ?? makeWrapper() });
+  });
+  return hookResult!;
+}
+
 // ── Testes ────────────────────────────────────────────────────────────────────
 
 describe('RequestsEventsContext — split de renders', () => {
@@ -87,26 +96,20 @@ describe('RequestsEventsContext — split de renders', () => {
   });
 
   describe('useRequestsEvents — hook unificado', () => {
-    it('retorna isConnected inicial como false', () => {
-      const { result } = renderHook(() => useRequestsEvents(), {
-        wrapper: makeWrapper(),
-      });
+    it('retorna isConnected inicial como false', async () => {
+      const { result } = await renderHookAsync(() => useRequestsEvents());
 
       expect(result.current.isConnected).toBe(false);
     });
 
-    it('retorna pendingUpdate inicial como null', () => {
-      const { result } = renderHook(() => useRequestsEvents(), {
-        wrapper: makeWrapper(),
-      });
+    it('retorna pendingUpdate inicial como null', async () => {
+      const { result } = await renderHookAsync(() => useRequestsEvents());
 
       expect(result.current.pendingUpdate).toBeNull();
     });
 
     it('setPendingUpdate atualiza o pendingUpdate', async () => {
-      const { result } = renderHook(() => useRequestsEvents(), {
-        wrapper: makeWrapper(),
-      });
+      const { result } = await renderHookAsync(() => useRequestsEvents());
 
       await act(async () => {
         result.current.setPendingUpdate({ requestId: 'req-1', message: 'Aprovado' });
@@ -118,10 +121,8 @@ describe('RequestsEventsContext — split de renders', () => {
       });
     });
 
-    it('subscribe delega para subscribeRequestsEvents', () => {
-      const { result } = renderHook(() => useRequestsEvents(), {
-        wrapper: makeWrapper(),
-      });
+    it('subscribe delega para subscribeRequestsEvents', async () => {
+      const { result } = await renderHookAsync(() => useRequestsEvents());
 
       const listener = jest.fn();
       result.current.subscribe(listener);
@@ -131,19 +132,15 @@ describe('RequestsEventsContext — split de renders', () => {
   });
 
   describe('useRequestsEventsStable — sem re-render no pendingUpdate', () => {
-    it('retorna subscribe e isConnected sem VolatileContext', () => {
-      const { result } = renderHook(() => useRequestsEventsStable(), {
-        wrapper: makeWrapper(),
-      });
+    it('retorna subscribe e isConnected sem VolatileContext', async () => {
+      const { result } = await renderHookAsync(() => useRequestsEventsStable());
 
       expect(typeof result.current.subscribe).toBe('function');
       expect(typeof result.current.isConnected).toBe('boolean');
     });
 
-    it('NÃO inclui pendingUpdate ou setPendingUpdate', () => {
-      const { result } = renderHook(() => useRequestsEventsStable(), {
-        wrapper: makeWrapper(),
-      });
+    it('NÃO inclui pendingUpdate ou setPendingUpdate', async () => {
+      const { result } = await renderHookAsync(() => useRequestsEventsStable());
 
       expect((result.current as unknown as Record<string, unknown>).pendingUpdate).toBeUndefined();
       expect((result.current as unknown as Record<string, unknown>).setPendingUpdate).toBeUndefined();
@@ -153,20 +150,18 @@ describe('RequestsEventsContext — split de renders', () => {
       let stableRenders = 0;
       let unifiedRenders = 0;
 
-      const { result: _stableResult } = renderHook(
+      await renderHookAsync(
         () => {
           stableRenders++;
           return useRequestsEventsStable();
         },
-        { wrapper: makeWrapper() },
       );
 
-      const { result: unifiedResult } = renderHook(
+      const { result: unifiedResult } = await renderHookAsync(
         () => {
           unifiedRenders++;
           return useRequestsEvents();
         },
-        { wrapper: makeWrapper() },
       );
 
       const rendersBefore = { stable: stableRenders, unified: unifiedRenders };
@@ -184,25 +179,21 @@ describe('RequestsEventsContext — split de renders', () => {
   });
 
   describe('subscribe — cancelamento', () => {
-    it('subscribe retorna função de cancelamento', () => {
+    it('subscribe retorna função de cancelamento', async () => {
       const unsubscribe = jest.fn();
       mockSubscribe.mockReturnValueOnce(unsubscribe);
 
-      const { result } = renderHook(() => useRequestsEvents(), {
-        wrapper: makeWrapper(),
-      });
+      const { result } = await renderHookAsync(() => useRequestsEvents());
 
       const cancel = result.current.subscribe(jest.fn());
       expect(typeof cancel).toBe('function');
     });
 
-    it('cancelamento chama unsubscribe do módulo requestsEvents', () => {
+    it('cancelamento chama unsubscribe do módulo requestsEvents', async () => {
       const unsubscribe = jest.fn();
       mockSubscribe.mockReturnValueOnce(unsubscribe);
 
-      const { result } = renderHook(() => useRequestsEvents(), {
-        wrapper: makeWrapper(),
-      });
+      const { result } = await renderHookAsync(() => useRequestsEvents());
 
       const cancel = result.current.subscribe(jest.fn());
 
@@ -216,20 +207,13 @@ describe('RequestsEventsContext — split de renders', () => {
 
   describe('conexão SignalR', () => {
     it('tenta conectar quando há usuário autenticado', async () => {
-      // Simula usuário autenticado — AuthContext vai tentar fazer getMe, mas mockamos
-      // Apenas verificamos que a infraestrutura de conexão existe e é chamada
-      const { result } = renderHook(() => useRequestsEvents(), {
-        wrapper: makeWrapper(),
-      });
+      const { result } = await renderHookAsync(() => useRequestsEvents());
 
-      // O context tenta conectar em useEffect — verificamos o comportamento
       expect(result.current.isConnected).toBe(false);
     });
 
-    it('usa valores padrão seguros antes da conexão', () => {
-      const { result } = renderHook(() => useRequestsEventsStable(), {
-        wrapper: makeWrapper(),
-      });
+    it('usa valores padrão seguros antes da conexão', async () => {
+      const { result } = await renderHookAsync(() => useRequestsEventsStable());
 
       expect(result.current.isConnected).toBe(false);
       expect(result.current.subscribe).toBeDefined();
