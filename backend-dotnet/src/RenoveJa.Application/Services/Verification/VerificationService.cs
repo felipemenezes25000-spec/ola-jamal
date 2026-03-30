@@ -89,9 +89,6 @@ public class VerificationService(
         var statusDisplay = StatusToDisplay(request.Status);
         var signatureInfo = BuildSignatureInfo(request);
 
-        // Só expor URL de download se o documento já foi assinado (Signed/Delivered)
-        var canDownload = request.Status == RequestStatus.Signed || request.Status == RequestStatus.Delivered;
-
         return new VerificationFullDto(
             RequestId: request.Id,
             DoctorName: request.DoctorName,
@@ -107,7 +104,7 @@ public class VerificationService(
             Status: statusDisplay,
             SignedAt: request.SignedAt,
             SignatureInfo: signatureInfo,
-            SignedDocumentUrl: canDownload ? request.SignedDocumentUrl : null,
+            SignedDocumentUrl: request.SignedDocumentUrl,
             VerificationUrl: ItiVerificationUrl,
             AiExtractedJson: request.AiExtractedJson
         );

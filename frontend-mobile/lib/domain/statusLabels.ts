@@ -26,8 +26,8 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   // Legados (retrocompatibilidade)
   pending: 'Pendente',
   pending_payment: 'Aprovado',
-  approved_pending_payment: 'Aguardando pagamento',
-  paid: 'Pago',
+  approved_pending_payment: 'Aprovado',
+  paid: 'Aprovado',
   completed: 'Concluído',
 };
 

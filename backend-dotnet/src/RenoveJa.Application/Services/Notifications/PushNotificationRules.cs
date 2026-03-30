@@ -112,19 +112,6 @@ public static class PushNotificationRules
             deepLinkSuffix: $"request-detail/{requestId}?tab=reason",
             extra: reason != null ? new Dictionary<string, object?> { ["reasonCode"] = reason.Length > 50 ? reason[..50] : reason, ["reasonShort"] = reason } : null);
 
-    /// <summary>Médico notificado quando paciente realiza o pagamento.</summary>
-    public static PushNotificationRequest PaidForDoctor(Guid doctorId, Guid requestId, RequestType requestType) =>
-        BuildRequest(doctorId, "payment_received", requestId, requestType, RequestStatus.Paid,
-            "Pagamento recebido",
-            requestType == RequestType.Consultation
-                ? "O paciente pagou. A consulta está pronta para iniciar."
-                : "O paciente pagou. Você já pode assinar o documento.",
-            targetRole: "doctor",
-            deepLinkSuffix: $"doctor-request/{requestId}",
-            channel: PushChannel.Default,
-            category: PushCategory.Requests,
-            bypassQuietHours: true);
-
     // ── Médico: Pedidos ───────────────────────────────────────────────────
 
     public static PushNotificationRequest NewRequestAvailable(Guid doctorId, string tipoSolicitacao, string? patientName = null, int count = 1) =>

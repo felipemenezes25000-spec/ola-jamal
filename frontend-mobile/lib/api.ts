@@ -46,8 +46,6 @@ export { createVideoRoom, fetchVideoRoom, fetchVideoRoomByRequest } from './api-
 
 export { getIntegrationStatus } from './api-integrations';
 
-export * from './api-payments';
-
 // ── Aliases (backward compat for screens) ───────────────────────
 export function getRequests(
   params?: { page?: number; pageSize?: number; status?: string; type?: string },

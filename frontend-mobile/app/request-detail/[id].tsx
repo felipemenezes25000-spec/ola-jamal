@@ -401,13 +401,8 @@ export default function RequestDetailScreen() {
   const canCancel = ['submitted', 'in_review', 'approved', 'searching_doctor'].includes(request.status);
   const stickyBottomOffset = 0;
   const nextAction = getNextBestActionForRequest(request);
-  const handlePay = () => {
-    router.push(`/payment/request/${request.id}` as any);
-  };
   const nextActionQuickCta =
-    nextAction.intent === 'pay'
-        ? { label: nextAction.ctaLabel ?? 'Pagar agora', onPress: handlePay }
-        : nextAction.intent === 'download' && canDownload
+    nextAction.intent === 'download' && canDownload
         ? { label: nextAction.ctaLabel ?? 'Baixar documento', onPress: handleDownload }
         : null;
 

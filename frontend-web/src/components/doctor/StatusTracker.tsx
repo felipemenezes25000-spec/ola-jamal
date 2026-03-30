@@ -18,7 +18,6 @@ import {
   Video,
   XCircle,
   Ban,
-  CreditCard,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { normalizeStatus } from '@/lib/doctor-helpers';
@@ -30,21 +29,19 @@ interface Step {
   statuses: string[];
 }
 
-// Receita e Exame — com etapa de pagamento
+// Receita e Exame — alinhado ao mobile (sem etapas de pagamento explícitas)
 const PRESCRIPTION_STEPS: Step[] = [
   { key: 'submitted', label: 'Enviado', icon: Send, statuses: ['submitted'] },
   { key: 'review', label: 'Em análise', icon: Eye, statuses: ['analyzing', 'in_review'] },
-  { key: 'payment', label: 'Pagamento', icon: CreditCard, statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'signing', label: 'Aguardando assinatura', icon: FileText, statuses: ['paid'] },
+  { key: 'approved', label: 'Aguardando assinatura', icon: FileText, statuses: ['approved_pending_payment', 'pending_payment', 'paid'] },
   { key: 'signed', label: 'Assinado', icon: ShieldCheck, statuses: ['signed'] },
   { key: 'delivered', label: 'Entregue', icon: CheckCheck, statuses: ['delivered', 'completed'] },
 ];
 
-// Consulta — com etapa de pagamento
+// Consulta — alinhado ao mobile
 const CONSULTATION_STEPS: Step[] = [
   { key: 'searching', label: 'Buscando médico', icon: Search, statuses: ['searching_doctor'] },
-  { key: 'payment', label: 'Pagamento', icon: CreditCard, statuses: ['approved_pending_payment', 'pending_payment'] },
-  { key: 'ready', label: 'Consulta pronta', icon: CheckCircle2, statuses: ['paid', 'consultation_ready', 'consultation_accepted'] },
+  { key: 'ready', label: 'Consulta pronta', icon: CheckCircle2, statuses: ['approved_pending_payment', 'pending_payment', 'paid', 'consultation_ready', 'consultation_accepted'] },
   { key: 'in_consultation', label: 'Em consulta', icon: Video, statuses: ['in_consultation'] },
   { key: 'finished', label: 'Finalizada', icon: CheckCheck, statuses: ['consultation_finished'] },
 ];

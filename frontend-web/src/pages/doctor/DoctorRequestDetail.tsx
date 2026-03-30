@@ -58,8 +58,6 @@ export default function DoctorRequestDetail() {
   const [actionLoading, setActionLoading] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [approveOpen, setApproveOpen] = useState(false);
-  const [approvePrice, setApprovePrice] = useState('');
   const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
 
   useEffect(() => {
@@ -81,11 +79,8 @@ export default function DoctorRequestDetail() {
     if (!id) return;
     setActionLoading('approve');
     try {
-      const price = approvePrice ? parseFloat(approvePrice) : undefined;
-      await approveRequest(id, { price });
-      toast.success(price ? `Pedido aprovado — R$ ${price.toFixed(2)}` : 'Pedido aprovado');
-      setApproveOpen(false);
-      setApprovePrice('');
+      await approveRequest(id);
+      toast.success('Pedido aprovado');
       await refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao aprovar');
@@ -427,7 +422,7 @@ export default function DoctorRequestDetail() {
                     request={request}
                     id={id!}
                     actionLoading={actionLoading}
-                    onApprove={() => setApproveOpen(true)}
+                    onApprove={handleApprove}
                     onRejectOpen={() => setRejectOpen(true)}
                     onAcceptConsult={handleAcceptConsultation}
                     onGenPdf={handleGeneratePdf}
@@ -452,40 +447,6 @@ export default function DoctorRequestDetail() {
       </div>
 
       {/* Dialog de rejeição */}
-      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Aprovar Pedido</DialogTitle>
-            <DialogDescription>Defina o valor para o paciente (deixe vazio para gratuito)</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Label htmlFor="approve-price">Preço (R$)</Label>
-            <input
-              id="approve-price"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Ex: 49.90"
-              value={approvePrice}
-              onChange={e => setApprovePrice(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
-            <p className="text-xs text-muted-foreground">
-              {approvePrice && parseFloat(approvePrice) > 0
-                ? `Paciente pagará R$ ${parseFloat(approvePrice).toFixed(2)} via PIX ou cartão antes da assinatura.`
-                : 'Sem valor definido — o pedido será processado gratuitamente.'}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setApproveOpen(false)}>Cancelar</Button>
-            <Button onClick={handleApprove} disabled={!!actionLoading}>
-              {actionLoading === 'approve' && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Aprovar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>

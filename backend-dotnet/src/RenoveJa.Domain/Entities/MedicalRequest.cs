@@ -416,11 +416,8 @@ public class MedicalRequest : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void Approve(decimal price, string? notes = null, List<string>? medications = null, List<string>? exams = null)
+    public void Approve(decimal price = 0, string? notes = null, List<string>? medications = null, List<string>? exams = null)
     {
-        if (price < 0)
-            throw new DomainException("Price cannot be negative");
-
         if (RequestType == Enums.RequestType.Consultation)
         {
             if (Status != RequestStatus.SearchingDoctor && Status != RequestStatus.InReview && Status != RequestStatus.ConsultationReady)
@@ -435,17 +432,13 @@ public class MedicalRequest : AggregateRoot
 #pragma warning restore CS0618
         }
 
-        Price = price == 0 ? Money.Zero : Money.Create(price);
         Notes = notes;
         if (medications != null)
             Medications = medications;
         if (exams != null)
             Exams = exams;
-        // Gratuito (price=0): vai direto para Paid, sem fluxo de pagamento
-        // Com preço (price>0): fica em ApprovedPendingPayment aguardando pagamento do paciente
-        Status = price == 0
-            ? RequestStatus.Paid
-            : RequestStatus.ApprovedPendingPayment;
+        // Serviço gratuito: aprovação vai direto para Paid (pronto para assinatura)
+        Status = RequestStatus.Paid;
         UpdatedAt = DateTime.UtcNow;
     }
 

@@ -112,11 +112,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   // FIX M11: ref to abort background /me validation on unmount
   const activeControllerRef = useRef<AbortController | null>(null);
-  const mountedRef = useRef(true);
 
   useEffect(() => {
     loadStoredUser();
-    return () => { mountedRef.current = false; activeControllerRef.current?.abort(); };
+    return () => { activeControllerRef.current?.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount
   }, []);
 
@@ -169,7 +168,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         apiClient.get<UserDto>('/api/auth/me', undefined, { signal: controller.signal })
           .then(async (currentUser) => {
             clearTimeout(timeoutId);
-            if (!mountedRef.current) return;
             // Atualiza silenciosamente com dados frescos do servidor
             setUser(currentUser);
             await setItemSafe(USER_KEY, currentUser ? JSON.stringify(currentUser) : undefined);
@@ -177,19 +175,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (currentUser.role === 'doctor') {
               try {
                 const freshProfile = await apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
-                if (mountedRef.current && freshProfile) {
+                if (freshProfile) {
                   setDoctorProfile(freshProfile);
                   await setItemSafe(DOCTOR_PROFILE_KEY, JSON.stringify(freshProfile));
                 }
               } catch {
                 // Falha ao buscar profile: manter o cache existente
-                if (mountedRef.current && parsedDoctorProfile) setDoctorProfile(parsedDoctorProfile);
+                if (parsedDoctorProfile) setDoctorProfile(parsedDoctorProfile);
               }
             }
           })
           .catch((err: unknown) => {
             clearTimeout(timeoutId);
-            if (!mountedRef.current) return;
             const status = (err as { status?: number })?.status;
             const isAborted = err instanceof Error && err.name === 'AbortError';
             // Só 401 indica token inválido/expirado. 403 em /me é incomum; não deslogar (evita falso positivo).
@@ -209,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       clearTimeout(guard);
     }
-    if (mountedRef.current) setLoading(false);
+    setLoading(false);
   };
 
   const clearAuth = useCallback(async () => {

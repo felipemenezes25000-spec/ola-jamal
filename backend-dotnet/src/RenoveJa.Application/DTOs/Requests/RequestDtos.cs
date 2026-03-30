@@ -34,7 +34,6 @@ public record UpdateRequestStatusDto(
 /// Medications/Exams/Notes: opcional — médico pode enviar medicamentos ou exames (ex.: copiados da análise IA).
 /// </summary>
 public record ApproveRequestDto(
-    decimal? Price = null,
     List<string>? Medications = null,
     List<string>? Exams = null,
     string? Notes = null);

@@ -40,8 +40,8 @@ public class RequestApprovalService(
         else if (request.DoctorId.Value != doctorId)
             throw new UnauthorizedAccessException("Este pedido está atribuído a outro médico.");
 
-        // Aprovação com preço: se price > 0, fica em ApprovedPendingPayment aguardando pagamento
-        request.Approve(dto.Price ?? 0, dto.Notes, dto.Medications, dto.Exams);
+        // Sem fluxo de pagamento: aprovação vai direto para Paid (price = 0)
+        request.Approve(0, dto.Notes, dto.Medications, dto.Exams);
         request = await requestRepository.UpdateAsync(request, cancellationToken);
 
         // BUG FIX: usar CancellationToken.None para evitar cancelamento da task quando

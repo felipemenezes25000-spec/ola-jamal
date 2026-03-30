@@ -201,12 +201,11 @@ export function getNextBestActionForRequest(
 
   if (rawStatus === 'approved_pending_payment') {
     return {
-      title: 'Solicitação aprovada — pagamento pendente',
-      statusSummary: 'Seu pedido foi aprovado pelo médico. Realize o pagamento para continuar.',
-      whatToDo: 'Toque no botão abaixo para pagar via PIX ou cartão.',
-      eta: 'Após o pagamento, o médico assina seu documento em minutos.',
-      ctaLabel: 'Pagar agora',
-      intent: 'pay',
+      title: 'Solicitação aprovada',
+      statusSummary: 'Seu pedido foi aprovado e está aguardando assinatura do médico.',
+      whatToDo: 'Aguarde. O médico está preparando e assinando seu documento.',
+      eta: 'Normalmente em 3 a 10 minutos.',
+      intent: 'wait',
     };
   }
 
