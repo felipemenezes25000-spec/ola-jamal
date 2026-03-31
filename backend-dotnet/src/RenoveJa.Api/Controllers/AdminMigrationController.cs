@@ -69,7 +69,11 @@ public class AdminMigrationController(
         var expectedKey = configuration["ADMIN_MIGRATION_KEY"]
             ?? Environment.GetEnvironmentVariable("ADMIN_MIGRATION_KEY");
 
-        if (!string.IsNullOrWhiteSpace(expectedKey))
+        if (string.IsNullOrWhiteSpace(expectedKey))
+        {
+            return StatusCode(503, new { error = "ADMIN_MIGRATION_KEY not configured." });
+        }
+
         {
             var providedKey = Request.Headers["X-Admin-Key"].ToString();
             if (!string.Equals(providedKey, expectedKey, StringComparison.Ordinal))

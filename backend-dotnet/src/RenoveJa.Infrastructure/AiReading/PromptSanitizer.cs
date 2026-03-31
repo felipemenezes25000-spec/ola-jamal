@@ -13,7 +13,15 @@ public static class PromptSanitizer
         @"(new\s+instructions?\s*:)|" +
         @"(forget\s+(everything|all|previous))|" +
         @"(do\s+not\s+follow)|" +
-        @"(override\s+(system|instructions?))",
+        @"(override\s+(system|instructions?))|" +
+        // Portuguese prompt injection patterns
+        @"(ignor[ea]\s+(as\s+)?instru[çc][õo]es)|" +
+        @"(esque[çc]a\s+(as\s+)?instru[çc][õo]es)|" +
+        @"(ignor[ea]\s+o\s+prompt)|" +
+        @"(novo\s+prompt)|" +
+        @"(instru[çc][õo]es\s+do\s+sistema)|" +
+        @"(finja\s+ser)|" +
+        @"(aja\s+como)",
         RegexOptions.Compiled);
 
     private static readonly Regex RolePrefixPattern = new(

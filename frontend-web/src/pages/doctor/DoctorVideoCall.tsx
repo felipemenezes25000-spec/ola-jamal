@@ -173,7 +173,10 @@ export default function DoctorVideoCall() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      startingRef.current = false;
+    };
   }, [requestId]);
 
   // Report call connected when iframe loads

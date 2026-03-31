@@ -56,7 +56,6 @@ export function PatientSidePanel({
   const [summary, setSummary] = useState<PatientClinicalSummaryResponse | null>(null);
   const [requests, setRequests] = useState<MedicalRequest[]>([]);
   const [loading, setLoading] = useState(false);
-  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     if (!patientId) return;
@@ -91,9 +90,16 @@ export function PatientSidePanel({
     .filter((r) => r.id !== currentRequestId);
 
   const age = patient?.birthDate
-    ? Math.floor(
-        (now - new Date(patient.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000),
-      )
+    ? (() => {
+        const birth = new Date(patient.birthDate);
+        const today = new Date();
+        let a = today.getFullYear() - birth.getFullYear();
+        if (today.getMonth() < birth.getMonth() ||
+            (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+          a--;
+        }
+        return a;
+      })()
     : null;
 
   if (collapsed) {

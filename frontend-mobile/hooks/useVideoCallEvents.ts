@@ -58,6 +58,13 @@ export function useVideoCallEvents(
     setIsAiActive(false);
     setSignalRError(null);
     setConsultationEnded(false);
+    return () => {
+      const conn = signalRRef.current;
+      if (conn) {
+        conn.stop().catch(() => {});
+        signalRRef.current = null;
+      }
+    };
   }, [requestId]);
 
   const connectSignalR = useCallback(async () => {

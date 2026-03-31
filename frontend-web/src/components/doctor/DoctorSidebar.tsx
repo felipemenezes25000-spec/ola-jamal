@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NavLink } from '@/components/admin/NavLink';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -57,6 +57,15 @@ export function DoctorSidebar() {
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
     : 'MD';
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [mobileOpen]);
 
   const isVideoPage = location.pathname.startsWith('/video/');
 

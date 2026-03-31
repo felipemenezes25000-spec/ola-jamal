@@ -370,6 +370,7 @@ export function VideoFrameDaily({
     return () => {
       cancelled = true;
       destroyedRef.current = true;
+      // Clear connection timeout on unmount (#4 fix)
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;

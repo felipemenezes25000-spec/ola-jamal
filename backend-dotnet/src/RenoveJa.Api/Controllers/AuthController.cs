@@ -102,6 +102,8 @@ public class AuthController(
             throw new ValidationException(validationResult.Errors);
 
         var response = await authService.RegisterDoctorAsync(request, cancellationToken);
+        if (!string.IsNullOrEmpty(response.Token))
+            SetAuthCookie(response.Token);
         return Ok(response);
     }
 
@@ -150,6 +152,9 @@ public class AuthController(
         [FromBody] RefreshTokenRequestDto request,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request?.RefreshToken))
+            return BadRequest(new { message = "Refresh token é obrigatório." });
+
         try
         {
             var response = await authService.RefreshTokenAsync(request.RefreshToken, cancellationToken);
@@ -315,6 +320,7 @@ public class AuthController(
         await using var stream = file.OpenReadStream();
         if (!await FileSignatureValidator.HasValidSignatureAsync(stream, contentType))
             return BadRequest(new { error = "O conteúdo do arquivo não corresponde ao tipo declarado." });
+        stream.Position = 0;
         var user = await authService.UpdateAvatarAsync(userId, stream, contentType, file.FileName, cancellationToken);
         return Ok(user);
     }

@@ -56,4 +56,7 @@ resource "aws_elasticache_cluster" "main" {
   port                 = 6379
   subnet_group_name    = aws_elasticache_subnet_group.main.name
   security_group_ids   = [aws_security_group.redis.id]
+
+  transit_encryption_enabled = true
+  snapshot_retention_limit   = 7
 }

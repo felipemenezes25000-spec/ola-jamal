@@ -12,18 +12,19 @@ import type { MedicalRequest, DoctorStats } from './doctorApi';
  * O backend envia `requestType: "Consultation"`, o frontend usa `type: "consultation"`.
  */
 function normalizeRequest(data: Record<string, unknown>): Record<string, unknown> {
-  if (!data.type && data.requestType) {
-    data.type = (data.requestType as string).toLowerCase();
-  } else if (data.type && typeof data.type === 'string') {
-    data.type = data.type.toLowerCase();
+  const copy = { ...data };
+  if (!copy.type && copy.requestType) {
+    copy.type = (copy.requestType as string).toLowerCase();
+  } else if (copy.type && typeof copy.type === 'string') {
+    copy.type = copy.type.toLowerCase();
   }
-  if (!data.patientName) {
-    data.patientName = data.patientName ?? data.PatientName ?? '';
+  if (!copy.patientName) {
+    copy.patientName = copy.patientName ?? copy.PatientName ?? '';
   }
-  if (!data.createdAt && data.created_at) {
-    data.createdAt = data.created_at;
+  if (!copy.createdAt && copy.created_at) {
+    copy.createdAt = copy.created_at;
   }
-  return data;
+  return copy;
 }
 
 /**
@@ -66,8 +67,8 @@ export async function getRequestById(id: string): Promise<MedicalRequest> {
   const res = await authFetch(`/api/requests/${id}`);
   if (!res.ok) throw new Error('Erro ao buscar pedido');
   const data = await res.json();
-  normalizeRequest(data);
-  return data as MedicalRequest;
+  const normalized = normalizeRequest(data);
+  return normalized as unknown as MedicalRequest;
 }
 
 // ── Stats ──

@@ -17,6 +17,7 @@ const ADMIN_ROLE_KEY = "admin_user_role";
 const TOKEN_VALID_DAYS = 25;
 
 let adminRefreshPromise: Promise<boolean> | null = null;
+let lastAdminRedirectAt = 0;
 
 function getToken(): string | null {
   return localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -98,6 +99,9 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
       }
       if (res.status !== 401) return res;
     }
+    const now = Date.now();
+    if (now - lastAdminRedirectAt < 3000) return res;
+    lastAdminRedirectAt = now;
     clearAdminSession();
     window.location.href = "/admin/login";
     throw new Error("Não autorizado");

@@ -93,9 +93,14 @@ public class DailyVideoService : IDailyVideoService
 
         if (_httpClient.BaseAddress == null)
             _httpClient.BaseAddress = new Uri(DailyApiBaseUrl);
-        if (_httpClient.DefaultRequestHeaders.Authorization == null)
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", _config.ApiKey);
+    }
+
+    /// <summary>Creates an HttpRequestMessage with per-request Authorization header (thread-safe).</summary>
+    private HttpRequestMessage CreateRequest(HttpMethod method, string requestUri, HttpContent? content = null)
+    {
+        var request = new HttpRequestMessage(method, requestUri) { Content = content };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.ApiKey);
+        return request;
     }
 
     /// <summary>Throws if circuit breaker is open (Daily considered down).</summary>
@@ -213,7 +218,8 @@ public class DailyVideoService : IDailyVideoService
             try
             {
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync("rooms", content, ct);
+                using var request = CreateRequest(HttpMethod.Post, "rooms", content);
+                var response = await _httpClient.SendAsync(request, ct);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -286,7 +292,8 @@ public class DailyVideoService : IDailyVideoService
     {
         ThrowIfCircuitOpen();
 
-        var response = await _httpClient.DeleteAsync($"rooms/{roomName}", ct);
+        using var request = CreateRequest(HttpMethod.Delete, $"rooms/{roomName}");
+        var response = await _httpClient.SendAsync(request, ct);
 
         if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -305,7 +312,8 @@ public class DailyVideoService : IDailyVideoService
     {
         ThrowIfCircuitOpen();
 
-        var response = await _httpClient.DeleteAsync($"recordings/{recordingId}", ct);
+        using var request = CreateRequest(HttpMethod.Delete, $"recordings/{recordingId}");
+        var response = await _httpClient.SendAsync(request, ct);
 
         if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -361,7 +369,8 @@ public class DailyVideoService : IDailyVideoService
             try
             {
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync("meeting-tokens", content, ct);
+                using var request = CreateRequest(HttpMethod.Post, "meeting-tokens", content);
+                var response = await _httpClient.SendAsync(request, ct);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -427,8 +436,8 @@ public class DailyVideoService : IDailyVideoService
             var retryBody = new { properties };
             var retryJson = JsonSerializer.Serialize(retryBody, JsonOptions);
             var retryContent = new StringContent(retryJson, Encoding.UTF8, "application/json");
-
-            var retryResponse = await _httpClient.PostAsync("meeting-tokens", retryContent, ct);
+            using var retryRequest = CreateRequest(HttpMethod.Post, "meeting-tokens", retryContent);
+            var retryResponse = await _httpClient.SendAsync(retryRequest, ct);
             if (!retryResponse.IsSuccessStatusCode)
             {
                 var retryError = await retryResponse.Content.ReadAsStringAsync(ct);
@@ -490,7 +499,8 @@ public class DailyVideoService : IDailyVideoService
 
     public async Task<IReadOnlyList<DailyRecordingInfo>> ListRecordingsByRoomAsync(string roomName, CancellationToken ct = default)
     {
-        var response = await _httpClient.GetAsync($"recordings?room_name={Uri.EscapeDataString(roomName)}&limit=100", ct);
+        using var request = CreateRequest(HttpMethod.Get, $"recordings?room_name={Uri.EscapeDataString(roomName)}&limit=100");
+        var response = await _httpClient.SendAsync(request, ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -513,7 +523,8 @@ public class DailyVideoService : IDailyVideoService
     public async Task<(string? DownloadLink, long? Expires)> GetRecordingAccessLinkAsync(string recordingId, int validForSecs = 3600, CancellationToken ct = default)
     {
         var url = $"recordings/{recordingId}/access-link?valid_for_secs={validForSecs}";
-        var response = await _httpClient.GetAsync(url, ct);
+        using var request = CreateRequest(HttpMethod.Get, url);
+        var response = await _httpClient.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
@@ -537,7 +548,8 @@ public class DailyVideoService : IDailyVideoService
 
         try
         {
-            var response = await _httpClient.PostAsync($"rooms/{Uri.EscapeDataString(roomName)}/recordings/start", content, ct);
+            using var request = CreateRequest(HttpMethod.Post, $"rooms/{Uri.EscapeDataString(roomName)}/recordings/start", content);
+            var response = await _httpClient.SendAsync(request, ct);
 
             if (response.IsSuccessStatusCode)
             {
@@ -564,7 +576,8 @@ public class DailyVideoService : IDailyVideoService
     {
         try
         {
-            var response = await _httpClient.GetAsync($"rooms/{Uri.EscapeDataString(roomName)}", ct);
+            using var request = CreateRequest(HttpMethod.Get, $"rooms/{Uri.EscapeDataString(roomName)}");
+            var response = await _httpClient.SendAsync(request, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -576,7 +589,8 @@ public class DailyVideoService : IDailyVideoService
 
     private async Task<DailyRoomResult> GetRoomAsync(string roomName, CancellationToken ct)
     {
-        var response = await _httpClient.GetAsync($"rooms/{roomName}", ct);
+        using var request = CreateRequest(HttpMethod.Get, $"rooms/{roomName}");
+        var response = await _httpClient.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
 
         var result = await JsonSerializer.DeserializeAsync<DailyRoomResponse>(

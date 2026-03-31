@@ -123,7 +123,7 @@ Equipe RenoveJá
       </div>
     </div>
     <div class=""footer"">
-      Enviado em {DateTime.Now:dd/MM/yyyy HH:mm} · <a href=""https://wa.me/5511986318000"">Responder no WhatsApp</a>
+      Enviado em {DateTime.UtcNow:dd/MM/yyyy HH:mm} UTC · <a href=""https://wa.me/5511986318000"">Responder no WhatsApp</a>
     </div>
   </div>
 </body>

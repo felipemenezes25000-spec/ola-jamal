@@ -23,13 +23,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Dimensions,
   Animated,
   Platform,
   BackHandler,
   AppState,
   Linking,
   PermissionsAndroid,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
@@ -63,8 +63,7 @@ import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 import { useVideoCallEvents } from '../../hooks/useVideoCallEvents';
 import { useConsultationTimer } from '../../hooks/useConsultationTimer';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const PANEL_WIDTH = Math.min(380, SCREEN_W * 0.9);
+// SCREEN_W / PANEL_WIDTH moved inside component via useWindowDimensions
 
 function getAndroidApiLevel(): number {
   if (Platform.OS !== 'android') return 0;
@@ -101,6 +100,8 @@ export default function VideoCallScreenInner() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { width: screenW } = useWindowDimensions();
+  const panelWidth = Math.min(380, screenW * 0.9);
   // Video call: tema dark unificado — overlay, modal e painel usam o mesmo tema.
   // Evita mix light/dark bugado dentro da chamada.
   const darkTheme = useAppTheme({ scheme: 'dark' });
@@ -548,7 +549,9 @@ export default function VideoCallScreenInner() {
     };
     fetchSync();
     // FIX M7: 500ms era agressivo demais — 3s é suficiente para sincronizar o timer
-    const poll = setInterval(fetchSync, 3000);
+    const poll = setInterval(() => {
+      if (AppState.currentState === 'active') fetchSync();
+    }, 3000);
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
@@ -786,7 +789,7 @@ export default function VideoCallScreenInner() {
   const hasEv = Array.isArray(evidence) && evidence.length > 0 && evidence.some((e) => e.title?.trim());
   const panelHas = hasAna || hasMeds || hasExams || hasSug || hasEv;
 
-  const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH + 20, 0] });
+  const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [panelWidth + 20, 0] });
 
   // PiP: remote sempre principal — evita SurfaceView conflict no overlay pequeno do Android
   // Local é mostrado como mini-preview apenas quando NÃO em PiP
@@ -941,7 +944,7 @@ export default function VideoCallScreenInner() {
       {/* Doctor: Anamnesis panel — oculto em PiP */}
       {!isInPipMode && isDoctor && (
         <Animated.View
-          style={[S.panel, { width: PANEL_WIDTH, top: insets.top + 48, bottom: 80 + insets.bottom, transform: [{ translateX: panelX }] }]}
+          style={[S.panel, { width: panelWidth, top: insets.top + 48, bottom: 80 + insets.bottom, transform: [{ translateX: panelX }] }]}
           pointerEvents={panelOpen ? 'auto' : 'none'}
         >
           <DoctorAIPanel anamnesis={anamnesis} suggestions={suggestions} evidence={evidence} />

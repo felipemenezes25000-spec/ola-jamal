@@ -157,6 +157,14 @@ resource "aws_security_group" "aurora" {
   #   description = "Dev: acesso restrito por IP"
   # }
 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+    description = "Allow outbound within VPC"
+  }
+
   tags = { Name = "${var.project}-aurora-sg" }
 }
 
@@ -169,6 +177,14 @@ resource "aws_security_group" "redis" {
     to_port         = 6379
     protocol        = "tcp"
     security_groups = [aws_security_group.ecs.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+    description = "Allow outbound within VPC"
   }
 
   tags = { Name = "${var.project}-redis-sg" }
