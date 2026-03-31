@@ -39,7 +39,7 @@ module.exports = {
   cancelAnimation: () => {},
   runOnUI: (fn) => fn,
   runOnJS: (fn) => fn,
-  interpolate: jest.fn(),
+  interpolate: () => 0,
   Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
   Easing: {
     linear: (v) => v,
