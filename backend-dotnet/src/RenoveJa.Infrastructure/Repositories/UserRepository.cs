@@ -58,6 +58,7 @@ public class UserRepository(PostgresClient db) : IUserRepository
     {
         var models = await db.GetAllAsync<UserModel>(
             TableName,
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();

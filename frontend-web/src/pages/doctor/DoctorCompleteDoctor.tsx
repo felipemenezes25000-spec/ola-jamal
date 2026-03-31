@@ -92,6 +92,12 @@ export default function DoctorCompleteDoctor() {
     }
   };
 
+  useEffect(() => {
+    if (!authLoading && !loading && !isAuthenticated) {
+      navigate('/login', { replace: true });
+    }
+  }, [authLoading, loading, isAuthenticated, navigate]);
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -101,7 +107,6 @@ export default function DoctorCompleteDoctor() {
   }
 
   if (!isAuthenticated) {
-    navigate('/login', { replace: true });
     return null;
   }
 

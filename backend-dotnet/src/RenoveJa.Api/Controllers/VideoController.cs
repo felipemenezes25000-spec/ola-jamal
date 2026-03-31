@@ -243,13 +243,23 @@ public class VideoController(
                 expiryMinutes: 15,
                 cancellationToken);
 
-            var token = await dailyVideoService.CreateMeetingTokenAsync(
-                roomName,
-                userId.ToString(),
-                user.Name,
-                isOwner: true,
-                ejectAfterSeconds: null,
-                cancellationToken);
+            string token;
+            try
+            {
+                token = await dailyVideoService.CreateMeetingTokenAsync(
+                    roomName,
+                    userId.ToString(),
+                    user.Name,
+                    isOwner: true,
+                    ejectAfterSeconds: null,
+                    cancellationToken);
+            }
+            catch
+            {
+                try { await dailyVideoService.DeleteRoomAsync(roomName, cancellationToken); }
+                catch (Exception cleanupEx) { logger.LogWarning(cleanupEx, "[VideoController] Failed to clean up Daily room after token failure — RoomName={RoomName}", roomName); }
+                throw;
+            }
 
             return Ok(new
             {

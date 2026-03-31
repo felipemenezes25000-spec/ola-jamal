@@ -37,6 +37,7 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
         var models = await db.GetAllAsync<AuthTokenModel>(
             TableName,
             filter: $"user_id=eq.{userId}",
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
         return models.Select(MapToDomain).ToList();
     }

@@ -57,6 +57,7 @@ const CONNECTION_TIMEOUT_MS = 30_000;
 
 interface VideoFrameDailyProps {
   roomUrl: string;
+  meetingToken: string;
   requestId: string | null;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -80,6 +81,7 @@ function TranscriptionForwarder({
 
 export function VideoFrameDaily({
   roomUrl,
+  meetingToken,
   requestId,
   isExpanded,
   onToggleExpand,
@@ -200,7 +202,6 @@ export function VideoFrameDaily({
           showFullscreenButton: true,
           showLocalVideo: true,
           showParticipantsBar: true,
-          url: roomUrl,
           lang: 'pt',
           theme: {
             colors: {
@@ -361,6 +362,8 @@ export function VideoFrameDaily({
       });
 
       setCallObject(frame);
+
+      await frame.join({ url: roomUrl, token: meetingToken });
     });
 
     // --- Bug #3: cleanup .destroy() on unmount ---
@@ -383,7 +386,7 @@ export function VideoFrameDaily({
         containerEl.querySelectorAll('iframe').forEach((node) => node.remove());
       });
     };
-  }, [roomUrl, retryKey]);
+  }, [roomUrl, meetingToken, retryKey]);
 
   return (
     // --- Bug #10: responsive layout for small screens ---

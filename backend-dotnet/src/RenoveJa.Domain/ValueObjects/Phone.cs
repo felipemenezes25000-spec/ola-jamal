@@ -23,16 +23,16 @@ public sealed class Phone : IEquatable<Phone>
         if (string.IsNullOrWhiteSpace(phone))
             throw new DomainException("Phone cannot be empty");
 
-        phone = phone.Trim();
-        var hasLetters = phone.Any(char.IsLetter);
-        
-        if (hasLetters)
+        if (phone.Any(char.IsLetter))
             throw new DomainException("Phone must contain only numbers");
 
-        if (!PhoneRegex.IsMatch(phone))
+        // Strip formatting characters (+, -, (, ), spaces) keeping only digits
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+
+        if (!PhoneRegex.IsMatch(digits))
             throw new DomainException("Phone must have 10 or 11 digits");
 
-        return new Phone(phone);
+        return new Phone(digits);
     }
 
     public bool Equals(Phone? other)

@@ -68,9 +68,11 @@ export default function DoctorRequestDetail() {
   // Busca perfil do paciente quando o pedido carregar
   useEffect(() => {
     if (!request?.patientId) return;
+    let cancelled = false;
     getPatientProfile(request.patientId)
-      .then(setPatient)
-      .catch(() => setPatient(null));
+      .then((p) => { if (!cancelled) setPatient(p); })
+      .catch(() => { if (!cancelled) setPatient(null); });
+    return () => { cancelled = true; };
   }, [request?.patientId]);
 
   // ── Action handlers — usam refetch() em vez de setRequest ──

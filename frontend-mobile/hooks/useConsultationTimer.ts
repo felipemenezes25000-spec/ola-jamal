@@ -28,6 +28,8 @@ export function useConsultationTimer(
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const alertedRef = useRef<Set<number>>(new Set());
   const autoFinishedRef = useRef(false);
+  const onAutoFinishRef = useRef(onAutoFinish);
+  onAutoFinishRef.current = onAutoFinish;
 
   // Reset refs when consultationStartedAt changes (e.g., rejoin)
   useEffect(() => {
@@ -36,8 +38,16 @@ export function useConsultationTimer(
   }, [consultationStartedAt]);
 
   // Server-synced timer: compute elapsed seconds from backend timestamp
+  // BUG FIX: Stop timer when isActive becomes false (consultation ended) to prevent
+  // stale updates and alerts firing after consultation is finished.
   useEffect(() => {
-    if (!consultationStartedAt) return;
+    if (!consultationStartedAt || !isActive) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
     const update = () => {
       const elapsed = Math.floor((Date.now() - new Date(consultationStartedAt).getTime()) / 1000);
       setCallSeconds(Math.max(0, elapsed));
@@ -47,7 +57,7 @@ export function useConsultationTimer(
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [consultationStartedAt]);
+  }, [consultationStartedAt, isActive]);
 
   // Countdown alerts + auto-finish
   useEffect(() => {
@@ -65,11 +75,10 @@ export function useConsultationTimer(
     }
     if (remaining <= 0 && !autoFinishedRef.current) {
       autoFinishedRef.current = true;
-      // Disparar auto-finish imediatamente — alert é apenas informativo
-      onAutoFinish();
+      onAutoFinishRef.current();
       Alert.alert('Tempo esgotado', 'O tempo contratado expirou.');
     }
-  }, [callSeconds, contractedMinutes, onAutoFinish, isActive]);
+  }, [callSeconds, contractedMinutes, isActive]);
 
   return { callSeconds, setCallSeconds };
 }

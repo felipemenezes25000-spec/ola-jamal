@@ -116,6 +116,7 @@ public sealed class ConsultationAnamnesisLlmClient
                     ? _config.Value!.GeminiApiBaseUrl!.Trim()
                     : GeminiBaseUrl;
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", geminiKey);
+                client.Timeout = TimeSpan.FromSeconds(90);
                 using var fallbackContent = new StringContent(
                     JsonSerializer.Serialize(new { model = fallbackModel, messages = requestBody.messages, max_tokens = 8192, temperature = 0.10 }, JsonOptions),
                     Encoding.UTF8, "application/json");
@@ -174,8 +175,15 @@ public sealed class ConsultationAnamnesisLlmClient
             _logger.LogWarning("[Anamnese] Modelo Gemini solicitado mas Gemini__ApiKey não configurada. Fallback para OpenAI.");
         }
 
-        var openAiKey = GetOpenAiApiKey() ?? _config.Value?.ApiKey?.Trim() ?? "";
-        return (openAiKey, OpenAiBaseUrl);
+        var openAiKey = GetOpenAiApiKey();
+        if (openAiKey != null)
+            return (openAiKey, OpenAiBaseUrl);
+
+        var rawKey = _config.Value?.ApiKey?.Trim() ?? "";
+        if (string.IsNullOrEmpty(rawKey) || rawKey.Contains("YOUR_") || rawKey.Contains("_HERE") || rawKey.Contains("SUA_CHAVE"))
+            throw new InvalidOperationException("Nenhuma API key válida configurada (OpenAI ou Gemini). Configure Gemini__ApiKey ou OpenAI__ApiKey.");
+
+        return (rawKey, OpenAiBaseUrl);
     }
 }
 

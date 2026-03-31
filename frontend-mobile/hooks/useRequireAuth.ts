@@ -19,7 +19,7 @@ export function useRequireAuth(requiredRole?: 'doctor' | 'patient') {
       return;
     }
     if (requiredRole && user.role !== requiredRole) {
-      router.back();
+      router.replace('/');
     }
   }, [loading, user, requiredRole, router]);
 

@@ -8,7 +8,7 @@
  * Only doctors receive clinical data (transcript, anamnesis, suggestions, evidence).
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { apiClient } from '../lib/api-client';
 
 export interface EvidenceItem {
@@ -49,6 +49,16 @@ export function useVideoCallEvents(
   const [signalRError, setSignalRError] = useState<string | null>(null);
   const [consultationEnded, setConsultationEnded] = useState(false);
   const signalRRef = useRef<{ stop: () => Promise<void> } | null>(null);
+
+  useEffect(() => {
+    setTranscript('');
+    setAnamnesis(null);
+    setSuggestions([]);
+    setEvidence([]);
+    setIsAiActive(false);
+    setSignalRError(null);
+    setConsultationEnded(false);
+  }, [requestId]);
 
   const connectSignalR = useCallback(async () => {
     if (!requestId) return;
@@ -146,6 +156,18 @@ export function useVideoCallEvents(
   const disconnectSignalR = useCallback(async () => {
     try { await signalRRef.current?.stop(); } catch {}
     signalRRef.current = null;
+  }, []);
+
+  // BUG FIX: Capture signalRRef.current directly in cleanup instead of calling
+  // the async disconnectSignalR callback, which may see a stale ref.
+  useEffect(() => {
+    return () => {
+      const conn = signalRRef.current;
+      if (conn) {
+        conn.stop().catch(() => {});
+        signalRRef.current = null;
+      }
+    };
   }, []);
 
   return {

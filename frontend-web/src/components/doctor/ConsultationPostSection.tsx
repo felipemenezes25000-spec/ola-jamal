@@ -120,7 +120,8 @@ export function ConsultationPostSection({ request }: ConsultationPostSectionProp
                 variant="ghost" size="sm"
                 onClick={async () => {
                   const text = (['subjective','objective','assessment','plan'] as (keyof SoapNotes)[])
-                    .map(k => `${SOAP_LABELS[k]}\n`)
+                    .filter(k => soapNotes[k])
+                    .map(k => `${SOAP_LABELS[k]}\n${soapNotes[k]}`)
                     .join('\n\n');
                   await navigator.clipboard.writeText(text);
                   toast.success('Notas SOAP copiadas');

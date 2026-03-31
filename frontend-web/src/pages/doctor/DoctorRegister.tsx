@@ -43,7 +43,11 @@ export default function DoctorRegister() {
   });
 
   useEffect(() => {
-    fetchSpecialties().then(setSpecialties).catch(() => {});
+    let cancelled = false;
+    fetchSpecialties()
+      .then((data) => { if (!cancelled) setSpecialties(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const updateField = (field: string, value: string) => {
@@ -51,14 +55,19 @@ export default function DoctorRegister() {
   };
 
   const handleCepBlur = async () => {
-    const addr = await fetchAddressByCep(form.cep);
-    if (addr) {
-      setForm(prev => ({
-        ...prev,
-        city: addr.city,
-        state: addr.state,
-        professionalAddress: addr.street ? `${addr.street}, ${addr.neighborhood}` : prev.professionalAddress,
-      }));
+    if (!form.cep || form.cep.replace(/\D/g, '').length < 8) return;
+    try {
+      const addr = await fetchAddressByCep(form.cep);
+      if (addr) {
+        setForm(prev => ({
+          ...prev,
+          city: addr.city,
+          state: addr.state,
+          professionalAddress: addr.street ? `${addr.street}, ${addr.neighborhood}` : prev.professionalAddress,
+        }));
+      }
+    } catch {
+      // CEP lookup failure is non-critical — user can fill fields manually
     }
   };
 
@@ -69,7 +78,7 @@ export default function DoctorRegister() {
       case 'personal': return form.name && form.email && form.phone && form.cpf;
       case 'professional': return form.crm && form.crmState && form.specialtyId;
       case 'address': return form.city && form.state;
-      case 'security': return form.password && form.confirmPassword && form.password === form.confirmPassword && form.password.length >= 6;
+      case 'security': return form.password && form.confirmPassword && form.password === form.confirmPassword && form.password.length >= 8;
       default: return false;
     }
   };
@@ -295,12 +304,12 @@ export default function DoctorRegister() {
                       <Input
                         id="reg-password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Mínimo 8 caracteres"
                         value={form.password}
                         onChange={e => updateField('password', e.target.value)}
                         className="pl-10 pr-10"
                         required
-                        minLength={6}
+                        minLength={8}
                         autoComplete="new-password"
                       />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Mostrar senha">

@@ -150,7 +150,8 @@ public static class MigrationRunner
         "ALTER TABLE public.consultation_anamnesis ADD COLUMN IF NOT EXISTS transcript_file_url TEXT",
         "ALTER TABLE public.consultation_anamnesis ADD COLUMN IF NOT EXISTS evidence_json TEXT",
         "ALTER TABLE public.consultation_anamnesis ADD COLUMN IF NOT EXISTS recording_file_url TEXT",
-        "ALTER TABLE public.consultation_anamnesis ADD COLUMN IF NOT EXISTS soap_notes_json TEXT"
+        "ALTER TABLE public.consultation_anamnesis ADD COLUMN IF NOT EXISTS soap_notes_json TEXT",
+        "ALTER TABLE public.consultation_anamnesis ADD COLUMN IF NOT EXISTS soap_notes_generated_at TIMESTAMPTZ"
     };
 
     private static readonly string[] PushTokensMigrations =
@@ -185,7 +186,7 @@ public static class MigrationRunner
 
     private static readonly string[] DoctorApprovalStatusMigrations =
     {
-        "ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'approved'",
+        "ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending'",
         "UPDATE public.doctor_profiles SET approval_status = 'approved' WHERE approval_status IS NULL OR approval_status = ''"
     };
 
@@ -247,6 +248,7 @@ public static class MigrationRunner
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_encounters_patient_id ON public.encounters(patient_id)",
+        "CREATE INDEX IF NOT EXISTS idx_encounters_practitioner_id ON public.encounters(practitioner_id)",
         """
         CREATE TABLE IF NOT EXISTS public.medical_documents (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -266,6 +268,11 @@ public static class MigrationRunner
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """,
+        "CREATE INDEX IF NOT EXISTS idx_medical_documents_patient_id ON public.medical_documents(patient_id)",
+        "CREATE INDEX IF NOT EXISTS idx_medical_documents_encounter_id ON public.medical_documents(encounter_id)",
+        "CREATE INDEX IF NOT EXISTS idx_requests_doctor_id ON public.requests(doctor_id)",
+        "CREATE INDEX IF NOT EXISTS idx_requests_patient_id ON public.requests(patient_id)",
+        "CREATE INDEX IF NOT EXISTS idx_requests_status ON public.requests(status)",
         """
         CREATE TABLE IF NOT EXISTS public.consent_records (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -527,7 +534,7 @@ public static class MigrationRunner
     private static readonly string[] ChronicConditionMigrations =
     {
         "ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS has_chronic_condition BOOLEAN NOT NULL DEFAULT FALSE",
-        "ALTER TABLE public.encounters ADD COLUMN IF NOT EXISTS is_presential TEXT NOT NULL DEFAULT 'false'",
+        "ALTER TABLE public.encounters ADD COLUMN IF NOT EXISTS is_presential BOOLEAN NOT NULL DEFAULT false",
     };
 
     private static readonly string[] PrescriptionVerificationLogsMigrations =
@@ -594,6 +601,23 @@ public static class MigrationRunner
         await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync(cancellationToken);
 
+        const long advisoryLockId = 867530901;
+        bool lockAcquired;
+        await using (var lockCmd = conn.CreateCommand())
+        {
+            lockCmd.CommandText = $"SELECT pg_try_advisory_lock({advisoryLockId})";
+            lockAcquired = (bool)(await lockCmd.ExecuteScalarAsync(cancellationToken))!;
+        }
+
+        if (!lockAcquired)
+        {
+            logger?.LogInformation("Another instance is running migrations, skipping");
+            return;
+        }
+
+        try
+        {
+
         logger?.LogInformation("Running Database migrations...");
 
         var allMigrations = new (string Name, string[] Sqls)[]
@@ -645,5 +669,13 @@ public static class MigrationRunner
         }
 
         logger?.LogInformation("All Database migrations completed successfully");
+
+        }
+        finally
+        {
+            await using var unlockCmd = conn.CreateCommand();
+            unlockCmd.CommandText = $"SELECT pg_advisory_unlock({advisoryLockId})";
+            await unlockCmd.ExecuteScalarAsync(cancellationToken);
+        }
     }
 }

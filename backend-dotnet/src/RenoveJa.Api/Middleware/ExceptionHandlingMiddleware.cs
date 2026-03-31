@@ -44,6 +44,13 @@ public class ExceptionHandlingMiddleware(
                 "[EXCEPTION] {Method} {Path} | {ExceptionType}: {Message} | Inner: {Inner}",
                 method, path, ex.GetType().Name, ex.Message,
                 ex.InnerException?.Message ?? "-");
+
+            if (context.Response.HasStarted)
+            {
+                logger.LogWarning("Response already started; cannot write error body for {Method} {Path}", method, path);
+                return;
+            }
+
             await HandleExceptionAsync(context, ex);
         }
     }

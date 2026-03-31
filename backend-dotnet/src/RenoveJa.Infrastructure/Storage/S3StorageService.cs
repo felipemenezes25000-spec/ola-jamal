@@ -54,7 +54,14 @@ public sealed class S3StorageService(
 
                 return new StorageUploadResult(true, GetPublicUrl(path), null);
             }
-            catch (Exception ex)
+            catch (AmazonS3Exception ex) when (ex.StatusCode < System.Net.HttpStatusCode.InternalServerError
+                && ex.StatusCode != System.Net.HttpStatusCode.RequestTimeout
+                && ex.StatusCode != (System.Net.HttpStatusCode)429)
+            {
+                logger.LogError(ex, "[S3] Upload permanent error for {Path}: {StatusCode}", path, ex.StatusCode);
+                return new StorageUploadResult(false, null, ex.Message);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TimeoutException or AmazonS3Exception)
             {
                 lastEx = ex;
                 if (attempt < maxAttempts)
@@ -64,6 +71,11 @@ public sealed class S3StorageService(
                         attempt, maxAttempts, path);
                     await Task.Delay(baseDelayMs * (1 << (attempt - 1)), cancellationToken);
                 }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "[S3] Upload non-transient error for {Path}", path);
+                return new StorageUploadResult(false, null, ex.Message);
             }
         }
 

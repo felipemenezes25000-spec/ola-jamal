@@ -98,8 +98,20 @@ public class DoctorCertificate : Entity
         if (string.IsNullOrWhiteSpace(subjectName))
             throw new DomainException("Subject name is required");
 
+        if (string.IsNullOrWhiteSpace(issuerName))
+            throw new DomainException("Issuer name is required");
+
+        if (string.IsNullOrWhiteSpace(serialNumber))
+            throw new DomainException("Serial number is required");
+
         if (string.IsNullOrWhiteSpace(pfxStoragePath))
             throw new DomainException("PFX storage path is required");
+
+        if (string.IsNullOrWhiteSpace(pfxFileName))
+            throw new DomainException("PFX file name is required");
+
+        if (notBefore > notAfter)
+            throw new DomainException("Certificate NotBefore cannot be after NotAfter");
 
         if (notAfter <= DateTime.UtcNow)
             throw new DomainException("Certificate is expired and cannot be registered");
@@ -192,6 +204,9 @@ public class DoctorCertificate : Entity
     /// </summary>
     public void Revoke(string reason)
     {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new DomainException("Revocation reason is required");
+
         if (IsRevoked)
             return;
 

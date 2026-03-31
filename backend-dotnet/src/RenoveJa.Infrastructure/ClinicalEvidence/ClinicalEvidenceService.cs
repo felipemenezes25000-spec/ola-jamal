@@ -225,6 +225,7 @@ Analise e retorne JSON com os artigos relevantes que confirmam ou contestam a hi
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("[ClinicalEvidence] GPT-4o retornou {StatusCode}. Tentando fallback Gemini.", response.StatusCode);
+                response.Dispose(); // Release failed response before fallback
 
                 // Fallback: Gemini
                 var geminiKey = _config.Value?.GeminiApiKey?.Trim();
@@ -233,8 +234,10 @@ Analise e retorne JSON com os artigos relevantes que confirmam ou contestam a hi
                     var geminiBaseUrl = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl)
                         ? _config.Value!.GeminiApiBaseUrl!.Trim()
                         : "https://generativelanguage.googleapis.com/v1beta/openai";
-                    client.DefaultRequestHeaders.Authorization =
+                    var geminiClient = _httpClientFactory.CreateClient();
+                    geminiClient.DefaultRequestHeaders.Authorization =
                         new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", geminiKey);
+                    geminiClient.Timeout = TimeSpan.FromSeconds(20);
 
                     var geminiBody = JsonSerializer.Serialize(new
                     {
@@ -245,15 +248,15 @@ Analise e retorne JSON com os artigos relevantes que confirmam ou contestam a hi
                     }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
 
                     using var geminiContent = new StringContent(geminiBody, Encoding.UTF8, "application/json");
-                    var geminiResponse = await client.PostAsync($"{geminiBaseUrl}/chat/completions", geminiContent, ct);
-                    if (geminiResponse.IsSuccessStatusCode)
+                    response = await geminiClient.PostAsync($"{geminiBaseUrl}/chat/completions", geminiContent, ct);
+                    if (response.IsSuccessStatusCode)
                     {
-                        response = geminiResponse;
                         _logger.LogInformation("[ClinicalEvidence] Fallback Gemini OK.");
                     }
                     else
                     {
-                        _logger.LogWarning("[ClinicalEvidence] Fallback Gemini também falhou: {StatusCode}", geminiResponse.StatusCode);
+                        _logger.LogWarning("[ClinicalEvidence] Fallback Gemini também falhou: {StatusCode}", response.StatusCode);
+                        response.Dispose();
                         return articles.Take(5).Select(a => BuildFallbackDto(a)).ToList();
                     }
                 }

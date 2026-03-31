@@ -34,6 +34,16 @@ export function ConductSection({
 }: ConductSectionProps) {
   const [showSuggestion, setShowSuggestion] = useState(!!aiSuggestion);
 
+  // BUG FIX: When aiSuggestion arrives after mount (async AI response),
+  // showSuggestion stays false. Re-show when aiSuggestion transitions from falsy to truthy.
+  const prevAiSuggestionRef = React.useRef(aiSuggestion);
+  React.useEffect(() => {
+    if (aiSuggestion && !prevAiSuggestionRef.current) {
+      setShowSuggestion(true);
+    }
+    prevAiSuggestionRef.current = aiSuggestion;
+  }, [aiSuggestion]);
+
   const useSuggestion = useCallback(() => {
     if (aiSuggestion) {
       onChangeText(aiSuggestion);

@@ -339,7 +339,7 @@ export default function NewExam() {
         {exams.length > 0 && (
           <View style={styles.tags}>
             {exams.map((exam, index) => (
-              <View key={index} style={styles.tag}>
+              <View key={`${exam}-${index}`} style={styles.tag}>
                 <Text style={styles.tagText}>{exam}</Text>
                 <TouchableOpacity onPress={() => removeExam(index)}>
                   <Ionicons name="close" size={16} color={colors.accent} />

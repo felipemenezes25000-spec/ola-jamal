@@ -1,8 +1,11 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackApiLatency } from './analytics';
 import { logApiError } from './logger';
 import { AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY } from './constants/storage-keys';
 import { getSecureItem, setSecureItem } from './secure-storage';
+
+const FORBIDDEN_MESSAGE_KEY = '@renoveja:forbidden_message';
 
 /** Debounce 401 logs: múltiplas chamadas simultâneas geram um único log. */
 let last401LogAt = 0;
@@ -142,8 +145,9 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        // 401/403 do endpoint de refresh = token realmente inválido → logout correto
-        if (response.status === 401 || response.status === 403) return 'invalid';
+        if (response.status === 401) return 'invalid';
+        // 403 from refresh may be DoctorApprovalFilter blocking pending doctors — not an invalid token
+        if (response.status === 403) return 'error';
         // 429 (rate limit), 500, 502, etc. = problema transitório → NÃO deslogar
         return 'error';
       }
@@ -297,6 +301,9 @@ class ApiClient {
             unauthorizedHandled = true;
             this.onUnauthorized();
           }
+          if (response.status === 403) {
+            AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, errorMessage).catch(() => {});
+          }
           const path = resolveApiPath(response, requestUrl);
           if (response.status === 401) {
             const now = Date.now();
@@ -349,6 +356,9 @@ class ApiClient {
 
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled && !skipUnauthorizedCallback) {
         this.onUnauthorized();
+      }
+      if (response.status === 403) {
+        AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, errorMessage).catch(() => {});
       }
 
       const error: ApiError = {
@@ -461,14 +471,14 @@ class ApiClient {
 
     let response = await doFetch();
 
-    // 401 → tentar refresh e retry (mesmo padrão do fetchWithAuthRetry)
     if (response.status === 401) {
       const refreshResult = await this.tryRefreshToken();
       if (refreshResult === 'success') {
         response = await doFetch();
-      } else if (refreshResult === 'invalid' && this.onUnauthorized) {
-        this.onUnauthorized();
+      } else if (refreshResult === 'invalid') {
+        if (this.onUnauthorized) this.onUnauthorized();
       }
+      // 'error' (network/server) → don't logout, fall through with original response
     }
 
     if (!response.ok) {
@@ -477,7 +487,10 @@ class ApiClient {
         const err = await response.json();
         msg = err.message || err.error || msg;
       } catch { }
-      throw { message: msg, status: response.status };
+      if (response.status === 403) {
+        AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, msg).catch(() => {});
+      }
+      throw { message: msg, status: response.status } as ApiError;
     }
     return response.blob();
   }

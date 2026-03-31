@@ -62,6 +62,7 @@ export default function DoctorVideoCall() {
   const [patient, setPatient] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
+  const [meetingToken, setMeetingToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Consultation state
@@ -160,7 +161,8 @@ export default function DoctorVideoCall() {
         // Get video room token
         try {
           const tokenData = await getJoinToken(requestId);
-          setRoomUrl(tokenData.roomUrl ? `${tokenData.roomUrl}?t=${tokenData.token}` : null);
+          setRoomUrl(tokenData.roomUrl ?? null);
+          setMeetingToken(tokenData.token ?? null);
           setContractedMinutes(tokenData.contractedMinutes ?? data.contractedMinutes ?? null);
         } catch {
           setError('Não foi possível obter o link da videochamada');
@@ -182,14 +184,17 @@ export default function DoctorVideoCall() {
   }, [requestId]);
 
   // Bug #2: Handle left-meeting (voluntary leave or unexpected disconnection)
-  const handleCallLeft = useCallback(() => {
-    // Stop the timer
+  const handleCallLeft = useCallback(async () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    // If consultation was active, navigate to summary; otherwise back to request
     if (consultationStarted && requestId) {
+      try {
+        await finishConsultation(requestId, { conductNotes: '' });
+      } catch {
+        // best-effort — navigate to summary regardless
+      }
       toast.info('Videochamada encerrada.');
       navigate(`/resumo-consulta/${requestId}`);
     } else if (requestId) {
@@ -254,7 +259,7 @@ export default function DoctorVideoCall() {
     );
   }
 
-  if (error || !roomUrl) {
+  if (error || !roomUrl || !meetingToken) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-lg">
@@ -301,6 +306,7 @@ export default function DoctorVideoCall() {
       <div className="flex-1 flex max-md:flex-col overflow-hidden">
         <VideoFrameDaily
           roomUrl={roomUrl}
+          meetingToken={meetingToken}
           requestId={requestId ?? null}
           isExpanded={isExpanded}
           onToggleExpand={() => setIsExpanded(!isExpanded)}

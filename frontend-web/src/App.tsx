@@ -1,7 +1,7 @@
 import { AdminSubdomainRedirect } from '@/components/AdminSubdomainRedirect';
-import { isAuthenticated } from '@/services/adminApi';
+import { isAuthenticated, validateAdminToken } from '@/services/adminApi';
 import { Loader2 } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
@@ -90,12 +90,21 @@ function isDoctorPortal(): boolean {
 }
 
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
-  // TODO(security): Adicionar verificação de token com backend (GET /api/auth/me)
-  // para validar que o token é real e que o user tem role admin.
-  // A verificação client-side atual pode ser bypassada facilmente.
-  if (!isAuthenticated()) {
-    return <Navigate to="/admin/login" replace />;
-  }
+  const [status, setStatus] = useState<'checking' | 'valid' | 'invalid'>(() =>
+    isAuthenticated() ? 'checking' : 'invalid'
+  );
+
+  useEffect(() => {
+    if (status !== 'checking') return;
+    const controller = new AbortController();
+    validateAdminToken(controller.signal).then((ok) => {
+      if (!controller.signal.aborted) setStatus(ok ? 'valid' : 'invalid');
+    });
+    return () => controller.abort();
+  }, [status]);
+
+  if (status === 'invalid') return <Navigate to="/admin/login" replace />;
+  if (status === 'checking') return <FallbackLoader />;
   return <>{children}</>;
 }
 
@@ -179,6 +188,7 @@ export default function App() {
           }
         />
         <Route path="/admin/*" element={<AdminNotFound />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </>

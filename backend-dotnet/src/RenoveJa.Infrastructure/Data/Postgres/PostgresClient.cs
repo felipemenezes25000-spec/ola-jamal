@@ -168,7 +168,7 @@ public class PostgresClient
 
     private static readonly HashSet<string> JsonbColumnsRequests = new(StringComparer.OrdinalIgnoreCase)
     {
-        "medications", "prescription_images", "exams", "exam_images", "ai_extracted_json"
+        "medications", "prescription_images", "exams", "exam_images"
     };
 
     private static readonly HashSet<string> JsonbColumnsNotifications = new(StringComparer.OrdinalIgnoreCase)
@@ -261,6 +261,23 @@ public class PostgresClient
             i++;
         }
         return (string.Join(", ", clauses), parameters);
+    }
+
+    public async Task ExecuteInTransactionAsync(Func<NpgsqlConnection, NpgsqlTransaction, Task> action, CancellationToken cancellationToken = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await action(conn, tx);
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     /// <summary>

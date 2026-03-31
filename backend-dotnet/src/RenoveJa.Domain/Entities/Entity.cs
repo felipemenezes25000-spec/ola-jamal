@@ -39,6 +39,10 @@ public abstract class Entity
         if (GetType() != other.GetType())
             return false;
 
+        // Transient entities (default Id) are only equal by reference
+        if (Id == Guid.Empty || other.Id == Guid.Empty)
+            return false;
+
         return Id == other.Id;
     }
 

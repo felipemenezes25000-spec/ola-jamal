@@ -60,19 +60,22 @@ export function PatientSidePanel({
 
   useEffect(() => {
     if (!patientId) return;
-    queueMicrotask(() => setLoading(true));
+    const controller = new AbortController();
+    queueMicrotask(() => { if (!controller.signal.aborted) setLoading(true); });
     Promise.all([
       getPatientProfile(patientId),
       getPatientClinicalSummary(patientId).catch(() => null),
       getPatientRequests(patientId).catch(() => []),
     ])
       .then(([p, s, r]) => {
+        if (controller.signal.aborted) return;
         setPatient(p);
         setSummary(s);
         setRequests(parseApiList<MedicalRequest>(r));
       })
-      .catch(() => setPatient(null))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!controller.signal.aborted) setPatient(null); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, [patientId]);
 
   if (!patientId) return null;

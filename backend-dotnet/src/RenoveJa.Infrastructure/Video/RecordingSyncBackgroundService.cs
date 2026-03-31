@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Npgsql;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Infrastructure.Data.Postgres;
@@ -16,7 +15,6 @@ namespace RenoveJa.Infrastructure.Video;
 /// </summary>
 public sealed class RecordingSyncBackgroundService(
     IServiceScopeFactory scopeFactory,
-    IOptions<DatabaseConfig> dbConfig,
     PostgresClient postgresClient,
     ILogger<RecordingSyncBackgroundService> logger) : BackgroundService
 {

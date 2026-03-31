@@ -109,8 +109,8 @@ export function DoctorAuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:expired', handleExpired);
   }, []);
 
-  const signOut = useCallback(() => {
-    logoutDoctor();
+  const signOut = useCallback(async () => {
+    await logoutDoctor();
   }, []);
 
   // ── isAuthenticated: usa user E sessão (ambos devem existir) ──

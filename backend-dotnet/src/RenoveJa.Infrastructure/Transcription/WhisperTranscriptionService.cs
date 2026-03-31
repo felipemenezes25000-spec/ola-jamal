@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
@@ -68,7 +69,8 @@ public class WhisperTranscriptionService : ITranscriptionService
 
         if (!string.IsNullOrWhiteSpace(previousContext))
         {
-            var contextTrimmed = TrimToLastWords(previousContext, 180);
+            var sanitized = SanitizeContext(previousContext);
+            var contextTrimmed = TrimToLastWords(sanitized, 180);
             content.Add(new StringContent(contextTrimmed), "prompt");
             _logger.LogDebug("[Whisper] Prompt de contexto: {Len} palavras", contextTrimmed.Split(' ').Length);
         }
@@ -129,6 +131,17 @@ public class WhisperTranscriptionService : ITranscriptionService
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length <= maxWords) return text;
         return string.Join(' ', words[^maxWords..]);
+    }
+
+    private static string SanitizeContext(string context)
+    {
+        var lines = context.Split('\n');
+        var filtered = lines.Where(line =>
+        {
+            var trimmed = line.TrimStart().ToLowerInvariant();
+            return !Regex.IsMatch(trimmed, @"^(transcribe|ignore|translate|forget|disregard|override|system|instruction)\b");
+        });
+        return string.Join('\n', filtered);
     }
 
     private static string ResolveFileExtension(string? fileName)

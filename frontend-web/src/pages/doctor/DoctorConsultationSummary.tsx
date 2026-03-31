@@ -66,16 +66,20 @@ export default function DoctorConsultationSummary() {
 
   useEffect(() => {
     if (!requestId) return;
+    let cancelled = false;
     getRequestById(requestId)
       .then((r) => {
+        if (cancelled) return;
         setRequest(r);
         setClinicalNote(r.notes ?? '');
       })
       .catch(() => {
+        if (cancelled) return;
         toast.error('Não foi possível carregar o resumo');
         navigate('/consultas');
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [requestId, navigate]);
 
   useEffect(() => {

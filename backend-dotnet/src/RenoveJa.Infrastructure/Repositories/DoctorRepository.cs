@@ -40,6 +40,7 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
     {
         var models = await db.GetAllAsync<DoctorProfileModel>(
             TableName,
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();
@@ -88,6 +89,7 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
         var models = await db.GetAllAsync<DoctorProfileModel>(
             TableName,
             filter: filter,
+            orderBy: "created_at.desc",
             limit: limit,
             offset: offset,
             cancellationToken: cancellationToken);
@@ -110,6 +112,7 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
         var models = await db.GetAllAsync<DoctorProfileModel>(
             TableName,
             filter: filter,
+            orderBy: "created_at.desc",
             limit: limit,
             offset: offset,
             cancellationToken: cancellationToken);

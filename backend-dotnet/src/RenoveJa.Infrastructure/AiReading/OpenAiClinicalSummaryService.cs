@@ -141,7 +141,12 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
             };
 
             var startedAt = DateTime.UtcNow;
-            var json = JsonSerializer.Serialize(requestBody);
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                WriteIndented = false
+            };
+            var json = JsonSerializer.Serialize(requestBody, jsonOptions);
             var promptHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
             var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
@@ -160,15 +165,6 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
                     success: false,
                     durationMs: (long)(DateTime.UtcNow - startedAt).TotalMilliseconds,
                     errorMessage: $"HTTP {(int)response.StatusCode}"), cancellationToken);
-                // Fallback: OpenAI falhou e Gemini configurada → tenta gemini-2.5-flash
-                var usedOpenAi = model.StartsWith("gpt", StringComparison.OrdinalIgnoreCase);
-                var geminiKey = _config.Value?.GeminiApiKey?.Trim();
-        if (usedOpenAi && !string.IsNullOrEmpty(geminiKey) && !geminiKey.Contains("YOUR_") && !geminiKey.Contains("_HERE"))
-        {
-            _logger.LogInformation("IA resumo clínico: Fallback para Gemini após falha OpenAI.");
-            var url = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl) ? _config.Value!.GeminiApiBaseUrl!.Trim() : GeminiBaseUrl;
-            return await CallStructuredAsync(input, geminiKey ?? "", url, "gemini-2.5-flash", cancellationToken);
-        }
                 return null;
             }
 
@@ -421,7 +417,11 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
                 }
             };
 
-            var json = JsonSerializer.Serialize(requestBody);
+            var json = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                WriteIndented = false
+            });
             var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             client.Timeout = TimeSpan.FromSeconds(45);
@@ -472,14 +472,17 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
     private static string BuildUserContent(ClinicalSummaryInput input)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Paciente: {input.PatientName}");
+        sb.AppendLine($"Paciente: {PromptSanitizer.SanitizeForPrompt(input.PatientName)}");
         if (input.PatientBirthDate.HasValue)
         {
-            var age = DateTime.Today.Year - input.PatientBirthDate.Value.Year;
-            sb.AppendLine($"Data de nascimento: {input.PatientBirthDate:dd/MM/yyyy} (idade: ~{age} anos)");
+            var today = DateTime.Today;
+            var birthDate = input.PatientBirthDate.Value;
+            var age = today.Year - birthDate.Year;
+            if (birthDate.Date > today.AddYears(-age)) age--;
+            sb.AppendLine($"Data de nascimento: {input.PatientBirthDate:dd/MM/yyyy} (idade: {age} anos)");
         }
         if (!string.IsNullOrWhiteSpace(input.PatientGender))
-            sb.AppendLine($"Sexo: {input.PatientGender}");
+            sb.AppendLine($"Sexo: {PromptSanitizer.SanitizeForPrompt(input.PatientGender)}");
         if (input.Allergies.Count > 0)
             sb.AppendLine($"ALERGIAS: {string.Join(", ", input.Allergies)}");
         else
@@ -493,7 +496,7 @@ public class OpenAiClinicalSummaryService : IClinicalSummaryService
             {
                 sb.AppendLine($"Data: {c.Date:dd/MM/yyyy}");
                 if (!string.IsNullOrWhiteSpace(c.Symptoms))
-                    sb.AppendLine($"  Queixa: {c.Symptoms}");
+                    sb.AppendLine($"  Queixa: {PromptSanitizer.SanitizeForPrompt(c.Symptoms)}");
                 if (!string.IsNullOrWhiteSpace(c.Cid))
                     sb.AppendLine($"  CID: {c.Cid}");
                 if (!string.IsNullOrWhiteSpace(c.Conduct))

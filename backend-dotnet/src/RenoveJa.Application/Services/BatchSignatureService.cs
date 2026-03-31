@@ -39,13 +39,13 @@ public class BatchSignatureService(
         var request = await requestRepository.GetByIdAsync(requestId, ct);
         if (request == null || request.DoctorId != doctorUserId) return false;
 
-        await accessLogRepository.LogAccessAsync(new DocumentAccessEntry
-        {
-            RequestId = requestId,
-            UserId = doctorUserId,
-            Action = "reviewed",
-            ActorType = "doctor",
-        }, ct);
+        await accessLogRepository.LogAccessAsync(DocumentAccessEntry.Create(
+            documentId: null,
+            requestId: requestId,
+            userId: doctorUserId,
+            action: "reviewed",
+            actorType: "doctor"
+        ), ct);
 
         logger.LogInformation("Request {RequestId} marked as reviewed by doctor {DoctorId}",
             requestId, doctorUserId);
@@ -72,13 +72,13 @@ public class BatchSignatureService(
             return (false, "É necessário revisar o pedido antes de aprovar para assinatura.");
 
         // Marcar como aprovado
-        await accessLogRepository.LogAccessAsync(new DocumentAccessEntry
-        {
-            RequestId = requestId,
-            UserId = doctorUserId,
-            Action = "approved_for_signing",
-            ActorType = "doctor",
-        }, ct);
+        await accessLogRepository.LogAccessAsync(DocumentAccessEntry.Create(
+            documentId: null,
+            requestId: requestId,
+            userId: doctorUserId,
+            action: "approved_for_signing",
+            actorType: "doctor"
+        ), ct);
 
         logger.LogInformation("Request {RequestId} approved for batch signing by {DoctorId}",
             requestId, doctorUserId);
@@ -136,13 +136,13 @@ public class BatchSignatureService(
                 // TODO: Chamar o fluxo de assinatura existente
                 // (SignatureService.SignRequestAsync ou IDigitalCertificateService.SignPdfAsync)
                 // Por ora, registrar a intenção de assinatura
-                await accessLogRepository.LogAccessAsync(new DocumentAccessEntry
-                {
-                    RequestId = requestId,
-                    UserId = doctorUserId,
-                    Action = "batch_signed",
-                    ActorType = "doctor",
-                }, ct);
+                await accessLogRepository.LogAccessAsync(DocumentAccessEntry.Create(
+                    documentId: null,
+                    requestId: requestId,
+                    userId: doctorUserId,
+                    action: "batch_signed",
+                    actorType: "doctor"
+                ), ct);
 
                 results.Add(new(requestId, true, null));
                 signedCount++;

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,6 +33,9 @@ public class ConsultationController(
     private const string AnamnesisThrottleKeyPrefix = "consultation_anamnesis_last_";
     private static readonly TimeSpan AnamnesisThrottleInterval = TimeSpan.FromMinutes(1);
     private const int MinTranscriptLengthForAnamnesis = 200;
+    private const int MaxAiCallsPerConsultation = 50;
+    private static readonly ConcurrentDictionary<string, (int Count, DateTime LastAccessed)> AiCallCounts = new();
+    private static DateTime _lastAiCleanup = DateTime.UtcNow;
 
     /// <summary>
     /// Recebe um chunk de áudio, transcreve e acumula.
@@ -156,8 +160,15 @@ public class ConsultationController(
         logger.LogInformation("[Transcribe] Anamnese IA: RequestId={RequestId} fullTextLen={Len} minRequerido={Min} canRun={CanRun} throttleActive={Throttle}",
             requestId, fullText.Length, MinTranscriptLengthForAnamnesis, canRunAnamnesis, throttleActive);
 
-        if (canRunAnamnesis && !throttleActive)
+        var aiCallKey = requestId.ToString();
+        CleanupStaleAiCounts();
+        var entry = AiCallCounts.GetOrAdd(aiCallKey, _ => (0, DateTime.UtcNow));
+        var currentCount = entry.Count;
+
+        if (canRunAnamnesis && !throttleActive && currentCount < MaxAiCallsPerConsultation)
         {
+            AiCallCounts.AddOrUpdate(aiCallKey, _ => (1, DateTime.UtcNow), (_, e) => (e.Count + 1, DateTime.UtcNow));
+
             memoryCache.Set(throttleKey, true,
                 new MemoryCacheEntryOptions().SetAbsoluteExpiration(AnamnesisThrottleInterval));
 
@@ -165,13 +176,13 @@ public class ConsultationController(
             logger.LogInformation("[Transcribe] Disparando anamnese IA: RequestId={RequestId} previousAnamnesisLen={PrevLen}",
                 requestId, previousAnamnesisJson?.Length ?? 0);
 
-            // Fire-and-forget sem Task.Run — evita thread pool starvation em ASP.NET Core
             _ = ((Func<Task>)(async () =>
             {
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
                 try
                 {
                     var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(
-                        fullText, previousAnamnesisJson, CancellationToken.None);
+                        fullText, previousAnamnesisJson, timeoutCts.Token);
                     if (result != null)
                     {
                         var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
@@ -189,7 +200,6 @@ public class ConsultationController(
                             await hubContext.Clients.Group(group)
                                 .SendAsync("EvidenceUpdate", new EvidenceUpdateDto(result.Evidence));
                         }
-                        // Grounding report: valida se CID está fundamentado no transcript
                         var groundingReport = CidGroundingValidator.Validate(fullText, result.AnamnesisJson);
                         await hubContext.Clients.Group(group)
                             .SendAsync("GroundingUpdate", groundingReport);
@@ -206,11 +216,20 @@ public class ConsultationController(
                             requestId);
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    logger.LogWarning("[Transcribe] Anamnese IA cancelada por timeout (2min). RequestId={RequestId}", requestId);
+                }
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "[Transcribe] ANAMNESE_NAO_OCORRE: Exceção ao atualizar anamnese. RequestId={RequestId}", requestId);
                 }
             }))();
+        }
+        else if (currentCount >= MaxAiCallsPerConsultation)
+        {
+            logger.LogWarning("[Transcribe] Rate limit atingido ({Count}/{Max}) para RequestId={RequestId}",
+                currentCount, MaxAiCallsPerConsultation, requestId);
         }
         else if (!canRunAnamnesis)
         {
@@ -288,20 +307,26 @@ public class ConsultationController(
         var canRunAnamnesis = fullText.Length >= MinTranscriptLengthForAnamnesis;
         var throttleActive = memoryCache.TryGetValue(throttleKey, out _);
 
-        if (canRunAnamnesis && !throttleActive)
+        var aiCallKey2 = requestId.ToString();
+        var entry2 = AiCallCounts.GetOrAdd(aiCallKey2, _ => (0, DateTime.UtcNow));
+        var currentCount2 = entry2.Count;
+
+        if (canRunAnamnesis && !throttleActive && currentCount2 < MaxAiCallsPerConsultation)
         {
+            AiCallCounts.AddOrUpdate(aiCallKey2, _ => (1, DateTime.UtcNow), (_, e) => (e.Count + 1, DateTime.UtcNow));
+
             memoryCache.Set(throttleKey, true,
                 new MemoryCacheEntryOptions().SetAbsoluteExpiration(AnamnesisThrottleInterval));
 
             var (previousAnamnesisJson, _) = sessionStore.GetAnamnesisState(requestId);
 
-            // Fire-and-forget sem Task.Run
             _ = ((Func<Task>)(async () =>
             {
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
                 try
                 {
                     var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(
-                        fullText, previousAnamnesisJson, CancellationToken.None);
+                        fullText, previousAnamnesisJson, timeoutCts.Token);
                     if (result != null)
                     {
                         var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
@@ -319,7 +344,6 @@ public class ConsultationController(
                             await hubContext.Clients.Group(group)
                                 .SendAsync("EvidenceUpdate", new EvidenceUpdateDto(result.Evidence));
                         }
-                        // Grounding report: valida se CID está fundamentado no transcript
                         var groundingReport = CidGroundingValidator.Validate(fullText, result.AnamnesisJson);
                         await hubContext.Clients.Group(group)
                             .SendAsync("GroundingUpdate", groundingReport);
@@ -331,6 +355,10 @@ public class ConsultationController(
                             requestId, result.Suggestions.Count, groundingReport.Score);
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    logger.LogWarning("[TranscribeText] Anamnese IA cancelada por timeout (2min). RequestId={RequestId}", requestId);
+                }
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "[TranscribeText] Exceção ao atualizar anamnese. RequestId={RequestId}", requestId);
@@ -341,6 +369,7 @@ public class ConsultationController(
         return Ok(new { ok = true, fullLength = fullText.Length });
     }
 
+#if DEBUG
     /// <summary>
     /// Endpoint de teste de anamnese (apenas Development).
     /// Aceita transcript e retorna anamnese gerada pela IA (Gemini/OpenAI).
@@ -450,6 +479,23 @@ public class ConsultationController(
             fileName = file.FileName
         });
     }
+#endif
+
+    private static void CleanupStaleAiCounts()
+    {
+        var now = DateTime.UtcNow;
+        if ((now - _lastAiCleanup).TotalMinutes < 10) return;
+        _lastAiCleanup = now;
+        var cutoff = now.AddHours(-1);
+        foreach (var kvp in AiCallCounts)
+        {
+            if (kvp.Value.LastAccessed < cutoff)
+                AiCallCounts.TryRemove(kvp.Key, out _);
+        }
+    }
+
+    internal static void RemoveAiCallCount(string requestId)
+        => AiCallCounts.TryRemove(requestId, out _);
 
     private Guid GetUserId()
     {

@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -40,6 +41,8 @@ public class ContactController : ControllerBase
             return BadRequest(new { error = "Nome é obrigatório." });
         if (string.IsNullOrEmpty(email))
             return BadRequest(new { error = "E-mail é obrigatório." });
+        if (!MailAddress.TryCreate(email, out _))
+            return BadRequest(new { error = "Formato de e-mail inválido." });
         if (string.IsNullOrEmpty(message))
             return BadRequest(new { error = "Mensagem é obrigatória." });
 
@@ -68,7 +71,10 @@ public class ContactController : ControllerBase
                 message,
                 ct);
 
-            _logger.LogInformation("Contato enviado: {Name} ({Email})", name, email);
+            var maskedEmail = email.Length > 2 && email.Contains('@')
+                ? email[..2] + new string('*', email.IndexOf('@') - 2) + email[email.IndexOf('@')..]
+                : "***";
+            _logger.LogInformation("Contato enviado: {Name} ({Email})", name, maskedEmail);
             return Ok(new { ok = true, message = "Mensagem enviada com sucesso." });
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Smtp"))

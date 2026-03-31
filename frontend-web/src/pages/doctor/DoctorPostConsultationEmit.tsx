@@ -184,9 +184,11 @@ export default function DoctorPostConsultationEmit() {
 
   useEffect(() => {
     if (!requestId) return;
+    let cancelled = false;
     getRequestById(requestId)
-      .then(r => { setRequest(r); setLoading(false); })
-      .catch(() => { toast.error('Erro ao carregar consulta'); navigate(-1); });
+      .then(r => { if (!cancelled) { setRequest(r); setLoading(false); } })
+      .catch(() => { if (!cancelled) { toast.error('Erro ao carregar consulta'); navigate(-1); } });
+    return () => { cancelled = true; };
   }, [requestId, navigate]);
 
   // FIX #64: Sync toggles, meds, exams, cert quando request/anamnesis carrega

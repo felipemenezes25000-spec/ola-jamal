@@ -71,9 +71,10 @@ public class VideoSignalingHub(
             return;
         }
 
-        var group = GroupName(requestId);
+        var normalizedId = reqId.ToString();
+        var group = GroupName(normalizedId);
         await Groups.AddToGroupAsync(Context.ConnectionId, group);
-        logger.LogInformation("User {UserId} joined video room {RequestId}", userGuid, requestId);
+        logger.LogInformation("User {UserId} joined video room {RequestId}", userGuid, normalizedId);
 
         // Sincronizar estado atual para garantir que anamnese, evidências e perguntas apareçam (evita tela vazia)
         // Chamadas Redis sequenciais — se a primeira falhar (Redis offline), pular as demais para não bloquear 3×timeout
@@ -152,7 +153,8 @@ public class VideoSignalingHub(
 
     private async Task SendToOthersInRoom(string requestId, string method, object payload)
     {
-        var group = GroupName(requestId);
+        var normalizedId = Guid.TryParse(requestId, out var parsed) ? parsed.ToString() : requestId;
+        var group = GroupName(normalizedId);
         await Clients.OthersInGroup(group).SendAsync(method, payload);
     }
 

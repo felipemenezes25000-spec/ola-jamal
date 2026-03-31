@@ -289,7 +289,7 @@ export default function DoctorRequestEditor() {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        handleSave();
+        if (!saving) handleSave();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
         e.preventDefault();
@@ -298,7 +298,7 @@ export default function DoctorRequestEditor() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSave, handlePreviewPdf]);
+  }, [handleSave, handlePreviewPdf, saving]);
 
   const handleSign = async () => {
     if (!id || !certPassword) return;

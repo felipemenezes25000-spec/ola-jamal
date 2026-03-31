@@ -24,7 +24,6 @@ export default function SettingsScreen() {
   const [pushEnabled, setPushEnabled] = useState(false);
   // null = ainda carregando, false = sem token, true = token registrado
   const [hasToken, setHasToken] = useState<boolean | null>(null);
-  const [emailEnabled, setEmailEnabled] = useState(true);
   const [mutedCount, setMutedCount] = useState(0);
   const [categoryPrefs, setCategoryPrefs] = useState<PushPreferencesDto>({
     requestsEnabled: true,
@@ -38,29 +37,37 @@ export default function SettingsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useEffect(() => {
+    let cancelled = false;
     getMutedKeys()
-      .then(keys => setMutedCount(keys.length))
-      .catch(() => showToast({ message: 'Não foi possível carregar triagem silenciada', type: 'error' }));
+      .then(keys => { if (!cancelled) setMutedCount(keys.length); })
+      .catch(() => { if (!cancelled) showToast({ message: 'Não foi possível carregar triagem silenciada', type: 'error' }); });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetchPushTokens()
       .then(tokens => {
+        if (cancelled) return;
         const hasRegistered = tokens.length > 0;
         setHasToken(hasRegistered);
         // Só mostra toggle ativo se há token registrado E pelo menos um ativo
         setPushEnabled(hasRegistered && tokens.some((t: { active: boolean }) => t.active));
       })
       .catch(() => {
+        if (cancelled) return;
         setHasToken(false);
         showToast({ message: 'Não foi possível carregar status de push', type: 'error' });
       });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     getPushPreferences()
-      .then(data => setCategoryPrefs(data))
-      .catch(() => showToast({ message: 'Não foi possível carregar preferências de notificação', type: 'error' }));
+      .then(data => { if (!cancelled) setCategoryPrefs(data); })
+      .catch(() => { if (!cancelled) showToast({ message: 'Não foi possível carregar preferências de notificação', type: 'error' }); });
+    return () => { cancelled = true; };
   }, []);
 
   const handleResetMuted = async () => {
@@ -226,19 +233,6 @@ export default function SettingsScreen() {
               >
                 <Text style={[styles.linkText, !hasToken && styles.linkTextDisabled]}>Enviar</Text>
               </TouchableOpacity>
-            }
-          />
-          <View style={styles.divider} />
-          <SettingItem
-            icon="mail-outline"
-            label="Notificações por E-mail"
-            right={
-              <Switch
-                value={emailEnabled}
-                onValueChange={setEmailEnabled}
-                trackColor={{ true: colors.success, false: colors.border }}
-                thumbColor={colors.white}
-              />
             }
           />
         </AppCard>

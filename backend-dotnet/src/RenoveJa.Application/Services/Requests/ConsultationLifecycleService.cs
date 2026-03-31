@@ -39,12 +39,34 @@ public class ConsultationLifecycleService(
 {
     private readonly string _apiBaseUrl = (apiConfig?.Value?.BaseUrl ?? "").Trim();
 
-    // Per-consultation lock to prevent concurrent accept/start race conditions.
-    // Uses a static ConcurrentDictionary so the locks survive across scoped service instances.
-    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _consultationLocks = new();
+    private static readonly ConcurrentDictionary<Guid, (SemaphoreSlim Semaphore, DateTime LastAccessed)> _consultationLocks = new();
+    private static DateTime _lastCleanup = DateTime.UtcNow;
 
     private static SemaphoreSlim GetLockFor(Guid consultationId)
-        => _consultationLocks.GetOrAdd(consultationId, _ => new SemaphoreSlim(1, 1));
+    {
+        var entry = _consultationLocks.AddOrUpdate(
+            consultationId,
+            _ => (new SemaphoreSlim(1, 1), DateTime.UtcNow),
+            (_, existing) => (existing.Semaphore, DateTime.UtcNow));
+        CleanupStaleLocks();
+        return entry.Semaphore;
+    }
+
+    private static void RemoveLock(Guid consultationId)
+        => _consultationLocks.TryRemove(consultationId, out _);
+
+    private static void CleanupStaleLocks()
+    {
+        var now = DateTime.UtcNow;
+        if ((now - _lastCleanup).TotalMinutes < 10) return;
+        _lastCleanup = now;
+        var cutoff = now.AddHours(-1);
+        foreach (var kvp in _consultationLocks)
+        {
+            if (kvp.Value.LastAccessed < cutoff && kvp.Value.Semaphore.CurrentCount == 1)
+                _consultationLocks.TryRemove(kvp.Key, out _);
+        }
+    }
 
     private Task PublishRequestUpdatedAsync(MedicalRequest request, string? message = null, CancellationToken cancellationToken = default)
         => requestEventsPublisher.NotifyRequestUpdatedAsync(
@@ -120,6 +142,13 @@ public class ConsultationLifecycleService(
             // Idempotent: if already InConsultation by the same doctor (e.g. joined from PC + phone), return success
             if (request.Status == RequestStatus.InConsultation && request.DoctorId == doctorId)
             {
+                var existingRoom = await videoRoomRepository.GetByRequestIdAsync(id, cancellationToken);
+                if (existingRoom != null && existingRoom.Status == VideoRoomStatus.Waiting)
+                {
+                    existingRoom.Start();
+                    await videoRoomRepository.UpdateAsync(existingRoom, cancellationToken);
+                }
+
                 logger.LogInformation("[StartConsultation] Already InConsultation by same doctor — returning idempotent success. RequestId={RequestId} DoctorId={DoctorId}", id, doctorId);
                 return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
             }
@@ -341,7 +370,15 @@ public class ConsultationLifecycleService(
             .ContinueWith(t =>
             {
                 if (t.IsFaulted)
-                    logger.LogWarning(t.Exception, "Background recording sync failed for RequestId={RequestId}", id);
+                {
+                    try
+                    {
+                        using var logScope = scopeFactory.CreateScope();
+                        var scopedLogger = logScope.ServiceProvider.GetRequiredService<ILogger<ConsultationLifecycleService>>();
+                        scopedLogger.LogWarning(t.Exception, "Background recording sync failed for RequestId={RequestId}", id);
+                    }
+                    catch { /* ignore logging failure */ }
+                }
             }, TaskContinuationOptions.OnlyOnFaulted);
 
         // FIX B30: Execute SOAP notes generation inline (awaited) instead of Task.Run with scoped services.
@@ -404,6 +441,8 @@ public class ConsultationLifecycleService(
         {
             logger.LogWarning(ex, "[SOAP] Falha ao gerar notas SOAP. RequestId={RequestId}", id);
         }
+
+        RemoveLock(id);
 
         return RequestHelpers.MapRequestToDto(request, _apiBaseUrl, documentTokenService);
     }
@@ -474,29 +513,41 @@ public class ConsultationLifecycleService(
 
     private async Task SyncRecordingsAsync(Guid requestId)
     {
-        // Daily.co pode levar 2-10 min para processar a gravação.
-        // Tentamos múltiplas vezes com backoff para garantir que a gravação seja salva no S3.
-        var delays = new[] { 2, 4, 8 }; // minutos
+        var delays = new[] { 2, 4, 8 };
         foreach (var delayMinutes in delays)
         {
             await Task.Delay(TimeSpan.FromMinutes(delayMinutes));
             try
             {
                 using var scope = scopeFactory.CreateScope();
+                var scopedLogger = scope.ServiceProvider.GetRequiredService<ILogger<ConsultationLifecycleService>>();
                 var sync = scope.ServiceProvider.GetRequiredService<IRecordingSyncService>();
                 var synced = await sync.TrySyncRecordingAsync(requestId);
                 if (synced)
                 {
-                    logger.LogInformation("[RecordingSync] Gravação sincronizada com sucesso após {Minutes}min para RequestId={RequestId}", delayMinutes, requestId);
+                    scopedLogger.LogInformation("[RecordingSync] Gravação sincronizada com sucesso após {Minutes}min para RequestId={RequestId}", delayMinutes, requestId);
                     return;
                 }
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "[RecordingSync] Tentativa após {Minutes}min falhou para RequestId={RequestId}", delayMinutes, requestId);
+                try
+                {
+                    using var errorScope = scopeFactory.CreateScope();
+                    var scopedLogger = errorScope.ServiceProvider.GetRequiredService<ILogger<ConsultationLifecycleService>>();
+                    scopedLogger.LogWarning(ex, "[RecordingSync] Tentativa após {Minutes}min falhou para RequestId={RequestId}", delayMinutes, requestId);
+                }
+                catch { /* logging failure — ignore */ }
             }
         }
-        logger.LogWarning("[RecordingSync] Gravação não encontrada após todas as tentativas para RequestId={RequestId}. Webhook ou acesso manual necessário.", requestId);
+
+        try
+        {
+            using var finalScope = scopeFactory.CreateScope();
+            var scopedLogger = finalScope.ServiceProvider.GetRequiredService<ILogger<ConsultationLifecycleService>>();
+            scopedLogger.LogWarning("[RecordingSync] Gravação não encontrada após todas as tentativas para RequestId={RequestId}. Webhook ou acesso manual necessário.", requestId);
+        }
+        catch { /* logging failure — ignore */ }
     }
 
 }

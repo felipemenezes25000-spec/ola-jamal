@@ -66,13 +66,10 @@ jobs:
 
       - name: Verify newArchEnabled in gradle.properties
         run: |
-          if grep -q "newArchEnabled=true" android/gradle.properties; then
-            echo "✓ New Architecture is enabled"
-          else
-            echo "⚠ Forcing newArchEnabled=true in gradle.properties"
-            sed -i 's/newArchEnabled=false/newArchEnabled=true/' android/gradle.properties
-          fi
-          grep "newArchEnabled" android/gradle.properties
+          # app.config.js sets newArchEnabled=false (Daily.co crashes with New Architecture).
+          # Do NOT force it to true — just log the current value.
+          echo "Current newArchEnabled setting:"
+          grep "newArchEnabled" android/gradle.properties || echo "(not found)"
 
       - name: Inject google-services.json
         run: |

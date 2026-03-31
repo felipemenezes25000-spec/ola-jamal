@@ -201,7 +201,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       if (__DEV__) console.error('Error loading stored user:', error);
-      await clearAuth();
     } finally {
       clearTimeout(guard);
     }
@@ -376,6 +375,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = null;
     // Unregister push token ANTES de invalidar sessão (logout invalida o auth token)
     try {
       const pushToken = getLastRegisteredPushToken();

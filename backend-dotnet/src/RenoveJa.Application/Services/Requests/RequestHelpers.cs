@@ -54,7 +54,7 @@ internal static class RequestHelpers
         if (string.IsNullOrWhiteSpace(anamnesisJson)) return null;
         try
         {
-            var doc = JsonDocument.Parse(anamnesisJson);
+            using var doc = JsonDocument.Parse(anamnesisJson);
             var root = doc.RootElement;
 
             // Extrair do primeiro item do diagnostico_diferencial (ordenado por probabilidade pela IA)

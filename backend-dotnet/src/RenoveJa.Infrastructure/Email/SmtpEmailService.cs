@@ -40,12 +40,18 @@ Equipe RenoveJá
         using var client = new SmtpClient();
         var secureSocketOptions = cfg.EnableSsl ? SecureSocketOptions.StartTlsWhenAvailable : SecureSocketOptions.None;
         await client.ConnectAsync(cfg.Host, cfg.Port, secureSocketOptions, cancellationToken);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(cfg.UserName))
+                await client.AuthenticateAsync(cfg.UserName, cfg.Password, cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(cfg.UserName))
-            await client.AuthenticateAsync(cfg.UserName, cfg.Password, cancellationToken);
-
-        await client.SendAsync(message, cancellationToken);
-        await client.DisconnectAsync(true, cancellationToken);
+            await client.SendAsync(message, cancellationToken);
+        }
+        finally
+        {
+            if (client.IsConnected)
+                await client.DisconnectAsync(true, cancellationToken);
+        }
     }
 
     public async Task SendContactFormEmailAsync(string name, string? cpf, string? cnpj, string email, string? phone, string message, CancellationToken cancellationToken = default)
@@ -129,11 +135,17 @@ Equipe RenoveJá
         using var client = new SmtpClient();
         var secureSocketOptions = cfg.EnableSsl ? SecureSocketOptions.StartTlsWhenAvailable : SecureSocketOptions.None;
         await client.ConnectAsync(cfg.Host, cfg.Port, secureSocketOptions, cancellationToken);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(cfg.UserName))
+                await client.AuthenticateAsync(cfg.UserName, cfg.Password, cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(cfg.UserName))
-            await client.AuthenticateAsync(cfg.UserName, cfg.Password, cancellationToken);
-
-        await client.SendAsync(m, cancellationToken);
-        await client.DisconnectAsync(true, cancellationToken);
+            await client.SendAsync(m, cancellationToken);
+        }
+        finally
+        {
+            if (client.IsConnected)
+                await client.DisconnectAsync(true, cancellationToken);
+        }
     }
 }

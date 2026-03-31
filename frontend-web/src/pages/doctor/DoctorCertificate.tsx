@@ -42,7 +42,9 @@ export default function DoctorCertificate() {
   }, []);
 
   useEffect(() => {
-    loadCert();
+    let cancelled = false;
+    loadCert().finally(() => { if (cancelled) { /* component unmounted */ } });
+    return () => { cancelled = true; };
   }, []);
 
   const loadCert = async () => {

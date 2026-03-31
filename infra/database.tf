@@ -17,9 +17,9 @@ resource "aws_db_instance" "main" {
   username = "postgres"
   password = var.db_password
 
-  db_subnet_group_name   = aws_db_subnet_group.public_access.name
+  db_subnet_group_name   = aws_db_subnet_group.private.name
   vpc_security_group_ids = [aws_security_group.aurora.id]
-  publicly_accessible    = true
+  publicly_accessible    = false
   apply_immediately      = true
 
   backup_retention_period = 30
@@ -31,10 +31,10 @@ resource "aws_db_instance" "main" {
   tags = { Name = "${var.project}-postgres" }
 }
 
-resource "aws_db_subnet_group" "public_access" {
-  name       = "${var.project}-db-public-access"
-  subnet_ids = aws_subnet.public[*].id
-  tags       = { Name = "${var.project}-db-public-access" }
+resource "aws_db_subnet_group" "private" {
+  name       = "${var.project}-db-private"
+  subnet_ids = aws_subnet.private[*].id
+  tags       = { Name = "${var.project}-db-private" }
 }
 
 # ============================================================

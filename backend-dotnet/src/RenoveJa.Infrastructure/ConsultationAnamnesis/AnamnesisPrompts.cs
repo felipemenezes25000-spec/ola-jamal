@@ -1,3 +1,5 @@
+using RenoveJa.Infrastructure.AiReading;
+
 namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 
 /// <summary>
@@ -273,9 +275,10 @@ BLOQUEIO ABSOLUTO DE CID F10.x (ALCOOLISMO):
     /// </summary>
     internal static string BuildUserContentForAnamnesisV2(string processedTranscript, string? previousAnamnesisJson)
     {
+        var sanitizedTranscript = PromptSanitizer.SanitizeForPrompt(processedTranscript);
         var transcriptBlock = $@"═══ TRANSCRIPT DA CONSULTA (pré-processado, linhas consolidadas por locutor) ═══
 
-{processedTranscript}
+{sanitizedTranscript}
 
 ═══ FIM DO TRANSCRIPT ═══";
 

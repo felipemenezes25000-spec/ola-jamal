@@ -51,14 +51,15 @@ export default function DoctorDashboard() {
   }, []);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    loadData().catch(() => { /* handled in loadData */ });
+    const interval = setInterval(() => { if (!cancelled) loadData(); }, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [loadData]);
 
-  // Real-time updates via SignalR
-  // P1-8: Enhanced handler — when status is in_consultation, show countdown toast
-  //       with auto-navigation to video call (parity with mobile GlobalRequestUpdatedToast).
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { connected: realtimeConnected } = useRequestEvents(
@@ -85,6 +86,7 @@ export default function DoctorDashboard() {
           },
         });
 
+        if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
         countdownRef.current = setInterval(() => {
           remaining -= 1;
           if (remaining <= 0) {

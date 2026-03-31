@@ -145,8 +145,9 @@ public class VerificationService(
     /// </summary>
     public static string GenerateAccessCode(Guid requestId)
     {
-        var hash = requestId.GetHashCode();
-        return (Math.Abs(hash) % 1_000_000).ToString("D6");
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(requestId.ToString()));
+        var numeric = BitConverter.ToUInt64(hashBytes, 0);
+        return (numeric % 1_000_000).ToString("D6");
     }
 
     /// <summary>

@@ -250,10 +250,10 @@ export default function DoctorRequestDetail() {
 function ConsultationPostSection({ request, router }: { request: NonNullable<ReturnType<typeof useDoctorRequest>['request']>; router: ReturnType<typeof useRouter> }) {
   const { colors } = useAppTheme({ role: 'doctor' });
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const parsedAnamnesis = parseAnamnesis(request.consultationAnamnesis);
   const suggestions = parseSuggestions(request.consultationAiSuggestions);
   const evidence = parseEvidence(request.consultationEvidence);
-  const [anamnesis, setAnamnesis] = useState(parsedAnamnesis);
+  const anamnesis = useMemo(() => parseAnamnesis(request.consultationAnamnesis), [request.consultationAnamnesis]);
+  const setAnamnesis = useCallback(() => {}, []);
 
   if (request.requestType !== 'consultation') return null;
   if (request.status !== 'consultation_finished' && request.status !== 'pending_post_consultation') return null;

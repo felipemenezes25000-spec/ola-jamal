@@ -24,8 +24,23 @@ export function AIQuestionsPanel({ data }: AIQuestionsPanelProps) {
 
   if (!data) return null;
 
-  const perguntas: string[] = Array.isArray(data.perguntas_sugeridas)
-    ? data.perguntas_sugeridas.filter((p) => typeof p === 'string' && p.trim())
+  const perguntas: { text: string; detail?: string }[] = Array.isArray(data.perguntas_sugeridas)
+    ? data.perguntas_sugeridas
+        .map((p: unknown) => {
+          if (typeof p === 'string' && p.trim()) return { text: p.trim() };
+          if (p && typeof p === 'object' && 'pergunta' in p) {
+            const obj = p as Record<string, unknown>;
+            const text = String(obj.pergunta ?? '').trim();
+            if (!text) return null;
+            const extras = Object.entries(obj)
+              .filter(([k]) => k !== 'pergunta')
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(' | ');
+            return { text, detail: extras || undefined };
+          }
+          return null;
+        })
+        .filter((p): p is { text: string; detail?: string } => p !== null)
     : [];
   const redFlags: string[] = Array.isArray(data.red_flags) ? data.red_flags.filter((r) => typeof r === 'string' && r.trim()) : [];
 
@@ -118,13 +133,16 @@ export function AIQuestionsPanel({ data }: AIQuestionsPanelProps) {
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium italic ${isChecked ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
-                        &quot;{p}&quot;
+                        &quot;{p.text}&quot;
                       </p>
+                      {p.detail && (
+                        <p className="text-xs text-gray-500 mt-0.5">{p.detail}</p>
+                      )}
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(p, 'Pergunta')}
+                    onClick={() => copyToClipboard(p.text, 'Pergunta')}
                     className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-primary hover:underline"
                   >
                     <Copy className="h-3 w-3" /> Copiar

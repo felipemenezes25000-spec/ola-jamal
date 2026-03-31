@@ -28,6 +28,7 @@ public class DigitalCertificateService : IDigitalCertificateService
     private readonly ICertificateRepository _certificateRepository;
     private readonly IDoctorRepository _doctorRepository;
     private readonly IStorageService _storageService;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<DigitalCertificateService> _logger;
     private readonly byte[] _encryptionKey;
 
@@ -35,12 +36,14 @@ public class DigitalCertificateService : IDigitalCertificateService
         ICertificateRepository certificateRepository,
         IDoctorRepository doctorRepository,
         IStorageService storageService,
+        IHttpClientFactory httpClientFactory,
         IOptions<CertificateEncryptionConfig> encryptionConfig,
         ILogger<DigitalCertificateService> logger)
     {
         _certificateRepository = certificateRepository;
         _doctorRepository = doctorRepository;
         _storageService = storageService;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
         _encryptionKey = Convert.FromBase64String(encryptionConfig.Value.Key);
 
@@ -357,7 +360,7 @@ public class DigitalCertificateService : IDigitalCertificateService
         }
 
         // Baixa o PDF da URL
-        using var httpClient = new HttpClient();
+        using var httpClient = _httpClientFactory.CreateClient();
         var pdfBytes = await httpClient.GetByteArrayAsync(pdfUrl, cancellationToken);
         
         return await SignPdfAsync(certificateId, pdfBytes, outputFileName, null, documentTypeHint: null, cancellationToken);

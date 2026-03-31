@@ -172,6 +172,7 @@ export default function Register() {
   };
 
   const handleRegister = async () => {
+    if (loading) return;
     const n = name.trim();
     const e = email.trim().toLowerCase();
     const p = password.trim();
@@ -607,6 +608,7 @@ export default function Register() {
           title="Criar minha conta"
           onPress={handleRegister}
           loading={loading}
+          disabled={loading}
           fullWidth
           size="lg"
           style={styles.submitButton}

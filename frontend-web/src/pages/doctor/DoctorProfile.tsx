@@ -54,10 +54,12 @@ export default function DoctorProfile() {
   const hasCert = !!certInfo;
 
   useEffect(() => {
+    let cancelled = false;
     getActiveCertificate()
-      .then(data => setCertInfo(data))
-      .catch(() => setCertInfo(null))
-      .finally(() => setCertLoaded(true));
+      .then(data => { if (!cancelled) setCertInfo(data); })
+      .catch(() => { if (!cancelled) setCertInfo(null); })
+      .finally(() => { if (!cancelled) setCertLoaded(true); });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -100,8 +102,8 @@ export default function DoctorProfile() {
       toast.error('Senhas não coincidem');
       return;
     }
-    if (newPw.length < 6) {
-      toast.error('A nova senha deve ter pelo menos 6 caracteres');
+    if (newPw.length < 8) {
+      toast.error('A nova senha deve ter pelo menos 8 caracteres');
       return;
     }
     setPwLoading(true);
@@ -347,7 +349,7 @@ export default function DoctorProfile() {
             </div>
             <div className="space-y-2">
               <Label>Nova senha</Label>
-              <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} autoComplete="new-password" minLength={6} />
+              <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} autoComplete="new-password" minLength={8} />
             </div>
             <div className="space-y-2">
               <Label>Confirmar nova senha</Label>

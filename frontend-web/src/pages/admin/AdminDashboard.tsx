@@ -13,6 +13,7 @@ const AdminDashboard = () => {
   const [counts, setCounts] = useState({ total: 0, pendentes: 0, aprovados: 0, recusados: 0 });
 
   useEffect(() => {
+    let cancelled = false;
     // Busca contagens por status em paralelo — cada chamada retorna totalCount do backend
     Promise.all([
       getDoctors({ page: 1, pageSize: 1 }),
@@ -21,6 +22,7 @@ const AdminDashboard = () => {
       getDoctors({ status: 'rejected', page: 1, pageSize: 1 }),
     ])
       .then(([all, pend, appr, rej]) => {
+        if (cancelled) return;
         const getCount = (d: unknown) => {
           if (d && typeof d === 'object' && 'totalCount' in d) return (d as { totalCount: number }).totalCount;
           if (Array.isArray(d)) return d.length;
@@ -33,8 +35,9 @@ const AdminDashboard = () => {
           recusados: getCount(rej),
         });
       })
-      .catch(() => setError('Falha ao carregar dados'))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setError('Falha ao carregar dados'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const { total, pendentes, aprovados, recusados } = counts;

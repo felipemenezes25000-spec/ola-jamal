@@ -38,17 +38,20 @@ public class ConsultationReminderService : BackgroundService
             {
                 await SendRemindersAsync(stoppingToken);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
             catch (Exception ex)
             {
                 if (IsDatabaseNotConfigured(ex))
                     _logger.LogDebug("Database não configurado, ignorando lembretes de consulta");
                 else
-                {
                     _logger.LogError(ex, "Erro ao enviar lembretes de consulta próxima");
-                }
             }
 
-            await Task.Delay(RunInterval, stoppingToken);
+            try { await Task.Delay(RunInterval, stoppingToken); }
+            catch (OperationCanceledException) { break; }
         }
     }
 

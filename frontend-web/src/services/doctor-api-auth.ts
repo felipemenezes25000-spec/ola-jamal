@@ -53,14 +53,11 @@ export function getStoredUser(): DoctorUser | null {
 }
 
 function storeAuth(_token: string, user: DoctorUser, refreshToken?: string) {
-  // Token is now stored as an HttpOnly cookie (set by the server).
-  // We only cache user data in localStorage for quick rehydration.
-  // Legacy: keep token in localStorage during migration for fallback.
-  localStorage.setItem(TOKEN_KEY, _token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
+  lastRedirectAt = 0;
 }
 
 /** Limpa token, refresh token e usuário (usado em authFetch 401 e em SignalR 401). */
@@ -82,7 +79,7 @@ let refreshPromise: Promise<boolean> | null = null;
  * Usa mutex para que múltiplos 401 simultâneos compartilhem uma única chamada.
  * Retorna true se o refresh foi bem-sucedido, false caso contrário.
  */
-async function tryRefreshToken(): Promise<boolean> {
+export async function tryRefreshToken(): Promise<boolean> {
   // Se já há um refresh em andamento, aguardar o resultado
   if (refreshPromise) {
     return refreshPromise;
@@ -116,10 +113,7 @@ async function executeRefresh(): Promise<boolean> {
     const data = await response.json();
     if (!data?.token || !data?.refreshToken) return false;
 
-    // Persistir os novos tokens
-    localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
-    // Atualizar user se retornado
     if (data.user) {
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     }
@@ -194,6 +188,16 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   return res;
 }
 
+/**
+ * Safely parses JSON from a response, returning fallback for empty bodies (e.g. 204).
+ */
+export async function safeJson<T = unknown>(res: Response, fallback: T = {} as T): Promise<T> {
+  if (res.status === 204) return fallback;
+  const text = await res.text();
+  if (!text) return fallback;
+  return JSON.parse(text);
+}
+
 // ── Auth Endpoints ──
 
 export async function loginDoctor(email: string, password: string) {
@@ -214,6 +218,9 @@ export async function loginDoctor(email: string, password: string) {
     throw new Error(message);
   }
   const data = await res.json();
+  if (!data.token) {
+    throw new Error('Resposta de login inválida: token ausente.');
+  }
   const role = (data.user?.role ?? '').toString().toLowerCase();
   if (role !== 'doctor') {
     throw new Error('Acesso restrito a médicos. Use uma conta de médico.');
@@ -251,7 +258,11 @@ export async function registerDoctorFull(payload: {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.message || 'Erro ao criar conta');
   }
-  return res.json();
+  const data = await res.json();
+  if (data.token && data.user) {
+    storeAuth(data.token, data.user, data.refreshToken);
+  }
+  return data;
 }
 
 export async function logoutDoctor() {
@@ -320,7 +331,9 @@ export async function changePassword(currentPassword: string, newPassword: strin
     body: JSON.stringify({ currentPassword, newPassword }),
   });
   if (!res.ok) throw new Error('Erro ao alterar senha');
-  return res.json();
+  const text = await res.text();
+  if (res.status === 204 || !text) return { success: true };
+  return JSON.parse(text);
 }
 
 export async function forgotPassword(email: string) {
@@ -332,5 +345,7 @@ export async function forgotPassword(email: string) {
     credentials: 'include',
   });
   if (!res.ok) throw new Error('Erro ao enviar email');
-  return res.json();
+  const text = await res.text();
+  if (res.status === 204 || !text) return { success: true };
+  return JSON.parse(text);
 }

@@ -135,6 +135,7 @@ builder.Host.UseSerilog();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<RenoveJa.Api.Authorization.DoctorApprovalFilter>();
+    options.Filters.Add<RenoveJa.Api.Filters.UnauthorizedExceptionFilter>();
 })
     .AddJsonOptions(o =>
     {

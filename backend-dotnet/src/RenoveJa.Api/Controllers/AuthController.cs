@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using RenoveJa.Application.DTOs.Auth;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Api.Authentication;
+using RenoveJa.Api.Helpers;
 using RenoveJa.Domain.Interfaces;
 using System.Security.Claims;
 
@@ -312,6 +313,8 @@ public class AuthController(
             return BadRequest(new { error = $"Tipo não permitido: {contentType}. Use: JPEG, PNG, WebP ou HEIC." });
 
         await using var stream = file.OpenReadStream();
+        if (!await FileSignatureValidator.HasValidSignatureAsync(stream, contentType))
+            return BadRequest(new { error = "O conteúdo do arquivo não corresponde ao tipo declarado." });
         var user = await authService.UpdateAvatarAsync(userId, stream, contentType, file.FileName, cancellationToken);
         return Ok(user);
     }

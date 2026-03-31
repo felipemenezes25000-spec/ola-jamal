@@ -45,5 +45,6 @@ public static class MedicalSpecialtyDisplay
 
     /// <summary>Indica se o texto é uma especialidade válida.</summary>
     public static bool IsValid(string? value) =>
-        !string.IsNullOrWhiteSpace(value) && DisplayNames.Values.Contains(value.Trim());
+        !string.IsNullOrWhiteSpace(value) &&
+        DisplayNames.Values.Any(v => string.Equals(v, value!.Trim(), StringComparison.OrdinalIgnoreCase));
 }

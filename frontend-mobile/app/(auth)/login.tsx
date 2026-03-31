@@ -108,8 +108,10 @@ export default function Login() {
       const user = await signIn(result.data.email, result.data.password);
       const dest = !user.profileComplete
         ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
-        : user.role === 'doctor' || user.role === 'admin'
+        : user.role === 'doctor'
         ? '/(doctor)/dashboard'
+        : user.role === 'admin'
+        ? '/(doctor)/dashboard' // admin shares the doctor dashboard
         : '/(patient)/home';
       setTimeout(() => nav.replace(router, dest as any), 0);
     } catch (error: unknown) {
@@ -158,6 +160,7 @@ export default function Login() {
       return;
     }
     setGoogleLoading(true);
+    let keepLoading = false;
     try {
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
@@ -170,12 +173,17 @@ export default function Login() {
         ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
         : user.role === 'doctor'
         ? '/(doctor)/dashboard'
+        : user.role === 'admin'
+        ? '/(doctor)/dashboard' // admin shares the doctor dashboard
         : '/(patient)/home';
       setTimeout(() => nav.replace(router, dest as any), 0);
     } catch (error: unknown) {
       const err = error as { code?: string; message?: string };
       if (err?.code === statusCodes.SIGN_IN_CANCELLED) return;
-      if (err?.code === statusCodes.IN_PROGRESS) return;
+      if (err?.code === statusCodes.IN_PROGRESS) {
+        keepLoading = true;
+        return;
+      }
       if (err?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         Alert.alert('Erro', 'Google Play Services não disponível neste dispositivo.');
         return;
@@ -183,7 +191,7 @@ export default function Login() {
       const msg = err?.message || String(error) || 'Erro ao fazer login com Google.';
       Alert.alert('Erro no login', msg);
     } finally {
-      setGoogleLoading(false);
+      if (!keepLoading) setGoogleLoading(false);
     }
   }, [hasGoogleConfig, googleWebClientId, googleAndroidClientId, googleIosClientId, signInWithGoogle, router]);
 

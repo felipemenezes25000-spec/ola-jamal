@@ -124,14 +124,17 @@ export function CommandPalette({ onToggleDarkMode, isDark }: CommandPaletteProps
   }, [allItems, query]);
 
   useEffect(() => {
-    if (open) {
-      getRequests({ page: 1, pageSize: 50 })
-        .then((data) => {
+    if (!open) return;
+    let cancelled = false;
+    getRequests({ page: 1, pageSize: 50 })
+      .then((data) => {
+        if (!cancelled) {
           const list = parseApiList<MedicalRequest>(data);
           setRecentPatients(extractRecentPatients(list, 5));
-        })
-        .catch(() => setRecentPatients([]));
-    }
+        }
+      })
+      .catch(() => { if (!cancelled) setRecentPatients([]); });
+    return () => { cancelled = true; };
   }, [open]);
 
   // Reset selection when results change (defer to avoid sync setState in effect)

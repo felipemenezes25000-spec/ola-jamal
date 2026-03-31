@@ -158,6 +158,7 @@ public sealed class PubMedClient
     {
         if (pmids.Count == 0) return new List<PubMedArticle>();
 
+        await _throttle.WaitAsync(ct);
         try
         {
             var client = CreateClient();
@@ -178,6 +179,10 @@ public sealed class PubMedClient
         {
             _logger.LogWarning(ex, "[PubMed EFetch] Erro ao buscar artigos: ids={Ids}", string.Join(",", pmids));
             return new List<PubMedArticle>();
+        }
+        finally
+        {
+            _throttle.Release();
         }
     }
 

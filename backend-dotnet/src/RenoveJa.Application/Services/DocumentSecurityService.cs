@@ -17,6 +17,7 @@ namespace RenoveJa.Application.Services;
 /// </summary>
 public class DocumentSecurityService(
     IDocumentAccessLogRepository accessLogRepository,
+    IMedicalDocumentRepository medicalDocumentRepository,
     ILogger<DocumentSecurityService> logger)
     : IDocumentSecurityService
 {
@@ -86,18 +87,31 @@ public class DocumentSecurityService(
     public async Task<(bool success, string? error)> RecordDispensationAsync(
         Guid documentId, string dispensedBy, string? pharmacistName, string? ip, CancellationToken ct)
     {
-        await accessLogRepository.LogAccessAsync(new DocumentAccessEntry
+        var securityFields = await medicalDocumentRepository.GetSecurityFieldsAsync(documentId, ct);
+        if (securityFields != null)
         {
-            DocumentId = documentId,
-            Action = "dispensed",
-            ActorType = "pharmacist",
-            IpAddress = ip,
-            Metadata = System.Text.Json.JsonSerializer.Serialize(new
+            var (_, _, _, dispensedCount, maxDispenses) = securityFields.Value;
+            if (dispensedCount >= maxDispenses)
+            {
+                logger.LogWarning("Document {DocumentId} already dispensed {Count}/{Max} times",
+                    documentId, dispensedCount, maxDispenses);
+                return (false, $"Documento j\u00e1 foi dispensado o n\u00famero m\u00e1ximo de vezes ({maxDispenses}).");
+            }
+        }
+
+        await accessLogRepository.LogAccessAsync(DocumentAccessEntry.Create(
+            documentId: documentId,
+            requestId: null,
+            userId: null,
+            action: "dispensed",
+            actorType: "pharmacist",
+            ipAddress: ip,
+            metadata: System.Text.Json.JsonSerializer.Serialize(new
             {
                 dispensed_by = dispensedBy,
                 pharmacist_name = pharmacistName
             })
-        }, ct);
+        ), ct);
 
         logger.LogInformation("Document {DocumentId} dispensed by {Pharmacy} (pharmacist: {Pharmacist})",
             documentId, dispensedBy, pharmacistName ?? "N/A");
@@ -112,15 +126,14 @@ public class DocumentSecurityService(
         string action, string actorType, string? ip, string? userAgent,
         CancellationToken ct)
     {
-        await accessLogRepository.LogAccessAsync(new DocumentAccessEntry
-        {
-            DocumentId = documentId,
-            RequestId = requestId,
-            UserId = userId,
-            Action = action,
-            ActorType = actorType,
-            IpAddress = ip,
-            UserAgent = userAgent
-        }, ct);
+        await accessLogRepository.LogAccessAsync(DocumentAccessEntry.Create(
+            documentId: documentId,
+            requestId: requestId,
+            userId: userId,
+            action: action,
+            actorType: actorType,
+            ipAddress: ip,
+            userAgent: userAgent
+        ), ct);
     }
 }

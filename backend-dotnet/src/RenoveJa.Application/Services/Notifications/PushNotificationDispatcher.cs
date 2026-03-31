@@ -89,19 +89,25 @@ public class PushNotificationDispatcher : IPushNotificationDispatcher
         };
     }
 
-    private static bool IsQuietHours(string timezoneId)
+    private static readonly TimeZoneInfo BrazilTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
+    private static bool IsQuietHours(string? timezoneId)
     {
+        TimeZoneInfo tz;
         try
         {
-            var tz = TimeZoneInfo.FindSystemTimeZoneById(timezoneId);
-            var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
-            var hour = localNow.Hour;
-            return hour >= 22 || hour < 8;
+            tz = !string.IsNullOrWhiteSpace(timezoneId)
+                ? TimeZoneInfo.FindSystemTimeZoneById(timezoneId)
+                : BrazilTimeZone;
         }
         catch
         {
-            return false;
+            tz = BrazilTimeZone;
         }
+
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        var hour = localNow.Hour;
+        return hour >= 22 || hour < 8;
     }
 
     /// <summary>

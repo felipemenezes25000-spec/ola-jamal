@@ -762,7 +762,7 @@ export default function VideoCallScreenInner() {
     <View style={[S.container, S.center]}>
       <Ionicons name="alert-circle" size={56} color={colors.error} />
       <Text style={S.errText}>{error || errorMessage || 'Erro na chamada'}</Text>
-      <TouchableOpacity style={S.retryBtn} onPress={async () => { leavingRef.current = false; await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
+      <TouchableOpacity style={S.retryBtn} onPress={async () => { leavingRef.current = false; await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setLoading(true); setInitKey(k => k + 1); }}>
         <Text style={S.retryTxt}>Tentar novamente</Text>
       </TouchableOpacity>
       <TouchableOpacity

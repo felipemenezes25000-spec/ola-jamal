@@ -197,24 +197,27 @@ public class OpenAiConductSuggestionService : IAiConductSuggestionService
         if (!string.IsNullOrWhiteSpace(input.ExamType))
             sb.AppendLine($"Tipo de exame: {input.ExamType}");
         if (!string.IsNullOrWhiteSpace(input.PatientName))
-            sb.AppendLine($"Paciente: {input.PatientName}");
+            sb.AppendLine($"Paciente: {PromptSanitizer.SanitizeForPrompt(input.PatientName)}");
         if (input.PatientBirthDate.HasValue)
         {
-            var age = DateTime.Today.Year - input.PatientBirthDate.Value.Year;
-            sb.AppendLine($"Data de nascimento: {input.PatientBirthDate:dd/MM/yyyy} (idade: ~{age} anos)");
+            var today = DateTime.Today;
+            var birthDate = input.PatientBirthDate.Value;
+            var age = today.Year - birthDate.Year;
+            if (birthDate.Date > today.AddYears(-age)) age--;
+            sb.AppendLine($"Data de nascimento: {input.PatientBirthDate:dd/MM/yyyy} (idade: {age} anos)");
         }
         if (!string.IsNullOrWhiteSpace(input.PatientGender))
-            sb.AppendLine($"Gênero: {input.PatientGender}");
+            sb.AppendLine($"Gênero: {PromptSanitizer.SanitizeForPrompt(input.PatientGender)}");
         if (!string.IsNullOrWhiteSpace(input.Symptoms))
-            sb.AppendLine($"Sintomas/Queixa: {input.Symptoms}");
+            sb.AppendLine($"Sintomas/Queixa: {PromptSanitizer.SanitizeForPrompt(input.Symptoms)}");
         if (input.Medications?.Count > 0)
-            sb.AppendLine($"Medicamentos em uso: {string.Join(", ", input.Medications)}");
+            sb.AppendLine($"Medicamentos em uso: {string.Join(", ", input.Medications.Select(m => PromptSanitizer.SanitizeForPrompt(m)))}");
         if (input.Exams?.Count > 0)
-            sb.AppendLine($"Exames solicitados: {string.Join(", ", input.Exams)}");
+            sb.AppendLine($"Exames solicitados: {string.Join(", ", input.Exams.Select(e => PromptSanitizer.SanitizeForPrompt(e)))}");
         if (!string.IsNullOrWhiteSpace(input.AiSummaryForDoctor))
             sb.AppendLine($"Resumo IA: {input.AiSummaryForDoctor}");
         if (!string.IsNullOrWhiteSpace(input.DoctorNotes))
-            sb.AppendLine($"Notas do médico: {input.DoctorNotes}");
+            sb.AppendLine($"Notas do médico: {PromptSanitizer.SanitizeForPrompt(input.DoctorNotes)}");
 
         sb.AppendLine();
         sb.AppendLine("Gere a conduta estruturada com template SOAP, exames (com TUSS), orientações ao paciente, critérios de retorno e CID sugerido.");

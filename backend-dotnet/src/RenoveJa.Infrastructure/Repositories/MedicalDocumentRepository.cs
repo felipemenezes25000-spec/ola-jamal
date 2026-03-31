@@ -312,14 +312,14 @@ public class MedicalDocumentRepository(PostgresClient db) : IMedicalDocumentRepo
         await db.UpdateAsync<MedicalDocumentModel>(TableName, $"id=eq.{documentId}", updates, cancellationToken);
     }
 
-    public async Task<(string? accessCode, string? verifyCodeHash, DateTime? expiresAt, int dispensedCount)?> GetSecurityFieldsAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<(string? accessCode, string? verifyCodeHash, DateTime? expiresAt, int dispensedCount, int maxDispenses)?> GetSecurityFieldsAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
         var model = await db.GetSingleAsync<MedicalDocumentModel>(
             TableName,
             filter: $"id=eq.{documentId}",
             cancellationToken: cancellationToken);
         if (model == null) return null;
-        return (model.AccessCode, model.VerifyCodeHash, model.ExpiresAt, model.DispensedCount);
+        return (model.AccessCode, model.VerifyCodeHash, model.ExpiresAt, model.DispensedCount, model.MaxDispenses);
     }
 
     public async Task<Guid?> GetSourceRequestIdAsync(Guid documentId, CancellationToken cancellationToken = default)

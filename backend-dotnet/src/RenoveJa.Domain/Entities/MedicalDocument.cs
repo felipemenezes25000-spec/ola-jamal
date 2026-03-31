@@ -484,6 +484,9 @@ public sealed class MedicalReport : MedicalDocument
         if (string.IsNullOrWhiteSpace(body))
             throw new DomainException("Report body is required");
 
+        if (leaveDays.HasValue && leaveDays.Value < 0)
+            throw new DomainException("Leave days cannot be negative");
+
         return new MedicalReport(
             Guid.NewGuid(),
             patientId,
@@ -503,6 +506,9 @@ public sealed class MedicalReport : MedicalDocument
 
         if (string.IsNullOrWhiteSpace(body))
             throw new DomainException("Report body is required");
+
+        if (leaveDays.HasValue && leaveDays.Value < 0)
+            throw new DomainException("Leave days cannot be negative");
 
         Body = body.Trim();
         Icd10Code = icd10Code;

@@ -63,11 +63,13 @@ export default function DoctorSettings() {
   const [pushSaving, setPushSaving] = useState(false);
 
   useEffect(() => {
-    getMutedKeys().then((keys) => setMutedCount(keys.length)).catch(() => {});
+    let cancelled = false;
+    getMutedKeys().then((keys) => { if (!cancelled) setMutedCount(keys.length); }).catch(() => {});
     getPushPreferences()
-      .then(setPushPrefs)
+      .then((prefs) => { if (!cancelled) setPushPrefs(prefs); })
       .catch(() => {})
-      .finally(() => setPushLoading(false));
+      .finally(() => { if (!cancelled) setPushLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const handleUnmuteAll = async () => {
@@ -191,10 +193,10 @@ export default function DoctorSettings() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Link to="/sobre"><Button variant="ghost" className="w-full justify-start gap-2" asChild><span><Info className="h-4 w-4" /> Sobre o RenoveJá+</span></Button></Link>
-            <Link to="/ajuda"><Button variant="ghost" className="w-full justify-start gap-2" asChild><span><HelpCircle className="h-4 w-4" /> Ajuda e FAQ</span></Button></Link>
-            <Link to="/termos"><Button variant="ghost" className="w-full justify-start gap-2" asChild><span><FileText className="h-4 w-4" /> Termos de Uso</span></Button></Link>
-            <Link to="/privacidade"><Button variant="ghost" className="w-full justify-start gap-2" asChild><span><Shield className="h-4 w-4" /> Política de Privacidade</span></Button></Link>
+            <Button variant="ghost" className="w-full justify-start gap-2" asChild><Link to="/sobre"><Info className="h-4 w-4" /> Sobre o RenoveJá+</Link></Button>
+            <Button variant="ghost" className="w-full justify-start gap-2" asChild><Link to="/ajuda"><HelpCircle className="h-4 w-4" /> Ajuda e FAQ</Link></Button>
+            <Button variant="ghost" className="w-full justify-start gap-2" asChild><Link to="/termos"><FileText className="h-4 w-4" /> Termos de Uso</Link></Button>
+            <Button variant="ghost" className="w-full justify-start gap-2" asChild><Link to="/privacidade"><Shield className="h-4 w-4" /> Política de Privacidade</Link></Button>
           </CardContent>
         </Card>
       </div>

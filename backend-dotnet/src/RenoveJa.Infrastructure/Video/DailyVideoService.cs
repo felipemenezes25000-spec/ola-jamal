@@ -72,11 +72,14 @@ public class DailyVideoService : IDailyVideoService
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    private const string DailyApiBaseUrl = "https://api.daily.co/v1/";
+
     // --- Circuit breaker state (static — shared across scoped DI instances) ---
     private const int CircuitBreakerThreshold = 5;
     private static readonly TimeSpan CircuitBreakerCooldown = TimeSpan.FromSeconds(30);
     private static int _consecutiveFailures;
     private static DateTime _circuitOpenedAt = DateTime.MinValue;
+    private static bool _halfOpenAttemptInProgress;
     private static readonly object _cbLock = new();
 
     public DailyVideoService(
@@ -88,9 +91,11 @@ public class DailyVideoService : IDailyVideoService
         _config = config.Value;
         _logger = logger;
 
-        _httpClient.BaseAddress = new Uri("https://api.daily.co/v1/");
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", _config.ApiKey);
+        if (_httpClient.BaseAddress == null)
+            _httpClient.BaseAddress = new Uri(DailyApiBaseUrl);
+        if (_httpClient.DefaultRequestHeaders.Authorization == null)
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", _config.ApiKey);
     }
 
     /// <summary>Throws if circuit breaker is open (Daily considered down).</summary>
@@ -110,7 +115,13 @@ public class DailyVideoService : IDailyVideoService
                     $"Daily.co circuit breaker open ({_consecutiveFailures} consecutive failures). Retry after {(CircuitBreakerCooldown - elapsed).TotalSeconds:F0}s.");
             }
 
-            // Cooldown expired — half-open, allow probe
+            if (_halfOpenAttemptInProgress)
+            {
+                _logger.LogWarning("[DailyCircuitBreaker] Half-open probe already in progress — rejecting.");
+                throw new InvalidOperationException("Daily.co circuit breaker half-open probe in progress. Try again shortly.");
+            }
+
+            _halfOpenAttemptInProgress = true;
             _logger.LogInformation("[DailyCircuitBreaker] Half-open — allowing probe request.");
         }
     }
@@ -120,6 +131,7 @@ public class DailyVideoService : IDailyVideoService
     {
         lock (_cbLock)
         {
+            _halfOpenAttemptInProgress = false;
             if (_consecutiveFailures > 0)
             {
                 _logger.LogInformation("[DailyCircuitBreaker] Circuit CLOSED — recovered after {Failures} failures.", _consecutiveFailures);
@@ -133,6 +145,14 @@ public class DailyVideoService : IDailyVideoService
     {
         lock (_cbLock)
         {
+            if (_halfOpenAttemptInProgress)
+            {
+                _circuitOpenedAt = DateTime.UtcNow;
+                _halfOpenAttemptInProgress = false;
+                _logger.LogWarning("[DailyCircuitBreaker] Half-open probe failed — reopening circuit with fresh cooldown.");
+                return;
+            }
+
             _consecutiveFailures++;
             if (_consecutiveFailures >= CircuitBreakerThreshold)
             {
@@ -264,29 +284,39 @@ public class DailyVideoService : IDailyVideoService
 
     public async Task DeleteRoomAsync(string roomName, CancellationToken ct = default)
     {
+        ThrowIfCircuitOpen();
+
         var response = await _httpClient.DeleteAsync($"rooms/{roomName}", ct);
 
         if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
+            RecordSuccess();
             _logger.LogInformation("Daily room deleted (or not found): {RoomName}", roomName);
             return;
         }
 
         var errorBody = await response.Content.ReadAsStringAsync(ct);
+        if (IsTransientError(response.StatusCode))
+            RecordFailure();
         _logger.LogWarning("Daily API error deleting room {RoomName}: {Status} {Body}", roomName, response.StatusCode, errorBody);
     }
 
     public async Task DeleteRecordingAsync(string recordingId, CancellationToken ct = default)
     {
+        ThrowIfCircuitOpen();
+
         var response = await _httpClient.DeleteAsync($"recordings/{recordingId}", ct);
 
         if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
+            RecordSuccess();
             _logger.LogInformation("Daily recording deleted: {RecordingId}", recordingId);
             return;
         }
 
         var errorBody = await response.Content.ReadAsStringAsync(ct);
+        if (IsTransientError(response.StatusCode))
+            RecordFailure();
         _logger.LogWarning("Daily API error deleting recording {RecordingId}: {Status} {Body}", recordingId, response.StatusCode, errorBody);
     }
 
@@ -321,23 +351,67 @@ public class DailyVideoService : IDailyVideoService
 
         var body = new { properties };
         var json = JsonSerializer.Serialize(body, JsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync("meeting-tokens", content, ct);
+        const int maxRetries = 3;
+        var retryDelays = new[] { 500, 1500, 3000 };
+        string token = null!;
 
-        if (!response.IsSuccessStatusCode)
+        for (var attempt = 0; attempt < maxRetries; attempt++)
         {
-            var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError(
-                "Daily API error creating token: {Status} {Body} — RequestId={CorrelationId} RoomName={RoomName} UserId={UserId}",
-                response.StatusCode, errorBody, requestId, roomName, userId);
-            throw new InvalidOperationException($"Daily meeting token error: {response.StatusCode}");
+            try
+            {
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync("meeting-tokens", content, ct);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync(ct);
+
+                    if (IsTransientError(response.StatusCode) && attempt < maxRetries - 1)
+                    {
+                        RecordFailure();
+                        _logger.LogWarning(
+                            "Daily API transient error creating token (attempt {Attempt}/{Max}): {Status} {Body} — CorrelationId={CorrelationId}",
+                            attempt + 1, maxRetries, response.StatusCode, errorBody, requestId);
+                        await Task.Delay(retryDelays[attempt], ct);
+                        continue;
+                    }
+
+                    RecordFailure();
+                    _logger.LogError(
+                        "Daily API error creating token: {Status} {Body} — RequestId={CorrelationId} RoomName={RoomName} UserId={UserId}",
+                        response.StatusCode, errorBody, requestId, roomName, userId);
+                    throw new InvalidOperationException($"Daily meeting token error: {response.StatusCode}");
+                }
+
+                var result = await JsonSerializer.DeserializeAsync<DailyTokenResponse>(
+                    await response.Content.ReadAsStreamAsync(ct), JsonOptions, ct);
+
+                RecordSuccess();
+                token = result!.Token;
+                break;
+            }
+            catch (HttpRequestException ex) when (attempt < maxRetries - 1)
+            {
+                RecordFailure();
+                _logger.LogWarning(ex, "Daily API network error creating token (attempt {Attempt}/{Max}) — CorrelationId={CorrelationId}",
+                    attempt + 1, maxRetries, requestId);
+                await Task.Delay(retryDelays[attempt], ct);
+            }
+            catch (TaskCanceledException ex) when (!ct.IsCancellationRequested && attempt < maxRetries - 1)
+            {
+                RecordFailure();
+                _logger.LogWarning(ex, "Daily API timeout creating token (attempt {Attempt}/{Max}) — CorrelationId={CorrelationId}",
+                    attempt + 1, maxRetries, requestId);
+                await Task.Delay(retryDelays[attempt], ct);
+            }
         }
 
-        var result = await JsonSerializer.DeserializeAsync<DailyTokenResponse>(
-            await response.Content.ReadAsStreamAsync(ct), JsonOptions, ct);
-
-        var token = result!.Token;
+        if (token == null)
+        {
+            RecordFailure();
+            throw new InvalidOperationException($"Failed to create Daily meeting token after {maxRetries} attempts.");
+        }
 
         // Bug fix #1: Validate token expiry before returning to client.
         // Decode the JWT payload (second segment) to verify exp claim is fresh.

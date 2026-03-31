@@ -2,7 +2,7 @@
  * doctor-api-doctors.ts — Notifications, certificates, push tokens, and video rooms.
  */
 
-import { authFetch } from './doctor-api-auth';
+import { authFetch, safeJson } from './doctor-api-auth';
 
 // ── Types ──
 
@@ -32,13 +32,13 @@ export async function getNotifications(params?: { page?: number; pageSize?: numb
 export async function markNotificationRead(id: string) {
   const res = await authFetch(`/api/notifications/${id}/read`, { method: 'PUT' });
   if (!res.ok) throw new Error('Erro ao marcar como lida');
-  return res.json();
+  return safeJson(res, { success: true });
 }
 
 export async function markAllNotificationsRead() {
   const res = await authFetch('/api/notifications/read-all', { method: 'PUT' });
   if (!res.ok) throw new Error('Erro ao marcar todas como lidas');
-  return res.json();
+  return safeJson(res, { success: true });
 }
 
 export async function getUnreadNotificationCount(): Promise<number> {

@@ -282,8 +282,12 @@ public class ConsultationSessionStore : IConsultationSessionStore
             e => (string)e.Name!,
             e => (string?)e.Value) ?? new Dictionary<string, string?>();
 
-        // Remove the key from Redis
-        db.KeyDelete(key);
+        // Remove the key from Redis (best-effort; if this fails, data may be re-processed but that's safer than losing it)
+        try { db.KeyDelete(key); }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível ao deletar sessão em GetAndRemove — dados retornados mas não removidos. RequestId={RequestId}", requestId);
+        }
 
         var patientId = dict.TryGetValue(FieldPatientId, out var pid) && Guid.TryParse(pid, out var parsedPid)
             ? parsedPid

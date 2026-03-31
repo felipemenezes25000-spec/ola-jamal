@@ -18,6 +18,8 @@ interface UseWebTranscriptionOptions {
   consultationActive: boolean;
   /** Whether the meeting has been fully joined (with buffer). Gated by parent. */
   meetingJoined: boolean;
+  /** Role of the local user: 'medico' or 'paciente'. Determines speaker assignment. */
+  localRole?: 'medico' | 'paciente';
   /** Callback quando envio ao backend falha */
   onSendError?: (message: string) => void;
   /** Callback quando envio ao backend tem sucesso */
@@ -28,10 +30,12 @@ export function useWebTranscription({
   requestId,
   consultationActive,
   meetingJoined,
+  localRole = 'medico',
   onSendError,
   onSendSuccess,
 }: UseWebTranscriptionOptions): void {
   const consultationActiveRef = useRef(consultationActive);
+  const localRoleRef = useRef(localRole);
   const onSendErrorRef = useRef(onSendError);
   const onSendSuccessRef = useRef(onSendSuccess);
   const startedRef = useRef(false);
@@ -40,9 +44,10 @@ export function useWebTranscription({
 
   useEffect(() => {
     consultationActiveRef.current = consultationActive;
+    localRoleRef.current = localRole;
     onSendErrorRef.current = onSendError;
     onSendSuccessRef.current = onSendSuccess;
-  }, [consultationActive, onSendError, onSendSuccess]);
+  }, [consultationActive, localRole, onSendError, onSendSuccess]);
 
   // Reset startedRef when requestId changes so transcription can restart for a new session
   useEffect(() => {
@@ -103,7 +108,8 @@ export function useWebTranscription({
       if (!resolvedLocalId || !eventParticipantId) return;
 
       const isLocal = eventParticipantId === resolvedLocalId;
-      const speaker: 'medico' | 'paciente' = isLocal ? 'medico' : 'paciente';
+      const remoteSpeaker: 'medico' | 'paciente' = localRoleRef.current === 'medico' ? 'paciente' : 'medico';
+      const speaker: 'medico' | 'paciente' = isLocal ? localRoleRef.current : remoteSpeaker;
       void sendToBackend(text, speaker, typeof startTimeSeconds === 'number' ? startTimeSeconds : undefined);
     },
     [localSessionId, sendToBackend]

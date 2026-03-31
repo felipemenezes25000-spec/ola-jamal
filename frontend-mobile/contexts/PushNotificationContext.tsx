@@ -103,7 +103,11 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
           '/post-consultation-emit/', '/doctor-patient/',
         ];
         const norm = (s: string) => s.endsWith('/') ? s.slice(0, -1) : s;
-        const isAllowed = allowed.some((p) => norm(path).startsWith(norm(p)) || norm(path) === norm(p));
+        const normPath = norm(path);
+        const isAllowed = allowed.some((p) => {
+          const normP = norm(p);
+          return normPath === normP || normPath.startsWith(normP + '/');
+        });
         if (isAllowed && !path.includes('..')) {
           Linking.openURL(deepLink).catch((e) => { if (__DEV__) console.warn('[Push] openURL failed:', e); });
         }
@@ -131,13 +135,15 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
   useEffect(() => {
     if (!Notifications || !user?.role || coldStartHandled.current) return;
     coldStartHandled.current = true;
-    Notifications.getLastNotificationResponseAsync()
-      .then((response: { notification?: { request?: { content?: { data?: Record<string, unknown> } } } } | null) => {
-        if (!response) return;
-        const data = response?.notification?.request?.content?.data ?? {};
-        handleNotificationNavigation(data);
-      })
-      .catch(() => {});
+    setTimeout(() => {
+      Notifications.getLastNotificationResponseAsync()
+        .then((response: { notification?: { request?: { content?: { data?: Record<string, unknown> } } } } | null) => {
+          if (!response) return;
+          const data = response?.notification?.request?.content?.data ?? {};
+          handleNotificationNavigation(data);
+        })
+        .catch(() => {});
+    }, 500);
   }, [user?.role, handleNotificationNavigation]);
 
   useEffect(() => {

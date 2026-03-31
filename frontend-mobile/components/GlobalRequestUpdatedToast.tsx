@@ -116,21 +116,25 @@ export function GlobalRequestUpdatedToast() {
   }, [user, subscribe, setPendingUpdate, invalidateRequests, invalidateDoctorRequests]);
 
   // Countdown: decrementa a cada segundo e navega quando chegar em 0
+  // BUG FIX: Track mounted state to prevent navigation after unmount (race condition)
   useEffect(() => {
     if (!countdownRequestId) return;
+    let mounted = true;
     setCountdownSeconds(COUNTDOWN_SECONDS);
     let remaining = COUNTDOWN_SECONDS;
     const t = setInterval(() => {
+      if (!mounted) { clearInterval(t); return; }
       remaining -= 1;
       setCountdownSeconds(remaining);
       if (remaining <= 0) {
         clearInterval(t);
+        if (!mounted) return;
         const rid = countdownRequestId;
         setCountdownRequestId(null);
         nav.replace(routerRef.current, `/video/${rid}`);
       }
     }, 1000);
-    return () => clearInterval(t);
+    return () => { mounted = false; clearInterval(t); };
   }, [countdownRequestId]);
 
   const enterNow = () => {

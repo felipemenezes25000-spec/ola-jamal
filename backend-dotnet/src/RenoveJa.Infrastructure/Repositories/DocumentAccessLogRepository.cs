@@ -31,43 +31,40 @@ public class DocumentAccessLogRepository(PostgresClient db) : IDocumentAccessLog
 
     public async Task<List<DocumentAccessEntry>> GetByDocumentIdAsync(Guid documentId, int limit = 50, CancellationToken ct = default)
     {
-        var filter = $"document_id=eq.{documentId}&order=created_at.desc&limit={limit}";
-        var models = await db.GetAllAsync<AccessLogModel>(TableName, filter: filter, cancellationToken: ct);
+        var filter = $"document_id=eq.{documentId}";
+        var models = await db.GetAllAsync<AccessLogModel>(TableName, filter: filter, orderBy: "created_at.desc", limit: limit, cancellationToken: ct);
         return models.Select(MapToEntry).ToList();
     }
 
     public async Task<List<DocumentAccessEntry>> GetByRequestIdAsync(Guid requestId, int limit = 50, CancellationToken ct = default)
     {
-        var filter = $"request_id=eq.{requestId}&order=created_at.desc&limit={limit}";
-        var models = await db.GetAllAsync<AccessLogModel>(TableName, filter: filter, cancellationToken: ct);
+        var filter = $"request_id=eq.{requestId}";
+        var models = await db.GetAllAsync<AccessLogModel>(TableName, filter: filter, orderBy: "created_at.desc", limit: limit, cancellationToken: ct);
         return models.Select(MapToEntry).ToList();
     }
 
     public async Task<int> GetDispenseCountAsync(Guid documentId, CancellationToken ct = default)
     {
         var filter = $"document_id=eq.{documentId}&action=eq.dispensed";
-        var models = await db.GetAllAsync<AccessLogModel>(TableName, filter: filter, cancellationToken: ct);
-        return models.Count;
+        return await db.CountAsync(TableName, filter, ct);
     }
 
     public async Task<int> GetDownloadCountAsync(Guid documentId, CancellationToken ct = default)
     {
         var filter = $"document_id=eq.{documentId}&action=eq.download";
-        var models = await db.GetAllAsync<AccessLogModel>(TableName, filter: filter, cancellationToken: ct);
-        return models.Count;
+        return await db.CountAsync(TableName, filter, ct);
     }
 
-    private static DocumentAccessEntry MapToEntry(AccessLogModel m) => new()
-    {
-        DocumentId = m.DocumentId,
-        RequestId = m.RequestId,
-        UserId = m.UserId,
-        Action = m.Action,
-        ActorType = m.ActorType,
-        IpAddress = m.IpAddress,
-        UserAgent = m.UserAgent,
-        Metadata = m.Metadata,
-    };
+    private static DocumentAccessEntry MapToEntry(AccessLogModel m) =>
+        DocumentAccessEntry.Reconstitute(
+            m.DocumentId,
+            m.RequestId,
+            m.UserId,
+            m.Action,
+            m.ActorType,
+            m.IpAddress,
+            m.UserAgent,
+            m.Metadata);
 
     private class AccessLogModel
     {

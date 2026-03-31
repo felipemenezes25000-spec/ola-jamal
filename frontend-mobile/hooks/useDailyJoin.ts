@@ -367,7 +367,7 @@ export function useDailyJoin({
 
         const onMeetingEnded = (_event: DailyMeetingEndedEvent) => {
           if (__DEV__) {
-            console.warn('[useDailyJoin] meeting-ended', { isDoctor });
+            console.warn('[useDailyJoin] meeting-ended', { isDoctor: isDoctorRef.current });
           }
           setCallState('idle');
           onCallEndedRef.current?.('meeting-ended');

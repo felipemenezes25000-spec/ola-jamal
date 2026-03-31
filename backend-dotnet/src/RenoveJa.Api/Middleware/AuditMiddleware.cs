@@ -66,7 +66,9 @@ public class AuditMiddleware(
             var ipAddress = context.Connection.RemoteIpAddress?.ToString();
             var userAgent = context.Request.Headers.UserAgent.ToString();
             if (userAgent?.Length > 256) userAgent = userAgent[..256];
-            var correlationId = context.TraceIdentifier;
+            var correlationId = context.Items.TryGetValue("CorrelationId", out var cid) && cid is string cidStr
+                ? cidStr
+                : context.TraceIdentifier;
             var durationMs = stopwatch.ElapsedMilliseconds;
 
             Guid? userId = null;

@@ -129,8 +129,7 @@ function ClinicalNotesForm({
 }
 
 export default function DoctorPatientRecord() {
-  const params = useParams<{ patientId: string }>();
-  const patientId = typeof params.patientId === 'string' ? params.patientId : Array.isArray(params.patientId) ? params.patientId[0] : undefined;
+  const { patientId } = useParams<{ patientId: string }>();
 
   useEffect(() => {
     document.title = 'Prontuário — RenoveJá+';

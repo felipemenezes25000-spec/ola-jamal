@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Npgsql;
 using RenoveJa.Infrastructure.Data.Postgres;
 
@@ -15,7 +14,6 @@ namespace RenoveJa.Infrastructure.Video;
 /// </summary>
 public sealed class OrphanedRoomCleanupService(
     IServiceScopeFactory scopeFactory,
-    IOptions<DatabaseConfig> dbConfig,
     PostgresClient postgresClient,
     ILogger<OrphanedRoomCleanupService> logger) : BackgroundService
 {
@@ -29,7 +27,10 @@ public sealed class OrphanedRoomCleanupService(
         SELECT vr.room_name, vr.id AS video_room_id, r.id AS request_id, r.status
         FROM video_rooms vr
         INNER JOIN requests r ON r.id = vr.request_id
-        WHERE r.status IN ('cancelled', 'rejected', 'pending_post_consultation', 'completed')
+        WHERE (
+            r.status IN ('cancelled', 'rejected', 'pending_post_consultation', 'completed')
+            OR (r.status = 'in_consultation' AND vr.created_at < NOW() - INTERVAL '4 hours')
+        )
           AND vr.status != 'ended'
           AND vr.created_at > NOW() - INTERVAL '48 hours'
         LIMIT 50

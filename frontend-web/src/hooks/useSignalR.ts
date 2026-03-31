@@ -6,7 +6,7 @@
  * Events: "RequestUpdated" { requestId, status, message }
  */
 import { useEffect, useRef, useState } from 'react';
-import { clearAuth, getToken } from '@/services/doctorApi';
+import { clearAuth, getToken, tryRefreshToken } from '@/services/doctorApi';
 
 interface RequestEvent {
   requestId: string;
@@ -39,6 +39,11 @@ async function getSignalR() {
     }
   }
   return signalR;
+}
+
+function isHttp401Error(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Status code '401'/.test(msg) || /\b401\s+Unauthorized\b/.test(msg);
 }
 
 function getApiBase(): string {
@@ -78,9 +83,12 @@ export function useRequestEvents(onEvent?: EventHandler) {
 
       const connection = new sr.HubConnectionBuilder()
         .withUrl(`${base}/hubs/requests`, {
-          // FIX #5: Sempre lê o token atual do localStorage ao reconectar,
-          // em vez de capturar uma closure do token antigo.
-          accessTokenFactory: () => getToken() ?? '',
+          accessTokenFactory: async () => {
+            const token = getToken();
+            if (!token) return '';
+            await tryRefreshToken();
+            return getToken() ?? '';
+          },
         })
         .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
         .configureLogging(sr.LogLevel.Warning)
@@ -110,10 +118,12 @@ export function useRequestEvents(onEvent?: EventHandler) {
           connection.stop().catch(() => {});
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('401') || msg.includes('Unauthorized')) {
-          clearAuth();
-          window.dispatchEvent(new CustomEvent('auth:expired'));
+        if (isHttp401Error(err)) {
+          const refreshed = await tryRefreshToken();
+          if (!refreshed) {
+            clearAuth();
+            window.dispatchEvent(new CustomEvent('auth:expired'));
+          }
         }
         if (import.meta.env.DEV) console.warn('[SignalR] Connection failed:', err);
       }
@@ -166,8 +176,12 @@ export function useVideoSignaling(requestId: string | undefined) {
       const base = getApiBase();
       const connection = new sr.HubConnectionBuilder()
         .withUrl(`${base}/hubs/video`, {
-          // FIX #5: Token sempre fresco ao reconectar
-          accessTokenFactory: () => getToken() ?? '',
+          accessTokenFactory: async () => {
+            const token = getToken();
+            if (!token) return '';
+            await tryRefreshToken();
+            return getToken() ?? '';
+          },
         })
         .withAutomaticReconnect()
         .configureLogging(sr.LogLevel.Warning)
@@ -229,10 +243,12 @@ export function useVideoSignaling(requestId: string | undefined) {
           connection.stop().catch(() => {});
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('401') || msg.includes('Unauthorized')) {
-          clearAuth();
-          window.dispatchEvent(new CustomEvent('auth:expired'));
+        if (isHttp401Error(err)) {
+          const refreshed = await tryRefreshToken();
+          if (!refreshed) {
+            clearAuth();
+            window.dispatchEvent(new CustomEvent('auth:expired'));
+          }
         }
         if (import.meta.env.DEV) console.warn('[SignalR Video] Connection failed:', err);
         connection.stop().catch(() => {});

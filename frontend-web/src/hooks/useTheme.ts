@@ -17,7 +17,7 @@ function getSystemTheme(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function applyTheme(theme: Theme) {
+function applyTheme(theme: Theme): number {
   const resolved = theme === 'system' ? getSystemTheme() : theme;
   const root = document.documentElement;
 
@@ -36,8 +36,8 @@ function applyTheme(theme: Theme) {
     meta.setAttribute('content', resolved === 'dark' ? '#0f172a' : '#00a0dc');
   }
 
-  // Clean transition after animation
-  setTimeout(() => {
+  // Clean transition after animation — return timer id for cleanup
+  return window.setTimeout(() => {
     root.style.removeProperty('transition');
   }, 300);
 }
@@ -53,16 +53,21 @@ export function useTheme() {
 
   // Apply on mount and change
   useEffect(() => {
-    applyTheme(theme);
+    const timerId = applyTheme(theme);
+    return () => clearTimeout(timerId);
   }, [theme]);
 
   // Listen for system preference changes when in 'system' mode
   useEffect(() => {
     if (theme !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = () => applyTheme('system');
+    let timerId: number;
+    const handler = () => { timerId = applyTheme('system'); };
     mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    return () => {
+      clearTimeout(timerId);
+      mq.removeEventListener('change', handler);
+    };
   }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {

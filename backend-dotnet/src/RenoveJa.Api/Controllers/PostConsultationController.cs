@@ -208,7 +208,9 @@ public class PostConsultationController(
             }
             else
             {
-                var userId = GetUserId();
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(userIdClaim, out var userId))
+                    return Unauthorized(new { error = "Invalid or missing authentication" });
                 if (!await UserCanAccessMedicalDocumentAsync(doc, userId, cancellationToken))
                     return StatusCode(403, new { error = "Access denied" });
             }

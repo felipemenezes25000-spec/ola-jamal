@@ -24,8 +24,12 @@ public class UserPushPreferences
         Timezone = timezone ?? "America/Sao_Paulo";
     }
 
-    public static UserPushPreferences CreateDefault(Guid userId) =>
-        new(userId, true, true, true, true, "America/Sao_Paulo");
+    public static UserPushPreferences CreateDefault(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new Domain.Exceptions.DomainException("UserId is required");
+        return new(userId, true, true, true, true, "America/Sao_Paulo");
+    }
 
     public static UserPushPreferences Reconstitute(Guid userId, bool requests, bool payments, bool consultations, bool reminders, string timezone) =>
         new(userId, requests, payments, consultations, reminders, timezone);
