@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  Loader2, ArrowLeft, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Send, Minus, Lock,
+  Loader2, ArrowLeft, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Minus, Lock, Pencil,
 } from 'lucide-react';
 
 // ── CID Packages (same data as mobile) ──
@@ -177,10 +177,89 @@ export default function DoctorPostConsultationEmit() {
   const [certDays, setCertDays] = useState(cidPkg?.days ?? 3);
   const [certIncludeCid, setCertIncludeCid] = useState(true);
 
+  // General instructions for prescription (same as mobile)
+  const [rxGeneralInstructions, setRxGeneralInstructions] = useState('');
+
   // Referral (encaminhamento)
   const [refProfessional, setRefProfessional] = useState('');
   const [refSpecialty, setRefSpecialty] = useState('');
   const [refReason, setRefReason] = useState('');
+
+  // ── Medication dialog state (aligned with mobile modal) ──
+  const [medDialogOpen, setMedDialogOpen] = useState(false);
+  const [editingMedIndex, setEditingMedIndex] = useState<number | null>(null);
+  const [medForm, setMedForm] = useState<PrescriptionItemEmit>({ drug: '', concentration: '', posology: '', notes: '' });
+
+  const openAddMed = useCallback(() => {
+    setEditingMedIndex(null);
+    setMedForm({ drug: '', concentration: '', posology: '', notes: '' });
+    setMedDialogOpen(true);
+  }, []);
+
+  const openEditMed = useCallback((idx: number) => {
+    const m = meds[idx];
+    setEditingMedIndex(idx);
+    setMedForm({
+      drug: m.drug ?? '',
+      concentration: m.concentration ?? '',
+      posology: m.posology ?? '',
+      notes: m.notes ?? '',
+    });
+    setMedDialogOpen(true);
+  }, [meds]);
+
+  const saveMed = useCallback(() => {
+    const drug = medForm.drug?.trim();
+    if (!drug) {
+      toast.error('Informe o nome do medicamento.');
+      return;
+    }
+    const item: PrescriptionItemEmit = {
+      drug,
+      concentration: medForm.concentration?.trim() || undefined,
+      posology: medForm.posology?.trim() || undefined,
+      notes: medForm.notes?.trim() || undefined,
+    };
+    if (editingMedIndex !== null) {
+      setMeds(prev => prev.map((m, i) => (i === editingMedIndex ? item : m)));
+    } else {
+      setMeds(prev => [...prev, item]);
+    }
+    setMedDialogOpen(false);
+  }, [medForm, editingMedIndex]);
+
+  // ── Exam dialog state (aligned with mobile modal) ──
+  const [examDialogOpen, setExamDialogOpen] = useState(false);
+  const [editingExamIndex, setEditingExamIndex] = useState<number | null>(null);
+  const [examForm, setExamForm] = useState<ExamItemEmitWeb>({ type: 'laboratorial', description: '' });
+
+  const openAddExam = useCallback(() => {
+    setEditingExamIndex(null);
+    setExamForm({ type: 'laboratorial', description: '' });
+    setExamDialogOpen(true);
+  }, []);
+
+  const openEditExam = useCallback((idx: number) => {
+    const e = exams[idx];
+    setEditingExamIndex(idx);
+    setExamForm({ type: e.type, description: e.description });
+    setExamDialogOpen(true);
+  }, [exams]);
+
+  const saveExam = useCallback(() => {
+    const description = examForm.description?.trim();
+    if (!description) {
+      toast.error('Informe a descrição do exame.');
+      return;
+    }
+    const item: ExamItemEmitWeb = { type: examForm.type || 'laboratorial', description };
+    if (editingExamIndex !== null) {
+      setExams(prev => prev.map((e, i) => (i === editingExamIndex ? item : e)));
+    } else {
+      setExams(prev => [...prev, item]);
+    }
+    setExamDialogOpen(false);
+  }, [examForm, editingExamIndex]);
 
   useEffect(() => {
     if (!requestId) return;
@@ -241,7 +320,12 @@ export default function DoctorPostConsultationEmit() {
     setExamJust(pkg.just); setExOn(true); setExOpen(true);
   }, [examPackagesDisplay]);
 
-  const docCount = (rxOn ? 1 : 0) + (exOn ? 1 : 0) + (atOn ? 1 : 0) + (refOn ? 1 : 0);
+  // Only count documents that are actually valid (have content)
+  const rxValid = rxOn && meds.length > 0 && meds.some(m => m.drug?.trim());
+  const exValid = exOn && exams.length > 0 && exams.some(e => e.description?.trim());
+  const atValid = atOn && certBody.trim().length > 0;
+  const refValid = refOn && refProfessional.trim().length > 0 && refReason.trim().length > 0;
+  const docCount = (rxValid ? 1 : 0) + (exValid ? 1 : 0) + (atValid ? 1 : 0) + (refValid ? 1 : 0);
 
   // ── Password dialog state ──
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -270,7 +354,7 @@ export default function DoctorPostConsultationEmit() {
         structuredAnamnesis: request?.consultationAnamnesis ?? undefined,
         plan: request?.doctorConductNotes ?? request?.aiConductSuggestion ?? undefined,
       };
-      if (rxOn && meds.length > 0) payload.prescription = { type: rxType, items: meds };
+      if (rxOn && meds.length > 0) payload.prescription = { type: rxType, items: meds, generalInstructions: rxGeneralInstructions.trim() || undefined };
       if (exOn && exams.length > 0) payload.examOrder = { clinicalJustification: examJust, items: exams };
       if (atOn && certBody.trim()) {
         payload.medicalCertificate = {
@@ -317,47 +401,56 @@ export default function DoctorPostConsultationEmit() {
         </Button>
 
         {/* CID Hero */}
-        <Card className="border-purple-200 bg-purple-50/50">
-          <CardContent className="flex items-center gap-4 py-4">
-            <div className="w-14 h-14 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl font-semibold shrink-0">
-              {certCid || detectedCid || '—'}
+        <Card className="border-purple-300 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-950/30">
+          <CardContent className="flex items-center gap-4 py-5">
+            <div className="w-14 h-14 rounded-xl bg-purple-600 text-white flex items-center justify-center text-lg font-bold shrink-0 shadow-sm">
+              {certCid || detectedCid || '?'}
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-purple-900 text-lg">
-                {cidPkg?.name ?? CID_PACKAGES[certCid]?.name ?? 'CID não identificado'}
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-purple-900 dark:text-purple-100 text-lg leading-tight">
+                {cidPkg?.name ?? CID_PACKAGES[certCid]?.name ?? 'Selecione um CID'}
               </p>
-              <p className="text-purple-600 text-sm mt-1">
-                Documentos pré-preenchidos com base na transcrição da consulta.
+              <p className="text-purple-600 dark:text-purple-400 text-sm mt-1">
+                {(certCid || detectedCid)
+                  ? 'Documentos pré-preenchidos com base na transcrição.'
+                  : 'Escolha um CID abaixo para preencher medicamentos, exames e atestado automaticamente.'}
               </p>
-              <button onClick={() => setCidPickerOpen(!cidPickerOpen)}
-                className="text-purple-500 text-sm font-medium mt-1 hover:underline">
-                Trocar CID
-              </button>
             </div>
+            <Button variant="outline" size="sm" onClick={() => setCidPickerOpen(!cidPickerOpen)}
+              className="shrink-0 border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900">
+              {cidPickerOpen ? 'Fechar' : 'Trocar CID'}
+            </Button>
           </CardContent>
         </Card>
 
         {/* CID Picker */}
         {cidPickerOpen && (
-          <div className="grid grid-cols-2 gap-2">
-            {Object.entries(CID_PACKAGES).map(([code, pkg]) => (
-              <button key={code} onClick={() => loadCid(code)}
-                className={`text-left p-3 rounded-xl border-[1.5px] transition-all ${
-                  code === certCid ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <span className="font-semibold text-sm">{code}</span>
-                <span className="text-xs text-muted-foreground block mt-0.5">{pkg.name}</span>
-              </button>
-            ))}
-          </div>
+          <Card className="border-purple-200 dark:border-purple-800">
+            <CardContent className="py-4">
+              <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Diagnósticos frequentes</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {Object.entries(CID_PACKAGES).map(([code, pkg]) => (
+                  <button key={code} onClick={() => loadCid(code)}
+                    className={`text-left p-3 rounded-xl border-[1.5px] transition-all ${
+                      code === certCid
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/50 ring-1 ring-purple-300'
+                        : 'border-border hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-950/20'}`}>
+                    <span className="font-bold text-sm text-purple-700 dark:text-purple-300">{code}</span>
+                    <span className="text-xs text-muted-foreground block mt-0.5 leading-snug">{pkg.name}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* ═══ RECEITA ═══ */}
-        <Card className={!rxOn ? 'opacity-35 pointer-events-none' : ''}>
-          <CardHeader className="pb-2 cursor-pointer" onClick={() => rxOn && setRxOpen(!rxOpen)}>
+        <Card className={`transition-opacity ${!rxOn ? 'opacity-50' : ''}`}>
+          <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => { if (!rxOn) { setRxOn(true); setRxOpen(true); } else setRxOpen(!rxOpen); }}>
             <div className="flex items-center gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <div className={`w-2.5 h-2.5 rounded-full ${rxOn ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
               <CardTitle className="text-base flex-1">Receita</CardTitle>
-              <Badge variant="secondary" className="font-medium">{meds.length} ite{meds.length !== 1 ? 'ns' : 'm'}</Badge>
+              {rxOn && <Badge variant="secondary" className="font-medium">{meds.length} ite{meds.length !== 1 ? 'ns' : 'm'}</Badge>}
               <Switch checked={rxOn} onCheckedChange={v => { setRxOn(v); if (v) setRxOpen(true); }}
                 onClick={e => e.stopPropagation()} />
               {rxOn && (rxOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />)}
@@ -369,39 +462,66 @@ export default function DoctorPostConsultationEmit() {
                 {(['simples', 'controlado'] as const).map(t => (
                   <button key={t} onClick={() => setRxType(t)}
                     className={`px-5 py-2 rounded-full text-sm font-medium border-[1.5px] transition-all ${
-                      rxType === t ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500'}`}>
+                      rxType === t ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:border-primary/50'}`}>
                     {t.charAt(0).toUpperCase() + t.slice(1)}
                   </button>
                 ))}
               </div>
-              {meds.map((m, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 min-h-[50px]">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{m.drug}{m.concentration ? ` ${m.concentration}` : ''}</p>
-                    {(m.posology || m.notes) && <p className="text-xs text-muted-foreground mt-0.5">{[m.posology, m.notes].filter(Boolean).join(' · ')}</p>}
+              {meds.length === 0 ? (
+                <div className="flex flex-col items-center py-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center mb-3">
+                    <Plus className="h-5 w-5 text-blue-400" />
                   </div>
-                  <button onClick={() => setMeds(p => p.filter((_, j) => j !== i))}
-                    className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center shrink-0 hover:bg-red-100">
-                    <X className="h-3.5 w-3.5 text-red-500" />
-                  </button>
+                  <p className="text-sm text-muted-foreground mb-1">Nenhum medicamento adicionado</p>
+                  <p className="text-xs text-muted-foreground mb-4">Selecione um CID acima para preencher automaticamente ou adicione manualmente.</p>
+                  <Button variant="outline" size="sm" onClick={openAddMed} className="gap-2">
+                    <Plus className="h-4 w-4" /> Adicionar medicamento
+                  </Button>
                 </div>
-              ))}
-              <button
-                onClick={() => setMeds(prev => [...prev, { drug: '' }])}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-gray-300 text-blue-600 text-sm font-medium hover:bg-blue-50">
-                <Plus className="h-4 w-4" /> Adicionar medicamento
-              </button>
+              ) : (
+                <>
+                  {meds.map((m, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 min-h-[50px] group">
+                      <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0 text-xs font-bold text-blue-600 dark:text-blue-400">
+                        {i + 1}
+                      </div>
+                      <button className="flex-1 min-w-0 text-left" onClick={() => openEditMed(i)}>
+                        <p className="font-medium text-sm">{m.drug || <span className="text-muted-foreground italic">Sem nome</span>}{m.concentration ? ` ${m.concentration}` : ''}</p>
+                        {(m.posology || m.notes) && <p className="text-xs text-muted-foreground mt-0.5">{[m.posology, m.notes].filter(Boolean).join(' · ')}</p>}
+                      </button>
+                      <button onClick={() => openEditMed(i)} title="Editar"
+                        className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center shrink-0 hover:bg-blue-100 dark:hover:bg-blue-900/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Pencil className="h-3.5 w-3.5 text-blue-500" />
+                      </button>
+                      <button onClick={() => setMeds(p => p.filter((_, j) => j !== i))} title="Remover"
+                        className="w-7 h-7 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0 hover:bg-red-100 dark:hover:bg-red-900/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X className="h-3.5 w-3.5 text-red-500" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={openAddMed}
+                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-border text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors">
+                    <Plus className="h-4 w-4" /> Adicionar medicamento
+                  </button>
+                  <div className="pt-1">
+                    <label htmlFor="rx-instructions" className="text-xs font-medium text-muted-foreground block mb-1.5">Instruções gerais (opcional)</label>
+                    <Textarea id="rx-instructions" value={rxGeneralInstructions} onChange={e => setRxGeneralInstructions(e.target.value)} rows={2}
+                      placeholder="Ex: Tomar após as refeições. Evitar álcool. Retornar em 15 dias." className="text-sm" />
+                  </div>
+                </>
+              )}
             </CardContent>
           )}
         </Card>
 
         {/* ═══ EXAMES ═══ */}
-        <Card className={!exOn ? 'opacity-35 pointer-events-none' : ''}>
-          <CardHeader className="pb-2 cursor-pointer" onClick={() => exOn && setExOpen(!exOpen)}>
+        <Card className={`transition-opacity ${!exOn ? 'opacity-50' : ''}`}>
+          <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => { if (!exOn) { setExOn(true); setExOpen(true); } else setExOpen(!exOpen); }}>
             <div className="flex items-center gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <div className={`w-2.5 h-2.5 rounded-full ${exOn ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
               <CardTitle className="text-base flex-1">Exames</CardTitle>
-              <Badge variant="secondary" className="font-medium">{exams.length} exame{exams.length !== 1 ? 's' : ''}</Badge>
+              {exOn && <Badge variant="secondary" className="font-medium">{exams.length} exame{exams.length !== 1 ? 's' : ''}</Badge>}
               <Switch checked={exOn} onCheckedChange={v => { setExOn(v); if (v) setExOpen(true); }}
                 onClick={e => e.stopPropagation()} />
               {exOn && (exOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />)}
@@ -413,7 +533,7 @@ export default function DoctorPostConsultationEmit() {
               <div className="grid grid-cols-2 gap-2">
                 {examPackagesDisplay.map(p => (
                   <button key={p.key} onClick={() => loadExamPkg(p.key)}
-                    className="text-left p-3 rounded-xl border-[1.5px] border-gray-200 hover:border-blue-400 hover:bg-blue-50/50 transition-all">
+                    className="text-left p-3 rounded-xl border-[1.5px] border-border hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-all">
                     <p className="font-semibold text-sm">{p.name}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{p.exams.length} exames</p>
                   </button>
@@ -421,10 +541,16 @@ export default function DoctorPostConsultationEmit() {
               </div>
               <hr className="border-gray-100" />
               {exams.slice(0, exListExpanded ? undefined : 3).map((e, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 min-h-[46px]">
-                  <p className="font-medium text-sm flex-1">{e.description}</p>
-                  <button onClick={() => setExams(p => p.filter((_, j) => j !== i))}
-                    className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center shrink-0 hover:bg-red-100">
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 min-h-[46px] group">
+                  <button className="font-medium text-sm flex-1 text-left" onClick={() => openEditExam(i)}>
+                    {e.description || <span className="text-muted-foreground italic">Sem descrição</span>}
+                  </button>
+                  <button onClick={() => openEditExam(i)} title="Editar"
+                    className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center shrink-0 hover:bg-blue-100 dark:hover:bg-blue-900/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Pencil className="h-3.5 w-3.5 text-blue-500" />
+                  </button>
+                  <button onClick={() => setExams(p => p.filter((_, j) => j !== i))} title="Remover"
+                    className="w-7 h-7 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0 hover:bg-red-100 dark:hover:bg-red-900/40 opacity-0 group-hover:opacity-100 transition-opacity">
                     <X className="h-3.5 w-3.5 text-red-500" />
                   </button>
                 </div>
@@ -436,8 +562,8 @@ export default function DoctorPostConsultationEmit() {
                 </button>
               )}
               <button
-                onClick={() => setExams(prev => [...prev, { type: 'laboratorial', description: '' }])}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-gray-300 text-blue-600 text-sm font-medium hover:bg-blue-50">
+                onClick={openAddExam}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-[1.5px] border-dashed border-border text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors">
                 <Plus className="h-4 w-4" /> Adicionar exame avulso
               </button>
               <div className="pt-1">
@@ -450,12 +576,12 @@ export default function DoctorPostConsultationEmit() {
         </Card>
 
         {/* ═══ ATESTADO ═══ */}
-        <Card className={!atOn ? 'opacity-35 pointer-events-none' : ''}>
-          <CardHeader className="pb-2 cursor-pointer" onClick={() => atOn && setAtOpen(!atOpen)}>
+        <Card className={`transition-opacity ${!atOn ? 'opacity-50' : ''}`}>
+          <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => { if (!atOn) { setAtOn(true); setAtOpen(true); } else setAtOpen(!atOpen); }}>
             <div className="flex items-center gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <div className={`w-2.5 h-2.5 rounded-full ${atOn ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
               <CardTitle className="text-base flex-1">Atestado</CardTitle>
-              <Badge variant="secondary" className="font-medium">{certDays} dia{certDays !== 1 ? 's' : ''}</Badge>
+              {atOn && <Badge variant="secondary" className="font-medium">{certDays} dia{certDays !== 1 ? 's' : ''}</Badge>}
               <Switch checked={atOn} onCheckedChange={v => { setAtOn(v); if (v) setAtOpen(true); }}
                 onClick={e => e.stopPropagation()} />
               {atOn && (atOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />)}
@@ -467,7 +593,7 @@ export default function DoctorPostConsultationEmit() {
                 {(['afastamento', 'comparecimento', 'aptidao'] as const).map(t => (
                   <button key={t} onClick={() => setCertType(t)}
                     className={`px-4 py-2 rounded-full text-sm font-medium border-[1.5px] transition-all ${
-                      certType === t ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500'}`}>
+                      certType === t ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:border-primary/50'}`}>
                     {t.charAt(0).toUpperCase() + t.slice(1).replace('ao', 'ão')}
                   </button>
                 ))}
@@ -500,24 +626,26 @@ export default function DoctorPostConsultationEmit() {
                   <Input id="cert-start" value={new Date().toLocaleDateString('pt-BR')} readOnly className="bg-gray-50 text-muted-foreground" />
                 </div>
               </div>
-              <label htmlFor="cert-include-cid" className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">
+              <label htmlFor="cert-include-cid" className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 cursor-pointer hover:bg-muted/70 transition-colors">
                 <input id="cert-include-cid" type="checkbox" checked={certIncludeCid} onChange={e => setCertIncludeCid(e.target.checked)}
                   className="w-4 h-4 accent-blue-600 rounded" />
-                <span className="text-sm text-gray-600">Incluir CID no atestado (paciente autorizou)</span>
+                <span className="text-sm text-muted-foreground">Incluir CID no atestado (paciente autorizou)</span>
               </label>
             </CardContent>
           )}
         </Card>
 
         {/* ═══ ENCAMINHAMENTO ═══ */}
-        <Card className={!refOn ? 'opacity-35 pointer-events-none' : ''}>
-          <CardHeader className="pb-2 cursor-pointer" onClick={() => refOn && setRefOpen(!refOpen)}>
+        <Card className={`transition-opacity ${!refOn ? 'opacity-50' : ''}`}>
+          <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => { if (!refOn) { setRefOn(true); setRefOpen(true); } else setRefOpen(!refOpen); }}>
             <div className="flex items-center gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+              <div className={`w-2.5 h-2.5 rounded-full ${refOn ? 'bg-violet-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
               <CardTitle className="text-base flex-1">Encaminhamento</CardTitle>
-              <Badge variant="secondary" className="font-medium">
-                {refProfessional.trim() || 'Médico/Prof.'}
-              </Badge>
+              {refOn && (
+                <Badge variant="secondary" className="font-medium">
+                  {refProfessional.trim() || 'Médico/Prof.'}
+                </Badge>
+              )}
               <Switch checked={refOn} onCheckedChange={v => { setRefOn(v); if (v) setRefOpen(true); }}
                 onClick={e => e.stopPropagation()} />
               {refOn && (refOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />)}
@@ -548,34 +676,104 @@ export default function DoctorPostConsultationEmit() {
         </Card>
 
         {/* ═══ RESUMO + CTAs ═══ */}
-        <Card className="border-green-200 bg-green-50/50">
-          <CardContent className="py-4">
-            <p className="font-semibold text-green-800">
-              {docCount} documento{docCount !== 1 ? 's' : ''} pronto{docCount !== 1 ? 's' : ''} para assinatura
-            </p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {rxOn && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Receita ({meds.length})</Badge>}
-              {exOn && <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Exames ({exams.length})</Badge>}
-              {atOn && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Atestado ({certDays}d)</Badge>}
-              {refOn && <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100">Encaminhamento</Badge>}
-            </div>
-          </CardContent>
-        </Card>
+        {docCount > 0 ? (
+          <Card className="border-green-300 dark:border-green-800 bg-green-50/60 dark:bg-green-950/20">
+            <CardContent className="py-4">
+              <p className="font-semibold text-green-800 dark:text-green-200">
+                {docCount} documento{docCount !== 1 ? 's' : ''} pronto{docCount !== 1 ? 's' : ''} para assinatura
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {rxValid && <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 hover:bg-blue-100">Receita ({meds.length})</Badge>}
+                {exValid && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-100">Exames ({exams.length})</Badge>}
+                {atValid && <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 hover:bg-amber-100">Atestado ({certDays}d)</Badge>}
+                {refValid && <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 hover:bg-violet-100">Encaminhamento</Badge>}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-border bg-muted/30">
+            <CardContent className="py-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Ative pelo menos um documento e preencha os campos obrigatórios para emitir.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        <Button size="lg" className="w-full h-14 text-base gap-2 bg-gray-900 hover:bg-gray-800 rounded-2xl"
+        <Button size="lg"
+          className="w-full h-14 text-base gap-2 rounded-2xl shadow-sm"
           onClick={handleSignClick} disabled={submitting || docCount === 0}>
           {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
-          Assinar e emitir documentos
-        </Button>
-
-        <Button variant="outline" size="lg" className="w-full h-12 gap-2 border-green-500 text-green-700 hover:bg-green-50 rounded-2xl">
-          <Send className="h-4 w-4" /> Enviar por WhatsApp
+          Assinar e emitir {docCount > 0 ? `${docCount} documento${docCount !== 1 ? 's' : ''}` : 'documentos'}
         </Button>
 
         <p className="text-center text-xs text-muted-foreground pb-4">
           Assinatura digital ICP-Brasil · QR Code verificável · Prontuário atualizado automaticamente
         </p>
       </div>
+
+      {/* ── Medication Dialog (aligned with mobile modal) ── */}
+      <Dialog open={medDialogOpen} onOpenChange={setMedDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingMedIndex !== null ? 'Editar medicamento' : 'Adicionar medicamento'}</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do medicamento conforme a prescrição.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label htmlFor="med-drug" className="text-xs font-medium text-muted-foreground block mb-1.5">Medicamento *</label>
+              <Input id="med-drug" value={medForm.drug} onChange={e => setMedForm(f => ({ ...f, drug: e.target.value }))}
+                placeholder="Ex: Dipirona 500mg" />
+            </div>
+            <div>
+              <label htmlFor="med-concentration" className="text-xs font-medium text-muted-foreground block mb-1.5">Concentração (opcional)</label>
+              <Input id="med-concentration" value={medForm.concentration ?? ''} onChange={e => setMedForm(f => ({ ...f, concentration: e.target.value }))}
+                placeholder="Ex: 500mg" />
+            </div>
+            <div>
+              <label htmlFor="med-posology" className="text-xs font-medium text-muted-foreground block mb-1.5">Posologia (opcional)</label>
+              <Input id="med-posology" value={medForm.posology ?? ''} onChange={e => setMedForm(f => ({ ...f, posology: e.target.value }))}
+                placeholder="Ex: VO 6/6h por 5 dias" />
+            </div>
+            <div>
+              <label htmlFor="med-notes" className="text-xs font-medium text-muted-foreground block mb-1.5">Indicação (opcional)</label>
+              <Input id="med-notes" value={medForm.notes ?? ''} onChange={e => setMedForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Ex: Febre e dor"
+                onKeyDown={e => { if (e.key === 'Enter') saveMed(); }} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setMedDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={saveMed}>{editingMedIndex !== null ? 'Salvar' : 'Adicionar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Exam Dialog (aligned with mobile modal) ── */}
+      <Dialog open={examDialogOpen} onOpenChange={setExamDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingExamIndex !== null ? 'Editar exame' : 'Adicionar exame avulso'}</DialogTitle>
+            <DialogDescription>
+              Informe a descrição do exame a ser solicitado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label htmlFor="exam-desc" className="text-xs font-medium text-muted-foreground block mb-1.5">Descrição do exame *</label>
+              <Input id="exam-desc" value={examForm.description} onChange={e => setExamForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Ex: Hemograma completo"
+                onKeyDown={e => { if (e.key === 'Enter') saveExam(); }} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setExamDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={saveExam}>{editingExamIndex !== null ? 'Salvar' : 'Adicionar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Password Dialog ── */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
