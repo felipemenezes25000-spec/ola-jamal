@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Caching.Memory;
 using RenoveJa.Api.Hubs;
+using RenoveJa.Api.Services;
 using RenoveJa.Application.DTOs.Consultation;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Domain.Enums;
@@ -28,6 +29,7 @@ public class ConsultationController(
     IHubContext<VideoSignalingHub> hubContext,
     IMemoryCache memoryCache,
     IStorageService storageService,
+    AnamnesisChannel anamnesisChannel,
     ILogger<ConsultationController> logger) : ControllerBase
 {
     private const string AnamnesisThrottleKeyPrefix = "consultation_anamnesis_last_";
@@ -176,55 +178,9 @@ public class ConsultationController(
             logger.LogInformation("[Transcribe] Disparando anamnese IA: RequestId={RequestId} previousAnamnesisLen={PrevLen}",
                 requestId, previousAnamnesisJson?.Length ?? 0);
 
-            _ = ((Func<Task>)(async () =>
-            {
-                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-                try
-                {
-                    var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(
-                        fullText, previousAnamnesisJson, timeoutCts.Token);
-                    if (result != null)
-                    {
-                        var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
-                        var evidenceJson = result.Evidence.Count > 0
-                            ? System.Text.Json.JsonSerializer.Serialize(result.Evidence,
-                                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })
-                            : null;
-                        sessionStore.UpdateAnamnesis(requestId, result.AnamnesisJson, suggestionsJson, evidenceJson);
-                        await hubContext.Clients.Group(group)
-                            .SendAsync("AnamnesisUpdate", new AnamnesisUpdateDto(result.AnamnesisJson));
-                        await hubContext.Clients.Group(group)
-                            .SendAsync("SuggestionUpdate", new SuggestionUpdateDto(result.Suggestions));
-                        if (result.Evidence.Count > 0)
-                        {
-                            await hubContext.Clients.Group(group)
-                                .SendAsync("EvidenceUpdate", new EvidenceUpdateDto(result.Evidence));
-                        }
-                        var groundingReport = CidGroundingValidator.Validate(fullText, result.AnamnesisJson);
-                        await hubContext.Clients.Group(group)
-                            .SendAsync("GroundingUpdate", groundingReport);
-                        if (!groundingReport.IsGrounded)
-                            logger.LogWarning("[Transcribe] GROUNDING FALHOU: RequestId={RequestId} Score={Score} Issues={Issues}",
-                                requestId, groundingReport.Score, string.Join(" | ", groundingReport.Issues));
-
-                        logger.LogInformation("[Transcribe] Anamnese IA OK: RequestId={RequestId} suggestions={Count} evidence={EvidenceCount} grounding={Score}",
-                            requestId, result.Suggestions.Count, result.Evidence.Count, groundingReport.Score);
-                    }
-                    else
-                    {
-                        logger.LogWarning("[Transcribe] ANAMNESE_NAO_OCORRE: Serviço retornou null. RequestId={RequestId} | Verifique logs [Anamnese IA] para causa (OpenAI key, API error, parse JSON)",
-                            requestId);
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    logger.LogWarning("[Transcribe] Anamnese IA cancelada por timeout (2min). RequestId={RequestId}", requestId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "[Transcribe] ANAMNESE_NAO_OCORRE: Exceção ao atualizar anamnese. RequestId={RequestId}", requestId);
-                }
-            }))();
+            var workItem = new AnamnesisWorkItem(fullText, previousAnamnesisJson, requestId, group);
+            if (!anamnesisChannel.Writer.TryWrite(workItem))
+                logger.LogWarning("[Transcribe] Canal de anamnese cheio, item descartado. RequestId={RequestId}", requestId);
         }
         else if (currentCount >= MaxAiCallsPerConsultation)
         {
@@ -320,50 +276,9 @@ public class ConsultationController(
 
             var (previousAnamnesisJson, _) = sessionStore.GetAnamnesisState(requestId);
 
-            _ = ((Func<Task>)(async () =>
-            {
-                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-                try
-                {
-                    var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(
-                        fullText, previousAnamnesisJson, timeoutCts.Token);
-                    if (result != null)
-                    {
-                        var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(result.Suggestions);
-                        var evidenceJson = result.Evidence.Count > 0
-                            ? System.Text.Json.JsonSerializer.Serialize(result.Evidence,
-                                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })
-                            : null;
-                        sessionStore.UpdateAnamnesis(requestId, result.AnamnesisJson, suggestionsJson, evidenceJson);
-                        await hubContext.Clients.Group(group)
-                            .SendAsync("AnamnesisUpdate", new AnamnesisUpdateDto(result.AnamnesisJson));
-                        await hubContext.Clients.Group(group)
-                            .SendAsync("SuggestionUpdate", new SuggestionUpdateDto(result.Suggestions));
-                        if (result.Evidence.Count > 0)
-                        {
-                            await hubContext.Clients.Group(group)
-                                .SendAsync("EvidenceUpdate", new EvidenceUpdateDto(result.Evidence));
-                        }
-                        var groundingReport = CidGroundingValidator.Validate(fullText, result.AnamnesisJson);
-                        await hubContext.Clients.Group(group)
-                            .SendAsync("GroundingUpdate", groundingReport);
-                        if (!groundingReport.IsGrounded)
-                            logger.LogWarning("[TranscribeText] GROUNDING FALHOU: RequestId={RequestId} Score={Score} Issues={Issues}",
-                                requestId, groundingReport.Score, string.Join(" | ", groundingReport.Issues));
-
-                        logger.LogInformation("[TranscribeText] Anamnese IA OK: RequestId={RequestId} suggestions={Count} grounding={Score}",
-                            requestId, result.Suggestions.Count, groundingReport.Score);
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    logger.LogWarning("[TranscribeText] Anamnese IA cancelada por timeout (2min). RequestId={RequestId}", requestId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "[TranscribeText] Exceção ao atualizar anamnese. RequestId={RequestId}", requestId);
-                }
-            }))();
+            var workItem = new AnamnesisWorkItem(fullText, previousAnamnesisJson, requestId, group);
+            if (!anamnesisChannel.Writer.TryWrite(workItem))
+                logger.LogWarning("[TranscribeText] Canal de anamnese cheio, item descartado. RequestId={RequestId}", requestId);
         }
 
         return Ok(new { ok = true, fullLength = fullText.Length });

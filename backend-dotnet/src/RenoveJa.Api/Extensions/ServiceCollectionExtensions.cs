@@ -180,6 +180,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<AuditChannel>();
         services.AddHostedService<AuditBackgroundService>();
 
+        // Anamnesis: bounded channel + background consumer (replaces fire-and-forget lambda in ConsultationController)
+        services.AddSingleton<AnamnesisChannel>();
+        services.AddHostedService<AnamnesisBackgroundService>();
+
         return services;
     }
 

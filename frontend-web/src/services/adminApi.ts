@@ -14,7 +14,7 @@ const ADMIN_TOKEN_KEY = "admin_auth_token";
 const ADMIN_REFRESH_TOKEN_KEY = "admin_refresh_token";
 const ADMIN_LOGIN_AT_KEY = "admin_login_at";
 const ADMIN_ROLE_KEY = "admin_user_role";
-const TOKEN_VALID_DAYS = 25;
+const TOKEN_VALID_DAYS = 7;
 
 let adminRefreshPromise: Promise<boolean> | null = null;
 let lastAdminRedirectAt = 0;

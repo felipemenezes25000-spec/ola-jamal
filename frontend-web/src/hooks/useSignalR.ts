@@ -6,7 +6,7 @@
  * Events: "RequestUpdated" { requestId, status, message }
  */
 import { useEffect, useRef, useState } from 'react';
-import { clearAuth, getToken, tryRefreshToken } from '@/services/doctorApi';
+import { clearAuth, getToken, hasAuthSession, tryRefreshToken } from '@/services/doctorApi';
 
 interface RequestEvent {
   requestId: string;
@@ -58,6 +58,7 @@ export function useRequestEvents(onEvent?: EventHandler) {
   const handlersRef = useRef<Set<EventHandler>>(new Set());
   const [connected, setConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RequestEvent | null>(null);
+  const isAuthenticated = hasAuthSession();
 
   // Register callback
   useEffect(() => {
@@ -69,6 +70,8 @@ export function useRequestEvents(onEvent?: EventHandler) {
   }, [onEvent]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     let cancelled = false;
 
     async function connect() {
@@ -136,7 +139,7 @@ export function useRequestEvents(onEvent?: EventHandler) {
       connectionRef.current?.stop();
       connectionRef.current = null;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return { connected, lastEvent };
 }

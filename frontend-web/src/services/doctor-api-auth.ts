@@ -52,7 +52,8 @@ export function getStoredUser(): DoctorUser | null {
   }
 }
 
-function storeAuth(_token: string, user: DoctorUser, refreshToken?: string) {
+function storeAuth(token: string, user: DoctorUser, refreshToken?: string) {
+  localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
