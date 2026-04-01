@@ -186,7 +186,7 @@ function makeStyles(colors: ReturnType<typeof import('../lib/designSystem').crea
   countdownNumber: {
     color: colors.success,
     fontSize: 64,
-    fontWeight: '800',
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   countdownSub: {

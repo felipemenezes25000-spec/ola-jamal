@@ -416,7 +416,7 @@ export default function Verify() {
           </div>
         )}
 
-        <div style={styles.guardrail} role="alert">
+        <div style={styles.guardrail} role="note" aria-label="Aviso importante">
           {GUARDRAIL_ALERT}
         </div>
 

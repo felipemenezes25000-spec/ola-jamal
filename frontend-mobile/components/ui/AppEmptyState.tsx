@@ -26,8 +26,16 @@ export function AppEmptyState({
 
   return (
     <View style={[s.container, style]}>
-      <View style={[s.iconCircle, { backgroundColor: colors.primarySoft }]}>
-        <Ionicons name={icon} size={36} color={colors.primary} />
+      <View
+        style={[
+          s.iconCircle,
+          {
+            backgroundColor: colors.primarySoft,
+            borderColor: `${colors.primary}18`,
+          },
+        ]}
+      >
+        <Ionicons name={icon} size={32} color={colors.primary} />
       </View>
       <Text style={[s.title, { color: colors.text, fontFamily: typography.fontFamily.bold }]}>{title}</Text>
       {subtitle ? (
@@ -41,7 +49,7 @@ export function AppEmptyState({
           style={({ pressed }) => [
             s.actionBtn,
             { backgroundColor: colors.primary },
-            (shadows as any)?.button,
+            shadows.button,
             pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
           ]}
           onPress={onAction}
@@ -57,19 +65,43 @@ export function AppEmptyState({
 }
 
 const s = StyleSheet.create({
-  container: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 10 },
-  iconCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  title: { fontSize: 18, fontWeight: '800', textAlign: 'center', letterSpacing: -0.2, lineHeight: 24 },
-  subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 21, maxWidth: 300 },
+  container: {
+    alignItems: 'center',
+    paddingVertical: 56,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+    lineHeight: 24,
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 280,
+    marginTop: 2,
+  },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 13,
+    height: 48,
     paddingHorizontal: 28,
-    borderRadius: 16,
-    marginTop: 12,
-    minHeight: 44,
+    borderRadius: 14,
+    marginTop: 16,
   },
-  actionText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.1 },
+  actionText: { fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
 });

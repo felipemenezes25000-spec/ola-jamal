@@ -10,13 +10,15 @@ interface DoctorScreenHeaderProps {
   paddingTop: number;
   colors: DesignColors;
   gradientColors: readonly string[];
-  /** Elemento posicionado à direita do header */
+  /** Element positioned to the right of the header */
   rightSlot?: React.ReactNode;
-  /** Badge numérico exibido à direita do título */
+  /** Numeric badge displayed to the right of the title */
   countBadge?: number;
   paddingHorizontal?: number;
   paddingBottom?: number;
   borderRadius?: number;
+  /** Flat style: white bg with bottom border instead of gradient */
+  flat?: boolean;
 }
 
 export function DoctorScreenHeader({
@@ -30,7 +32,44 @@ export function DoctorScreenHeader({
   paddingHorizontal = 20,
   paddingBottom = 28,
   borderRadius = 32,
+  flat = false,
 }: DoctorScreenHeaderProps) {
+  if (flat) {
+    return (
+      <View
+        style={[
+          styles.headerFlat,
+          {
+            paddingTop,
+            paddingHorizontal,
+            paddingBottom: 12,
+          },
+        ]}
+      >
+        <View style={styles.row}>
+          <View style={styles.textBlock}>
+            <View style={styles.titleRow}>
+              <Text style={[styles.titleFlat, { color: '#0F172A' }]} numberOfLines={1}>
+                {title}
+              </Text>
+              {countBadge !== undefined && (
+                <View style={styles.badgeFlat}>
+                  <Text style={styles.badgeTextFlat}>{countBadge}</Text>
+                </View>
+              )}
+            </View>
+            {!!subtitle && (
+              <Text style={[styles.subtitleFlat, { color: '#64748B' }]} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            )}
+          </View>
+          {rightSlot}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <LinearGradient
       colors={gradientColors as [string, string, ...string[]]}
@@ -94,22 +133,42 @@ export function DoctorHeaderAction({ icon, onPress, colors, accessibilityLabel }
 
 const styles = StyleSheet.create({
   header: {},
+  headerFlat: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   textBlock: { flex: 1, minWidth: 0 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
     letterSpacing: 0.1,
+  },
+  titleFlat: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
     fontWeight: '500',
     marginTop: 3,
     letterSpacing: 0.1,
+  },
+  subtitleFlat: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 3,
   },
   badge: {
     width: 44,
@@ -121,9 +180,23 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flexShrink: 0,
   },
+  badgeFlat: {
+    minWidth: 28,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
   badgeText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  badgeTextFlat: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0EA5E9',
   },
   actionBtn: {
     width: 40,

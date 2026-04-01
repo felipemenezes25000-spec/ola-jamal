@@ -15,13 +15,15 @@ interface PulsingNotificationIconProps {
   color: string;
   size: number;
   hasUnread: boolean;
+  /** When true, renders filled icon; outline otherwise. Defaults to true for backward compat. */
+  focused?: boolean;
 }
 
 /**
  * Ícone de notificação que pulsa quando há não lidas.
  * Usado na tab do médico para chamar atenção imediatamente - ele não pode perder tempo.
  */
-export function PulsingNotificationIcon({ color, size, hasUnread }: PulsingNotificationIconProps) {
+export function PulsingNotificationIcon({ color, size, hasUnread, focused = true }: PulsingNotificationIconProps) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export function PulsingNotificationIcon({ color, size, hasUnread }: PulsingNotif
 
   return (
     <Animated.View style={[{ alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, animatedStyle]}>
-      <Ionicons name="notifications" size={size} color={iconColor} />
+      <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={size} color={iconColor} />
     </Animated.View>
   );
 }

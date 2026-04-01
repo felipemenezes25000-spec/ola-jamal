@@ -31,7 +31,7 @@ describe('useNetworkStatus', () => {
   });
 
   it('updates isConnected when network goes offline', () => {
-    let callback: (state: { isConnected: boolean | null }) => void;
+    let callback: (state: { isConnected: boolean | null; isInternetReachable: boolean | null }) => void;
     mockAddEventListener.mockImplementation((cb: any) => {
       callback = cb;
       return jest.fn();
@@ -40,13 +40,13 @@ describe('useNetworkStatus', () => {
     const { result } = renderHook(() => useNetworkStatus());
 
     act(() => {
-      callback({ isConnected: false });
+      callback({ isConnected: false, isInternetReachable: false });
     });
     expect(result.current.isConnected).toBe(false);
   });
 
   it('updates isConnected when network comes back online', () => {
-    let callback: (state: { isConnected: boolean | null }) => void;
+    let callback: (state: { isConnected: boolean | null; isInternetReachable: boolean | null }) => void;
     mockAddEventListener.mockImplementation((cb: any) => {
       callback = cb;
       return jest.fn();
@@ -55,18 +55,18 @@ describe('useNetworkStatus', () => {
     const { result } = renderHook(() => useNetworkStatus());
 
     act(() => {
-      callback({ isConnected: false });
+      callback({ isConnected: false, isInternetReachable: false });
     });
     expect(result.current.isConnected).toBe(false);
 
     act(() => {
-      callback({ isConnected: true });
+      callback({ isConnected: true, isInternetReachable: true });
     });
     expect(result.current.isConnected).toBe(true);
   });
 
-  it('handles null isConnected state', () => {
-    let callback: (state: { isConnected: boolean | null }) => void;
+  it('treats connected but unreachable as offline (captive portal)', () => {
+    let callback: (state: { isConnected: boolean | null; isInternetReachable: boolean | null }) => void;
     mockAddEventListener.mockImplementation((cb: any) => {
       callback = cb;
       return jest.fn();
@@ -75,9 +75,24 @@ describe('useNetworkStatus', () => {
     const { result } = renderHook(() => useNetworkStatus());
 
     act(() => {
-      callback({ isConnected: null });
+      callback({ isConnected: true, isInternetReachable: false });
     });
-    expect(result.current.isConnected).toBeNull();
+    expect(result.current.isConnected).toBe(false);
+  });
+
+  it('treats null isConnected as offline', () => {
+    let callback: (state: { isConnected: boolean | null; isInternetReachable: boolean | null }) => void;
+    mockAddEventListener.mockImplementation((cb: any) => {
+      callback = cb;
+      return jest.fn();
+    });
+
+    const { result } = renderHook(() => useNetworkStatus());
+
+    act(() => {
+      callback({ isConnected: null, isInternetReachable: null });
+    });
+    expect(result.current.isConnected).toBe(false);
   });
 
   it('unsubscribes on unmount', () => {

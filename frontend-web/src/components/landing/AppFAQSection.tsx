@@ -42,7 +42,7 @@ export function AppFAQSection() {
           <span className="mb-4 inline-block text-sm font-semibold uppercase tracking-wider text-primary">
             Setores atendidos
           </span>
-          <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="font-display text-2xl font-bold text-foreground sm:text-4xl lg:text-5xl">
             Contextos de uso
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">
@@ -51,7 +51,7 @@ export function AppFAQSection() {
           </p>
         </motion.div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {sectors.map((sector, index) => (
             <motion.div
               key={sector.title}

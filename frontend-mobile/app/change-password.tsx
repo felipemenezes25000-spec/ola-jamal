@@ -62,6 +62,11 @@ export default function ChangePasswordScreen() {
             value={currentPassword}
             onChangeText={setCurrentPassword}
             secureTextEntry
+            autoComplete="current-password"
+            textContentType="password"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            editable={!loading}
             placeholder="Digite sua senha atual"
             leftIcon="lock-closed-outline"
           />
@@ -70,6 +75,11 @@ export default function ChangePasswordScreen() {
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            editable={!loading}
             placeholder="Digite a nova senha"
             leftIcon="key-outline"
           />
@@ -78,6 +88,12 @@ export default function ChangePasswordScreen() {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="done"
+            blurOnSubmit={true}
+            onSubmitEditing={handleSubmit}
+            editable={!loading}
             placeholder="Repita a nova senha"
             leftIcon="key-outline"
           />

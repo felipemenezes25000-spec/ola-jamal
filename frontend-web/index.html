@@ -22,11 +22,37 @@
                base-uri 'self';"
     />
 
-    <title>RenoveJá+ — Portal do Médico</title>
+    <!-- Primary SEO -->
+    <title>RenoveJá+ — Plataforma de Telemedicina Online com IA Assistiva</title>
     <meta
       name="description"
-      content="Portal do Médico — Telemedicina com IA clínica, prescrição digital e consultas por vídeo"
+      content="RenoveJá+ apoia governo, hospitais e clínicas em telemedicina online, renovação de receitas, teleconsultas e validação documental com IA assistiva e decisão final do médico. Conforme Resolução CFM n.º 2.454/2026."
     />
+    <meta name="keywords" content="telemedicina, receita digital, teleconsulta, IA médica, RenoveJá, saúde digital, CFM, LGPD, ICP-Brasil" />
+    <link rel="canonical" href="https://renovejasaude.com.br/" />
+
+    <!-- hreflang: Portuguese (Brazil) -->
+    <link rel="alternate" hreflang="pt-BR" href="https://renovejasaude.com.br/" />
+    <link rel="alternate" hreflang="x-default" href="https://renovejasaude.com.br/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="RenoveJá+" />
+    <meta property="og:url" content="https://renovejasaude.com.br/" />
+    <meta property="og:title" content="RenoveJá+ — Plataforma de Telemedicina Online com IA Assistiva" />
+    <meta property="og:description" content="Telemedicina online, renovação de receitas, teleconsultas e validação documental com IA assistiva e decisão final do médico. Conforme CFM n.º 2.454/2026." />
+    <meta property="og:image" content="https://renovejasaude.com.br/icons/icon-512x512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="Logo RenoveJá+ — Plataforma de Telemedicina" />
+    <meta property="og:locale" content="pt_BR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RenoveJá+ — Plataforma de Telemedicina Online com IA Assistiva" />
+    <meta name="twitter:description" content="Telemedicina online, renovação de receitas, teleconsultas e validação documental com IA assistiva e decisão final do médico." />
+    <meta name="twitter:image" content="https://renovejasaude.com.br/icons/icon-512x512.png" />
+    <meta name="twitter:image:alt" content="Logo RenoveJá+ — Plataforma de Telemedicina" />
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
@@ -38,6 +64,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="RenoveJá+" />
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+
+    <!-- Google Fonts: non-blocking preload (moved from CSS @import) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" />
+    </noscript>
 
     <!-- Icons -->
     <link
@@ -72,8 +111,73 @@
         }
       }
     </style>
+    <!-- Robots -->
+    <meta name="robots" content="index, follow" />
+
+    <!-- JSON-LD: MedicalOrganization + WebSite -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "MedicalOrganization",
+          "@id": "https://renovejasaude.com.br/#organization",
+          "name": "RenoveJá+",
+          "url": "https://renovejasaude.com.br/",
+          "logo": "https://renovejasaude.com.br/icons/icon-512x512.png",
+          "description": "Plataforma de telemedicina online com IA assistiva para governo, hospitais, clínicas e operadoras. Renovação de receitas, teleconsultas e validação documental conforme Resolução CFM n.º 2.454/2026.",
+          "telephone": "+55-11-98631-8000",
+          "email": "contato@renovejasaude.com.br",
+          "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "BR",
+            "addressRegion": "SP"
+          },
+          "areaServed": {
+            "@type": "Country",
+            "name": "Brasil"
+          },
+          "availableService": [
+            {
+              "@type": "MedicalTherapy",
+              "name": "Teleconsulta online",
+              "description": "Atendimento médico remoto via vídeo com rastreabilidade e conformidade CFM."
+            },
+            {
+              "@type": "MedicalTherapy",
+              "name": "Renovação de receitas digitais",
+              "description": "Fluxo guiado de renovação de receituário simples com assinatura ICP-Brasil."
+            }
+          ],
+          "sameAs": [
+            "https://wa.me/5511986318000"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://renovejasaude.com.br/#website",
+          "url": "https://renovejasaude.com.br/",
+          "name": "RenoveJá+",
+          "description": "Plataforma de telemedicina online com IA assistiva",
+          "inLanguage": "pt-BR",
+          "publisher": {
+            "@id": "https://renovejasaude.com.br/#organization"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
+    <!-- Skip-to-content link (WCAG 2.4.1 — Bypass Blocks) -->
+    <a
+      href="#main-content"
+      style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;"
+      onfocus="this.style.cssText='position:fixed;top:1rem;left:1rem;z-index:9999;padding:0.5rem 1rem;background:#00a0dc;color:#fff;font-weight:600;border-radius:0.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.3);width:auto;height:auto;overflow:visible;'"
+      onblur="this.style.cssText='position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;'"
+    >
+      Ir para o conteúdo principal
+    </a>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

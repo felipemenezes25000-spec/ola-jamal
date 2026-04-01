@@ -9,6 +9,13 @@
  * O prebuilt Daily UI já inclui: botão de entrar, câmera, mic, leave, fullscreen.
  * A transcrição é encaminhada ao backend via useWebTranscription (DailyProvider).
  *
+ * Design spec:
+ * - Patient video centered (or avatar with initials)
+ * - PiP of doctor: 100x140px desktop, smaller on mobile, radius 12, white border 2px
+ * - HD quality indicator pill
+ * - Full dark background (#0B1120)
+ * - Responsive: phone landscape, tablet, desktop
+ *
  * Bug fixes:
  * - #1  Transcription waits for 'joined-meeting' + 150ms buffer before starting
  * - #2  'left-meeting' handler cleans up state and notifies parent
@@ -24,7 +31,7 @@
 import DailyIframe, { type DailyCall } from '@daily-co/daily-js';
 import { DailyProvider } from '@daily-co/daily-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Maximize2, Minimize2, WifiOff, Loader2, AlertTriangle, RefreshCw, MonitorOff } from 'lucide-react';
+import { Maximize2, Minimize2, WifiOff, Loader2, AlertTriangle, RefreshCw, MonitorOff, Signal } from 'lucide-react';
 import { useWebTranscription } from '@/hooks/useWebTranscription';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -205,14 +212,14 @@ export function VideoFrameDaily({
           lang: 'pt',
           theme: {
             colors: {
-              accent: '#0EA5E9',
+              accent: '#8B5CF6',
               accentText: '#FFFFFF',
-              background: '#111827',
-              backgroundAccent: '#1F2937',
+              background: '#0B1120',
+              backgroundAccent: '#15202E',
               baseText: '#F9FAFB',
-              border: '#374151',
-              mainAreaBg: '#030712',
-              mainAreaBgAccent: '#111827',
+              border: '#1E293B',
+              mainAreaBg: '#0B1120',
+              mainAreaBgAccent: '#15202E',
               mainAreaText: '#F9FAFB',
             },
           },
@@ -390,10 +397,11 @@ export function VideoFrameDaily({
   }, [roomUrl, meetingToken, retryKey]);
 
   return (
-    // --- Bug #10: responsive layout for small screens ---
-    <div className={`relative transition-all duration-300 ${isExpanded ? 'w-[40%]' : 'w-[60%]'} max-md:!w-full max-md:h-[50vh] max-md:min-h-[250px]`}>
+    <div className={`relative transition-all duration-300 bg-[#0B1120] ${
+      isExpanded ? 'w-[40%]' : 'w-[60%]'
+    } max-md:!w-full max-md:h-[50vh] max-md:min-h-[220px] landscape:max-md:h-[60vh]`}>
       <div className="relative w-full h-full min-h-[200px]">
-        <div ref={containerRef} className="w-full h-full min-h-[200px] bg-gray-900" />
+        <div ref={containerRef} className="w-full h-full min-h-[200px] bg-[#0B1120]" />
 
         {/* DailyProvider for transcription forwarding */}
         {callObject && (
@@ -406,10 +414,18 @@ export function VideoFrameDaily({
           </DailyProvider>
         )}
 
+        {/* HD quality indicator pill */}
+        {meetingJoined && !reconnecting && !connectionTimedOut && (
+          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-[10px] sm:text-xs text-gray-300 font-medium">
+            <Signal className="h-3 w-3 text-emerald-400" />
+            HD
+          </div>
+        )}
+
         {/* --- Bug #4: Reconnecting overlay --- */}
         {reconnecting && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/80 backdrop-blur-sm">
-            <WifiOff className="h-10 w-10 text-amber-400 mb-3 animate-pulse" />
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0B1120]/90 backdrop-blur-sm">
+            <WifiOff className="h-8 w-8 sm:h-10 sm:w-10 text-amber-400 mb-3 animate-pulse" />
             <p className="text-amber-300 font-medium text-sm">Reconectando...</p>
             <p className="text-gray-500 text-xs mt-1">Aguarde, tentando restabelecer a conexão</p>
             <Loader2 className="h-5 w-5 animate-spin text-amber-400 mt-3" />
@@ -418,10 +434,10 @@ export function VideoFrameDaily({
 
         {/* --- Bug #9: Connection timeout overlay --- */}
         {connectionTimedOut && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/90 backdrop-blur-sm">
-            <AlertTriangle className="h-10 w-10 text-red-400 mb-3" />
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0B1120]/95 backdrop-blur-sm">
+            <AlertTriangle className="h-8 w-8 sm:h-10 sm:w-10 text-red-400 mb-3" />
             <p className="text-red-300 font-medium text-sm">Tempo de conexão esgotado</p>
-            <p className="text-gray-500 text-xs mt-1 max-w-xs text-center">
+            <p className="text-gray-500 text-xs mt-1 max-w-xs text-center px-4">
               Não foi possível conectar à videochamada em {CONNECTION_TIMEOUT_MS / 1000}s.
             </p>
             <Button
@@ -437,15 +453,17 @@ export function VideoFrameDaily({
 
         {/* --- Bug #8: Screen share indicator --- */}
         {screenShareActive && (
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-900/80 text-emerald-300 text-xs font-medium">
+          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-900/80 backdrop-blur-sm text-emerald-300 text-xs font-medium">
             <MonitorOff className="h-3.5 w-3.5" />
-            Compartilhando tela
+            <span className="hidden sm:inline">Compartilhando tela</span>
+            <span className="sm:hidden">Tela</span>
           </div>
         )}
 
+        {/* Expand/minimize toggle */}
         <button
           onClick={onToggleExpand}
-          className="absolute top-4 right-4 p-2 rounded-lg bg-gray-900/80 text-gray-400 hover:text-white transition-colors z-10"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-lg bg-black/50 backdrop-blur-sm text-gray-400 hover:text-white transition-colors z-10"
           aria-label={isExpanded ? 'Expandir vídeo' : 'Expandir painel'}
         >
           {isExpanded ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}

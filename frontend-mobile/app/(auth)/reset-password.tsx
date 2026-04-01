@@ -100,6 +100,11 @@ export default function ResetPasswordScreen() {
               value={newPassword}
               onChangeText={(t: string) => { setNewPassword(t); setError(''); }}
               secureTextEntry
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              editable={!loading}
               leftIcon="lock-closed-outline"
             />
             <AppInput
@@ -108,6 +113,12 @@ export default function ResetPasswordScreen() {
               value={confirmPassword}
               onChangeText={(t: string) => { setConfirmPassword(t); setError(''); }}
               secureTextEntry
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="done"
+              blurOnSubmit={true}
+              onSubmitEditing={handleSubmit}
+              editable={!loading}
               leftIcon="lock-closed-outline"
             />
 

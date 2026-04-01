@@ -45,8 +45,8 @@ export interface AppButtonProps {
 
 const SIZE_CONFIG = {
   sm: { height: 40, fontSize: 13, iconSize: 16, padding: 18, radius: 12 },
-  md: { height: 50, fontSize: 15, iconSize: 20, padding: 24, radius: 14 },
-  lg: { height: 56, fontSize: 17, iconSize: 24, padding: 32, radius: 16 },
+  md: { height: 48, fontSize: 15, iconSize: 20, padding: 24, radius: 14 },
+  lg: { height: 52, fontSize: 17, iconSize: 24, padding: 32, radius: 14 },
 };
 
 export function AppButton({
@@ -196,6 +196,7 @@ const styles = StyleSheet.create({
   icon: {},
   text: {
     fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
     letterSpacing: 0.2,
     textAlign: 'center',
   },

@@ -6,7 +6,10 @@ export function useNetworkStatus() {
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      setIsConnected(state.isConnected);
+      // isConnected alone is true on captive portals / no-data SIMs;
+      // isInternetReachable performs an actual probe (null = not yet probed)
+      const reachable = state.isConnected === true && state.isInternetReachable !== false;
+      setIsConnected(reachable);
     });
     return () => unsubscribe();
   }, []);

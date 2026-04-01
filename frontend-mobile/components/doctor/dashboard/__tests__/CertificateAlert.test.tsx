@@ -8,7 +8,7 @@ jest.mock('../../../../lib/haptics', () => ({ haptics: { selection: jest.fn() } 
 describe('CertificateAlert', () => {
   it('renderiza título e descrição', () => {
     const { getByText } = render(<CertificateAlert onPress={() => {}} />);
-    expect(getByText('Certificado Digital pendente')).toBeTruthy();
+    expect(getByText('Certificado digital não configurado')).toBeTruthy();
     expect(getByText(/Configure para assinar/)).toBeTruthy();
   });
 

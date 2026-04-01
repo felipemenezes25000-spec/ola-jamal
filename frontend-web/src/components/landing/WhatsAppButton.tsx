@@ -29,10 +29,11 @@ export function WhatsAppButton() {
       transition={{ type: 'spring', stiffness: 220, damping: 18 }}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.96 }}
-      className="group fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-full bg-[#25D366] px-5 py-4 text-white shadow-2xl transition-shadow hover:shadow-[0_8px_32px_rgba(37,211,102,0.4)]"
+      aria-label="Falar sobre parceria pelo WhatsApp"
+      className="group fixed bottom-6 left-6 z-50 flex items-center gap-3 rounded-full bg-[#25D366] px-4 py-3 sm:px-5 sm:py-4 text-white shadow-2xl transition-shadow hover:shadow-[0_8px_32px_rgba(37,211,102,0.4)]"
     >
-      <MessageCircle className="h-6 w-6" />
-      <span className="hidden font-semibold sm:inline-block">Falar sobre parceria</span>
+      <MessageCircle className="h-6 w-6" aria-hidden />
+      <span className="hidden font-semibold sm:inline-block" aria-hidden>Falar sobre parceria</span>
     </motion.a>
   );
 }

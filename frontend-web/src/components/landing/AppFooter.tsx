@@ -33,12 +33,12 @@ export function AppFooter() {
     <footer className="bg-[#1E3A5F]">
       <div className="border-b border-[#25D366]/30 bg-[#25D366]/10">
         <div className="container mx-auto px-4 py-5">
-          <div className="mx-auto flex max-w-4xl items-start gap-4">
-            <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#25D366]">
-              <CheckCircle2 className="h-5 w-5 text-white" />
+          <div className="mx-auto flex max-w-4xl items-start gap-3 sm:gap-4">
+            <div className="mt-0.5 flex h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#25D366]">
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
             <div className="text-sm">
-              <p className="mb-2 text-base font-bold text-white">Serviço com foco em conformidade e responsabilidade clínica</p>
+              <p className="mb-2 text-sm sm:text-base font-bold text-white">Serviço com foco em conformidade e responsabilidade clínica</p>
               <p className="leading-relaxed text-white/80">
                 O RenoveJá+ foi estruturado para apoiar telemedicina e jornadas documentais com uso responsável de IA,
                 proteção de dados, rastreabilidade operacional e decisão final sempre do médico.
@@ -50,8 +50,8 @@ export function AppFooter() {
 
       <div className="border-b border-amber-500/30 bg-amber-500/10">
         <div className="container mx-auto px-4 py-4">
-          <div className="mx-auto flex max-w-4xl items-center gap-3">
-            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-400" />
+          <div className="mx-auto flex max-w-4xl items-start sm:items-center gap-3">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-400 mt-0.5 sm:mt-0" />
             <p className="text-sm text-white/90">
               <span className="font-bold text-amber-400">Aviso:</span> este site não representa atendimento de urgência ou emergência.
               Em casos graves, procure assistência presencial ou ligue para o <strong className="text-white">SAMU 192</strong>.
@@ -87,9 +87,10 @@ export function AppFooter() {
                 href="https://wa.me/5511986318000"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Contato pelo WhatsApp: (11) 98631-8000 (abre em nova aba)"
                 className="group flex items-center gap-3 text-sm text-white/80 transition-colors hover:text-[#25D366]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366]/20 transition-colors group-hover:bg-[#25D366]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366]/20 transition-colors group-hover:bg-[#25D366]" aria-hidden="true">
                   <Phone className="h-5 w-5" />
                 </div>
                 <div>
@@ -99,9 +100,10 @@ export function AppFooter() {
               </a>
               <a
                 href="mailto:contato@renovejasaude.com.br"
+                aria-label="Enviar email para contato@renovejasaude.com.br"
                 className="group flex items-center gap-3 text-sm text-white/80 transition-colors hover:text-primary"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary" aria-hidden="true">
                   <Mail className="h-5 w-5" />
                 </div>
                 <div>
@@ -123,7 +125,7 @@ export function AppFooter() {
 
           <div>
             <h4 className="mb-5 flex items-center gap-2 text-lg font-bold text-white">
-              <Shield className="h-5 w-5 text-primary" />
+              <Shield className="h-5 w-5 text-primary" aria-hidden="true" />
               Navegação
             </h4>
             <ul className="space-y-3">
@@ -144,7 +146,7 @@ export function AppFooter() {
 
           <div>
             <h4 className="mb-5 flex items-center gap-2 text-lg font-bold text-white">
-              <Mail className="h-5 w-5 text-primary" />
+              <Mail className="h-5 w-5 text-primary" aria-hidden="true" />
               Contato e legal
             </h4>
             <ul className="space-y-3">
@@ -163,9 +165,10 @@ export function AppFooter() {
                       href={link.href}
                       target={link.href.startsWith('http') ? '_blank' : undefined}
                       rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                      aria-label={link.href.startsWith('http') ? `${link.name} (abre em nova aba)` : link.href.startsWith('mailto:') ? `Enviar email: ${link.name}` : undefined}
                       className="group flex items-center gap-2 py-1 text-sm text-white/70 transition-colors hover:text-primary"
                     >
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary/50 transition-colors group-hover:bg-primary" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary/50 transition-colors group-hover:bg-primary" aria-hidden="true" />
                       {link.name}
                     </a>
                   )}
@@ -182,17 +185,17 @@ export function AppFooter() {
             © {currentYear} RenoveJá+. Todos os direitos reservados.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
-            <span className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-white/80">
-              <Shield className="h-4 w-4 text-primary" />
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs sm:text-sm">
+            <span className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 text-white/80">
+              <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
               SSL/TLS
             </span>
-            <span className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-white/80">
-              <CheckCircle2 className="h-4 w-4 text-[#25D366]" />
+            <span className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 text-white/80">
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#25D366]" />
               LGPD
             </span>
-            <span className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-white/80">
-              <Shield className="h-4 w-4 text-primary" />
+            <span className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 text-white/80">
+              <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
               CFM
             </span>
           </div>

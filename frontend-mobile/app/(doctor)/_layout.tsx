@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { useAppPermissions } from '../../hooks/useAppPermissions';
 
+/** Design spec constants */
+const ACTIVE_COLOR = '#0EA5E9';
+const ICON_SIZE_ACTIVE = 24;
+const ICON_SIZE_INACTIVE = 22;
+const LABEL_FONT_SIZE = 11;
+
+/** Responsive: detect tablets for slightly larger tab bar */
+function isTablet(): boolean {
+  const { width, height } = Dimensions.get('window');
+  const minDim = Math.min(width, height);
+  return minDim >= 600;
+}
+
 const TAB_BAR_BASE_HEIGHT = 56;
+const TAB_BAR_TABLET_EXTRA = 8;
 const TAB_BAR_PADDING_TOP = 8;
 
 export default function DoctorLayout() {
@@ -25,8 +39,10 @@ export default function DoctorLayout() {
   const isDark = scheme === 'dark';
   useAppPermissions();
 
-  const tabBarHeight = Math.max(72, TAB_BAR_BASE_HEIGHT + TAB_BAR_PADDING_TOP + insets.bottom);
+  const tablet = isTablet();
+  const baseHeight = TAB_BAR_BASE_HEIGHT + (tablet ? TAB_BAR_TABLET_EXTRA : 0);
   const tabBarPaddingBottom = Math.max(10, insets.bottom + (Platform.OS === 'ios' ? 4 : 8));
+  const tabBarHeight = Math.max(72, baseHeight + TAB_BAR_PADDING_TOP + insets.bottom);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -47,27 +63,27 @@ export default function DoctorLayout() {
         }}
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.primaryLight,
+          tabBarActiveTintColor: ACTIVE_COLOR,
           tabBarInactiveTintColor: isDark ? colors.textSecondary : colors.textMuted,
           tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.borderLight,
-            borderTopWidth: isDark ? 0.5 : 1,
+            backgroundColor: isDark ? colors.surface : '#FFFFFF',
+            borderTopColor: isDark ? colors.borderLight : '#F1F5F9',
+            borderTopWidth: StyleSheet.hairlineWidth,
             height: tabBarHeight,
             paddingBottom: tabBarPaddingBottom,
             paddingTop: TAB_BAR_PADDING_TOP,
             ...Platform.select({
               ios: {
-                shadowColor: colors.black,
-                shadowOffset: { width: 0, height: -4 },
-                shadowOpacity: isDark ? 0.25 : 0.08,
-                shadowRadius: 16,
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: -3 },
+                shadowOpacity: isDark ? 0.2 : 0.06,
+                shadowRadius: 12,
               },
-              android: { elevation: 10 },
+              android: { elevation: 8 },
             }),
           },
           tabBarItemStyle: {
-            paddingTop: 6,
+            paddingTop: 4,
             alignItems: 'center',
             justifyContent: 'center',
           },
@@ -76,20 +92,23 @@ export default function DoctorLayout() {
           },
           tabBarAllowFontScaling: false,
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: tablet ? LABEL_FONT_SIZE + 1 : LABEL_FONT_SIZE,
             fontWeight: '700',
-            letterSpacing: 0.3,
+            letterSpacing: 0.2,
             textAlign: 'center',
             marginTop: 2,
           },
           tabBarBadgeStyle: {
             backgroundColor: colors.error,
-            fontSize: 12,
+            color: '#FFFFFF',
+            fontSize: 10,
             fontWeight: '700',
             minWidth: 18,
             height: 18,
             lineHeight: 18,
             borderRadius: 9,
+            top: -2,
+            right: -4,
           },
         }}
       >
@@ -98,7 +117,12 @@ export default function DoctorLayout() {
           options={{
             title: 'Painel',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'grid' : 'grid-outline'} color={color} focused={focused} activeColor={colors.primary} />
+              <TabBarIcon
+                name={focused ? 'grid' : 'grid-outline'}
+                color={color}
+                focused={focused}
+                activeColor={ACTIVE_COLOR}
+              />
             ),
           }}
         />
@@ -107,7 +131,12 @@ export default function DoctorLayout() {
           options={{
             title: 'Pedidos',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} focused={focused} activeColor={colors.primary} />
+              <TabBarIcon
+                name={focused ? 'document-text' : 'document-text-outline'}
+                color={color}
+                focused={focused}
+                activeColor={ACTIVE_COLOR}
+              />
             ),
           }}
         />
@@ -116,7 +145,12 @@ export default function DoctorLayout() {
           options={{
             title: 'Consultas',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'videocam' : 'videocam-outline'} color={color} focused={focused} activeColor={colors.primary} />
+              <TabBarIcon
+                name={focused ? 'videocam' : 'videocam-outline'}
+                color={color}
+                focused={focused}
+                activeColor={ACTIVE_COLOR}
+              />
             ),
           }}
         />
@@ -125,9 +159,17 @@ export default function DoctorLayout() {
           options={{
             title: 'Alertas',
             tabBarBadge: hasUnread ? unreadCount : undefined,
-            tabBarIcon: ({ color, size }) => (
-              <View style={{ alignItems: 'center', justifyContent: 'center', minWidth: 28, minHeight: 28 }}>
-                <PulsingNotificationIcon color={color} size={size ?? 22} hasUnread={hasUnread} />
+            tabBarIcon: ({ color, focused }) => (
+              <View style={styles.alertasIconContainer}>
+                <PulsingNotificationIcon
+                  color={focused ? ACTIVE_COLOR : color}
+                  size={focused ? ICON_SIZE_ACTIVE : ICON_SIZE_INACTIVE}
+                  hasUnread={hasUnread}
+                  focused={focused}
+                />
+                {hasUnread && (
+                  <View style={styles.notificationDot} />
+                )}
               </View>
             ),
           }}
@@ -137,7 +179,12 @@ export default function DoctorLayout() {
           options={{
             title: 'Perfil',
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} focused={focused} activeColor={colors.primary} />
+              <TabBarIcon
+                name={focused ? 'person' : 'person-outline'}
+                color={color}
+                focused={focused}
+                activeColor={ACTIVE_COLOR}
+              />
             ),
           }}
         />
@@ -153,3 +200,22 @@ export default function DoctorLayout() {
   );
 }
 
+const styles = StyleSheet.create({
+  alertasIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 28,
+    minHeight: 28,
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+});

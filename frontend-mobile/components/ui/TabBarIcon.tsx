@@ -1,7 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated } from 'react-native';
+import { View, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+
+/** Design spec: 22px inactive, 24px active */
+const ICON_SIZE_ACTIVE = 24;
+const ICON_SIZE_INACTIVE = 22;
 
 interface TabBarIconProps {
   name: keyof typeof Ionicons.glyphMap;
@@ -14,48 +18,64 @@ interface TabBarIconProps {
 export function TabBarIcon({ name, color, focused, activeColor }: TabBarIconProps) {
   const { colors } = useAppTheme();
   const activeIndicatorColor = activeColor ?? colors.primary;
-  const pillWidth = useRef(new Animated.Value(focused ? 36 : 0)).current;
+  const pillWidth = useRef(new Animated.Value(focused ? 32 : 0)).current;
   const pillOpacity = useRef(new Animated.Value(focused ? 1 : 0)).current;
-  const scale = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
+  const scale = useRef(new Animated.Value(focused ? 1.05 : 1)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(pillWidth, {
-        toValue: focused ? 36 : 0,
-        tension: 160,
-        friction: 10,
+        toValue: focused ? 32 : 0,
+        tension: 180,
+        friction: 12,
         useNativeDriver: false,
       }),
       Animated.timing(pillOpacity, {
         toValue: focused ? 1 : 0,
-        duration: 180,
+        duration: 150,
         useNativeDriver: false,
       }),
       Animated.spring(scale, {
-        toValue: focused ? 1.1 : 1,
-        tension: 200,
-        friction: 10,
+        toValue: focused ? 1.05 : 1,
+        tension: 220,
+        friction: 12,
         useNativeDriver: true,
       }),
     ]).start();
   }, [focused, pillWidth, pillOpacity, scale]);
 
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-      {/* Pill animada acima do ícone */}
+    <View style={iconStyles.container}>
+      {/* Active indicator pill above the icon */}
       <Animated.View
-        style={{
-          width: pillWidth,
-          height: 4,
-          borderRadius: 2,
-          backgroundColor: activeIndicatorColor,
-          opacity: pillOpacity,
-          marginBottom: 4,
-        }}
+        style={[
+          iconStyles.pill,
+          {
+            width: pillWidth,
+            backgroundColor: activeIndicatorColor,
+            opacity: pillOpacity,
+          },
+        ]}
       />
       <Animated.View style={{ transform: [{ scale }] }}>
-        <Ionicons name={name} size={focused ? 24 : 22} color={color} />
+        <Ionicons
+          name={name}
+          size={focused ? ICON_SIZE_ACTIVE : ICON_SIZE_INACTIVE}
+          color={color}
+        />
       </Animated.View>
     </View>
   );
 }
+
+const iconStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pill: {
+    height: 3,
+    borderRadius: 1.5,
+    marginBottom: 3,
+  },
+});

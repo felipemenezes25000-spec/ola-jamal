@@ -153,7 +153,7 @@ export function AppCTASection() {
             <span className="mb-4 inline-flex rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold uppercase tracking-wider text-primary">
               Contato e parcerias
             </span>
-            <h2 className="font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
+            <h2 className="font-display text-2xl font-bold text-white sm:text-4xl lg:text-5xl">
               Contato institucional
             </h2>
             <p className="mt-6 text-lg leading-relaxed text-white/70">
@@ -182,16 +182,18 @@ export function AppCTASection() {
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Falar no WhatsApp (abre em nova aba)"
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 font-semibold text-white transition-all hover:bg-[#25D366]/90"
               >
-                <MessageCircle className="h-5 w-5" />
+                <MessageCircle className="h-5 w-5" aria-hidden="true" />
                 Falar no WhatsApp
               </a>
               <a
                 href="mailto:contato@renovejasaude.com.br"
+                aria-label="Escrever por email para contato@renovejasaude.com.br"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 font-semibold text-white transition-all hover:bg-white/10"
               >
-                <Mail className="h-5 w-5" />
+                <Mail className="h-5 w-5" aria-hidden="true" />
                 Escrever por email
               </a>
             </div>
@@ -203,7 +205,7 @@ export function AppCTASection() {
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.1 }}
             onSubmit={handleSubmit}
-            className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-sm sm:p-8"
+            className="rounded-2xl sm:rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-sm sm:p-8"
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block sm:col-span-2">
@@ -212,7 +214,8 @@ export function AppCTASection() {
                   required
                   value={form.name}
                   onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:opacity-40 focus:border-primary focus:outline-none"
+                  autoComplete="name"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm sm:text-base text-white placeholder:opacity-40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/70 focus:ring-offset-2 focus:ring-offset-transparent"
                   placeholder="Seu nome completo"
                 />
               </label>
@@ -222,7 +225,8 @@ export function AppCTASection() {
                 <input
                   value={form.cpf}
                   onChange={(e) => setForm((c) => ({ ...c, cpf: e.target.value }))}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:opacity-40 focus:border-primary focus:outline-none"
+                  inputMode="numeric"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm sm:text-base text-white placeholder:opacity-40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/70 focus:ring-offset-2 focus:ring-offset-transparent"
                   placeholder="000.000.000-00"
                 />
               </label>
@@ -232,7 +236,8 @@ export function AppCTASection() {
                 <input
                   value={form.cnpj}
                   onChange={(e) => setForm((c) => ({ ...c, cnpj: e.target.value }))}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:opacity-40 focus:border-primary focus:outline-none"
+                  inputMode="numeric"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm sm:text-base text-white placeholder:opacity-40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/70 focus:ring-offset-2 focus:ring-offset-transparent"
                   placeholder="00.000.000/0001-00"
                 />
               </label>
@@ -244,7 +249,8 @@ export function AppCTASection() {
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:opacity-40 focus:border-primary focus:outline-none"
+                  autoComplete="email"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm sm:text-base text-white placeholder:opacity-40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/70 focus:ring-offset-2 focus:ring-offset-transparent"
                   placeholder="seu@email.com"
                 />
               </label>
@@ -255,7 +261,9 @@ export function AppCTASection() {
                   type="tel"
                   value={form.phone}
                   onChange={(e) => setForm((c) => ({ ...c, phone: e.target.value }))}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:opacity-40 focus:border-primary focus:outline-none"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm sm:text-base text-white placeholder:opacity-40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/70 focus:ring-offset-2 focus:ring-offset-transparent"
                   placeholder="(11) 99999-9999"
                 />
               </label>
@@ -265,27 +273,30 @@ export function AppCTASection() {
               <span className="mb-2 block text-sm font-medium text-white">Mensagem</span>
               <textarea
                 required
-                rows={5}
+                rows={4}
                 value={form.message}
                 onChange={(e) => setForm((c) => ({ ...c, message: e.target.value }))}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:opacity-40 focus:border-primary focus:outline-none"
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm sm:text-base text-white placeholder:opacity-40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/70 focus:ring-offset-2 focus:ring-offset-transparent"
                 placeholder="Escreva sua mensagem aqui..."
               />
             </label>
 
-            {status === 'success' && (
-              <div className="mt-6 flex items-center gap-3 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-green-400">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-                <p className="text-sm font-medium">
-                  Mensagem enviada! Entraremos em contato em breve.
-                </p>
-              </div>
-            )}
-            {status === 'error' && (
-              <div className="mt-6 flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-400">
-                <p className="text-sm font-medium">{errorMessage}</p>
-              </div>
-            )}
+            {/* aria-live region announced to screen readers on status change */}
+            <div aria-live="polite" aria-atomic="true" className="mt-6">
+              {status === 'success' && (
+                <div className="flex items-center gap-3 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-green-400" role="status">
+                  <CheckCircle2 className="h-5 w-5 flex-shrink-0" aria-hidden />
+                  <p className="text-sm font-medium">
+                    Mensagem enviada! Entraremos em contato em breve.
+                  </p>
+                </div>
+              )}
+              {status === 'error' && (
+                <div className="flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-400" role="alert">
+                  <p className="text-sm font-medium">{errorMessage}</p>
+                </div>
+              )}
+            </div>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Button
                 type="submit"
@@ -294,12 +305,12 @@ export function AppCTASection() {
               >
                 {status === 'loading' ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Enviando...
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    <span>Enviando...</span>
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4" />
+                    <Send className="h-4 w-4" aria-hidden />
                     {FORMSPREE_ID || getApiBaseUrl() ? 'Enviar mensagem' : 'Enviar por email'}
                   </>
                 )}
@@ -308,10 +319,11 @@ export function AppCTASection() {
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Conversar no WhatsApp (abre em nova aba)"
                 className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#25D366]/40 bg-[#25D366]/15 px-5 font-semibold text-white transition-all hover:bg-[#25D366]/25"
               >
-                <MessageCircle className="h-4 w-4 text-[#25D366]" />
-                Conversar no WhatsApp
+                <MessageCircle className="h-4 w-4 text-[#25D366]" aria-hidden />
+                <span aria-hidden>Conversar no WhatsApp</span>
               </a>
             </div>
           </motion.form>

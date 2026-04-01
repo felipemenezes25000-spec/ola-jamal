@@ -19,16 +19,17 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import { spacing, borderRadius, shadows } from '../../lib/theme';
+import { spacing, shadows } from '../../lib/theme';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { FadeIn } from '../../components/ui/FadeIn';
+import { motionTokens } from '../../lib/ui/motion';
 import type { DesignColors } from '../../lib/designSystem';
-import { uiTokens } from '../../lib/ui/tokens';
 import { getDocumentDownloadUrl } from '../../lib/api';
 import { useRequestDetailQuery, useCancelRequest, useMarkDelivered } from '../../lib/hooks/useRequestDetailQuery';
 import { formatDateTimeBR } from '../../lib/utils/format';
 import { StatusBadge } from '../../components/StatusBadge';
 import StatusTracker from '../../components/StatusTracker';
-import { AppButton, FormSection, AppEmptyState } from '../../components/ui';
+import { AppButton, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { ZoomableImage } from '../../components/ZoomableImage';
 import { CompatibleImage } from '../../components/CompatibleImage';
@@ -43,7 +44,12 @@ import { ConsultationConsentModal } from '../../components/consultation/Consulta
 import { DocumentValidityBadge } from '../../components/post-consultation/DocumentValidityBadge';
 import { useAuth } from '../../contexts/AuthContext';
 
-// FIX #18: onTextLayout não funciona no React Native Web — na web, mostra texto completo
+// ─── Constants ──────────────────────────────────────────────────
+const HEADER_BG_RX = '#0C4A6E';
+const HEADER_BG_CONSULT = '#8B5CF6';
+const AI_ACCENT = '#8B5CF6';
+
+// ─── Helper: Expandable text ────────────────────────────────────
 function ExpandableText({ text, maxLines = 4, style }: { text: string; maxLines?: number; style?: any }) {
   const { colors } = useAppTheme();
   const isWeb = Platform.OS === 'web';
@@ -72,12 +78,22 @@ function ExpandableText({ text, maxLines = 4, style }: { text: string; maxLines?
   );
 }
 
+// ─── Helpers ────────────────────────────────────────────────────
 function getTypeLabel(type: string): string {
   switch (type) {
     case 'prescription': return 'Receita';
     case 'exam': return 'Exame';
     case 'consultation': return 'Consulta';
     default: return type;
+  }
+}
+
+function getTypeIcon(type: string): keyof typeof Ionicons.glyphMap {
+  switch (type) {
+    case 'prescription': return 'document-text';
+    case 'exam': return 'flask';
+    case 'consultation': return 'videocam';
+    default: return 'document';
   }
 }
 
@@ -91,38 +107,74 @@ function getPrescriptionTypeLabel(type: string | null): string {
 }
 
 function getRiskLabelPt(level: string | null | undefined): string {
-  if (!level) return 'Risco não classificado';
+  if (!level) return 'Risco nao classificado';
   switch (level.toLowerCase()) {
     case 'high': return 'Risco alto';
-    case 'medium': return 'Risco médio';
+    case 'medium': return 'Risco medio';
     case 'low': return 'Risco baixo';
-    default: return 'Risco não classificado';
+    default: return 'Risco nao classificado';
   }
 }
 
 function getNextActionIcon(intent: NextActionIntent): keyof typeof Ionicons.glyphMap {
   switch (intent) {
-    case 'pay':
-      return 'card-outline';
-    case 'download':
-      return 'download-outline';
-    case 'wait':
-      return 'time-outline';
-    case 'support':
-      return 'help-circle-outline';
-    case 'track':
-      return 'navigate-outline';
-    default:
-      return 'sparkles-outline';
+    case 'pay': return 'card-outline';
+    case 'download': return 'download-outline';
+    case 'wait': return 'time-outline';
+    case 'support': return 'help-circle-outline';
+    case 'track': return 'navigate-outline';
+    default: return 'sparkles-outline';
   }
+}
+
+function getHeaderBg(type: string): string {
+  return type === 'consultation' ? HEADER_BG_CONSULT : HEADER_BG_RX;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// ─── Section Card wrapper ───────────────────────────────────────
+function SectionCard({ children, style }: { children: React.ReactNode; style?: any }) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={[{
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      ...shadows.card,
+    }, style]}>
+      {children}
+    </View>
+  );
+}
+
+function SectionHeader({ icon, iconColor, title, right }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  title: string;
+  right?: React.ReactNode;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+      <View style={{
+        width: 32, height: 32, borderRadius: 10,
+        backgroundColor: iconColor + '15',
+        alignItems: 'center', justifyContent: 'center', marginRight: spacing.sm,
+      }}>
+        <Ionicons name={icon} size={17} color={iconColor} />
+      </View>
+      <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: colors.text }}>{title}</Text>
+      {right}
+    </View>
+  );
+}
+
+// ─── Main Screen ────────────────────────────────────────────────
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requestId = Array.isArray(id) ? id[0] : id;
-  // FIX #6: Validação de UUID — previne crash com deep links malformados
   const isValidRequestId = !!requestId && UUID_RE.test(requestId);
   const router = useRouter();
   const { user } = useAuth();
@@ -132,7 +184,8 @@ export default function RequestDetailScreen() {
       router.replace(`/doctor-request/${requestId}`);
     }
   }, [user?.role, requestId, router]);
-  const { height: windowHeight } = useWindowDimensions();
+
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const listPadding = useListBottomPadding();
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [documentActionLoading, setDocumentActionLoading] = useState(false);
@@ -142,7 +195,7 @@ export default function RequestDetailScreen() {
   const lastVideoModalRequestIdRef = useRef<string | null>(null);
   const { isConnected } = useNetworkStatus();
   const { colors } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, windowWidth), [colors, windowWidth]);
   const { setModalOpen } = useModalVisibility();
 
   const {
@@ -157,7 +210,7 @@ export default function RequestDetailScreen() {
   const detailError = hasError ? ((queryError as Error)?.message ?? String(queryError)) : null;
   const actionLoading = cancelMutation.isPending;
 
-  // Modal visibility: deve ficar ANTES de qualquer early return para respeitar Rules of Hooks
+  // Modal visibility tracking (before any early return — Rules of Hooks)
   const isModalVisible =
     (showVideoModal && request && ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation') ||
     showConsentModal ||
@@ -168,7 +221,7 @@ export default function RequestDetailScreen() {
     return () => setModalOpen(false);
   }, [isModalVisible, setModalOpen]);
 
-  /** Popup de vídeo: ao carregar com consulta pronta, mostra modal. Se status mudar para in_consultation (médico entrou), mostra de novo. */
+  /** Video popup: show when consultation is ready or doctor joined */
   useEffect(() => {
     if (!request || request.requestType !== 'consultation') return;
     if (request.id !== lastVideoModalRequestIdRef.current) {
@@ -184,7 +237,7 @@ export default function RequestDetailScreen() {
     }
   }, [request?.id, request?.status, request?.requestType, request]);
 
-  /** Dra. Renova: mensagens no contexto do detalhe (conduta disponível, documento pronto). */
+  /** Dra. Renova triage eval */
   useTriageEval({
     context: 'detail',
     step: 'idle',
@@ -194,6 +247,7 @@ export default function RequestDetailScreen() {
     doctorConductNotes: request?.doctorConductNotes ?? undefined,
   });
 
+  // ─── Actions ────────────────────────────────────────────────
   const markAsDeliveredIfSigned = async () => {
     if (!requestId || !request || request.status !== 'signed') return;
     try {
@@ -206,15 +260,13 @@ export default function RequestDetailScreen() {
   const handleDownload = async () => {
     if (!requestId || documentActionLoading) return;
     if (isConnected === false) {
-      Alert.alert('Sem conexão', 'Conecte-se à internet para baixar o documento.');
+      Alert.alert('Sem conexao', 'Conecte-se a internet para baixar o documento.');
       return;
     }
     setDocumentActionLoading(true);
     try {
       await markAsDeliveredIfSigned();
-      // Usa URL com token temporário via proxy do backend (evita expor URL direta do S3)
       const downloadUrl = await getDocumentDownloadUrl(requestId);
-      // Tenta compartilhar/salvar o PDF usando Sharing API; fallback para browser
       if (Sharing && FileSystem) {
         const fileName = `renoveja_${request!.requestType}_${request!.id.slice(0, 8)}.pdf`;
         const localUri = FileSystem.cacheDirectory + fileName;
@@ -224,10 +276,8 @@ export default function RequestDetailScreen() {
           return;
         }
       }
-      // Fallback: abre no browser
       await WebBrowser.openBrowserAsync(downloadUrl);
     } catch (e: unknown) {
-      // Fallback: abre no browser se download/sharing falhar
       try {
         const fallbackUrl = request?.signedDocumentUrl;
         if (fallbackUrl) {
@@ -236,7 +286,7 @@ export default function RequestDetailScreen() {
           throw e;
         }
       } catch {
-        Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
+        Alert.alert('Erro', (e as Error)?.message || String(e) || 'Nao foi possivel baixar o documento');
       }
     } finally {
       setDocumentActionLoading(false);
@@ -246,7 +296,7 @@ export default function RequestDetailScreen() {
   const handleViewDocument = async () => {
     if (!requestId || documentActionLoading) return;
     if (isConnected === false) {
-      Alert.alert('Sem conexão', 'Conecte-se à internet para visualizar o documento.');
+      Alert.alert('Sem conexao', 'Conecte-se a internet para visualizar o documento.');
       return;
     }
     setDocumentActionLoading(true);
@@ -255,7 +305,7 @@ export default function RequestDetailScreen() {
       const viewUrl = await getDocumentDownloadUrl(requestId);
       await WebBrowser.openBrowserAsync(viewUrl);
     } catch (e: unknown) {
-      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível abrir o documento.');
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Nao foi possivel abrir o documento.');
     } finally {
       setDocumentActionLoading(false);
     }
@@ -265,9 +315,9 @@ export default function RequestDetailScreen() {
     if (!requestId || !request) return;
     Alert.alert(
       'Cancelar pedido',
-      'Tem certeza? Esta ação não pode ser desfeita.',
+      'Tem certeza? Esta acao nao pode ser desfeita.',
       [
-        { text: 'Não', style: 'cancel' },
+        { text: 'Nao', style: 'cancel' },
         {
           text: 'Sim, cancelar',
           style: 'destructive',
@@ -275,7 +325,7 @@ export default function RequestDetailScreen() {
             try {
               await cancelMutation.mutateAsync(requestId);
             } catch (e: unknown) {
-              Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível cancelar.');
+              Alert.alert('Erro', (e as Error)?.message || String(e) || 'Nao foi possivel cancelar.');
             }
           },
         },
@@ -283,31 +333,19 @@ export default function RequestDetailScreen() {
     );
   };
 
-  // FIX #6: UUID inválido — mostra erro imediato sem chamar API
+  // ─── Early returns (error / loading / not found) ──────────
   if (!isValidRequestId) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        <View style={[styles.fallbackHeader, { backgroundColor: HEADER_BG_RX }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Voltar">
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detalhes</Text>
-          <View style={{ width: 44 }} />
+          <Text style={styles.headerTitleText}>Detalhes</Text>
+          <View style={{ width: 40 }} />
         </View>
         <View style={styles.center}>
-          <AppEmptyState
-            icon="alert-circle-outline"
-            title="ID inválido"
-            subtitle="O link acessado contém um identificador inválido. Volte e tente novamente."
-            actionLabel="Voltar"
-            onAction={() => router.back()}
-          />
+          <AppEmptyState icon="alert-circle-outline" title="ID invalido" subtitle="O link acessado contem um identificador invalido. Volte e tente novamente." actionLabel="Voltar" onAction={() => router.back()} />
         </View>
       </SafeAreaView>
     );
@@ -316,20 +354,14 @@ export default function RequestDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        <View style={[styles.fallbackHeader, { backgroundColor: HEADER_BG_RX }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Voltar">
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Carregando...</Text>
-          <View style={{ width: 44 }} />
+          <Text style={styles.headerTitleText}>Carregando...</Text>
+          <View style={{ width: 40 }} />
         </View>
-        <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.lg }}>
           <SkeletonList count={4} />
         </View>
       </SafeAreaView>
@@ -339,27 +371,15 @@ export default function RequestDetailScreen() {
   if (!request && !detailError) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        <View style={[styles.fallbackHeader, { backgroundColor: HEADER_BG_RX }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Voltar">
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detalhes</Text>
-          <View style={{ width: 44 }} />
+          <Text style={styles.headerTitleText}>Detalhes</Text>
+          <View style={{ width: 40 }} />
         </View>
         <View style={styles.center}>
-          <AppEmptyState
-            icon="document-text-outline"
-            title="Solicitação não encontrada"
-            subtitle="Este pedido pode ter sido removido ou não está mais disponível."
-            actionLabel="Voltar"
-            onAction={() => router.back()}
-          />
+          <AppEmptyState icon="document-text-outline" title="Solicitacao nao encontrada" subtitle="Este pedido pode ter sido removido ou nao esta mais disponivel." actionLabel="Voltar" onAction={() => router.back()} />
         </View>
       </SafeAreaView>
     );
@@ -368,27 +388,15 @@ export default function RequestDetailScreen() {
   if (detailError) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        <View style={[styles.fallbackHeader, { backgroundColor: HEADER_BG_RX }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Voltar">
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detalhes</Text>
-          <View style={{ width: 44 }} />
+          <Text style={styles.headerTitleText}>Detalhes</Text>
+          <View style={{ width: 40 }} />
         </View>
         <View style={styles.center}>
-          <AppEmptyState
-            icon="alert-circle-outline"
-            title="Erro ao carregar"
-            subtitle={detailError}
-            actionLabel="Tentar novamente"
-            onAction={() => refetch()}
-          />
+          <AppEmptyState icon="alert-circle-outline" title="Erro ao carregar" subtitle={detailError} actionLabel="Tentar novamente" onAction={() => refetch()} />
         </View>
       </SafeAreaView>
     );
@@ -396,295 +404,304 @@ export default function RequestDetailScreen() {
 
   if (!request) return null;
 
+  // ─── Derived state ────────────────────────────────────────
+  const headerBg = getHeaderBg(request.requestType);
   const canDownload = !!request.signedDocumentUrl;
   const canJoinVideo = ['approved', 'paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation';
   const canCancel = ['submitted', 'in_review', 'approved', 'searching_doctor'].includes(request.status);
-  const stickyBottomOffset = 0;
   const nextAction = getNextBestActionForRequest(request);
   const nextActionQuickCta =
     nextAction.intent === 'download' && canDownload
-        ? { label: nextAction.ctaLabel ?? 'Baixar documento', onPress: handleDownload }
-        : null;
+      ? { label: nextAction.ctaLabel ?? 'Baixar documento', onPress: handleDownload }
+      : null;
+  const isConsultation = request.requestType === 'consultation';
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{getTypeLabel(request.requestType)}</Text>
-        <StatusBadge status={request.status} />
-      </View>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      {/* ─── Dark Header ─── */}
+      <View style={[styles.darkHeader, { backgroundColor: headerBg }]}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+          <View style={styles.darkHeaderInner}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.headerBackBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar"
+            >
+              <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
 
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: listPadding + stickyBottomOffset }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {isConnected === false && (
-          <View style={styles.offlineBanner}>
-            <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
-            <Text style={styles.offlineText}>Você está offline. Algumas ações estão temporariamente indisponíveis.</Text>
-          </View>
-        )}
-
-        {/* Popup/banner de vídeo: consulta pronta para entrar */}
-        {canJoinVideo && (
-          <TouchableOpacity
-            style={styles.videoReadyBanner}
-            onPress={() => { setShowVideoModal(false); setShowConsentModal(true); }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="videocam" size={28} color={colors.white} />
-            <View style={styles.videoReadyBannerText}>
-              <Text style={styles.videoReadyBannerTitle}>
-                {request.status === 'in_consultation' ? 'Médico na sala — entre ou volte!' : 'Sua consulta está pronta'}
-              </Text>
-              <Text style={styles.videoReadyBannerSub}>
-                {request.status === 'in_consultation' ? 'Toque para entrar ou voltar à videoconsulta' : 'Toque para entrar na videoconsulta'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={colors.headerOverlayTextMuted} />
-          </TouchableOpacity>
-        )}
-
-        {/* Status Tracker */}
-        <FormSection
-          title="Status do pedido"
-          subtitle="Acompanhe cada etapa da solicitação"
-          style={[styles.formSection, styles.formSectionFirst]}
-          contentStyle={styles.formSectionContent}
-        >
-          <StatusTracker currentStatus={request.status} requestType={request.requestType} />
-        </FormSection>
-
-        {/* Documentos da pós-consulta (receita + exame + atestado) */}
-        {request.requestType === 'consultation' && (
-          <View style={styles.formSection}>
-            <ConsultationDocumentsCard
-              requestId={request.id}
-              requestType={request.requestType}
-            />
-          </View>
-        )}
-
-        <FormSection
-          title="Dra. Renoveja"
-          subtitle={nextAction.title}
-          style={styles.formSection}
-          contentStyle={styles.formSectionContent}
-        >
-          <View style={styles.nextActionHeader}>
-            <View style={styles.nextActionIcon}>
-              <Ionicons name={getNextActionIcon(nextAction.intent as NextActionIntent)} size={16} color={colors.primary} />
-            </View>
-            <Text style={styles.nextActionText}>{nextAction.statusSummary}</Text>
-          </View>
-          <Text style={styles.nextActionLabel}>Próximo passo</Text>
-          <Text style={styles.nextActionBody}>{nextAction.whatToDo}</Text>
-          <Text style={styles.nextActionEta}>{nextAction.eta}</Text>
-          {nextActionQuickCta ? (
-            <AppButton
-              title={nextActionQuickCta.label}
-              icon={nextAction.intent === 'pay' ? 'card' : 'download'}
-              onPress={nextActionQuickCta.onPress}
-              loading={documentActionLoading || actionLoading}
-              disabled={documentActionLoading || actionLoading}
-              style={{ marginTop: spacing.sm }}
-            />
-          ) : null}
-        </FormSection>
-
-        {/* Observação automática e conduta médica (Dra. Renoveja) */}
-        {request.autoObservation && (
-          <View style={styles.card}>
-            <ObservationCard mode="auto" text={request.autoObservation} />
-          </View>
-        )}
-        {request.doctorConductNotes && (
-          <View style={styles.card}>
-            <ObservationCard
-              mode="conduct"
-              text={request.doctorConductNotes}
-              doctorName={request.doctorName}
-              conductUpdatedAt={request.conductUpdatedAt ?? undefined}
-            />
-          </View>
-        )}
-
-        {/* Validade do documento */}
-        {(request.requestType === 'prescription' || request.requestType === 'exam') && request.signedAt && (
-          <View style={styles.formSection}>
-            <DocumentValidityBadge request={request} />
-          </View>
-        )}
-
-        {/* Details Card */}
-        <FormSection
-          title="Detalhes da solicitação"
-          subtitle="Informações principais do pedido"
-          style={styles.formSection}
-          contentStyle={styles.formSectionContent}
-        >
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Tipo</Text>
-            <Text style={styles.detailValue}>{getTypeLabel(request.requestType)}</Text>
-          </View>
-          {request.prescriptionType && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Controle</Text>
-              <Text style={styles.detailValue}>{getPrescriptionTypeLabel(request.prescriptionType)}</Text>
-            </View>
-          )}
-          {request.doctorName && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Médico</Text>
-              <View style={styles.doctorInfo}>
-                <View style={styles.doctorAvatarSmall}>
-                  <Ionicons name="person" size={14} color={colors.white} />
-                </View>
-                <Text style={styles.detailValue}>{request.doctorName}</Text>
+            <View style={styles.headerCenter}>
+              <View style={styles.headerTypeRow}>
+                <Ionicons name={getTypeIcon(request.requestType)} size={18} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.headerTypeLabel}>{getTypeLabel(request.requestType)}</Text>
               </View>
-            </View>
-          )}
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Criado em</Text>
-            <Text style={styles.detailValue}>
-              {formatDateTimeBR(request.createdAt)}
-            </Text>
-          </View>
-        </FormSection>
-
-        {/* Medications */}
-        {request.medications && request.medications.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="medical" size={20} color={colors.primary} />
-              <Text style={styles.cardTitle}>Medicamentos</Text>
-            </View>
-            {request.medications.map((med, i) => (
-              <View key={i} style={styles.medItem}>
-                <View style={styles.medIcon}>
-                  <Ionicons name="ellipse" size={8} color={colors.primary} />
-                </View>
-                <Text style={styles.medName}>{med}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Prescription Images */}
-        {request.prescriptionImages && request.prescriptionImages.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="images" size={20} color={colors.primary} />
-              <Text style={styles.cardTitle}>Imagens da Receita</Text>
-            </View>
-            <Text style={styles.zoomHint}>Toque para ampliar • Pinça para zoom</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.sm }}>
-              {request.prescriptionImages.map((img, i) => (
-                <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
-                  <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
-                  <View style={styles.zoomBadge}>
-                    <Ionicons name="search" size={14} color={colors.white} />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Exam Images */}
-        {request.examImages && request.examImages.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="images" size={20} color={colors.info} />
-              <Text style={styles.cardTitle}>Imagens do Exame</Text>
-            </View>
-            <Text style={styles.zoomHint}>Toque para ampliar • Pinça para zoom</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -spacing.sm }}>
-              {request.examImages.map((img, i) => (
-                <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
-                  <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
-                  <View style={styles.zoomBadge}>
-                    <Ionicons name="search" size={14} color={colors.white} />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Exams */}
-        {request.exams && request.exams.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="flask" size={20} color={colors.info} />
-              <Text style={styles.cardTitle}>Exames</Text>
-            </View>
-            {request.exams.map((exam, i) => (
-              <View key={i} style={styles.medItem}>
-                <View style={styles.medIcon}>
-                  <Ionicons name="ellipse" size={8} color={colors.info} />
-                </View>
-                <Text style={styles.medName}>{exam}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Symptoms */}
-        {request.symptoms && (
-          <FormSection
-            title="Sintomas"
-            subtitle="Relato informado no momento do pedido"
-            style={styles.formSection}
-            contentStyle={styles.formSectionContent}
-          >
-            <ExpandableText text={request.symptoms} maxLines={4} style={styles.symptomsText} />
-          </FormSection>
-        )}
-
-        {/* AI Analysis */}
-        {request.aiSummaryForDoctor && (
-          <View style={[styles.card, { backgroundColor: colors.warningLight }]}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="sparkles" size={20} color={colors.warning} />
-              <Text style={styles.cardTitle}>Análise IA</Text>
-              {request.aiRiskLevel && (
-                <View style={[styles.riskBadge, { backgroundColor: request.aiRiskLevel === 'high' ? colors.errorLight : request.aiRiskLevel === 'medium' ? colors.warningLight : colors.successLight }]}>
-                  <Text style={[styles.riskText, { color: request.aiRiskLevel === 'high' ? colors.error : request.aiRiskLevel === 'medium' ? colors.warning : colors.success }]}>
-                    {getRiskLabelPt(request.aiRiskLevel)}
-                  </Text>
-                </View>
+              {request.prescriptionType && (
+                <Text style={styles.headerSubLabel}>{getPrescriptionTypeLabel(request.prescriptionType)}</Text>
               )}
             </View>
-            <FormattedAiSummary text={request.aiSummaryForDoctor} accentColor={colors.warning} />
-          </View>
-        )}
 
-        {/* Rejection */}
-        {request.rejectionReason && (
-          <View style={[styles.card, { backgroundColor: colors.errorLight }]}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="close-circle" size={20} color={colors.error} />
-              <Text style={[styles.cardTitle, { color: colors.error }]}>Motivo da Rejeição</Text>
+            <StatusBadge status={request.status} size="sm" />
+          </View>
+        </SafeAreaView>
+      </View>
+
+      <FadeIn visible={!!request} {...motionTokens.fade.patient}>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingBottom: listPadding + 20 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Offline banner */}
+          {isConnected === false && (
+            <View style={styles.offlineBanner}>
+              <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
+              <Text style={styles.offlineText}>Voce esta offline. Algumas acoes estao temporariamente indisponiveis.</Text>
             </View>
-            <Text style={[styles.symptomsText, { color: colors.error }]}>{request.rejectionReason}</Text>
-          </View>
-        )}
+          )}
 
-        {/* Action Buttons */}
-        <View style={styles.actions}>
+          {/* Video ready banner */}
+          {canJoinVideo && (
+            <TouchableOpacity
+              style={[styles.videoBanner, isConsultation && { backgroundColor: AI_ACCENT }]}
+              onPress={() => { setShowVideoModal(false); setShowConsentModal(true); }}
+              activeOpacity={0.85}
+            >
+              <View style={styles.videoBannerIcon}>
+                <Ionicons name="videocam" size={24} color="#FFFFFF" />
+              </View>
+              <View style={styles.videoBannerContent}>
+                <Text style={styles.videoBannerTitle}>
+                  {request.status === 'in_consultation' ? 'Medico na sala' : 'Sua consulta esta pronta'}
+                </Text>
+                <Text style={styles.videoBannerSub}>
+                  {request.status === 'in_consultation' ? 'Toque para entrar na videoconsulta' : 'Toque para entrar na sala de espera'}
+                </Text>
+              </View>
+              <View style={styles.videoBannerArrow}>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* ─── Status Tracker Card ─── */}
+          <SectionCard>
+            <SectionHeader icon="git-branch-outline" iconColor={colors.primary} title="Acompanhamento" />
+            <StatusTracker currentStatus={request.status} requestType={request.requestType} />
+          </SectionCard>
+
+          {/* ─── Post-consultation documents ─── */}
+          {isConsultation && (
+            <View style={{ marginBottom: spacing.md }}>
+              <ConsultationDocumentsCard requestId={request.id} requestType={request.requestType} />
+            </View>
+          )}
+
+          {/* ─── Dra. Renoveja next action ─── */}
+          <SectionCard>
+            <SectionHeader icon="sparkles" iconColor={colors.primary} title="Dra. Renoveja" right={
+              <View style={styles.nextActionBadge}>
+                <Ionicons name={getNextActionIcon(nextAction.intent as NextActionIntent)} size={13} color={colors.primary} />
+              </View>
+            } />
+            <Text style={styles.nextActionSummary}>{nextAction.statusSummary}</Text>
+            <View style={styles.nextActionDivider} />
+            <Text style={styles.nextActionStepLabel}>Proximo passo</Text>
+            <Text style={styles.nextActionBody}>{nextAction.whatToDo}</Text>
+            {nextAction.eta ? <Text style={styles.nextActionEta}>{nextAction.eta}</Text> : null}
+            {nextActionQuickCta && (
+              <AppButton
+                title={nextActionQuickCta.label}
+                icon={nextAction.intent === 'pay' ? 'card' : 'download'}
+                onPress={nextActionQuickCta.onPress}
+                loading={documentActionLoading || actionLoading}
+                disabled={documentActionLoading || actionLoading}
+                style={{ marginTop: spacing.md }}
+              />
+            )}
+          </SectionCard>
+
+          {/* ─── Auto observation + doctor conduct ─── */}
+          {request.autoObservation && (
+            <View style={{ marginBottom: spacing.md }}>
+              <ObservationCard mode="auto" text={request.autoObservation} />
+            </View>
+          )}
+          {request.doctorConductNotes && (
+            <View style={{ marginBottom: spacing.md }}>
+              <ObservationCard
+                mode="conduct"
+                text={request.doctorConductNotes}
+                doctorName={request.doctorName}
+                conductUpdatedAt={request.conductUpdatedAt ?? undefined}
+              />
+            </View>
+          )}
+
+          {/* ─── Document validity ─── */}
+          {(request.requestType === 'prescription' || request.requestType === 'exam') && request.signedAt && (
+            <View style={{ marginBottom: spacing.md }}>
+              <DocumentValidityBadge request={request} />
+            </View>
+          )}
+
+          {/* ─── Request Info Card ─── */}
+          <SectionCard>
+            <SectionHeader icon="information-circle-outline" iconColor={colors.info} title="Detalhes da solicitacao" />
+            <DetailRow label="Tipo" value={getTypeLabel(request.requestType)} colors={colors} />
+            {request.prescriptionType && (
+              <DetailRow label="Controle" value={getPrescriptionTypeLabel(request.prescriptionType)} colors={colors} />
+            )}
+            {request.doctorName && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Medico</Text>
+                <View style={styles.doctorInfo}>
+                  <View style={[styles.doctorAvatar, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="person" size={12} color="#FFFFFF" />
+                  </View>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{request.doctorName}</Text>
+                </View>
+              </View>
+            )}
+            <DetailRow label="Criado em" value={formatDateTimeBR(request.createdAt)} colors={colors} isLast />
+          </SectionCard>
+
+          {/* ─── Medications List ─── */}
+          {request.medications && request.medications.length > 0 && (
+            <SectionCard>
+              <SectionHeader icon="medical" iconColor={colors.primary} title="Medicamentos" right={
+                <View style={[styles.countBadge, { backgroundColor: colors.primary + '15' }]}>
+                  <Text style={[styles.countBadgeText, { color: colors.primary }]}>{request.medications.length}</Text>
+                </View>
+              } />
+              {request.medications.map((med, i) => (
+                <View key={i} style={[styles.listItem, i === request.medications!.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View style={[styles.listDot, { backgroundColor: colors.primary }]} />
+                  <Text style={[styles.listItemText, { color: colors.text }]}>{med}</Text>
+                </View>
+              ))}
+            </SectionCard>
+          )}
+
+          {/* ─── Exams List ─── */}
+          {request.exams && request.exams.length > 0 && (
+            <SectionCard>
+              <SectionHeader icon="flask" iconColor={colors.info} title="Exames" right={
+                <View style={[styles.countBadge, { backgroundColor: colors.info + '15' }]}>
+                  <Text style={[styles.countBadgeText, { color: colors.info }]}>{request.exams.length}</Text>
+                </View>
+              } />
+              {request.exams.map((exam, i) => (
+                <View key={i} style={[styles.listItem, i === request.exams!.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View style={[styles.listDot, { backgroundColor: colors.info }]} />
+                  <Text style={[styles.listItemText, { color: colors.text }]}>{exam}</Text>
+                </View>
+              ))}
+            </SectionCard>
+          )}
+
+          {/* ─── Prescription Images ─── */}
+          {request.prescriptionImages && request.prescriptionImages.length > 0 && (
+            <SectionCard>
+              <SectionHeader icon="images-outline" iconColor={colors.primary} title="Imagens da Receita" />
+              <Text style={[styles.zoomHint, { color: colors.textMuted }]}>Toque para ampliar</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+                {request.prescriptionImages.map((img, i) => (
+                  <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
+                    <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
+                    <View style={[styles.zoomBadge, { backgroundColor: colors.overlayBackground }]}>
+                      <Ionicons name="search" size={14} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </SectionCard>
+          )}
+
+          {/* ─── Exam Images ─── */}
+          {request.examImages && request.examImages.length > 0 && (
+            <SectionCard>
+              <SectionHeader icon="images-outline" iconColor={colors.info} title="Imagens do Exame" />
+              <Text style={[styles.zoomHint, { color: colors.textMuted }]}>Toque para ampliar</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+                {request.examImages.map((img, i) => (
+                  <TouchableOpacity key={i} onPress={() => setSelectedImageUri(img)} activeOpacity={0.8} style={styles.thumbWrap}>
+                    <CompatibleImage uri={img} style={styles.thumbImg} resizeMode="cover" />
+                    <View style={[styles.zoomBadge, { backgroundColor: colors.overlayBackground }]}>
+                      <Ionicons name="search" size={14} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </SectionCard>
+          )}
+
+          {/* ─── Symptoms ─── */}
+          {request.symptoms && (
+            <SectionCard>
+              <SectionHeader icon="chatbubble-ellipses-outline" iconColor={colors.warning} title="Sintomas" />
+              <ExpandableText text={request.symptoms} maxLines={4} style={[styles.symptomsText, { color: colors.textSecondary }]} />
+            </SectionCard>
+          )}
+
+          {/* ─── AI Summary (purple accent) ─── */}
+          {request.aiSummaryForDoctor && (
+            <View style={[styles.aiCard, { borderColor: AI_ACCENT + '30' }]}>
+              <View style={styles.aiCardHeader}>
+                <View style={[styles.aiIconWrap, { backgroundColor: AI_ACCENT + '15' }]}>
+                  <Ionicons name="sparkles" size={17} color={AI_ACCENT} />
+                </View>
+                <Text style={[styles.aiCardTitle, { color: colors.text }]}>Analise IA</Text>
+                {request.aiRiskLevel && (
+                  <View style={[styles.riskBadge, {
+                    backgroundColor: request.aiRiskLevel === 'high' ? colors.errorLight
+                      : request.aiRiskLevel === 'medium' ? colors.warningLight
+                      : colors.successLight,
+                  }]}>
+                    <Text style={[styles.riskText, {
+                      color: request.aiRiskLevel === 'high' ? colors.error
+                        : request.aiRiskLevel === 'medium' ? colors.warning
+                        : colors.success,
+                    }]}>
+                      {getRiskLabelPt(request.aiRiskLevel)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={[styles.aiDivider, { backgroundColor: AI_ACCENT + '15' }]} />
+              <FormattedAiSummary text={request.aiSummaryForDoctor} accentColor={AI_ACCENT} />
+            </View>
+          )}
+
+          {/* ─── Rejection reason ─── */}
+          {request.rejectionReason && (
+            <View style={[styles.rejectionCard, { backgroundColor: colors.errorLight, borderColor: colors.error + '25' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                <Ionicons name="close-circle" size={20} color={colors.error} />
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.error }}>Motivo da Rejeicao</Text>
+              </View>
+              <Text style={{ fontSize: 14, color: colors.error, lineHeight: 20 }}>{request.rejectionReason}</Text>
+            </View>
+          )}
+
+          {/* ─── SUS Banner ─── */}
+          <View style={styles.susBanner}>
+            <View style={styles.susBannerIcon}>
+              <Ionicons name="shield-checkmark" size={20} color="#22C55E" />
+            </View>
+            <View style={styles.susBannerContent}>
+              <Text style={[styles.susBannerTitle, { color: colors.text }]}>Atendimento gratuito via SUS</Text>
+              <Text style={[styles.susBannerSub, { color: colors.textSecondary }]}>
+                Servico digital de saude publica
+              </Text>
+            </View>
+          </View>
+
+          {/* ─── Documents Section ─── */}
           {canDownload && (
-            <>
+            <SectionCard>
+              <SectionHeader icon="document-attach-outline" iconColor="#22C55E" title="Documentos" />
               <AppButton
                 title={request.requestType === 'exam' ? 'Baixar Pedido de Exame' : request.requestType === 'consultation' ? 'Baixar Documento' : 'Baixar Receita'}
                 icon="download"
@@ -692,6 +709,7 @@ export default function RequestDetailScreen() {
                 loading={documentActionLoading}
                 disabled={documentActionLoading}
               />
+              <View style={{ height: spacing.sm }} />
               <AppButton
                 title="Visualizar"
                 icon="eye"
@@ -699,6 +717,7 @@ export default function RequestDetailScreen() {
                 onPress={handleViewDocument}
                 disabled={documentActionLoading}
               />
+              <View style={{ height: spacing.sm }} />
               <AppButton
                 title="Enviar por WhatsApp"
                 icon="logo-whatsapp"
@@ -706,33 +725,39 @@ export default function RequestDetailScreen() {
                 onPress={() => {/* TODO: implementar envio WhatsApp */}}
                 style={{ borderColor: '#22C55E' }}
               />
-            </>
+            </SectionCard>
           )}
 
+          {/* ─── Consultation auto-join card ─── */}
           {canJoinVideo && (
-            <View style={styles.autoJoinCard}>
-              <Ionicons name="videocam" size={24} color={colors.primary} />
-              <Text style={styles.autoJoinTitle}>Consulta agendada</Text>
-              <Text style={styles.autoJoinSub}>
-                Quando o médico iniciar a consulta, você será automaticamente levado à sala de vídeo. Não é necessário clicar em nada.
+            <SectionCard style={{ borderWidth: 1, borderColor: colors.primary + '30', alignItems: 'center' }}>
+              <View style={[styles.autoJoinIconWrap, { backgroundColor: colors.primary + '12' }]}>
+                <Ionicons name="videocam" size={28} color={colors.primary} />
+              </View>
+              <Text style={[styles.autoJoinTitle, { color: colors.text }]}>Consulta agendada</Text>
+              <Text style={[styles.autoJoinSub, { color: colors.textSecondary }]}>
+                Quando o medico iniciar a consulta, voce sera automaticamente levado a sala de video.
               </Text>
+            </SectionCard>
+          )}
+
+          {/* ─── Cancel Button ─── */}
+          {canCancel && (
+            <View style={{ marginTop: spacing.xs }}>
+              <AppButton
+                title="Cancelar pedido"
+                icon="close-circle-outline"
+                variant="outline"
+                onPress={handleCancel}
+                disabled={actionLoading}
+                style={{ borderColor: colors.error + '50' }}
+              />
             </View>
           )}
+        </ScrollView>
+      </FadeIn>
 
-          {canCancel && (
-            <AppButton
-              title="Cancelar pedido"
-              icon="close-circle-outline"
-              variant="outline"
-              onPress={handleCancel}
-              disabled={actionLoading}
-              style={{ borderColor: colors.textMuted }}
-            />
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Modal popup de vídeo: "Entre na consulta" */}
+      {/* ─── Video Modal ─── */}
       <Modal
         visible={showVideoModal && canJoinVideo}
         transparent
@@ -740,44 +765,35 @@ export default function RequestDetailScreen() {
         onRequestClose={() => setShowVideoModal(false)}
         statusBarTranslucent
       >
-        <TouchableOpacity
-          style={styles.videoModalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowVideoModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.videoModalCard}
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Ionicons name="videocam" size={48} color={colors.primary} style={{ marginBottom: spacing.md }} />
-            <Text style={styles.videoModalTitle}>
-              {request.status === 'in_consultation' ? 'Médico na sala!' : 'Sua consulta está pronta'}
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowVideoModal(false)}>
+          <TouchableOpacity style={styles.videoModalCard} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.videoModalIconWrap, { backgroundColor: isConsultation ? AI_ACCENT + '15' : colors.primary + '15' }]}>
+              <Ionicons name="videocam" size={36} color={isConsultation ? AI_ACCENT : colors.primary} />
+            </View>
+            <Text style={[styles.videoModalTitle, { color: colors.text }]}>
+              {request.status === 'in_consultation' ? 'Medico na sala!' : 'Sua consulta esta pronta'}
             </Text>
-            <Text style={styles.videoModalSub}>
+            <Text style={[styles.videoModalSub, { color: colors.textSecondary }]}>
               {request.status === 'in_consultation'
-                ? 'Entre na videoconsulta. Pode voltar à sala enquanto houver tempo contratado.'
-                : 'Entre na sala e aguarde o médico.'}
+                ? 'Entre na videoconsulta. Pode voltar a sala enquanto houver tempo contratado.'
+                : 'Entre na sala e aguarde o medico.'}
             </Text>
             <TouchableOpacity
-              style={styles.videoModalBtn}
+              style={[styles.videoModalPrimaryBtn, { backgroundColor: isConsultation ? AI_ACCENT : colors.primary }]}
               onPress={() => { setShowVideoModal(false); setShowConsentModal(true); }}
               activeOpacity={0.85}
             >
-              <Text style={styles.videoModalBtnText}>Entrar agora</Text>
+              <Ionicons name="videocam" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.videoModalPrimaryBtnText}>Entrar agora</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.videoModalBtnSec}
-              onPress={() => setShowVideoModal(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.videoModalBtnSecText}>Depois</Text>
+            <TouchableOpacity style={styles.videoModalSecBtn} onPress={() => setShowVideoModal(false)} activeOpacity={0.7}>
+              <Text style={[styles.videoModalSecBtnText, { color: colors.textMuted }]}>Depois</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
-      {/* Modal de consentimento pré-teleconsulta (CFM 2.314/2022) */}
+      {/* ─── Consent Modal ─── */}
       <ConsultationConsentModal
         visible={showConsentModal}
         requestId={request.id}
@@ -788,7 +804,7 @@ export default function RequestDetailScreen() {
         onDeclined={() => setShowConsentModal(false)}
       />
 
-      {/* Modal com zoom nas imagens */}
+      {/* ─── Image Zoom Modal ─── */}
       <Modal
         visible={selectedImageUri !== null}
         transparent
@@ -797,9 +813,9 @@ export default function RequestDetailScreen() {
         statusBarTranslucent
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedImageUri(null)} activeOpacity={0.7}>
-              <Ionicons name="close" size={32} color={colors.white} />
+          <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+            <TouchableOpacity style={styles.imageModalClose} onPress={() => setSelectedImageUri(null)} activeOpacity={0.7}>
+              <Ionicons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
             {selectedImageUri && (
               Platform.OS === 'web' && /\.(heic|heif)$/i.test(selectedImageUri) ? (
@@ -817,185 +833,466 @@ export default function RequestDetailScreen() {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+// ─── Detail Row sub-component ───────────────────────────────────
+function DetailRow({ label, value, colors, isLast }: { label: string; value: string; colors: DesignColors; isLast?: boolean }) {
+  return (
+    <View style={[{
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: isLast ? 0 : 1,
+      borderBottomColor: colors.border,
+    }]}>
+      <Text style={{ fontSize: 14, color: colors.textSecondary }}>{label}</Text>
+      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>{value}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ─────────────────────────────────────────────────────
+function makeStyles(colors: DesignColors, screenWidth: number) {
+  const isCompact = screenWidth < 360;
+
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  loadingText: { fontSize: 14, color: colors.textMuted },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backBtn: {
-    width: 44, height: 44, borderRadius: 14,
-    backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
-    ...shadows.card,
-  },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  scroll: { padding: spacing.md, paddingTop: spacing.lg },
-  offlineBanner: {
-    marginBottom: spacing.md,
-    backgroundColor: colors.warningLight,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: borderRadius.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  offlineText: { flex: 1, fontSize: 12, color: colors.textSecondary },
-  videoReadyBanner: {
-    marginBottom: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    ...shadows.card,
-  },
-  videoReadyBannerText: { flex: 1 },
-  videoReadyBannerTitle: { fontSize: 16, fontWeight: '700', color: colors.white },
-  videoReadyBannerSub: { fontSize: 13, color: colors.headerOverlayTextMuted, marginTop: 2 },
-  videoModalOverlay: {
-    flex: 1,
-    backgroundColor: colors.modalOverlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  videoModalCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.xl,
-    alignItems: 'center',
-    minWidth: 280,
-    maxWidth: 340,
-    ...shadows.card,
-  },
-  videoModalTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.sm, textAlign: 'center' },
-  videoModalSub: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.lg },
-  videoModalBtn: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  videoModalBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
-  videoModalBtnSec: { paddingVertical: 8, paddingHorizontal: 16 },
-  videoModalBtnSecText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
-  formSection: { marginHorizontal: -spacing.md },
-  formSectionFirst: { marginTop: 0 },
-  formSectionContent: {
-    borderRadius: 16,
-    padding: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.card,
-  },
-  cardLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.2, marginBottom: spacing.xs },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  detailLabel: { fontSize: 14, color: colors.textSecondary },
-  detailValue: { fontSize: 14, fontWeight: '500', color: colors.text },
-  doctorInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  doctorAvatarSmall: {
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
-  },
-  medItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, gap: spacing.sm },
-  medIcon: { width: 24, alignItems: 'center' },
-  medName: { fontSize: 15, color: colors.text, fontWeight: '500' },
-  symptomsText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
-  nextActionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  nextActionIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary + '15',
-    marginTop: 1,
-  },
-  nextActionText: { flex: 1, fontSize: 14, lineHeight: 20, color: colors.textSecondary },
-  nextActionLabel: {
-    marginTop: spacing.sm,
-    marginBottom: 4,
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  nextActionBody: { fontSize: 14, lineHeight: 20, color: colors.text },
-  nextActionEta: { marginTop: 6, fontSize: 12, color: colors.textSecondary },
-  aiSummary: { fontSize: 14, color: colors.warning, lineHeight: 20 },
-  riskBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.sm },
-  riskText: { fontSize: 12, fontWeight: '700' },
-  actions: {
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    marginHorizontal: uiTokens.screenPaddingHorizontal - spacing.md,
-  },
-  autoJoinCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primary + '40',
-    ...shadows.card,
-  },
-  autoJoinTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  autoJoinSub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  errorTitle: { fontSize: 18, fontWeight: '600', color: colors.textSecondary },
-  errorMsg: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
-  errorBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.md,
-  },
-  errorBtnText: { fontSize: 15, fontWeight: '600', color: colors.white },
-  thumbWrap: { marginHorizontal: spacing.sm, position: 'relative' },
-  thumbImg: { width: 120, height: 120, borderRadius: 14 },
-  zoomBadge: { position: 'absolute', bottom: 6, right: 6, backgroundColor: colors.overlayBackground, borderRadius: 12, padding: 4, alignItems: 'center', justifyContent: 'center' },
-  zoomHint: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.xs },
-  modalContainer: { flex: 1, backgroundColor: colors.modalOverlay, justifyContent: 'center', alignItems: 'center' },
-  modalCloseBtn: {
-    position: 'absolute',
-    top: Platform.OS === 'web' ? 20 : 60,
-    right: spacing.md,
-    zIndex: 10,
-    backgroundColor: colors.modalOverlay,
-    borderRadius: 25,
-    padding: 10,
-    width: 50,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+    container: {
+      flex: 1,
+      backgroundColor: '#F8FAFC',
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.md,
+    },
+
+    // ── Dark Header ──
+    darkHeader: {
+      paddingBottom: spacing.md,
+      borderBottomLeftRadius: 20,
+      borderBottomRightRadius: 20,
+      ...shadows.card,
+    },
+    darkHeaderInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
+      paddingBottom: 4,
+      minHeight: 48,
+    },
+    fallbackHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderBottomLeftRadius: 20,
+      borderBottomRightRadius: 20,
+    },
+    headerBackBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerCenter: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    headerTypeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    headerTypeLabel: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    headerSubLabel: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.7)',
+      marginTop: 2,
+    },
+    headerTitleText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      flex: 1,
+      textAlign: 'center',
+    },
+
+    // ── Scroll ──
+    scroll: {
+      padding: spacing.md,
+      paddingTop: spacing.lg,
+    },
+
+    // ── Offline Banner ──
+    offlineBanner: {
+      marginBottom: spacing.md,
+      backgroundColor: colors.warningLight,
+      borderWidth: 1,
+      borderColor: colors.warning,
+      borderRadius: 12,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    offlineText: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+
+    // ── Video Banner ──
+    videoBanner: {
+      marginBottom: spacing.md,
+      backgroundColor: colors.primary,
+      borderRadius: 16,
+      padding: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      ...shadows.card,
+    },
+    videoBannerIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    videoBannerContent: {
+      flex: 1,
+    },
+    videoBannerTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    videoBannerSub: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.75)',
+      marginTop: 2,
+    },
+    videoBannerArrow: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    // ── Next Action ──
+    nextActionBadge: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.primary + '12',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nextActionSummary: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.textSecondary,
+    },
+    nextActionDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: spacing.sm,
+    },
+    nextActionStepLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: 4,
+    },
+    nextActionBody: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.text,
+    },
+    nextActionEta: {
+      marginTop: 6,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+
+    // ── Detail Rows ──
+    detailRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    detailLabel: {
+      fontSize: 14,
+    },
+    detailValue: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    doctorInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    doctorAvatar: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    // ── Lists (meds / exams) ──
+    listItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: spacing.sm,
+    },
+    listDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    listItemText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '500',
+    },
+    countBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+    },
+    countBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+
+    // ── Images ──
+    thumbWrap: {
+      marginHorizontal: 4,
+      position: 'relative',
+    },
+    thumbImg: {
+      width: isCompact ? 100 : 120,
+      height: isCompact ? 100 : 120,
+      borderRadius: 14,
+    },
+    zoomBadge: {
+      position: 'absolute',
+      bottom: 6,
+      right: 6,
+      borderRadius: 12,
+      padding: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    zoomHint: {
+      fontSize: 12,
+      marginBottom: spacing.xs,
+    },
+
+    // ── Symptoms ──
+    symptomsText: {
+      fontSize: 14,
+      lineHeight: 20,
+    },
+
+    // ── AI Card (purple accent) ──
+    aiCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      ...shadows.card,
+    },
+    aiCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    aiIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    aiCardTitle: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    aiDivider: {
+      height: 1,
+      marginVertical: spacing.sm,
+    },
+    riskBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      borderRadius: 8,
+    },
+    riskText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+
+    // ── Rejection ──
+    rejectionCard: {
+      borderRadius: 16,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+    },
+
+    // ── SUS Banner ──
+    susBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#22C55E' + '0D', // 5% green
+      borderRadius: 14,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: '#22C55E' + '25',
+    },
+    susBannerIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: '#22C55E' + '15',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.sm,
+    },
+    susBannerContent: {
+      flex: 1,
+    },
+    susBannerTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    susBannerSub: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+
+    // ── Auto join ──
+    autoJoinIconWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.sm,
+    },
+    autoJoinTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    autoJoinSub: {
+      fontSize: 14,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginTop: 4,
+    },
+
+    // ── Modals ──
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.modalOverlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.lg,
+    },
+    videoModalCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: spacing.xl,
+      alignItems: 'center',
+      minWidth: 280,
+      maxWidth: 360,
+      width: '100%',
+      ...shadows.card,
+    },
+    videoModalIconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    videoModalTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      marginBottom: spacing.sm,
+      textAlign: 'center',
+    },
+    videoModalSub: {
+      fontSize: 15,
+      textAlign: 'center',
+      marginBottom: spacing.lg,
+      lineHeight: 22,
+    },
+    videoModalPrimaryBtn: {
+      width: '100%',
+      flexDirection: 'row',
+      paddingVertical: 14,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.sm,
+    },
+    videoModalPrimaryBtnText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    videoModalSecBtn: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+    },
+    videoModalSecBtnText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+
+    // ── Image zoom modal ──
+    imageModalClose: {
+      position: 'absolute',
+      top: Platform.OS === 'web' ? 20 : 60,
+      right: spacing.md,
+      zIndex: 10,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      borderRadius: 22,
+      padding: 8,
+      width: 44,
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
   });
 }

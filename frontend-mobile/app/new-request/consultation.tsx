@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,31 +30,44 @@ import { detectRedFlags, evaluateConsultationCompleteness } from '../../lib/doma
 import { evaluateAssistantCompleteness } from '../../lib/api';
 
 const s = theme.spacing;
-const r = theme.borderRadius;
-const t = theme.typography;
-
-const PROFESSIONAL_TYPE_DESC =
-  'O profissional está disponível para dúvidas e orientações pontuais. Não é adequado para acompanhamento contínuo.';
+const _r = theme.borderRadius;
+const ty = theme.typography;
 
 const CONSULTATION_DURATION_MINUTES = 15;
 
 const CONSULTATION_TYPES = [
-  { key: 'psicologo' as const, label: 'Psicólogo', desc: PROFESSIONAL_TYPE_DESC },
-  { key: 'medico_clinico' as const, label: 'Médico Clínico', desc: PROFESSIONAL_TYPE_DESC },
+  {
+    key: 'psicologo' as const,
+    label: 'Psicólogo',
+    desc: 'Dúvidas e orientações de saúde mental',
+    icon: 'heart-outline' as const,
+    accent: '#8B5CF6',
+  },
+  {
+    key: 'medico_clinico' as const,
+    label: 'Médico Clínico',
+    desc: 'Orientações médicas e dúvidas de saúde',
+    icon: 'medkit-outline' as const,
+    accent: '#0EA5E9',
+  },
 ];
 
-const NARROW_BREAKPOINT = 400;
+const URGENCY_OPTIONS = [
+  { key: 'rotina' as const, label: 'Rotina', desc: 'Sem pressa, dúvida geral', icon: 'time-outline' as const },
+  { key: 'urgente' as const, label: 'Urgente', desc: 'Preciso de atendimento rápido', icon: 'flash-outline' as const },
+];
 
 export default function ConsultationScreen() {
   const router = useRouter();
   const invalidateRequests = useInvalidateRequests();
   const { width } = useWindowDimensions();
-  const oneColumn = width < NARROW_BREAKPOINT;
+  const narrow = width < 400;
   const [consultationType, setConsultationType] = useState<'psicologo' | 'medico_clinico'>('psicologo');
   const [symptoms, setSymptoms] = useState('');
+  const [urgency, setUrgency] = useState<'rotina' | 'urgente'>('rotina');
   const [loading, setLoading] = useState(false);
   const { colors } = useAppTheme({ role: 'patient' });
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, narrow), [colors, narrow]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateConsultationCompleteness({
     consultationType,
@@ -114,6 +128,7 @@ export default function ConsultationScreen() {
         guidance: apiResult.urgencyMessage ?? 'Sinais de urgência detectados. Considere buscar atendimento presencial.',
       }
     : redFlagsLocal;
+
   const [userPickedType, setUserPickedType] = useState(false);
   let currentStep = 1;
   if (userPickedType) currentStep = 2;
@@ -127,7 +142,6 @@ export default function ConsultationScreen() {
   const isFormValid = completeness.missingRequired.length === 0 && consultationValidation.success;
   const symptomsRef = useRef<TextInput>(null);
 
-  /** Dra. Renoveja: dicas (descreva sintomas, mais detalhes). */
   useTriageEval({
     context: 'consultation',
     step: symptoms.trim().length > 0 ? 'symptoms_entered' : 'entry',
@@ -190,127 +204,240 @@ export default function ConsultationScreen() {
 
   return (
     <Screen scroll={false} edges={['top', 'bottom']} padding={false}>
-      <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
-        <AppHeader title="Consulta Breve" />
-        <StepIndicator current={currentStep} total={3} labels={['Profissional', 'Sintomas', 'Revisão']} showConnectorLines={false} />
-        <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
-          <View style={styles.assistantHeader}>
-            <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
-            <Text style={styles.assistantTitle}>Dra. Renoveja: qualidade do envio</Text>
-            {apiLoading && (
-              <ActivityIndicator size="small" color={colors.primary} style={styles.assistantLoading} />
+      <View style={styles.flex1}>
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <AppHeader title="Consulta Breve" />
+          <StepIndicator
+            current={currentStep}
+            total={3}
+            labels={['Profissional', 'Sintomas', 'Revisão']}
+            showConnectorLines={false}
+          />
+
+          {/* AI Completeness */}
+          <View style={[styles.completenessCard, apiLoading && styles.completenessCardLoading]}>
+            <View style={styles.completenessHeader}>
+              <View style={styles.completenessIconWrap}>
+                <Ionicons name="sparkles" size={16} color="#8B5CF6" />
+              </View>
+              <Text style={styles.completenessTitle}>Qualidade do envio</Text>
+              {apiLoading && (
+                <ActivityIndicator size="small" color={colors.primary} style={styles.mlAuto} />
+              )}
+            </View>
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${completeness.score}%`,
+                    backgroundColor: completeness.score === 100 ? '#22C55E' : colors.primary,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.completenessScore}>{completeness.score}% pronto</Text>
+            {completeness.missingRequired.map((item) => (
+              <View key={item.id} style={styles.missingRow}>
+                <Ionicons name="ellipse-outline" size={12} color={colors.textMuted} />
+                <Text style={styles.missingText}>{item.label}</Text>
+              </View>
+            ))}
+            {completeness.missingRequired.length === 0 && (
+              <View style={styles.missingRow}>
+                <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                <Text style={styles.readyText}>Pronto para enviar para triagem</Text>
+              </View>
             )}
           </View>
-          <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
-          {completeness.missingRequired.map((item) => (
-            <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
-          ))}
-          {completeness.missingRequired.length === 0 ? (
-            <Text style={styles.assistantGood}>Perfeito. Vamos enviar para triagem médica.</Text>
-          ) : null}
-        </AppCard>
-        {redFlags.isUrgent ? (
-          <View style={styles.redFlagCard}>
-            <Ionicons name="warning-outline" size={18} color={colors.error} />
-            <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
+
+          {redFlags.isUrgent && (
+            <View style={styles.redFlagCard}>
+              <Ionicons name="warning-outline" size={18} color={colors.error} />
+              <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
+            </View>
+          )}
+
+          {/* Professional Type */}
+          <Text style={styles.sectionLabel}>Tipo de profissional</Text>
+          <View style={styles.typeRow}>
+            {CONSULTATION_TYPES.map(type => {
+              const isSelected = consultationType === type.key;
+              return (
+                <AppCard
+                  key={type.key}
+                  selected={isSelected}
+                  onPress={() => { setConsultationType(type.key); setUserPickedType(true); }}
+                  style={styles.typeCard}
+                >
+                  <View style={[styles.typeIconWrap, { backgroundColor: type.accent + '14' }]}>
+                    <Ionicons name={type.icon} size={24} color={isSelected ? type.accent : colors.textMuted} />
+                  </View>
+                  <Text style={[styles.typeName, isSelected && styles.typeNameSelected]} numberOfLines={1}>
+                    {type.label}
+                  </Text>
+                  <Text style={styles.typeDesc} numberOfLines={2}>{type.desc}</Text>
+                </AppCard>
+              );
+            })}
           </View>
-        ) : null}
 
-        {/* Tipo: Psicólogo ou Médico Clínico */}
-        <Text style={styles.overline}>TIPO DE PROFISSIONAL</Text>
-        {currentStep === 1 && (
-          <Text style={styles.stepHint}>Passo 1 — Escolha com quem você quer falar. Toque em Psicólogo ou Médico Clínico.</Text>
-        )}
-        <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
-          {CONSULTATION_TYPES.map(type => (
-            <AppCard
-              key={type.key}
-              selected={consultationType === type.key}
-              onPress={() => { setConsultationType(type.key); setUserPickedType(true); }}
-              style={StyleSheet.flatten(oneColumn ? [styles.typeCard, styles.typeCardFull] : styles.typeCard)}
-            >
-              <Text style={[styles.typeName, consultationType === type.key && styles.typeNameSelected]} numberOfLines={1}>
-                {type.label}
-              </Text>
-              <Text style={styles.typeDesc} numberOfLines={4} ellipsizeMode="tail">{type.desc}</Text>
-            </AppCard>
-          ))}
-        </View>
+          {/* Duration Info */}
+          <View style={styles.durationCard}>
+            <Ionicons name="videocam" size={18} color={colors.primary} />
+            <View style={styles.durationTextWrap}>
+              <Text style={styles.durationTitle}>Teleconsulta de {CONSULTATION_DURATION_MINUTES} minutos</Text>
+              <Text style={styles.durationDesc}>A chamada encerra automaticamente ao atingir o tempo.</Text>
+            </View>
+          </View>
 
-        <Text style={styles.overline}>DURAÇÃO</Text>
-        <Text style={styles.minutesHint}>
-          A consulta terá duração de {CONSULTATION_DURATION_MINUTES} minutos. A chamada encerra automaticamente ao atingir o tempo.
-        </Text>
+          {/* Urgency */}
+          <Text style={styles.sectionLabel}>Urgência</Text>
+          <View style={styles.urgencyRow}>
+            {URGENCY_OPTIONS.map(opt => {
+              const isSelected = urgency === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.urgencyChip, isSelected && styles.urgencyChipSelected]}
+                  onPress={() => setUrgency(opt.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={16}
+                    color={isSelected ? colors.primary : colors.textMuted}
+                  />
+                  <Text style={[styles.urgencyLabel, isSelected && styles.urgencyLabelSelected]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-        {/* Sintomas */}
-        <Text style={styles.overline}>DESCREVA SEUS SINTOMAS / DÚVIDA</Text>
-        {currentStep === 2 && (
-          <Text style={styles.stepHint}>Passo 2 — Escreva o que você está sentindo ou a dúvida que tem. Isso ajuda o profissional a te atender melhor.</Text>
-        )}
-        <TextInput
-          ref={symptomsRef}
-          style={[
-            styles.textArea,
-            symptoms.trim().length > 0 && symptoms.trim().length < 10 && [styles.inputError, { borderColor: colors.warning + 'CC' }],
-          ]}
-          placeholder="Descreva sintomas, desde quando e sua dúvida"
-          placeholderTextColor={colors.textMuted}
-          value={symptoms}
-          onChangeText={setSymptoms}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
+          {/* Symptoms */}
+          <Text style={styles.sectionLabel}>Descreva seus sintomas</Text>
+          <Text style={styles.fieldHint}>Escreva o que sente ou sua dúvida. Isso ajuda o profissional a te atender melhor.</Text>
+          <TextInput
+            ref={symptomsRef}
+            style={[
+              styles.textArea,
+              symptoms.trim().length > 0 && symptoms.trim().length < 10 && styles.inputWarning,
+            ]}
+            placeholder="Ex: Estou com ansiedade e dificuldade para dormir..."
+            placeholderTextColor={colors.textMuted}
+            value={symptoms}
+            onChangeText={setSymptoms}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            autoCapitalize="sentences"
+            autoCorrect
+            returnKeyType="default"
+            editable={!loading}
+            accessibilityLabel="Descreva seus sintomas"
+            accessibilityHint="Campo obrigatório para descrever seus sintomas ou dúvida"
+          />
+        </ScrollView>
+
+        <StickyCTA
+          summaryTitle="Resumo"
+          summaryValue={`${completeness.score}% pronto`}
+          summaryHint={`${CONSULTATION_DURATION_MINUTES} min de consulta`}
+          primary={{
+            label: 'Agendar consulta',
+            onPress: handleSubmit,
+            loading,
+            disabled: loading || !isFormValid,
+          }}
         />
-
-      </ScrollView>
-      <StickyCTA
-        summaryTitle="Resumo"
-        summaryValue={`${completeness.score}% pronto`}
-        summaryHint={`${CONSULTATION_DURATION_MINUTES} min de consulta`}
-        primary={{
-          label: 'Solicitar consulta',
-          onPress: handleSubmit,
-          loading,
-          disabled: loading || !isFormValid,
-        }}
-      />
       </View>
     </Screen>
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, narrow: boolean) {
   return StyleSheet.create({
+    flex1: { flex: 1 },
     content: {
       flexGrow: 1,
       paddingHorizontal: uiTokens.screenPaddingHorizontal,
-      paddingBottom: s.xl,
+    },
+
+    /* Completeness Card */
+    completenessCard: {
+      marginTop: s.md,
+      marginBottom: s.md,
+      padding: s.md,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    completenessCardLoading: { opacity: 0.9 },
+    completenessHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.xs,
+      marginBottom: s.sm,
+    },
+    completenessIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: '#8B5CF6' + '14',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    completenessTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    mlAuto: { marginLeft: 'auto' },
+    progressBarBg: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.border,
+      marginBottom: 6,
       overflow: 'hidden',
     },
-    assistantCard: {
-      marginTop: s.md,
-      marginBottom: s.lg,
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-      backgroundColor: colors.primarySoft + '66',
-      shadowColor: 'transparent',
-      shadowOpacity: 0,
-      shadowRadius: 0,
-      shadowOffset: { width: 0, height: 0 },
-      elevation: 0,
+    progressBarFill: {
+      height: 6,
+      borderRadius: 3,
     },
-    assistantCardLoading: { opacity: 0.95 },
-    assistantLoading: { marginLeft: 'auto' },
-    assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
-    assistantTitle: { fontSize: 13, fontWeight: '700', color: colors.primary },
-    assistantProgress: { marginTop: 6, fontSize: 14, lineHeight: 20, fontWeight: '700', color: colors.text },
-    assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
-    assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.success },
+    completenessScore: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    missingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 4,
+    },
+    missingText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      lineHeight: 16,
+    },
+    readyText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#22C55E',
+    },
+
+    /* Red flags */
     redFlagCard: {
       marginTop: s.sm,
       marginBottom: s.sm,
-      borderRadius: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.errorLight,
       backgroundColor: colors.errorLight,
@@ -320,167 +447,130 @@ function makeStyles(colors: DesignColors) {
       gap: s.sm,
     },
     redFlagText: { flex: 1, color: colors.error, fontSize: 12, lineHeight: 18 },
-    overline: {
-      fontSize: 12,
-      fontWeight: '600',
-      lineHeight: 16,
-      textTransform: 'uppercase',
+
+    /* Section */
+    sectionLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: s.lg,
+      marginBottom: s.sm,
+    },
+    fieldHint: {
+      fontSize: 13,
       color: colors.textSecondary,
       marginBottom: s.sm,
+      lineHeight: 18,
     },
-    stepHint: {
-      fontSize: 13,
-      color: colors.text,
-      marginBottom: s.sm,
-      lineHeight: 20,
-      alignSelf: 'stretch',
-    },
+
+    /* Type Cards */
     typeRow: {
-      flexDirection: 'row',
-      gap: 12,
-      marginBottom: s.lg,
-    },
-    typeRowOneCol: {
-      flexDirection: 'column',
+      flexDirection: narrow ? 'column' : 'row',
+      gap: s.sm,
     },
     typeCard: {
-      flex: 1,
-      minWidth: 140,
+      flex: narrow ? undefined : 1,
+      alignItems: 'center',
+      paddingVertical: s.md,
+      minWidth: narrow ? undefined : 140,
     },
-    typeCardFull: {
-      width: '100%',
-      minWidth: undefined,
+    typeIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: s.sm,
     },
     typeName: {
-      fontSize: t.fontSize.md,
+      fontSize: ty.fontSize.md,
       fontWeight: '700',
       color: colors.text,
     },
     typeNameSelected: {
       color: colors.primary,
     },
-    typePricePerMin: {
-      fontSize: t.fontSize.lg,
-      lineHeight: 24,
+    typeDesc: {
+      fontSize: 12,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 2,
+      lineHeight: 16,
+    },
+
+    /* Duration */
+    durationCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+      marginTop: s.md,
+      padding: s.md,
+      borderRadius: 12,
+      backgroundColor: colors.primarySoft,
+    },
+    durationTextWrap: {
+      flex: 1,
+    },
+    durationTitle: {
+      fontSize: 14,
       fontWeight: '700',
       color: colors.text,
-      marginTop: s.xs,
     },
-    typeDesc: {
-      fontSize: t.fontSize.xs,
-      color: colors.textMuted,
-      marginTop: s.xs,
-      lineHeight: 16,
-      paddingBottom: 2,
-    },
-    minutesHint: {
-      fontSize: t.fontSize.sm,
+    durationDesc: {
+      fontSize: 12,
       color: colors.textSecondary,
-      marginBottom: s.sm,
-      lineHeight: 18,
-      alignSelf: 'stretch',
+      marginTop: 2,
+      lineHeight: 16,
     },
-    minutesStepperRow: {
+
+    /* Urgency */
+    urgencyRow: {
+      flexDirection: 'row',
+      gap: s.sm,
+    },
+    urgencyChip: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: s.lg,
-      marginBottom: s.lg,
-      alignSelf: 'stretch',
-    },
-    stepperBtn: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.primarySoft,
-      borderWidth: 2,
-      borderColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    stepperBtnDisabled: {
-      opacity: 0.5,
+      gap: 6,
+      paddingVertical: 12,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
       borderColor: colors.border,
     },
-    minutesStepperValue: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: colors.text,
-      minWidth: 72,
-      textAlign: 'center',
-      lineHeight: 48,
+    urgencyChipSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
     },
+    urgencyLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textMuted,
+    },
+    urgencyLabelSelected: {
+      color: colors.primary,
+    },
+
+    /* Textarea */
     textArea: {
       backgroundColor: colors.surface,
-      borderRadius: r.md,
-      borderWidth: 2,
+      borderRadius: 14,
+      borderWidth: 1,
       borderColor: colors.border,
       paddingHorizontal: s.md,
       paddingTop: s.md,
       paddingBottom: s.md,
-      fontSize: t.fontSize.md,
+      fontSize: ty.fontSize.md,
       lineHeight: 22,
       color: colors.text,
       minHeight: 120,
-      marginBottom: s.lg,
-    },
-    inputError: {
-      borderWidth: 2,
-    },
-    totalCard: {
-      marginBottom: s.lg,
-    },
-    totalRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: s.xs,
-    },
-    totalLabel: {
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: '400',
-      color: colors.textSecondary,
-      flex: 1,
-    },
-    totalValue: {
-      fontSize: 22,
-      lineHeight: 28,
-      fontWeight: '700',
-      color: colors.primary,
-    },
-    discountValue: {
-      fontSize: 18,
-      lineHeight: 22,
-      fontWeight: '600',
-      color: colors.success,
-    },
-    freeLabel: {
-      fontSize: t.fontSize.sm,
-      color: colors.success,
-      fontWeight: '600',
-      marginTop: s.xs,
-      textAlign: 'center',
-    },
-    bankCard: {
       marginBottom: s.md,
-      backgroundColor: colors.successLight,
-      borderColor: colors.success,
-      borderWidth: 1,
     },
-    bankRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s.sm,
-    },
-    bankText: {
-      fontSize: 14,
-      color: colors.success,
-      flex: 1,
-      lineHeight: 18,
-    },
-    bankBold: {
-      fontWeight: '700',
+    inputWarning: {
+      borderColor: colors.warning + 'CC',
+      borderWidth: 1.5,
     },
   });
 }

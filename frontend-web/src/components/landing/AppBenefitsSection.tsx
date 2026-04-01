@@ -54,7 +54,7 @@ export function AppBenefitsSection() {
           <span className="mb-4 inline-block text-sm font-semibold uppercase tracking-wider text-primary">
             A solução
           </span>
-          <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="font-display text-2xl font-bold text-foreground sm:text-4xl lg:text-5xl">
             Telemedicina online com apoio operacional, rastreabilidade e responsabilidade clínica preservada.
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">

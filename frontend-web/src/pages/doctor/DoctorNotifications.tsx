@@ -18,12 +18,24 @@ import {
   CreditCard, Stethoscope, ChevronRight, Clock, ExternalLink,
 } from 'lucide-react';
 
+type FilterType = 'all' | 'requests' | 'consultations';
+
 function getCategoryIcon(type: string | undefined) {
   const t = (type ?? '').toLowerCase();
   if (t.includes('payment') || t.includes('pago')) return CreditCard;
   if (t.includes('consult')) return Stethoscope;
   if (t.includes('request') || t.includes('pedido')) return FileText;
   return Bell;
+}
+
+/** Returns a left-border color class based on notification type */
+function getBorderColor(type: string | undefined): string {
+  const t = (type ?? '').toLowerCase();
+  if (t.includes('request') || t.includes('pedido')) return 'border-l-blue-500';
+  if (t.includes('consult')) return 'border-l-violet-500';
+  if (t.includes('payment') || t.includes('pago') || t.includes('success') || t.includes('sucesso')) return 'border-l-emerald-500';
+  if (t.includes('reminder') || t.includes('lembrete')) return 'border-l-amber-400';
+  return 'border-l-blue-500';
 }
 
 function getTimeAgo(dateStr: string) {
@@ -38,35 +50,46 @@ function getTimeAgo(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
-/** Notificações temporais (ex: "consulta em X min") com mais de 2h são expiradas. */
+/** Temporal notifications (e.g. "consultation in X min") older than 2h are expired. */
 function isExpiredTemporal(item: NotificationItem): boolean {
   const msg = (item.message ?? '').toLowerCase();
   const title = (item.title ?? '').toLowerCase();
-  const temporal = msg.includes('começa em') || msg.includes('minuto') || msg.includes('toque para entrar')
-    || title.includes('começa em') || title.includes('minuto') || title.includes('toque para entrar');
+  const temporal = msg.includes('comeca em') || msg.includes('minuto') || msg.includes('toque para entrar')
+    || title.includes('comeca em') || title.includes('minuto') || title.includes('toque para entrar');
   if (!temporal) return false;
   const ageMs = Date.now() - new Date(item.createdAt).getTime();
-  return ageMs > 2 * 60 * 60 * 1000; // 2 horas
+  return ageMs > 2 * 60 * 60 * 1000;
 }
 
-/** Extrai requestId do data (pode vir camelCase ou PascalCase do backend). */
+/** Extract requestId from data (may come camelCase or PascalCase from backend). */
 function getRequestId(item: NotificationItem): string | undefined {
   const d = item.data;
   if (!d) return undefined;
   return (d.requestId ?? d.RequestId ?? d.request_id) as string | undefined;
 }
 
+function matchesFilter(item: NotificationItem, filter: FilterType): boolean {
+  if (filter === 'all') return true;
+  const t = (item.notificationType ?? '').toLowerCase();
+  if (filter === 'requests') return t.includes('request') || t.includes('pedido') || t.includes('payment') || t.includes('pago');
+  if (filter === 'consultations') return t.includes('consult');
+  return true;
+}
+
 function groupByDate(items: NotificationItem[]) {
   const groups: { label: string; items: NotificationItem[] }[] = [];
   const today = new Date().toDateString();
   const yesterday = new Date(Date.now() - 86400000).toDateString();
+  const weekAgo = Date.now() - 7 * 86400000;
 
   items.forEach(item => {
-    const d = new Date(item.createdAt).toDateString();
+    const d = new Date(item.createdAt);
+    const ds = d.toDateString();
     let label = '';
-    if (d === today) label = 'Hoje';
-    else if (d === yesterday) label = 'Ontem';
-    else label = new Date(item.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+    if (ds === today) label = 'HOJE';
+    else if (ds === yesterday) label = 'ONTEM';
+    else if (d.getTime() > weekAgo) label = 'ESTA SEMANA';
+    else label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
 
     const existing = groups.find(g => g.label === label);
     if (existing) existing.items.push(item);
@@ -78,19 +101,26 @@ function groupByDate(items: NotificationItem[]) {
 
 const PAGE_SIZE = 20;
 
+const FILTERS: { key: FilterType; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'requests', label: 'Pedidos' },
+  { key: 'consultations', label: 'Consultas' },
+];
+
 export default function DoctorNotifications() {
   const navigate = useNavigate();
   const { unreadCount, decrementUnreadCount, markAllReadOptimistic } = useNotifications();
 
   useEffect(() => {
-    document.title = unreadCount > 0 ? `Alertas (${unreadCount}) — RenoveJá+` : 'Alertas — RenoveJá+';
-    return () => { document.title = 'RenoveJá+'; };
+    document.title = unreadCount > 0 ? `Alertas (${unreadCount}) — RenoveJa+` : 'Alertas — RenoveJa+';
+    return () => { document.title = 'RenoveJa+'; };
   }, [unreadCount]);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterType>('all');
 
   const fetchNotifications = useCallback((p: number) => {
     getNotifications({ page: p, pageSize: PAGE_SIZE })
@@ -152,53 +182,73 @@ export default function DoctorNotifications() {
   };
 
   const sorted = [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const groups = groupByDate(sorted);
+  const filtered = sorted.filter(item => matchesFilter(item, filter));
+  const groups = groupByDate(filtered);
   const hasAnyUnread = notifications.some(n => !n.read);
 
   return (
     <DoctorLayout>
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-4 sm:space-y-6 max-w-3xl mx-auto px-2 sm:px-0">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-              Notificações
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight flex items-center gap-2 sm:gap-3">
+              Alertas
               {unreadCount > 0 && (
-                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary text-primary-foreground">
-                  {unreadCount}
+                <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-xs font-bold bg-red-500 text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Central de alertas</p>
           </div>
           {(unreadCount > 0 || hasAnyUnread) && (
-            <Button variant="outline" size="sm" onClick={handleMarkAllRead} className="gap-2">
-              <CheckCheck className="h-4 w-4" />
-              Marcar todas como lidas
+            <Button variant="outline" size="sm" onClick={handleMarkAllRead} className="gap-1.5 shrink-0 text-xs sm:text-sm">
+              <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Ler todas</span>
+              <span className="sm:hidden">Ler</span>
             </Button>
           )}
+        </div>
+
+        {/* Segmented filter tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg w-max max-w-full">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                filter === f.key
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : notifications.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <Card className="shadow-sm">
             <CardContent className="py-16 text-center">
-              <BellOff className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-              <p className="font-medium text-muted-foreground">Nenhuma notificação</p>
-              <p className="text-xs text-muted-foreground mt-1">Você receberá alertas de novos pedidos aqui</p>
+              <BellOff className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="font-medium text-muted-foreground">
+                {filter !== 'all' ? 'Nenhuma notificacao neste filtro' : 'Nenhuma notificacao'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Voce recebera alertas de novos pedidos aqui</p>
             </CardContent>
           </Card>
         ) : (
           <>
-            <div className="space-y-6">
+            <div className="space-y-5 sm:space-y-6">
               {groups.map(group => (
                 <div key={group.label}>
-                  {/* Separador de data — contraste alto em dark mode */}
-                  <div className="flex items-center gap-3 mb-3 px-1">
-                    <p className="text-xs font-bold text-foreground/70 dark:text-foreground/60 uppercase tracking-wider whitespace-nowrap">
+                  {/* Date group separator */}
+                  <div className="flex items-center gap-3 mb-2.5 px-1">
+                    <p className="text-[11px] sm:text-xs font-bold text-foreground/60 uppercase tracking-wider whitespace-nowrap">
                       {group.label}
                     </p>
                     <div className="flex-1 h-px bg-border" />
@@ -209,49 +259,62 @@ export default function DoctorNotifications() {
                       const expired = isExpiredTemporal(item);
                       const requestId = getRequestId(item);
                       const hasLink = !!requestId;
+                      const borderColor = getBorderColor(item.notificationType);
 
                       return (
                         <motion.div key={item.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
                           <Card
-                            className={`relative overflow-hidden transition-all cursor-pointer group ${
+                            className={`relative overflow-hidden transition-all cursor-pointer group border-l-[3px] ${borderColor} ${
                               expired
-                                ? 'border-border/30 shadow-none opacity-50'
+                                ? 'opacity-50 shadow-none'
                                 : !item.read
-                                  ? 'border-primary/30 bg-primary/[0.06] shadow-md ring-1 ring-primary/10 hover:shadow-lg'
-                                  : 'border-border/50 shadow-sm opacity-80 hover:shadow-md'
+                                  ? 'shadow-sm hover:shadow-md'
+                                  : 'opacity-65 shadow-none hover:opacity-90 hover:shadow-sm'
                             }`}
                             onClick={() => handleMarkRead(item)}
                           >
-                            <CardContent className="p-4 flex items-center gap-4">
-                              {/* Barra lateral colorida para não lidas */}
-                              {!item.read && !expired && (
-                                <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-primary" />
-                              )}
-                              <div className={`p-2.5 rounded-xl shrink-0 ${
+                            <CardContent className="p-3 sm:p-4 flex items-start sm:items-center gap-3">
+                              {/* Icon */}
+                              <div className={`p-2 sm:p-2.5 rounded-xl shrink-0 mt-0.5 sm:mt-0 ${
                                 expired
                                   ? 'bg-muted/50'
-                                  : !item.read ? 'bg-primary/15' : 'bg-muted'
+                                  : !item.read ? 'bg-primary/10' : 'bg-muted'
                               }`}>
                                 {expired
                                   ? <Clock className="h-4 w-4 text-muted-foreground/50" />
                                   : <Icon className={`h-4 w-4 ${!item.read ? 'text-primary' : 'text-muted-foreground'}`} />
                                 }
                               </div>
+
+                              {/* Content */}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className={`text-sm ${
-                                    expired
-                                      ? 'font-medium text-muted-foreground/60 line-through decoration-muted-foreground/30'
-                                      : !item.read ? 'font-bold text-foreground' : 'font-medium text-muted-foreground'
-                                  }`}>
-                                    {item.title}
-                                  </p>
-                                  {expired && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground/60 font-medium shrink-0">
-                                      Expirada
+                                <div className="flex items-start sm:items-center justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className={`text-sm leading-snug ${
+                                      expired
+                                        ? 'font-medium text-muted-foreground/60 line-through decoration-muted-foreground/30'
+                                        : !item.read ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'
+                                    }`}>
+                                      {item.title}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {expired && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground/60 font-medium hidden sm:inline-block">
+                                        Expirada
+                                      </span>
+                                    )}
+                                    <span className={`text-[11px] sm:text-xs whitespace-nowrap ${
+                                      expired
+                                        ? 'text-muted-foreground/40'
+                                        : !item.read ? 'text-primary font-medium' : 'text-muted-foreground'
+                                    }`}>
+                                      {getTimeAgo(item.createdAt)}
                                     </span>
-                                  )}
+                                    {!item.read && !expired && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                                  </div>
                                 </div>
+
                                 <p className={`text-xs mt-0.5 line-clamp-2 ${
                                   expired
                                     ? 'text-muted-foreground/40'
@@ -259,28 +322,14 @@ export default function DoctorNotifications() {
                                 }`}>
                                   {item.message}
                                 </p>
-                                {/* Link para o pedido */}
+
                                 {hasLink && !expired && (
-                                  <p className="text-[11px] text-primary/70 mt-1 flex items-center gap-1 group-hover:text-primary transition-colors">
+                                  <p className="text-[11px] text-primary/70 mt-1.5 flex items-center gap-1 group-hover:text-primary transition-colors">
                                     <ExternalLink className="h-3 w-3" />
                                     Ver pedido
+                                    <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </p>
                                 )}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-xs ${
-                                  expired
-                                    ? 'text-muted-foreground/40'
-                                    : !item.read ? 'text-primary font-medium' : 'text-muted-foreground'
-                                }`}>
-                                  {getTimeAgo(item.createdAt)}
-                                </span>
-                                {!item.read && !expired && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />}
-                                <ChevronRight className={`h-4 w-4 transition-opacity ${
-                                  hasLink
-                                    ? 'text-muted-foreground opacity-0 group-hover:opacity-100'
-                                    : 'hidden'
-                                }`} />
                               </div>
                             </CardContent>
                           </Card>

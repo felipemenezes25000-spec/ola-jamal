@@ -35,7 +35,7 @@ function DashboardHeader_Fn({
         <Text
           style={[
             styles.greeting,
-            { fontSize: typography.greeting, lineHeight: typography.greeting * 1.2 },
+            { fontSize: typography.greeting, lineHeight: typography.greeting * 1.4 },
           ]}
           numberOfLines={1}
           adjustsFontSizeToFit
@@ -45,7 +45,7 @@ function DashboardHeader_Fn({
         <Text
           style={[
             styles.name,
-            { fontSize: typography.name, lineHeight: typography.name * 1.2 },
+            { fontSize: typography.name, lineHeight: typography.name * 1.25 },
           ]}
           numberOfLines={1}
           adjustsFontSizeToFit
@@ -69,7 +69,7 @@ function DashboardHeader_Fn({
             width: avatarSize,
             height: avatarSize,
             borderRadius: radius,
-            marginLeft: 16,
+            marginLeft: 12,
           },
           shadow.avatar,
         ]}
@@ -88,7 +88,7 @@ function DashboardHeader_Fn({
             onError={() => setAvatarError(true)}
           />
         ) : (
-          <Text style={[styles.avatarInitials, { fontSize: typography.name * 0.9 }]}>
+          <Text style={[styles.avatarInitials, { fontSize: typography.name * 0.65 }]}>
             {initials}
           </Text>
         )}
@@ -100,35 +100,35 @@ function DashboardHeader_Fn({
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 24,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   headerLeft: { flex: 1, minWidth: 0 },
   greeting: {
-    color: colors.primaryDark,
+    color: colors.secondary,
     fontWeight: '400',
-    letterSpacing: -0.5,
+    letterSpacing: -0.2,
   },
   name: {
     marginTop: 2,
-    color: colors.primaryDark,
-    fontWeight: '800',
-    letterSpacing: -0.7,
+    color: '#0F172A',
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   date: {
-    marginTop: 12,
-    color: colors.secondary,
+    marginTop: 4,
+    color: colors.tertiary,
     fontWeight: '400',
   },
   avatarWrap: {
-    backgroundColor: '#EEF2F8',
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   avatarInitials: {
-    fontWeight: '800',
-    color: colors.primaryDark,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 });
 

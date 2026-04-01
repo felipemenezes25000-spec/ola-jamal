@@ -21,6 +21,11 @@ export interface AppInputProps extends Omit<TextInputProps, 'role'> {
   containerStyle?: ViewStyle;
   _logLabel?: string;
   role?: AppThemeRole;
+  // Explicitly surfacing common accessibility/autofill props so callers
+  // are reminded to provide them. They fall through via ...rest, but
+  // listing them here makes IDEs autocomplete them.
+  textContentType?: TextInputProps['textContentType'];
+  autoComplete?: TextInputProps['autoComplete'];
 }
 
 export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
@@ -161,6 +166,11 @@ const createStyles = (
   },
   focusRing: {
     borderWidth: 2,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 1,
   },
   disabled: {
     opacity: 0.5,

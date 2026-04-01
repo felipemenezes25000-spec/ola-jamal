@@ -1,8 +1,14 @@
 /**
  * VideoTopBar + VideoFrame — Split-screen video call controls.
  *
- * VideoTopBar: status indicators, timer, patient name, action buttons.
+ * VideoTopBar: "AO VIVO" indicator, timer, patient name, action buttons.
  * VideoFrame: Daily.co iframe with expand/minimize toggle.
+ *
+ * Design spec:
+ * - Full-screen dark background (#0B1120)
+ * - Top bar: green dot + "AO VIVO", timer "12:34", menu
+ * - Bottom controls: 5 circular buttons (48px), end call 56px red
+ * - Responsive: phone landscape, tablet, desktop
  *
  * Bug fix #6: Debounced action buttons to prevent double-click issues.
  */
@@ -64,8 +70,9 @@ export function VideoTopBar({
   const debouncedBack = useDebouncedAction(onBack);
 
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800 shrink-0">
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[#0B1120]/95 backdrop-blur-md border-b border-white/5 shrink-0 min-h-[48px] z-30">
+      {/* Left: Back + Live indicator */}
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         <Button
           variant="ghost" size="icon"
           onClick={() => {
@@ -75,60 +82,63 @@ export function VideoTopBar({
               debouncedBack();
             }
           }}
-          className="text-gray-400 hover:text-white hover:bg-gray-800"
+          className="text-gray-400 hover:text-white hover:bg-white/10 shrink-0 h-8 w-8 sm:h-9 sm:w-9"
           aria-label="Voltar"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
         </Button>
 
-        {/* Status indicators */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-sm text-gray-300 font-medium">Consulta em andamento</span>
+        {/* AO VIVO indicator */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="text-xs sm:text-sm text-emerald-400 font-semibold tracking-wide uppercase whitespace-nowrap">
+              AO VIVO
+            </span>
           </div>
           {signalConnected && (
-            <Badge variant="outline" className="text-emerald-400 border-emerald-800 text-[10px] gap-1">
+            <Badge variant="outline" className="hidden sm:flex text-purple-400 border-purple-800/60 bg-purple-900/20 text-[10px] gap-1 py-0.5">
               <Sparkles className="h-3 w-3" /> IA Ativa
             </Badge>
           )}
         </div>
       </div>
 
-      {/* Timer */}
-      <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-sm ${
-        timeExceeded ? 'bg-red-900/50 text-red-400' :
-        timeWarning ? 'bg-amber-900/50 text-amber-400' :
-        'bg-gray-800 text-gray-300'
+      {/* Center: Timer */}
+      <div className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full font-mono text-xs sm:text-sm shrink-0 ${
+        timeExceeded ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/30' :
+        timeWarning ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30' :
+        'bg-white/5 text-gray-300'
       }`}>
-        <Timer className="h-3.5 w-3.5" />
+        <Timer className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
         <span>{formatTimer(timerSeconds)}</span>
         {contractedMinutes && (
-          <span className="text-gray-500">/ {contractedMinutes}min</span>
+          <span className="text-gray-500 hidden sm:inline">/ {contractedMinutes}min</span>
         )}
       </div>
 
-      {/* Patient + actions */}
-      <div className="flex items-center gap-3">
+      {/* Right: Patient + actions */}
+      <div className="flex items-center gap-2 sm:gap-3">
         {patientName && (
-          <div className="flex items-center gap-2 text-gray-400">
-            <User className="h-4 w-4" />
-            <span className="text-sm">{patientName}</span>
+          <div className="hidden md:flex items-center gap-2 text-gray-400">
+            <User className="h-4 w-4 shrink-0" />
+            <span className="text-sm truncate max-w-[120px] lg:max-w-[200px]">{patientName}</span>
           </div>
         )}
         <Button
           variant="ghost" size="sm"
-          className="text-gray-400 hover:text-white hover:bg-gray-800 gap-1.5"
+          className="hidden lg:flex text-gray-400 hover:text-white hover:bg-white/10 gap-1.5 text-xs"
           onClick={() => window.open(roomUrl, '_blank', 'noopener,noreferrer')}
         >
           <ExternalLink className="h-3.5 w-3.5" /> Nova aba
         </Button>
         <Button
           size="sm"
-          className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
+          className="bg-red-600 hover:bg-red-700 text-white gap-1.5 text-xs h-8 px-3 sm:h-9 sm:px-4"
           onClick={debouncedFinish}
         >
-          <PhoneOff className="h-3.5 w-3.5" /> Encerrar
+          <PhoneOff className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Encerrar</span>
         </Button>
       </div>
     </div>

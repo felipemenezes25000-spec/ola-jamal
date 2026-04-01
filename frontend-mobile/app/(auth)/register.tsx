@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,6 @@ import type { DesignColors } from '../../lib/designSystem';
 import { spacing } from '../../lib/designSystem';
 import { Screen } from '../../components/ui/Screen';
 import { AppInput } from '../../components/ui/AppInput';
-import { AppButton } from '../../components/ui/AppButton';
-import { SectionHeader } from '../../components/ui/SectionHeader';
 import { Logo } from '../../components/Logo';
 import { useAuth, type SignUpData, type DoctorSignUpData } from '../../contexts/AuthContext';
 import { fetchAddressByCep } from '../../lib/viacep';
@@ -29,6 +27,7 @@ import { RegisterDoctorForm } from '../../components/register/RegisterDoctorForm
 import { showToast } from '../../components/ui/Toast';
 
 const s = spacing;
+const PRIMARY = '#0EA5E9';
 
 function onlyDigits(s: string) {
   return (s || '').replace(/\D/g, '');
@@ -39,6 +38,157 @@ function formatCep(value: string) {
   if (d.length <= 5) return d;
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
+
+/* ── Step indicator component ── */
+function StepIndicator({
+  steps,
+  current,
+  colors,
+}: {
+  steps: string[];
+  current: number;
+  colors: DesignColors;
+}) {
+  return (
+    <View style={stepStyles.container}>
+      {steps.map((label, i) => {
+        const isActive = i === current;
+        const isCompleted = i < current;
+        return (
+          <View key={label} style={stepStyles.stepItem}>
+            <View
+              style={[
+                stepStyles.dot,
+                {
+                  backgroundColor: isActive
+                    ? PRIMARY
+                    : isCompleted
+                    ? PRIMARY
+                    : colors.borderLight,
+                },
+              ]}
+            >
+              {isCompleted ? (
+                <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+              ) : (
+                <Text
+                  style={[
+                    stepStyles.dotText,
+                    { color: isActive || isCompleted ? '#FFFFFF' : colors.textMuted },
+                  ]}
+                >
+                  {i + 1}
+                </Text>
+              )}
+            </View>
+            <Text
+              style={[
+                stepStyles.label,
+                {
+                  color: isActive ? PRIMARY : isCompleted ? colors.text : colors.textMuted,
+                  fontWeight: isActive ? '700' : '400',
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {label}
+            </Text>
+            {i < steps.length - 1 && (
+              <View
+                style={[
+                  stepStyles.connector,
+                  { backgroundColor: isCompleted ? PRIMARY : colors.borderLight },
+                ]}
+              />
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const stepStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  label: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+  },
+  connector: {
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+    marginHorizontal: 4,
+  },
+});
+
+/* ── Section divider ── */
+function SectionDivider({ icon, title, colors }: { icon: string; title: string; colors: DesignColors }) {
+  return (
+    <View style={sectionStyles.row}>
+      <View style={[sectionStyles.iconWrap, { backgroundColor: `${PRIMARY}15` }]}>
+        <Ionicons name={icon as any} size={14} color={PRIMARY} />
+      </View>
+      <Text style={[sectionStyles.title, { color: colors.text }]}>{title}</Text>
+      <View style={[sectionStyles.line, { backgroundColor: colors.borderLight }]} />
+    </View>
+  );
+}
+
+const sectionStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+    marginBottom: 14,
+  },
+  iconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: 'PlusJakartaSans_700Bold',
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    marginLeft: 4,
+  },
+});
+
+/* ══════════════════════════════════════════
+   Main Register Component
+   ══════════════════════════════════════════ */
 
 export default function Register() {
   const router = useRouter();
@@ -84,7 +234,6 @@ export default function Register() {
   const [courses, setCourses] = useState('');
   const [hospitalsServices, setHospitalsServices] = useState('');
 
-  // Lista exibida: API se disponível, senão fallback (evita "Carregando..." eterno se API falhar ou atrasar).
   const specialtiesDisplayList =
     role === 'doctor'
       ? (specialtiesList.length > 0 ? specialtiesList : SPECIALTIES_FALLBACK)
@@ -233,7 +382,6 @@ export default function Register() {
       }
     }
 
-    // Endereço obrigatório para paciente e médico
     const str = street.trim();
     const num = number.trim();
     const neigh = neighborhood.trim();
@@ -348,9 +496,30 @@ export default function Register() {
     }
   };
 
+  /* Step labels for the indicator */
+  const stepLabels = role === 'doctor'
+    ? ['Perfil', 'Dados', 'Segurança', 'Médico']
+    : ['Perfil', 'Dados', 'Segurança'];
+
+  /* Compute current visual step based on filled fields */
+  const currentStep = useMemo(() => {
+    const hasIdentity = !!(name.trim() && email.trim());
+    const hasPersonal = !!(phone && cpf && birthDate.trim());
+    const hasSecurity = !!(password && confirmPassword);
+    if (role === 'doctor') {
+      if (hasSecurity) return 3;
+      if (hasPersonal) return 2;
+      if (hasIdentity) return 1;
+      return 0;
+    }
+    if (hasSecurity) return 2;
+    if (hasPersonal) return 1;
+    return 0;
+  }, [name, email, phone, cpf, birthDate, password, confirmPassword, role]);
+
   return (
     <Screen variant="gradient" scroll>
-      {/* ═══ Header ═══ */}
+      {/* Header */}
       <View style={styles.header}>
         <Logo size="medium" variant="dark" compact />
         <Text style={styles.title}>Crie sua conta</Text>
@@ -359,35 +528,71 @@ export default function Register() {
         </Text>
       </View>
 
-      {/* ═══ Role Toggle ═══ */}
+      {/* Role Selector - Two large cards */}
       <View style={styles.roleContainer}>
         <TouchableOpacity
-          style={[styles.roleBtn, role === 'patient' && styles.roleBtnActive]}
+          style={[styles.roleCard, role === 'patient' && styles.roleCardActive]}
           onPress={() => setRole('patient')}
           activeOpacity={0.8}
         >
-          <View style={[styles.roleIconWrap, role === 'patient' && styles.roleIconWrapActive]}>
-            <Ionicons name="person" size={16} color={role === 'patient' ? colors.white : colors.textMuted} />
+          <View style={[styles.roleIconCircle, role === 'patient' && styles.roleIconCircleActive]}>
+            <Ionicons
+              name="person"
+              size={22}
+              color={role === 'patient' ? '#FFFFFF' : colors.textMuted}
+            />
           </View>
-          <Text style={[styles.roleText, role === 'patient' && styles.roleTextActive]}>Paciente</Text>
+          <Text style={[styles.roleCardTitle, role === 'patient' && styles.roleCardTitleActive]}>
+            Paciente
+          </Text>
+          <Text style={[styles.roleCardDesc, role === 'patient' && styles.roleCardDescActive]}>
+            Renovar receitas e exames
+          </Text>
+          {role === 'patient' && (
+            <View style={styles.roleCheckBadge}>
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            </View>
+          )}
         </TouchableOpacity>
+
         <TouchableOpacity
-          style={[styles.roleBtn, role === 'doctor' && styles.roleBtnActive]}
+          style={[styles.roleCard, role === 'doctor' && styles.roleCardActive]}
           onPress={() => setRole('doctor')}
           activeOpacity={0.8}
         >
-          <View style={[styles.roleIconWrap, role === 'doctor' && styles.roleIconWrapActive]}>
-            <Ionicons name="medical" size={16} color={role === 'doctor' ? colors.white : colors.textMuted} />
+          <View style={[styles.roleIconCircle, role === 'doctor' && styles.roleIconCircleActive]}>
+            <Ionicons
+              name="medical"
+              size={22}
+              color={role === 'doctor' ? '#FFFFFF' : colors.textMuted}
+            />
           </View>
-          <Text style={[styles.roleText, role === 'doctor' && styles.roleTextActive]}>Médico</Text>
+          <Text style={[styles.roleCardTitle, role === 'doctor' && styles.roleCardTitleActive]}>
+            Médico
+          </Text>
+          <Text style={[styles.roleCardDesc, role === 'doctor' && styles.roleCardDescActive]}>
+            Atender e prescrever
+          </Text>
+          {role === 'doctor' && (
+            <View style={styles.roleCheckBadge}>
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* ═══ Form Card ═══ */}
+      {/* Step Indicator */}
+      <StepIndicator steps={stepLabels} current={currentStep} colors={colors} />
+
+      {/* Form Card */}
       <View style={styles.card}>
 
-        {/* ── Dados pessoais ── */}
-        <SectionHeader icon="person-outline" title={role === 'patient' ? 'Dados para atendimento' : 'Dados pessoais'} variant="form" />
+        {/* Section: Personal Data */}
+        <SectionDivider
+          icon="person-outline"
+          title={role === 'patient' ? 'Dados para atendimento' : 'Dados pessoais'}
+          colors={colors}
+        />
         <AppInput
           testID="register-name-input"
           label="Nome completo"
@@ -398,6 +603,11 @@ export default function Register() {
           onChangeText={(t: string) => { setName(t); clearError('name'); }}
           error={fieldErrors.name}
           autoCapitalize="words"
+          autoCorrect={false}
+          autoComplete="name"
+          textContentType="name"
+          returnKeyType="next"
+          blurOnSubmit={false}
         />
         <AppInput
           testID="register-email-input"
@@ -410,6 +620,25 @@ export default function Register() {
           error={fieldErrors.email}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          blurOnSubmit={false}
+        />
+        <AppInput
+          label="CPF"
+          required
+          leftIcon="card-outline"
+          placeholder="000.000.000-00"
+          value={cpf}
+          onChangeText={(t: string) => { setCpf(t); clearError('cpf'); }}
+          error={fieldErrors.cpf}
+          keyboardType="numeric"
+          maxLength={14}
+          returnKeyType="next"
+          blurOnSubmit={false}
+          hint="Obrigatório para receitas e pedidos de exame"
         />
         <AppInput
           label="Telefone"
@@ -420,19 +649,11 @@ export default function Register() {
           onChangeText={(t: string) => { setPhone(t); clearError('phone'); }}
           error={fieldErrors.phone}
           keyboardType="phone-pad"
+          autoComplete="tel"
+          textContentType="telephoneNumber"
+          returnKeyType="next"
+          blurOnSubmit={false}
           hint="Para contato e notificações"
-        />
-        <AppInput
-          testID="register-cpf-input"
-          label="CPF"
-          required
-          leftIcon="card-outline"
-          placeholder="000.000.000-00"
-          value={cpf}
-          onChangeText={(t: string) => { setCpf(t); clearError('cpf'); }}
-          error={fieldErrors.cpf}
-          keyboardType="numeric"
-          hint="Obrigatório para receitas e pedidos de exame"
         />
         <AppInput
           label="Data de nascimento"
@@ -449,11 +670,14 @@ export default function Register() {
           }}
           error={fieldErrors.birthDate}
           keyboardType="numeric"
+          maxLength={10}
+          returnKeyType="next"
+          blurOnSubmit={false}
           hint="Usada nas receitas médicas"
         />
 
-        {/* ── Segurança ── */}
-        <SectionHeader icon="lock-closed-outline" title="Segurança" variant="form" />
+        {/* Section: Security */}
+        <SectionDivider icon="lock-closed-outline" title="Segurança" colors={colors} />
         <AppInput
           testID="register-password-input"
           label="Senha"
@@ -465,6 +689,10 @@ export default function Register() {
           error={fieldErrors.password}
           hint="Maiúscula, minúscula, número e especial"
           secureTextEntry
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="next"
+          blurOnSubmit={false}
         />
         <AppInput
           label="Confirmar senha"
@@ -475,9 +703,13 @@ export default function Register() {
           onChangeText={(t: string) => { setConfirmPassword(t); clearError('confirmPassword'); }}
           error={fieldErrors.confirmPassword}
           secureTextEntry
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="next"
+          blurOnSubmit={false}
         />
 
-        {/* ── Endereço pessoal (obrigatório para paciente e médico) ── */}
+        {/* Section: Address */}
         <RegisterAddressFields
           title={role === 'doctor' ? 'Endereço pessoal' : 'Endereço'}
           cep={cep}
@@ -501,7 +733,7 @@ export default function Register() {
           colors={colors}
         />
 
-        {/* ── Dados médicos (Médico) ── */}
+        {/* Section: Doctor-specific fields */}
         {role === 'doctor' && (
           <RegisterDoctorForm
             crm={crm}
@@ -549,17 +781,17 @@ export default function Register() {
           />
         )}
 
-        {/* ── IA Notice ── */}
+        {/* AI Notice */}
         <View style={styles.aiNotice}>
           <View style={styles.aiIconWrap}>
-            <Ionicons name="sparkles" size={16} color={colors.white} />
+            <Ionicons name="sparkles" size={16} color="#FFFFFF" />
           </View>
           <Text style={styles.aiNoticeText}>
-            O RenoveJá+ utiliza <Text style={styles.aiBold}>inteligência artificial</Text> para triagem, leitura de receitas e exames, e apoio às consultas — sempre sob supervisão médica. Conforme nossos Termos de Uso e Política de Privacidade.
+            O RenoveJá+ utiliza <Text style={styles.aiBold}>inteligência artificial</Text> para triagem, leitura de receitas e exames, e apoio às consultas — sempre sob supervisão médica.
           </Text>
         </View>
 
-        {/* ── Termos ── */}
+        {/* Terms & Privacy */}
         <View style={styles.termsBlock}>
           <TouchableOpacity
             style={styles.termsRow}
@@ -567,7 +799,7 @@ export default function Register() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-              {acceptedTerms ? <Ionicons name="checkmark" size={14} color={colors.white} /> : null}
+              {acceptedTerms ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
             </View>
             <Text style={styles.termsLabel} numberOfLines={0}>
               Li e aceito os{' '}
@@ -587,7 +819,7 @@ export default function Register() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkbox, acceptedPrivacy && styles.checkboxChecked]}>
-              {acceptedPrivacy ? <Ionicons name="checkmark" size={14} color={colors.white} /> : null}
+              {acceptedPrivacy ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
             </View>
             <Text style={styles.termsLabel} numberOfLines={0}>
               Li e aceito a{' '}
@@ -602,25 +834,28 @@ export default function Register() {
           ) : null}
         </View>
 
-        {/* ── Submit ── */}
-        <AppButton
+        {/* Submit Button */}
+        <TouchableOpacity
           testID="register-button"
-          title="Criar minha conta"
+          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
           onPress={handleRegister}
-          loading={loading}
           disabled={loading}
-          fullWidth
-          size="lg"
-          style={styles.submitButton}
-        />
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <Text style={styles.submitButtonText}>Criando conta...</Text>
+          ) : (
+            <Text style={styles.submitButtonText}>Criar conta</Text>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* ═══ Footer ═══ */}
+      {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.loginRow}>
           <Text style={styles.loginText}>Já tem conta? </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-            <Text style={styles.loginLink}>Entrar</Text>
+            <Text style={styles.loginLink}>Entre</Text>
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.whatsappRow} activeOpacity={0.7}>
@@ -635,248 +870,290 @@ export default function Register() {
 /* ══════════════════════════════════════════
    Styles
    ══════════════════════════════════════════ */
-const CARD_RADIUS = 24;
 
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
-  /* ── Header ── */
-  header: {
-    alignItems: 'center',
-    paddingTop: s.lg,
-    paddingBottom: s.md,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    color: colors.text,
-    textAlign: 'center',
-    marginTop: s.md,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: s.xs,
-    lineHeight: 22,
-    paddingHorizontal: s.md,
-  },
+    /* Header */
+    header: {
+      alignItems: 'center',
+      paddingTop: s.lg,
+      paddingBottom: s.md,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      letterSpacing: -0.5,
+      color: colors.text,
+      textAlign: 'center',
+      marginTop: s.md,
+      fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    subtitle: {
+      fontSize: 15,
+      fontWeight: '400',
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: s.xs,
+      lineHeight: 22,
+      paddingHorizontal: s.md,
+      fontFamily: 'PlusJakartaSans_400Regular',
+    },
 
-  /* ── Role Toggle ── */
-  roleContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: s.lg,
-    paddingHorizontal: 2,
-  },
-  roleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  roleBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    ...Platform.select({
-      ios: { shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
-      android: { elevation: 6 },
-      default: { shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
-    }),
-  },
-  roleIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleIconWrapActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  roleText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  roleTextActive: {
-    color: colors.white,
-  },
+    /* Role Selector - Large Cards */
+    roleContainer: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: s.lg,
+      paddingHorizontal: 2,
+    },
+    roleCard: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 20,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 2,
+      borderColor: colors.border,
+      position: 'relative',
+    },
+    roleCardActive: {
+      backgroundColor: `${PRIMARY}08`,
+      borderColor: PRIMARY,
+      ...Platform.select({
+        ios: {
+          shadowColor: PRIMARY,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+        },
+        android: { elevation: 4 },
+        default: {
+          shadowColor: PRIMARY,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+        },
+      }),
+    },
+    roleIconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.surfaceSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
+    },
+    roleIconCircleActive: {
+      backgroundColor: PRIMARY,
+    },
+    roleCardTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.textMuted,
+      fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    roleCardTitleActive: {
+      color: colors.text,
+    },
+    roleCardDesc: {
+      fontSize: 12,
+      fontWeight: '400',
+      color: colors.textMuted,
+      marginTop: 4,
+      textAlign: 'center',
+      fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    roleCardDescActive: {
+      color: colors.textSecondary,
+    },
+    roleCheckBadge: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: PRIMARY,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  /* ── Card ── */
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: CARD_RADIUS,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 28,
-    marginBottom: s.lg,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
-      android: { elevation: 3 },
-      default: { shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20 },
-    }),
-  },
+    /* Card */
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 28,
+      marginBottom: s.lg,
+      overflow: 'hidden',
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 20,
+        },
+        android: { elevation: 3 },
+        default: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 20,
+        },
+      }),
+    },
 
-  /* ── Section Header ── */
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    marginTop: 8,
-    gap: 8,
-  },
-  sectionIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginLeft: 4,
-  },
+    /* Submit Button */
+    submitButton: {
+      backgroundColor: PRIMARY,
+      height: 52,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: s.lg,
+      ...Platform.select({
+        ios: {
+          shadowColor: PRIMARY,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+        android: { elevation: 4 },
+        default: {
+          shadowColor: PRIMARY,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+      }),
+    },
+    submitButtonDisabled: {
+      opacity: 0.7,
+    },
+    submitButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+      fontFamily: 'PlusJakartaSans_700Bold',
+      letterSpacing: 0.3,
+    },
 
-  /* ── Layout Helpers ── */
-  row: {
-    flexDirection: 'row',
-    gap: s.sm,
-  },
-  flex1: {
-    flex: 1,
-  },
+    /* Footer */
+    footer: {
+      alignItems: 'center',
+      paddingTop: s.md,
+      paddingBottom: s.lg,
+      gap: s.sm,
+    },
+    loginRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+    },
+    loginText: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    loginLink: {
+      fontSize: 15,
+      color: PRIMARY,
+      fontWeight: '700',
+      fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    whatsappRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    whatsappText: {
+      fontSize: 13,
+      color: colors.textMuted,
+      fontWeight: '500',
+    },
 
-  /* ── Submit ── */
-  submitButton: {
-    marginTop: s.md,
-  },
+    /* Field error */
+    fieldErrorText: {
+      fontSize: 12,
+      color: colors.error,
+      marginTop: 4,
+      marginLeft: 4,
+    },
 
-  /* ── Footer ── */
-  footer: {
-    alignItems: 'center',
-    paddingTop: s.md,
-    paddingBottom: s.lg,
-    gap: s.sm,
-  },
-  loginRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  loginText: {
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
-  loginLink: {
-    fontSize: 15,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  whatsappRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  whatsappText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
+    /* AI Notice */
+    aiNotice: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      backgroundColor: `${PRIMARY}10`,
+      padding: 14,
+      borderRadius: 14,
+      marginTop: s.lg,
+      marginBottom: 4,
+    },
+    aiIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: PRIMARY,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 1,
+    },
+    aiNoticeText: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    aiBold: {
+      fontWeight: '700',
+      color: colors.text,
+      fontFamily: 'PlusJakartaSans_700Bold',
+    },
 
-  fieldErrorText: {
-    fontSize: 12,
-    color: colors.error,
-    marginTop: 4,
-    marginLeft: 4,
-  },
-
-  /* ── AI Notice ── */
-  aiNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: colors.primarySoft,
-    padding: 14,
-    borderRadius: 14,
-    marginTop: s.md,
-    marginBottom: 4,
-  },
-  aiIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  aiNoticeText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  aiBold: {
-    fontWeight: '600',
-    color: colors.text,
-  },
-
-  /* ── Terms ── */
-  termsBlock: {
-    marginTop: s.md,
-    gap: 8,
-  },
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    minWidth: 22,
-    borderRadius: 6,
-    borderWidth: 2.5,
-    borderColor: colors.border,
-    marginRight: 12,
-    marginTop: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  termsLabel: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.textSecondary,
-  },
-  termsLink: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
+    /* Terms */
+    termsBlock: {
+      marginTop: s.md,
+      gap: 10,
+    },
+    termsRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      minWidth: 22,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: colors.border,
+      marginRight: 12,
+      marginTop: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+    checkboxChecked: {
+      backgroundColor: PRIMARY,
+      borderColor: PRIMARY,
+    },
+    termsLabel: {
+      flex: 1,
+      fontSize: 14,
+      lineHeight: 22,
+      color: colors.textSecondary,
+      fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    termsLink: {
+      fontSize: 14,
+      color: PRIMARY,
+      fontWeight: '700',
+      textDecorationLine: 'underline',
+      fontFamily: 'PlusJakartaSans_700Bold',
+    },
   });
 }

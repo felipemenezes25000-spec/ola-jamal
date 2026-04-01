@@ -165,8 +165,13 @@ export default function CompleteProfileScreen() {
           onChangeText={handleCepChange}
           onBlur={lookupCep}
           keyboardType="numeric"
+          autoComplete="postal-code"
+          textContentType="postalCode"
+          maxLength={9}
+          returnKeyType="next"
+          blurOnSubmit={false}
           leftIcon="location-outline"
-          editable={!cepLoading}
+          editable={!cepLoading && !loading}
         />
         <AppInput
           label="Rua"
@@ -175,6 +180,12 @@ export default function CompleteProfileScreen() {
           value={street}
           onChangeText={(t: string) => { setStreet(t); clearError('street'); }}
           leftIcon="home-outline"
+          autoComplete="street-address"
+          textContentType="streetAddressLine1"
+          autoCapitalize="words"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          editable={!loading}
           error={fieldErrors.street}
         />
         <View style={styles.row}>
@@ -185,6 +196,10 @@ export default function CompleteProfileScreen() {
             value={number}
             onChangeText={(t: string) => { setNumber(t); clearError('number'); }}
             keyboardType="numeric"
+            maxLength={10}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            editable={!loading}
             containerStyle={styles.numberInput}
             error={fieldErrors.number}
           />
@@ -193,6 +208,10 @@ export default function CompleteProfileScreen() {
             placeholder="Apto, bloco..."
             value={complement}
             onChangeText={setComplement}
+            autoCapitalize="words"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            editable={!loading}
             containerStyle={styles.complementInput}
           />
         </View>
@@ -203,6 +222,10 @@ export default function CompleteProfileScreen() {
           value={neighborhood}
           onChangeText={(t: string) => { setNeighborhood(t); clearError('neighborhood'); }}
           leftIcon="business-outline"
+          autoCapitalize="words"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          editable={!loading}
           error={fieldErrors.neighborhood}
         />
         <View style={styles.row}>
@@ -212,6 +235,11 @@ export default function CompleteProfileScreen() {
             placeholder="Cidade"
             value={city}
             onChangeText={(t: string) => { setCity(t); clearError('city'); }}
+            autoCapitalize="words"
+            textContentType="addressCity"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            editable={!loading}
             containerStyle={styles.cityInput}
             error={fieldErrors.city}
           />
@@ -222,6 +250,11 @@ export default function CompleteProfileScreen() {
             value={state}
             onChangeText={(t: string) => { setState(t.trim().toUpperCase().slice(0, 2)); clearError('state'); }}
             maxLength={2}
+            autoCapitalize="characters"
+            textContentType="addressState"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            editable={!loading}
             containerStyle={styles.stateInput}
             error={fieldErrors.state}
           />
@@ -233,6 +266,11 @@ export default function CompleteProfileScreen() {
           value={phone}
           onChangeText={(t: string) => { setPhone(t); clearError('phone'); }}
           keyboardType="phone-pad"
+          autoComplete="tel"
+          textContentType="telephoneNumber"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          editable={!loading}
           leftIcon="call-outline"
           error={fieldErrors.phone}
         />
@@ -243,6 +281,11 @@ export default function CompleteProfileScreen() {
           value={cpf}
           onChangeText={(t: string) => { setCpf(t); clearError('cpf'); }}
           keyboardType="numeric"
+          maxLength={14}
+          returnKeyType="done"
+          blurOnSubmit={true}
+          onSubmitEditing={handleComplete}
+          editable={!loading}
           leftIcon="card-outline"
           error={fieldErrors.cpf}
         />

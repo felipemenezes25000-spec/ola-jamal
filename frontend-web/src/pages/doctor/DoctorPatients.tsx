@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
 import { getRequests, type MedicalRequest } from '@/services/doctorApi';
 import { parseApiList, getTypeIcon, getTypeLabel } from '@/lib/doctor-helpers';
-import { Users, Search, ChevronRight } from 'lucide-react';
+import { Users, Search, ChevronRight, AlertTriangle } from 'lucide-react';
 
 interface PatientItem {
   patientId: string;
@@ -67,11 +67,13 @@ export default function DoctorPatients() {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   const loadData = useCallback(async (p: number) => {
     setLoading(true);
     try {
       const data = await getRequests({ page: p, pageSize: PAGE_SIZE * 2 });
+      setFetchError(false);
       const parsed = data as { items?: MedicalRequest[]; totalCount?: number } | MedicalRequest[];
       if (Array.isArray(parsed)) {
         setRequests(parsed);
@@ -83,6 +85,7 @@ export default function DoctorPatients() {
     } catch {
       setRequests([]);
       setTotalCount(0);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -119,7 +122,7 @@ export default function DoctorPatients() {
         </div>
 
         {/* Search */}
-        <div className="relative max-w-sm">
+        <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
@@ -143,6 +146,20 @@ export default function DoctorPatients() {
                   </div>
                 ))}
               </div>
+            ) : fetchError ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="h-8 w-8 text-destructive" />
+                </div>
+                <p className="font-medium text-destructive">Erro ao carregar pacientes</p>
+                <p className="text-xs text-muted-foreground mt-1">Verifique sua conexão e tente novamente</p>
+                <Button
+                  variant="outline" size="sm" className="mt-4"
+                  onClick={() => loadData(page)}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
             ) : filteredPatients.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -161,22 +178,29 @@ export default function DoctorPatients() {
                         key={p.patientId}
                         type="button"
                         onClick={() => navigate(`/paciente/${p.patientId}`)}
-                        className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
+                        className="w-full flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
                       >
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <span className="text-sm font-bold text-primary">{getInitials(p.patientName)}</span>
+                        {/* Avatar + Info */}
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-sm font-bold text-primary">{getInitials(p.patientName)}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{p.patientName}</p>
+                            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                              <Icon className="h-3 w-3 shrink-0" />
+                              <span>{getTypeLabel(p.lastRequest.type)}</span>
+                              <span className="hidden xs:inline">·</span>
+                              <span>{new Date(p.lastRequest.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{p.patientName}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                            <Icon className="h-3 w-3 shrink-0" />
-                            {getTypeLabel(p.lastRequest.type)} ·{' '}
-                            {new Date(p.lastRequest.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </p>
+                        {/* Action */}
+                        <div className="pl-[52px] sm:pl-0 shrink-0">
+                          <Button variant="outline" size="sm" className="gap-1 whitespace-nowrap" onClick={(e) => { e.stopPropagation(); navigate(`/paciente/${p.patientId}`); }}>
+                            Ver prontuário <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                        <Button variant="outline" size="sm" className="gap-1 shrink-0" onClick={(e) => { e.stopPropagation(); navigate(`/paciente/${p.patientId}`); }}>
-                          Ver prontuário <ChevronRight className="h-3.5 w-3.5" />
-                        </Button>
                       </button>
                     );
                   })}

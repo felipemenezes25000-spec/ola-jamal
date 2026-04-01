@@ -1,6 +1,10 @@
 /**
  * DoctorAIPanel — Painel lateral do médico durante a videoconsulta (web).
  * Gravidade Manchester, alertas, diferencial, anamnese, meds, exames, orientações, perguntas.
+ *
+ * Design spec:
+ * - AI Panel expandable: dark bg (#15202E), transcription in real-time, AI suggestions with purple accent (#8B5CF6)
+ * - Responsive tabs that wrap on small screens
  */
 import { useState, useMemo, useCallback } from 'react';
 import { Lightbulb, AlertTriangle } from 'lucide-react';
@@ -139,15 +143,18 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorA
   }, []);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex gap-1 p-2 border-b border-border/50 shrink-0">
+    <div className="flex flex-col h-full overflow-hidden bg-[#15202E]">
+      {/* Tab bar - horizontally scrollable on small screens to prevent overflow */}
+      <div className="flex gap-1 p-2 border-b border-white/5 shrink-0 overflow-x-auto scrollbar-none">
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              activeTab === t.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50'
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              activeTab === t.key
+                ? 'bg-[#8B5CF6] text-white shadow-sm shadow-purple-500/20'
+                : 'text-gray-400 hover:bg-white/5 hover:text-gray-300'
             }`}
           >
             {t.label}
@@ -159,7 +166,9 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorA
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+
+      {/* Content area */}
+      <div className="flex-1 overflow-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         {activeTab === 'consulta' && (
           <>
             <AIIndicators
@@ -187,18 +196,22 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorA
             />
             {parsedSuggestions.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <Lightbulb className="h-3.5 w-3.5" />
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5 text-[#8B5CF6]" />
                   Sugestoes em tempo real
                 </h3>
                 {parsedSuggestions.map((s, i) => {
                   const isDanger = s.startsWith('\u{1F6A8}');
                   return (
-                    <div key={i} className={`flex gap-2 p-2.5 rounded-lg text-sm ${isDanger ? 'bg-destructive/10' : 'bg-amber-50 dark:bg-amber-950/20'}`}>
+                    <div key={i} className={`flex gap-2 p-2.5 rounded-lg text-sm ${
+                      isDanger
+                        ? 'bg-red-500/10 border border-red-500/20'
+                        : 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20'
+                    }`}>
                       {isDanger
-                        ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                        : <Lightbulb className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />}
-                      <span className={isDanger ? 'text-destructive' : 'text-amber-800 dark:text-amber-200'}>
+                        ? <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                        : <Lightbulb className="h-4 w-4 text-[#8B5CF6] shrink-0 mt-0.5" />}
+                      <span className={`text-xs sm:text-sm ${isDanger ? 'text-red-300' : 'text-purple-200'}`}>
                         {isDanger ? s.replace('\u{1F6A8} ', '') : s}
                       </span>
                     </div>

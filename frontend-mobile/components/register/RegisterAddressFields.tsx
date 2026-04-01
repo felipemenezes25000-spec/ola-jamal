@@ -63,6 +63,11 @@ export function RegisterAddressFields({
         onChangeText={onCepChange}
         onBlur={onCepBlur}
         keyboardType="numeric"
+        autoComplete="postal-code"
+        textContentType="postalCode"
+        maxLength={9}
+        returnKeyType="next"
+        blurOnSubmit={false}
         leftIcon="location-outline"
         hint="Digite o CEP para preencher automaticamente"
       />
@@ -73,6 +78,11 @@ export function RegisterAddressFields({
         value={street}
         onChangeText={(t) => { onStreetChange(t); clearError('street'); }}
         leftIcon="home-outline"
+        autoCapitalize="words"
+        autoComplete="street-address"
+        textContentType="streetAddressLine1"
+        returnKeyType="next"
+        blurOnSubmit={false}
         error={fieldErrors.street}
       />
       <View style={styles.row}>
@@ -83,6 +93,9 @@ export function RegisterAddressFields({
           value={number}
           onChangeText={(t) => { onNumberChange(t); clearError('number'); }}
           keyboardType="numeric"
+          maxLength={10}
+          returnKeyType="next"
+          blurOnSubmit={false}
           containerStyle={{ width: 100 }}
           error={fieldErrors.number}
         />
@@ -91,6 +104,10 @@ export function RegisterAddressFields({
           placeholder="Apto, bloco..."
           value={complement}
           onChangeText={onComplementChange}
+          autoCapitalize="words"
+          textContentType="streetAddressLine2"
+          returnKeyType="next"
+          blurOnSubmit={false}
           containerStyle={styles.flex1}
         />
       </View>
@@ -101,6 +118,9 @@ export function RegisterAddressFields({
         value={neighborhood}
         onChangeText={(t) => { onNeighborhoodChange(t); clearError('neighborhood'); }}
         leftIcon="business-outline"
+        autoCapitalize="words"
+        returnKeyType="next"
+        blurOnSubmit={false}
         error={fieldErrors.neighborhood}
       />
       <View style={styles.row}>
@@ -110,6 +130,10 @@ export function RegisterAddressFields({
           placeholder="Cidade"
           value={city}
           onChangeText={(t) => { onCityChange(t); clearError('city'); }}
+          autoCapitalize="words"
+          textContentType="addressCity"
+          returnKeyType="next"
+          blurOnSubmit={false}
           containerStyle={styles.flex1}
           error={fieldErrors.city}
         />
@@ -120,6 +144,10 @@ export function RegisterAddressFields({
           value={state}
           onChangeText={(t) => { onStateChange(t); clearError('state'); }}
           maxLength={2}
+          autoCapitalize="characters"
+          textContentType="addressState"
+          returnKeyType="next"
+          blurOnSubmit={false}
           containerStyle={{ width: 96 }}
           error={fieldErrors.state}
         />

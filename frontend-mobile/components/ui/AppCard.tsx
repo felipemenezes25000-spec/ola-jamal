@@ -23,14 +23,16 @@ export function AppCard({
   onPress,
   accessibilityLabel,
 }: AppCardProps) {
-  const { colors, borderRadius, shadows, spacing } = useAppTheme();
+  const { colors, shadows, spacing } = useAppTheme();
 
   const cardStyles: ViewStyle = {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.card,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: '#F1F5F9',
+    // Default variant gets a subtle shadow (shadow-sm equivalent)
+    ...shadows.sm,
     ...(variant === 'outlined' ? { borderWidth: 1.5, borderColor: colors.border } : {}),
     ...(selected ? { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.primarySoft } : {}),
     ...(variant === 'default' ? shadows.card : {}),

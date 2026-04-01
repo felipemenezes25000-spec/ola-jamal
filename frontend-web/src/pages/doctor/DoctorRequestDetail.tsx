@@ -35,7 +35,7 @@ import { motion } from 'framer-motion';
 import {
   Loader2, ArrowLeft, User, Calendar,
   Phone, AlertTriangle,
-  Shield, ChevronRight, Stethoscope,
+  Shield, ChevronRight, Stethoscope, Heart,
 } from 'lucide-react';
 
 /** Normaliza symptoms para array (backend pode retornar string ou string[]). */
@@ -50,10 +50,8 @@ export default function DoctorRequestDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // ── TanStack Query — substituiu useState+useEffect+fetch manual ──
   const { data: request, isLoading: loading, refetch } = useDoctorRequestDetailQuery(id);
 
-  // Estados secundários
   const [patient, setPatient] = useState<PatientProfile | null>(null);
   const [actionLoading, setActionLoading] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -61,11 +59,10 @@ export default function DoctorRequestDetail() {
   const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
 
   useEffect(() => {
-    document.title = id ? `Pedido #${id.slice(0, 8)} — RenoveJá+` : 'Pedido — RenoveJá+';
-    return () => { document.title = 'RenoveJá+'; };
+    document.title = id ? `Pedido #${id.slice(0, 8)} — RenoveJa+` : 'Pedido — RenoveJa+';
+    return () => { document.title = 'RenoveJa+'; };
   }, [id]);
 
-  // Busca perfil do paciente quando o pedido carregar
   useEffect(() => {
     if (!request?.patientId) return;
     let cancelled = false;
@@ -75,7 +72,7 @@ export default function DoctorRequestDetail() {
     return () => { cancelled = true; };
   }, [request?.patientId]);
 
-  // ── Action handlers — usam refetch() em vez de setRequest ──
+  // ── Action handlers ──
 
   const handleApprove = async () => {
     if (!id) return;
@@ -155,7 +152,7 @@ export default function DoctorRequestDetail() {
     setActionLoading('download');
     try {
       const url = request.signedDocumentUrl || await getDocumentDownloadUrl(id);
-      if (!url) { toast.error('URL de download não disponível'); return; }
+      if (!url) { toast.error('URL de download nao disponivel'); return; }
       window.open(url, '_blank', 'noopener,noreferrer');
       toast.success('Download iniciado');
     } catch (err) {
@@ -163,7 +160,7 @@ export default function DoctorRequestDetail() {
     } finally { setActionLoading(''); }
   };
 
-  // ── Renders de estado ──
+  // ── Loading / error states ──
 
   if (loading) {
     return (
@@ -179,7 +176,7 @@ export default function DoctorRequestDetail() {
     return (
       <DoctorLayout>
         <div className="text-center py-20">
-          <p className="text-muted-foreground">Pedido não encontrado</p>
+          <p className="text-muted-foreground">Pedido nao encontrado</p>
           <Button variant="ghost" onClick={() => navigate('/pedidos')} className="mt-4">
             Voltar aos pedidos
           </Button>
@@ -196,119 +193,159 @@ export default function DoctorRequestDetail() {
   return (
     <DoctorLayout>
       <div className="flex min-h-screen">
-        {/* Conteúdo principal */}
+        {/* Main content */}
         <div className="flex-1 min-w-0 lg:flex-[0_0_60%] overflow-y-auto">
-          <div className="space-y-6 max-w-4xl pr-4">
+          <div className="space-y-5 max-w-4xl">
 
-            {/* Cabeçalho */}
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate('/pedidos')} aria-label="Voltar">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-muted">
-                    <Icon className="h-5 w-5 text-muted-foreground" aria-hidden />
+            {/* ── Dark header (#0C4A6E) ── */}
+            <div className="rounded-xl bg-sky-900 text-white p-4 sm:p-5">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate('/pedidos')}
+                  aria-label="Voltar"
+                  className="text-white hover:bg-white/10 shrink-0"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="p-2 rounded-lg bg-white/10 shrink-0">
+                    <Icon className="h-5 w-5 text-white" aria-hidden />
                   </div>
-                  <div>
-                    <h1 className="text-xl font-bold tracking-tight">{getTypeLabel(reqType)}</h1>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(request.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  <div className="min-w-0">
+                    <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">
+                      {getTypeLabel(reqType)}
+                    </h1>
+                    <p className="text-xs sm:text-sm text-sky-200">
+                      {new Date(request.createdAt).toLocaleDateString('pt-BR', {
+                        day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                      })}
                     </p>
                   </div>
                 </div>
-              </div>
-              <div className={`px-4 py-2 rounded-xl border ${statusInfo.bgColor}`}>
-                <span className={`text-sm font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
+                <div className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold shrink-0 ${statusInfo.bgColor} ${statusInfo.color}`}>
+                  {statusInfo.label}
+                </div>
               </div>
             </div>
 
-            {/* Status tracker */}
+            {/* ── Status tracker ── */}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
               <StatusTracker status={request.status} type={reqType} />
             </motion.div>
 
-            {/* Dra. Renova */}
+            {/* ── Dra. Renova assistant ── */}
             <AssistantBanner requestId={request.id} requestStatus={request.status} requestType={reqType} onNavigate={(route) => navigate(route)} />
 
-            <div className="grid gap-6 lg:grid-cols-3">
-              {/* Coluna principal */}
+            {/* ── Main content grid: stacks on mobile, side-by-side on desktop ── */}
+            <div className="grid gap-5 lg:grid-cols-3">
+              {/* Main column */}
               <div className="lg:col-span-2 space-y-5">
 
-                {/* Paciente */}
+                {/* ── Patient card ── */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                  <Card className="shadow-sm">
-                    <CardContent className="p-5">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 relative">
-                          <User className="h-6 w-6 text-primary" />
+                  <Card className="shadow-sm overflow-hidden">
+                    <CardContent className="p-4 sm:p-5">
+                      {/* Avatar + name + prontuario button */}
+                      <div className="flex items-center gap-3 sm:gap-4 mb-4">
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 relative">
+                          <User className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                           {patient?.avatarUrl && (
-                            <img src={patient.avatarUrl} alt="" className="absolute inset-0 w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                            <img
+                              src={patient.avatarUrl}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
                           )}
                         </div>
-                        <div>
-                          <p className="font-semibold">{request.patientName}</p>
-                          {/* patientEmail not available in backend DTO — use PatientSidePanel for contact info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm sm:text-base truncate">{request.patientName}</p>
+                          {patient?.birthDate && (
+                            <p className="text-xs text-muted-foreground">
+                              {(() => {
+                                const b = new Date(patient.birthDate!);
+                                const t = new Date();
+                                const age = t.getFullYear() - b.getFullYear();
+                                const m = t.getMonth() - b.getMonth();
+                                const finalAge = (m < 0 || (m === 0 && t.getDate() < b.getDate())) ? age - 1 : age;
+                                return `${finalAge} anos`;
+                              })()}
+                              {patient.gender && (
+                                <> · {patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Feminino' : patient.gender}</>
+                              )}
+                            </p>
+                          )}
                         </div>
                         {request.patientId && (
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/paciente/${request.patientId}`)} className="ml-auto gap-1">
-                            Prontuário <ChevronRight className="h-3.5 w-3.5" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/paciente/${request.patientId}`)}
+                            className="gap-1 shrink-0 text-xs sm:text-sm"
+                          >
+                            Prontuario <ChevronRight className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>
-                      {patient && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {patient.phone && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                              <span>{patient.phone}</span>
-                            </div>
-                          )}
-                          {patient.birthDate && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                              <span>
-                                {new Date(patient.birthDate).toLocaleDateString('pt-BR')}
-                                {(() => {
-                                  const b = new Date(patient.birthDate!);
-                                  const t = new Date();
-                                  const age = t.getFullYear() - b.getFullYear();
-                                  const m = t.getMonth() - b.getMonth();
-                                  return ` (${(m < 0 || (m === 0 && t.getDate() < b.getDate())) ? age - 1 : age} anos)`;
-                                })()}
-                              </span>
-                            </div>
-                          )}
-                          {patient.gender && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                              <span>{patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Feminino' : patient.gender}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
+
+                      {/* Info chips: type, urgency, UBS, CNS, phone */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          <Icon className="h-3 w-3" aria-hidden />
+                          {getTypeLabel(reqType)}
+                        </Badge>
+                        {request.aiUrgency && (
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs ${
+                              request.aiUrgency.toLowerCase() === 'emergency'
+                                ? 'bg-red-100 text-red-700'
+                                : request.aiUrgency.toLowerCase() === 'urgent'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                            }`}
+                          >
+                            {request.aiUrgency.toLowerCase() === 'routine' ? 'Rotina' : request.aiUrgency.toLowerCase() === 'urgent' ? 'Urgente' : request.aiUrgency.toLowerCase() === 'emergency' ? 'Emergencia' : request.aiUrgency}
+                          </Badge>
+                        )}
+                        {patient?.phone && (
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <Phone className="h-3 w-3" aria-hidden />
+                            {patient.phone}
+                          </Badge>
+                        )}
+                        {patient?.birthDate && (
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <Calendar className="h-3 w-3" aria-hidden />
+                            {new Date(patient.birthDate).toLocaleDateString('pt-BR')}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Allergies */}
                       {patient?.allergies && patient.allergies.length > 0 && (
-                        <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
-                          <p className="text-xs font-semibold text-red-700 flex items-center gap-1 mb-1">
+                        <div className="p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800">
+                          <p className="text-xs font-semibold text-red-700 dark:text-red-400 flex items-center gap-1 mb-1">
                             <AlertTriangle className="h-3.5 w-3.5" /> Alergias
                           </p>
-                          <p className="text-sm text-red-600">{patient.allergies.join(', ')}</p>
+                          <p className="text-sm text-red-600 dark:text-red-300">{patient.allergies.join(', ')}</p>
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 </motion.div>
 
-                {/* Anamnese (consultas) */}
+                {/* Anamnese (consultations) */}
                 {reqType === 'consultation' && request.consultationAnamnesis && (
                   <AnamnesisCard consultationAnamnesis={request.consultationAnamnesis} />
                 )}
 
-                {/* Link care plan */}
-                {/* IA — resumo, risco, urgência */}
+                {/* ── AI Copilot section (purple border) ── */}
                 <AiCopilotSection request={request} />
 
-                {/* Imagens receita / exame */}
+                {/* Prescription / exam images */}
                 {(request.prescriptionImages?.length ?? 0) > 0 && (
                   <PrescriptionImageGallery images={request.prescriptionImages!} label="Imagens da receita" iconBgColor="bg-primary/10" />
                 )}
@@ -316,41 +353,35 @@ export default function DoctorRequestDetail() {
                   <PrescriptionImageGallery images={request.examImages!} label="Imagens do exame" iconBgColor="bg-amber-100" />
                 )}
 
-                {/* Sintomas */}
+                {/* Symptoms */}
                 {symptomsList.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                     <Card className="shadow-sm">
-                      <CardContent className="p-5 space-y-3">
-                        {symptomsList.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-2">Sintomas relatados</p>
-                            <div className="flex flex-wrap gap-2">
-                              {symptomsList.map((s, i) => <Badge key={i} variant="secondary" className="text-xs">{s}</Badge>)}
-                            </div>
-                          </div>
-                        )}
+                      <CardContent className="p-4 sm:p-5 space-y-3">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Sintomas relatados</p>
+                        <div className="flex flex-wrap gap-2">
+                          {symptomsList.map((s, i) => <Badge key={i} variant="secondary" className="text-xs">{s}</Badge>)}
+                        </div>
                       </CardContent>
                     </Card>
                   </motion.div>
                 )}
 
-                {/* IA copilot card (fallback se AiCopilotSection não renderizou) */}
+                {/* AI copilot card (fallback) */}
                 {hasUsefulAiContent(request.aiSummaryForDoctor, request.aiRiskLevel, request.aiUrgency) && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
                     <AiCopilotCard aiSummaryForDoctor={request.aiSummaryForDoctor} aiRiskLevel={request.aiRiskLevel} aiUrgency={request.aiUrgency} />
                   </motion.div>
                 )}
 
-                {/* Imagens legado removidas — PrescriptionImageGallery acima já renderiza */}
-
-                {/* Medicamentos — componente extraído */}
+                {/* ── Medications list (numbered) ── */}
                 {Array.isArray(request.medications) && request.medications.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                     <MedicationsCard medications={request.medications} />
                   </motion.div>
                 )}
 
-                {/* Conduta (consultas) */}
+                {/* Conduct (consultations) */}
                 {reqType === 'consultation' && (
                   <ConductForm
                     requestId={request.id}
@@ -361,53 +392,50 @@ export default function DoctorRequestDetail() {
                   />
                 )}
 
-                {/* Transcrição — componente extraído */}
+                {/* Transcription */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
                   <TranscriptionCard transcript={request.consultationTranscript ?? ''} />
                 </motion.div>
 
-                {/* Evidências científicas — componente extraído */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }}>                </motion.div>
-
-                {/* Sugestão IA (receita/exame) */}
+                {/* AI suggestion (prescription/exam) */}
                 {request.aiConductSuggestion && reqType !== 'consultation' && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
-                    <Card className="shadow-sm border-primary/20 bg-primary/[0.02]">
-                      <CardContent className="p-5 flex gap-3">
-                        <Stethoscope className="h-4 w-4 text-primary mt-0.5 shrink-0" aria-hidden />
+                    <Card className="shadow-sm border-violet-200 bg-violet-50/30 dark:bg-violet-950/10 dark:border-violet-500/40">
+                      <CardContent className="p-4 sm:p-5 flex gap-3">
+                        <Stethoscope className="h-4 w-4 text-violet-600 mt-0.5 shrink-0" aria-hidden />
                         <p className="text-sm whitespace-pre-wrap text-muted-foreground">{request.aiConductSuggestion}</p>
                       </CardContent>
                     </Card>
                   </motion.div>
                 )}
 
-                {/* Exames — componente extraído */}
+                {/* Exams */}
                 {Array.isArray(request.exams) && request.exams.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}>
                     <ExamsCard exams={request.exams} />
                   </motion.div>
                 )}
 
-                {/* Pós-consulta */}
+                {/* Post-consultation */}
                 {reqType === 'consultation' && normalizeStatus(request.status) === 'consultation_finished' && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
                     <ConsultationPostSection request={request} requestId={id!} />
                   </motion.div>
                 )}
 
-                {/* Documento assinado */}
+                {/* Signed document */}
                 {request.signedDocumentUrl && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-                    <Card className="shadow-sm border-emerald-200 bg-emerald-50/50">
-                      <CardContent className="p-5 flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-emerald-100">
-                          <Shield className="h-5 w-5 text-emerald-600" aria-hidden />
+                    <Card className="shadow-sm border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
+                      <CardContent className="p-4 sm:p-5 flex items-center gap-4 flex-wrap">
+                        <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 shrink-0">
+                          <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
                         </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm text-emerald-800">Documento assinado digitalmente</p>
-                          <p className="text-xs text-emerald-600">Certificado ICP-Brasil</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-emerald-800 dark:text-emerald-300">Documento assinado digitalmente</p>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">Certificado ICP-Brasil</p>
                         </div>
-                        <Button size="sm" variant="outline" onClick={handleDownloadPdf}>
+                        <Button size="sm" variant="outline" onClick={handleDownloadPdf} className="shrink-0">
                           Ver PDF
                         </Button>
                       </CardContent>
@@ -415,9 +443,26 @@ export default function DoctorRequestDetail() {
                   </motion.div>
                 )}
 
-              </div>{/* fim coluna principal */}
+                {/* ── SUS banner ── */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-center gap-3 dark:bg-emerald-950/20 dark:border-emerald-800">
+                    <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 shrink-0">
+                      <Heart className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                        Atendimento gratuito via SUS
+                      </p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        Este servico e 100% gratuito pelo Sistema Unico de Saude.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
 
-              {/* Sidebar de ações — componente extraído */}
+              </div>{/* end main column */}
+
+              {/* ── Actions sidebar ── */}
               <div className="space-y-4">
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                   <RequestActionsCard
@@ -435,11 +480,11 @@ export default function DoctorRequestDetail() {
                 </motion.div>
               </div>
 
-            </div>{/* fim grid */}
+            </div>{/* end grid */}
           </div>
-        </div>{/* fim conteúdo principal */}
+        </div>{/* end main content */}
 
-        {/* Prontuário lateral */}
+        {/* Patient side panel */}
         <PatientSidePanel
           patientId={request.patientId}
           currentRequestId={id ?? undefined}
@@ -448,7 +493,7 @@ export default function DoctorRequestDetail() {
         />
       </div>
 
-      {/* Dialog de rejeição */}
+      {/* Reject dialog */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>

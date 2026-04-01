@@ -1,11 +1,9 @@
 /**
- * StatusTracker — Timeline de etapas do pedido.
- * Paridade exata com mobile StatusTracker.
+ * StatusTracker — Horizontal timeline on desktop, compact on mobile.
  *
- * - Recebe status e type (ou requestType)
- * - Normaliza status (camelCase → snake_case) antes de comparar
- * - PRESCRIPTION_STEPS para receita/exame; CONSULTATION_STEPS para consulta
- * - Estados terminais (rejected/cancelled): UI especial sem timeline
+ * - Circles connected by lines (horizontal desktop / vertical mobile)
+ * - 4-5 steps depending on type
+ * - Terminal states (rejected/cancelled): special UI without timeline
  */
 import {
   Send,
@@ -29,16 +27,16 @@ interface Step {
   statuses: string[];
 }
 
-// Receita e Exame — alinhado ao mobile (sem etapas de pagamento explícitas)
+// Receita e Exame
 const PRESCRIPTION_STEPS: Step[] = [
   { key: 'submitted', label: 'Enviado', icon: Send, statuses: ['submitted'] },
-  { key: 'review', label: 'Em análise', icon: Eye, statuses: ['analyzing', 'in_review'] },
-  { key: 'approved', label: 'Aguardando assinatura', icon: FileText, statuses: ['approved_pending_payment', 'pending_payment', 'paid'] },
+  { key: 'review', label: 'Análise', icon: Eye, statuses: ['analyzing', 'in_review'] },
+  { key: 'approved', label: 'Assinatura', icon: FileText, statuses: ['approved_pending_payment', 'pending_payment', 'paid'] },
   { key: 'signed', label: 'Assinado', icon: ShieldCheck, statuses: ['signed'] },
   { key: 'delivered', label: 'Entregue', icon: CheckCheck, statuses: ['delivered', 'completed'] },
 ];
 
-// Consulta — alinhado ao mobile
+// Consulta
 const CONSULTATION_STEPS: Step[] = [
   { key: 'searching', label: 'Buscando médico', icon: Search, statuses: ['searching_doctor'] },
   { key: 'ready', label: 'Consulta pronta', icon: CheckCircle2, statuses: ['approved_pending_payment', 'pending_payment', 'paid', 'consultation_ready', 'consultation_accepted'] },
@@ -90,61 +88,115 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
   const currentIndex = getStepIndex(steps, status);
 
   return (
-    <div className="flex flex-col gap-0">
-      {steps.map((step, index) => {
-        const isCompleted = index < currentIndex;
-        const isCurrent = index === currentIndex;
-        const isLast = index === steps.length - 1;
-        const Icon = step.icon;
+    <div className="w-full rounded-xl bg-white dark:bg-card border p-4 sm:p-6">
+      {/* Desktop: horizontal */}
+      <div className="hidden sm:flex items-start justify-between relative">
+        {/* Connecting line behind circles */}
+        <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted z-0" style={{ marginLeft: '2rem', marginRight: '2rem' }} />
+        <div
+          className="absolute top-4 left-0 h-0.5 bg-emerald-500 z-0 transition-all duration-500"
+          style={{
+            marginLeft: '2rem',
+            width: currentIndex > 0
+              ? `calc(${(currentIndex / (steps.length - 1)) * 100}% - 4rem)`
+              : '0',
+          }}
+        />
 
-        return (
-          <div key={step.key} className="flex items-start gap-3 min-h-12">
-            <div className="flex flex-col items-center">
+        {steps.map((step, index) => {
+          const isCompleted = index < currentIndex;
+          const isCurrent = index === currentIndex;
+          const Icon = step.icon;
+
+          return (
+            <div key={step.key} className="flex flex-col items-center z-10 flex-1">
               <div
-                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                   isCompleted
                     ? 'bg-emerald-500 border-emerald-500 text-white'
                     : isCurrent
-                      ? 'bg-primary border-primary text-primary-foreground'
-                      : 'border-muted-foreground/30 text-muted-foreground bg-transparent'
+                      ? 'bg-sky-900 border-sky-900 text-white'
+                      : 'border-gray-300 text-gray-400 bg-white dark:bg-card'
                 }`}
               >
                 {isCompleted ? (
                   <CheckCheck className="h-4 w-4" aria-hidden />
                 ) : (
-                  <Icon className={`h-4 w-4 ${isCurrent ? 'text-primary-foreground' : ''}`} aria-hidden />
+                  <Icon className="h-4 w-4" aria-hidden />
                 )}
               </div>
-              {!isLast && (
-                <div
-                  className={`w-0.5 flex-1 min-h-4 my-0.5 rounded ${
-                    index < currentIndex ? 'bg-emerald-500' : 'bg-muted/60'
-                  }`}
-                />
-              )}
-            </div>
-            <div className="pb-4 pt-0.5">
               <p
-                className={`text-sm ${
-                  isCompleted ? 'text-emerald-600 font-medium' : isCurrent ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'
+                className={`text-xs mt-2 text-center font-medium leading-tight max-w-[80px] ${
+                  isCompleted
+                    ? 'text-emerald-600'
+                    : isCurrent
+                      ? 'text-sky-900 dark:text-sky-300 font-semibold'
+                      : 'text-muted-foreground'
                 }`}
               >
                 {step.label}
               </p>
               {isCurrent && (
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <motion.span
-                    className="w-1.5 h-1.5 rounded-full bg-primary"
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                  <span className="text-xs text-primary font-semibold">Etapa atual</span>
-                </div>
+                <motion.span
+                  className="w-1.5 h-1.5 rounded-full bg-sky-900 dark:bg-sky-400 mt-1"
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
               )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      {/* Mobile: compact horizontal with smaller elements */}
+      <div className="flex sm:hidden items-center justify-between gap-1">
+        {steps.map((step, index) => {
+          const isCompleted = index < currentIndex;
+          const isCurrent = index === currentIndex;
+          const isLast = index === steps.length - 1;
+          const Icon = step.icon;
+
+          return (
+            <div key={step.key} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    isCompleted
+                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                      : isCurrent
+                        ? 'bg-sky-900 border-sky-900 text-white'
+                        : 'border-gray-300 text-gray-400 bg-white dark:bg-card'
+                  }`}
+                >
+                  {isCompleted ? (
+                    <CheckCheck className="h-3 w-3" aria-hidden />
+                  ) : (
+                    <Icon className="h-3 w-3" aria-hidden />
+                  )}
+                </div>
+                <p
+                  className={`text-[10px] mt-1 text-center leading-tight max-w-[50px] ${
+                    isCompleted
+                      ? 'text-emerald-600 font-medium'
+                      : isCurrent
+                        ? 'text-sky-900 dark:text-sky-300 font-semibold'
+                        : 'text-muted-foreground'
+                  }`}
+                >
+                  {step.label}
+                </p>
+              </div>
+              {!isLast && (
+                <div
+                  className={`h-0.5 flex-1 mx-1 rounded ${
+                    index < currentIndex ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-muted'
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

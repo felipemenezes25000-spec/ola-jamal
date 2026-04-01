@@ -1,5 +1,6 @@
 /**
  * Tab Consultas — visão dedicada de consultas (ativas e histórico).
+ * Redesigned: responsive 320-768px, segmented tabs, custom consultation cards.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -14,20 +15,23 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useListBottomPadding } from '../../lib/ui/responsive';
 import { doctorDS } from '../../lib/themeDoctor';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
-import type { DesignColors } from '../../lib/designSystem';
+import type { DesignColors, DesignTokens } from '../../lib/designSystem';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { useDoctorRequestsQuery, useInvalidateDoctorRequests } from '../../lib/hooks/useDoctorRequestsQuery';
 import { cacheRequest } from '../doctor-request/[id]';
-import RequestCard from '../../components/RequestCard';
+import { StatusBadge } from '../../components/StatusBadge';
+import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
-import { AppEmptyState } from '../../components/ui';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
+import { motionTokens } from '../../lib/ui/motion';
+import { formatDateBR, formatTimeBR } from '../../lib/utils/format';
 import type { RequestResponseDto } from '../../types/database';
 
 const pad = doctorDS.screenPaddingHorizontal;
@@ -47,13 +51,113 @@ function isActiveConsultation(status: string): boolean {
   return ACTIVE_STATUSES.includes(normStatus(status));
 }
 
+/** Statuses that allow joining the video call */
+const JOINABLE_STATUSES = [
+  'consultation_ready', 'consultation_accepted', 'in_consultation',
+];
+
+function isJoinable(status: string): boolean {
+  return JOINABLE_STATUSES.includes(normStatus(status));
+}
+
 type TabValue = 'active' | 'history';
 
+const TAB_ITEMS = [
+  { key: 'active', label: 'Ativas' },
+  { key: 'history', label: 'Histórico' },
+];
+
+// ── Consultation Card (inline) ──────────────────────────────────
+interface ConsultationCardProps {
+  item: RequestResponseDto;
+  onPress: () => void;
+  colors: DesignColors;
+  shadows: DesignTokens['shadows'];
+}
+
+const ConsultationCardInner = React.memo(function ConsultationCardInner({
+  item,
+  onPress,
+  colors,
+  shadows,
+}: ConsultationCardProps) {
+  const styles = useMemo(() => makeCardStyles(colors, shadows), [colors, shadows]);
+  const joinable = isJoinable(item.status ?? '');
+  const dateStr = formatDateBR(item.createdAt, { short: true });
+  const timeStr = formatTimeBR(item.createdAt);
+
+  return (
+    <FadeIn visible duration={200} fromY={8} fill={false}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.card,
+          pressed && styles.cardPressed,
+        ]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Consulta${item.patientName ? ` de ${item.patientName}` : ''}`}
+      >
+        <View style={styles.cardRow}>
+          {/* Video icon container */}
+          <View style={styles.iconContainer}>
+            <Ionicons name="videocam" size={20} color="#8B5CF6" />
+          </View>
+
+          {/* Content */}
+          <View style={styles.cardContent}>
+            <View style={styles.topRow}>
+              <Text style={styles.patientName} numberOfLines={1} ellipsizeMode="tail">
+                {item.patientName ?? 'Paciente'}
+              </Text>
+              <StatusBadge status={item.status} size="sm" />
+            </View>
+
+            <View style={styles.metaRow}>
+              <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
+              <Text style={styles.metaText}>{dateStr}</Text>
+              <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+              <Text style={styles.metaText}>{timeStr}</Text>
+            </View>
+
+            {item.symptoms ? (
+              <Text style={styles.symptomsText} numberOfLines={1} ellipsizeMode="tail">
+                {item.symptoms.length > 60 ? item.symptoms.slice(0, 60) + '...' : item.symptoms}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Chevron or Join button */}
+          {joinable ? (
+            <Pressable
+              style={styles.joinButton}
+              onPress={onPress}
+              accessibilityLabel="Entrar na consulta"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="videocam" size={14} color="#FFFFFF" />
+              <Text style={styles.joinButtonText}>Entrar</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.chevronWrap}>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </View>
+          )}
+        </View>
+      </Pressable>
+    </FadeIn>
+  );
+}, (prev, next) =>
+  prev.item.id === next.item.id &&
+  prev.item.status === next.item.status &&
+  prev.item.updatedAt === next.item.updatedAt
+);
+
+// ── Main Screen ─────────────────────────────────────────────────
 export default function DoctorConsultations() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
-  const { colors } = useAppTheme({ role: 'doctor' });
+  const { colors, shadows } = useAppTheme({ role: 'doctor' });
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<TabValue>('active');
   const [refreshing, setRefreshing] = useState(false);
@@ -115,21 +219,34 @@ export default function DoctorConsultations() {
     [router]
   );
 
+  const handleTabChange = useCallback((key: string) => {
+    haptics.selection();
+    setTab(key as TabValue);
+  }, []);
+
+  const segmentedItems = useMemo(
+    () => TAB_ITEMS.map((t) => ({
+      key: t.key,
+      label: t.label,
+      count: t.key === 'active' ? active.length : history.length,
+    })),
+    [active.length, history.length]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: RequestResponseDto }) => (
-      <RequestCard
-        request={item}
+      <ConsultationCardInner
+        item={item}
         onPress={() => handleItemPress(item)}
-        showPatientName
-        showRisk={false}
-        suppressHorizontalMargin
+        colors={colors}
+        shadows={shadows}
       />
     ),
-    [handleItemPress]
+    [handleItemPress, colors, shadows]
   );
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
-  const empty = !isLoading && list.length === 0;
+  const empty = !isLoading && sortedList.length === 0;
 
   return (
     <View style={styles.container}>
@@ -140,42 +257,31 @@ export default function DoctorConsultations() {
         <View style={styles.headerRow}>
           <Text style={styles.title}>Consultas</Text>
           {active.length > 0 && (
-            <View style={styles.activeBadge}>
+            <View style={styles.countBadge}>
               <View style={styles.liveDot} />
-              <Text style={styles.activeBadgeText}>
+              <Text style={styles.countText}>
                 {active.length} {active.length === 1 ? 'ativa' : 'ativas'}
               </Text>
             </View>
           )}
         </View>
-
-        {/* Tabs Ativas / Histórico */}
-        <View style={styles.tabRow}>
-          <Pressable
-            onPress={() => { haptics.selection(); setTab('active'); }}
-            style={[styles.tab, tab === 'active' && styles.tabActive]}
-          >
-            <Text style={[styles.tabLabel, tab === 'active' && styles.tabLabelActive]}>
-              Ativas ({active.length})
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => { haptics.selection(); setTab('history'); }}
-            style={[styles.tab, tab === 'history' && styles.tabActive]}
-          >
-            <Text style={[styles.tabLabel, tab === 'history' && styles.tabLabelActive]}>
-              Histórico ({history.length})
-            </Text>
-          </Pressable>
-        </View>
       </View>
 
-      {/* ── LISTA ── */}
-      {isLoading ? (
+      {/* ── SEGMENTED TABS ── */}
+      <AppSegmentedControl
+        items={segmentedItems}
+        value={tab}
+        onValueChange={handleTabChange}
+        disabled={isLoading}
+        role="doctor"
+      />
+
+      {/* ── LIST ── */}
+      {isLoading && consultations.length === 0 ? (
         <View style={styles.loadingWrap}>
           <SkeletonList count={6} />
         </View>
-      ) : isError && list.length === 0 ? (
+      ) : isError && consultations.length === 0 ? (
         <AppEmptyState
           icon="alert-circle-outline"
           title="Erro ao carregar"
@@ -183,28 +289,39 @@ export default function DoctorConsultations() {
           actionLabel="Tentar novamente"
           onAction={() => refetch()}
         />
-      ) : empty ? (
-        <AppEmptyState
-          icon="videocam-outline"
-          title={tab === 'active' ? 'Nenhuma consulta ativa' : 'Nenhuma consulta no histórico'}
-          subtitle={tab === 'active' ? 'Consultas agendadas aparecerão aqui.' : 'Consultas finalizadas aparecerão aqui.'}
-        />
       ) : (
-        <FadeIn visible duration={200} fromY={8} delay={30}>
+        <FadeIn visible={!isLoading} {...motionTokens.fade.listDoctor} delay={30}>
           <FlatList
             data={sortedList}
             keyExtractor={keyExtractor}
-            getItemLayout={(_: unknown, i: number) => ({ length: 98, offset: 98 * i, index: i })}
             renderItem={renderItem}
-            contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }]}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: listPadding },
+              empty && styles.listContentEmpty,
+            ]}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
             }
             showsVerticalScrollIndicator={false}
             windowSize={7}
             maxToRenderPerBatch={10}
             initialNumToRender={8}
             removeClippedSubviews={Platform.OS !== 'web'}
+            ListEmptyComponent={
+              <AppEmptyState
+                icon="videocam-outline"
+                title={tab === 'active' ? 'Nenhuma consulta ativa' : 'Nenhuma consulta no histórico'}
+                subtitle={tab === 'active'
+                  ? 'Consultas agendadas aparecerão aqui.'
+                  : 'Consultas finalizadas aparecerão aqui.'}
+              />
+            }
           />
         </FadeIn>
       )}
@@ -212,13 +329,17 @@ export default function DoctorConsultations() {
   );
 }
 
+// ── Screen Styles ───────────────────────────────────────────────
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
+    container: {
+      flex: 1,
+      backgroundColor: '#F8FAFC',
+    },
     header: {
       backgroundColor: colors.surface,
       paddingHorizontal: pad,
-      paddingBottom: 0,
+      paddingBottom: 12,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
     },
@@ -226,20 +347,20 @@ function makeStyles(colors: DesignColors) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 14,
+      marginBottom: 0,
     },
     title: {
-      fontSize: 24,
-      fontWeight: '800',
+      fontSize: 22,
+      fontWeight: '700',
       color: colors.text,
       letterSpacing: -0.3,
     },
-    activeBadge: {
+    countBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.successLight,
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: 5,
       borderRadius: 12,
       gap: 6,
     },
@@ -249,33 +370,10 @@ function makeStyles(colors: DesignColors) {
       borderRadius: 4,
       backgroundColor: colors.success,
     },
-    activeBadgeText: {
+    countText: {
       fontSize: 12,
       fontWeight: '700',
       color: colors.success,
-    },
-    tabRow: {
-      flexDirection: 'row',
-      gap: 0,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderBottomWidth: 2,
-      borderBottomColor: 'transparent',
-    },
-    tabActive: {
-      borderBottomColor: colors.primary,
-    },
-    tabLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textMuted,
-    },
-    tabLabelActive: {
-      color: colors.primary,
-      fontWeight: '700',
     },
     loadingWrap: {
       flex: 1,
@@ -285,6 +383,99 @@ function makeStyles(colors: DesignColors) {
     listContent: {
       paddingTop: 8,
       paddingHorizontal: pad,
+    },
+    listContentEmpty: {
+      flexGrow: 1,
+    },
+  });
+}
+
+// ── Card Styles ─────────────────────────────────────────────────
+function makeCardStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#F1F5F9',
+      marginBottom: 10,
+      padding: 14,
+      ...shadows.card,
+    },
+    cardPressed: {
+      transform: [{ scale: 0.985 }],
+      opacity: 0.92,
+    },
+    cardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    iconContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: '#EDE9FE',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+      flexShrink: 0,
+    },
+    cardContent: {
+      flex: 1,
+      minWidth: 0,
+    },
+    topRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 4,
+      gap: 8,
+    },
+    patientName: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+      flex: 1,
+      minWidth: 0,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginBottom: 2,
+    },
+    metaText: {
+      fontSize: 12,
+      fontWeight: '400',
+      color: colors.textMuted,
+      marginRight: 6,
+    },
+    symptomsText: {
+      fontSize: 12,
+      fontWeight: '400',
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+    joinButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#16A34A',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      gap: 4,
+      marginLeft: 8,
+      flexShrink: 0,
+    },
+    joinButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    chevronWrap: {
+      marginLeft: 8,
+      flexShrink: 0,
+      justifyContent: 'center',
     },
   });
 }

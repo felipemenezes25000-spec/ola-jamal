@@ -1,44 +1,130 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DesignColors } from '../../lib/designSystem';
 import { RequestResponseDto } from '../../types/database';
 import { getRequestUiState } from '../../lib/domain/getRequestUiState';
 
-const TYPE_LABELS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  prescription: { label: 'Receita', icon: 'document-text' },
-  exam: { label: 'Exame', icon: 'flask' },
-  consultation: { label: 'Consulta', icon: 'videocam' },
+// ── Type config: icon, background, icon color ──
+const TYPE_CONFIG: Record<string, {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+  iconColor: string;
+}> = {
+  prescription: {
+    label: 'Receita',
+    icon: 'clipboard-outline',
+    bg: '#DBEAFE',       // blue-100
+    iconColor: '#2563EB', // blue-600
+  },
+  exam: {
+    label: 'Exame',
+    icon: 'ribbon-outline',
+    bg: '#DCFCE7',       // green-100
+    iconColor: '#16A34A', // green-600
+  },
+  consultation: {
+    label: 'Consulta',
+    icon: 'videocam-outline',
+    bg: '#EDE9FE',       // purple-100
+    iconColor: '#7C3AED', // purple-600
+  },
 };
 
-function timeWaiting(createdAt: string | null | undefined): string {
-  if (createdAt == null || String(createdAt).trim() === '') return '—';
-  const d = new Date(createdAt);
-  if (Number.isNaN(d.getTime())) return '—';
-  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (diff < 60) return 'Agora';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  return `${Math.floor(diff / 86400)}d`;
+const FALLBACK_TYPE = {
+  label: 'Pedido',
+  icon: 'document-outline' as keyof typeof Ionicons.glyphMap,
+  bg: '#F1F5F9',
+  iconColor: '#64748B',
+};
+
+// ── Status badge colors matching design spec ──
+type StatusStyleDef = {
+  bg: string;
+  text: string;
+  hasPulse?: boolean;
+  borderColor?: string;
+};
+
+function getStatusStyle(colorKey: string, uiState: string): StatusStyleDef {
+  switch (uiState) {
+    case 'in_consultation':
+      return { bg: '#F0FDF4', text: '#15803D', hasPulse: true, borderColor: '#22C55E' };
+    case 'needs_action':
+      return { bg: '#FFFBEB', text: '#78350F', borderColor: undefined };
+    case 'ready':
+      return { bg: '#DBEAFE', text: '#1E40AF', borderColor: undefined };
+    case 'historical':
+    default:
+      return { bg: '#F0FDF4', text: '#166534', borderColor: undefined };
+  }
 }
 
+// ── Time helper ──
+function timeWaiting(createdAt: string | null | undefined): string {
+  if (createdAt == null || String(createdAt).trim() === '') return '';
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return '';
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60) return 'agora';
+  if (diff < 3600) return `há ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
+  return `há ${Math.floor(diff / 86400)}d`;
+}
+
+// ── Preview text ──
 function getPreviewText(request: RequestResponseDto): string | null {
+  const typeLabel = TYPE_CONFIG[request.requestType]?.label ?? 'Pedido';
   if (request.requestType === 'prescription' && request.medications?.length) {
-    const first = request.medications[0];
-    const more = request.medications.length > 1 ? ` +${request.medications.length - 1}` : '';
-    return first + more;
+    return `${typeLabel} \u00B7 ${request.medications[0]}`;
   }
   if (request.requestType === 'exam' && request.exams?.length) {
-    const first = request.exams[0];
-    const more = request.exams.length > 1 ? ` +${request.exams.length - 1}` : '';
-    return first + more;
+    return `${typeLabel} \u00B7 ${request.exams[0]}`;
   }
   if (request.requestType === 'consultation' && request.symptoms) {
-    return request.symptoms.length > 50 ? request.symptoms.slice(0, 50) + '…' : request.symptoms;
+    const sym = request.symptoms.length > 40 ? request.symptoms.slice(0, 40) + '\u2026' : request.symptoms;
+    return `${typeLabel} \u00B7 ${sym}`;
   }
-  return null;
+  return typeLabel;
 }
 
+// ── Pulsing dot for active consultation ──
+function PulsingDot() {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.pulsingDot,
+        { opacity },
+      ]}
+    />
+  );
+}
+
+// ── Main component ──
 interface QueueItemProps {
   request: RequestResponseDto;
   onPress: () => void;
@@ -48,100 +134,63 @@ interface QueueItemProps {
 export const QueueItem = React.memo(function QueueItem({
   request, onPress, colors,
 }: QueueItemProps) {
-  const { label, colorKey } = getRequestUiState(request);
-  const isHighRisk = request.aiRiskLevel === 'high';
-  const typeConf = TYPE_LABELS[request.requestType] ?? { label: 'Pedido', icon: 'document' as keyof typeof Ionicons.glyphMap };
+  const { label, colorKey, uiState } = getRequestUiState(request);
+  const typeConf = TYPE_CONFIG[request.requestType] ?? FALLBACK_TYPE;
   const preview = getPreviewText(request);
-
-  const statusColor = colorKey === 'action'
-    ? colors.info
-    : colorKey === 'success'
-    ? colors.success
-    : colorKey === 'waiting'
-    ? colors.warning
-    : colors.textMuted;
-
-  const accentColor = isHighRisk
-    ? colors.error
-    : colorKey === 'action'
-    ? colors.primary
-    : colorKey === 'success'
-    ? colors.success
-    : colors.primary;
-
-  const initials = useMemo(
-    () => (request.patientName || 'P')
-      .split(' ')
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .join(''),
-    [request.patientName]
-  );
+  const time = timeWaiting(request.createdAt);
+  const statusStyle = getStatusStyle(colorKey, uiState);
+  const isActiveConsultation = uiState === 'in_consultation';
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        {
-          backgroundColor: colors.surface,
-          borderColor: isHighRisk ? colors.error + '30' : colors.borderLight,
-          shadowColor: colors.black,
-        },
+        isActiveConsultation && styles.cardActiveConsultation,
         pressed && styles.pressed,
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`Atender ${request.patientName ?? 'paciente'} — ${typeConf.label}`}
+      accessibilityLabel={`Atender ${request.patientName ?? 'paciente'} \u2014 ${typeConf.label}`}
     >
-      {/* Accent strip */}
-      <View style={[styles.strip, { backgroundColor: accentColor }]} />
-
-      {/* Avatar */}
-      <View style={[styles.avatar, { backgroundColor: accentColor + '15' }]}>
-        <Text style={[styles.avatarText, { color: accentColor }]}>{initials}</Text>
+      {/* Type icon */}
+      <View style={[styles.typeIcon, { backgroundColor: typeConf.bg }]}>
+        <Ionicons name={typeConf.icon} size={20} color={typeConf.iconColor} />
       </View>
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Top: type + risk */}
+        {/* Top row: patient name + status badge */}
         <View style={styles.topRow}>
-          <View style={[styles.typePill, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name={typeConf.icon} size={10} color={colors.primary} />
-            <Text style={[styles.typeLabel, { color: colors.primary }]}>{typeConf.label}</Text>
-          </View>
-          {isHighRisk && (
-            <View style={[styles.riskPill, { backgroundColor: colors.errorLight }]}>
-              <Ionicons name="alert-circle" size={10} color={colors.error} />
-              <Text style={[styles.riskLabel, { color: colors.error }]}>Alto</Text>
-            </View>
-          )}
-          <View style={styles.spacer} />
-          <Ionicons name="time-outline" size={11} color={colors.textMuted} />
-          <Text style={[styles.timeLabel, { color: colors.textMuted }]}>
-            {timeWaiting(request.createdAt)}
+          <Text style={styles.patientName} numberOfLines={1}>
+            {request.patientName || 'Paciente'}
           </Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+            {statusStyle.hasPulse && <PulsingDot />}
+            <Text style={[styles.statusText, { color: statusStyle.text }]}>
+              {label}
+            </Text>
+          </View>
         </View>
 
-        {/* Patient name */}
-        <Text style={[styles.patientName, { color: colors.text }]} numberOfLines={1}>
-          {request.patientName || 'Paciente'}
-        </Text>
-
-        {/* Preview text (medications, exams, symptoms) */}
-        {preview && (
-          <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
+        {/* Description line */}
+        {preview != null && (
+          <Text style={styles.previewText} numberOfLines={1}>
             {preview}
           </Text>
         )}
 
-        {/* Status row */}
-        <View style={styles.bottomRow}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusLabel, { color: statusColor }]}>{label}</Text>
-        </View>
+        {/* Time */}
+        {time !== '' && (
+          <Text style={styles.timeText}>{time}</Text>
+        )}
       </View>
 
-      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={styles.chevron} />
+      <Ionicons
+        name="chevron-forward"
+        size={16}
+        color="#CBD5E1"
+        style={styles.chevron}
+      />
     </Pressable>
   );
 });
@@ -150,112 +199,98 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
-    marginBottom: 8,
-    marginHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    borderColor: '#F1F5F9',
+    marginBottom: 8,
+    padding: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  cardActiveConsultation: {
+    borderColor: '#22C55E',
+    borderWidth: 1.5,
   },
   pressed: {
     transform: [{ scale: 0.985 }],
     opacity: 0.9,
   },
-  strip: {
-    width: 3,
-    alignSelf: 'stretch',
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+
+  // Type icon
+  typeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
-    marginRight: 10,
+    marginRight: 12,
     flexShrink: 0,
   },
-  avatarText: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
+
+  // Content
   content: {
     flex: 1,
-    paddingVertical: 12,
     minWidth: 0,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: 4,
-  },
-  typePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  typeLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  riskPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  riskLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  spacer: { flex: 1 },
-  timeLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginLeft: 2,
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 3,
   },
   patientName: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
-    letterSpacing: 0.1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#0F172A',
+    flex: 1,
+    minWidth: 0,
   },
-  preview: {
-    fontSize: 12,
-    fontWeight: '400',
-    marginBottom: 5,
-    lineHeight: 16,
-  },
-  bottomRow: {
+
+  // Status badge
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
     gap: 5,
+    flexShrink: 0,
   },
-  statusDot: {
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+  },
+  pulsingDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
+    backgroundColor: '#22C55E',
   },
-  statusLabel: {
+
+  // Description
+  previewText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '400',
+    color: '#64748B',
+    marginBottom: 2,
+    lineHeight: 16,
   },
+
+  // Time
+  timeText: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#94A3B8',
+  },
+
   chevron: {
-    marginRight: 12,
-    marginLeft: 4,
+    marginLeft: 8,
     flexShrink: 0,
   },
 });

@@ -1004,7 +1004,7 @@ type VideoColors = { primary: string; text: string; textMuted: string; textSecon
 function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   const mc = modalColors || colors;
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#0B1120' },
   center: { justifyContent: 'center', alignItems: 'center', gap: 12 },
 
   remote: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
@@ -1013,7 +1013,7 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   waitTitle: { color: colors.textMuted, fontSize: 16, fontWeight: '600' },
   waitSub: { color: colors.textSecondary, fontSize: 13 },
 
-  pip: { position: 'absolute', left: 12, width: 100, height: 136, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.primary, zIndex: 15, backgroundColor: colors.surface },
+  pip: { position: 'absolute', right: 16, width: 100, height: 140, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: '#FFFFFF', zIndex: 15, backgroundColor: '#0B1120' },
   /** Mantém surface local ativo em PiP — não usar opacity:0 sozinho em alguns devices (encoder pode parar). */
   pipLocalKeepAlive: {
     position: 'absolute',
@@ -1026,11 +1026,11 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
     opacity: 0.04,
     zIndex: 6,
   },
-  pipRemote: { position: 'absolute', right: 12, top: 8, width: 100, height: 136, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.primary, zIndex: 15, backgroundColor: colors.surface },
+  pipRemote: { position: 'absolute', right: 16, top: 8, width: 100, height: 140, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: '#FFFFFF', zIndex: 15, backgroundColor: '#0B1120' },
   pipVid: { flex: 1 },
   pipMute: { position: 'absolute', bottom: 4, left: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center' },
 
-  top: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 10, backgroundColor: 'rgba(15,23,42,0.92)', zIndex: 20 },
+  top: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, backgroundColor: 'rgba(11,17,32,0.88)', zIndex: 20 },
   topL: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   qPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   qDot: { width: 7, height: 7, borderRadius: 4 },
@@ -1054,7 +1054,7 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
 
   sec: { gap: 8 },
   secH: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  secT: { fontSize: 12, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5 },
+  secT: { fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: 'rgba(44,177,255,0.1)' },
   badgeTxt: { fontSize: 12, fontWeight: '700', color: colors.primary },
   copyBtn: { marginLeft: 'auto', padding: 4, borderRadius: 6, backgroundColor: 'rgba(44,177,255,0.1)' },
@@ -1108,11 +1108,11 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   panelFoot: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'rgba(30,41,59,0.8)', borderTopWidth: 1, borderTopColor: 'rgba(51,65,85,0.3)' },
   panelFootTxt: { fontSize: 12, color: colors.textSecondary },
 
-  ctrl: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20, paddingTop: 14, backgroundColor: 'rgba(15,23,42,0.95)' },
-  cb: { width: 56, height: 64, borderRadius: 16, backgroundColor: colors.text, justifyContent: 'center', alignItems: 'center', gap: 4 },
-  cbOn: { backgroundColor: 'rgba(239,68,68,0.6)' },
-  endCb: { backgroundColor: colors.destructive },
-  cLbl: { fontSize: 12, color: colors.white, fontWeight: '600' },
+  ctrl: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20, paddingTop: 16, paddingHorizontal: 24, backgroundColor: 'rgba(11,17,32,0.92)' },
+  cb: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  cbOn: { backgroundColor: 'rgba(239,68,68,0.5)' },
+  endCb: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', marginHorizontal: 4 },
+  cLbl: { fontSize: 11, color: '#fff', fontWeight: '600' },
 
   loadTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
   loadSub: { color: colors.textMuted, fontSize: 13 },

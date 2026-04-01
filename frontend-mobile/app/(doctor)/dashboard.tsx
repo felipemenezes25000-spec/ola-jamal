@@ -20,6 +20,8 @@ import { showToast } from '../../components/ui/Toast';
 import { getGreeting } from '../../lib/utils/format';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
+import { FadeIn } from '../../components/ui/FadeIn';
+import { motionTokens } from '../../lib/ui/motion';
 
 import {
   ConnectionBanner,
@@ -41,6 +43,9 @@ function sanitizeDoctorName(name: string): { displayFirst: string; greetingName:
   const greetingName = displayFirst.toLowerCase().startsWith('dr') ? displayFirst : `Dr(a). ${displayFirst}`;
   return { displayFirst, greetingName };
 }
+
+/** Dashboard background per design spec. */
+const DASHBOARD_BG = '#F8FAFC';
 
 // ═════════════════════════════════════════════════════════════════
 // DASHBOARD — Clinical Soft
@@ -144,8 +149,8 @@ export default function DoctorDashboard() {
   // ─── Loading State ────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <View style={[styles.container, { backgroundColor: DASHBOARD_BG }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={DASHBOARD_BG} />
         <View
           style={[
             styles.content,
@@ -166,7 +171,7 @@ export default function DoctorDashboard() {
                   width: responsive.avatarSize,
                   height: responsive.avatarSize,
                   borderRadius: responsive.avatarSize / 2,
-                  backgroundColor: colors.surfaceSecondary,
+                  backgroundColor: '#E2E8F0',
                 },
               ]}
             />
@@ -174,7 +179,7 @@ export default function DoctorDashboard() {
           <View
             style={[
               styles.loadingCard,
-              { minHeight: responsive.heights.queueCardMin, backgroundColor: colors.surfaceSecondary },
+              { minHeight: responsive.heights.queueCardMin, backgroundColor: '#E2E8F0' },
             ]}
           />
           <SkeletonList count={5} />
@@ -186,8 +191,9 @@ export default function DoctorDashboard() {
   // ─── Render ────────────────────────────────────────────────
   return (
     <ErrorBoundary>
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <View style={[styles.container, { backgroundColor: DASHBOARD_BG }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={DASHBOARD_BG} />
+        <FadeIn visible={!loading} {...motionTokens.fade.doctor}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -228,6 +234,7 @@ export default function DoctorDashboard() {
 
             <QueueCard
               message={queueMessage}
+              pendingCount={stats.pendentes}
               onPress={handleQueuePress}
               responsive={responsive}
             />
@@ -251,6 +258,7 @@ export default function DoctorDashboard() {
             )}
           </View>
         </ScrollView>
+        </FadeIn>
       </View>
     </ErrorBoundary>
   );
@@ -264,11 +272,11 @@ const styles = StyleSheet.create({
   loadingHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   loadingAvatar: {},
   loadingCard: {
-    borderRadius: 28,
+    borderRadius: 16,
     marginBottom: 20,
   },
 });

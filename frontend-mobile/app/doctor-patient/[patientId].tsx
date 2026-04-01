@@ -369,7 +369,7 @@ function makeStyles(colors: DesignColors) {
     },
     headerTitle: {
       fontSize: 18,
-      fontWeight: '800',
+      fontWeight: '700',
       color: colors.text,
       letterSpacing: -0.2,
     },

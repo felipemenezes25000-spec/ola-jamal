@@ -34,7 +34,7 @@ const queryClient = new QueryClient({
       gcTime: 5 * 60_000,
       retry: 1,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
+      refetchOnReconnect: true,
     },
   },
   // Erros de queries/mutations -> analytics (captura silenciosa global)

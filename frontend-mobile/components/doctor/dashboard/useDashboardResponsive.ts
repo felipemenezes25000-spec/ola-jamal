@@ -32,9 +32,9 @@ export interface DashboardResponsive {
   scale: number;
   /** Padding horizontal (16 em mobile, mais em tablet). */
   paddingHorizontal: number;
-  /** Avatar: 78 em ref, escala em compact/tablet. */
+  /** Avatar size. */
   avatarSize: number;
-  /** Avatar inner (foto): 70 em ref. */
+  /** Avatar inner (foto). */
   avatarInnerSize: number;
   /** Tipografia escalada. */
   typography: {
@@ -89,33 +89,33 @@ export function useDashboardResponsive(): DashboardResponsive {
     isTablet,
     scale: scaleFactor,
     paddingHorizontal: isTablet ? 24 : 16,
-    avatarSize: scale(78, safeWidth),
-    avatarInnerSize: scale(70, safeWidth),
+    avatarSize: scale(48, safeWidth),
+    avatarInnerSize: scale(44, safeWidth),
     typography: {
-      greeting: scale(26, safeWidth),
-      name: scale(26, safeWidth),
-      date: scale(15, safeWidth),
-      sectionTitle: scale(22, safeWidth),
-      queueTitle: scale(22, safeWidth),
-      queueText: scale(16, safeWidth),
-      queueButton: scale(16, safeWidth),
-      statTitle: scale(16, safeWidth),
-      statValue: scale(28, safeWidth),
-      quickLabel: scale(14, safeWidth),
-      bannerText: scale(14, safeWidth),
+      greeting: scale(13, safeWidth),
+      name: scale(22, safeWidth),
+      date: scale(12, safeWidth),
+      sectionTitle: scale(16, safeWidth),
+      queueTitle: scale(11, safeWidth),
+      queueText: scale(28, safeWidth),
+      queueButton: scale(13, safeWidth),
+      statTitle: scale(12, safeWidth),
+      statValue: scale(26, safeWidth),
+      quickLabel: scale(12, safeWidth),
+      bannerText: scale(13, safeWidth),
     },
     heights: {
-      banner: scale(48, safeWidth),
-      queueCardMin: scale(180, safeWidth),
-      queueButton: scale(56, safeWidth),
-      statCardMin: scale(120, safeWidth),
-      quickButton: scale(96, safeWidth),
+      banner: scale(44, safeWidth),
+      queueCardMin: scale(140, safeWidth),
+      queueButton: scale(36, safeWidth),
+      statCardMin: scale(100, safeWidth),
+      quickButton: scale(80, safeWidth),
     },
     maxContentWidth: isTablet ? 480 : width,
     iconSizes: {
       queueIcon: scale(24, safeWidth),
-      statIcon: scale(22, safeWidth),
-      quickIcon: scale(22, safeWidth),
+      statIcon: scale(18, safeWidth),
+      quickIcon: scale(20, safeWidth),
     },
   };
 }

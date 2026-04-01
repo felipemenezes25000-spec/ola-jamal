@@ -136,7 +136,7 @@ const s = StyleSheet.create({
     marginBottom: uiTokens.spacing.sm,
   },
   headerText: { flex: 1 },
-  title: { fontSize: 16, fontWeight: '800' },
+  title: { fontSize: 16, fontWeight: '700' },
   subtitle: { marginTop: 4, fontSize: 13, lineHeight: 18 },
   closeBtn: {
     width: 36,

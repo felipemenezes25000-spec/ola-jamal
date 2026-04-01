@@ -221,7 +221,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
     spacer: { flex: 1 },
     price: {
       fontSize: 14,
-      fontWeight: '800',
+      fontWeight: '700',
       color: colors.primary,
     },
     chevronWrap: {

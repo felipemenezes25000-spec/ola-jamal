@@ -36,7 +36,7 @@ export function AppStepsSection() {
           <span className="mb-4 inline-block text-sm font-semibold uppercase tracking-wider text-primary">
             O problema
           </span>
-          <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="font-display text-2xl font-bold text-foreground sm:text-4xl lg:text-5xl">
             Fluxos administrativos ainda consomem tempo assistencial.
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">
@@ -46,7 +46,7 @@ export function AppStepsSection() {
         </motion.div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             {problems.map((problem, index) => (
               <motion.div
                 key={problem.title}
@@ -74,7 +74,7 @@ export function AppStepsSection() {
             <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white shadow-primary">
               <UsersRound className="h-7 w-7" />
             </div>
-            <h3 className="font-display text-2xl font-bold text-foreground">Saude publica e suplementar exigem escala com governanca.</h3>
+            <h3 className="font-display text-xl sm:text-2xl font-bold text-foreground">Saúde pública e suplementar exigem escala com governança.</h3>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
               A proposta da plataforma é apoiar instituições a organizar jornadas recorrentes sem substituir a avaliação
               clínica, preservando rastreabilidade, segurança documental e responsabilidade médica.
@@ -82,9 +82,9 @@ export function AppStepsSection() {
 
             <div className="mt-6 space-y-3">
               {[
-                'Menos deslocamentos desnecessarios para demandas simples',
-                'Mais previsibilidade para regulacao, atendimento e gestao',
-                'Jornada documentada com trilha auditavel ponta a ponta',
+                'Menos deslocamentos desnecessários para demandas simples',
+                'Mais previsibilidade para regulação, atendimento e gestão',
+                'Jornada documentada com trilha auditável ponta a ponta',
               ].map((item) => (
                 <div key={item} className="flex items-start gap-3 rounded-2xl bg-background/80 px-4 py-3">
                   <div className="mt-1 h-2.5 w-2.5 rounded-full bg-primary" />

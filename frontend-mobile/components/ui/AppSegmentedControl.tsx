@@ -72,8 +72,8 @@ export function AppSegmentedControl({
               },
               isSelected && [
                 s.segmentActive,
-                { backgroundColor: colors.surface, borderColor: colors.borderLight },
-                (shadows as any)?.sm,
+                { backgroundColor: colors.primary, borderColor: colors.primary },
+                shadows.sm,
               ],
               pressed && !disabled && s.pressed,
               disabled && s.disabled,
@@ -89,7 +89,7 @@ export function AppSegmentedControl({
                   {
                     fontSize: conf.fontSize,
                     fontFamily: typography.fontFamily.bold,
-                    color: isSelected ? colors.primary : colors.textSecondary,
+                    color: isSelected ? colors.white : colors.textSecondary,
                   },
                 ]}
                 numberOfLines={1}
@@ -103,8 +103,8 @@ export function AppSegmentedControl({
                   style={[
                     s.badge,
                     {
-                      backgroundColor: isSelected ? colors.primaryGhost : muted,
-                      borderColor: isSelected ? colors.primary : colors.border,
+                      backgroundColor: isSelected ? 'rgba(255,255,255,0.22)' : muted,
+                      borderColor: isSelected ? 'rgba(255,255,255,0.3)' : colors.border,
                     },
                   ]}
                 >
@@ -112,7 +112,7 @@ export function AppSegmentedControl({
                     style={{
                       fontSize: conf.badgeFontSize,
                       fontFamily: typography.fontFamily.bold,
-                      color: isSelected ? colors.primary : colors.textSecondary,
+                      color: isSelected ? colors.white : colors.textSecondary,
                     }}
                   >
                     {String(item.count)}
@@ -147,7 +147,7 @@ export function AppSegmentedControl({
                 style={({ pressed }) => [
                   s.segmentScrollable,
                   { minHeight: Math.max(MIN_TOUCH, conf.height), borderRadius: conf.borderRadius - 2, paddingVertical: conf.padV },
-                  isSelected && [s.segmentActive, { backgroundColor: colors.surface, borderColor: colors.borderLight }, (shadows as { sm?: object })?.sm],
+                  isSelected && [s.segmentActive, { backgroundColor: colors.primary, borderColor: colors.primary }, shadows.sm],
                   pressed && !disabled && s.pressed,
                   disabled && s.disabled,
                 ]}
@@ -156,12 +156,12 @@ export function AppSegmentedControl({
                 accessibilityLabel={item.label}
               >
                 <View style={s.labelRow}>
-                  <Text style={[s.label, { fontSize: conf.fontSize, fontFamily: typography.fontFamily.bold, color: isSelected ? colors.primary : colors.textSecondary }]} numberOfLines={1}>
+                  <Text style={[s.label, { fontSize: conf.fontSize, fontFamily: typography.fontFamily.bold, color: isSelected ? colors.white : colors.textSecondary }]} numberOfLines={1}>
                     {item.label}
                   </Text>
                   {showCount && (
-                    <View style={[s.badge, { backgroundColor: isSelected ? colors.primaryGhost : muted, borderColor: isSelected ? colors.primary : colors.border }]}>
-                      <Text style={{ fontSize: conf.badgeFontSize, fontFamily: typography.fontFamily.bold, color: isSelected ? colors.primary : colors.textSecondary }}>{String(item.count)}</Text>
+                    <View style={[s.badge, { backgroundColor: isSelected ? 'rgba(255,255,255,0.22)' : muted, borderColor: isSelected ? 'rgba(255,255,255,0.3)' : colors.border }]}>
+                      <Text style={{ fontSize: conf.badgeFontSize, fontFamily: typography.fontFamily.bold, color: isSelected ? colors.white : colors.textSecondary }}>{String(item.count)}</Text>
                     </View>
                   )}
                 </View>

@@ -99,13 +99,15 @@ export function AppHeader() {
               </motion.span>
             </button>
 
-            <nav className="hidden items-center gap-1 lg:flex">
+            <nav aria-label="Menu de navegação principal" className="hidden items-center gap-1 lg:flex">
               {navLinks.map((link) => {
                 const isActive = activeSection === link.href.replace('#', '');
                 return (
-                  <button
+                  <a
                     key={link.name}
-                    onClick={() => scrollToSection(link.href)}
+                    href={link.href}
+                    onClick={(e) => { e.preventDefault(); scrollToSection(link.href); }}
+                    aria-current={isActive ? 'true' : undefined}
                     className={`relative rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
                       isActive
                         ? 'bg-primary/10 text-primary'
@@ -119,7 +121,7 @@ export function AppHeader() {
                         className="absolute bottom-0 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary"
                       />
                     )}
-                  </button>
+                  </a>
                 );
               })}
             </nav>
@@ -137,9 +139,11 @@ export function AppHeader() {
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="rounded-lg p-2 text-foreground transition-colors hover:bg-muted lg:hidden"
-              aria-label="Menu"
+              aria-label={isMobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav-menu"
             >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {isMobileMenuOpen ? <X size={24} aria-hidden /> : <Menu size={24} aria-hidden />}
             </button>
           </div>
         </div>
@@ -159,25 +163,28 @@ export function AppHeader() {
             />
 
             <motion.div
+              id="mobile-nav-menu"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="fixed inset-x-0 top-20 z-50 mx-4 overflow-hidden rounded-2xl border border-border/50 bg-background/95 shadow-elevated backdrop-blur-xl lg:hidden"
+              className="fixed inset-x-0 top-16 sm:top-20 z-50 mx-3 sm:mx-4 overflow-hidden rounded-2xl border border-border/50 bg-background/95 shadow-elevated backdrop-blur-xl lg:hidden"
             >
-              <nav className="flex flex-col gap-1 p-4">
+              <nav aria-label="Menu de navegação móvel" className="flex flex-col gap-1 p-4">
                 {navLinks.map((link) => {
                   const isActive = activeSection === link.href.replace('#', '');
                   return (
-                    <button
+                    <a
                       key={link.name}
-                      onClick={() => scrollToSection(link.href)}
+                      href={link.href}
+                      onClick={(e) => { e.preventDefault(); scrollToSection(link.href); }}
+                      aria-current={isActive ? 'true' : undefined}
                       className={`rounded-xl px-4 py-3 text-left font-medium transition-all ${
                         isActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
                       }`}
                     >
                       {link.name}
-                    </button>
+                    </a>
                   );
                 })}
                 <div className="mt-2 border-t border-border pt-3">

@@ -344,6 +344,10 @@ export function ConductForm({
             onChangeText={(v) => setField(key, v)}
             multiline
             textAlignVertical="top"
+            autoCapitalize="sentences"
+            autoCorrect={true}
+            returnKeyType="default"
+            editable={!saving}
           />
         </View>
       ))}

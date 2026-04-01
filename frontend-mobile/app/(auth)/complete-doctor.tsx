@@ -203,6 +203,11 @@ export default function CompleteDoctorScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            textContentType="password"
+            returnKeyType="done"
+            blurOnSubmit={true}
+            onSubmitEditing={handleUpload}
+            editable={!uploading}
             leftIcon="lock-closed-outline"
           />
 
