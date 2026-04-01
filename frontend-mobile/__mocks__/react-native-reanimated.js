@@ -1,3 +1,4 @@
+/* eslint-env jest */
 // Mock para react-native-reanimated v4 em ambiente Jest
 const React = require('react');
 
