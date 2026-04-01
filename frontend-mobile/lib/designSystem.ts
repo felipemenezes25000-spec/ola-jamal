@@ -67,7 +67,7 @@ const LIGHT_BASE = {
   text:             palette.neutral[900],
   textSecondary:    palette.neutral[600],   // #475569 — 7:1 ratio on white
   textMuted:        '#5B6E8A',              // WCAG AA fix: ~4.7:1 on surfaceSecondary (#F1F5F9), ~4.9:1 on white
-  border:           palette.neutral[200],
+  border:           palette.neutral[100],   // #F1F5F9 — spec: slate 100
   borderLight:      palette.neutral[100],
   primarySoft:      palette.primary[50],
   primaryGhost:     `${palette.primary[500]}14`, // 8% opacity
@@ -77,9 +77,9 @@ const LIGHT_BASE = {
   errorLight:   palette.error[50],
   infoLight:    palette.info[50],
 
-  success: palette.success[600],
-  warning: palette.warning[600],
-  error:   palette.error[500],
+  success: palette.success[500],    // #22C55E — spec
+  warning: palette.warning[500],    // #F59E0B — spec
+  error:   palette.error[500],      // #EF4444 — spec
   info:    palette.info[500],
 } as const;
 
@@ -163,10 +163,10 @@ const TYPOGRAPHY = {
     h1:       { fontSize: 28, fontFamily: 'PlusJakartaSans_700Bold',    lineHeight: 1.15, fontWeight: '700' as const },
     h2:       { fontSize: 22, fontFamily: 'PlusJakartaSans_700Bold',    lineHeight: 1.2,  fontWeight: '700' as const },
     h3:       { fontSize: 18, fontFamily: 'PlusJakartaSans_600SemiBold',lineHeight: 1.25, fontWeight: '600' as const },
-    title:    { fontSize: 18, fontFamily: 'PlusJakartaSans_600SemiBold',lineHeight: 1.25, fontWeight: '600' as const },
-    titleLg:  { fontSize: 22, fontFamily: 'PlusJakartaSans_700Bold',    lineHeight: 1.2,  fontWeight: '700' as const },
+    title:    { fontSize: 22, fontFamily: 'PlusJakartaSans_700Bold',    lineHeight: 1.2,  fontWeight: '700' as const },
+    titleLg:  { fontSize: 24, fontFamily: 'PlusJakartaSans_700Bold',    lineHeight: 1.2,  fontWeight: '700' as const },
     label:    { fontSize: 14, fontFamily: 'PlusJakartaSans_600SemiBold',lineHeight: 1.25, fontWeight: '600' as const },
-    overline: { fontSize: 11, fontFamily: 'PlusJakartaSans_600SemiBold',lineHeight: 1.25, letterSpacing: 1.2, fontWeight: '600' as const },
+    overline: { fontSize: 11, fontFamily: 'PlusJakartaSans_700Bold',    lineHeight: 1.25, letterSpacing: 1.0, fontWeight: '700' as const },
     body:     { fontSize: 15, fontFamily: 'PlusJakartaSans_400Regular', lineHeight: 1.5,  fontWeight: '400' as const },
     body2:    { fontSize: 14, fontFamily: 'PlusJakartaSans_400Regular', lineHeight: 1.5,  fontWeight: '400' as const },
     bodySm:   { fontSize: 13, fontFamily: 'PlusJakartaSans_400Regular', lineHeight: 1.5,  fontWeight: '400' as const },
@@ -240,7 +240,10 @@ const LAYOUT = {
   inlineGap: 8,
   cardPadding: 16,
   buttonHeight: 48,
-  iconSizes: { sm: 20, md: 24, lg: 32, xl: 40 },
+  buttonHeightLg: 52,
+  iconSizes: { sm: 18, md: 20, lg: 22, xl: 32 },
+  iconContainerSizes: { sm: 36, md: 38, lg: 40 },
+  iconContainerRadius: { sm: 10, md: 11, lg: 12 },
   avatarSizes: { sm: 40, md: 48 },
 } as const;
 

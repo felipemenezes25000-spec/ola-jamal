@@ -40,8 +40,6 @@ export default function SplashScreen() {
         if (user) {
           if (user.role === 'patient') {
             navigate('/(patient)/home');
-          } else if (user.role === 'sus' || user.role === 'admin') {
-            navigate('/(sus)/dashboard');
           } else if (user.role === 'doctor' && !user.profileComplete) {
             navigate('/(auth)/complete-doctor');
           } else {

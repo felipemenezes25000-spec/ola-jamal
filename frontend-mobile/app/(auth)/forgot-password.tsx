@@ -118,6 +118,13 @@ export default function ForgotPasswordScreen() {
                     onChangeText={setEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    returnKeyType="send"
+                    blurOnSubmit={false}
+                    onSubmitEditing={handleSend}
+                    editable={!loading}
                     leftIcon="mail-outline"
                     containerStyle={styles.inputWrap}
                   />
@@ -125,6 +132,7 @@ export default function ForgotPasswordScreen() {
                     title="Recuperar acesso"
                     onPress={handleSend}
                     loading={loading}
+                    disabled={loading}
                     fullWidth
                     style={styles.btnWrap}
                   />

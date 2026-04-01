@@ -185,7 +185,7 @@ FORMATO DE RESPOSTA (JSON obrigatório):
         {
             sb.AppendLine();
             sb.AppendLine("SINTOMAS/QUEIXA:");
-            sb.AppendLine(input.Symptoms);
+            sb.AppendLine(PromptSanitizer.SanitizeForPrompt(input.Symptoms));
         }
 
         if (!string.IsNullOrWhiteSpace(input.AiSummaryForDoctor))
@@ -206,7 +206,7 @@ FORMATO DE RESPOSTA (JSON obrigatório):
         {
             sb.AppendLine();
             sb.AppendLine("OBSERVAÇÕES DO MÉDICO:");
-            sb.AppendLine(input.DoctorNotes);
+            sb.AppendLine(PromptSanitizer.SanitizeForPrompt(input.DoctorNotes));
         }
 
         sb.AppendLine();

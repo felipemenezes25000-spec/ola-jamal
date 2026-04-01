@@ -34,7 +34,7 @@ const queryClient = new QueryClient({
       gcTime: 5 * 60_000,
       retry: 1,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
+      refetchOnReconnect: true,
     },
   },
   // Erros de queries/mutations -> analytics (captura silenciosa global)
@@ -139,7 +139,6 @@ export default function RootLayout() {
                 <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
                 <Stack.Screen name="(patient)" options={{ animation: 'fade' }} />
                 <Stack.Screen name="(doctor)" options={{ animation: 'fade' }} />
-                <Stack.Screen name="(sus)" options={{ animation: 'fade' }} />
                 <Stack.Screen name="new-request" options={motionTokens.nav.modal} />
 
                 {/* Fluxos paciente: transição mais suave */}

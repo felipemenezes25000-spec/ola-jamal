@@ -124,14 +124,17 @@ export function CommandPalette({ onToggleDarkMode, isDark }: CommandPaletteProps
   }, [allItems, query]);
 
   useEffect(() => {
-    if (open) {
-      getRequests({ page: 1, pageSize: 50 })
-        .then((data) => {
+    if (!open) return;
+    let cancelled = false;
+    getRequests({ page: 1, pageSize: 50 })
+      .then((data) => {
+        if (!cancelled) {
           const list = parseApiList<MedicalRequest>(data);
           setRecentPatients(extractRecentPatients(list, 5));
-        })
-        .catch(() => setRecentPatients([]));
-    }
+        }
+      })
+      .catch(() => { if (!cancelled) setRecentPatients([]); });
+    return () => { cancelled = true; };
   }, [open]);
 
   // Reset selection when results change (defer to avoid sync setState in effect)
@@ -194,12 +197,11 @@ export function CommandPalette({ onToggleDarkMode, isDark }: CommandPaletteProps
 
   return (
     <>
-      {/* Backdrop */}
-      <button
-        type="button"
+      {/* Backdrop — aria-hidden because the dialog itself is the accessible element */}
+      <div
         className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm animate-in fade-in duration-150 w-full h-full cursor-default"
         onClick={() => { setOpen(false); setQuery(''); }}
-        aria-label="Fechar busca"
+        aria-hidden="true"
       />
 
       {/* Palette */}
@@ -207,6 +209,7 @@ export function CommandPalette({ onToggleDarkMode, isDark }: CommandPaletteProps
         <div
           className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-top-2 duration-200"
           role="dialog"
+          aria-modal="true"
           aria-label="Busca rápida"
         >
           {/* Search input */}

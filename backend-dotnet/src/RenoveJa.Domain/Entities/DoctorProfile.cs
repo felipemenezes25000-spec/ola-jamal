@@ -90,8 +90,9 @@ public class DoctorProfile : Entity
         if (string.IsNullOrWhiteSpace(crmState))
             throw new DomainException("CRM State is required");
 
+        crmState = crmState.Trim().ToUpperInvariant();
         var hasNumbers = crmState.Any(char.IsNumber);
-        if (hasNumbers || crmState.Trim().Length != CrmStateLength)
+        if (hasNumbers || crmState.Length != CrmStateLength)
             throw new DomainException($"CRM State must be exactly {CrmStateLength} characters (state abbreviation)");
 
         if (string.IsNullOrWhiteSpace(specialty))
@@ -105,9 +106,9 @@ public class DoctorProfile : Entity
         return new DoctorProfile(
             Guid.NewGuid(),
             userId,
-            crm,
+            crm.Trim(),
             crmState,
-            specialty,
+            specialty.Trim(),
             bio,
             5.0m,
             0,

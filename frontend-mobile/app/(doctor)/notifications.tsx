@@ -41,26 +41,26 @@ function getAlertCategory(item: NotificationResponseDto): AlertCategory {
   if (type.includes('consultation') || type.includes('doctor_ready') || type.includes('no_show') ||
       t.includes('consulta') || status.includes('consultation')) return 'consultation';
   if (type.includes('new_request') || type.includes('request_assigned') || type.includes('request_status') ||
-      type.includes('payment') || type.includes('paid') || status === 'paid' ||
       t.includes('solicitação') || t.includes('pedido') || t.includes('nova')) return 'new_request';
   return 'system';
 }
 
 function getDoctorVisual(item: NotificationResponseDto, colors: DesignColors): NotificationVisual {
   const type = ((item.data?.type as string) || '').toLowerCase();
-  const status = ((item.data?.status as string) || '').toLowerCase();
+  const _status = ((item.data?.status as string) || '').toLowerCase();
 
+  // Blue = new request, Purple = consultation, Green = success, Yellow = reminder
   if (type.includes('new_request') || type.includes('request_assigned'))
     return { icon: 'document-text', color: colors.info, label: 'Novo pedido' };
   if (type.includes('signing_failed'))
     return { icon: 'alert-circle', color: colors.error, label: 'Falha assinatura' };
-  if (status === 'paid' || type.includes('paid'))
-    return { icon: 'card', color: colors.success, label: 'Pago' };
   if (type.includes('consultation'))
-    return { icon: 'videocam', color: colors.accent, label: 'Consulta' };
+    return { icon: 'videocam', color: '#8B5CF6', label: 'Consulta' };
   if (type.includes('reminder'))
     return { icon: 'alarm', color: colors.warning, label: 'Lembrete' };
-  return { icon: 'notifications', color: colors.primary, label: 'Alerta' };
+  if (type.includes('approved') || type.includes('completed') || type.includes('success'))
+    return { icon: 'checkmark-circle', color: colors.success, label: 'Concluído' };
+  return { icon: 'notifications', color: colors.info, label: 'Alerta' };
 }
 
 const ListSeparator = () => <View style={{ height: 8 }} />;
@@ -81,7 +81,7 @@ export default function DoctorNotifications() {
 
   const { colors, scheme } = useAppTheme({ role: 'doctor' });
   const isDark = scheme === 'dark';
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
 
   const notifications = useMemo(() => {
     return allNotifications.filter((n) => {
@@ -102,7 +102,7 @@ export default function DoctorNotifications() {
       setAllNotifications(data.items || []);
       if (withFeedback) showToast({ message: 'Alertas atualizados', type: 'success' });
     } catch (e: unknown) {
-      if ((e as { status?: number })?.status !== 401) console.error(e);
+      if ((e as { status?: number })?.status !== 401 && __DEV__) console.error(e);
       if (withFeedback) showToast({ message: 'Não foi possível atualizar', type: 'error' });
     } finally {
       setLoading(false);
@@ -140,7 +140,7 @@ export default function DoctorNotifications() {
         router.push(`/doctor-request/${requestId}`);
       }
     } catch (e) {
-      console.warn('Failed to mark notification as read:', e);
+      if (__DEV__) console.warn('Failed to mark notification as read:', e);
     }
   };
 
@@ -152,7 +152,7 @@ export default function DoctorNotifications() {
       haptics.success();
       showToast({ message: 'Todos marcados como lidos', type: 'success' });
     } catch (e) {
-      console.warn('Failed to mark all notifications as read:', e);
+      if (__DEV__) console.warn('Failed to mark all notifications as read:', e);
     }
   };
 
@@ -197,7 +197,7 @@ export default function DoctorNotifications() {
           </View>
           {unreadCount > 0 && (
             <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn} accessibilityLabel="Marcar todas como lidas">
-              <Ionicons name="checkmark-done" size={18} color={colors.primary} />
+              <Ionicons name="checkmark-done" size={16} color={colors.primary} />
               <Text style={styles.markAllText}>Ler todas</Text>
             </TouchableOpacity>
           )}
@@ -205,21 +205,23 @@ export default function DoctorNotifications() {
       </View>
 
       {/* ── FILTROS ── */}
-      <AppSegmentedControl
-        items={[
-          { key: 'all', label: 'Todos', count: notifications.length },
-          { key: 'new_request', label: 'Pedidos', count: categoryCounts.new_request },
-          { key: 'consultation', label: 'Consultas', count: categoryCounts.consultation },
-        ]}
-        value={activeFilter}
-        onValueChange={(value) => {
-          haptics.selection();
-          setActiveFilter(value as 'all' | AlertCategory);
-        }}
-        size="sm"
-        scrollable
-        role="doctor"
-      />
+      <View style={styles.filtersWrap}>
+        <AppSegmentedControl
+          items={[
+            { key: 'all', label: 'Todos', count: notifications.length },
+            { key: 'new_request', label: 'Pedidos', count: categoryCounts.new_request },
+            { key: 'consultation', label: 'Consultas', count: categoryCounts.consultation },
+          ]}
+          value={activeFilter}
+          onValueChange={(value) => {
+            haptics.selection();
+            setActiveFilter(value as 'all' | AlertCategory);
+          }}
+          size="sm"
+          scrollable
+          role="doctor"
+        />
+      </View>
 
       {/* ── LISTA ── */}
       {loading ? (
@@ -267,13 +269,16 @@ export default function DoctorNotifications() {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, isDark: boolean) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
+    container: {
+      flex: 1,
+      backgroundColor: isDark ? colors.background : '#F8FAFC',
+    },
     header: {
-      backgroundColor: colors.surface,
+      backgroundColor: isDark ? colors.surface : '#FFFFFF',
       paddingHorizontal: pad,
-      paddingBottom: 12,
+      paddingBottom: 14,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
     },
@@ -288,8 +293,8 @@ function makeStyles(colors: DesignColors) {
       gap: 8,
     },
     title: {
-      fontSize: 24,
-      fontWeight: '800',
+      fontSize: 22,
+      fontWeight: '700',
       color: colors.text,
       letterSpacing: -0.3,
     },
@@ -297,14 +302,14 @@ function makeStyles(colors: DesignColors) {
       minWidth: 22,
       height: 22,
       borderRadius: 11,
-      backgroundColor: colors.error,
+      backgroundColor: '#EF4444',
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 6,
     },
     unreadBadgeText: {
-      fontSize: 12,
-      fontWeight: '800',
+      fontSize: 11,
+      fontWeight: '700',
       color: '#FFFFFF',
     },
     markAllBtn: {
@@ -314,12 +319,17 @@ function makeStyles(colors: DesignColors) {
       paddingVertical: 6,
       paddingHorizontal: 10,
       borderRadius: 10,
-      backgroundColor: (colors as { primaryGhost?: string; infoLight: string }).primaryGhost ?? (colors as { infoLight: string }).infoLight,
+      backgroundColor: isDark ? `${colors.primary}14` : '#F0F9FF',
     },
     markAllText: {
       fontSize: 12,
       fontWeight: '700',
       color: colors.primary,
+    },
+    filtersWrap: {
+      backgroundColor: isDark ? colors.surface : '#FFFFFF',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
     },
     loadingWrap: {
       flex: 1,
@@ -333,10 +343,10 @@ function makeStyles(colors: DesignColors) {
     groupLabel: {
       fontSize: 11,
       fontWeight: '700',
-      letterSpacing: 0.8,
+      letterSpacing: 1.0,
       textTransform: 'uppercase',
       color: colors.textMuted,
-      marginTop: 18,
+      marginTop: 20,
       marginBottom: 8,
     },
   });

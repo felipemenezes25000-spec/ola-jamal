@@ -39,7 +39,7 @@ Os campos de IA vêm no `RequestResponseDto`:
 Execute a migration para adicionar as colunas de IA na tabela `requests`:
 
 ```sql
--- docs/migrations/add_ai_reading_columns_to_requests.sql
+-- docs/migrations/run_all_migrations_complete.sql (seção 3)
 ALTER TABLE public.requests
   ADD COLUMN IF NOT EXISTS ai_summary_for_doctor TEXT,
   ADD COLUMN IF NOT EXISTS ai_extracted_json TEXT,

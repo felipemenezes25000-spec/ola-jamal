@@ -50,6 +50,7 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
     {
         var models = await db.GetAllAsync<RequestModel>(
             TableName,
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();
@@ -87,6 +88,7 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         var models = await db.GetAllAsync<RequestModel>(
             TableName,
             filter: $"doctor_id=eq.{doctorId}",
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();
@@ -107,10 +109,11 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
 
     public async Task<List<MedicalRequest>> GetByTypeAsync(RequestType type, CancellationToken cancellationToken = default)
     {
-        var typeStr = type.ToString().ToLowerInvariant();
+        var typeStr = SnakeCaseHelper.ToSnakeCase(type.ToString());
         var models = await db.GetAllAsync<RequestModel>(
             TableName,
             filter: $"request_type=eq.{typeStr}",
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();
@@ -136,13 +139,18 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
 
     public async Task<(int PendingCount, int InReviewCount, int CompletedCount, decimal TotalEarnings)> GetDoctorStatsAsync(Guid doctorId, CancellationToken cancellationToken = default)
     {
-        var pendingFilter = "status=in.(submitted,paid)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
-        var pendingCount = await db.CountAsync(TableName, pendingFilter, cancellationToken);
+        // Pendentes: (1) disponíveis para qualquer médico (sem assignment) + (2) deste médico aguardando emissão de documentos
+        var pendingUnassignedFilter = "status=in.(submitted,paid,searching_doctor)&or=(doctor_id.is.null,doctor_id.eq.00000000-0000-0000-0000-000000000000)";
+        var pendingUnassignedCount = await db.CountAsync(TableName, pendingUnassignedFilter, cancellationToken);
+        var pendingPostFilter = $"doctor_id=eq.{doctorId}&status=eq.pending_post_consultation";
+        var pendingPostCount = await db.CountAsync(TableName, pendingPostFilter, cancellationToken);
+        var pendingCount = pendingUnassignedCount + pendingPostCount;
 
-        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,signed,consultation_ready,in_consultation,pending_post_consultation)";
+        // Em análise: atribuídos a este médico em estados ativos (sem pending_post_consultation, que agora é "Pendente")
+        var inReviewFilter = $"doctor_id=eq.{doctorId}&status=in.(in_review,approved,consultation_ready,consultation_accepted,in_consultation)";
         var inReviewCount = await db.CountAsync(TableName, inReviewFilter, cancellationToken);
 
-        var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(completed,delivered,consultation_finished)";
+        var completedFilter = $"doctor_id=eq.{doctorId}&status=in.(signed,completed,delivered,consultation_finished)";
         var completedCount = await db.CountAsync(TableName, completedFilter, cancellationToken);
 
         var totalEarnings = 0m;
@@ -261,7 +269,9 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
             ConsultationStartedAt = model.ConsultationStartedAt,
             DoctorCallConnectedAt = model.DoctorCallConnectedAt,
             PatientCallConnectedAt = model.PatientCallConnectedAt,
-            UpdatedAt = model.UpdatedAt
+            UpdatedAt = model.UpdatedAt,
+            ExpiresAt = model.ExpiresAt,
+            PrescriptionValidDays = model.PrescriptionValidDays,
         };
         var updated = await db.UpdateAsync<RequestModel>(
             TableName,
@@ -314,10 +324,6 @@ public class RequestRepository(PostgresClient db) : IRequestRepository
         // Security fields (migration: document_security)
         [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
         public DateTime? ExpiresAt { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("dispensed_at")]
-        public DateTime? DispensedAt { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("dispensed_count")]
-        public int DispensedCount { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("prescription_valid_days")]
         public int? PrescriptionValidDays { get; set; }
     }
@@ -397,11 +403,20 @@ WHERE (
         var parameters = new DynamicParameters();
         parameters.Add("DoctorId", doctorId);
 
-        // Filtros opcionais
+        // Filtros opcionais — status aceita valor único ("signed") ou lista separada por vírgula ("signed,completed,delivered")
         if (!string.IsNullOrWhiteSpace(status))
         {
-            baseSql += " AND status = @StatusFilter";
-            parameters.Add("StatusFilter", status);
+            var statuses = status.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (statuses.Length == 1)
+            {
+                baseSql += " AND status = @StatusFilter";
+                parameters.Add("StatusFilter", statuses[0]);
+            }
+            else
+            {
+                baseSql += " AND status = ANY(@StatusFilters)";
+                parameters.Add("StatusFilters", statuses);
+            }
         }
         if (!string.IsNullOrWhiteSpace(type))
         {

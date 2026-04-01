@@ -31,10 +31,32 @@ public class NotificationRepository(PostgresClient db) : INotificationRepository
     {
         var models = await db.GetAllAsync<NotificationModel>(
             TableName,
-            filter: $"user_id=eq.{userId}&order=created_at.desc",
+            filter: $"user_id=eq.{userId}",
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();
+    }
+
+    public async Task<List<Notification>> GetByUserIdPagedAsync(Guid userId, int offset, int limit, CancellationToken cancellationToken = default)
+    {
+        var models = await db.GetAllAsync<NotificationModel>(
+            TableName,
+            filter: $"user_id=eq.{userId}",
+            orderBy: "created_at.desc",
+            limit: limit,
+            offset: offset,
+            cancellationToken: cancellationToken);
+
+        return models.Select(MapToDomain).ToList();
+    }
+
+    public async Task<int> CountByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await db.CountAsync(
+            TableName,
+            $"user_id=eq.{userId}",
+            cancellationToken);
     }
 
     public async Task<Notification> CreateAsync(Notification notification, CancellationToken cancellationToken = default)

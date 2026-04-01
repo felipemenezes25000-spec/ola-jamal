@@ -12,10 +12,18 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
 {
     private const string TableName = "auth_tokens";
 
+    /// <summary>
+    /// Returns true if the value contains PostgREST-significant characters
+    /// that could manipulate the filter string (injection guard).
+    /// </summary>
+    private static bool ContainsFilterInjectionChars(string value)
+        => value.AsSpan().IndexOfAny("&()") >= 0;
+
     public async Task<AuthToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
     {
-        // Com Npgsql/Dapper (SQL direto), NÃO precisamos de URL encoding.
-        // O PostgRestFilterParser usa parâmetros SQL (@p0) que tratam caracteres especiais.
+        if (string.IsNullOrEmpty(token) || ContainsFilterInjectionChars(token))
+            return null;
+
         var model = await db.GetSingleAsync<AuthTokenModel>(
             TableName,
             filter: $"token=eq.{token}",
@@ -25,6 +33,9 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
 
     public async Task<AuthToken?> GetByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(refreshToken) || ContainsFilterInjectionChars(refreshToken))
+            return null;
+
         var model = await db.GetSingleAsync<AuthTokenModel>(
             TableName,
             filter: $"refresh_token=eq.{refreshToken}",
@@ -37,6 +48,7 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
         var models = await db.GetAllAsync<AuthTokenModel>(
             TableName,
             filter: $"user_id=eq.{userId}",
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
         return models.Select(MapToDomain).ToList();
     }
@@ -62,6 +74,21 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
         return MapToDomain(updated);
     }
 
+    public async Task<AuthToken?> TryRotateAsync(AuthToken authToken, string previousRefreshToken, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(previousRefreshToken) || ContainsFilterInjectionChars(previousRefreshToken))
+            return null;
+
+        var model = MapToModel(authToken);
+        // Optimistic concurrency: só atualiza se o refresh_token antigo ainda bater
+        var updated = await db.UpdateAsync<AuthTokenModel>(
+            TableName,
+            $"id=eq.{authToken.Id}&refresh_token=eq.{previousRefreshToken}",
+            model,
+            cancellationToken);
+        return updated != null ? MapToDomain(updated) : null;
+    }
+
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await db.DeleteAsync(TableName, $"id=eq.{id}", cancellationToken);
@@ -69,6 +96,9 @@ public class AuthTokenRepository(PostgresClient db) : IAuthTokenRepository
 
     public async Task DeleteByTokenAsync(string token, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(token) || ContainsFilterInjectionChars(token))
+            return;
+
         await db.DeleteAsync(TableName, $"token=eq.{token}", cancellationToken);
     }
 

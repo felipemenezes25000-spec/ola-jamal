@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { clinicalSoftTokens } from './clinicalSoftTokens';
 import type { DashboardResponsive } from './useDashboardResponsive';
 
-const { colors, radius } = clinicalSoftTokens;
+const { radius } = clinicalSoftTokens;
 
 interface ConnectionBannerProps {
   responsive: DashboardResponsive;
@@ -13,8 +13,8 @@ interface ConnectionBannerProps {
 export function ConnectionBanner({ responsive }: ConnectionBannerProps) {
   const { heights, typography, paddingHorizontal } = responsive;
   return (
-    <View style={[styles.banner, { height: heights.banner, paddingHorizontal, marginBottom: 22 }]}>
-      <Ionicons name="alert-circle" size={20} color={colors.warningAccent} />
+    <View style={[styles.banner, { height: heights.banner, paddingHorizontal, marginBottom: 16 }]}>
+      <Ionicons name="alert-circle" size={18} color="#F59E0B" />
       <Text style={[styles.bannerText, { fontSize: typography.bannerText }]}>
         Sem conexão. Tentando reconectar...
       </Text>
@@ -25,13 +25,15 @@ export function ConnectionBanner({ responsive }: ConnectionBannerProps) {
 const styles = StyleSheet.create({
   banner: {
     borderRadius: radius.banner,
-    backgroundColor: colors.warningBg,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
     flexDirection: 'row',
     alignItems: 'center',
   },
   bannerText: {
-    marginLeft: 10,
-    color: '#624E33',
+    marginLeft: 8,
+    color: '#92400E',
     fontWeight: '500',
   },
 });

@@ -187,22 +187,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
           .catch((err: unknown) => {
             clearTimeout(timeoutId);
-            const status = (err as { status?: number })?.status;
             const isAborted = err instanceof Error && err.name === 'AbortError';
-            if (status === 401 || status === 403) {
-              // Token inválido ou expirado: desloga
-              clearAuth();
-            } else if (!isAborted) {
-              // Falha de rede ou 5xx — mantém sessão cacheada (já está exibindo)
-              if (__DEV__) console.warn('[AuthContext] Validação bg falhou (rede/servidor), mantendo sessão em cache:', err);
+            // FIX: NÃO chamar clearAuth aqui. O fetchWithAuthRetry já gerencia 401:
+            // - refresh 'success' → retry automático (nunca chega aqui)
+            // - refresh 'invalid' → onUnauthorized callback já dispara clearAuth
+            // - refresh 'error' (rede/servidor) → NÃO deslogar (skipUnauthorizedCallback=true)
+            // Chamar clearAuth diretamente causava logout em falha de rede durante refresh.
+            if (!isAborted && __DEV__) {
+              console.warn('[AuthContext] Validação bg falhou, mantendo sessão em cache:', err);
             }
-            // AbortError (timeout 6s) → mantém sessão cacheada silenciosamente
           });
         return;
       }
     } catch (error) {
       if (__DEV__) console.error('Error loading stored user:', error);
-      await clearAuth();
     } finally {
       clearTimeout(guard);
     }
@@ -226,24 +224,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let lastClearAt = 0;
-    const UNAUTHORIZED_DEBOUNCE_MS = 2000;
+    const UNAUTHORIZED_DEBOUNCE_MS = 5000;
     apiClient.setOnUnauthorized(() => {
       const now = Date.now();
       if (now - lastClearAt < UNAUTHORIZED_DEBOUNCE_MS) return;
       lastClearAt = now;
       clearAuth();
     });
-    apiClient.setOnForbidden(async (message) => {
-      if (message) {
-        try {
-          await AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, message);
-        } catch {}
-      }
-      clearAuth();
-    });
     return () => {
       apiClient.setOnUnauthorized(null);
-      apiClient.setOnForbidden(null);
     };
   }, [clearAuth]);
 
@@ -386,11 +375,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    try {
-      await apiClient.post('/api/auth/logout', {});
-    } catch (error) {
-      if (__DEV__) console.warn('Logout API error (local logout will continue):', error);
-    }
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = null;
+    // Unregister push token ANTES de invalidar sessão (logout invalida o auth token)
     try {
       const pushToken = getLastRegisteredPushToken();
       if (pushToken) {
@@ -399,6 +386,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // Ignore — token pode já estar inválido
+    }
+    try {
+      await apiClient.post('/api/auth/logout', {});
+    } catch (error) {
+      if (__DEV__) console.warn('Logout API error (local logout will continue):', error);
     }
     try {
       await clearAuth();
@@ -427,12 +419,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
     } catch (error) {
       if (__DEV__) console.error('Error refreshing user:', error);
-      await clearAuth();
+      const status = (error as { status?: number })?.status;
+      // Só 401 indica sessão inválida. 403/500/rede → manter sessão cacheada.
+      if (status === 401) {
+        await clearAuth();
+      }
     }
   }, [clearAuth]);
 
   const refreshDoctorProfile = useCallback(async () => {
-    if (user?.role !== 'doctor') return;
+    if (userRef.current?.role !== 'doctor') return;
     try {
       const profile = await apiClient.get<DoctorProfileDto | null>('/api/doctors/me');
       if (profile) {
@@ -442,7 +438,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (__DEV__) console.error('Error refreshing doctor profile:', error);
     }
-  }, [user?.role]);
+  }, []);
 
   const completeProfile = useCallback(async (data: CompleteProfileData): Promise<UserDto> => {
     try {

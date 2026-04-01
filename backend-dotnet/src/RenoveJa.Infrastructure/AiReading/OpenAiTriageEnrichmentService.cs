@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RenoveJa.Application.Configuration;
@@ -107,9 +109,7 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             var isGemini = baseUrl.Contains("generativelanguage", StringComparison.OrdinalIgnoreCase);
             // Gemini: 2048 tokens para evitar truncamento intermitente
             var maxTokens = isGemini ? 2048 : 150;
-            object requestBody = isGemini
-                ? new { model, temperature = 0.4, max_tokens = maxTokens, response_format = new { type = "json_object" }, messages = new[] { new { role = "system", content = systemPrompt }, new { role = "user", content = userPrompt } } }
-                : new { model, temperature = 0.4, max_tokens = maxTokens, response_format = new { type = "json_object" }, messages = new[] { new { role = "system", content = systemPrompt }, new { role = "user", content = userPrompt } } };
+            object requestBody = new { model, temperature = 0.4, max_tokens = maxTokens, response_format = new { type = "json_object" }, messages = new[] { new { role = "system", content = systemPrompt }, new { role = "user", content = userPrompt } } };
 
             var startedAt = DateTime.UtcNow;
             var json = JsonSerializer.Serialize(requestBody, JsonOptions);
@@ -186,6 +186,8 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
                 return response;
 
             _logger.LogDebug("Triage IA: {StatusCode} na tentativa {Attempt}/{Max}, aguardando retry", response.StatusCode, attempt, maxAttempts);
+            // Dispose failed response before retrying to release underlying connection
+            response.Dispose();
             await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), cancellationToken);
         }
 
@@ -264,7 +266,7 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
         if (input.Exams?.Length > 0)
             sb.AppendLine($"Exames: {string.Join(", ", input.Exams.Take(5))}");
         if (!string.IsNullOrEmpty(input.Symptoms) && input.Symptoms.Length < 100)
-            sb.AppendLine($"Sintomas (resumo): {input.Symptoms}");
+            sb.AppendLine($"Sintomas (resumo): {PromptSanitizer.SanitizeForPrompt(input.Symptoms)}");
         if (input.TotalRequests.HasValue)
             sb.AppendLine($"Total de pedidos do paciente: {input.TotalRequests}");
         if (input.LastPrescriptionDaysAgo.HasValue)
@@ -297,20 +299,19 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             if (string.IsNullOrWhiteSpace(text))
                 return null;
 
-            // Validação: rejeitar se contiver termos que indicam decisão médica (inclui variações sem acento)
-            // "tome" removido: bloqueava "tome os medicamentos conforme orientado" (orientação genérica OK)
             var forbidden = new[]
             {
-                "diagnóstico", "diagnostico",
-                "prescrevo", "prescrição", "prescricao",
-                "indico", "indicação", "indicacao",
-                "você tem", "voce tem",
-                "recomendo tratamento", "tratamento recomendado",
+                "diagnostico", "prescrevo", "prescricao",
+                "indico", "indicacao",
+                "voce tem", "voce possui",
+                "recomendo tratamento", "tratamento recomendado", "recomendo",
                 "inicie o tratamento", "ajuste de dose", "dose recomendada",
-                "tome 1 comprimido", "tome 2 comprimidos", "tome 500mg", "tome 2x ao dia"
+                "tome 1 comprimido", "tome 2 comprimidos", "tome 500mg", "tome 2x ao dia",
+                "deve tomar", "prescrevo"
             };
-            var lower = text.ToLowerInvariant();
-            var blocked = forbidden.FirstOrDefault(f => lower.Contains(f));
+            var normalized = RemoveDiacritics(text.ToLowerInvariant());
+            var blocked = forbidden.FirstOrDefault(f =>
+                Regex.IsMatch(normalized, @"\b" + Regex.Escape(f) + @"\b"));
             if (blocked != null)
             {
                 _logger.LogWarning("Triage IA: output rejeitado por termo proibido '{Term}'. Text (preview): {Preview}", blocked, text.Length > 100 ? text[..100] + "..." : text);
@@ -318,7 +319,10 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             }
 
             if (text.Length > MaxOutputChars)
-                text = text[..MaxOutputChars].Trim();
+            {
+                var lastSpace = text.LastIndexOf(' ', MaxOutputChars);
+                text = (lastSpace > 0 ? text[..lastSpace] : text[..MaxOutputChars]).Trim() + "...";
+            }
 
             return new TriageEnrichmentResult(text, true);
         }
@@ -356,5 +360,17 @@ public class OpenAiTriageEnrichmentService : ITriageEnrichmentService
             }
         }
         return s;
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 }

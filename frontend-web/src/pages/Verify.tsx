@@ -106,6 +106,9 @@ export default function Verify() {
         // Ambos falharam — mostrar erro mais relevante
         setErrorMessage(docRes.message || res.message || 'Código inválido ou documento não encontrado.');
         setState('error');
+      } catch {
+        setErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+        setState('error');
       } finally {
         submittingRef.current = false;
       }
@@ -246,12 +249,15 @@ export default function Verify() {
                 disabled={dispensing}
                 onClick={async () => {
                   const pharmacy = prompt('Nome da farmácia:');
-                  if (!pharmacy?.trim()) return;
+                  if (!pharmacy?.trim()) { alert('Nome da farmácia é obrigatório.'); return; }
                   const pharmacist = prompt('Nome do(a) farmacêutico(a):');
-                  if (!pharmacist?.trim()) return;
+                  if (!pharmacist?.trim()) { alert('Nome do(a) farmacêutico(a) é obrigatório.'); return; }
+                  const crm = prompt('CRM do(a) farmacêutico(a):');
+                  if (!crm?.trim()) { alert('CRM do(a) farmacêutico(a) é obrigatório.'); return; }
+                  if (!window.confirm(`Confirmar dispensação?\n\nFarmácia: ${pharmacy.trim()}\nFarmacêutico(a): ${pharmacist.trim()}\nCRM: ${crm.trim()}`)) return;
                   setDispensing(true);
                   try {
-                    const res = await dispensePrescription(id!.trim(), code.trim(), pharmacy, pharmacist);
+                    const res = await dispensePrescription(id!.trim(), code.trim(), pharmacy.trim(), pharmacist.trim());
                     if (res.success) {
                       alert('Receita marcada como dispensada.');
                       setResult({ ...result, wasDispensed: true });
@@ -361,12 +367,15 @@ export default function Verify() {
                 disabled={dispensing}
                 onClick={async () => {
                   const pharmacy = prompt('Nome da farmácia/clínica/laboratório:');
-                  if (!pharmacy?.trim()) return;
+                  if (!pharmacy?.trim()) { alert('Nome da farmácia/clínica/laboratório é obrigatório.'); return; }
                   const pharmacist = prompt('Nome do(a) farmacêutico(a) ou responsável:');
-                  if (!pharmacist?.trim()) return;
+                  if (!pharmacist?.trim()) { alert('Nome do(a) responsável é obrigatório.'); return; }
+                  const crm = prompt('CRM do(a) responsável:');
+                  if (!crm?.trim()) { alert('CRM do(a) responsável é obrigatório.'); return; }
+                  if (!window.confirm(`Confirmar dispensação?\n\nLocal: ${pharmacy.trim()}\nResponsável: ${pharmacist.trim()}\nCRM: ${crm.trim()}`)) return;
                   setDispensing(true);
                   try {
-                    const res = await dispenseDocument(id!.trim(), code.trim(), pharmacy, pharmacist);
+                    const res = await dispenseDocument(id!.trim(), code.trim(), pharmacy.trim(), pharmacist.trim());
                     if (res.success) {
                       alert('Documento marcado como dispensado/utilizado.');
                       setDocResult({ ...docResult, wasDispensed: true, dispensedWarning: 'Dispensado/utilizado agora.' });
@@ -407,7 +416,7 @@ export default function Verify() {
           </div>
         )}
 
-        <div style={styles.guardrail} role="alert">
+        <div style={styles.guardrail} role="note" aria-label="Aviso importante">
           {GUARDRAIL_ALERT}
         </div>
 

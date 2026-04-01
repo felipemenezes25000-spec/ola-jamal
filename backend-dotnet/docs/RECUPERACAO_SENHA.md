@@ -9,8 +9,7 @@ Esse erro ocorre quando a tabela ainda não existe no PostgreSQL/RDS. **Escolha 
 1. Acesse [AWS RDS (migrations são aplicadas automaticamente no startup via MigrationRunner)
 2. Abra o projeto (ex.: `ifgxgppxsawauaceudec`).
 3. No menu lateral: **SQL Editor** → **New query**.
-4. Cole o conteúdo do arquivo **`docs/migrations/run_all_migrations.sql`** (cria `password_reset_tokens`, `chat_messages` e colunas de IA em `requests`) e clique em **Run**.  
-   Se quiser só recuperação de senha: use `docs/migrations/add_password_reset_tokens.sql`.
+4. Cole o conteúdo do arquivo **`docs/migrations/run_all_migrations_complete.sql`** (cria todas as tabelas e colunas necessárias) e clique em **Run**.
 
 ### Opção B – Migration automática na subida da API
 
@@ -25,7 +24,7 @@ Esse erro ocorre quando a tabela ainda não existe no PostgreSQL/RDS. **Escolha 
 Migration aplicada automaticamente via MigrationRunner no startup. Para aplicar manualmente, conecte ao RDS e execute:
 
 ```sql
--- Arquivo: docs/migrations/add_password_reset_tokens.sql
+-- Arquivo: docs/migrations/run_all_migrations_complete.sql (seção 1)
 CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,

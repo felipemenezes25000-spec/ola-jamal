@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Pressable,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,8 +24,6 @@ import { useRequestsQuery } from '../../lib/hooks/useRequestsQuery';
 import { getRequestUiState, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
 import RequestCard from '../../components/RequestCard';
 import { StatsCard } from '../../components/StatsCard';
-import { LargeActionCard } from '../../components/ui/LargeActionCard';
-import { InfoCard } from '../../components/ui/InfoCard';
 import { AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
@@ -41,7 +40,7 @@ import { getAssistantNextAction } from '../../lib/api';
 import { ExpiringDocsBanner } from '../../components/post-consultation/ExpiringDocsBanner';
 import type { AssistantNextActionResponseData } from '../../lib/api';
 import { motionTokens } from '../../lib/ui/motion';
-import { getGreeting } from '../../lib/utils/format';
+import { getGreeting, formatDateBR } from '../../lib/utils/format';
 
 export default function PatientHome() {
   const router = useRouter();
@@ -50,7 +49,9 @@ export default function PatientHome() {
   const { user } = useAuth();
   const { data: requests = [], isLoading: loading, refetch } = useRequestsQuery();
   const { colors, gradients } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { width: screenWidth } = useWindowDimensions();
+  const isCompact = screenWidth < 375;
+  const styles = useMemo(() => makeStyles(colors, screenWidth), [colors, screenWidth]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoCard, setShowInfoCard] = useState(true);
@@ -68,16 +69,16 @@ export default function PatientHome() {
     setRefreshing(true);
     try {
       await refetch();
-      showToast({ message: 'Início atualizado', type: 'success' });
+      showToast({ message: 'Inicio atualizado', type: 'success' });
     } catch {
-      showToast({ message: 'Não foi possível atualizar o início', type: 'error' });
+      showToast({ message: 'Nao foi possivel atualizar o inicio', type: 'error' });
     } finally {
       setRefreshing(false);
     }
   }, [refetch]);
 
   const derived = useMemo(() => {
-    let pending = 0, ready = 0;
+    let pending = 0, ready = 0, total = 0, active = 0, completed = 0;
     let prescriptionCount = 0, examCount = 0;
     let lastConsultation: RequestResponseDto | null = null;
     let lastSignedPrescription: RequestResponseDto | null = null;
@@ -93,9 +94,16 @@ export default function PatientHome() {
     let followUpPriority = -1;
 
     for (const r of requests) {
+      total++;
       const ui = getRequestUiState(r);
       if (ui.uiState === 'needs_action') pending++;
       if (isSignedOrDelivered(r)) ready++;
+
+      if (terminalStatuses.includes(r.status)) {
+        completed++;
+      } else {
+        active++;
+      }
 
       if (r.requestType === 'prescription') {
         prescriptionCount++;
@@ -143,7 +151,7 @@ export default function PatientHome() {
       : requests.slice(0, 2);
 
     return {
-      stats: { pending, ready },
+      stats: { pending, ready, total, active, completed },
       recentPrescriptionCount: prescriptionCount,
       recentExamCount: examCount,
       lastConsultation,
@@ -177,12 +185,13 @@ export default function PatientHome() {
 
   const firstName = user?.name?.split(' ')[0] || 'Paciente';
   const initial = firstName[0]?.toUpperCase() || 'P';
+  const todayFormatted = useMemo(() => formatDateBR(new Date()), []);
 
   const [followUpActionFromApi, setFollowUpActionFromApi] = useState<AssistantNextActionResponseData | null>(null);
 
-  // PERF: cache em memória das respostas do assistente para evitar re-fetch em toda
-  // navegação quando o mesmo pedido ainda está em andamento.
-  // Chave: requestId:status — invalida automaticamente quando o status muda.
+  // PERF: cache em memoria das respostas do assistente para evitar re-fetch em toda
+  // navegacao quando o mesmo pedido ainda esta em andamento.
+  // Chave: requestId:status -- invalida automaticamente quando o status muda.
   const assistantCacheRef = React.useRef<Map<string, AssistantNextActionResponseData>>(new Map());
 
   useEffect(() => {
@@ -202,7 +211,7 @@ export default function PatientHome() {
     getAssistantNextAction({ requestId: currentFollowUp.id })
       .then((res) => {
         if (!cancelled) {
-          // Guarda no cache (máximo 20 entradas para não vazar memória)
+          // Guarda no cache (maximo 20 entradas para nao vazar memoria)
           if (assistantCacheRef.current.size >= 20) {
             const firstKey = assistantCacheRef.current.keys().next().value;
             if (firstKey) assistantCacheRef.current.delete(firstKey);
@@ -252,6 +261,14 @@ export default function PatientHome() {
     requestType: followUpRequest?.requestType as any,
   });
 
+  // Hero card message
+  const heroMessage = useMemo(() => {
+    if (stats.active > 0) {
+      return `Voce tem ${stats.active} pedido${stats.active > 1 ? 's' : ''} em andamento`;
+    }
+    return 'Seu historico de saude esta aqui. Crie um novo pedido quando precisar.';
+  }, [stats.active]);
+
   return (
     <View style={styles.container}>
       {loading ? (
@@ -273,17 +290,21 @@ export default function PatientHome() {
             />
           }
         >
-      {/* ─── HEADER REDESIGN: mais limpo, saudação por horário ─── */}
-      <LinearGradient
-        colors={gradients.patientHeader as [string, string, ...string[]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
-      >
+
+      {/* ================================================================
+          HEADER: Greeting + Date + Avatar
+         ================================================================ */}
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerRow}>
-          <View style={styles.headerGreeting}>
-            <Text style={styles.headerGreetingLabel}>{getGreeting()},</Text>
-            <Text style={styles.headerGreetingName} numberOfLines={1} ellipsizeMode="tail">{firstName}</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerDate}>{todayFormatted}</Text>
+            <Text
+              style={[styles.headerGreeting, isCompact && { fontSize: 22 }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {getGreeting()}, {firstName}!
+            </Text>
           </View>
           <Pressable
             style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }]}
@@ -295,7 +316,7 @@ export default function PatientHome() {
             {user?.avatarUrl && !avatarError ? (
               <Image
                 source={{ uri: user.avatarUrl }}
-                style={{ width: '100%', height: '100%', borderRadius: 16 }}
+                style={{ width: '100%', height: '100%', borderRadius: 24 }}
                 resizeMode="cover"
                 onError={() => setAvatarError(true)}
               />
@@ -304,14 +325,61 @@ export default function PatientHome() {
             )}
           </Pressable>
         </View>
-      </LinearGradient>
+      </View>
 
-      {/* ─── STATS: cards flutuantes (sem fluxo de pagamento) ─── */}
-            <View style={styles.statsRow}>
+      {/* ================================================================
+          HERO CARD: Gradient status + CTA
+         ================================================================ */}
+      <View style={styles.heroSection}>
+        <LinearGradient
+          colors={gradients.patientHeader as [string, string, ...string[]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <View style={styles.heroContent}>
+            <View style={styles.heroIconRow}>
+              <View style={styles.heroIconContainer}>
+                <Ionicons name="heart-circle" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.heroStatusLabel}>SUA SAUDE</Text>
+            </View>
+            <Text style={styles.heroMessage}>{heroMessage}</Text>
+            <Pressable
+              style={({ pressed }) => [styles.heroCta, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+              onPress={() => {
+                haptics.light();
+                router.push('/new-request/prescription');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Criar novo pedido"
+            >
+              <Ionicons name="add-circle" size={18} color={colors.primary} />
+              <Text style={styles.heroCtaText}>Novo pedido</Text>
+            </Pressable>
+          </View>
+          {/* Decorative circle */}
+          <View style={styles.heroDecorCircle} />
+          <View style={styles.heroDecorCircle2} />
+        </LinearGradient>
+      </View>
+
+      {/* ================================================================
+          STATS ROW: Total / Active / Completed
+         ================================================================ */}
+      <View style={styles.statsRow}>
         <StatsCard
-          icon="analytics"
+          icon="documents"
           label={DASHBOARD_STATS_LABELS.analyzing}
-          value={stats.pending}
+          value={stats.total}
+          iconColor={colors.primary}
+          iconBgColor={colors.primarySoft}
+          onPress={() => router.push('/(patient)/requests')}
+        />
+        <StatsCard
+          icon="time"
+          label="Ativos"
+          value={stats.active}
           iconColor={colors.warning}
           iconBgColor={colors.warningLight}
           onPress={() => router.push('/(patient)/requests')}
@@ -319,14 +387,16 @@ export default function PatientHome() {
         <StatsCard
           icon="shield-checkmark"
           label={DASHBOARD_STATS_LABELS.ready}
-          value={stats.ready}
+          value={stats.completed}
           iconColor={colors.success}
           iconBgColor={colors.successLight}
           onPress={() => router.push('/(patient)/requests')}
         />
       </View>
 
-      {/* ─── Follow-up Card (Dra. Renoveja) ─── */}
+      {/* ================================================================
+          FOLLOW-UP CARD (Dra. Renoveja)
+         ================================================================ */}
       {followUpRequest && followUpAction ? (
         <View style={styles.section}>
           <Pressable
@@ -340,10 +410,12 @@ export default function PatientHome() {
                 <Ionicons name="sparkles" size={16} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.followUpLabel}>Próximo passo</Text>
+                <Text style={styles.followUpLabel}>PROXIMO PASSO</Text>
                 <Text style={styles.followUpTitle}>{followUpAction.title}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} importantForAccessibility="no" />
+              <View style={styles.followUpChevron}>
+                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+              </View>
             </View>
             <Text style={styles.followUpBody}>{followUpAction.whatToDo}</Text>
             {followUpAction.eta ? (
@@ -356,97 +428,13 @@ export default function PatientHome() {
         </View>
       ) : null}
 
-      {/* ─── InfoCard da triagem ─── */}
-            {showInfoCard && (
-        <View style={styles.aiBannerWrap}>
-          <InfoCard
-            icon="sparkles-outline"
-            title="Triagem feita com IA"
-            description="Leitura inteligente de receitas e exames para agilizar seu atendimento."
-            badge="Tecnologia RenoveJá+"
-            onDismiss={async () => {
-              await dismissHomeInfoCard();
-              setShowInfoCard(false);
-            }}
-          />
-        </View>
-      )}
-
-      {/* ─── Quick Actions ─── */}
-            <View style={styles.actionsSection}>
-        <Text style={styles.sectionLabel}>O QUE VOCÊ PRECISA?</Text>
-        <View style={styles.actionsColumn}>
-          <LargeActionCard
-            icon={
-              <View style={[styles.actionIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name="document-text" size={22} color={colors.primary} />
-              </View>
-            }
-            title="Renovar Receita"
-            description="Solicitar renovação de receita médica"
-            variant="primary"
-            onPress={() => router.push('/new-request/prescription')}
-            accessibilityLabel="Solicitar renovação de receita médica"
-          />
-          <LargeActionCard
-            icon={
-              <View style={[styles.actionIconBox, { backgroundColor: colors.infoLight }]}>
-                <Ionicons name="flask" size={22} color={colors.info} />
-              </View>
-            }
-            title="Pedir Exame"
-            description="Solicitar exames e laudos"
-            variant="exam"
-            onPress={() => router.push('/new-request/exam')}
-            accessibilityLabel="Solicitar pedido de exame"
-          />
-          <LargeActionCard
-            icon={
-              <View style={[styles.actionIconBox, { backgroundColor: colors.successLight }]}>
-                <Ionicons name="videocam" size={22} color={colors.success} />
-              </View>
-            }
-            title="Consulta Breve +"
-            description="Atendimento por vídeo com o médico"
-            variant="consultation"
-            onPress={() => router.push('/new-request/consultation')}
-            accessibilityLabel="Agendar consulta por vídeo"
-          />
-        </View>
-      </View>
-
-      {/* ─── Record Card v2 ─── */}
-            <View style={styles.section}>
-        <Pressable
-          style={({ pressed }) => [styles.recordCard, pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] }]}
-          onPress={() => {
-            haptics.selection();
-            router.push('/(patient)/record');
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir meu prontuário médico"
-        >
-          <View style={styles.recordIconWrap}>
-            <Ionicons name="folder-open" size={22} color={colors.primary} />
-          </View>
-          <View style={styles.recordTextWrap}>
-            <Text style={styles.recordTitle}>Meu Prontuário</Text>
-            <Text style={styles.recordSubtitle}>Histórico de atendimentos, receitas e exames</Text>
-          </View>
-          <View style={styles.recordChevron}>
-            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-          </View>
-        </Pressable>
-      </View>
-
-      {/* ─── Receitas vencendo ─── */}
-      {requests.length > 0 && <ExpiringDocsBanner requests={requests} />}
-
-      {/* ─── Recent Requests ─── */}
-            {recentRequests.length > 0 ? (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pedidos recentes</Text>
+      {/* ================================================================
+          ACTIVE REQUESTS: Horizontal scroll
+         ================================================================ */}
+      {recentRequests.length > 0 ? (
+        <View style={styles.sectionNoPad}>
+          <View style={[styles.sectionHeader, { paddingHorizontal: dsLayout.screenPaddingHorizontal }]}>
+            <Text style={styles.sectionLabel}>PEDIDOS RECENTES</Text>
             <Pressable
               onPress={() => {
                 haptics.selection();
@@ -460,29 +448,161 @@ export default function PatientHome() {
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
           </View>
-          {recentRequests.map((req) => (
-            <RequestCard
-              key={req.id}
-              request={req}
-              onPress={() => {
-                haptics.selection();
-                router.push(`/request-detail/${req.id}`);
-              }}
-              suppressHorizontalMargin
-            />
-          ))}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalRequestsContent}
+          >
+            {recentRequests.map((req) => (
+              <View key={req.id} style={styles.horizontalRequestCard}>
+                <RequestCard
+                  request={req}
+                  onPress={() => {
+                    haptics.selection();
+                    router.push(`/request-detail/${req.id}`);
+                  }}
+                  suppressHorizontalMargin
+                />
+              </View>
+            ))}
+          </ScrollView>
         </View>
       ) : (
         <View style={styles.section}>
+          <Text style={styles.sectionLabel}>PEDIDOS RECENTES</Text>
           <AppEmptyState
             icon="document-text-outline"
             title="Nenhum pedido ainda"
-            subtitle="Crie sua primeira solicitação usando as opções acima"
+            subtitle="Crie sua primeira solicitacao usando as opcoes abaixo"
           />
         </View>
       )}
 
-          <View style={{ height: dsLayout.cardGap * 3 }} />
+      {/* ================================================================
+          QUICK ACTIONS: 3-column grid
+         ================================================================ */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>O QUE VOCE PRECISA?</Text>
+        <View style={styles.quickActionsGrid}>
+          <Pressable
+            style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+            onPress={() => { haptics.light(); router.push('/new-request/prescription'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Solicitar renovacao de receita medica"
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="document-text" size={20} color={colors.primary} />
+            </View>
+            <Text style={styles.quickActionTitle} numberOfLines={2}>Nova Receita</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+            onPress={() => { haptics.light(); router.push('/new-request/exam'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Solicitar pedido de exame"
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.successLight }]}>
+              <Ionicons name="flask" size={20} color={colors.success} />
+            </View>
+            <Text style={styles.quickActionTitle} numberOfLines={2}>Novo Exame</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+            onPress={() => { haptics.light(); router.push('/new-request/consultation'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Agendar consulta por video"
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: '#EDE9FE' }]}>
+              <Ionicons name="videocam" size={20} color="#8B5CF6" />
+            </View>
+            <Text style={styles.quickActionTitle} numberOfLines={2}>Consulta</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ================================================================
+          SUS INFO BANNER
+         ================================================================ */}
+      <View style={styles.section}>
+        <View style={styles.susBanner}>
+          <View style={styles.susBannerIcon}>
+            <Ionicons name="shield-checkmark" size={18} color={colors.success} />
+          </View>
+          <View style={styles.susBannerText}>
+            <Text style={styles.susBannerTitle}>Atendimento 100% gratuito via SUS</Text>
+            <Text style={styles.susBannerSubtitle}>Todos os servicos sao cobertos pelo Sistema Unico de Saude</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ================================================================
+          AI TRIAGE INFO CARD
+         ================================================================ */}
+      {showInfoCard && (
+        <View style={styles.section}>
+          <View style={styles.triageCard}>
+            <View style={styles.triageHeader}>
+              <View style={styles.triageIconWrap}>
+                <Ionicons name="sparkles" size={18} color="#8B5CF6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.triageBadge}>TECNOLOGIA RENOVEJA+</Text>
+                <Text style={styles.triageTitle}>Triagem feita com IA</Text>
+              </View>
+              <Pressable
+                onPress={async () => {
+                  await dismissHomeInfoCard();
+                  setShowInfoCard(false);
+                }}
+                style={({ pressed }) => [styles.triageDismiss, pressed && { opacity: 0.6 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Dispensar"
+                hitSlop={12}
+              >
+                <Ionicons name="close" size={16} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={styles.triageDescription}>
+              Leitura inteligente de receitas e exames para agilizar seu atendimento.
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ================================================================
+          RECORD CARD
+         ================================================================ */}
+      <View style={styles.section}>
+        <Pressable
+          style={({ pressed }) => [styles.recordCard, pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] }]}
+          onPress={() => {
+            haptics.selection();
+            router.push('/(patient)/record');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir meu prontuario medico"
+        >
+          <View style={styles.recordIconWrap}>
+            <Ionicons name="folder-open" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.recordTextWrap}>
+            <Text style={styles.recordTitle}>Meu Prontuario</Text>
+            <Text style={styles.recordSubtitle}>Historico de atendimentos, receitas e exames</Text>
+          </View>
+          <View style={styles.recordChevron}>
+            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+          </View>
+        </Pressable>
+      </View>
+
+      {/* ================================================================
+          EXPIRING DOCS BANNER
+         ================================================================ */}
+      {requests.length > 0 && <ExpiringDocsBanner requests={requests} />}
+
+      <View style={{ height: dsLayout.cardGap * 3 }} />
         </ScrollView>
         </FadeIn>
       )}
@@ -490,250 +610,455 @@ export default function PatientHome() {
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, screenWidth: number) {
+  const isCompact = screenWidth < 375;
+  const isTablet = screenWidth >= 768;
+  const hPad = dsLayout.screenPaddingHorizontal;
+
   return StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {},
-  loadingContainer: {
-    flex: 1,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
-    paddingTop: 80,
-    backgroundColor: colors.background,
-  },
+    container: {
+      flex: 1,
+      backgroundColor: '#F8FAFC',
+    },
+    content: {},
+    loadingContainer: {
+      flex: 1,
+      paddingHorizontal: hPad,
+      paddingTop: 80,
+      backgroundColor: '#F8FAFC',
+    },
 
-  // ─── Header v2: mais compacto e limpo ───
-  header: {
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
-    paddingBottom: 56,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerGreeting: { flex: 1 },
-  headerGreetingLabel: {
-    fontSize: 14,
-    fontFamily: 'PlusJakartaSans_500Medium',
-    fontWeight: '500',
-    color: colors.headerOverlayTextMuted,
-    marginBottom: 2,
-  },
-  headerGreetingName: {
-    fontSize: 26,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontWeight: '800',
-    color: colors.headerOverlayText,
-    letterSpacing: -0.3,
-  },
-  avatarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: colors.headerOverlaySurface,
-    borderWidth: 2,
-    overflow: 'hidden',
-    borderColor: colors.headerOverlayBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    fontSize: 18,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontWeight: '700',
-    color: colors.headerOverlayText,
-  },
+    // ================================================================
+    // HEADER
+    // ================================================================
+    header: {
+      paddingHorizontal: hPad,
+      paddingBottom: 20,
+      backgroundColor: '#F8FAFC',
+    },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    headerLeft: {
+      flex: 1,
+      marginRight: 16,
+    },
+    headerDate: {
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans_500Medium',
+      fontWeight: '500',
+      color: colors.textMuted,
+      marginBottom: 4,
+    },
+    headerGreeting: {
+      fontSize: isCompact ? 22 : 26,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+      letterSpacing: -0.3,
+    },
+    avatarBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 2,
+      overflow: 'hidden',
+      borderColor: colors.primary + '30',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarInitial: {
+      fontSize: 18,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.primary,
+    },
 
-  // ─── Stats v2 ───
-  statsRow: {
-    flexDirection: 'row',
-    gap: 14,
-    marginTop: -48,
-    marginBottom: 8,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
-    zIndex: 10,
-    position: 'relative',
-  },
+    // ================================================================
+    // HERO CARD
+    // ================================================================
+    heroSection: {
+      paddingHorizontal: hPad,
+      marginBottom: 20,
+    },
+    heroCard: {
+      borderRadius: 20,
+      padding: 20,
+      overflow: 'hidden',
+      minHeight: 150,
+      justifyContent: 'center',
+    },
+    heroContent: {
+      zIndex: 1,
+    },
+    heroIconRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 10,
+    },
+    heroIconContainer: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroStatusLabel: {
+      fontSize: 11,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: 'rgba(255,255,255,0.85)',
+      letterSpacing: 1.0,
+      textTransform: 'uppercase',
+    },
+    heroMessage: {
+      fontSize: 16,
+      fontFamily: 'PlusJakartaSans_500Medium',
+      fontWeight: '500',
+      color: '#FFFFFF',
+      lineHeight: 22,
+      marginBottom: 16,
+      maxWidth: '85%',
+    },
+    heroCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 6,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      ...dsShadows.sm,
+    },
+    heroCtaText: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    heroDecorCircle: {
+      position: 'absolute',
+      right: -30,
+      top: -30,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    heroDecorCircle2: {
+      position: 'absolute',
+      right: 40,
+      bottom: -40,
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: 'rgba(255,255,255,0.06)',
+    },
 
-  // ─── AI Banner ───
-  aiBannerWrap: {
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
-    marginTop: 28,
-  },
+    // ================================================================
+    // STATS ROW
+    // ================================================================
+    statsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 8,
+      paddingHorizontal: hPad,
+    },
 
-  // ─── Sections ───
-  section: {
-    marginTop: 28,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: -0.1,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontWeight: '700',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 14,
-  },
-  seeAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
+    // ================================================================
+    // FOLLOW-UP CARD
+    // ================================================================
+    followUpCard: {
+      backgroundColor: colors.surface,
+      borderRadius: dsBorderRadius.card,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.primary + '20',
+      ...dsShadows.card,
+    },
+    followUpHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    followUpIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    followUpLabel: {
+      fontSize: 11,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    followUpTitle: {
+      marginTop: 2,
+      fontSize: 15,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+    },
+    followUpChevron: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    followUpBody: {
+      marginTop: 12,
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textSecondary,
+      lineHeight: 19,
+    },
+    followUpEtaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    followUpEta: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans_500Medium',
+      color: colors.textMuted,
+    },
 
-  // ─── Actions v2 ───
-  actionsSection: {
-    marginTop: 32,
-    paddingHorizontal: dsLayout.screenPaddingHorizontal,
-  },
-  actionsColumn: {
-    flexDirection: 'column',
-    gap: 12,
-  },
-  actionIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+    // ================================================================
+    // SECTIONS
+    // ================================================================
+    section: {
+      marginTop: 24,
+      paddingHorizontal: hPad,
+    },
+    sectionNoPad: {
+      marginTop: 24,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    sectionLabel: {
+      fontSize: 11,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 1.0,
+      marginBottom: 12,
+    },
+    seeAllBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+    },
+    seeAllText: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans_600SemiBold',
+      fontWeight: '600',
+      color: colors.primary,
+    },
 
-  // ─── Record Card v2 ───
-  recordCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: dsBorderRadius.card,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    ...dsShadows.card,
-  },
-  recordIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  recordTextWrap: { flex: 1 },
-  recordTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: colors.text,
-  },
-  recordSubtitle: {
-    fontSize: 13,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  recordChevron: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
+    // ================================================================
+    // HORIZONTAL REQUESTS
+    // ================================================================
+    horizontalRequestsContent: {
+      paddingHorizontal: hPad,
+      gap: 12,
+    },
+    horizontalRequestCard: {
+      width: isTablet ? 340 : Math.min(screenWidth * 0.78, 300),
+    },
 
-  // ─── Follow-up Card v2: mais limpo ───
-  followUpCard: {
-    backgroundColor: colors.surface,
-    borderRadius: dsBorderRadius.card,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.primary + '20',
-    ...dsShadows.card,
-  },
-  followUpHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  followUpIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  followUpLabel: {
-    fontSize: 11,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  followUpTitle: {
-    marginTop: 1,
-    fontSize: 15,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: colors.text,
-  },
-  followUpBody: {
-    marginTop: 10,
-    fontSize: 13,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: colors.textSecondary,
-    lineHeight: 19,
-  },
-  followUpEtaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  followUpEta: {
-    fontSize: 12,
-    fontFamily: 'PlusJakartaSans_500Medium',
-    color: colors.textMuted,
-  },
-  followUpPayCta: {
-    marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    minHeight: 46,
-  },
-  followUpPayCtaText: {
-    color: colors.headerOverlayText,
-    fontSize: 14,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontWeight: '700',
-  },
+    // ================================================================
+    // QUICK ACTIONS: 3-column grid
+    // ================================================================
+    quickActionsGrid: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    quickAction: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: dsBorderRadius.card,
+      paddingVertical: 18,
+      paddingHorizontal: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      ...dsShadows.card,
+    },
+    quickActionIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
+    },
+    quickActionTitle: {
+      fontSize: isCompact ? 11 : 12,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+      lineHeight: 16,
+    },
+
+    // ================================================================
+    // SUS BANNER
+    // ================================================================
+    susBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#F0FDF4',
+      borderRadius: dsBorderRadius.card,
+      padding: 14,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: '#DCFCE7',
+    },
+    susBannerIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: '#DCFCE7',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    susBannerText: {
+      flex: 1,
+    },
+    susBannerTitle: {
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: '#15803D',
+    },
+    susBannerSubtitle: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: '#16A34A',
+      marginTop: 2,
+      lineHeight: 16,
+    },
+
+    // ================================================================
+    // AI TRIAGE CARD (purple accent)
+    // ================================================================
+    triageCard: {
+      backgroundColor: colors.surface,
+      borderRadius: dsBorderRadius.card,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: '#8B5CF620',
+      ...dsShadows.card,
+    },
+    triageHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10,
+    },
+    triageIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: '#EDE9FE',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    triageBadge: {
+      fontSize: 10,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: '#8B5CF6',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    triageTitle: {
+      fontSize: 15,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: 2,
+    },
+    triageDismiss: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    triageDescription: {
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textSecondary,
+      lineHeight: 19,
+    },
+
+    // ================================================================
+    // RECORD CARD
+    // ================================================================
+    recordCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: dsBorderRadius.card,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      ...dsShadows.card,
+    },
+    recordIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    recordTextWrap: { flex: 1 },
+    recordTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      fontFamily: 'PlusJakartaSans_700Bold',
+      color: colors.text,
+    },
+    recordSubtitle: {
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans_400Regular',
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    recordChevron: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: colors.surfaceSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 8,
+    },
   });
 }

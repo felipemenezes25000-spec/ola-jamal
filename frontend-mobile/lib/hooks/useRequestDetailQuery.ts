@@ -9,7 +9,7 @@ import {
 import type { RequestResponseDto } from '../../types/database';
 import { REQUESTS_QUERY_KEY } from './useRequestsQuery';
 
-const AWAITING_STATUSES = ['approved', 'searching_doctor'] as const;
+const AWAITING_STATUSES = ['approved', 'searching_doctor', 'in_consultation', 'pending_post_consultation'] as const;
 
 // ── Query Key Factory ───────────────────────────────────────────
 

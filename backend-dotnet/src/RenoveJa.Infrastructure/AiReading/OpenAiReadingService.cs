@@ -171,7 +171,7 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
 
         var userParts = new List<object>();
         if (hasText)
-            userParts.Add(new { type = "text", text = $"Texto do pedido de exame:\n{textDescription}" });
+            userParts.Add(new { type = "text", text = $"Texto do pedido de exame:\n{PromptSanitizer.SanitizeForPrompt(textDescription)}" });
         if (hasImages)
         {
             userParts.Add(new { type = "text", text = "Analise também a(s) imagem(ns) abaixo." });
@@ -250,7 +250,8 @@ Responda APENAS com o JSON, sem markdown e sem texto antes ou depois.
                 {
                     _logger.LogInformation("IA receita: Fallback para Gemini após falha OpenAI.");
                     var url = !string.IsNullOrWhiteSpace(_config.Value?.GeminiApiBaseUrl) ? _config.Value!.GeminiApiBaseUrl!.Trim() : GeminiBaseUrl;
-                    return await CallChatAsync(systemPrompt, userContent, geminiKey, url, "gemini-2.5-flash", cancellationToken);
+                    var clonedContent = new List<object>(userContent);
+                    return await CallChatAsync(systemPrompt, clonedContent, geminiKey, url, "gemini-2.5-flash", cancellationToken);
                 }
                 throw new InvalidOperationException($"IA API error: {response.StatusCode}. {err}");
             }

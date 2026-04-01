@@ -30,12 +30,10 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { showToast } from '../../components/ui/Toast';
 import { useInvalidateRequests } from '../../lib/hooks/useRequestsQuery';
 
-const t = theme;
-const s = t.spacing;
-const r = t.borderRadius;
-const typo = t.typography;
+const s = theme.spacing;
+const _r = theme.borderRadius;
+const ty = theme.typography;
 
-/** Previsão ANVISA exibida nos receituários ainda não liberados (AZUL e AMARELO). */
 const ANVISA_PREVISAO = 'Liberação conforme regulamentação ANVISA. Previsão de liberação a ser divulgada.';
 
 const TYPES = [
@@ -106,7 +104,7 @@ export default function NewPrescription() {
         })
         .catch(() => { if (!cancelled) setApiResult(null); })
         .finally(() => { if (!cancelled) setApiLoading(false); });
-    }, 500); // debounce 500ms
+    }, 500);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [selectedType, images.length]);
 
@@ -156,7 +154,6 @@ export default function NewPrescription() {
     }
   };
 
-  /** Dra. Renoveja: dicas por etapa (tipo, fotos). */
   useTriageEval({
     context: 'prescription',
     step: images.length > 0 ? 'photos_added' : 'type_selected',
@@ -192,7 +189,6 @@ export default function NewPrescription() {
         medications: undefined,
         images,
       });
-      // A IA analisa na hora – se rejeitou, avisar imediatamente (não dizer sucesso)
       if (result.request?.status === 'rejected') {
         const msg =
           result.request.aiMessageToUser ||
@@ -239,99 +235,146 @@ export default function NewPrescription() {
 
   return (
     <Screen scroll={false} edges={['top', 'bottom']} padding={false}>
-      <View style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={[styles.body, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
+      <View style={styles.flex1}>
+        <ScrollView
+          contentContainerStyle={[styles.body, { paddingBottom: listPadding }]}
+          showsVerticalScrollIndicator={false}
+        >
           <AppHeader title="Renovação de Receita" />
-          <StepIndicator current={currentStep} total={3} labels={['Tipo', 'Foto', 'Revisão']} showConnectorLines={false} />
+          <StepIndicator
+            current={currentStep}
+            total={3}
+            labels={['Tipo', 'Foto', 'Revisão']}
+            showConnectorLines={false}
+          />
+
           {isConnected === false && (
             <View style={styles.offlineBanner}>
               <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
               <Text style={styles.offlineText}>Você está offline. Não será possível enviar até reconectar.</Text>
             </View>
           )}
-          <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
-            <View style={styles.assistantHeader}>
-              <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
-              <Text style={styles.assistantTitle}>Dra. Renoveja: qualidade do envio</Text>
+
+          {/* AI Completeness Card */}
+          <View style={[styles.completenessCard, apiLoading && styles.completenessCardLoading]}>
+            <View style={styles.completenessHeader}>
+              <View style={styles.completenessIconWrap}>
+                <Ionicons name="sparkles" size={16} color="#8B5CF6" />
+              </View>
+              <Text style={styles.completenessTitle}>Qualidade do envio</Text>
               {apiLoading && (
-                <ActivityIndicator size="small" color={colors.primary} style={styles.assistantLoading} />
+                <ActivityIndicator size="small" color={colors.primary} style={styles.mlAuto} />
               )}
             </View>
-            <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${completeness.score}%`,
+                    backgroundColor: completeness.score === 100 ? '#22C55E' : colors.primary,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.completenessScore}>{completeness.score}% pronto</Text>
             {completeness.missingRequired.map((item) => (
-              <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
+              <View key={item.id} style={styles.missingRow}>
+                <Ionicons name="ellipse-outline" size={12} color={colors.textMuted} />
+                <Text style={styles.missingText}>{item.label}</Text>
+              </View>
             ))}
-            {completeness.missingRequired.length === 0 ? (
-              <Text style={styles.assistantGood}>Tudo certo para enviar. Vamos finalizar.</Text>
-            ) : null}
-          </AppCard>
+            {completeness.missingRequired.length === 0 && (
+              <View style={styles.missingRow}>
+                <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                <Text style={styles.readyText}>Tudo certo para enviar</Text>
+              </View>
+            )}
+          </View>
 
           {/* Type Selection */}
-          <Text style={styles.sectionLabel}>TIPO DE RECEITA</Text>
-          {TYPES.map(type => {
-            const isComingSoon = 'comingSoon' in type && type.comingSoon;
-            const isSelectable = !isComingSoon && (type.key === 'simples' || type.key === 'controlado');
-            return (
-              <AppCard
-                key={type.key}
-                selected={isSelectable && selectedType === type.key}
-                onPress={isSelectable ? () => setSelectedType(type.key) : undefined}
-                style={StyleSheet.flatten(isComingSoon ? [styles.typeCard, styles.typeCardDisabled] : styles.typeCard)}
-              >
-                <View style={styles.typeContent}>
-                  <View style={styles.typeTextContainer}>
-                    <View style={styles.typeTitleRow}>
-                      <Text
-                        style={[
-                          styles.typeName,
-                          selectedType === type.key && styles.typeNameSelected,
-                          isComingSoon && styles.typeNameDisabled,
-                        ]}
-                      >
-                        {type.label}
-                      </Text>
-                      {type.popular && (
-                        <View style={styles.popularBadge}>
-                          <Text style={styles.popularText}>POPULAR</Text>
+          <Text style={styles.sectionLabel}>Tipo de receita</Text>
+          <View style={styles.typeList}>
+            {TYPES.map(type => {
+              const isComingSoon = 'comingSoon' in type && type.comingSoon;
+              const isSelectable = !isComingSoon && (type.key === 'simples' || type.key === 'controlado');
+              const isSelected = isSelectable && selectedType === type.key;
+              return (
+                <AppCard
+                  key={type.key}
+                  selected={isSelected}
+                  onPress={isSelectable ? () => setSelectedType(type.key) : undefined}
+                  style={StyleSheet.flatten([
+                    styles.typeCard,
+                    isComingSoon && styles.typeCardDisabled,
+                  ])}
+                >
+                  <View style={styles.typeRow}>
+                    <View style={styles.typeRadio}>
+                      {isSelected ? (
+                        <View style={styles.typeRadioSelected}>
+                          <View style={styles.typeRadioDot} />
                         </View>
-                      )}
-                      {isComingSoon && (
-                        <View style={styles.comingSoonBadge}>
-                          <Text style={styles.comingSoonText}>Em breve</Text>
-                        </View>
+                      ) : (
+                        <View style={[
+                          styles.typeRadioEmpty,
+                          isComingSoon && styles.typeRadioDisabled,
+                        ]} />
                       )}
                     </View>
-                    <Text style={[styles.typeDesc, isComingSoon && styles.typeDescDisabled]}>{type.desc}</Text>
-                    {isComingSoon && 'anvisaPrevisao' in type && type.anvisaPrevisao && (
-                      <Text style={styles.anvisaPrevisao}>{type.anvisaPrevisao}</Text>
-                    )}
+                    <View style={styles.typeTextContainer}>
+                      <View style={styles.typeTitleRow}>
+                        <Text
+                          style={[
+                            styles.typeName,
+                            isSelected && styles.typeNameSelected,
+                            isComingSoon && styles.typeNameDisabled,
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {type.label}
+                        </Text>
+                        {'popular' in type && type.popular && (
+                          <View style={styles.popularBadge}>
+                            <Text style={styles.popularText}>POPULAR</Text>
+                          </View>
+                        )}
+                        {isComingSoon && (
+                          <View style={styles.comingSoonBadge}>
+                            <Text style={styles.comingSoonText}>Em breve</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[styles.typeDesc, isComingSoon && styles.typeDescDisabled]}
+                        numberOfLines={4}
+                      >
+                        {type.desc}
+                      </Text>
+                      {isComingSoon && 'anvisaPrevisao' in type && type.anvisaPrevisao && (
+                        <Text style={styles.anvisaPrevisao}>{type.anvisaPrevisao}</Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-                {isSelectable && selectedType === type.key && (
-                  <View style={styles.checkIcon} pointerEvents="none">
-                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-                  </View>
-                )}
-              </AppCard>
-            );
-          })}
+                </AppCard>
+              );
+            })}
+          </View>
 
-          {/* Photo */}
-          <Text style={styles.sectionLabel}>FOTO DA RECEITA</Text>
+          {/* Photo Upload */}
+          <Text style={styles.sectionLabel}>Foto da receita</Text>
 
-          {/* Warning card — prominente, não pode ser ignorado */}
-          <View style={styles.photoWarningCard}>
-            <Ionicons name="warning" size={18} color={colors.warning} />
-            <Text style={styles.photoWarningText}>
-              Envie <Text style={styles.photoWarningBold}>somente</Text> fotos da receita (papel ou tela). Outras imagens serão rejeitadas.
+          <View style={styles.warningCard}>
+            <Ionicons name="warning" size={16} color={colors.warning} />
+            <Text style={styles.warningText}>
+              Envie <Text style={styles.warningBold}>somente</Text> fotos da receita (papel ou tela). Outras imagens serão rejeitadas.
             </Text>
           </View>
 
-          {/* Status: fotos adicionadas ou prompt para adicionar */}
           {images.length > 0 ? (
             <View style={styles.photoStatusRow}>
-              <View style={styles.photoStatusSuccess}>
-                <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <View style={styles.photoStatusLeft}>
+                <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                 <Text style={styles.photoStatusText}>
                   {images.length} foto{images.length > 1 ? 's' : ''} adicionada{images.length > 1 ? 's' : ''}
                 </Text>
@@ -345,7 +388,7 @@ export default function NewPrescription() {
             </View>
           )}
 
-          <View style={styles.photoRow}>
+          <View style={styles.photoButtons}>
             <Pressable
               style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]}
               onPress={pickImage}
@@ -353,9 +396,9 @@ export default function NewPrescription() {
               accessibilityLabel="Tirar foto da receita com a câmera"
             >
               <View style={styles.photoIconCircle}>
-                <Ionicons name="camera" size={26} color={colors.primary} />
+                <Ionicons name="camera" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.photoButtonText}>Câmera</Text>
+              <Text style={styles.photoButtonLabel}>Câmera</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]}
@@ -364,9 +407,9 @@ export default function NewPrescription() {
               accessibilityLabel="Escolher foto da receita na galeria"
             >
               <View style={styles.photoIconCircle}>
-                <Ionicons name="image" size={26} color={colors.primary} />
+                <Ionicons name="image" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.photoButtonText}>Galeria</Text>
+              <Text style={styles.photoButtonLabel}>Galeria</Text>
             </Pressable>
           </View>
 
@@ -391,18 +434,19 @@ export default function NewPrescription() {
 
           {/* Info */}
           <View style={styles.infoBox}>
-            <Ionicons name="information-circle" size={20} color={colors.info} />
+            <Ionicons name="time-outline" size={18} color={colors.info} />
             <Text style={styles.infoText}>
               Sua solicitação será analisada por um médico em até 15 minutos.
             </Text>
           </View>
         </ScrollView>
+
         <StickyCTA
           summaryTitle="Resumo"
           summaryValue={`${completeness.score}% pronto`}
           summaryHint={`${images.length} ${images.length === 1 ? 'foto anexada' : 'fotos anexadas'}`}
           primary={{
-            label: 'Enviar solicitação',
+            label: 'Enviar pedido',
             onPress: handleSubmit,
             loading,
             disabled: loading || images.length === 0 || isConnected === false,
@@ -415,6 +459,7 @@ export default function NewPrescription() {
 
 function makeStyles(colors: DesignColors) {
   return StyleSheet.create({
+    flex1: { flex: 1 },
     body: {
       flexGrow: 1,
       paddingHorizontal: uiTokens.screenPaddingHorizontal,
@@ -424,7 +469,7 @@ function makeStyles(colors: DesignColors) {
       backgroundColor: colors.warningLight,
       borderWidth: 1,
       borderColor: colors.warning,
-      borderRadius: r.sm,
+      borderRadius: 10,
       paddingVertical: s.sm,
       paddingHorizontal: s.sm,
       flexDirection: 'row',
@@ -432,198 +477,222 @@ function makeStyles(colors: DesignColors) {
       gap: s.xs,
     },
     offlineText: { flex: 1, color: colors.textSecondary, fontSize: 12 },
-    sectionLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      lineHeight: 16,
-      textTransform: 'uppercase',
-      color: colors.textSecondary,
-      marginTop: s.lg,
-      marginBottom: s.sm,
-    },
-    stepHint: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      marginBottom: s.sm,
-      lineHeight: 20,
-    },
-    assistantCard: {
+
+    /* Completeness Card */
+    completenessCard: {
       marginTop: s.md,
-      marginBottom: s.sm,
+      marginBottom: s.md,
+      padding: s.md,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.primarySoft,
-      backgroundColor: colors.primarySoft + '66',
-      shadowColor: 'transparent',
-      shadowOpacity: 0,
-      shadowRadius: 0,
-      shadowOffset: { width: 0, height: 0 },
-      elevation: 0,
+      borderColor: colors.border,
     },
-    assistantCardLoading: {
-      opacity: 0.95,
-    },
-    assistantLoading: {
-      marginLeft: 'auto',
-    },
-    assistantHeader: {
+    completenessCardLoading: { opacity: 0.9 },
+    completenessHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: s.xs,
+      marginBottom: s.sm,
     },
-    assistantTitle: {
+    completenessIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: '#8B5CF6' + '14',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    completenessTitle: {
       fontSize: 13,
-      fontWeight: typo.fontWeight.bold,
-      color: colors.primary,
-    },
-    assistantProgress: {
-      marginTop: 6,
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: typo.fontWeight.semibold,
+      fontWeight: '700',
       color: colors.text,
     },
-    assistantMissing: {
-      marginTop: 6,
-      fontSize: 12,
-      lineHeight: 18,
-      color: colors.textSecondary,
-      alignSelf: 'stretch',
-      flexShrink: 0,
+    mlAuto: { marginLeft: 'auto' },
+    progressBarBg: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.border,
+      marginBottom: 6,
+      overflow: 'hidden',
     },
-    assistantGood: {
-      marginTop: 8,
+    progressBarFill: {
+      height: 6,
+      borderRadius: 3,
+    },
+    completenessScore: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    missingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 4,
+    },
+    missingText: {
       fontSize: 12,
-      color: colors.success,
-      fontWeight: typo.fontWeight.semibold,
+      color: colors.textSecondary,
+      lineHeight: 16,
+    },
+    readyText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#22C55E',
+    },
+
+    /* Section */
+    sectionLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: s.lg,
+      marginBottom: s.sm,
+    },
+
+    /* Type Cards */
+    typeList: {
+      gap: s.sm,
     },
     typeCard: {
-      marginBottom: s.sm,
-      position: 'relative',
+      padding: s.md,
     },
     typeCardDisabled: {
-      opacity: 0.92,
-      backgroundColor: colors.surface,
+      opacity: 0.85,
+      backgroundColor: colors.surfaceSecondary,
     },
-    typeContent: {
+    typeRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    typeRadio: {
+      marginRight: s.sm,
+      marginTop: 2,
+    },
+    typeRadioSelected: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.primary,
       alignItems: 'center',
+      justifyContent: 'center',
+    },
+    typeRadioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.primary,
+    },
+    typeRadioEmpty: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.textMuted,
+    },
+    typeRadioDisabled: {
+      borderColor: colors.border,
     },
     typeTextContainer: {
       flex: 1,
-      marginRight: 36,
       minWidth: 0,
     },
     typeTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      flexWrap: 'wrap',
       gap: s.sm,
     },
     typeName: {
-      fontSize: typo.fontSize.md,
-      fontWeight: typo.fontWeight.semibold,
+      fontSize: ty.fontSize.md,
+      fontWeight: '600',
       color: colors.text,
     },
     typeNameSelected: {
       color: colors.primary,
     },
+    typeNameDisabled: {
+      color: colors.textMuted,
+    },
     popularBadge: {
-      backgroundColor: colors.primaryDark,
-      paddingHorizontal: s.sm,
-      paddingVertical: 4,
-      borderRadius: r.full,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 999,
     },
     popularText: {
-      fontSize: typo.fontSize.xs,
-      fontWeight: typo.fontWeight.bold,
-      color: colors.white,
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      textTransform: 'uppercase',
+    },
+    comingSoonBadge: {
+      backgroundColor: colors.border,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 999,
+    },
+    comingSoonText: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.textSecondary,
     },
     typeDesc: {
-      fontSize: typo.variants.caption.fontSize,
+      fontSize: 12,
       color: colors.textSecondary,
-      marginTop: 2,
-    },
-    typeNameDisabled: {
-      color: colors.textSecondary,
+      marginTop: 4,
+      lineHeight: 17,
     },
     typeDescDisabled: {
       color: colors.textMuted,
     },
-    comingSoonBadge: {
-      backgroundColor: colors.border,
-      paddingHorizontal: s.sm,
-      paddingVertical: 2,
-      borderRadius: r.full,
-    },
-    comingSoonText: {
-      fontSize: typo.fontSize.xs,
-      fontWeight: typo.fontWeight.semibold,
-      color: colors.textSecondary,
-    },
     anvisaPrevisao: {
-      fontSize: typo.fontSize.xs,
+      fontSize: 11,
       color: colors.textMuted,
       fontStyle: 'italic',
       marginTop: s.xs,
-      lineHeight: 18,
-      flexShrink: 0,
+      lineHeight: 16,
     },
-    typePriceContainer: {
-      alignItems: 'flex-end',
-    },
-    typePrice: {
-      fontSize: typo.fontSize.lg,
-      fontWeight: typo.fontWeight.bold,
-      color: colors.text,
-    },
-    typePriceSelected: {
-      color: colors.primary,
-    },
-    checkIcon: {
-      position: 'absolute',
-      top: s.md,
-      right: s.md,
-    },
-    photoWarningCard: {
+
+    /* Warning */
+    warningCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: s.sm,
       backgroundColor: colors.warningLight,
-      borderWidth: 1,
-      borderColor: colors.warning,
-      borderRadius: r.md,
+      borderRadius: 12,
       padding: s.md,
       marginBottom: s.sm,
     },
-    photoWarningText: {
+    warningText: {
       flex: 1,
-      minWidth: 0,
-      flexShrink: 1,
       fontSize: 13,
-      lineHeight: 19,
+      lineHeight: 18,
       color: colors.warning,
     },
-    photoWarningBold: {
-      fontWeight: typo.fontWeight.bold,
+    warningBold: {
+      fontWeight: '700',
     },
+
+    /* Photo status */
     photoStatusRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: s.sm,
     },
-    photoStatusSuccess: {
+    photoStatusLeft: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
     },
     photoStatusText: {
       fontSize: 13,
-      fontWeight: typo.fontWeight.semibold,
-      color: colors.success,
+      fontWeight: '600',
+      color: '#22C55E',
     },
     photoStatusHint: {
       fontSize: 12,
@@ -638,45 +707,49 @@ function makeStyles(colors: DesignColors) {
     photoRequiredText: {
       fontSize: 13,
       color: colors.warning,
-      fontWeight: typo.fontWeight.medium,
+      fontWeight: '500',
     },
-    photoRow: {
+
+    /* Photo Buttons */
+    photoButtons: {
       flexDirection: 'row',
       gap: s.md,
     },
     photoButton: {
       flex: 1,
       backgroundColor: colors.surface,
-      borderRadius: 18,
+      borderRadius: 14,
       paddingVertical: s.lg,
-      minHeight: 110,
+      minHeight: 100,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
       borderColor: colors.border,
       borderStyle: 'dashed',
       gap: s.sm,
-      ...t.shadows.sm,
     },
     photoButtonPressed: {
-      opacity: 0.75,
+      opacity: 0.7,
       transform: [{ scale: 0.97 }],
     },
     photoIconCircle: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: colors.primarySoft,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    photoButtonText: {
-      fontSize: typo.fontSize.sm,
+    photoButtonLabel: {
+      fontSize: 13,
       color: colors.primary,
-      fontWeight: typo.fontWeight.semibold,
+      fontWeight: '600',
     },
+
+    /* Images */
     imagesRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginTop: s.sm,
       gap: s.sm,
     },
@@ -685,33 +758,34 @@ function makeStyles(colors: DesignColors) {
       overflow: 'visible',
     },
     imagePreview: {
-      width: 88,
-      height: 88,
-      borderRadius: 14,
+      width: 80,
+      height: 80,
+      borderRadius: 12,
     },
     removeImage: {
       position: 'absolute',
       top: -8,
       right: -8,
       backgroundColor: colors.surface,
-      borderRadius: r.full,
+      borderRadius: 999,
     },
+
+    /* Info */
     infoBox: {
       flexDirection: 'row',
       backgroundColor: colors.infoLight,
       marginTop: s.lg,
       marginBottom: s.md,
       padding: s.md,
-      borderRadius: r.lg,
+      borderRadius: 12,
       gap: s.sm,
-      alignItems: 'flex-start',
+      alignItems: 'center',
     },
     infoText: {
       flex: 1,
       fontSize: 13,
       color: colors.textSecondary,
-      lineHeight: 20,
-      minWidth: 0,
+      lineHeight: 18,
     },
   });
 }

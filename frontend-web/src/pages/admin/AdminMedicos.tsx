@@ -4,20 +4,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { DoctorDetailDialog } from "@/components/admin/DoctorDetailDialog";
 import { RejectReasonDialog } from "@/components/admin/RejectReasonDialog";
@@ -26,8 +18,12 @@ import { getDoctors, approveDoctor, rejectDoctor } from "@/services/adminApi";
 import { Search, Eye, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+const PAGE_SIZE = 20;
+
 const AdminMedicos = () => {
   const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("pending");
@@ -36,37 +32,46 @@ const AdminMedicos = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ApiDoctor | null>(null);
 
-  const fetchDoctors = useCallback(async () => {
+  const fetchDoctors = useCallback(async (p: number, status: string) => {
     setLoading(true);
     try {
-      const data = await getDoctors(statusFilter === "all" ? undefined : statusFilter);
-      setDoctors(Array.isArray(data) ? data : []);
+      const data = await getDoctors({
+        status: status === "all" ? undefined : status,
+        page: p,
+        pageSize: PAGE_SIZE,
+      });
+      if (data && typeof data === "object" && "items" in data) {
+        setDoctors(data.items ?? []);
+        setTotalCount(data.totalCount ?? 0);
+      } else {
+        const arr = Array.isArray(data) ? data : [];
+        setDoctors(arr);
+        setTotalCount(arr.length);
+      }
     } catch {
       toast.error("Erro ao carregar médicos.");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
-    fetchDoctors();
-  }, [fetchDoctors]);
+    fetchDoctors(page, statusFilter);
+  }, [page, statusFilter, fetchDoctors]);
 
-  const filtered = doctors.filter((d) => {
-    const term = search.toLowerCase();
-    return (
-      d.name.toLowerCase().includes(term) ||
-      d.crm.includes(search) ||
-      d.specialty.toLowerCase().includes(term)
-    );
-  });
+  const filtered = search
+    ? doctors.filter((d) => {
+        const term = search.toLowerCase();
+        return d.name.toLowerCase().includes(term) || d.crm.includes(search) || d.specialty.toLowerCase().includes(term);
+      })
+    : doctors;
 
   const handleApprove = async (id: string) => {
     try {
       await approveDoctor(id);
       toast.success("Médico aprovado com sucesso!");
       setDialogOpen(false);
-      fetchDoctors();
+      fetchDoctors(page, statusFilter);
     } catch {
       toast.error("Erro ao aprovar médico.");
     }
@@ -85,7 +90,7 @@ const AdminMedicos = () => {
       setRejectDialogOpen(false);
       setDialogOpen(false);
       setRejectTarget(null);
-      fetchDoctors();
+      fetchDoctors(page, statusFilter);
     } catch {
       toast.error("Erro ao recusar médico.");
     }
@@ -96,12 +101,25 @@ const AdminMedicos = () => {
     setDialogOpen(true);
   };
 
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handlePageChange = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Médicos</h1>
-          <p className="text-muted-foreground">Gerencie o cadastro e a avaliação dos médicos</p>
+          <p className="text-muted-foreground">
+            Gerencie o cadastro e a avaliação dos médicos
+            {totalCount > 0 && <span className="ml-1">— {totalCount} {totalCount === 1 ? 'médico' : 'médicos'}</span>}
+          </p>
         </div>
 
         <Card className="shadow-sm">
@@ -117,7 +135,7 @@ const AdminMedicos = () => {
                   aria-label="Buscar médicos"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-full sm:w-44">
                   <SelectValue placeholder="Filtrar status" />
                 </SelectTrigger>
@@ -136,83 +154,62 @@ const AdminMedicos = () => {
                 <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Médico</TableHead>
-                    <TableHead className="hidden md:table-cell">CRM</TableHead>
-                    <TableHead className="hidden lg:table-cell">Especialidade</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.length === 0 ? (
+              <>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                        Nenhum médico encontrado.
-                      </TableCell>
+                      <TableHead>Médico</TableHead>
+                      <TableHead className="hidden md:table-cell">CRM</TableHead>
+                      <TableHead className="hidden lg:table-cell">Especialidade</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
-                  ) : (
-                    filtered.map((doctor) => (
-                      <TableRow key={doctor.id} className="border-b transition-colors hover:bg-muted/50">
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{doctor.name}</p>
-                            <p className="text-xs text-muted-foreground md:hidden">
-                              CRM {doctor.crm}/{doctor.crmState}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {doctor.crm}/{doctor.crmState}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">{doctor.specialty}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={doctor.approvalStatus} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openDetail(doctor)}
-                              title="Ver detalhes"
-                              aria-label={`Ver detalhes de ${doctor.name}`}
-                            >
-                              <Eye className="h-4 w-4" aria-hidden />
-                            </Button>
-                            {doctor.approvalStatus === "pending" && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-success hover:text-success"
-                                  onClick={() => handleApprove(doctor.id)}
-                                  title="Aprovar"
-                                  aria-label={`Aprovar ${doctor.name}`}
-                                >
-                                  <CheckCircle className="h-4 w-4" aria-hidden />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => openRejectDialog(doctor)}
-                                  title="Recusar"
-                                  aria-label={`Recusar ${doctor.name}`}
-                                >
-                                  <XCircle className="h-4 w-4" aria-hidden />
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                          Nenhum médico encontrado.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      filtered.map((doctor) => (
+                        <TableRow key={doctor.id} className="border-b transition-colors hover:bg-muted/50">
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{doctor.name}</p>
+                              <p className="text-xs text-muted-foreground md:hidden">CRM {doctor.crm}/{doctor.crmState}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">{doctor.crm}/{doctor.crmState}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{doctor.specialty}</TableCell>
+                          <TableCell><StatusBadge status={doctor.approvalStatus} /></TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => openDetail(doctor)} title="Ver detalhes" aria-label={`Ver detalhes de ${doctor.name}`}>
+                                <Eye className="h-4 w-4" aria-hidden />
+                              </Button>
+                              {doctor.approvalStatus === "pending" && (
+                                <>
+                                  <Button variant="ghost" size="icon" className="text-success hover:text-success" onClick={() => handleApprove(doctor.id)} title="Aprovar" aria-label={`Aprovar ${doctor.name}`}>
+                                    <CheckCircle className="h-4 w-4" aria-hidden />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => openRejectDialog(doctor)} title="Recusar" aria-label={`Recusar ${doctor.name}`}>
+                                    <XCircle className="h-4 w-4" aria-hidden />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+                <div className="px-4 pb-4">
+                  <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={handlePageChange} />
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

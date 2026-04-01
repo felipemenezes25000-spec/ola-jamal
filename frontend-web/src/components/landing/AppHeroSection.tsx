@@ -58,7 +58,7 @@ export function AppHeroSection() {
             </motion.div>
 
             <div className="space-y-4">
-              <h1 className="font-display text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
+              <h1 className="font-display text-3xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
                 Plataforma de <span className="text-primary">telemedicina online com IA assistiva</span> e decisão final do médico.
               </h1>
               <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:mx-0 lg:text-xl">
@@ -72,7 +72,7 @@ export function AppHeroSection() {
               <Button
                 size="lg"
                 onClick={() => scrollToSection('#contact')}
-                className="h-13 gap-2 rounded-2xl px-7 text-base font-semibold shadow-primary"
+                className="h-12 sm:h-13 gap-2 rounded-2xl px-5 sm:px-7 text-sm sm:text-base font-semibold shadow-primary"
               >
                 Entrar em contato
                 <ArrowRight className="h-4 w-4" />
@@ -81,19 +81,19 @@ export function AppHeroSection() {
                 size="lg"
                 variant="outline"
                 onClick={() => scrollToSection('#features')}
-                className="h-13 rounded-2xl border-primary/20 bg-card/70 px-7 text-base font-semibold"
+                className="h-12 sm:h-13 rounded-2xl border-primary/20 bg-card/70 px-5 sm:px-7 text-sm sm:text-base font-semibold"
               >
                 Conhecer funcionalidades
               </Button>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3 lg:justify-start">
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 lg:justify-start">
               {trustIndicators.map((item) => (
                 <span
                   key={item.text}
-                  className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-medium text-foreground shadow-card sm:text-sm"
+                  className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-border bg-card px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-sm font-medium text-foreground shadow-card"
                 >
-                  <item.icon className="h-4 w-4 text-primary" />
+                  <item.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 text-primary" aria-hidden="true" />
                   {item.text}
                 </span>
               ))}
@@ -108,20 +108,20 @@ export function AppHeroSection() {
           >
             <div className="relative w-full rounded-[2rem] border border-border/60 bg-card/90 p-5 shadow-2xl backdrop-blur">
               <div className="mb-5 rounded-[1.5rem] bg-gradient-to-br from-primary/15 to-primary/5 p-5">
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Plataforma institucional</p>
-                    <h2 className="mt-1 text-2xl font-bold text-foreground">RenoveJá+</h2>
+                    <h2 className="mt-1 text-xl sm:text-2xl font-bold text-foreground">RenoveJá+</h2>
                   </div>
-                  <div className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">
+                  <div className="rounded-full bg-success/15 px-3 py-1 text-[10px] sm:text-xs font-semibold text-success">
                     Disponível para avaliação institucional
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                   {institutionPillars.map((pillar) => (
                     <div key={pillar.title} className="rounded-2xl border border-white/40 bg-white/70 p-4 shadow-sm">
-                      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
+                      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10" aria-hidden="true">
                         <pillar.icon className="h-5 w-5 text-primary" />
                       </div>
                       <h3 className="text-sm font-bold text-foreground">{pillar.title}</h3>
@@ -132,12 +132,12 @@ export function AppHeroSection() {
               </div>
 
               <div className="space-y-3 rounded-[1.5rem] border border-border/70 bg-background p-5">
-                <div className="flex items-center justify-between rounded-2xl bg-muted/60 p-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Capacidades atuais</p>
-                    <p className="mt-1 text-lg font-bold text-foreground">Telemedicina online, receita, exame e verificação</p>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/60 p-3 sm:p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Capacidades atuais</p>
+                    <p className="mt-1 text-base sm:text-lg font-bold text-foreground">Telemedicina online, receita, exame e verificação</p>
                   </div>
-                  <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Atual</div>
+                  <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary flex-shrink-0">Atual</div>
                 </div>
 
                 <div className="grid gap-3">

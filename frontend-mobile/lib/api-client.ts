@@ -1,8 +1,11 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackApiLatency } from './analytics';
 import { logApiError } from './logger';
 import { AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY } from './constants/storage-keys';
 import { getSecureItem, setSecureItem } from './secure-storage';
+
+const FORBIDDEN_MESSAGE_KEY = '@renoveja:forbidden_message';
 
 /** Debounce 401 logs: múltiplas chamadas simultâneas geram um único log. */
 let last401LogAt = 0;
@@ -17,6 +20,19 @@ function getPathFromResponse(response: Response): string {
   } catch {
     return 'unknown';
   }
+}
+
+/** Pathname confiável: no RN `response.url` costuma vir vazio → usar sempre a URL da requisição. */
+function resolveApiPath(response: Response, requestUrl?: string): string {
+  if (requestUrl) {
+    try {
+      const p = new URL(requestUrl).pathname;
+      if (p) return p;
+    } catch {
+      /* fall through */
+    }
+  }
+  return getPathFromResponse(response);
 }
 
 /** Gera um ID de correlação de 16 hex para rastrear a requisição no backend. */
@@ -72,18 +88,24 @@ export interface ApiError {
 }
 
 type OnUnauthorizedCallback = () => void | Promise<void>;
-type OnForbiddenCallback = (message?: string) => void | Promise<void>;
+
+/**
+ * Resultado do refresh:
+ * - 'success': token renovado com sucesso
+ * - 'invalid': refresh token inválido/expirado (401) → logout é correto
+ * - 'error': erro de rede/servidor → NÃO deslogar, manter sessão
+ */
+type RefreshResult = 'success' | 'invalid' | 'error';
 
 class ApiClient {
   private baseUrl: string;
   private onUnauthorized: OnUnauthorizedCallback | null = null;
-  private onForbidden: OnForbiddenCallback | null = null;
 
   /**
    * Mutex for token refresh: when a 401 triggers a refresh, concurrent requests
    * wait for the same refresh promise instead of firing multiple refresh calls.
    */
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<RefreshResult> | null = null;
 
   constructor(baseUrl: string = BASE_URL) {
     this.baseUrl = baseUrl;
@@ -91,10 +113,10 @@ class ApiClient {
 
   /**
    * Attempts to refresh the access token using the stored refresh token.
-   * Returns true if refresh succeeded, false otherwise.
+   * Returns the result so callers can decide whether to logout or not.
    * Uses a mutex so concurrent 401s share a single refresh call.
    */
-  async tryRefreshToken(): Promise<boolean> {
+  async tryRefreshToken(): Promise<RefreshResult> {
     // If a refresh is already in progress, wait for it
     if (this.refreshPromise) {
       return this.refreshPromise;
@@ -108,10 +130,10 @@ class ApiClient {
     }
   }
 
-  private async executeRefresh(): Promise<boolean> {
+  private async executeRefresh(): Promise<RefreshResult> {
     try {
       const refreshToken = await getSecureItem(REFRESH_TOKEN_KEY);
-      if (!refreshToken) return false;
+      if (!refreshToken) return 'invalid';
 
       const response = await this.fetchWithTimeout(`${this.baseUrl}/api/auth/refresh`, {
         method: 'POST',
@@ -122,19 +144,26 @@ class ApiClient {
         body: JSON.stringify({ refreshToken }),
       });
 
-      if (!response.ok) return false;
+      if (!response.ok) {
+        if (response.status === 401) return 'invalid';
+        // 403 from refresh may be DoctorApprovalFilter blocking pending doctors — not an invalid token
+        if (response.status === 403) return 'error';
+        // 429 (rate limit), 500, 502, etc. = problema transitório → NÃO deslogar
+        return 'error';
+      }
 
       const data = await response.json();
-      if (!data?.token || !data?.refreshToken) return false;
+      if (!data?.token || !data?.refreshToken) return 'invalid';
 
       // Persist the new tokens
       await setSecureItem(AUTH_TOKEN_KEY, data.token);
       await setSecureItem(REFRESH_TOKEN_KEY, data.refreshToken);
       this.tokenCache = data.token;
 
-      return true;
+      return 'success';
     } catch {
-      return false;
+      // Erro de rede (offline, timeout, DNS) → NÃO deslogar
+      return 'error';
     }
   }
 
@@ -142,9 +171,8 @@ class ApiClient {
     this.onUnauthorized = cb;
   }
 
-  setOnForbidden(cb: OnForbiddenCallback | null) {
-    this.onForbidden = cb;
-  }
+  /** @deprecated 403 não desloga mais; mantido para compat. com mocks antigos. */
+  setOnForbidden(_cb: unknown) {}
 
   /** Cache em memória do token para evitar AsyncStorage em toda requisição (P1 performance). */
   private tokenCache: string | null | undefined = undefined;
@@ -168,13 +196,10 @@ class ApiClient {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  /** Headers comuns a todas as requisições (ex.: ngrok exige header para não devolver página HTML no browser). */
+  /** Headers comuns a todas as requisições. */
   private getCommonHeaders(): Record<string, string> {
-    // Always send ngrok header: on web the baseUrl is empty (relative URLs via proxy),
-    // but the proxy target may still be behind ngrok.
     return {
       'X-Correlation-Id': generateCorrelationId(),
-      'ngrok-skip-browser-warning': 'true',
     };
   }
 
@@ -228,11 +253,17 @@ class ApiClient {
   }
 
   /**
-   * Handles non-ok responses: parses error body, triggers callbacks (401/403), logs.
+   * Handles non-ok responses: parses error body, triggers onUnauthorized em 401, logs.
+   * 403 não dispara logout global — o backend usa Forbid() em quase todo recurso (vídeo, pedido, documento, médico pendente).
+   * Sessão inválida: apenas 401 (+ refresh falho).
    * The `skipUnauthorizedCallback` flag suppresses the onUnauthorized callback —
    * used when the caller will handle 401 via token refresh + retry.
    */
-  private async handleResponse<T>(response: Response, skipUnauthorizedCallback = false): Promise<T> {
+  private async handleResponse<T>(
+    response: Response,
+    skipUnauthorizedCallback = false,
+    requestUrl?: string,
+  ): Promise<T> {
     if (!response.ok) {
       let errorMessage = `Erro ${response.status}: Ocorreu um erro na requisição`;
       let errors: Record<string, string[]> | undefined;
@@ -270,12 +301,10 @@ class ApiClient {
             unauthorizedHandled = true;
             this.onUnauthorized();
           }
-          const path = getPathFromResponse(response);
-          // 403 em avatar/senha/requests/documentos/PDF: não deslogar — pode ser validação (ex.: médico pendente, tipo de arquivo, sem permissão ao documento)
-          const skipForbiddenLogout = /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/)/.test(path);
-          if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
-            this.onForbidden(errorMessage);
+          if (response.status === 403) {
+            AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, errorMessage).catch(() => {});
           }
+          const path = resolveApiPath(response, requestUrl);
           if (response.status === 401) {
             const now = Date.now();
             if (now - last401LogAt > LOG_401_DEBOUNCE_MS) {
@@ -313,7 +342,7 @@ class ApiClient {
         }
       }
 
-      const path = getPathFromResponse(response);
+      const path = resolveApiPath(response, requestUrl);
       const bodyExtra = rawBody ? { body: rawBody.slice(0, 200) } : undefined;
       if (response.status === 401) {
         const now = Date.now();
@@ -328,9 +357,8 @@ class ApiClient {
       if (response.status === 401 && this.onUnauthorized && !unauthorizedHandled && !skipUnauthorizedCallback) {
         this.onUnauthorized();
       }
-      const skipForbiddenLogout = /\/api\/(auth\/(avatar|change-password)|requests\/|post-consultation\/|doctors\/|fhir-lite\/)/.test(path);
-      if (response.status === 403 && this.onForbidden && !skipForbiddenLogout) {
-        this.onForbidden(errorMessage);
+      if (response.status === 403) {
+        AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, errorMessage).catch(() => {});
       }
 
       const error: ApiError = {
@@ -344,7 +372,7 @@ class ApiClient {
 
     // Handle empty responses (204 No Content)
     if (response.status === 204 || response.headers.get('content-length') === '0') {
-      return {} as T;
+      return undefined as unknown as T;
     }
 
     const contentType = response.headers.get('content-type') ?? '';
@@ -365,7 +393,12 @@ class ApiClient {
 
   /**
    * Executes an authenticated fetch. On 401, attempts to refresh the token
-   * and retries the request once. If refresh fails, triggers onUnauthorized.
+   * and retries the request once.
+   *
+   * Refresh results:
+   * - 'success': retry com novo token
+   * - 'invalid': refresh token expirado → onUnauthorized (logout)
+   * - 'error': rede/servidor falhou → NÃO deslogar, propagar erro sem callback
    *
    * Auth endpoints (login, register, refresh) bypass the retry logic.
    */
@@ -379,20 +412,24 @@ class ApiClient {
     const response = await this.fetchWithTimeout(url, init, timeoutMs);
 
     if (response.status === 401 && !isAuthEndpoint) {
-      // Try to refresh the token before giving up
-      const refreshed = await this.tryRefreshToken();
-      if (refreshed) {
+      const refreshResult = await this.tryRefreshToken();
+      if (refreshResult === 'success') {
         // Rebuild auth header with the new token and retry
         const newAuthHeaders = await this.getAuthHeader();
         const retryHeaders = { ...init.headers, ...newAuthHeaders } as Record<string, string>;
         const retryResponse = await this.fetchWithTimeout(url, { ...init, headers: retryHeaders }, timeoutMs);
-        return this.handleResponse<T>(retryResponse);
+        return this.handleResponse<T>(retryResponse, false, url);
       }
-      // Refresh failed — parse and throw the original 401 (which triggers onUnauthorized)
-      return this.handleResponse<T>(response);
+      if (refreshResult === 'error') {
+        // Rede/servidor falhou no refresh — NÃO deslogar.
+        // Propagar o 401 original sem disparar onUnauthorized (skipUnauthorizedCallback = true).
+        return this.handleResponse<T>(response, true, url);
+      }
+      // 'invalid' — refresh token realmente expirado/inválido → dispara onUnauthorized (logout)
+      return this.handleResponse<T>(response, false, url);
     }
 
-    return this.handleResponse<T>(response);
+    return this.handleResponse<T>(response, false, url);
   }
 
   async get<T>(path: string, params?: Record<string, string | number | boolean | undefined | null>, options?: { signal?: AbortSignal }): Promise<T> {
@@ -420,20 +457,40 @@ class ApiClient {
     });
   }
 
-  /** GET que retorna Blob (ex.: PDF). */
+  /** GET que retorna Blob (ex.: PDF). Com retry de token em 401. */
   async getBlob(path: string): Promise<Blob> {
-    const authHeaders = await this.getAuthHeader();
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`, {
-      method: 'GET',
-      headers: { ...this.getCommonHeaders(), ...authHeaders },
-    });
+    const url = `${this.baseUrl}${path}`;
+
+    const doFetch = async () => {
+      const authHeaders = await this.getAuthHeader();
+      return this.fetchWithTimeout(url, {
+        method: 'GET',
+        headers: { ...this.getCommonHeaders(), ...authHeaders },
+      });
+    };
+
+    let response = await doFetch();
+
+    if (response.status === 401) {
+      const refreshResult = await this.tryRefreshToken();
+      if (refreshResult === 'success') {
+        response = await doFetch();
+      } else if (refreshResult === 'invalid') {
+        if (this.onUnauthorized) this.onUnauthorized();
+      }
+      // 'error' (network/server) → don't logout, fall through with original response
+    }
+
     if (!response.ok) {
       let msg = 'Erro ao obter recurso';
       try {
         const err = await response.json();
         msg = err.message || err.error || msg;
       } catch { }
-      throw { message: msg, status: response.status };
+      if (response.status === 403) {
+        AsyncStorage.setItem(FORBIDDEN_MESSAGE_KEY, msg).catch(() => {});
+      }
+      throw { message: msg, status: response.status } as ApiError;
     }
     return response.blob();
   }

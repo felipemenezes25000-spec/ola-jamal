@@ -52,8 +52,7 @@ public class AuditLogsController : ControllerBase
         if (offset < 0) offset = 0;
 
         // FIX B28: Doctors can only see their own audit logs; admins can see all
-        var callerRole = User.FindFirstValue(ClaimTypes.Role);
-        if (string.Equals(callerRole, "doctor", StringComparison.OrdinalIgnoreCase))
+        if (!User.IsInRole("admin") && User.IsInRole("doctor"))
         {
             var callerIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (callerIdClaim == null || !Guid.TryParse(callerIdClaim, out var callerUserId))

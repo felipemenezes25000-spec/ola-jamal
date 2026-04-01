@@ -77,7 +77,7 @@ const s = StyleSheet.create({
     paddingHorizontal: uiTokens.screenPaddingHorizontal,
   },
   headerText: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '800', letterSpacing: 0.1 },
+  title: { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
   subtitle: { marginTop: 4, fontSize: 13, lineHeight: 18 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 2 },
   actionText: { fontSize: 13, fontWeight: '700' },

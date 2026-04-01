@@ -32,6 +32,13 @@ public class AiInteractionLog : AggregateRoot
         Guid? userId = null,
         string? errorMessage = null)
     {
+        if (string.IsNullOrWhiteSpace(serviceName))
+            throw new Domain.Exceptions.DomainException("ServiceName is required");
+        if (string.IsNullOrWhiteSpace(modelName))
+            throw new Domain.Exceptions.DomainException("ModelName is required");
+        if (string.IsNullOrWhiteSpace(promptHash))
+            throw new Domain.Exceptions.DomainException("PromptHash is required");
+
         return new AiInteractionLog
         {
             ServiceName = serviceName,

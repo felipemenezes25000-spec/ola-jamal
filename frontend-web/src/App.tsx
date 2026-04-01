@@ -1,7 +1,7 @@
 import { AdminSubdomainRedirect } from '@/components/AdminSubdomainRedirect';
-import { isAuthenticated } from '@/services/adminApi';
+import { isAuthenticated, validateAdminToken } from '@/services/adminApi';
 import { Loader2 } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
@@ -10,6 +10,8 @@ const Index = lazy(() => import('@/pages/Index'));
 const Verify = lazy(() => import('@/pages/Verify'));
 const RecuperarSenha = lazy(() => import('@/pages/RecuperarSenha'));
 const Cookies = lazy(() => import('@/pages/Cookies'));
+const PublicPrivacy = lazy(() => import('@/pages/PublicPrivacy'));
+const PublicTerms = lazy(() => import('@/pages/PublicTerms'));
 const AdminLogin = lazy(() => import('@/pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
 const AdminMedicos = lazy(() => import('@/pages/admin/AdminMedicos'));
@@ -48,7 +50,9 @@ function isDoctorPortal(): boolean {
     path === '/' ||
     path.startsWith('/verify') ||
     path.startsWith('/recuperar-senha') ||
-    path.startsWith('/cookies')
+    path.startsWith('/cookies') ||
+    path.startsWith('/privacidade') ||
+    path.startsWith('/termos')
   )
     return false;
 
@@ -86,12 +90,21 @@ function isDoctorPortal(): boolean {
 }
 
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
-  // TODO(security): Adicionar verificação de token com backend (GET /api/auth/me)
-  // para validar que o token é real e que o user tem role admin.
-  // A verificação client-side atual pode ser bypassada facilmente.
-  if (!isAuthenticated()) {
-    return <Navigate to="/admin/login" replace />;
-  }
+  const [status, setStatus] = useState<'checking' | 'valid' | 'invalid'>(() =>
+    isAuthenticated() ? 'checking' : 'invalid'
+  );
+
+  useEffect(() => {
+    if (status !== 'checking') return;
+    const controller = new AbortController();
+    validateAdminToken(controller.signal).then((ok) => {
+      if (!controller.signal.aborted) setStatus(ok ? 'valid' : 'invalid');
+    });
+    return () => controller.abort();
+  }, [status]);
+
+  if (status === 'invalid') return <Navigate to="/admin/login" replace />;
+  if (status === 'checking') return <FallbackLoader />;
   return <>{children}</>;
 }
 
@@ -122,6 +135,8 @@ export default function App() {
         <Route path="/verify/:id" element={<Verify />} />
         <Route path="/recuperar-senha" element={<RecuperarSenha />} />
         <Route path="/cookies" element={<Cookies />} />
+        <Route path="/privacidade" element={<PublicPrivacy />} />
+        <Route path="/termos" element={<PublicTerms />} />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -173,6 +188,7 @@ export default function App() {
           }
         />
         <Route path="/admin/*" element={<AdminNotFound />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </>

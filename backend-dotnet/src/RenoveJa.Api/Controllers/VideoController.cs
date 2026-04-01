@@ -51,6 +51,14 @@ public class VideoController(
         [FromBody] CreateVideoRoomRequestDto dto,
         CancellationToken cancellationToken)
     {
+        // IDOR check: só participantes da consulta podem criar sala
+        var userId = GetUserId();
+        var request = await requestRepository.GetByIdAsync(dto.RequestId, cancellationToken);
+        if (request == null)
+            return NotFound(new { message = "Solicitação não encontrada." });
+        if (request.PatientId != userId && request.DoctorId != userId)
+            return StatusCode(403, new { error = "Acesso negado a esta consulta." });
+
         // Bug fix #5: Rate limit — max 1 room creation per consultation per minute.
         var now = DateTime.UtcNow;
         if (_roomCreationTimestamps.TryGetValue(dto.RequestId, out var lastCreation)
@@ -235,13 +243,23 @@ public class VideoController(
                 expiryMinutes: 15,
                 cancellationToken);
 
-            var token = await dailyVideoService.CreateMeetingTokenAsync(
-                roomName,
-                userId.ToString(),
-                user.Name,
-                isOwner: true,
-                ejectAfterSeconds: null,
-                cancellationToken);
+            string token;
+            try
+            {
+                token = await dailyVideoService.CreateMeetingTokenAsync(
+                    roomName,
+                    userId.ToString(),
+                    user.Name,
+                    isOwner: true,
+                    ejectAfterSeconds: null,
+                    cancellationToken);
+            }
+            catch
+            {
+                try { await dailyVideoService.DeleteRoomAsync(roomName, cancellationToken); }
+                catch (Exception cleanupEx) { logger.LogWarning(cleanupEx, "[VideoController] Failed to clean up Daily room after token failure — RoomName={RoomName}", roomName); }
+                throw;
+            }
 
             return Ok(new
             {

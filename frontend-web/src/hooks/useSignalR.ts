@@ -6,7 +6,7 @@
  * Events: "RequestUpdated" { requestId, status, message }
  */
 import { useEffect, useRef, useState } from 'react';
-import { clearAuth, getToken } from '@/services/doctorApi';
+import { clearAuth, getToken, hasAuthSession, tryRefreshToken } from '@/services/doctorApi';
 
 interface RequestEvent {
   requestId: string;
@@ -15,6 +15,16 @@ interface RequestEvent {
 }
 
 type EventHandler = (event: RequestEvent) => void;
+
+export interface EvidenceItemDto {
+  title: string;
+  abstract: string;
+  source: string;
+  translatedAbstract?: string;
+  relevantExcerpts?: string[];
+  clinicalRelevance?: string;
+  provider?: string;
+}
 
 // Dynamic import of @microsoft/signalr to avoid bundling if not needed
 let signalR: typeof import('@microsoft/signalr') | null = null;
@@ -31,6 +41,11 @@ async function getSignalR() {
   return signalR;
 }
 
+function isHttp401Error(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Status code '401'/.test(msg) || /\b401\s+Unauthorized\b/.test(msg);
+}
+
 function getApiBase(): string {
   const env = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '');
   if (env) return env;
@@ -43,6 +58,7 @@ export function useRequestEvents(onEvent?: EventHandler) {
   const handlersRef = useRef<Set<EventHandler>>(new Set());
   const [connected, setConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RequestEvent | null>(null);
+  const isAuthenticated = hasAuthSession();
 
   // Register callback
   useEffect(() => {
@@ -54,6 +70,8 @@ export function useRequestEvents(onEvent?: EventHandler) {
   }, [onEvent]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     let cancelled = false;
 
     async function connect() {
@@ -68,9 +86,12 @@ export function useRequestEvents(onEvent?: EventHandler) {
 
       const connection = new sr.HubConnectionBuilder()
         .withUrl(`${base}/hubs/requests`, {
-          // FIX #5: Sempre lê o token atual do localStorage ao reconectar,
-          // em vez de capturar uma closure do token antigo.
-          accessTokenFactory: () => getToken() ?? '',
+          accessTokenFactory: async () => {
+            const token = getToken();
+            if (!token) return '';
+            await tryRefreshToken();
+            return getToken() ?? '';
+          },
         })
         .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
         .configureLogging(sr.LogLevel.Warning)
@@ -100,10 +121,12 @@ export function useRequestEvents(onEvent?: EventHandler) {
           connection.stop().catch(() => {});
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('401') || msg.includes('Unauthorized')) {
-          clearAuth();
-          window.dispatchEvent(new CustomEvent('auth:expired'));
+        if (isHttp401Error(err)) {
+          const refreshed = await tryRefreshToken();
+          if (!refreshed) {
+            clearAuth();
+            window.dispatchEvent(new CustomEvent('auth:expired'));
+          }
         }
         if (import.meta.env.DEV) console.warn('[SignalR] Connection failed:', err);
       }
@@ -116,7 +139,7 @@ export function useRequestEvents(onEvent?: EventHandler) {
       connectionRef.current?.stop();
       connectionRef.current = null;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return { connected, lastEvent };
 }
@@ -131,7 +154,7 @@ export function useVideoSignaling(requestId: string | undefined) {
   const [transcript, setTranscript] = useState('');
   const [anamnesis, setAnamnesis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<unknown[]>([]);
-  const [evidence, setEvidence] = useState<unknown[]>([]);
+  const [evidence, setEvidence] = useState<EvidenceItemDto[]>([]);
   const [consultationEnded, setConsultationEnded] = useState(false);
   useEffect(() => {
     if (!requestId) return;
@@ -156,8 +179,12 @@ export function useVideoSignaling(requestId: string | undefined) {
       const base = getApiBase();
       const connection = new sr.HubConnectionBuilder()
         .withUrl(`${base}/hubs/video`, {
-          // FIX #5: Token sempre fresco ao reconectar
-          accessTokenFactory: () => getToken() ?? '',
+          accessTokenFactory: async () => {
+            const token = getToken();
+            if (!token) return '';
+            await tryRefreshToken();
+            return getToken() ?? '';
+          },
         })
         .withAutomaticReconnect()
         .configureLogging(sr.LogLevel.Warning)
@@ -177,9 +204,18 @@ export function useVideoSignaling(requestId: string | undefined) {
         setSuggestions(Array.isArray(items) ? items : []);
       });
 
-      connection.on('EvidenceUpdate', (data: { items?: unknown[]; Items?: unknown[]; evidence?: unknown[] }) => {
-        const items = data.items ?? data.Items ?? data.evidence ?? [];
-        setEvidence(Array.isArray(items) ? items : []);
+      connection.on('EvidenceUpdate', (data: { items?: Record<string, unknown>[]; Items?: Record<string, unknown>[]; evidence?: Record<string, unknown>[] }) => {
+        const raw = data.items ?? data.Items ?? data.evidence ?? [];
+        if (!Array.isArray(raw)) { setEvidence([]); return; }
+        setEvidence(raw.map((e): EvidenceItemDto => ({
+          title: String(e?.title ?? e?.Title ?? ''),
+          abstract: String(e?.abstract ?? e?.Abstract ?? ''),
+          source: String(e?.source ?? e?.Source ?? ''),
+          translatedAbstract: e?.translatedAbstract != null ? String(e.translatedAbstract) : undefined,
+          relevantExcerpts: Array.isArray(e?.relevantExcerpts) ? (e.relevantExcerpts as string[]) : (Array.isArray(e?.RelevantExcerpts) ? (e.RelevantExcerpts as string[]) : undefined),
+          clinicalRelevance: e?.clinicalRelevance != null ? String(e.clinicalRelevance) : (e?.ClinicalRelevance != null ? String(e.ClinicalRelevance) : undefined),
+          provider: String(e?.provider ?? e?.Provider ?? 'PubMed'),
+        })));
       });
 
       // VideoSignalingHub envia "Joined" após JoinRoom; o protocolo pode expor como "joined" → sem .on() o SignalR avisa no console.
@@ -210,10 +246,12 @@ export function useVideoSignaling(requestId: string | undefined) {
           connection.stop().catch(() => {});
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('401') || msg.includes('Unauthorized')) {
-          clearAuth();
-          window.dispatchEvent(new CustomEvent('auth:expired'));
+        if (isHttp401Error(err)) {
+          const refreshed = await tryRefreshToken();
+          if (!refreshed) {
+            clearAuth();
+            window.dispatchEvent(new CustomEvent('auth:expired'));
+          }
         }
         if (import.meta.env.DEV) console.warn('[SignalR Video] Connection failed:', err);
         connection.stop().catch(() => {});

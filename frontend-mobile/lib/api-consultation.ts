@@ -80,7 +80,7 @@ export async function transcribeAudioChunk(
     };
   }
   const formData = new FormData();
-  formData.append('requestId', requestId);
+  formData.append('requestIdRaw', requestId);
   formData.append('stream', stream);
   // React Native FormData accepts { uri, name, type } objects for file uploads
   formData.append('file', audioBlob as unknown as Blob);

@@ -11,13 +11,20 @@ function getApiBase(): string {
 }
 
 const ADMIN_TOKEN_KEY = "admin_auth_token";
+const ADMIN_REFRESH_TOKEN_KEY = "admin_refresh_token";
 const ADMIN_LOGIN_AT_KEY = "admin_login_at";
 const ADMIN_ROLE_KEY = "admin_user_role";
-/** Tokens do backend expiram em 30 dias; consideramos expirado após 25 dias no client para evitar UX quebrada. */
-const TOKEN_VALID_DAYS = 25;
+const TOKEN_VALID_DAYS = 7;
+
+let adminRefreshPromise: Promise<boolean> | null = null;
+let lastAdminRedirectAt = 0;
 
 function getToken(): string | null {
   return localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+function getRefreshToken(): string | null {
+  return localStorage.getItem(ADMIN_REFRESH_TOKEN_KEY);
 }
 
 function getLoginTimestamp(): number | null {
@@ -27,42 +34,87 @@ function getLoginTimestamp(): number | null {
   return Number.isNaN(ts) ? null : ts;
 }
 
-async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const base = getApiBase();
-  if (!base) throw new Error("URL da API não configurada. Defina VITE_API_URL.");
+async function executeAdminRefresh(): Promise<boolean> {
+  try {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+    const base = getApiBase();
+    if (!base) return false;
+    const response = await fetch(`${base}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+      credentials: "include",
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    if (!data?.token || !data?.refreshToken) return false;
+    localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+    localStorage.setItem(ADMIN_REFRESH_TOKEN_KEY, data.refreshToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function tryAdminRefreshToken(): Promise<boolean> {
+  if (adminRefreshPromise) return adminRefreshPromise;
+  adminRefreshPromise = executeAdminRefresh();
+  try {
+    return await adminRefreshPromise;
+  } finally {
+    adminRefreshPromise = null;
+  }
+}
+
+function buildAdminHeaders(options: RequestInit): Record<string, string> {
   const token = getToken();
   const headers: Record<string, string> = {
     "ngrok-skip-browser-warning": "true",
     ...(options.headers as Record<string, string> || {}),
   };
-  // Don't set Content-Type for FormData — browser sets multipart boundary automatically
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
-  // Send Authorization header as fallback for legacy localStorage tokens.
-  // New logins use HttpOnly cookies sent automatically via credentials: 'include'.
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const base = getApiBase();
+  if (!base) throw new Error("URL da API não configurada. Defina VITE_API_URL.");
   let res: Response;
   try {
-    res = await fetch(`${base}${url}`, { ...options, headers, credentials: "include" });
+    res = await fetch(`${base}${url}`, { ...options, headers: buildAdminHeaders(options), credentials: "include" });
   } catch {
     throw new Error("Erro de conexão. Verifique sua internet e tente novamente.");
   }
   if (res.status === 401) {
+    const refreshed = await tryAdminRefreshToken();
+    if (refreshed) {
+      try {
+        res = await fetch(`${base}${url}`, { ...options, headers: buildAdminHeaders(options), credentials: "include" });
+      } catch {
+        throw new Error("Erro de conexão. Verifique sua internet e tente novamente.");
+      }
+      if (res.status !== 401) return res;
+    }
+    const now = Date.now();
+    if (now - lastAdminRedirectAt < 3000) return res;
+    lastAdminRedirectAt = now;
     clearAdminSession();
     window.location.href = "/admin/login";
     throw new Error("Não autorizado");
   }
   if (res.status === 403) {
-    clearAdminSession();
-    window.location.href = "/admin/login?error=forbidden";
-    throw new Error("Acesso negado — apenas administradores");
+    throw new Error("Acesso negado — você não tem permissão para esta ação.");
   }
   return res;
 }
 
 function clearAdminSession() {
   localStorage.removeItem(ADMIN_TOKEN_KEY);
+  localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);
   localStorage.removeItem(ADMIN_LOGIN_AT_KEY);
   localStorage.removeItem(ADMIN_ROLE_KEY);
 }
@@ -88,6 +140,9 @@ export async function login(email: string, password: string) {
   localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
   localStorage.setItem(ADMIN_LOGIN_AT_KEY, String(Date.now()));
   localStorage.setItem(ADMIN_ROLE_KEY, role);
+  if (data.refreshToken) {
+    localStorage.setItem(ADMIN_REFRESH_TOKEN_KEY, data.refreshToken);
+  }
   return data;
 }
 
@@ -120,7 +175,7 @@ export function isAuthenticated(): boolean {
   }
 
   const loginAt = getLoginTimestamp();
-  if (loginAt == null) return true;
+  if (loginAt == null) return false;
   const ageDays = (Date.now() - loginAt) / (1000 * 60 * 60 * 24);
   if (ageDays > TOKEN_VALID_DAYS) {
     clearAdminSession();
@@ -129,9 +184,30 @@ export function isAuthenticated(): boolean {
   return true;
 }
 
-export async function getDoctors(status?: string) {
-  const query = status && status !== "all" ? `?status=${status}` : "";
-  const res = await authFetch(`/api/admin/doctors${query}`);
+export async function validateAdminToken(signal?: AbortSignal): Promise<boolean> {
+  const token = getToken();
+  if (!token) return false;
+  const base = getApiBase();
+  if (!base) return false;
+  try {
+    const res = await fetch(`${base}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+      signal,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function getDoctors(params?: { status?: string; page?: number; pageSize?: number }) {
+  const query = new URLSearchParams();
+  if (params?.status && params.status !== "all") query.set("status", params.status);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+  const qs = query.toString();
+  const res = await authFetch(`/api/admin/doctors${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error("Erro ao buscar médicos");
   return res.json();
 }

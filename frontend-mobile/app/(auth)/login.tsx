@@ -18,11 +18,11 @@ import { nav } from '../../lib/navigation';
 import Constants from 'expo-constants';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
 import type { DesignColors, DesignTokens } from '../../lib/designSystem';
-import { AppInput, AppButton } from '../../components/ui';
+import { AppInput } from '../../components/ui';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { Logo } from '../../components/Logo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,11 +31,9 @@ import { validate } from '../../lib/validation';
 import { loginSchema } from '../../lib/validation/schemas';
 import { COMPANY } from '../../lib/company';
 
-const LOG_RENDER = __DEV__ && false;
 const SMALL_SCREEN_HEIGHT = 700;
-
-// FIX #3: Removido GOOGLE_FALLBACK hardcoded. Se env vars não estiverem presentes,
-// o login Google fica desabilitado em vez de usar client IDs expostos no bundle.
+const PRIMARY = '#0EA5E9';
+const BG = '#F8FAFC';
 
 export default function Login() {
   const router = useRouter();
@@ -44,17 +42,12 @@ export default function Login() {
   const scrollRef = useRef<ScrollView>(null);
   const { colors, shadows } = useAppTheme();
   const { isDark } = useColorSchemeContext();
-  const styles = useMemo(() => makeStyles(colors, shadows), [colors, shadows]);
-
-  const AUTH_GRADIENT: [string, string, ...string[]] = isDark
-    ? [colors.background, colors.surfaceSecondary, colors.primaryDark]
-    : [colors.surfaceSecondary, colors.primarySoft, colors.primary];
+  const styles = useMemo(() => makeStyles(colors, shadows, isDark), [colors, shadows, isDark]);
 
   const { height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowHeight < SMALL_SCREEN_HEIGHT;
 
   const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
-  // FIX #3: Sem fallback hardcoded — se env var estiver vazia, retorna '' e Google fica disabled
   const googleWebClientId =
     (extra?.googleWebClientId || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim();
   const googleAndroidClientId =
@@ -85,10 +78,6 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-  if (LOG_RENDER) console.warn('[Login] render #', renderCount.current);
-
   const handleEmailChange = useCallback((text: string) => {
     setEmail(text);
     setErrors((prev) => (prev.email ? { ...prev, email: undefined } : prev));
@@ -115,8 +104,8 @@ export default function Login() {
         ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
         : user.role === 'doctor'
         ? '/(doctor)/dashboard'
-        : user.role === 'admin' || user.role === 'sus'
-        ? '/(sus)/dashboard'
+        : user.role === 'admin'
+        ? '/(doctor)/dashboard'
         : '/(patient)/home';
       setTimeout(() => nav.replace(router, dest as any), 0);
     } catch (error: unknown) {
@@ -147,10 +136,6 @@ export default function Login() {
     passwordRef.current?.focus();
   }, []);
 
-  const dismissKeyboard = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
-
   const handleGooglePress = useCallback(async () => {
     if (!hasGoogleConfig || !googleWebClientId?.trim()) {
       if (__DEV__) {
@@ -165,6 +150,7 @@ export default function Login() {
       return;
     }
     setGoogleLoading(true);
+    let keepLoading = false;
     try {
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
@@ -177,12 +163,17 @@ export default function Login() {
         ? (user.role === 'doctor' ? '/(auth)/complete-doctor' : '/(auth)/complete-profile')
         : user.role === 'doctor'
         ? '/(doctor)/dashboard'
+        : user.role === 'admin'
+        ? '/(doctor)/dashboard'
         : '/(patient)/home';
       setTimeout(() => nav.replace(router, dest as any), 0);
     } catch (error: unknown) {
       const err = error as { code?: string; message?: string };
       if (err?.code === statusCodes.SIGN_IN_CANCELLED) return;
-      if (err?.code === statusCodes.IN_PROGRESS) return;
+      if (err?.code === statusCodes.IN_PROGRESS) {
+        keepLoading = true;
+        return;
+      }
       if (err?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         Alert.alert('Erro', 'Google Play Services não disponível neste dispositivo.');
         return;
@@ -190,11 +181,10 @@ export default function Login() {
       const msg = err?.message || String(error) || 'Erro ao fazer login com Google.';
       Alert.alert('Erro no login', msg);
     } finally {
-      setGoogleLoading(false);
+      if (!keepLoading) setGoogleLoading(false);
     }
   }, [hasGoogleConfig, googleWebClientId, googleAndroidClientId, googleIosClientId, signInWithGoogle, router]);
 
-  // FIX #22: Usa constante compartilhada de COMPANY ao invés de WHATSAPP_NUMBER local
   const openWhatsApp = useCallback(() => {
     Linking.openURL(COMPANY.whatsapp).catch(() => {});
   }, []);
@@ -203,131 +193,8 @@ export default function Login() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
 
-  const content = (
-    <View style={[styles.card, isSmallScreen && styles.cardSmall]}>
-
-      <View style={styles.accentBar} />
-
-      {/* Logo + tagline */}
-      <View style={[styles.logoSection, isSmallScreen && styles.logoSectionSmall]}>
-        <Logo size="small" variant="dark" compact />
-        <Text style={[styles.tagline, isSmallScreen && styles.taglineSmall]}>
-          Renove sua receita e pedido de exames.{'\n'}Rápido e sem burocracia.
-        </Text>
-      </View>
-
-      {/* Inputs */}
-      <AppInput
-        testID="login-email-input"
-        label="Email"
-        leftIcon="mail-outline"
-        placeholder="seu@email.com"
-        value={email}
-        onChangeText={handleEmailChange}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="next"
-        blurOnSubmit={false}
-        onSubmitEditing={focusPassword}
-        error={errors.email}
-        containerStyle={styles.inputContainer}
-      />
-      <AppInput
-        ref={passwordRef}
-        testID="login-password-input"
-        label="Senha"
-        leftIcon="lock-closed-outline"
-        placeholder="Sua senha"
-        value={password}
-        onChangeText={handlePasswordChange}
-        secureTextEntry
-        returnKeyType="done"
-        blurOnSubmit={true}
-        onSubmitEditing={dismissKeyboard}
-        error={errors.password}
-        containerStyle={styles.inputLast}
-      />
-
-      {/* Esqueceu senha — acima do botão */}
-      <TouchableOpacity
-        testID="forgot-password-link"
-        onPress={handleForgotPassword}
-        style={styles.forgotRow}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
-      </TouchableOpacity>
-
-      <AppButton
-        testID="login-button"
-        title="Entrar"
-        onPress={handleLogin}
-        loading={loading}
-        disabled={loading}
-        variant="primary"
-        fullWidth
-        size="lg"
-        style={styles.loginButtonWrap}
-      />
-
-      {/* Separador OU */}
-      <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>ou continue com</Text>
-        <View style={styles.dividerLine} />
-      </View>
-
-      {/* Botões sociais lado a lado */}
-      <View style={styles.socialRow}>
-        <AppButton
-          title="Google"
-          onPress={handleGooglePress}
-          loading={googleLoading}
-          disabled={!hasGoogleConfig || googleLoading}
-          variant="outline"
-          fullWidth
-          icon="logo-google"
-          style={styles.socialButton}
-        />
-        <AppButton
-          title="Apple (em breve)"
-          onPress={() => {}}
-          disabled
-          variant="outline"
-          fullWidth
-          icon="logo-apple"
-          style={styles.socialButton}
-        />
-      </View>
-
-      {/* Rodapé */}
-      <View style={styles.footerSection}>
-        <View style={styles.registerRow}>
-          <Text style={styles.registerText}>Não tem uma conta? </Text>
-          <TouchableOpacity testID="register-link" onPress={handleRegister} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.registerPill}>
-            <Text style={styles.registerLink}>Crie agora</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          onPress={openWhatsApp}
-          style={styles.whatsappLink}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.whatsappLinkText}>Precisa de ajuda? Fale no WhatsApp</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   return (
-    <LinearGradient
-      colors={AUTH_GRADIENT}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.gradient}
-    >
+    <View style={styles.root}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
@@ -339,173 +206,355 @@ export default function Login() {
             style={styles.scrollView}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: Math.max(60, windowHeight * 0.12) },
+              { paddingBottom: Math.max(40, windowHeight * 0.08) },
             ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
             <FadeIn visible duration={300} fromY={12} fill={false}>
-              {content}
+              {/* Branding */}
+              <View style={[styles.brandSection, isSmallScreen && styles.brandSectionSmall]}>
+                <Logo size="small" variant="dark" compact />
+                <Text style={styles.brandTitle}>RenoveJá</Text>
+                <Text style={[styles.brandTagline, isSmallScreen && styles.brandTaglineSmall]}>
+                  Renove sua receita e pedido de exames.{'\n'}Rápido e sem burocracia.
+                </Text>
+              </View>
+
+              {/* Form Card */}
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Entrar na sua conta</Text>
+
+                {/* Email Input */}
+                <AppInput
+                  testID="login-email-input"
+                  label="E-mail"
+                  leftIcon="mail-outline"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChangeText={handleEmailChange}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={focusPassword}
+                  editable={!loading}
+                  error={errors.email}
+                  containerStyle={styles.inputSpacing}
+                />
+
+                {/* Password Input */}
+                <AppInput
+                  ref={passwordRef}
+                  testID="login-password-input"
+                  label="Senha"
+                  leftIcon="lock-closed-outline"
+                  placeholder="Sua senha"
+                  value={password}
+                  onChangeText={handlePasswordChange}
+                  secureTextEntry
+                  autoComplete="current-password"
+                  textContentType="password"
+                  returnKeyType="done"
+                  blurOnSubmit={true}
+                  onSubmitEditing={handleLogin}
+                  editable={!loading}
+                  error={errors.password}
+                  containerStyle={styles.inputSpacingLast}
+                />
+
+                {/* Forgot Password */}
+                <TouchableOpacity
+                  testID="forgot-password-link"
+                  onPress={handleForgotPassword}
+                  style={styles.forgotRow}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.forgotText}>Esqueci minha senha</Text>
+                </TouchableOpacity>
+
+                {/* Login Button */}
+                <TouchableOpacity
+                  testID="login-button"
+                  style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+                  onPress={handleLogin}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  {loading ? (
+                    <Text style={styles.primaryButtonText}>Entrando...</Text>
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Entrar</Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Divider */}
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>ou</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                {/* Google Sign-In */}
+                <TouchableOpacity
+                  style={[styles.googleButton, (!hasGoogleConfig || googleLoading) && styles.googleButtonDisabled]}
+                  onPress={handleGooglePress}
+                  disabled={!hasGoogleConfig || googleLoading}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="logo-google" size={18} color={hasGoogleConfig ? '#4285F4' : colors.textMuted} />
+                  <Text style={[styles.googleButtonText, !hasGoogleConfig && styles.googleButtonTextDisabled]}>
+                    {googleLoading ? 'Conectando...' : 'Continuar com Google'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Footer */}
+              <View style={styles.footerSection}>
+                <View style={styles.registerRow}>
+                  <Text style={styles.registerText}>Não tem uma conta? </Text>
+                  <TouchableOpacity
+                    testID="register-link"
+                    onPress={handleRegister}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.registerLink}>Cadastre-se</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  onPress={openWhatsApp}
+                  style={styles.whatsappLink}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="logo-whatsapp" size={14} color={colors.textMuted} style={styles.whatsappIcon} />
+                  <Text style={styles.whatsappLinkText}>Precisa de ajuda? Fale no WhatsApp</Text>
+                </TouchableOpacity>
+              </View>
             </FadeIn>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
-function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows']) {
+function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], isDark: boolean) {
   return StyleSheet.create({
-  gradient: { flex: 1 },
-  safeArea: { flex: 1 },
-  keyboardView: { flex: 1 },
-  scrollView: { flex: 1 },
+    root: {
+      flex: 1,
+      backgroundColor: isDark ? colors.background : BG,
+    },
+    safeArea: { flex: 1 },
+    keyboardView: { flex: 1 },
+    scrollView: { flex: 1 },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      justifyContent: 'center',
+    },
 
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    justifyContent: 'center',
-  },
+    /* Branding */
+    brandSection: {
+      alignItems: 'center',
+      marginBottom: 28,
+    },
+    brandSectionSmall: {
+      marginBottom: 18,
+    },
+    brandTitle: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: PRIMARY,
+      letterSpacing: -0.5,
+      marginTop: 10,
+      fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    brandTagline: {
+      marginTop: 8,
+      fontSize: 14,
+      fontWeight: '400',
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 21,
+      fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    brandTaglineSmall: {
+      fontSize: 13,
+      marginTop: 6,
+      lineHeight: 19,
+    },
 
-  // Card v2: mais generoso, cantos mais arredondados
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 24,
-    ...shadows.elevated,
-  },
-  cardSmall: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 18,
-  },
-  accentBar: {
-    width: 48,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
+    /* Card */
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      paddingHorizontal: 24,
+      paddingTop: 24,
+      paddingBottom: 28,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 16,
+        },
+        android: { elevation: 4 },
+        default: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 16,
+        },
+      }),
+    },
+    cardTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 20,
+      fontFamily: 'PlusJakartaSans_700Bold',
+    },
 
-  logoSection: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logoSectionSmall: {
-    marginBottom: 14,
-  },
-  tagline: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-    textAlign: 'center',
-    lineHeight: 21,
-    fontFamily: 'PlusJakartaSans_400Regular',
-  },
-  taglineSmall: {
-    fontSize: 13,
-    marginTop: 6,
-    lineHeight: 19,
-  },
+    /* Inputs */
+    inputSpacing: {
+      marginBottom: 6,
+    },
+    inputSpacingLast: {
+      marginBottom: 2,
+    },
 
-  // Inputs
-  inputContainer: {
-    marginBottom: 4,
-  },
-  inputLast: {
-    marginBottom: 0,
-  },
+    /* Forgot password */
+    forgotRow: {
+      alignSelf: 'flex-end',
+      marginTop: 4,
+      marginBottom: 16,
+    },
+    forgotText: {
+      fontSize: 13,
+      fontWeight: '600',
+      fontFamily: 'PlusJakartaSans_600SemiBold',
+      color: PRIMARY,
+    },
 
-  // Esqueceu senha — acima do botão, alinhado à direita
-  forgotRow: {
-    alignSelf: 'flex-end',
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  forgotText: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: colors.primary,
-  },
+    /* Primary Button */
+    primaryButton: {
+      backgroundColor: PRIMARY,
+      height: 52,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...Platform.select({
+        ios: {
+          shadowColor: PRIMARY,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+        android: { elevation: 4 },
+        default: {
+          shadowColor: PRIMARY,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+      }),
+    },
+    primaryButtonDisabled: {
+      opacity: 0.7,
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+      fontFamily: 'PlusJakartaSans_700Bold',
+      letterSpacing: 0.3,
+    },
 
-  loginButtonWrap: {
-    marginTop: 8,
-    marginBottom: 4,
-  },
+    /* Divider */
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 20,
+      gap: 14,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.borderLight,
+    },
+    dividerText: {
+      fontSize: 13,
+      fontWeight: '500',
+      fontFamily: 'PlusJakartaSans_500Medium',
+      color: colors.textMuted,
+    },
 
-  // Separador v2
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 18,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.borderLight,
-  },
-  dividerText: {
-    fontSize: 12,
-    fontWeight: '500',
-    fontFamily: 'PlusJakartaSans_500Medium',
-    color: colors.textMuted,
-  },
+    /* Google Button */
+    googleButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: 48,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      gap: 10,
+    },
+    googleButtonDisabled: {
+      opacity: 0.5,
+    },
+    googleButtonText: {
+      fontSize: 15,
+      fontWeight: '600',
+      fontFamily: 'PlusJakartaSans_600SemiBold',
+      color: colors.text,
+    },
+    googleButtonTextDisabled: {
+      color: colors.textMuted,
+    },
 
-  // Social v2: botões lado a lado
-  socialRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  socialButton: {
-    flex: 1,
-    height: 48,
-    marginBottom: 12,
-  },
-
-  // Footer v2: mais espaço
-  footerSection: {
-    marginTop: 20,
-    alignItems: 'center',
-    gap: 10,
-  },
-  registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-  },
-  registerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontFamily: 'PlusJakartaSans_400Regular',
-  },
-  registerLink: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: colors.primary,
-  },
-  registerPill: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  whatsappLink: {
-    alignSelf: 'center',
-  },
-  whatsappLinkText: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textDecorationLine: 'underline',
-    fontWeight: '400',
-  },
+    /* Footer */
+    footerSection: {
+      marginTop: 28,
+      alignItems: 'center',
+      gap: 14,
+    },
+    registerRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    registerText: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    registerLink: {
+      fontSize: 15,
+      fontWeight: '700',
+      fontFamily: 'PlusJakartaSans_700Bold',
+      color: PRIMARY,
+    },
+    whatsappLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    whatsappIcon: {
+      marginTop: 1,
+    },
+    whatsappLinkText: {
+      fontSize: 12,
+      color: colors.textMuted,
+      textDecorationLine: 'underline',
+      fontWeight: '400',
+    },
   });
 }

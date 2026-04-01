@@ -288,7 +288,7 @@ export default function PrescriptionEditorScreen() {
 
   const isExam = request.requestType === 'exam';
 
-  const pdfViewHeight = Math.max(320, Math.min(500, windowHeight - 220));
+  const pdfViewHeight = Math.max(280, Math.round(windowHeight * 0.45));
 
   const bottomBarPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
 

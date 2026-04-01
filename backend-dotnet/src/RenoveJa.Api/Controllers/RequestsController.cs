@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenoveJa.Application.DTOs.Requests;
 using RenoveJa.Application.Interfaces;
+using RenoveJa.Api.Helpers;
 using RenoveJa.Domain.Interfaces;
 using System.Security.Claims;
 
@@ -106,6 +107,9 @@ public class RequestsController(
                         });
 
                     await using var stream = file.OpenReadStream();
+                    if (!await FileSignatureValidator.HasValidSignatureAsync(stream, contentType))
+                        return BadRequest(new { error = $"O conteúdo do arquivo {file.FileName} não corresponde ao tipo declarado." });
+                    stream.Position = 0;
                     var url = await storageService.UploadPrescriptionImageAsync(stream, file.FileName, contentType,
                         userId, cancellationToken);
                     imageUrls.Add(url);
@@ -203,6 +207,9 @@ public class RequestsController(
                     if (!AllowedImageContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
                         return BadRequest(new { error = $"Tipo não permitido: {contentType}. Use: {string.Join(", ", AllowedImageContentTypes)}" });
                     await using var stream = file.OpenReadStream();
+                    if (!await FileSignatureValidator.HasValidSignatureAsync(stream, contentType))
+                        return BadRequest(new { error = $"O conteúdo do arquivo {file.FileName} não corresponde ao tipo declarado." });
+                    stream.Position = 0;
                     var url = await storageService.UploadExamImageAsync(stream, file.FileName, contentType, userId, cancellationToken);
                     imageUrls.Add(url);
                 }
@@ -265,7 +272,7 @@ public class RequestsController(
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        pageSize = Math.Clamp(pageSize, 1, 100); // NH-3: cap at 100 to prevent DoS
+        pageSize = Math.Clamp(pageSize, 1, 500); // cap at 500 — query is scoped to authenticated user
         if (page < 1) page = 1;
         var userId = GetUserId();
         logger.LogInformation("[GetRequests] GET /api/requests userId={UserId} (from token), page={Page}, pageSize={PageSize}", userId, page, pageSize);
@@ -301,6 +308,7 @@ public class RequestsController(
 
         var userId = GetUserId();
         var request = await requestService.GetRequestByIdAsync(resolvedId.Value, userId, cancellationToken);
+        if (request == null) return NotFound();
         _ = auditEventService.LogReadAsync(userId, "Request", resolvedId.Value, "api", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.Request.Headers.UserAgent.ToString(), cancellationToken: CancellationToken.None)
             .ContinueWith(t =>
             {

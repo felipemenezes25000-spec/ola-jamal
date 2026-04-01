@@ -32,22 +32,29 @@ import { useTriageEval } from '../../hooks/useTriageEval';
 import { detectRedFlags, evaluateExamCompleteness } from '../../lib/domain/assistantIntelligence';
 
 const s = theme.spacing;
-const r = theme.borderRadius;
+const _r = theme.borderRadius;
 const ty = theme.typography;
 
 const EXAM_TYPES = [
-  { key: 'laboratorial' as const, label: 'Laboratorial', desc: 'Peça exames e receba em poucos instantes.', icon: 'flask' as const },
-  { key: 'imagem' as const, label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia e outros.', icon: 'scan' as const },
+  { key: 'laboratorial' as const, label: 'Laboratorial', desc: 'Exames de sangue, urina e outros.', icon: 'flask-outline' as const, accent: '#22C55E' },
+  { key: 'imagem' as const, label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia.', icon: 'scan-outline' as const, accent: '#0EA5E9' },
 ];
 
-const NARROW_BREAKPOINT = 360;
+const QUICK_EXAMS = [
+  'Hemograma completo',
+  'Glicemia em jejum',
+  'TSH',
+  'Colesterol total',
+  'TGO / TGP',
+  'Creatinina',
+];
 
 export default function NewExam() {
   const router = useRouter();
   const params = useLocalSearchParams<{ prefillExams?: string }>();
   const invalidateRequests = useInvalidateRequests();
   const { width } = useWindowDimensions();
-  const oneColumn = width < NARROW_BREAKPOINT;
+  const narrow = width < 360;
   const [examType, setExamType] = useState('laboratorial');
   const [exams, setExams] = useState<string[]>([]);
   const [examInput, setExamInput] = useState('');
@@ -55,7 +62,7 @@ export default function NewExam() {
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { colors } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, narrow), [colors, narrow]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateExamCompleteness({
     examType,
@@ -65,7 +72,7 @@ export default function NewExam() {
   });
   const redFlagsLocal = detectRedFlags(symptoms);
   const [apiLoading, setApiLoading] = useState(false);
-  /** Prefill de exames vindos da consulta (ex.: médico clicou em "Criar Pedido de Exame Baseado na Consulta") */
+
   useEffect(() => {
     const raw = params.prefillExams;
     if (raw && typeof raw === 'string') {
@@ -77,6 +84,7 @@ export default function NewExam() {
       } catch { /* ignore */ }
     }
   }, [params.prefillExams]);
+
   const [apiResult, setApiResult] = useState<{
     score: number;
     doneCount: number;
@@ -130,6 +138,7 @@ export default function NewExam() {
         guidance: apiResult.urgencyMessage ?? 'Sinais de urgência detectados. Considere buscar atendimento presencial.',
       }
     : redFlagsLocal;
+
   let currentStep = 1;
   if (examType) currentStep = 2;
   if (exams.length > 0) currentStep = 3;
@@ -137,10 +146,8 @@ export default function NewExam() {
 
   const examValidation = validate(createExamSchema, { examType, exams, symptoms, images });
   const isFormValid = completeness.missingRequired.length === 0 && examValidation.success;
-
   const symptomsRef = useRef<TextInput>(null);
 
-  /** Dra. Renoveja: dicas por etapa (tipo imagem, exames). */
   useTriageEval({
     context: 'exam',
     step: exams.length > 0 ? 'type_selected' : 'entry',
@@ -155,6 +162,12 @@ export default function NewExam() {
     if (exam && !exams.includes(exam)) {
       setExams([...exams, exam]);
       setExamInput('');
+    }
+  };
+
+  const addQuickExam = (exam: string) => {
+    if (!exams.includes(exam)) {
+      setExams([...exams, exam]);
     }
   };
 
@@ -190,7 +203,6 @@ export default function NewExam() {
     setLoading(true);
     try {
       const result = await createExamRequest(payload);
-      // A IA analisa na hora – se rejeitou (imagem incoerente), avisar imediatamente
       if (result.request?.status === 'rejected') {
         const msg =
           result.request.aiMessageToUser ||
@@ -231,12 +243,7 @@ export default function NewExam() {
       return;
     }
 
-    const validation = validate(createExamSchema, {
-      examType,
-      exams,
-      symptoms,
-      images,
-    });
+    const validation = validate(createExamSchema, { examType, exams, symptoms, images });
     if (!validation.success) {
       showToast({ message: validation.firstError ?? 'Informe os exames desejados e os sintomas.', type: 'error' });
       symptomsRef.current?.focus();
@@ -266,194 +273,293 @@ export default function NewExam() {
 
   return (
     <Screen scroll={false} padding={false} edges={['top', 'bottom']}>
-      <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: listPadding }]} showsVerticalScrollIndicator={false}>
-        <AppHeader title="Novo Exame" />
-        <StepIndicator current={currentStep} total={4} labels={['Tipo', 'Exames', 'Sintomas', 'Revisão']} />
-        <AppCard style={[styles.assistantCard, apiLoading && styles.assistantCardLoading]}>
-          <View style={styles.assistantHeader}>
-            <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
-            <Text style={styles.assistantTitle}>Dra. Renoveja: qualidade do envio</Text>
-            {apiLoading && (
-              <ActivityIndicator size="small" color={colors.primary} style={styles.assistantLoading} />
+      <View style={styles.flex1}>
+        <ScrollView
+          contentContainerStyle={[styles.body, { paddingBottom: listPadding }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <AppHeader title="Novo Exame" />
+          <StepIndicator current={currentStep} total={4} labels={['Tipo', 'Exames', 'Sintomas', 'Revisão']} />
+
+          {/* AI Completeness */}
+          <View style={[styles.completenessCard, apiLoading && styles.completenessCardLoading]}>
+            <View style={styles.completenessHeader}>
+              <View style={styles.completenessIconWrap}>
+                <Ionicons name="sparkles" size={16} color="#8B5CF6" />
+              </View>
+              <Text style={styles.completenessTitle}>Qualidade do envio</Text>
+              {apiLoading && (
+                <ActivityIndicator size="small" color={colors.primary} style={styles.mlAuto} />
+              )}
+            </View>
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${completeness.score}%`,
+                    backgroundColor: completeness.score === 100 ? '#22C55E' : colors.primary,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.completenessScore}>{completeness.score}% pronto</Text>
+            {completeness.missingRequired.map((item) => (
+              <View key={item.id} style={styles.missingRow}>
+                <Ionicons name="ellipse-outline" size={12} color={colors.textMuted} />
+                <Text style={styles.missingText}>{item.label}</Text>
+              </View>
+            ))}
+            {completeness.missingRequired.length === 0 && (
+              <View style={styles.missingRow}>
+                <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                <Text style={styles.readyText}>Pedido consistente para revisão</Text>
+              </View>
             )}
           </View>
-          <Text style={styles.assistantProgress}>Seu pedido está {completeness.score}% pronto</Text>
-          {completeness.missingRequired.map((item) => (
-            <Text key={item.id} style={styles.assistantMissing}>• {item.label}</Text>
-          ))}
-          {completeness.missingRequired.length === 0 ? (
-            <Text style={styles.assistantGood}>Perfeito. Pedido consistente para revisão médica.</Text>
-          ) : null}
-        </AppCard>
-        {redFlags.isUrgent ? (
-          <View style={styles.redFlagCard}>
-            <Ionicons name="warning-outline" size={18} color={colors.error} />
-            <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
-          </View>
-        ) : null}
-        {/* Exam Type */}
-        <Text style={styles.overline}>TIPO DE EXAME</Text>
-        {currentStep === 1 && (
-          <Text style={styles.stepHint}>Passo 1 — Selecione o tipo de exame tocando em um dos cards abaixo (laboratorial ou imagem).</Text>
-        )}
-        <View style={[styles.typeRow, oneColumn && styles.typeRowOneCol]}>
-          {EXAM_TYPES.map(type => (
-              <AppCard
-                key={type.key}
-                selected={examType === type.key}
-                onPress={() => setExamType(type.key)}
-                style={StyleSheet.flatten(oneColumn ? [styles.typeCard, styles.typeCardFull] : styles.typeCard)}
-              >
-                <Ionicons
-                  name={type.icon}
-                  size={28}
-                  color={examType === type.key ? colors.primary : colors.textMuted}
-                />
-                <Text style={[styles.typeName, examType === type.key && styles.typeNameSelected]} numberOfLines={1}>
-                  {type.label}
-                </Text>
-                <Text style={styles.typeDesc} numberOfLines={3}>{type.desc}</Text>
-              </AppCard>
-          ))}
-        </View>
 
-        {/* Exams List */}
-        <Text style={styles.overline}>EXAMES DESEJADOS</Text>
-        {currentStep === 2 && (
-          <Text style={styles.stepHint}>Passo 2 — Digite o nome do exame e toque no botão + para adicionar. Faça isso para cada exame que você precisa.</Text>
-        )}
-        <View style={styles.inputRow}>
-          <AppInput
-            placeholder="Ex: Hemograma completo"
-            value={examInput}
-            onChangeText={setExamInput}
-            onSubmitEditing={addExam}
-            returnKeyType="done"
-            containerStyle={styles.inputContainer}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addExam}>
-            <Ionicons name="add" size={24} color={colors.white} />
-          </TouchableOpacity>
-        </View>
-        {exams.length > 0 && (
-          <View style={styles.tags}>
-            {exams.map((exam, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>{exam}</Text>
-                <TouchableOpacity onPress={() => removeExam(index)}>
-                  <Ionicons name="close" size={16} color={colors.accent} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
+          {redFlags.isUrgent && (
+            <View style={styles.redFlagCard}>
+              <Ionicons name="warning-outline" size={18} color={colors.error} />
+              <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
+            </View>
+          )}
 
-        {/* Symptoms */}
-        <Text style={styles.overline}>SINTOMAS (OBRIGATÓRIO)</Text>
-        <TextInput
-          ref={symptomsRef}
-          style={[styles.textarea, !isFormValid && symptoms.trim().length === 0 && styles.inputError]}
-          placeholder="Descreva seus sintomas"
-          placeholderTextColor={colors.textMuted}
-          value={symptoms}
-          onChangeText={setSymptoms}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-        />
-        {!isFormValid && symptoms.trim().length === 0 && (
-          <Text style={styles.inputErrorHint}>Descreva seus sintomas para continuar</Text>
-        )}
-
-        {/* Photo */}
-        <Text style={styles.overline}>FOTO DO PEDIDO (SE TIVER)</Text>
-        {currentStep === 3 && (
-          <Text style={styles.stepHint}>Passo 3 — Se você tiver um pedido de exame ou laudo, envie a foto aqui. Toque em Câmera ou Galeria. Se não tiver, pode pular esta parte.</Text>
-        )}
-        <Text style={styles.photoHint}>
-          Envie apenas fotos do documento (pedido de exame ou laudo). Fotos de pessoas, animais ou outros objetos serão rejeitadas.
-        </Text>
-        <View style={styles.photoRow}>
-          <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
-            <Ionicons name="camera" size={28} color={colors.primary} />
-            <Text style={styles.photoText}>Câmera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
-            <Ionicons name="image" size={28} color={colors.primary} />
-            <Text style={styles.photoText}>Galeria</Text>
-          </TouchableOpacity>
-        </View>
-        {images.length > 0 && (
-          <View style={styles.imagesRow}>
-            {images.map((uri, i) => (
-              <View key={i} style={styles.imgWrap}>
-                <CompatibleImage uri={uri && typeof uri === 'string' ? uri : undefined} style={styles.imgPreview} />
-                <TouchableOpacity
-                  style={styles.imgRemove}
-                  onPress={() => setImages(images.filter((_, j) => j !== i))}
+          {/* Exam Type */}
+          <Text style={styles.sectionLabel}>Tipo de exame</Text>
+          <View style={styles.typeRow}>
+            {EXAM_TYPES.map(type => {
+              const isSelected = examType === type.key;
+              return (
+                <AppCard
+                  key={type.key}
+                  selected={isSelected}
+                  onPress={() => setExamType(type.key)}
+                  style={styles.typeCard}
                 >
-                  <Ionicons name="close-circle" size={20} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
+                  <View style={[styles.typeIconWrap, { backgroundColor: type.accent + '14' }]}>
+                    <Ionicons name={type.icon} size={24} color={isSelected ? type.accent : colors.textMuted} />
+                  </View>
+                  <Text style={[styles.typeName, isSelected && styles.typeNameSelected]} numberOfLines={1}>
+                    {type.label}
+                  </Text>
+                  <Text style={styles.typeDesc} numberOfLines={2}>{type.desc}</Text>
+                </AppCard>
+              );
+            })}
           </View>
-        )}
 
-      </ScrollView>
-      <StickyCTA
-        summaryTitle="Resumo"
-        summaryValue={`${completeness.score}% pronto`}
-        summaryHint={`${examType === 'imagem' ? 'pedido de imagem' : 'pedido laboratorial'}`}
-        primary={{
-          label: 'Enviar pedido',
-          onPress: handleSubmit,
-          loading,
-          disabled: loading || !isFormValid,
-        }}
-      />
+          {/* Exams List */}
+          <Text style={styles.sectionLabel}>Exames desejados</Text>
+          <View style={styles.inputRow}>
+            <AppInput
+              placeholder="Ex: Hemograma completo"
+              value={examInput}
+              onChangeText={setExamInput}
+              onSubmitEditing={addExam}
+              returnKeyType="done"
+              blurOnSubmit={false}
+              autoCapitalize="sentences"
+              autoCorrect={false}
+              editable={!loading}
+              containerStyle={styles.inputContainer}
+            />
+            <TouchableOpacity
+              style={[styles.addButton, !examInput.trim() && styles.addButtonDisabled]}
+              onPress={addExam}
+              disabled={!examInput.trim()}
+            >
+              <Ionicons name="add" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Quick Exam Chips */}
+          {exams.length === 0 && (
+            <View style={styles.quickSection}>
+              <Text style={styles.quickLabel}>Sugestões rápidas:</Text>
+              <View style={styles.quickChips}>
+                {QUICK_EXAMS.map((exam) => (
+                  <TouchableOpacity
+                    key={exam}
+                    style={styles.quickChip}
+                    onPress={() => addQuickExam(exam)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                    <Text style={styles.quickChipText}>{exam}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {exams.length > 0 && (
+            <View style={styles.tags}>
+              {exams.map((exam, index) => (
+                <View key={`${exam}-${index}`} style={styles.tag}>
+                  <Text style={styles.tagText}>{exam}</Text>
+                  <TouchableOpacity onPress={() => removeExam(index)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Ionicons name="close" size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Symptoms */}
+          <Text style={styles.sectionLabel}>Sintomas</Text>
+          <Text style={styles.fieldHint}>Descreva o que motivou o pedido de exame</Text>
+          <TextInput
+            ref={symptomsRef}
+            style={[styles.textarea, !isFormValid && symptoms.trim().length === 0 && styles.inputError]}
+            placeholder="Ex: Dor de cabeça frequente há 2 semanas..."
+            placeholderTextColor={colors.textMuted}
+            value={symptoms}
+            onChangeText={setSymptoms}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            autoCapitalize="sentences"
+            autoCorrect
+            returnKeyType="default"
+            editable={!loading}
+            accessibilityLabel="Descreva seus sintomas"
+            accessibilityHint="Campo obrigatório para descrever seus sintomas"
+          />
+          {!isFormValid && symptoms.trim().length === 0 && (
+            <Text style={styles.inputErrorHint}>Descreva seus sintomas para continuar</Text>
+          )}
+
+          {/* Photo */}
+          <Text style={styles.sectionLabel}>Foto do pedido (opcional)</Text>
+          <Text style={styles.fieldHint}>
+            Se você tem um pedido de exame ou laudo, envie a foto aqui.
+          </Text>
+          <View style={styles.photoRow}>
+            <TouchableOpacity style={styles.photoButton} onPress={pickImage} activeOpacity={0.7}>
+              <View style={styles.photoIconCircle}>
+                <Ionicons name="camera" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.photoText}>Câmera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery} activeOpacity={0.7}>
+              <View style={styles.photoIconCircle}>
+                <Ionicons name="image" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.photoText}>Galeria</Text>
+            </TouchableOpacity>
+          </View>
+          {images.length > 0 && (
+            <View style={styles.imagesRow}>
+              {images.map((uri, i) => (
+                <View key={i} style={styles.imgWrap}>
+                  <CompatibleImage uri={uri && typeof uri === 'string' ? uri : undefined} style={styles.imgPreview} />
+                  <TouchableOpacity
+                    style={styles.imgRemove}
+                    onPress={() => setImages(images.filter((_, j) => j !== i))}
+                  >
+                    <Ionicons name="close-circle" size={20} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        <StickyCTA
+          summaryTitle="Resumo"
+          summaryValue={`${completeness.score}% pronto`}
+          summaryHint={`${examType === 'imagem' ? 'pedido de imagem' : 'pedido laboratorial'}`}
+          primary={{
+            label: 'Enviar pedido',
+            onPress: handleSubmit,
+            loading,
+            disabled: loading || !isFormValid,
+          }}
+        />
       </View>
     </Screen>
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, narrow: boolean) {
   return StyleSheet.create({
+    flex1: { flex: 1 },
     body: {
       flexGrow: 1,
       paddingHorizontal: uiTokens.screenPaddingHorizontal,
     },
-    overline: {
-      fontSize: 12,
-      fontWeight: '600',
-      lineHeight: 16,
-      textTransform: 'uppercase',
-      color: colors.textSecondary,
-      marginTop: s.lg,
+
+    /* Completeness Card */
+    completenessCard: {
+      marginTop: s.md,
+      marginBottom: s.sm,
+      padding: s.md,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    completenessCardLoading: { opacity: 0.9 },
+    completenessHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.xs,
       marginBottom: s.sm,
     },
-    assistantCard: {
-      marginTop: s.md,
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-      backgroundColor: colors.primarySoft + '66',
-      shadowColor: 'transparent',
-      shadowOpacity: 0,
-      shadowRadius: 0,
-      shadowOffset: { width: 0, height: 0 },
-      elevation: 0,
+    completenessIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: '#8B5CF6' + '14',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    assistantCardLoading: { opacity: 0.95 },
-    assistantLoading: { marginLeft: 'auto' },
-    assistantHeader: { flexDirection: 'row', alignItems: 'center', gap: s.xs },
-    assistantTitle: { fontSize: 13, fontWeight: '700', color: colors.primary },
-    assistantProgress: { marginTop: 6, fontSize: 14, lineHeight: 20, fontWeight: '700', color: colors.text },
-    assistantMissing: { marginTop: 6, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
-    assistantGood: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.success },
+    completenessTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    mlAuto: { marginLeft: 'auto' },
+    progressBarBg: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.border,
+      marginBottom: 6,
+      overflow: 'hidden',
+    },
+    progressBarFill: {
+      height: 6,
+      borderRadius: 3,
+    },
+    completenessScore: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    missingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 4,
+    },
+    missingText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      lineHeight: 16,
+    },
+    readyText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#22C55E',
+    },
+
+    /* Red flags */
     redFlagCard: {
       marginTop: s.sm,
       marginBottom: s.sm,
-      borderRadius: 14,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.errorLight,
       backgroundColor: colors.errorLight,
@@ -463,54 +569,57 @@ function makeStyles(colors: DesignColors) {
       gap: s.sm,
     },
     redFlagText: { flex: 1, color: colors.error, fontSize: 12, lineHeight: 18 },
-    stepHint: {
+
+    /* Sections */
+    sectionLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: s.lg,
+      marginBottom: s.sm,
+    },
+    fieldHint: {
       fontSize: 13,
       color: colors.textSecondary,
       marginBottom: s.sm,
-      lineHeight: 20,
+      lineHeight: 18,
     },
+
+    /* Type Cards */
     typeRow: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    typeRowOneCol: {
-      flexDirection: 'column',
+      flexDirection: narrow ? 'column' : 'row',
+      gap: s.sm,
     },
     typeCard: {
-      flex: 1,
+      flex: narrow ? undefined : 1,
       alignItems: 'center',
+      paddingVertical: s.md,
     },
-    typeCardFull: {
-      width: '100%',
+    typeIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: s.sm,
     },
     typeName: {
       fontSize: ty.fontSize.sm,
-      fontWeight: '600',
+      fontWeight: '700',
       color: colors.text,
-      marginTop: s.sm,
     },
     typeNameSelected: {
       color: colors.primary,
     },
-    typePrice: {
-      fontSize: ty.fontSize.lg,
-      fontWeight: '700',
-      color: colors.text,
-      marginTop: s.xs,
-    },
-    typePriceSuffix: {
-      fontSize: ty.fontSize.xs,
-      color: colors.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      marginTop: 2,
-    },
     typeDesc: {
-      fontSize: ty.fontSize.xs,
+      fontSize: 12,
       color: colors.textMuted,
       textAlign: 'center',
       marginTop: 2,
+      lineHeight: 16,
     },
+
+    /* Input Row */
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -521,14 +630,49 @@ function makeStyles(colors: DesignColors) {
       marginBottom: 0,
     },
     addButton: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
+      width: 44,
+      height: 44,
+      borderRadius: 14,
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
-      ...theme.shadows.button,
     },
+    addButtonDisabled: {
+      opacity: 0.5,
+    },
+
+    /* Quick Chips */
+    quickSection: {
+      marginTop: s.sm,
+    },
+    quickLabel: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginBottom: 6,
+    },
+    quickChips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    quickChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.primarySoft,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+    },
+    quickChipText: {
+      fontSize: 12,
+      color: colors.primary,
+      fontWeight: '500',
+    },
+
+    /* Tags */
     tags: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -538,27 +682,28 @@ function makeStyles(colors: DesignColors) {
     tag: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.accentSoft,
-      paddingHorizontal: s.md,
-      paddingVertical: s.xs,
-      borderRadius: r.pill,
-      gap: s.xs,
+      backgroundColor: colors.primarySoft,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      gap: 6,
     },
     tagText: {
       fontSize: 13,
-      color: colors.accent,
+      color: colors.primary,
       fontWeight: '500',
     },
+
+    /* Textarea */
     textarea: {
       backgroundColor: colors.surface,
-      borderRadius: r.md,
+      borderRadius: 14,
       padding: s.md,
       fontSize: ty.fontSize.md,
       color: colors.text,
       minHeight: 100,
       borderWidth: 1,
       borderColor: colors.border,
-      ...theme.shadows.card,
     },
     inputError: {
       borderColor: colors.error,
@@ -570,11 +715,8 @@ function makeStyles(colors: DesignColors) {
       color: colors.error,
       lineHeight: 16,
     },
-    photoHint: {
-      fontSize: 12,
-      color: colors.textMuted,
-      marginBottom: s.sm,
-    },
+
+    /* Photo */
     photoRow: {
       flexDirection: 'row',
       gap: s.md,
@@ -582,14 +724,21 @@ function makeStyles(colors: DesignColors) {
     photoButton: {
       flex: 1,
       backgroundColor: colors.surface,
-      borderRadius: 18,
-      paddingVertical: s.lg,
+      borderRadius: 14,
+      paddingVertical: s.md,
       alignItems: 'center',
       borderWidth: 2,
       borderColor: colors.border,
       borderStyle: 'dashed',
       gap: s.xs,
-      ...theme.shadows.sm,
+    },
+    photoIconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     photoText: {
       fontSize: 13,
@@ -598,6 +747,7 @@ function makeStyles(colors: DesignColors) {
     },
     imagesRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginTop: s.sm,
       gap: s.sm,
     },
@@ -605,9 +755,9 @@ function makeStyles(colors: DesignColors) {
       position: 'relative',
     },
     imgPreview: {
-      width: 80,
-      height: 80,
-      borderRadius: 14,
+      width: 76,
+      height: 76,
+      borderRadius: 12,
     },
     imgRemove: {
       position: 'absolute',
@@ -615,27 +765,6 @@ function makeStyles(colors: DesignColors) {
       right: -6,
       backgroundColor: colors.surface,
       borderRadius: 10,
-    },
-    priceBox: {
-      flexDirection: 'row',
-      backgroundColor: colors.successLight,
-      marginTop: s.lg,
-      padding: s.md,
-      borderRadius: r.lg,
-      gap: s.sm,
-      alignItems: 'center',
-    },
-    priceText: {
-      fontSize: ty.fontSize.sm,
-      color: colors.text,
-    },
-    priceValue: {
-      fontWeight: '700',
-      color: colors.secondary,
-    },
-    priceSuffix: {
-      fontSize: ty.fontSize.xs,
-      color: colors.textMuted,
     },
   });
 }

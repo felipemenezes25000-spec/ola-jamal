@@ -23,13 +23,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Dimensions,
   Animated,
   Platform,
   BackHandler,
   AppState,
   Linking,
   PermissionsAndroid,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { nav } from '../../lib/navigation';
@@ -63,8 +63,7 @@ import { useRequestUpdated } from '../../hooks/useRequestUpdated';
 import { useVideoCallEvents } from '../../hooks/useVideoCallEvents';
 import { useConsultationTimer } from '../../hooks/useConsultationTimer';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const PANEL_WIDTH = Math.min(380, SCREEN_W * 0.9);
+// SCREEN_W / PANEL_WIDTH moved inside component via useWindowDimensions
 
 function getAndroidApiLevel(): number {
   if (Platform.OS !== 'android') return 0;
@@ -101,6 +100,8 @@ export default function VideoCallScreenInner() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { width: screenW } = useWindowDimensions();
+  const panelWidth = Math.min(380, screenW * 0.9);
   // Video call: tema dark unificado — overlay, modal e painel usam o mesmo tema.
   // Evita mix light/dark bugado dentro da chamada.
   const darkTheme = useAppTheme({ scheme: 'dark' });
@@ -152,6 +153,8 @@ export default function VideoCallScreenInner() {
   // Doctor: timer control — médico controla quando iniciar a contagem
   const [timerStarted, setTimerStarted] = useState(false);
   const timerStartedRef = useRef(false);
+  /** Paciente chegou a entrar na sala (Daily) nesta sessão — evita "saiu" antes de ele entrar */
+  const [remoteEverJoined, setRemoteEverJoined] = useState(false);
   /** In-flight guard: prevents a second startConsultation call while the first await is pending. */
   const startingConsultationRef = useRef(false);
 
@@ -162,7 +165,7 @@ export default function VideoCallScreenInner() {
   // Anamnesis & Transcript (doctor) — SignalR real-time via extracted hook
   const {
     anamnesis, suggestions, evidence,
-    isAiActive, transcriptionError,
+    isAiActive, signalRError,
     consultationEnded,
     connectSignalR, disconnectSignalR,
   } = useVideoCallEvents(rid, isDoctor);
@@ -204,6 +207,10 @@ export default function VideoCallScreenInner() {
     onError: (msg) => setError(msg),
   });
 
+  useEffect(() => {
+    if (remoteParticipant) setRemoteEverJoined(true);
+  }, [remoteParticipant]);
+
   // Server-synced timer + countdown alerts — extracted hook
   const { callSeconds, setCallSeconds } = useConsultationTimer(
     consultationStartedAt,
@@ -220,6 +227,7 @@ export default function VideoCallScreenInner() {
     setRoomUrl(null);
     setMeetingToken(null);
     setCallSeconds(0);
+    setRemoteEverJoined(false);
   }, [rid, setCallSeconds]);
 
   const dailyTranscription = useDailyTranscription({
@@ -263,15 +271,13 @@ export default function VideoCallScreenInner() {
 
     (async () => {
       try {
-        // Antes do Daily/WebRTC: permissões + sessão de áudio.
-        // Android: PermissionsAndroid (CAMERA/RECORD_AUDIO) alinha ao stack nativo do WebRTC; API 33+ precisa de
-        // notificações para o foreground service da chamada; API 31+ Bluetooth opcional para fone.
-        // iOS: expo-av + ImagePicker em sequência; setAudioModeAsync evita mic mudo.
+        // Permissões já foram pedidas no login (useAppPermissions).
+        // Aqui apenas verificamos se estão concedidas e configuramos o áudio.
         if (Platform.OS === 'android') {
-          const recordResult = await PermissionsAndroid.request(
+          const hasMic = await PermissionsAndroid.check(
             PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           );
-          if (recordResult !== PermissionsAndroid.RESULTS.GRANTED) {
+          if (!hasMic) {
             if (!cancelled) {
               setError(
                 'É necessário permitir o microfone para a videoconsulta. Abra as configurações do app e ative o microfone, depois toque em Tentar novamente.',
@@ -279,10 +285,10 @@ export default function VideoCallScreenInner() {
             }
             return;
           }
-          const cameraResult = await PermissionsAndroid.request(
+          const hasCam = await PermissionsAndroid.check(
             PermissionsAndroid.PERMISSIONS.CAMERA,
           );
-          if (cameraResult !== PermissionsAndroid.RESULTS.GRANTED) {
+          if (!hasCam) {
             if (!cancelled) {
               setError(
                 'É necessário permitir a câmera para a videoconsulta. Abra as configurações do app e ative a câmera, depois toque em Tentar novamente.',
@@ -292,7 +298,7 @@ export default function VideoCallScreenInner() {
           }
           const apiLevel = getAndroidApiLevel();
           if (apiLevel >= 33) {
-            const notif = await Notifications.requestPermissionsAsync();
+            const notif = await Notifications.getPermissionsAsync();
             if (notif.status !== 'granted') {
               if (!cancelled) {
                 setError(
@@ -300,22 +306,6 @@ export default function VideoCallScreenInner() {
                 );
               }
               return;
-            }
-          }
-          if (apiLevel >= 31) {
-            try {
-              await PermissionsAndroid.request(
-                PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-                {
-                  title: 'Bluetooth (opcional)',
-                  message:
-                    'Permite ao app usar fone Bluetooth na consulta. Se preferir, toque em negar e use o alto-falante do aparelho.',
-                  buttonPositive: 'Permitir',
-                  buttonNegative: 'Agora não',
-                },
-              );
-            } catch (btErr) {
-              if (__DEV__) console.warn('[VideoCall] BLUETOOTH_CONNECT request failed:', btErr);
             }
           }
           try {
@@ -332,7 +322,7 @@ export default function VideoCallScreenInner() {
             if (__DEV__) console.warn('[VideoCall] setAudioModeAsync failed:', audioModeErr);
           }
         } else if (Platform.OS !== 'web') {
-          const micPerm = await Audio.requestPermissionsAsync();
+          const micPerm = await Audio.getPermissionsAsync();
           if (micPerm.status !== 'granted') {
             if (!cancelled) {
               setError(
@@ -341,7 +331,7 @@ export default function VideoCallScreenInner() {
             }
             return;
           }
-          const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+          const camPerm = await ImagePicker.getCameraPermissionsAsync();
           if (camPerm.status !== 'granted') {
             if (!cancelled) {
               setError(
@@ -502,6 +492,12 @@ export default function VideoCallScreenInner() {
     });
   }, [callState, rid, isDoctor]);
 
+  // Patient: conectar SignalR ao entrar na chamada (para receber ConsultationEnded, RequestUpdated)
+  useEffect(() => {
+    if (isDoctor || callState !== 'joined' || !rid) return;
+    connectSignalR();
+  }, [isDoctor, callState, rid, connectSignalR]);
+
   // Patient: ao entrar na chamada, busca status imediatamente e após 500ms (Daily pode atrasar participant list)
   useEffect(() => {
     if (isDoctor || !rid || callState !== 'joined') return;
@@ -553,7 +549,9 @@ export default function VideoCallScreenInner() {
     };
     fetchSync();
     // FIX M7: 500ms era agressivo demais — 3s é suficiente para sincronizar o timer
-    const poll = setInterval(fetchSync, 3000);
+    const poll = setInterval(() => {
+      if (AppState.currentState === 'active') fetchSync();
+    }, 3000);
     return () => clearInterval(poll);
   }, [isDoctor, rid, consultationStartedAt]);
 
@@ -635,6 +633,9 @@ export default function VideoCallScreenInner() {
   useEffect(() => { useFallbackRef.current = useFallbackTranscription; }, [useFallbackTranscription]);
 
   const cleanup = useCallback(() => {
+    // Dismiss Android foreground notification
+    try { setAndroidOngoingMeetingActive(false); } catch { /* ignore */ }
+
     if (Platform.OS === 'android' && typeof ExpoPip?.setPictureInPictureParams === 'function') {
       try {
         ExpoPip.setPictureInPictureParams({ autoEnterEnabled: false });
@@ -647,6 +648,15 @@ export default function VideoCallScreenInner() {
       audioRecorderRef.current.stop().catch((e) => { if (__DEV__) console.warn('[VideoCall] audioRecorder stop failed:', e); });
     }
     disconnectSignalR();
+    // Reset iOS audio mode para não interferir com áudio do app/sistema após a chamada
+    if (Platform.OS === 'ios') {
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: false,
+        staysActiveInBackground: false,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+      }).catch(() => {});
+    }
   }, [disconnectSignalR, dailyTranscription]);
 
   // End call
@@ -676,7 +686,12 @@ export default function VideoCallScreenInner() {
           try { nav.replace(router, `/request-detail/${rid}`); } catch { try { router.back(); } catch {} }
         }
       })
-      .catch(() => { leavingRef.current = false; });
+      .catch(() => {
+        leavingRef.current = false;
+        setEnding(false);
+        // Consulta encerrada no servidor — navegar de volta mesmo em falha
+        try { router.back(); } catch {}
+      });
   }, [consultationEnded, leave, cleanup, isDoctor, rid, router]);
 
   const confirmEnd = useCallback(async () => {
@@ -750,7 +765,7 @@ export default function VideoCallScreenInner() {
     <View style={[S.container, S.center]}>
       <Ionicons name="alert-circle" size={56} color={colors.error} />
       <Text style={S.errText}>{error || errorMessage || 'Erro na chamada'}</Text>
-      <TouchableOpacity style={S.retryBtn} onPress={async () => { await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setInitKey(k => k + 1); setLoading(true); }}>
+      <TouchableOpacity style={S.retryBtn} onPress={async () => { leavingRef.current = false; await leave(); setError(''); setRoomUrl(null); setMeetingToken(null); setLoading(true); setInitKey(k => k + 1); }}>
         <Text style={S.retryTxt}>Tentar novamente</Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -774,7 +789,7 @@ export default function VideoCallScreenInner() {
   const hasEv = Array.isArray(evidence) && evidence.length > 0 && evidence.some((e) => e.title?.trim());
   const panelHas = hasAna || hasMeds || hasExams || hasSug || hasEv;
 
-  const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH + 20, 0] });
+  const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [panelWidth + 20, 0] });
 
   // PiP: remote sempre principal — evita SurfaceView conflict no overlay pequeno do Android
   // Local é mostrado como mini-preview apenas quando NÃO em PiP
@@ -803,6 +818,8 @@ export default function VideoCallScreenInner() {
             callState={callState}
             isDoctor={isDoctor}
             timerStarted={timerStarted}
+            remoteParticipantPresent={remoteParticipant != null}
+            remoteEverJoined={remoteEverJoined}
           />
         </View>
       )}
@@ -884,14 +901,14 @@ export default function VideoCallScreenInner() {
       )}
 
       {/* Doctor: aviso quando transcrição falha OU indicador de fallback Whisper */}
-      {!isInPipMode && isDoctor && (transcriptionError || dailyTranscription.error || useFallbackTranscription) && (
+      {!isInPipMode && isDoctor && (signalRError || dailyTranscription.error || useFallbackTranscription) && (
         <View style={[S.recIndicator, {
           top: insets.top + 60 + 140,
           backgroundColor: useFallbackTranscription ? colors.success + '30' : colors.warning + '40',
         }]}>
           <Ionicons name={useFallbackTranscription ? 'mic' : 'warning'} size={14} color={useFallbackTranscription ? colors.success : colors.warning} />
           <Text style={[S.recText, { color: useFallbackTranscription ? colors.success : colors.warning }]}>
-            {useFallbackTranscription ? 'Transcrição via Whisper (fallback)' : (transcriptionError || dailyTranscription.error)}
+            {useFallbackTranscription ? 'Transcrição via Whisper (fallback)' : (signalRError || dailyTranscription.error)}
           </Text>
         </View>
       )}
@@ -927,7 +944,7 @@ export default function VideoCallScreenInner() {
       {/* Doctor: Anamnesis panel — oculto em PiP */}
       {!isInPipMode && isDoctor && (
         <Animated.View
-          style={[S.panel, { width: PANEL_WIDTH, top: insets.top + 48, bottom: 80 + insets.bottom, transform: [{ translateX: panelX }] }]}
+          style={[S.panel, { width: panelWidth, top: insets.top + 48, bottom: 80 + insets.bottom, transform: [{ translateX: panelX }] }]}
           pointerEvents={panelOpen ? 'auto' : 'none'}
         >
           <DoctorAIPanel anamnesis={anamnesis} suggestions={suggestions} evidence={evidence} />
@@ -987,7 +1004,7 @@ type VideoColors = { primary: string; text: string; textMuted: string; textSecon
 function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   const mc = modalColors || colors;
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#0B1120' },
   center: { justifyContent: 'center', alignItems: 'center', gap: 12 },
 
   remote: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
@@ -996,7 +1013,7 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   waitTitle: { color: colors.textMuted, fontSize: 16, fontWeight: '600' },
   waitSub: { color: colors.textSecondary, fontSize: 13 },
 
-  pip: { position: 'absolute', left: 12, width: 100, height: 136, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.primary, zIndex: 15, backgroundColor: colors.surface },
+  pip: { position: 'absolute', right: 16, width: 100, height: 140, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: '#FFFFFF', zIndex: 15, backgroundColor: '#0B1120' },
   /** Mantém surface local ativo em PiP — não usar opacity:0 sozinho em alguns devices (encoder pode parar). */
   pipLocalKeepAlive: {
     position: 'absolute',
@@ -1009,11 +1026,11 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
     opacity: 0.04,
     zIndex: 6,
   },
-  pipRemote: { position: 'absolute', right: 12, top: 8, width: 100, height: 136, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.primary, zIndex: 15, backgroundColor: colors.surface },
+  pipRemote: { position: 'absolute', right: 16, top: 8, width: 100, height: 140, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: '#FFFFFF', zIndex: 15, backgroundColor: '#0B1120' },
   pipVid: { flex: 1 },
   pipMute: { position: 'absolute', bottom: 4, left: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center' },
 
-  top: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 10, backgroundColor: 'rgba(15,23,42,0.92)', zIndex: 20 },
+  top: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, backgroundColor: 'rgba(11,17,32,0.88)', zIndex: 20 },
   topL: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   qPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   qDot: { width: 7, height: 7, borderRadius: 4 },
@@ -1037,7 +1054,7 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
 
   sec: { gap: 8 },
   secH: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  secT: { fontSize: 12, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5 },
+  secT: { fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: 'rgba(44,177,255,0.1)' },
   badgeTxt: { fontSize: 12, fontWeight: '700', color: colors.primary },
   copyBtn: { marginLeft: 'auto', padding: 4, borderRadius: 6, backgroundColor: 'rgba(44,177,255,0.1)' },
@@ -1091,11 +1108,11 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   panelFoot: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'rgba(30,41,59,0.8)', borderTopWidth: 1, borderTopColor: 'rgba(51,65,85,0.3)' },
   panelFootTxt: { fontSize: 12, color: colors.textSecondary },
 
-  ctrl: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20, paddingTop: 14, backgroundColor: 'rgba(15,23,42,0.95)' },
-  cb: { width: 56, height: 64, borderRadius: 16, backgroundColor: colors.text, justifyContent: 'center', alignItems: 'center', gap: 4 },
-  cbOn: { backgroundColor: 'rgba(239,68,68,0.6)' },
-  endCb: { backgroundColor: colors.destructive },
-  cLbl: { fontSize: 12, color: colors.white, fontWeight: '600' },
+  ctrl: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20, paddingTop: 16, paddingHorizontal: 24, backgroundColor: 'rgba(11,17,32,0.92)' },
+  cb: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  cbOn: { backgroundColor: 'rgba(239,68,68,0.5)' },
+  endCb: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', marginHorizontal: 4 },
+  cLbl: { fontSize: 11, color: '#fff', fontWeight: '600' },
 
   loadTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
   loadSub: { color: colors.textMuted, fontSize: 13 },

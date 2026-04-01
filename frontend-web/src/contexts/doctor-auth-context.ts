@@ -10,7 +10,7 @@ export interface DoctorAuthState {
   profileComplete: boolean;
   refreshUser: () => Promise<void>;
   setAuthFromLogin: (user: DoctorUser) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 }
 
 export const DoctorAuthContext = createContext<DoctorAuthState | null>(null);

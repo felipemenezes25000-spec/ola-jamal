@@ -46,6 +46,10 @@ public class UserRepository(PostgresClient db) : IUserRepository
 
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
+        // Guard against PostgREST filter injection via special characters
+        if (string.IsNullOrEmpty(email) || email.AsSpan().IndexOfAny("&()") >= 0)
+            return null;
+
         var model = await db.GetSingleAsync<UserModel>(
             TableName,
             filter: $"email=eq.{email}",
@@ -58,6 +62,7 @@ public class UserRepository(PostgresClient db) : IUserRepository
     {
         var models = await db.GetAllAsync<UserModel>(
             TableName,
+            orderBy: "created_at.desc",
             cancellationToken: cancellationToken);
 
         return models.Select(MapToDomain).ToList();

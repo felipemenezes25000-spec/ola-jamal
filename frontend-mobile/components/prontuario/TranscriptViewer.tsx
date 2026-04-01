@@ -232,34 +232,36 @@ function makeStyles(colors: DesignColors) {
       marginBottom: 8, padding: 12, borderRadius: 12,
       borderWidth: 1,
     },
+    // BUG FIX: Use theme-aware colors instead of hardcoded light-mode colors
+    // to support dark mode properly.
     bubbleDoc: {
-      backgroundColor: '#EFF6FF', borderColor: '#BFDBFE',
+      backgroundColor: colors.primarySoft, borderColor: colors.borderLight,
       marginRight: 24,
     },
     bubblePat: {
-      backgroundColor: '#F0FDF4', borderColor: '#BBF7D0',
+      backgroundColor: colors.successLight, borderColor: colors.borderLight,
       marginLeft: 24,
     },
     bubbleSys: {
-      backgroundColor: '#F9FAFB', borderColor: '#E5E7EB',
+      backgroundColor: colors.surfaceSecondary, borderColor: colors.borderLight,
     },
     bubbleHeader: {
       flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6,
     },
     speakerDot: {
-      width: 8, height: 8, borderRadius: 4, backgroundColor: '#9CA3AF',
+      width: 8, height: 8, borderRadius: 4, backgroundColor: colors.textMuted,
     },
-    dotDoc: { backgroundColor: '#3B82F6' },
-    dotPat: { backgroundColor: '#22C55E' },
+    dotDoc: { backgroundColor: colors.primary },
+    dotPat: { backgroundColor: colors.success },
     speakerLabel: {
       fontSize: 11, fontFamily: typography.fontFamily.bold,
-      fontWeight: '700', color: '#6B7280', textTransform: 'uppercase',
+      fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase',
       letterSpacing: 0.5, flex: 1,
     },
-    labelDoc: { color: '#1D4ED8' },
-    labelPat: { color: '#16A34A' },
+    labelDoc: { color: colors.primary },
+    labelPat: { color: colors.success },
     segIndex: {
-      fontSize: 10, color: '#9CA3AF',
+      fontSize: 10, color: colors.textMuted,
       fontFamily: typography.fontFamily.regular,
     },
     bubbleText: {

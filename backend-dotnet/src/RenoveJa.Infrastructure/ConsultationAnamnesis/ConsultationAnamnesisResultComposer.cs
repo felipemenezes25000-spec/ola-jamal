@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.DTOs.Consultation;
 using RenoveJa.Domain.Entities;
@@ -60,7 +61,7 @@ internal static class ConsultationAnamnesisResultComposer
                     AnamnesisResponseParser.CopyArrayIfExists(shortRoot, conservativeObj, "perguntas_sugeridas");
                     AnamnesisResponseParser.CopyArrayIfExists(shortRoot, conservativeObj, "lacunas_anamnese");
 
-                    var conservativeJson = "{" + string.Join(",", conservativeObj.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
+                    var conservativeJson = JsonSerializer.Serialize(conservativeObj);
 
                     var conservativeSuggestions = new List<string>
                     {
@@ -125,7 +126,7 @@ internal static class ConsultationAnamnesisResultComposer
             AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "raciocinio_clinico");
             AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "denominador_comum");
             AnamnesisResponseParser.CopyArrayIfExists(root, enrichedObj, "alertas_vermelhos");
-            AnamnesisResponseParser.CopyArrayIfExists(root, enrichedObj, "diagnostico_diferencial");
+            CopyAndValidateDiagnosticoDiferencial(root, enrichedObj);
             AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "classificacao_gravidade");
             AnamnesisResponseParser.CopyIfExists(root, enrichedObj, "exame_fisico_dirigido");
             AnamnesisResponseParser.CopyArrayIfExists(root, enrichedObj, "orientacoes_paciente");
@@ -145,7 +146,7 @@ internal static class ConsultationAnamnesisResultComposer
             AnamnesisResponseParser.EnsurePerguntasFallback(root, enrichedObj, transcriptSoFar);
             AnamnesisResponseParser.EnsureSuggestionsFallback(root, enrichedObj, hasClinicalContext);
 
-            var enrichedJson = "{" + string.Join(",", enrichedObj.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
+            var enrichedJson = JsonSerializer.Serialize(enrichedObj);
 
             var suggestions = AnamnesisResponseParser.ExtractSuggestions(root);
             if (suggestions.Count == 0 && enrichedObj.TryGetValue("suggestions_fallback", out var fbVal))
@@ -189,5 +190,35 @@ internal static class ConsultationAnamnesisResultComposer
             logger.LogWarning(ex, "[Anamnese IA v2] Falha ao parsear JSON de resposta. Preview={Preview}", preview);
             return null;
         }
+    }
+
+    private static readonly Regex Cid10Pattern = new(@"^[A-Z]\d{2}(\.\d{1,2})?$", RegexOptions.Compiled);
+
+    private static void CopyAndValidateDiagnosticoDiferencial(JsonElement root, Dictionary<string, object> enrichedObj)
+    {
+        if (!root.TryGetProperty("diagnostico_diferencial", out var ddEl) || ddEl.ValueKind != JsonValueKind.Array)
+            return;
+
+        var filtered = new List<JsonElement>();
+        foreach (var item in ddEl.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                filtered.Add(item);
+                continue;
+            }
+
+            if (item.TryGetProperty("cid", out var cidEl))
+            {
+                var cidRaw = cidEl.GetString()?.Trim() ?? "";
+                var cidCode = cidRaw.Split(' ', 2)[0].Split('\u2014', 2)[0].Split('-', 2)[0].Trim();
+                if (!string.IsNullOrEmpty(cidCode) && !Cid10Pattern.IsMatch(cidCode))
+                    continue;
+            }
+
+            filtered.Add(item);
+        }
+
+        enrichedObj["diagnostico_diferencial"] = JsonSerializer.Serialize(filtered);
     }
 }

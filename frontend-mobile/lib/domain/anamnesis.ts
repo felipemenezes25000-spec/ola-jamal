@@ -149,6 +149,12 @@ export interface EvidenceItem {
   title?: string;
   source?: string;
   clinicalRelevance?: string;
+  abstract?: string;
+  translatedAbstract?: string;
+  relevantExcerpts?: string[];
+  conexaoComPaciente?: string;
+  nivelEvidencia?: string;
+  motivoSelecao?: string;
 }
 
 export function parseEvidence(json: string | null | undefined): EvidenceItem[] {

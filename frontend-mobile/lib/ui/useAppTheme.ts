@@ -16,10 +16,8 @@ interface UseAppThemeOptions {
 function _resolveRole(pathname: string, userRole?: string | null, forcedRole?: AppThemeRole): AppThemeRole {
   if (forcedRole) return forcedRole;
   if (userRole === 'doctor') return 'doctor';
-  if (userRole === 'sus') return 'patient';
   if (userRole === 'patient') return 'patient';
   if (pathname.startsWith('/(doctor)') || pathname.startsWith('/doctor-')) return 'doctor';
-  if (pathname.startsWith('/(sus)')) return 'patient';
   return 'patient';
 }
 
@@ -32,7 +30,7 @@ function _resolveRole(pathname: string, userRole?: string | null, forcedRole?: A
  *
  * PERF: usePathname() só é chamado quando necessário.
  * - Se `options.role` for passado explicitamente → sem usePathname.
- * - Se user?.role for definido (patient/doctor/sus) → sem usePathname.
+ * - Se user?.role for definido (patient/doctor) → sem usePathname.
  * - Só cai no pathname como fallback para telas de auth onde user ainda é null.
  * Isso reduz drasticamente re-renders em navegação: 129 componentes deixam de
  * re-renderizar a cada mudança de rota.
@@ -51,11 +49,10 @@ export function useAppTheme(options?: UseAppThemeOptions) {
   const role = useMemo(() => {
     if (options?.role) return options.role;
     if (user?.role === 'doctor') return 'doctor' as AppRole;
-    if (user?.role === 'sus' || user?.role === 'patient') return 'patient' as AppRole;
+    if (user?.role === 'patient') return 'patient' as AppRole;
     // Fallback por pathname (apenas telas auth onde user ainda é null)
     if (needsPathname) {
       if (pathname.startsWith('/(doctor)') || pathname.startsWith('/doctor-')) return 'doctor' as AppRole;
-      if (pathname.startsWith('/(sus)')) return 'patient' as AppRole;
     }
     return 'patient' as AppRole;
   // eslint-disable-next-line react-hooks/exhaustive-deps

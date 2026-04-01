@@ -44,17 +44,20 @@ public class CertificateExpiryReminderService : BackgroundService
             {
                 await SendRemindersAsync(stoppingToken);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
             catch (Exception ex)
             {
                 if (IsDatabaseNotConfigured(ex))
                     _logger.LogDebug("Database nao configurado, ignorando lembretes de certificado");
                 else
-                {
                     _logger.LogError(ex, "Erro ao enviar lembretes de certificado expirando");
-                }
             }
 
-            await Task.Delay(RunInterval, stoppingToken);
+            try { await Task.Delay(RunInterval, stoppingToken); }
+            catch (OperationCanceledException) { break; }
         }
     }
 

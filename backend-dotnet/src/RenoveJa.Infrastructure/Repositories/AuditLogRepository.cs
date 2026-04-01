@@ -28,6 +28,7 @@ public class AuditLogRepository(PostgresClient db) : IAuditLogRepository
             filter: $"user_id=eq.{userId}",
             orderBy: "created_at.desc",
             limit: limit,
+            offset: offset,
             cancellationToken: cancellationToken);
 
         return models.Select(m => m.ToDomain()).ToList();

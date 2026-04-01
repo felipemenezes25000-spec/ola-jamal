@@ -65,12 +65,15 @@ public class NotificationServiceTests
     public async Task GetUserNotificationsPagedAsync_ShouldPaginate()
     {
         var userId = Guid.NewGuid();
-        var notifs = Enumerable.Range(1, 10)
+        var allNotifs = Enumerable.Range(1, 10)
             .Select(i => Notification.Create(userId, $"Title{i}", $"Msg{i}"))
             .ToList();
+        var page2Notifs = allNotifs.Skip(3).Take(3).ToList();
 
-        _notifRepoMock.Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(notifs);
+        _notifRepoMock.Setup(r => r.CountByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(10);
+        _notifRepoMock.Setup(r => r.GetByUserIdPagedAsync(userId, 3, 3, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(page2Notifs);
 
         var result = await _sut.GetUserNotificationsPagedAsync(userId, page: 2, pageSize: 3);
 

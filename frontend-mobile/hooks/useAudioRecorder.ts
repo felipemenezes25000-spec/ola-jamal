@@ -82,7 +82,7 @@ export function useAudioRecorder(requestId: string, stream: 'local' | 'remote' =
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
         interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
         shouldDuckAndroid: true,
         playThroughEarpieceAndroid: false,

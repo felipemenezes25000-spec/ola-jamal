@@ -12,9 +12,12 @@ namespace RenoveJa.Api.Controllers;
 [Authorize]
 public class PatientsController(
     IUserRepository userRepository,
+    IPatientRepository patientRepository,
     IRequestRepository requestRepository,
     IConsentRepository consentRepository,
     IAuditLogRepository auditLogRepository,
+    IEncounterRepository encounterRepository,
+    IMedicalDocumentRepository medicalDocumentRepository,
     IAuditService auditService) : ControllerBase
 {
     [HttpGet("me/export")]
@@ -33,6 +36,18 @@ public class PatientsController(
         var consents = await consentRepository.GetByPatientIdAsync(userId, cancellationToken);
         var auditLogs = await auditLogRepository.GetByUserIdAsync(userId, limit: 1000, offset: 0, cancellationToken);
 
+        // Fetch encounters and medical documents via patient record (encounters FK → patients.id)
+        var patient = await patientRepository.GetByUserIdAsync(userId, cancellationToken);
+        var patientId = patient?.Id;
+
+        var encounters = patientId.HasValue
+            ? await encounterRepository.GetByPatientIdAsync(patientId.Value, cancellationToken)
+            : [];
+
+        var medicalDocuments = patientId.HasValue
+            ? await medicalDocumentRepository.GetByPatientIdAsync(patientId.Value, cancellationToken)
+            : [];
+
         await auditService.LogAsync(
             userId,
             "Export",
@@ -42,7 +57,9 @@ public class PatientsController(
             {
                 ["requests_count"] = requests.Count,
                 ["consents_count"] = consents.Count,
-                ["audit_count"] = auditLogs.Count
+                ["audit_count"] = auditLogs.Count,
+                ["encounters_count"] = encounters.Count,
+                ["medical_documents_count"] = medicalDocuments.Count
             });
 
         var payload = new
@@ -84,6 +101,25 @@ public class PatientsController(
                 c.Channel,
                 c.TextVersion,
                 c.CreatedAt
+            }),
+            encounters = encounters.Select(e => new
+            {
+                e.Id,
+                Type = e.Type.ToString(),
+                e.Status,
+                e.StartedAt,
+                e.FinishedAt,
+                e.Channel,
+                e.Anamnesis,
+                e.MainIcd10Code,
+                e.CreatedAt
+            }),
+            medicalDocuments = medicalDocuments.Select(d => new
+            {
+                d.Id,
+                d.DocumentType,
+                d.Status,
+                d.CreatedAt
             }),
             auditLogs = auditLogs.Select(a => new
             {

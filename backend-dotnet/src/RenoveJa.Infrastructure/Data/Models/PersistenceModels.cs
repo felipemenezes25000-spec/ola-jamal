@@ -212,6 +212,10 @@ public class RequestModel
     public DateTime? DoctorCallConnectedAt { get; set; }
     [JsonPropertyName("patient_call_connected_at")]
     public DateTime? PatientCallConnectedAt { get; set; }
+    [JsonPropertyName("dispensed_at")]
+    public DateTime? DispensedAt { get; set; }
+    [JsonPropertyName("dispensed_count")]
+    public int DispensedCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

@@ -86,7 +86,7 @@ public class PostConsultationController(
             logger.LogError(ex,
                 "Post-consultation emit unexpected error for request {RequestId}: {Message}",
                 request.RequestId, ex.Message);
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new { error = "Erro inesperado ao emitir documentos. Tente novamente." });
         }
     }
 
@@ -208,7 +208,9 @@ public class PostConsultationController(
             }
             else
             {
-                var userId = GetUserId();
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(userIdClaim, out var userId))
+                    return Unauthorized(new { error = "Invalid or missing authentication" });
                 if (!await UserCanAccessMedicalDocumentAsync(doc, userId, cancellationToken))
                     return StatusCode(403, new { error = "Access denied" });
             }

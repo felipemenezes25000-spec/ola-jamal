@@ -1,22 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { clinicalSoftTokens } from './clinicalSoftTokens';
 import { haptics } from '../../../lib/haptics';
 import type { DashboardResponsive } from './useDashboardResponsive';
 
-const { colors, radius, shadow } = clinicalSoftTokens;
+const { colors, radius } = clinicalSoftTokens;
 
 interface QueueCardProps {
   message: string;
+  pendingCount: number;
   onPress: () => void;
   responsive: DashboardResponsive;
 }
 
-function QueueCard_Fn({ message, onPress, responsive }: QueueCardProps) {
-  const { typography, heights, iconSizes } = responsive;
-  const queueIconSize = iconSizes?.queueIcon ?? 24;
+function QueueCard_Fn({ message, pendingCount, onPress, responsive }: QueueCardProps) {
+  const { typography, heights } = responsive;
   return (
     <View style={styles.queueCard}>
       <LinearGradient
@@ -26,50 +26,46 @@ function QueueCard_Fn({ message, onPress, responsive }: QueueCardProps) {
         style={StyleSheet.absoluteFill}
       />
 
+      {/* Decorative semi-transparent circles */}
       <View style={styles.queueShapeOne} />
       <View style={styles.queueShapeTwo} />
 
-      <View style={styles.queueRow}>
-        <View style={[styles.queueIconOuter, { width: queueIconSize * 2.75, height: queueIconSize * 2.75, borderRadius: queueIconSize * 1.375 }]}>
-          <View style={[styles.queueIconInner, { width: queueIconSize * 1.92, height: queueIconSize * 1.92, borderRadius: queueIconSize * 0.96 }]}>
-            <MaterialCommunityIcons
-              name="check-all"
-              size={queueIconSize}
-              color="#FFFFFF"
-            />
-          </View>
-        </View>
+      <View style={styles.queueContent}>
+        <Text style={[styles.queueLabel, { fontSize: typography.queueTitle }]}>
+          FILA DE ATENDIMENTO
+        </Text>
 
-        <View style={styles.queueTextArea}>
-          <Text
-            style={[styles.queueTitle, { fontSize: typography.queueTitle, lineHeight: typography.queueTitle * 1.2 }]}
-            numberOfLines={2}
-          >
-            Fila de Atendimento
-          </Text>
-          <Text
-            style={[styles.queueText, { fontSize: typography.queueText, lineHeight: typography.queueText * 1.45 }]}
-            numberOfLines={2}
-          >
-            {message}
-          </Text>
+        <Text
+          style={[
+            styles.queueCount,
+            { fontSize: typography.queueText, lineHeight: typography.queueText * 1.15 },
+          ]}
+          numberOfLines={2}
+        >
+          {pendingCount > 0
+            ? `${pendingCount} paciente${pendingCount > 1 ? 's' : ''}`
+            : 'Nenhum paciente'}
+        </Text>
 
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={[styles.queueButton, { height: heights.queueButton }]}
-            onPress={() => {
-              haptics.selection();
-              onPress();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Ver consultas agendadas"
-          >
-            <Text style={[styles.queueButtonText, { fontSize: typography.queueButton }]} numberOfLines={1}>
-              Ver consultas agendadas
-            </Text>
-            <Feather name="chevron-right" size={22} color={colors.queueButtonText} />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.queueSubtext}>
+          {pendingCount > 0 ? 'aguardando atendimento' : 'aguardando no momento'}
+        </Text>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.queueButton, { height: heights.queueButton }]}
+          onPress={() => {
+            haptics.selection();
+            onPress();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Ver fila de atendimento"
+        >
+          <Text style={[styles.queueButtonText, { fontSize: typography.queueButton }]} numberOfLines={1}>
+            Ver fila
+          </Text>
+          <Feather name="arrow-right" size={14} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -80,72 +76,62 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: radius.hero,
-    padding: 22,
+    padding: 20,
     marginBottom: 20,
+    minHeight: 140,
   },
   queueShapeOne: {
     position: 'absolute',
-    right: -40,
-    top: 35,
-    width: 230,
-    height: 230,
-    borderRadius: 120,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    transform: [{ rotate: '-20deg' }],
+    right: -30,
+    top: -20,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   queueShapeTwo: {
     position: 'absolute',
-    left: -35,
-    top: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    right: 40,
+    bottom: -40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  queueRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  queueContent: {
+    zIndex: 1,
   },
-  queueIconOuter: {
-    backgroundColor: colors.queueIconOuter,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
+  queueLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
-  queueIconInner: {
-    backgroundColor: colors.queueIconInner,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  queueTextArea: {
-    flex: 1,
-    paddingTop: 2,
-  },
-  queueTitle: {
-    color: colors.primaryDark,
-    fontWeight: '800',
+  queueCount: {
+    color: '#FFFFFF',
+    fontWeight: '700',
     letterSpacing: -0.5,
   },
-  queueText: {
-    marginTop: 10,
-    color: '#4D6279',
+  queueSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
     fontWeight: '400',
+    marginTop: 2,
   },
   queueButton: {
-    marginTop: 22,
-    borderRadius: radius.button,
-    backgroundColor: colors.queueButtonBg,
-    borderWidth: 1,
-    borderColor: colors.queueButtonBorder,
+    marginTop: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow.queueButton,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 20,
   },
   queueButtonText: {
-    color: colors.queueButtonText,
+    color: '#FFFFFF',
     fontWeight: '700',
-    marginRight: 8,
+    marginRight: 6,
   },
 });
 

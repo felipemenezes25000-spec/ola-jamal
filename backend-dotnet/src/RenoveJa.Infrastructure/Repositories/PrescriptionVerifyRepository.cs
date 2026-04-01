@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dapper;
 using Microsoft.Extensions.Logging;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Infrastructure.Data.Postgres;
@@ -77,18 +78,25 @@ public class PrescriptionVerifyRepository(
 
     public async Task<bool> MarkAsDispensedAsync(Guid requestId, string pharmacyName, string pharmacistName, CancellationToken ct = default)
     {
-        if (await IsDispensedAsync(requestId, ct))
-            return false;
-
-        var patch = new
-        {
-            dispensed_at = DateTime.UtcNow,
-            dispensed_pharmacy = pharmacyName,
-            dispensed_pharmacist = pharmacistName
-        };
-
-        await db.UpdateAsync<PrescriptionDispenseRow>(TableName, $"id=eq.{requestId}", patch, ct);
-        return true;
+        // Atomic conditional UPDATE to avoid TOCTOU race condition
+        await using var conn = db.CreateConnectionPublic();
+        await conn.OpenAsync(ct);
+        var sql = """
+            UPDATE public.prescriptions
+            SET dispensed_at = @DispensedAt,
+                dispensed_pharmacy = @Pharmacy,
+                dispensed_pharmacist = @Pharmacist
+            WHERE id = @Id AND dispensed_at IS NULL
+            """;
+        var rows = await conn.ExecuteAsync(
+            new CommandDefinition(sql, new
+            {
+                Id = requestId,
+                DispensedAt = DateTime.UtcNow,
+                Pharmacy = pharmacyName,
+                Pharmacist = pharmacistName
+            }, cancellationToken: ct));
+        return rows > 0;
     }
 
     private static string Sha256Hex(string input)

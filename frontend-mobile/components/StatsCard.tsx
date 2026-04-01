@@ -87,7 +87,7 @@ const createStyles = (
   value: {
     fontSize: 22,
     fontFamily: 'PlusJakartaSans_700Bold',
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.text,
     marginBottom: 2,
     lineHeight: 26,

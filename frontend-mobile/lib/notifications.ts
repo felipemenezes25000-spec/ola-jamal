@@ -13,7 +13,7 @@ export async function registerForPushNotifications(
   try {
     // Check if device is physical
     if (!Device.isDevice) {
-      console.warn('Push notifications only work on physical devices');
+      if (__DEV__) console.warn('Push notifications only work on physical devices');
       return null;
     }
 
@@ -28,7 +28,7 @@ export async function registerForPushNotifications(
     }
 
     if (finalStatus !== 'granted') {
-      console.warn('Permission not granted for push notifications');
+      if (__DEV__) console.warn('Permission not granted for push notifications');
       return null;
     }
 
@@ -43,7 +43,7 @@ export async function registerForPushNotifications(
     try {
       await registerPushToken(token, Platform.OS);
     } catch (error) {
-      console.error('Error saving push token:', error);
+      if (__DEV__) console.error('Error saving push token:', error);
     }
 
     // ── Android Notification Channels ──
@@ -92,7 +92,7 @@ export async function registerForPushNotifications(
 
     return token;
   } catch (error) {
-    console.error('Error registering for push notifications:', error);
+    if (__DEV__) console.error('Error registering for push notifications:', error);
     return null;
   }
 }
@@ -101,7 +101,7 @@ export async function unregisterPushToken(userId: string, token: string): Promis
   try {
     await unregisterPushTokenApi(token);
   } catch (error) {
-    console.error('Error unregistering push token:', error);
+    if (__DEV__) console.error('Error unregistering push token:', error);
   }
 }
 

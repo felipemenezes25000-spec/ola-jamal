@@ -43,6 +43,31 @@ public class ClinicalRecordsController(
 
     private static readonly HashSet<string> ValidNoteTypes = ["progress_note", "clinical_impression", "addendum", "observation"];
 
+    /// <summary>
+    /// Detecta o content type real a partir dos magic bytes do arquivo.
+    /// Fallback para application/octet-stream se não reconhecido.
+    /// </summary>
+    private static string DetectContentType(byte[] data)
+    {
+        if (data.Length >= 4)
+        {
+            // JPEG: FF D8 FF
+            if (data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+                return "image/jpeg";
+            // PNG: 89 50 4E 47
+            if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+                return "image/png";
+            // PDF: 25 50 44 46 (%PDF)
+            if (data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46)
+                return "application/pdf";
+            // RIFF....WEBP
+            if (data.Length >= 12 && data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46
+                && data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50)
+                return "image/webp";
+        }
+        return "application/octet-stream";
+    }
+
     private static string BuildFallbackSummary(
         string patientName,
         DateTime? birthDate,
@@ -441,7 +466,8 @@ public class ClinicalRecordsController(
         var bytes = await requestService.GetRequestImageAsync(id, token, userId, "prescription", index, cancellationToken);
         if (bytes == null || bytes.Length == 0)
             return NotFound(new { error = "Imagem não encontrada ou sem permissão." });
-        return File(bytes, "image/jpeg", $"receita-{id}-{index}.jpg");
+        var contentType = DetectContentType(bytes);
+        return File(bytes, contentType, $"receita-{id}-{index}");
     }
 
     /// <summary>
@@ -461,7 +487,8 @@ public class ClinicalRecordsController(
         var bytes = await requestService.GetRequestImageAsync(id, token, userId, "exam", index, cancellationToken);
         if (bytes == null || bytes.Length == 0)
             return NotFound(new { error = "Imagem não encontrada ou sem permissão." });
-        return File(bytes, "image/jpeg", $"exame-{id}-{index}.jpg");
+        var contentType = DetectContentType(bytes);
+        return File(bytes, contentType, $"exame-{id}-{index}");
     }
 
     /// <summary>

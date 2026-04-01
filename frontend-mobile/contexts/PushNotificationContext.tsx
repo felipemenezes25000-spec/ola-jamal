@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { Platform, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
+import { nav, type AppRoute } from '../lib/navigation';
 import { useAuth } from './AuthContext';
 import { registerPushToken } from '../lib/api';
 import { setLastRegisteredPushToken } from '../lib/pushTokenRegistry';
@@ -96,8 +97,17 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
         let path: string;
         try { path = decodeURIComponent(deepLink.replace('renoveja://', '/')) || '/'; }
         catch { path = deepLink.replace('renoveja://', '/') || '/'; }
-        const allowed = ['/request-detail/', '/doctor-request/', '/consultation-summary/'];
-        const isAllowed = allowed.some((p) => path.startsWith(p) || path === p.slice(0, -1));
+        const allowed = [
+          '/request-detail/', '/doctor-request/', '/consultation-summary/',
+          '/video/', '/doctor-requests', '/settings', '/doctor-dashboard',
+          '/post-consultation-emit/', '/doctor-patient/',
+        ];
+        const norm = (s: string) => s.endsWith('/') ? s.slice(0, -1) : s;
+        const normPath = norm(path);
+        const isAllowed = allowed.some((p) => {
+          const normP = norm(p);
+          return normPath === normP || normPath.startsWith(normP + '/');
+        });
         if (isAllowed && !path.includes('..')) {
           Linking.openURL(deepLink).catch((e) => { if (__DEV__) console.warn('[Push] openURL failed:', e); });
         }
@@ -110,7 +120,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
         const path = effectiveRole === 'doctor'
           ? `/doctor-request/${requestId}`
           : `/request-detail/${requestId}`;
-        router.push(path as import('../lib/navigation').AppRoute);
+        nav.push(router, path as AppRoute);
       }
     },
     [router]
@@ -125,13 +135,15 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
   useEffect(() => {
     if (!Notifications || !user?.role || coldStartHandled.current) return;
     coldStartHandled.current = true;
-    Notifications.getLastNotificationResponseAsync()
-      .then((response: { notification?: { request?: { content?: { data?: Record<string, unknown> } } } } | null) => {
-        if (!response) return;
-        const data = response?.notification?.request?.content?.data ?? {};
-        handleNotificationNavigation(data);
-      })
-      .catch(() => {});
+    setTimeout(() => {
+      Notifications.getLastNotificationResponseAsync()
+        .then((response: { notification?: { request?: { content?: { data?: Record<string, unknown> } } } } | null) => {
+          if (!response) return;
+          const data = response?.notification?.request?.content?.data ?? {};
+          handleNotificationNavigation(data);
+        })
+        .catch(() => {});
+    }, 500);
   }, [user?.role, handleNotificationNavigation]);
 
   useEffect(() => {

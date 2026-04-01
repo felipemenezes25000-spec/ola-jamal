@@ -18,14 +18,17 @@ public sealed class Money : IEquatable<Money>
         if (amount < 0)
             throw new DomainException("Amount cannot be negative");
 
-        return new Money(amount, currency);
+        if (string.IsNullOrWhiteSpace(currency))
+            throw new DomainException("Currency is required");
+
+        return new Money(amount, currency.Trim().ToUpperInvariant());
     }
 
     public static Money Zero => new(0);
 
     public Money Add(Money other)
     {
-        if (Currency != other.Currency)
+        if (!string.Equals(Currency, other.Currency, StringComparison.OrdinalIgnoreCase))
             throw new DomainException("Cannot add money with different currencies");
 
         return new Money(Amount + other.Amount, Currency);
@@ -33,7 +36,7 @@ public sealed class Money : IEquatable<Money>
 
     public Money Subtract(Money other)
     {
-        if (Currency != other.Currency)
+        if (!string.Equals(Currency, other.Currency, StringComparison.OrdinalIgnoreCase))
             throw new DomainException("Cannot subtract money with different currencies");
 
         var result = Amount - other.Amount;
@@ -46,11 +49,12 @@ public sealed class Money : IEquatable<Money>
     public bool Equals(Money? other)
     {
         if (other is null) return false;
-        return Amount == other.Amount && Currency == other.Currency;
+        return Amount == other.Amount &&
+               string.Equals(Currency, other.Currency, StringComparison.OrdinalIgnoreCase);
     }
 
     public override bool Equals(object? obj) => Equals(obj as Money);
-    public override int GetHashCode() => HashCode.Combine(Amount, Currency);
+    public override int GetHashCode() => HashCode.Combine(Amount, Currency.ToUpperInvariant());
     public override string ToString() => $"{Amount:F2} {Currency}";
 
     public static implicit operator decimal(Money money) => money.Amount;

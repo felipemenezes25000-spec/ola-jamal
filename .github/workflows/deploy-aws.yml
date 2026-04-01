@@ -18,6 +18,10 @@ env:
   S3_FRONTEND_BUCKET: renoveja-frontend-web
   CF_DISTRIBUTION_ID: EXWM1ERYI9GZL
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy-backend:
     name: Deploy Backend (ECS)
@@ -48,6 +52,13 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
+      - name: Update image tag in task definition
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed -i "s|renoveja-api:latest|renoveja-api:$IMAGE_TAG|" infra/task-definition.json
+
       - name: Register Task Definition
         run: |
           aws ecs register-task-definition \
@@ -70,10 +81,16 @@ jobs:
             STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].deployments[0].rolloutState" --output text)
             RUNNING=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].runningCount" --output text)
             DESIRED=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].desiredCount" --output text)
-            echo "[$i/60] Status=$STATUS Running=$RUNNING Desired=$DESIRED"
-            if [ "$RUNNING" = "$DESIRED" ]; then
+            DEPLOY_COUNT=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "length(services[0].deployments)" --output text)
+            echo "[$i/60] Status=$STATUS Running=$RUNNING Desired=$DESIRED Deployments=$DEPLOY_COUNT"
+            if [ "$STATUS" = "COMPLETED" ] && [ "$RUNNING" = "$DESIRED" ] && [ "$DEPLOY_COUNT" = "1" ]; then
               echo "Deployment complete!"
               exit 0
+            fi
+            if [ "$STATUS" = "FAILED" ]; then
+              echo "Deployment FAILED!"
+              aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].events[0:5]" --output table
+              exit 1
             fi
             sleep 15
           done

@@ -5,7 +5,7 @@
 import { motion } from 'framer-motion';
 import { Pill, FlaskConical, AlertTriangle, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import type { MedicamentoSugerido, ExameSugerido, InteracaoCruzada, ParsedAnamnesisAi } from './ai-panel-types';
+import type { MedicamentoSugerido, ExameSugerido, InteracaoCruzada, ParsedAnamnesisAi } from './ai-panel/types';
 
 function copyToClipboard(text: string, label: string) {
   navigator.clipboard.writeText(text).then(
@@ -119,8 +119,8 @@ export function AIMedicationsPanel({ data }: AIMedicationsPanelProps) {
               const tipo = (ic.tipo ?? ic.gravidade ?? '').toLowerCase();
               const isGrave = tipo === 'grave';
               const medsStr =
-                ic.medicamentos?.length > 0
-                  ? ic.medicamentos.join(' × ')
+                (ic.medicamentos?.length ?? 0) > 0
+                  ? ic.medicamentos!.join(' × ')
                   : ic.medicamento_a && ic.medicamento_b
                     ? `${ic.medicamento_a} × ${ic.medicamento_b}`
                     : '—';

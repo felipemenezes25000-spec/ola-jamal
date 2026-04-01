@@ -1,12 +1,13 @@
 /**
- * VideoCallControls — Barra inferior de controles da videochamada.
+ * VideoCallControls — Bottom control bar for video call.
  *
- * Mic | Câmera | Virar | PiP (Android) | Encerrar/Sair
- * Oculto em Picture-in-Picture.
+ * Design: 4 circular buttons (48px) + End call (56px red).
+ * Mic | Camera | End call (center, larger) | Flip camera
+ * Hidden in Picture-in-Picture.
  */
 
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DesignColors } from '../../../lib/designSystem';
 
@@ -29,64 +30,108 @@ export const VideoCallControls = React.memo(function VideoCallControls({
   colors, insetBottom, isMuted, isCameraOff, isDoctor, ending, hasPip,
   onToggleMute, onToggleCamera, onFlipCamera, onEnd, onEnterPip,
 }: VideoCallControlsProps) {
-  // Cor fixa escura (neutral[800]) — overlay de vídeo é sempre escuro; surfaceSecondary em light seria cinza claro
-  const btnBg = '#1E293B';
-
   return (
-    <View style={[S.ctrl, { paddingBottom: insetBottom + 12 }]}>
-      {hasPip && onEnterPip && (
-        <TouchableOpacity style={[S.cb, { backgroundColor: btnBg }]} onPress={onEnterPip}
-          accessibilityRole="button" accessibilityLabel="Minimizar em janela flutuante">
-          <Ionicons name="contract-outline" size={22} color={colors.white} />
-          <Text style={[S.cLbl, { color: colors.white }]}>Minimizar</Text>
-        </TouchableOpacity>
-      )}
+    <View style={[S.ctrl, { paddingBottom: insetBottom + 16 }]}>
+      {/* Mic toggle */}
       <TouchableOpacity
-        style={[S.cb, { backgroundColor: isMuted ? 'rgba(239,68,68,0.6)' : btnBg }]}
+        style={[S.cb, isMuted && S.cbActive]}
         onPress={onToggleMute}
+        activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={isMuted ? 'Microfone mudo, toque para ativar' : 'Microfone ativo, toque para mutar'}
+        accessibilityLabel={isMuted ? 'Ativar microfone' : 'Silenciar microfone'}
       >
-        <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={22} color={colors.white} />
-        <Text style={[S.cLbl, { color: colors.white }]}>{isMuted ? 'Mudo' : 'Mic'}</Text>
+        <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={22} color="#fff" />
       </TouchableOpacity>
+
+      {/* Camera toggle */}
       <TouchableOpacity
-        style={[S.cb, { backgroundColor: isCameraOff ? 'rgba(239,68,68,0.6)' : btnBg }]}
+        style={[S.cb, isCameraOff && S.cbActive]}
         onPress={onToggleCamera}
+        activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={isCameraOff ? 'Câmera desligada' : 'Câmera ligada'}
+        accessibilityLabel={isCameraOff ? 'Ligar câmera' : 'Desligar câmera'}
       >
-        <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={22} color={colors.white} />
-        <Text style={[S.cLbl, { color: colors.white }]}>{isCameraOff ? 'Off' : 'Câm'}</Text>
+        <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={22} color="#fff" />
       </TouchableOpacity>
-      <TouchableOpacity style={[S.cb, { backgroundColor: btnBg }]} onPress={onFlipCamera}
-        accessibilityRole="button" accessibilityLabel="Virar câmera">
-        <Ionicons name="camera-reverse-outline" size={22} color={colors.white} />
-        <Text style={[S.cLbl, { color: colors.white }]}>Virar</Text>
-      </TouchableOpacity>
+
+      {/* End call — larger, red */}
       <TouchableOpacity
-        style={[S.cb, S.endCb, { backgroundColor: colors.destructive }]}
-        onPress={onEnd} disabled={ending}
+        style={S.endCb}
+        onPress={onEnd}
+        disabled={ending}
+        activeOpacity={0.7}
+        accessibilityRole="button"
         accessibilityLabel={isDoctor ? 'Encerrar consulta' : 'Sair da chamada'}
       >
         {ending ? (
-          <ActivityIndicator size="small" color={colors.white} />
+          <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Ionicons name="call" size={22} color={colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
+          <Ionicons name="call" size={24} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
         )}
-        <Text style={[S.cLbl, { color: colors.white }]}>{isDoctor ? 'Encerrar' : 'Sair'}</Text>
       </TouchableOpacity>
+
+      {/* Flip camera */}
+      <TouchableOpacity
+        style={S.cb}
+        onPress={onFlipCamera}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Trocar câmera"
+      >
+        <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
+      </TouchableOpacity>
+
+      {/* PiP (Android only) — smaller, at the edge */}
+      {hasPip && onEnterPip ? (
+        <TouchableOpacity
+          style={S.cb}
+          onPress={onEnterPip}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Minimizar em janela flutuante"
+        >
+          <Ionicons name="contract-outline" size={20} color="#fff" />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 });
 
 const S = StyleSheet.create({
   ctrl: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    gap: 20, paddingTop: 14, backgroundColor: 'rgba(15,23,42,0.95)',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+    paddingTop: 16,
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(11,17,32,0.92)',
   },
-  cb: { width: 56, height: 64, borderRadius: 16, justifyContent: 'center', alignItems: 'center', gap: 4 },
-  endCb: {},
-  cLbl: { fontSize: 12, fontWeight: '600' },
+  // Standard button — 48px circle
+  cb: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  // Active state (muted / camera off)
+  cbActive: {
+    backgroundColor: 'rgba(239,68,68,0.5)',
+  },
+  // End call button — 56px red circle
+  endCb: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    marginHorizontal: 4,
+  },
 });

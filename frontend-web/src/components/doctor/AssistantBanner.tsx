@@ -3,7 +3,7 @@
  * Exibe sugestões proativas baseadas no status do pedido atual.
  * Alinhado ao mobile: AssistantBanner + ConductSection + ObservationCard.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getAssistantNextAction } from '@/services/doctor-api-consultation';
@@ -87,20 +87,15 @@ export function AssistantBanner({ requestId, requestStatus, requestType, onNavig
   const [mutedKeys, setMutedKeys] = useState<string[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  const loadSuggestions = useCallback(async () => {
-    if (!requestId && !requestStatus) return;
-    try {
-      const data = await getAssistantNextAction(requestId, requestStatus, requestType);
-      setSuggestions(extractSuggestions(data, requestId));
-    } catch {
-      // Silencioso — assistente é opcional
-    }
-  }, [requestId, requestStatus, requestType]);
-
   useEffect(() => {
-    queueMicrotask(() => loadSuggestions());
-    getMutedKeys().then(setMutedKeys).catch(() => {});
-  }, [loadSuggestions]);
+    if (!requestId && !requestStatus) return;
+    let cancelled = false;
+    getAssistantNextAction(requestId, requestStatus, requestType)
+      .then((data) => { if (!cancelled) setSuggestions(extractSuggestions(data, requestId)); })
+      .catch(() => { /* Silencioso — assistente é opcional */ });
+    getMutedKeys().then((keys) => { if (!cancelled) setMutedKeys(keys); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [requestId, requestStatus, requestType]);
 
   const handleDismiss = async (id: string) => {
     setDismissed((prev) => new Set(prev).add(id));

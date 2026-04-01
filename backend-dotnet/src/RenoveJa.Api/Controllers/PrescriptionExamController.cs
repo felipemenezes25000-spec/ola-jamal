@@ -70,6 +70,12 @@ public class PrescriptionExamController(
     {
         var resolvedId = await ResolveRequestIdAsync(id, cancellationToken);
         if (resolvedId == null) return NotFound();
+        var doctorId = GetUserId();
+        var existingRequest = await requestService.GetRequestByIdAsync(resolvedId.Value, doctorId, cancellationToken);
+        if (existingRequest == null)
+            return NotFound();
+        if (!existingRequest.DoctorId.HasValue || existingRequest.DoctorId.Value != doctorId)
+            return StatusCode(403, new { error = "Você não é o médico atribuído a esta solicitação." });
         var request = await requestService.SignAsync(resolvedId.Value, dto, cancellationToken);
         return Ok(request);
     }

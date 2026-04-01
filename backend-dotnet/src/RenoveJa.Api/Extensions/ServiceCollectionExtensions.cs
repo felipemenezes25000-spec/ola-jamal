@@ -23,8 +23,6 @@ using RenoveJa.Infrastructure.Pdf;
 using RenoveJa.Infrastructure.Repositories;
 using RenoveJa.Infrastructure.Storage;
 using RenoveJa.Infrastructure.Video;
-using RenoveJa.Infrastructure.Ledi;
-using RenoveJa.Infrastructure.Rnds;
 using RenoveJa.Api.Services;
 using StackExchange.Redis;
 
@@ -91,8 +89,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVideoService, VideoService>();
         services.AddScoped<IDoctorService, DoctorService>();
         services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<ILediExportService, LediExportService>();
-        services.AddScoped<IRndsService, RndsService>();
         services.AddScoped<IAuditEventService, AuditEventService>();
         services.AddScoped<IClinicalRecordService, ClinicalRecordService>();
         services.AddScoped<IPostConsultationService, PostConsultationService>();
@@ -153,6 +149,8 @@ public static class ServiceCollectionExtensions
                 ?? "localhost:6379";
             var redisConfig = ConfigurationOptions.Parse(redisConnectionString);
             redisConfig.AbortOnConnectFail = false; // Allow startup even if Redis is temporarily unavailable
+            redisConfig.ConnectTimeout = 2000;      // 2s instead of 5s default — reduces delay when Redis is offline
+            redisConfig.SyncTimeout = 1000;          // 1s sync timeout — prevents 5s blocking per call
             return ConnectionMultiplexer.Connect(redisConfig);
         });
         services.AddSingleton<IConsultationSessionStore, RenoveJa.Infrastructure.ConsultationAnamnesis.ConsultationSessionStore>();
@@ -181,6 +179,10 @@ public static class ServiceCollectionExtensions
         // Audit: bounded channel + background consumer (replaces fire-and-forget Task.Run)
         services.AddSingleton<AuditChannel>();
         services.AddHostedService<AuditBackgroundService>();
+
+        // Anamnesis: bounded channel + background consumer (replaces fire-and-forget lambda in ConsultationController)
+        services.AddSingleton<AnamnesisChannel>();
+        services.AddHostedService<AnamnesisBackgroundService>();
 
         return services;
     }
@@ -213,9 +215,6 @@ public static class ServiceCollectionExtensions
         services.Configure<InfoSimplesConfig>(config.GetSection(InfoSimplesConfig.SectionName));
         services.Configure<CertificateEncryptionConfig>(config.GetSection(CertificateEncryptionConfig.SectionName));
         services.Configure<VerificationConfig>(config.GetSection(VerificationConfig.SectionName));
-        services.Configure<LediConfig>(config.GetSection("Ledi"));
-        services.Configure<RndsConfig>(config.GetSection("Rnds"));
-
         services.Configure<ApiConfig>(options =>
         {
             options.BaseUrl = EnvOrConfig(envVars, config, "Api__BaseUrl", "Api:BaseUrl");

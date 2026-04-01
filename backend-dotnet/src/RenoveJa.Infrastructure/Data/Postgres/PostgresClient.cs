@@ -25,7 +25,7 @@ public class PostgresClient
             throw new InvalidOperationException("Database connection string not configured.");
 
         if (!_connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase) && !_connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
-            _connectionString += ";Maximum Pool Size=20;Minimum Pool Size=2;Connection Idle Lifetime=300;Timeout=15";
+            _connectionString += ";Maximum Pool Size=10;Minimum Pool Size=1;Connection Idle Lifetime=120;Timeout=15";
 
         // Include Error Detail apenas em Development — em produção revela dados sensíveis (CPFs, emails) nos logs
         if (!_connectionString.Contains("Include Error Detail", StringComparison.OrdinalIgnoreCase))
@@ -55,7 +55,7 @@ public class PostgresClient
     private NpgsqlConnection CreateConnection() => _dataSource.CreateConnection();
 
     /// <summary>Expõe criação de conexão para repositórios que precisam de SQL raw (ex: queries com OR complexo).</summary>
-    internal NpgsqlConnection CreateConnectionPublic() => new(_connectionString);
+    internal NpgsqlConnection CreateConnectionPublic() => _dataSource.CreateConnection();
 
     public async Task<List<T>> GetAllAsync<T>(
         string table, string? select = "*", string? filter = null,
@@ -168,7 +168,7 @@ public class PostgresClient
 
     private static readonly HashSet<string> JsonbColumnsRequests = new(StringComparer.OrdinalIgnoreCase)
     {
-        "medications", "prescription_images", "exams", "exam_images", "ai_extracted_json"
+        "medications", "prescription_images", "exams", "exam_images"
     };
 
     private static readonly HashSet<string> JsonbColumnsNotifications = new(StringComparer.OrdinalIgnoreCase)
@@ -261,6 +261,23 @@ public class PostgresClient
             i++;
         }
         return (string.Join(", ", clauses), parameters);
+    }
+
+    public async Task ExecuteInTransactionAsync(Func<NpgsqlConnection, NpgsqlTransaction, Task> action, CancellationToken cancellationToken = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await action(conn, tx);
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     /// <summary>

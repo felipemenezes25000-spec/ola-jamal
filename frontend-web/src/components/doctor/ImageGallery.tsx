@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { Image, Expand } from 'lucide-react';
 
@@ -62,6 +63,7 @@ export function ImageGallery({ images, label }: ImageGalleryProps) {
 
       <Dialog open={selectedIndex !== null} onOpenChange={(open) => !open && closeModal()}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-0 overflow-hidden">
+          <DialogTitle className="sr-only">{label} — visualização ampliada</DialogTitle>
           {selectedIndex !== null && images[selectedIndex] && (
             <div className="relative">
               <img

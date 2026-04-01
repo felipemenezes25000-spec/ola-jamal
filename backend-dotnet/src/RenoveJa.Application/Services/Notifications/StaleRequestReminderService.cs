@@ -37,17 +37,20 @@ public class StaleRequestReminderService : BackgroundService
             {
                 await SendRemindersAsync(stoppingToken);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
             catch (Exception ex)
             {
                 if (IsDatabaseNotConfigured(ex))
                     _logger.LogDebug("Database nao configurado, ignorando lembretes de pedidos parados");
                 else
-                {
                     _logger.LogError(ex, "Erro ao enviar lembretes de pedidos parados");
-                }
             }
 
-            await Task.Delay(RunInterval, stoppingToken);
+            try { await Task.Delay(RunInterval, stoppingToken); }
+            catch (OperationCanceledException) { break; }
         }
     }
 

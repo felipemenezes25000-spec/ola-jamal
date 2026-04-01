@@ -12,11 +12,13 @@ export async function fetchSpecialties(): Promise<Specialty[]> {
   // Uses plain fetch (no auth required for specialties list)
   const env = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '');
   const base = env || (typeof window !== 'undefined' ? window.location.origin : '');
-  const res = await fetch(`${base}/api/specialties`, {
-    headers: { 'ngrok-skip-browser-warning': 'true' },
-  });
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(`${base}/api/specialties`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 // ── CID ──
@@ -33,16 +35,20 @@ export async function searchCid(query: string, limit = 10): Promise<{ code: stri
 export async function fetchAddressByCep(cep: string) {
   const clean = cep.replace(/\D/g, '');
   if (clean.length !== 8) return null;
-  const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (data.erro) return null;
-  return {
-    street: data.logradouro,
-    neighborhood: data.bairro,
-    city: data.localidade,
-    state: data.uf,
-  };
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.erro) return null;
+    return {
+      street: data.logradouro,
+      neighborhood: data.bairro,
+      city: data.localidade,
+      state: data.uf,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ── Prescription/Exam Images ──

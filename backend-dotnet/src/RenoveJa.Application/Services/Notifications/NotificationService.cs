@@ -42,10 +42,10 @@ public class NotificationService(INotificationRepository notificationRepository)
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var allNotifications = await notificationRepository.GetByUserIdAsync(userId, cancellationToken);
-        var totalCount = allNotifications.Count;
         var offset = (page - 1) * pageSize;
-        var items = allNotifications.Skip(offset).Take(pageSize).Select(MapToDto).ToList();
+        var totalCount = await notificationRepository.CountByUserIdAsync(userId, cancellationToken);
+        var notifications = await notificationRepository.GetByUserIdPagedAsync(userId, offset, pageSize, cancellationToken);
+        var items = notifications.Select(MapToDto).ToList();
 
         return new PagedResponse<NotificationResponseDto>(items, totalCount, page, pageSize);
     }

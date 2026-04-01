@@ -123,6 +123,10 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
           value={crm}
           onChangeText={(t) => { setCrm(t); clearError('crm'); }}
           error={fieldErrors.crm}
+          keyboardType="numeric"
+          maxLength={7}
+          returnKeyType="next"
+          blurOnSubmit={false}
           containerStyle={styles.flex1}
           hint="4 a 7 dígitos"
         />
@@ -134,6 +138,10 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
           value={crmState}
           onChangeText={(t) => { setCrmState(t); clearError('crmState'); }}
           error={fieldErrors.crmState}
+          maxLength={2}
+          autoCapitalize="characters"
+          returnKeyType="next"
+          blurOnSubmit={false}
           containerStyle={{ width: 120 }}
         />
       </View>
@@ -169,6 +177,8 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
                   onChangeText={setSpecialtySearch}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="search"
+                  blurOnSubmit={false}
                 />
                 {specialtySearch.length > 0 ? (
                   <TouchableOpacity onPress={() => setSpecialtySearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -261,6 +271,10 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         onChangeText={setProfessionalPhone}
         leftIcon="call-outline"
         keyboardType="phone-pad"
+        autoComplete="tel"
+        textContentType="telephoneNumber"
+        returnKeyType="next"
+        blurOnSubmit={false}
       />
 
       <SectionHeader icon="school-outline" title="Formação e experiência (opcional)" variant="form" />
@@ -270,6 +284,10 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         value={university}
         onChangeText={setUniversity}
         leftIcon="school-outline"
+        autoCapitalize="words"
+        autoCorrect={false}
+        returnKeyType="next"
+        blurOnSubmit={false}
       />
       <AppInput
         label="Cursos e especializações"
@@ -277,6 +295,9 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         value={courses}
         onChangeText={setCourses}
         leftIcon="ribbon-outline"
+        autoCapitalize="sentences"
+        returnKeyType="next"
+        blurOnSubmit={false}
       />
       <AppInput
         label="Locais de atuação"
@@ -284,6 +305,9 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         value={hospitalsServices}
         onChangeText={setHospitalsServices}
         leftIcon="medkit-outline"
+        autoCapitalize="sentences"
+        returnKeyType="next"
+        blurOnSubmit={false}
       />
 
       <View style={styles.certSection}>
@@ -330,6 +354,9 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
             value={certPassword}
             onChangeText={setCertPassword}
             secureTextEntry
+            textContentType="password"
+            returnKeyType="done"
+            blurOnSubmit={true}
           />
         ) : null}
       </View>

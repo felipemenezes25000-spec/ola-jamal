@@ -1,6 +1,6 @@
 /**
- * AiCopilotSection — Resumo IA expandível com risco e urgência.
- * Alinhado ao mobile AiCopilotSection.
+ * AiCopilotSection — AI Copilot with purple (#8B5CF6) border and styling.
+ * Lamp icon, risk badge, AI summary, "Ver analise completa" link.
  */
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -8,29 +8,29 @@ import { Button } from '@/components/ui/button';
 import { parseAiSummary } from '@/lib/parseAiSummary';
 import { hasUsefulAiContent } from '@/lib/aiCopilotHelpers';
 import type { MedicalRequest } from '@/services/doctorApi';
-import { Sparkles, Shield, AlertTriangle, AlertCircle, Clock, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Lightbulb, Shield, AlertTriangle, AlertCircle, Clock, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const RISK_LABELS: Record<string, string> = {
   low: 'Risco baixo',
-  medium: 'Risco médio',
+  medium: 'Risco medio',
   high: 'Risco alto',
 };
 const URGENCY_LABELS: Record<string, string> = {
   routine: 'Rotina',
   urgent: 'Urgente',
-  emergency: 'Emergência',
+  emergency: 'Emergencia',
 };
 
 function getRiskLabel(level: string | null | undefined): string {
-  if (!level) return 'Risco não classificado';
-  return RISK_LABELS[level.toLowerCase()] ?? 'Risco não classificado';
+  if (!level) return 'Risco nao classificado';
+  return RISK_LABELS[level.toLowerCase()] ?? 'Risco nao classificado';
 }
 
 function getUrgencyLabel(level: string | null | undefined): string {
-  if (!level) return 'Não informado';
-  return URGENCY_LABELS[level.toLowerCase()] ?? 'Não informado';
+  if (!level) return 'Nao informado';
+  return URGENCY_LABELS[level.toLowerCase()] ?? 'Nao informado';
 }
 
 interface AiCopilotSectionProps {
@@ -51,8 +51,13 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
   const displayBlocks = shouldTruncate ? blocks.slice(0, 6) : blocks;
 
   const riskLevel = request.aiRiskLevel?.toLowerCase();
-  const riskIcon = riskLevel === 'low' ? Shield : riskLevel === 'high' ? AlertCircle : AlertTriangle;
-  const riskBg = riskLevel === 'low' ? 'bg-emerald-100 text-emerald-700' : riskLevel === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700';
+  const RiskIcon = riskLevel === 'low' ? Shield : riskLevel === 'high' ? AlertCircle : AlertTriangle;
+  const riskBg =
+    riskLevel === 'low'
+      ? 'bg-emerald-100 text-emerald-700'
+      : riskLevel === 'high'
+        ? 'bg-red-100 text-red-700'
+        : 'bg-amber-100 text-amber-700';
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(summaryText);
@@ -60,20 +65,34 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
   };
 
   return (
-    <Card className={cn('border-primary/20 bg-primary/[0.02]', className)}>
+    <Card
+      className={cn(
+        'border-2 border-violet-300 bg-violet-50/30 dark:bg-violet-950/10 dark:border-violet-500/40',
+        className,
+      )}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <Sparkles className="h-4 w-4 text-primary" aria-hidden />
-          <span className="font-semibold text-sm">Copiloto IA</span>
+          <div className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/40">
+            <Lightbulb className="h-4 w-4 text-violet-600 dark:text-violet-400" aria-hidden />
+          </div>
+          <span className="font-semibold text-sm text-violet-900 dark:text-violet-200">
+            Copiloto IA
+          </span>
           {request.aiRiskLevel && (
-            <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium', riskBg)}>
-              {riskIcon({ className: 'h-3 w-3' })}
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium',
+                riskBg,
+              )}
+            >
+              <RiskIcon className="h-3 w-3" />
               {getRiskLabel(request.aiRiskLevel)}
             </span>
           )}
         </div>
         <p className="text-xs text-muted-foreground italic mt-1">
-          Sugestões geradas por IA — decisão final do médico.
+          Sugestoes geradas por IA — decisao final do medico.
         </p>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
@@ -82,8 +101,10 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
             {displayBlocks.map((block, i) => {
               if (block.type === 'header') {
                 return (
-                  <div key={i} className={i > 0 ? 'pt-3 border-t border-border/50' : ''}>
-                    <p className="text-xs font-bold text-primary uppercase tracking-wide mb-1">{block.header}</p>
+                  <div key={i} className={i > 0 ? 'pt-3 border-t border-violet-200/50 dark:border-violet-700/30' : ''}>
+                    <p className="text-xs font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">
+                      {block.header}
+                    </p>
                     {block.content && <p className="text-sm text-foreground">{block.content}</p>}
                   </div>
                 );
@@ -91,7 +112,7 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
               if (block.type === 'bullet') {
                 return (
                   <div key={i} className="flex gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-2 shrink-0" />
                     <p className="text-sm text-foreground">{block.content}</p>
                   </div>
                 );
@@ -99,8 +120,13 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
               return <p key={i} className="text-sm text-foreground">{block.content}</p>;
             })}
             {shouldTruncate && <p className="text-sm text-muted-foreground">...</p>}
-            <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-              <Button variant="ghost" size="sm" onClick={handleCopy} className="gap-1.5 h-8">
+            <div className="flex items-center gap-2 pt-2 border-t border-violet-200/50 dark:border-violet-700/30">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopy}
+                className="gap-1.5 h-8 text-violet-700 hover:text-violet-800 hover:bg-violet-100 dark:text-violet-300 dark:hover:bg-violet-900/30"
+              >
                 <Copy className="h-3.5 w-3.5" />
                 Copiar resumo
               </Button>
@@ -109,10 +135,10 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
                   variant="ghost"
                   size="sm"
                   onClick={() => setExpanded(!expanded)}
-                  className="gap-1.5 h-8"
+                  className="gap-1.5 h-8 text-violet-700 hover:text-violet-800 hover:bg-violet-100 dark:text-violet-300 dark:hover:bg-violet-900/30"
                 >
                   {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  {expanded ? 'Ver menos' : 'Ver mais'}
+                  {expanded ? 'Ver menos' : 'Ver analise completa'}
                 </Button>
               )}
             </div>
@@ -121,7 +147,7 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
         {request.aiUrgency && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
-            Urgência: {getUrgencyLabel(request.aiUrgency)}
+            Urgencia: {getUrgencyLabel(request.aiUrgency)}
           </div>
         )}
       </CardContent>

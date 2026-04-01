@@ -22,7 +22,15 @@ public class SoapNotesService : ISoapNotesService
     private const string OpenAiBaseUrl = "https://api.openai.com/v1";
     private const string GeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
+    /// <summary>Options for serializing API requests (snake_case for OpenAI/Gemini).</summary>
+    private static readonly JsonSerializerOptions JsonOptsRequest = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        WriteIndented = false
+    };
+
+    /// <summary>Options for deserializing API responses (case-insensitive).</summary>
+    private static readonly JsonSerializerOptions JsonOptsResponse = new()
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -128,7 +136,7 @@ public class SoapNotesService : ISoapNotesService
             }
         };
 
-        var json = JsonSerializer.Serialize(body, JsonOpts);
+        var json = JsonSerializer.Serialize(body, JsonOptsRequest);
         var client = _httpFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         client.Timeout = TimeSpan.FromSeconds(90);
@@ -158,8 +166,10 @@ public class SoapNotesService : ISoapNotesService
     private SoapNotesResult? ParseSoapJson(string raw)
     {
         var cleaned = raw.Trim();
-        if (cleaned.StartsWith("```"))
-            cleaned = string.Join("\n", cleaned.Split('\n').Skip(1).TakeWhile(l => !l.StartsWith("```")));
+        var firstBrace = cleaned.IndexOf('{');
+        var lastBrace = cleaned.LastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace)
+            cleaned = cleaned[firstBrace..(lastBrace + 1)];
 
         try
         {

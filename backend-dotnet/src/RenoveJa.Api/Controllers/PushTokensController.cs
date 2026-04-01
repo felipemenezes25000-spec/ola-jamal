@@ -163,8 +163,6 @@ public class PushTokensController(
         return Ok(tokens.Select(t => new
         {
             id = t.Id,
-            userId = t.UserId,
-            token = t.Token,
             deviceType = t.DeviceType,
             active = t.Active,
             createdAt = t.CreatedAt

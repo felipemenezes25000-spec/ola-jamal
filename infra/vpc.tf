@@ -147,13 +147,22 @@ resource "aws_security_group" "aurora" {
     description = "pgAdmin acesso restrito as subnets privadas"
   }
 
-  # TEMPORÁRIO: acesso externo para dev
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "TEMP: acesso externo dev - restringir depois"
+  # REMOVIDO: acesso externo 0.0.0.0/0 na porta 5432 (TEMP dev).
+  # Para acesso dev, use VPN, SSM Session Manager, ou restrinja a um IP fixo.
+  # ingress {
+  #   from_port   = 5432
+  #   to_port     = 5432
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["SEU_IP/32"]
+  #   description = "Dev: acesso restrito por IP"
+  # }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+    description = "Allow outbound within VPC"
   }
 
   tags = { Name = "${var.project}-aurora-sg" }
@@ -168,6 +177,14 @@ resource "aws_security_group" "redis" {
     to_port         = 6379
     protocol        = "tcp"
     security_groups = [aws_security_group.ecs.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+    description = "Allow outbound within VPC"
   }
 
   tags = { Name = "${var.project}-redis-sg" }

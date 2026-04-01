@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NavLink } from '@/components/admin/NavLink';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { useDoctorAuth } from '@/hooks/useDoctorAuth';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -9,22 +9,35 @@ import { useWebPush } from '@/hooks/useWebPush';
 import {
   LayoutDashboard, FileText, Bell, User, Menu, X, LogOut,
   Stethoscope, Video, Download, Share2, Settings, BellRing, Users, Shield, Inbox,
+  MoreHorizontal,
 } from 'lucide-react';
 
+/**
+ * All navigation items.
+ * The first 5 are shown in the mobile bottom nav bar.
+ * The rest are accessible via the "More" slide-up sheet on mobile.
+ */
 const navItems = [
   { to: '/dashboard', label: 'Painel', icon: LayoutDashboard },
   { to: '/pedidos', label: 'Pedidos', icon: FileText },
-  { to: '/fila', label: 'Fila', icon: Inbox },
   { to: '/consultas', label: 'Consultas', icon: Video },
-  { to: '/pacientes', label: 'Pacientes', icon: Users },
   { to: '/notificacoes', label: 'Alertas', icon: Bell },
   { to: '/perfil', label: 'Perfil', icon: User },
+  // --- below the fold on mobile bottom nav ---
+  { to: '/fila', label: 'Fila', icon: Inbox },
+  { to: '/pacientes', label: 'Pacientes', icon: Users },
   { to: '/certificado', label: 'Certificado', icon: Shield },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
+/** Items shown in mobile bottom tab bar (first 4 + "More" button) */
+const BOTTOM_NAV_COUNT = 4;
+const bottomNavItems = navItems.slice(0, BOTTOM_NAV_COUNT);
+const moreNavItems = navItems.slice(BOTTOM_NAV_COUNT);
+
 export function DoctorSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, signOut } = useDoctorAuth();
@@ -58,7 +71,47 @@ export function DoctorSidebar() {
     ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
     : 'MD';
 
+  // Close mobile drawer on Escape
+  useEffect(() => {
+    if (!mobileOpen && !moreSheetOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileOpen(false);
+        setMoreSheetOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [mobileOpen, moreSheetOpen]);
+
+  /** Navigate and close all mobile menus */
+  const navigateAndClose = useCallback((to: string) => {
+    navigate(to);
+    setMoreSheetOpen(false);
+    setMobileOpen(false);
+  }, [navigate]);
+
+  // Lock body scroll when mobile drawer or more sheet is open
+  useEffect(() => {
+    if (mobileOpen || moreSheetOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen, moreSheetOpen]);
+
   const isVideoPage = location.pathname.startsWith('/video/');
+
+  const isItemActive = useCallback((to: string) => {
+    if (to === '/dashboard') {
+      return location.pathname === '/' || location.pathname === '/dashboard';
+    }
+    return location.pathname.startsWith(to);
+  }, [location.pathname]);
+
+  // Check if any "more" item is currently active (to highlight the More button)
+  const isMoreItemActive = moreNavItems.some(item => isItemActive(item.to));
 
   // Don't show sidebar/nav on video call page
   if (isVideoPage) return null;
@@ -74,24 +127,28 @@ export function DoctorSidebar() {
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
-      {/* ── Mobile: Backdrop overlay ── */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-foreground/20 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden
-        />
-      )}
+      {/* ── Mobile: Backdrop overlay for slide-in drawer ── */}
+      <div
+        className={cn(
+          'fixed inset-0 z-30 bg-foreground/20 backdrop-blur-sm md:hidden transition-opacity duration-300',
+          mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+        )}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden="true"
+      />
 
-      {/* ── Desktop/Tablet: Side drawer ── */}
+      {/* ── Desktop sidebar + Mobile slide-in drawer ── */}
       <aside
         className={cn(
-          'fixed md:sticky top-0 left-0 z-40 h-screen w-64 lg:w-72 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-200',
+          'fixed md:sticky top-0 left-0 z-40 h-screen w-64 lg:w-72',
+          'bg-white dark:bg-sidebar border-r border-sidebar-border',
+          'flex flex-col',
+          'transition-transform duration-300 ease-out will-change-transform',
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         )}
       >
         {/* Logo */}
-        <div className="p-4 lg:p-6 border-b border-sidebar-border">
+        <div className="p-4 lg:p-6 border-b border-sidebar-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm shrink-0">
               <Stethoscope className="h-4 w-4 lg:h-5 lg:w-5 text-primary-foreground" />
@@ -110,10 +167,7 @@ export function DoctorSidebar() {
         {/* Nav items */}
         <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto" aria-label="Menu principal">
           {navItems.map((item) => {
-            const isActive =
-              item.to === '/dashboard'
-                ? location.pathname === '/' || location.pathname === '/dashboard'
-                : location.pathname.startsWith(item.to);
+            const isActive = isItemActive(item.to);
             const isAlerts = item.to === '/notificacoes';
             return (
               <NavLink
@@ -130,7 +184,10 @@ export function DoctorSidebar() {
                 <item.icon className={cn('h-[18px] w-[18px] shrink-0', isActive && 'text-primary')} aria-hidden />
                 <span className="truncate">{item.label}</span>
                 {isAlerts && unreadCount > 0 && (
-                  <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground animate-in zoom-in-50 duration-200">
+                  <span
+                    className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground animate-in zoom-in-50 duration-200"
+                    aria-label={`${unreadCount > 99 ? 'mais de 99' : unreadCount} alertas não lidos`}
+                  >
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
@@ -141,7 +198,7 @@ export function DoctorSidebar() {
 
         {/* PWA Install Banner (sidebar) */}
         {!isInstalled && !installDismissed && (canInstall || isIOS) && (
-          <div className="mx-3 lg:mx-4 mb-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+          <div className="mx-3 lg:mx-4 mb-3 p-3 rounded-xl bg-primary/5 border border-primary/10 shrink-0">
             <p className="text-xs font-semibold text-foreground mb-1.5">Instalar aplicativo</p>
             <p className="text-[10px] text-muted-foreground mb-2.5 leading-relaxed">
               Adicione o portal como app no seu dispositivo para acesso rápido.
@@ -186,7 +243,7 @@ export function DoctorSidebar() {
 
         {/* Push Notification Banner */}
         {pushSupported && pushPermission === 'default' && !pushDismissed && (
-          <div className="mx-3 lg:mx-4 mb-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+          <div className="mx-3 lg:mx-4 mb-3 p-3 rounded-xl bg-primary/5 border border-primary/10 shrink-0">
             <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
               <BellRing className="h-3.5 w-3.5 text-primary" />
               Ativar alertas
@@ -212,7 +269,7 @@ export function DoctorSidebar() {
         )}
 
         {/* User info + logout */}
-        <div className="p-3 lg:p-4 border-t border-sidebar-border space-y-3">
+        <div className="p-3 lg:p-4 border-t border-sidebar-border space-y-3 shrink-0">
           {user && (
             <div className="flex items-center gap-2.5 px-1">
               <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 relative overflow-hidden ring-2 ring-primary/20">
@@ -244,26 +301,25 @@ export function DoctorSidebar() {
 
       {/* ══════════════════════════════════════════════════════
        *  Mobile: Bottom Tab Navigation
-       *  Visible only on small screens, acts like a native app
+       *  Shows 4 key items + "More" button (5 total).
+       *  Visible only on small screens.
        * ══════════════════════════════════════════════════════ */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card/95 backdrop-blur-lg border-t border-border/50 safe-area-bottom"
+        className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 dark:bg-card/95 backdrop-blur-lg border-t border-border/50"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         aria-label="Navegação principal"
       >
-        <div className="flex items-center justify-around px-1 py-1">
-          {navItems.map((item) => {
-            const isActive =
-              item.to === '/dashboard'
-                ? location.pathname === '/' || location.pathname === '/dashboard'
-                : location.pathname.startsWith(item.to);
+        <div className="flex items-center justify-around px-1 h-14">
+          {bottomNavItems.map((item) => {
+            const isActive = isItemActive(item.to);
             const isAlerts = item.to === '/notificacoes';
             return (
               <button
                 key={item.to}
-                onClick={() => navigate(item.to)}
+                onClick={() => navigateAndClose(item.to)}
+                aria-label={isAlerts && unreadCount > 0 ? `${item.label} — ${unreadCount > 99 ? 'mais de 99' : unreadCount} alertas não lidos` : item.label}
                 className={cn(
-                  'relative flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-150 min-w-[56px]',
+                  'relative flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition-colors duration-150 flex-1 max-w-[72px]',
                   isActive
                     ? 'text-primary'
                     : 'text-muted-foreground active:scale-95',
@@ -273,25 +329,112 @@ export function DoctorSidebar() {
                 <div className="relative">
                   <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} aria-hidden />
                   {isAlerts && unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold bg-destructive text-destructive-foreground">
+                    <span className="absolute -top-1.5 -right-2.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold bg-destructive text-destructive-foreground" aria-hidden="true">
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
                 </div>
-                <span className={cn(
+                <span aria-hidden="true" className={cn(
                   'text-[10px] font-medium leading-tight',
                   isActive ? 'text-primary' : 'text-muted-foreground',
                 )}>
                   {item.label}
                 </span>
                 {isActive && (
-                  <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-primary" aria-hidden="true" />
                 )}
               </button>
             );
           })}
+
+          {/* "More" button */}
+          <button
+            onClick={() => setMoreSheetOpen(true)}
+            aria-label="Mais opções"
+            className={cn(
+              'relative flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition-colors duration-150 flex-1 max-w-[72px]',
+              isMoreItemActive
+                ? 'text-primary'
+                : 'text-muted-foreground active:scale-95',
+            )}
+          >
+            <MoreHorizontal className={cn('h-5 w-5', isMoreItemActive && 'text-primary')} aria-hidden />
+            <span aria-hidden="true" className={cn(
+              'text-[10px] font-medium leading-tight',
+              isMoreItemActive ? 'text-primary' : 'text-muted-foreground',
+            )}>
+              Mais
+            </span>
+            {isMoreItemActive && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-primary" aria-hidden="true" />
+            )}
+          </button>
         </div>
       </nav>
+
+      {/* ══════════════════════════════════════════════════════
+       *  Mobile: "More" bottom sheet
+       *  Slides up from bottom, shows overflow nav items.
+       * ══════════════════════════════════════════════════════ */}
+      {/* Backdrop */}
+      <div
+        className={cn(
+          'fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm md:hidden transition-opacity duration-300',
+          moreSheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+        )}
+        onClick={() => setMoreSheetOpen(false)}
+        aria-hidden="true"
+      />
+      {/* Sheet */}
+      <div
+        className={cn(
+          'fixed bottom-0 left-0 right-0 z-50 md:hidden',
+          'bg-white dark:bg-card rounded-t-2xl shadow-2xl',
+          'transition-transform duration-300 ease-out will-change-transform',
+          moreSheetOpen ? 'translate-y-0' : 'translate-y-full',
+        )}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        role="dialog"
+        aria-label="Mais opções de navegação"
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
+        </div>
+
+        {/* Sheet nav items */}
+        <nav className="px-4 pb-4 space-y-1" aria-label="Opções adicionais">
+          {moreNavItems.map((item) => {
+            const isActive = isItemActive(item.to);
+            return (
+              <button
+                key={item.to}
+                onClick={() => navigateAndClose(item.to)}
+                className={cn(
+                  'flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-150',
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted active:bg-muted',
+                )}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <item.icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} aria-hidden />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Close button */}
+        <div className="px-4 pb-4">
+          <button
+            onClick={() => setMoreSheetOpen(false)}
+            className="w-full py-2.5 rounded-xl text-sm font-medium text-muted-foreground bg-muted/50 hover:bg-muted transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
     </>
   );
 }

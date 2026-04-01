@@ -149,12 +149,12 @@ export default function DoctorRequestEditor() {
         if (data.type === 'consultation' && prefill?.length) {
           setMedications(prefill.map((m) => ({ name: m.name || '', dosage: m.dosage || '', frequency: m.frequency || '', duration: m.duration || '' })));
         } else if (data.medications?.length) {
-          setMedications(data.medications);
+          setMedications(data.medications.map((m) => ({ name: m, dosage: '', frequency: '', duration: '' })));
         } else if (data.type === 'prescription') {
           setMedications([{ name: '', dosage: '', frequency: '', duration: '' }]);
         }
         if (data.exams?.length) {
-          setExams(data.exams);
+          setExams(data.exams.map((e) => ({ name: e, notes: '' })));
         } else if (data.type === 'exam') {
           setExams([{ name: '', notes: '' }]);
         }
@@ -289,7 +289,7 @@ export default function DoctorRequestEditor() {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        handleSave();
+        if (!saving) handleSave();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
         e.preventDefault();
@@ -298,7 +298,7 @@ export default function DoctorRequestEditor() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSave, handlePreviewPdf]);
+  }, [handleSave, handlePreviewPdf, saving]);
 
   const handleSign = async () => {
     if (!id || !certPassword) return;
@@ -350,43 +350,70 @@ export default function DoctorRequestEditor() {
 
   return (
     <DoctorLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/pedidos/${id}`)} aria-label="Voltar">
+      <div className="space-y-5">
+        {/* Header — dark bar matching detail page */}
+        <div className="rounded-xl bg-sky-900 text-white p-4 sm:p-5">
+          <div className="flex items-center gap-3 mb-3 sm:mb-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(`/pedidos/${id}`)}
+              aria-label="Voltar"
+              className="text-white hover:bg-white/10 shrink-0"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">
                 Editor — {isPrescription ? 'Receita' : 'Exame'}
               </h1>
-              <p className="text-sm text-muted-foreground">{request.patientName}</p>
+              <p className="text-xs sm:text-sm text-sky-200 truncate">{request.patientName}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handlePreviewPdf} disabled={pdfLoading} className="gap-2">
-              {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+          {/* Action buttons — wrap on mobile, row on desktop */}
+          <div className="flex flex-wrap gap-2 pl-0 sm:pl-11">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handlePreviewPdf}
+              disabled={pdfLoading}
+              className="gap-1.5 text-xs sm:text-sm"
+            >
+              {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
               Preview PDF
             </Button>
-            <Button variant="outline" onClick={() => setSaveTemplateOpen(true)} className="gap-2">
-              <BookmarkPlus className="h-4 w-4" />
-              Salvar como template
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setSaveTemplateOpen(true)}
+              className="gap-1.5 text-xs sm:text-sm"
+            >
+              <BookmarkPlus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Salvar como</span> Template
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}
+              className="gap-1.5 text-xs sm:text-sm bg-white text-sky-900 hover:bg-sky-50"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Salvar
             </Button>
             {canSign && (
-              <Button onClick={() => setSignDialogOpen(true)} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                <FileSignature className="h-4 w-4" />
+              <Button
+                size="sm"
+                onClick={() => setSignDialogOpen(true)}
+                className="gap-1.5 text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-600 text-white"
+              >
+                <FileSignature className="h-3.5 w-3.5" />
                 Assinar
               </Button>
             )}
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-5">
+        <div className="grid gap-5 lg:grid-cols-5">
           {/* Editor */}
           <div className="lg:col-span-3 space-y-5">
             {/* Compliance validation */}
@@ -446,11 +473,11 @@ export default function DoctorRequestEditor() {
 
             {/* AI medication suggestions (prescription only) */}
             {isPrescription && suggestedFromAi.length > 0 && (
-              <Card className="shadow-sm border-primary/20 bg-primary/[0.02]">
+              <Card className="shadow-sm border-2 border-violet-300 bg-violet-50/30 dark:bg-violet-950/10 dark:border-violet-500/40">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    Medicamentos sugeridos pela IA
+                    <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    <span className="text-violet-900 dark:text-violet-200">Medicamentos sugeridos pela IA</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -518,7 +545,7 @@ export default function DoctorRequestEditor() {
                           <Label className="text-xs">Nome do medicamento</Label>
                           <Input value={med.name} onChange={e => updateMedication(i, 'name', e.target.value)} placeholder="Ex: Amoxicilina 500mg" className="mt-1" />
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
                             <Label className="text-xs">Dosagem</Label>
                             <Input value={med.dosage} onChange={e => updateMedication(i, 'dosage', e.target.value)} placeholder="500mg" className="mt-1" />
@@ -698,13 +725,13 @@ export default function DoctorRequestEditor() {
                 </CardContent>
               </Card>
 
-              {/* AI Suggestion */}
+              {/* AI Suggestion — purple styling */}
               {request.aiConductSuggestion && (
-                <Card className="shadow-sm mt-4 border-primary/20 bg-primary/[0.02]">
+                <Card className="shadow-sm mt-4 border-2 border-violet-300 bg-violet-50/30 dark:bg-violet-950/10 dark:border-violet-500/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-primary" aria-hidden />
-                      Sugestão da IA
+                      <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" aria-hidden />
+                      <span className="text-violet-900 dark:text-violet-200">Sugestao da IA</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">

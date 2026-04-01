@@ -121,7 +121,7 @@ else if (string.Equals(Environment.GetEnvironmentVariable("AllowedHosts"), "*", 
 
 // Escutar em todas as interfaces (0.0.0.0) para acesso via IP na rede (ex: 192.168.15.69:5000)
 // Se ASPNETCORE_URLS já estiver definido (ex: em produção), não sobrescreve.
-// Em plataformas como Railway, a variável PORT é injetada (ex.: 8080) e precisa ser respeitada.
+// Em plataformas como AWS ECS, a variável PORT é injetada (ex.: 8080) e precisa ser respeitada.
 var urlsEnv = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 if (string.IsNullOrWhiteSpace(urlsEnv))
 {
@@ -135,6 +135,7 @@ builder.Host.UseSerilog();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<RenoveJa.Api.Authorization.DoctorApprovalFilter>();
+    options.Filters.Add<RenoveJa.Api.Filters.UnauthorizedExceptionFilter>();
 })
     .AddJsonOptions(o =>
     {
@@ -192,7 +193,7 @@ builder.Services.AddRenoveJaConfiguration(builder.Configuration, _envVars);
 builder.Services.AddMemoryCache();
 
 // PostgresClient usa Npgsql direto (sem HTTP)
-builder.Services.AddScoped<PostgresClient>();
+builder.Services.AddSingleton<PostgresClient>();
 builder.Services.AddHttpClient<IDailyVideoService, DailyVideoService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
@@ -205,9 +206,6 @@ builder.Services.AddHostedService<RecordingSyncBackgroundService>();
 builder.Services.AddHostedService<OrphanedRoomCleanupService>();
 builder.Services.AddHostedService<RenoveJa.Infrastructure.ClinicalEvidence.EvidenceCacheStartupCleaner>();
 builder.Services.AddScoped<RenoveJa.Infrastructure.Storage.S3MigrationService>();
-builder.Services.AddHttpClient("LediPec");
-builder.Services.AddHttpClient("Rnds");
-
 // HttpContextAccessor for CurrentUserService
 builder.Services.AddHttpContextAccessor();
 
@@ -218,7 +216,7 @@ builder.Services.AddInfrastructureServices();
 
 builder.Services.AddHttpClient();
 
-// ForwardedHeaders: respeita X-Forwarded-For e X-Forwarded-Proto quando atrás de proxy (Render, Railway, nginx)
+// ForwardedHeaders: respeita X-Forwarded-For e X-Forwarded-Proto quando atrás de proxy (AWS ALB/ECS)
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -234,8 +232,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Patient", policy => policy.RequireRole("patient"));
     options.AddPolicy("Doctor", policy => policy.RequireRole("doctor"));
-    options.AddPolicy("Admin", policy => policy.RequireRole("admin", "sus"));
-    options.AddPolicy("Sus", policy => policy.RequireRole("sus", "admin"));
+    options.AddPolicy("Admin", policy => policy.RequireRole("admin"));
 });
 
 builder.Services.AddSignalR(options =>
@@ -380,6 +377,18 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 2
+            }));
+
+    // Limiter para refresh token: mais generoso que login (chamado automaticamente pelo app)
+    options.AddPolicy("auth-refresh", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 15,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 5
             }));
 
     // Limiter para verificação pública: 5 req/min por IP (anti-fraude endurecido)

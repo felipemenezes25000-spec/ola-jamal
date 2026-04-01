@@ -12,6 +12,13 @@
  *   - Notas do médico
  *   - Botão de finalizar consulta
  *
+ * Design spec:
+ * - Full-screen dark background (#0B1120)
+ * - Top bar: "AO VIVO" green dot + text, timer, menu
+ * - AI Panel: dark bg (#15202E), purple accent (#8B5CF6)
+ * - Responsive: phone landscape, tablet, desktop
+ * - Dark mode only for video call
+ *
  * Integra com:
  * - POST /api/requests/{id}/start-consultation
  * - POST /api/requests/{id}/report-call-connected
@@ -62,6 +69,7 @@ export default function DoctorVideoCall() {
   const [patient, setPatient] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
+  const [meetingToken, setMeetingToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Consultation state
@@ -79,6 +87,9 @@ export default function DoctorVideoCall() {
   // Finish dialog
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
+
+  // Guard: prevent StrictMode double-mount from calling startConsultation twice
+  const startingRef = useRef(false);
 
   // SignalR real-time
   const { connected: signalConnected, transcript, anamnesis, suggestions, evidence } = useVideoSignaling(requestId);
@@ -129,17 +140,22 @@ export default function DoctorVideoCall() {
           try { setPatient(await getPatientProfile(data.patientId)); } catch { /* paciente opcional */ }
         }
 
-        // Start consultation if not already
+        // Start consultation if not already (guard prevents StrictMode double-fire)
         const statusLower = (data.status ?? '').toLowerCase();
         const needsStart = ['paid', 'consultation_accepted', 'consultation_ready'].includes(statusLower);
-        if (needsStart) {
+        if (needsStart && !startingRef.current) {
+          startingRef.current = true;
           try {
             const result = await startConsultation(requestId);
             if (result.chronicWarning) {
               toast.warning(result.chronicWarning, { duration: 8000 });
             }
-            setConsultationStarted(true);
-          } catch { /* startConsultation já iniciado */ }
+            if (!cancelled) setConsultationStarted(true);
+          } catch {
+            /* startConsultation já iniciado — backend retorna sucesso idempotente */
+          } finally {
+            startingRef.current = false;
+          }
         } else if (data.status?.toLowerCase().includes('in_consultation')) {
           setConsultationStarted(true);
           // Recover timer if consultation already started
@@ -152,14 +168,11 @@ export default function DoctorVideoCall() {
         // Get video room token
         try {
           const tokenData = await getJoinToken(requestId);
-          setRoomUrl(tokenData.roomUrl ? `${tokenData.roomUrl}?t=${tokenData.token}` : null);
+          setRoomUrl(tokenData.roomUrl ?? null);
+          setMeetingToken(tokenData.token ?? null);
           setContractedMinutes(tokenData.contractedMinutes ?? data.contractedMinutes ?? null);
         } catch {
-          if (data.videoRoomUrl) {
-            setRoomUrl(data.videoRoomUrl);
-          } else {
-            setError('Não foi possível obter o link da videochamada');
-          }
+          setError('Não foi possível obter o link da videochamada');
         }
       } catch {
         if (!cancelled) setError('Erro ao carregar dados da consulta');
@@ -167,7 +180,10 @@ export default function DoctorVideoCall() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      startingRef.current = false;
+    };
   }, [requestId]);
 
   // Report call connected when iframe loads
@@ -178,14 +194,17 @@ export default function DoctorVideoCall() {
   }, [requestId]);
 
   // Bug #2: Handle left-meeting (voluntary leave or unexpected disconnection)
-  const handleCallLeft = useCallback(() => {
-    // Stop the timer
+  const handleCallLeft = useCallback(async () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    // If consultation was active, navigate to summary; otherwise back to request
     if (consultationStarted && requestId) {
+      try {
+        await finishConsultation(requestId, { conductNotes: '' });
+      } catch {
+        // best-effort — navigate to summary regardless
+      }
       toast.info('Videochamada encerrada.');
       navigate(`/resumo-consulta/${requestId}`);
     } else if (requestId) {
@@ -240,9 +259,9 @@ export default function DoctorVideoCall() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen min-h-[100dvh] bg-[#0B1120] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+          <Loader2 className="h-10 w-10 animate-spin text-[#8B5CF6] mx-auto mb-4" />
           <p className="text-gray-400">Preparando consulta inteligente...</p>
           <p className="text-gray-600 text-xs mt-2">Conectando IA clínica, transcrição e vídeo</p>
         </div>
@@ -250,23 +269,23 @@ export default function DoctorVideoCall() {
     );
   }
 
-  if (error || !roomUrl) {
+  if (error || !roomUrl || !meetingToken) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-lg">
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="h-8 w-8 text-amber-600" />
+      <div className="min-h-screen min-h-[100dvh] bg-[#0B1120] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg bg-[#15202E] border-white/5">
+          <CardContent className="p-6 sm:p-8 text-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="h-7 w-7 sm:h-8 sm:w-8 text-amber-500" />
             </div>
-            <h2 className="text-lg font-bold mb-2">Videochamada indisponível</h2>
-            <p className="text-sm text-muted-foreground mb-6">
+            <h2 className="text-lg font-bold mb-2 text-gray-100">Videochamada indisponível</h2>
+            <p className="text-sm text-gray-400 mb-6">
               {error || 'O link da videochamada não está disponível.'}
             </p>
             <div className="space-y-3">
-              <Button onClick={() => navigate(`/pedidos/${requestId}`)} className="w-full gap-2">
+              <Button onClick={() => navigate(`/pedidos/${requestId}`)} className="w-full gap-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white">
                 <ArrowLeft className="h-4 w-4" /> Ver detalhes
               </Button>
-              <Button variant="outline" onClick={() => navigate('/consultas')} className="w-full">
+              <Button variant="outline" onClick={() => navigate('/consultas')} className="w-full border-white/10 text-gray-300 hover:bg-white/5">
                 Voltar às consultas
               </Button>
             </div>
@@ -277,8 +296,8 @@ export default function DoctorVideoCall() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
-      {/* ── Top Bar ── */}
+    <div className="h-screen h-[100dvh] bg-[#0B1120] flex flex-col overflow-hidden">
+      {/* -- Top Bar -- */}
       <VideoTopBar
         consultationStarted={consultationStarted}
         timerSeconds={timerSeconds}
@@ -292,11 +311,12 @@ export default function DoctorVideoCall() {
         onBack={() => navigate(`/pedidos/${requestId}`)}
       />
 
-      {/* ── Main Content: Video + AI Panel ── */}
-      {/* Bug #10: flex-col on small screens for responsive layout */}
-      <div className="flex-1 flex max-md:flex-col overflow-hidden">
+      {/* -- Main Content: Video + AI Panel -- */}
+      {/* flex-col on small screens for responsive layout */}
+      <div className="flex-1 flex max-md:flex-col overflow-hidden min-h-0">
         <VideoFrameDaily
           roomUrl={roomUrl}
+          meetingToken={meetingToken}
           requestId={requestId ?? null}
           isExpanded={isExpanded}
           onToggleExpand={() => setIsExpanded(!isExpanded)}
@@ -305,14 +325,16 @@ export default function DoctorVideoCall() {
           consultationActive={consultationStarted}
         />
 
-        {/* ── AI Clinical Panel ── */}
-        {/* Bug #10: responsive — full width on small screens */}
-        <div className={`bg-gray-900 border-l border-gray-800 flex flex-col transition-all duration-300 ${isExpanded ? 'w-[60%]' : 'w-[40%]'} max-md:!w-full max-md:flex-1 max-md:border-l-0 max-md:border-t`}>
+        {/* -- AI Clinical Panel -- */}
+        {/* Responsive: full width on small screens, percentage width on desktop */}
+        <div className={`bg-[#15202E] border-l border-white/5 flex flex-col transition-all duration-300 ${
+          isExpanded ? 'w-[60%]' : 'w-[40%]'
+        } max-md:!w-full max-md:flex-1 max-md:border-l-0 max-md:border-t max-md:border-white/5 min-h-0`}>
           {/* Patient alerts */}
           {patient?.allergies && patient.allergies.length > 0 && (
-            <div className="px-4 py-2 bg-red-950/50 border-b border-red-900/50 flex items-center gap-2">
+            <div className="px-3 sm:px-4 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 shrink-0">
               <AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" />
-              <span className="text-xs text-red-300 font-medium">
+              <span className="text-xs text-red-300 font-medium truncate">
                 Alergias: {patient.allergies.join(', ')}
               </span>
             </div>
@@ -320,21 +342,21 @@ export default function DoctorVideoCall() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-            <TabsList className="bg-gray-800/50 border-b border-gray-800 rounded-none px-2 shrink-0 flex-wrap">
-              <TabsTrigger value="consulta" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
+            <TabsList className="bg-[#0B1120]/50 border-b border-white/5 rounded-none px-2 shrink-0 h-auto flex-wrap gap-1 py-1.5">
+              <TabsTrigger value="consulta" className="text-[11px] sm:text-xs gap-1 sm:gap-1.5 data-[state=active]:bg-[#8B5CF6] data-[state=active]:text-white px-2.5 py-1.5 h-auto">
                 <Brain className="h-3 w-3" /> Consulta
                 {filledFields > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[9px]">
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-white/10 text-[#8B5CF6] text-[9px] font-bold">
                     {filledFields}
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="notes" className="text-xs gap-1.5 data-[state=active]:bg-gray-700">
+              <TabsTrigger value="notes" className="text-[11px] sm:text-xs gap-1 sm:gap-1.5 data-[state=active]:bg-[#8B5CF6] data-[state=active]:text-white px-2.5 py-1.5 h-auto">
                 <MessageSquare className="h-3 w-3" /> Notas
               </TabsTrigger>
             </TabsList>
 
-            {/* ── Consulta Tab (full DoctorAIPanel: gravidade, CID, alertas, diferencial, anamnese, meds, exames, orientações, perguntas, evidências) ── */}
+            {/* -- Consulta Tab (full DoctorAIPanel) -- */}
             <TabsContent value="consulta" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
               <DoctorAIPanel
                 anamnesis={parsedAnamnesis}
@@ -343,9 +365,9 @@ export default function DoctorVideoCall() {
               />
             </TabsContent>
 
-            {/* ── Notes Tab ── */}
-            <TabsContent value="notes" className="flex-1 overflow-auto p-4 m-0">
-              <div className="space-y-4 h-full flex flex-col">
+            {/* -- Notes Tab -- */}
+            <TabsContent value="notes" className="flex-1 overflow-auto p-3 sm:p-4 m-0">
+              <div className="space-y-3 sm:space-y-4 h-full flex flex-col">
                 <div>
                   <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">
                     Notas do Médico / Conduta
@@ -353,8 +375,8 @@ export default function DoctorVideoCall() {
                   <p className="text-[10px] text-gray-600 mb-3">
                     Suas notas são salvas no prontuário eletrônico. A IA pode ter gerado um rascunho baseado na consulta.
                   </p>
-                  <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-start gap-2">
-                    <MessageSquare className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 rounded-lg bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 flex items-start gap-2">
+                    <MessageSquare className="h-4 w-4 text-[#8B5CF6] shrink-0 mt-0.5" />
                     <p className="text-xs text-gray-300">
                       Oriente o paciente sobre como usar cada medicamento (dose, horários, duração) e quando retornar.
                     </p>
@@ -364,12 +386,12 @@ export default function DoctorVideoCall() {
                   value={doctorNotes}
                   onChange={e => setDoctorNotes(e.target.value)}
                   placeholder="Anotações sobre a consulta, conduta médica, orientações ao paciente..."
-                  className="flex-1 min-h-[200px] bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-600 resize-none"
+                  className="flex-1 min-h-[150px] sm:min-h-[200px] bg-[#0B1120] border-white/10 text-gray-200 placeholder:text-gray-600 resize-none focus:border-[#8B5CF6]/50 focus:ring-[#8B5CF6]/20"
                 />
                 <Button
                   onClick={handleSaveNotes}
                   disabled={savingNotes}
-                  className="gap-2 w-full"
+                  className="gap-2 w-full bg-[#8B5CF6]/20 hover:bg-[#8B5CF6]/30 text-[#8B5CF6] border border-[#8B5CF6]/30"
                   variant="outline"
                 >
                   {savingNotes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -381,15 +403,15 @@ export default function DoctorVideoCall() {
         </div>
       </div>
 
-      {/* ── Finish Dialog ── */}
+      {/* -- Finish Dialog -- */}
       <Dialog open={finishDialogOpen} onOpenChange={setFinishDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg bg-[#15202E] border-white/10 text-gray-100">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-gray-100">
               <PhoneOff className="h-5 w-5 text-red-500" />
               Encerrar Consulta
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-gray-400">
               Deseja finalizar a videoconsulta? Todos os dados (transcrição, anamnese, sugestões) serão salvos no prontuário.
             </DialogDescription>
           </DialogHeader>
@@ -404,24 +426,26 @@ export default function DoctorVideoCall() {
             />
 
             {/* CFM compliance notice */}
-            <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-xs">
-              <div className="flex items-center gap-2 font-semibold text-blue-700 dark:text-blue-300 mb-1">
+            <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 text-xs">
+              <div className="flex items-center gap-2 font-semibold text-blue-300 mb-1">
                 <Shield className="h-3.5 w-3.5" />
                 Conformidade CFM 2.454/2026
               </div>
-              <p className="text-blue-600 dark:text-blue-400">
+              <p className="text-blue-400/80">
                 Todos os dados de IA (transcrição, anamnese, sugestões) são registrados com rastreabilidade completa.
                 A decisão clínica final é de responsabilidade do médico.
               </p>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setFinishDialogOpen(false)}>Continuar consulta</Button>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setFinishDialogOpen(false)} className="text-gray-400 hover:text-gray-200 hover:bg-white/5">
+              Continuar consulta
+            </Button>
             <Button
               onClick={handleFinish}
               disabled={finishing}
-              className="gap-2 bg-red-600 hover:bg-red-700"
+              className="gap-2 bg-red-600 hover:bg-red-700 text-white"
             >
               {finishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PhoneOff className="h-4 w-4" />}
               Finalizar consulta

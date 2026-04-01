@@ -112,7 +112,7 @@ export function AppTutorialSection() {
           <span className="mb-4 inline-block text-sm font-semibold uppercase tracking-wider text-primary">
             Funcionalidades
           </span>
-          <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="font-display text-2xl font-bold text-foreground sm:text-4xl lg:text-5xl">
             Funcionalidades organizadas por perfil de uso.
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">
@@ -121,10 +121,14 @@ export function AppTutorialSection() {
           </p>
         </motion.div>
 
-        <div className="mb-8 flex flex-wrap justify-center gap-3">
+        <div role="tablist" aria-label="Perfis de uso da plataforma" className="mb-8 flex flex-wrap justify-center gap-3">
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              aria-controls={`tabpanel-${tab.key}`}
+              id={`tab-${tab.key}`}
               onClick={() => setActiveTab(tab.key)}
               className={`rounded-full px-5 py-3 text-sm font-semibold transition-all ${
                 activeTab === tab.key
@@ -137,7 +141,12 @@ export function AppTutorialSection() {
           ))}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-stretch">
+        <div
+          id={`tabpanel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`tab-${activeTab}`}
+          className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-stretch"
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={`${activeTab}-intro`}
@@ -161,7 +170,7 @@ export function AppTutorialSection() {
                     'Trilha auditável e documentação verificável',
                   ].map((item) => (
                     <div key={item} className="flex items-center gap-3 rounded-2xl bg-muted/40 px-4 py-3">
-                      <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                      <div className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden />
                       <span className="text-sm font-medium text-foreground">{item}</span>
                     </div>
                   ))}
@@ -187,7 +196,7 @@ export function AppTutorialSection() {
                   transition={{ duration: 0.35, delay: index * 0.06 }}
                   className="rounded-3xl border border-border/50 bg-card p-6 shadow-card"
                 >
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10" aria-hidden>
                     <item.icon className="h-7 w-7 text-primary" />
                   </div>
                   <h4 className="font-display text-xl font-bold text-foreground">{item.title}</h4>

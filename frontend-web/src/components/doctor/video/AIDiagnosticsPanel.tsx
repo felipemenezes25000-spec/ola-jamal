@@ -5,12 +5,13 @@
 import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, ShieldX, Activity, GitBranch, Star, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import type { DiagDiferencial, ParsedAnamnesisAi } from './ai-panel-types';
+import type { DiagDiferencial, ParsedAnamnesisAi } from './ai-panel/types';
 
 const GRAVITY_CONFIG: Record<string, { color: string; label: string; icon: typeof Shield }> = {
-  leve: { color: 'text-emerald-400', label: 'Leve', icon: Shield },
-  moderada: { color: 'text-amber-400', label: 'Moderada', icon: ShieldAlert },
-  grave: { color: 'text-red-400', label: 'Grave', icon: ShieldX },
+  verde: { color: 'text-emerald-400', label: 'Pouco urgente', icon: Shield },
+  amarelo: { color: 'text-amber-400', label: 'Urgente', icon: ShieldAlert },
+  laranja: { color: 'text-orange-400', label: 'Muito urgente', icon: ShieldAlert },
+  vermelho: { color: 'text-red-400', label: 'Emergência', icon: ShieldX },
 };
 
 export interface AIDiagnosticsPanelProps {
@@ -52,11 +53,13 @@ export function AIDiagnosticsPanel({ data }: AIDiagnosticsPanelProps) {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
-            gravidade === 'leve'
+            gravidade === 'verde'
               ? 'bg-emerald-950/30 border-emerald-800/50'
-              : gravidade === 'moderada'
+              : gravidade === 'amarelo'
                 ? 'bg-amber-950/30 border-amber-800/50'
-                : 'bg-red-950/30 border-red-800/50'
+                : gravidade === 'laranja'
+                  ? 'bg-orange-950/30 border-orange-800/50'
+                  : 'bg-red-950/30 border-red-800/50'
           }`}
         >
           <gravityCfg.icon className={`h-4 w-4 ${gravityCfg.color}`} />

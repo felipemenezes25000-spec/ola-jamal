@@ -174,6 +174,7 @@ export function useDailyJoin({
   const [remoteParticipant, setRemoteParticipant] = useState<ParticipantTrack | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const isReconnectingRef = useRef(false);
 
   // FIX M9: Store callbacks in refs to avoid stale closures in Daily event handlers
   const onRemoteJoinedRef = useRef(onRemoteJoined);
@@ -350,10 +351,12 @@ export function useDailyJoin({
 
           if (remoteLeft) {
             setRemoteParticipant(null);
-            if (!isDoctorRef.current) {
-              if (__DEV__) console.warn('[useDailyJoin] onCallEnded(remote-left)');
-              onCallEndedRef.current?.('remote-left');
-            }
+            // Paciente NÃO sai automaticamente quando o remoto sai.
+            // O médico pode estar reconectando ou o Daily pode ter disparado
+            // participant-left por network change. O paciente só sai quando:
+            // - meeting-ended (sala encerrada pelo servidor/Daily)
+            // - consultationEnded via SignalR (médico encerrou a consulta)
+            // - o paciente clica em "Sair da chamada"
           }
           if (localEjected) {
             if (__DEV__) console.warn('[useDailyJoin] onCallEnded(ejected)');
@@ -364,7 +367,7 @@ export function useDailyJoin({
 
         const onMeetingEnded = (_event: DailyMeetingEndedEvent) => {
           if (__DEV__) {
-            console.warn('[useDailyJoin] meeting-ended', { isDoctor });
+            console.warn('[useDailyJoin] meeting-ended', { isDoctor: isDoctorRef.current });
           }
           setCallState('idle');
           onCallEndedRef.current?.('meeting-ended');
@@ -373,9 +376,12 @@ export function useDailyJoin({
 
         const onLeftMeeting = () => {
           // eslint-disable-next-line no-console -- intentional in __DEV__
-          if (__DEV__) console.log('[useDailyJoin] Left meeting', { programmatic: programmaticLeaveInProgress });
+          if (__DEV__) console.log('[useDailyJoin] Left meeting', { programmatic: programmaticLeaveInProgress, reconnecting: isReconnectingRef.current });
           setCallState('idle');
-          if (!programmaticLeaveInProgress) {
+          // Não dispara onCallEnded se:
+          // 1) leave() foi chamado programaticamente (programmaticLeaveInProgress)
+          // 2) estamos em reconexão (network change pode disparar left-meeting transitoriamente)
+          if (!programmaticLeaveInProgress && !isReconnectingRef.current) {
             onCallEndedRef.current?.('left');
           }
         };
@@ -411,11 +417,13 @@ export function useDailyJoin({
           const threshold = event?.threshold;
           if (threshold === 'very-low') {
             if (__DEV__) console.warn('[useDailyJoin] Network quality very low', event);
+            isReconnectingRef.current = true;
             setIsReconnecting(true);
             setCallState('reconnecting');
           } else if (threshold === 'low') {
             if (__DEV__) console.warn('[useDailyJoin] Network quality low', event);
-          } else if (threshold === 'good' && isReconnecting) {
+          } else if (threshold === 'good' && isReconnectingRef.current) {
+            isReconnectingRef.current = false;
             setIsReconnecting(false);
             setCallState('joined');
           }
@@ -460,7 +468,8 @@ export function useDailyJoin({
     }
   // FIX M9: removed callback deps — refs are used inside, so join() is stable
   // eslint-disable-next-line react-hooks/exhaustive-deps -- isDoctor/callbacks accessed via refs
-  }, [roomUrl, token, updateParticipants, registerHandler, removeAllHandlers, isReconnecting]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isReconnecting via ref
+  }, [roomUrl, token, updateParticipants, registerHandler, removeAllHandlers]);
 
   // --- Leave ---
 
@@ -516,6 +525,9 @@ export function useDailyJoin({
   // --- Cleanup on unmount (Bug #7: ensures all listeners are removed) ---
   useEffect(() => {
     return () => {
+      // Dismiss Android foreground notification on unmount
+      try { setAndroidOngoingMeetingActive(false); } catch { /* ignore — Daily may already be destroyed */ }
+
       const call = callRef.current;
       if (call) {
         // Bug #7: Remove all tracked event handlers

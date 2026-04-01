@@ -143,12 +143,15 @@ public class Encounter : AggregateRoot
         if (Status == "final")
             return;
 
-        FinishedAt = finishedAt ?? DateTime.UtcNow;
-        if (FinishedAt < StartedAt)
+        var effectiveFinishedAt = finishedAt ?? DateTime.UtcNow;
+        if (effectiveFinishedAt < StartedAt)
             throw new DomainException("FinishedAt cannot be before StartedAt");
 
+        FinishedAt = effectiveFinishedAt;
         Status = "final";
     }
+
+    public string? CancellationReason { get; private set; }
 
     public void Cancel(string reason)
     {
@@ -156,7 +159,7 @@ public class Encounter : AggregateRoot
             throw new DomainException("Cancellation reason is required");
 
         Status = "cancelled";
-        Plan = reason;
+        CancellationReason = reason;
         FinishedAt ??= DateTime.UtcNow;
     }
 

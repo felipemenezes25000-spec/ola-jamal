@@ -532,22 +532,22 @@ export function AppScreensSection() {
   const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + screens.length) % screens.length);
 
   return (
-    <section id="screenshots" className="relative overflow-hidden bg-background py-24 lg:py-32">
+    <section id="screenshots" className="relative overflow-hidden bg-background py-16 sm:py-24 lg:py-32">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="mx-auto mb-16 max-w-3xl text-center"
+          className="mx-auto mb-10 sm:mb-16 max-w-3xl text-center"
         >
           <span className="mb-4 inline-block text-sm font-semibold uppercase tracking-wider text-primary">
             Telas do app
           </span>
-          <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="font-display text-2xl font-bold text-foreground sm:text-4xl lg:text-5xl">
             Conheça a <span className="text-gradient">plataforma em uso</span>
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground">
+          <p className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground">
             Uma amostra da jornada digital que ajuda instituições a organizar solicitações, validar
             documentos e ampliar acesso com mais previsibilidade operacional.
           </p>
@@ -559,13 +559,13 @@ export function AppScreensSection() {
           viewport={{ once: true }}
           className="mb-12 flex justify-center"
         >
-          <div className="inline-flex items-center gap-3 rounded-full border border-success/20 bg-success/10 px-6 py-3 shadow-card">
-            <div className="h-2.5 w-2.5 rounded-full bg-success" />
-            <span className="text-sm font-medium text-foreground">
+          <div className="inline-flex items-center gap-2 sm:gap-3 rounded-full border border-success/20 bg-success/10 px-4 py-2 sm:px-6 sm:py-3 shadow-card max-w-full">
+            <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-success" />
+            <span className="text-xs sm:text-sm font-medium text-foreground text-left">
               Telas baseadas no <strong className="text-success">app real em modo claro</strong>,
               com jornadas de envio, acompanhamento e documentos.
             </span>
-            <Clock3 className="h-5 w-5 text-success" />
+            <Clock3 className="h-5 w-5 flex-shrink-0 text-success hidden sm:block" />
           </div>
         </motion.div>
 
@@ -574,22 +574,24 @@ export function AppScreensSection() {
             variant="outline"
             size="icon"
             onClick={prevSlide}
+            aria-label="Slide anterior"
             className="absolute left-0 top-1/2 z-10 hidden -translate-x-4 -translate-y-1/2 rounded-full shadow-lg sm:flex lg:-translate-x-12"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5" aria-hidden />
           </Button>
           <Button
             variant="outline"
             size="icon"
             onClick={nextSlide}
+            aria-label="Próximo slide"
             className="absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 translate-x-4 rounded-full shadow-lg sm:flex lg:translate-x-12"
           >
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-5 w-5" aria-hidden />
           </Button>
 
           <div className="flex justify-center">
             <div className="relative">
-              <div className="aspect-[9/19] w-[280px] rounded-[3rem] bg-slate-900 p-3 shadow-elevated sm:w-[300px]">
+              <div className="aspect-[9/19] w-[260px] rounded-[2.5rem] bg-slate-900 p-2.5 shadow-elevated sm:w-[300px] sm:rounded-[3rem] sm:p-3">
                 <div className="h-full w-full overflow-hidden rounded-[2.5rem] bg-[#f6f8fb]">
                   <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
                     <span className="text-xs font-medium text-slate-900">9:41</span>
@@ -623,6 +625,8 @@ export function AppScreensSection() {
             key={currentIndex}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
+            aria-live="polite"
+            aria-atomic="true"
             className="mt-8 text-center"
           >
             <h3 className="mb-2 font-display text-xl font-bold text-foreground">
@@ -631,17 +635,19 @@ export function AppScreensSection() {
             <p className="text-muted-foreground">{screens[currentIndex].description}</p>
           </motion.div>
 
-          <div className="mt-6 flex justify-center gap-2">
-            {screens.map((_, index) => (
+          <div role="tablist" aria-label="Slides do carrossel" className="mt-6 flex justify-center gap-2">
+            {screens.map((screen, index) => (
               <button
                 key={index}
+                role="tab"
                 onClick={() => setCurrentIndex(index)}
+                aria-selected={index === currentIndex}
+                aria-label={`Slide ${index + 1}: ${screen.title}`}
                 className={`h-2 w-2 rounded-full transition-all ${
                   index === currentIndex
                     ? 'w-8 bg-primary'
                     : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
                 }`}
-                aria-label={`Ir para slide ${index + 1}`}
               />
             ))}
           </div>

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { clinicalSoftTokens } from './clinicalSoftTokens';
 import type { DashboardResponsive } from './useDashboardResponsive';
 
-const { colors, radius, shadow } = clinicalSoftTokens;
+const { colors, radius } = clinicalSoftTokens;
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -15,24 +15,25 @@ interface StatCardProps {
 }
 
 export function StatCard({ icon, iconBg, title, value, valueColor, responsive }: StatCardProps) {
-  const { typography, iconSizes } = responsive;
-  const iconBoxSize = (iconSizes?.statIcon ?? 22) * 2.4;
+  const { typography } = responsive;
   return (
     <View style={styles.statCard}>
-      <View style={[styles.statIconBox, { backgroundColor: iconBg, width: iconBoxSize, height: iconBoxSize, borderRadius: iconBoxSize * 0.31 }]}>{icon}</View>
-      <Text
-        style={[styles.statTitle, { fontSize: typography.statTitle, lineHeight: typography.statTitle * 1.3 }]}
-        numberOfLines={2}
-      >
-        {title}
-      </Text>
+      <View style={styles.statRow}>
+        <View style={[styles.statIconDot, { backgroundColor: iconBg }]} />
+        <Text
+          style={[styles.statTitle, { fontSize: typography.statTitle }]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+      </View>
       <Text
         style={[
           styles.statValue,
           {
             color: valueColor,
             fontSize: typography.statValue,
-            lineHeight: typography.statValue * 1.1,
+            lineHeight: typography.statValue * 1.15,
           },
         ]}
         numberOfLines={1}
@@ -47,24 +48,32 @@ export function StatCard({ icon, iconBg, title, value, valueColor, responsive }:
 const styles = StyleSheet.create({
   statCard: {
     width: '48%',
-    borderRadius: radius.card,
+    borderRadius: radius.iconBox,
     backgroundColor: colors.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    ...shadow.card,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  statIconBox: {
+  statRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  statIconDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
   },
   statTitle: {
-    color: colors.primaryDark,
-    fontWeight: '700',
+    color: colors.secondary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statValue: {
-    marginTop: 4,
-    fontWeight: '800',
-    letterSpacing: -1,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
 });

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using RenoveJa.Application.DTOs.Auth;
 using RenoveJa.Application.Interfaces;
 using RenoveJa.Api.Authentication;
+using RenoveJa.Api.Helpers;
 using RenoveJa.Domain.Interfaces;
 using System.Security.Claims;
 
@@ -21,6 +22,7 @@ public class AuthController(
     IValidator<RegisterRequestDto> registerValidator,
     IValidator<RegisterDoctorRequestDto> registerDoctorValidator,
     IValidator<CompleteProfileRequestDto> completeProfileValidator,
+    IValidator<LoginRequestDto> loginValidator,
     ILogger<AuthController> logger) : ControllerBase
 {
     /// <summary>
@@ -100,6 +102,8 @@ public class AuthController(
             throw new ValidationException(validationResult.Errors);
 
         var response = await authService.RegisterDoctorAsync(request, cancellationToken);
+        if (!string.IsNullOrEmpty(response.Token))
+            SetAuthCookie(response.Token);
         return Ok(response);
     }
 
@@ -112,6 +116,10 @@ public class AuthController(
         [FromBody] LoginRequestDto request,
         CancellationToken cancellationToken)
     {
+        var validationResult = await loginValidator.ValidateAsync(request!, cancellationToken);
+        if (!validationResult.IsValid)
+            throw new ValidationException(validationResult.Errors);
+
         try
         {
             logger.LogInformation("[Auth] Login attempt");
@@ -139,11 +147,14 @@ public class AuthController(
     /// Realiza rotação: gera novo access token + novo refresh token e invalida os anteriores.
     /// </summary>
     [HttpPost("refresh")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting("auth-refresh")]
     public async Task<ActionResult<AuthResponseDto>> RefreshToken(
         [FromBody] RefreshTokenRequestDto request,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request?.RefreshToken))
+            return BadRequest(new { message = "Refresh token é obrigatório." });
+
         try
         {
             var response = await authService.RefreshTokenAsync(request.RefreshToken, cancellationToken);
@@ -190,7 +201,12 @@ public class AuthController(
         // Read token from cookie (web) or Authorization header (mobile)
         var token = Request.Cookies[BearerAuthenticationHandler.AuthCookieName];
         if (string.IsNullOrWhiteSpace(token))
-            token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            token = authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? authHeader["Bearer ".Length..].Trim()
+                : authHeader;
+        }
 
         await authService.LogoutAsync(token, cancellationToken);
         ClearAuthCookie();
@@ -302,6 +318,9 @@ public class AuthController(
             return BadRequest(new { error = $"Tipo não permitido: {contentType}. Use: JPEG, PNG, WebP ou HEIC." });
 
         await using var stream = file.OpenReadStream();
+        if (!await FileSignatureValidator.HasValidSignatureAsync(stream, contentType))
+            return BadRequest(new { error = "O conteúdo do arquivo não corresponde ao tipo declarado." });
+        stream.Position = 0;
         var user = await authService.UpdateAvatarAsync(userId, stream, contentType, file.FileName, cancellationToken);
         return Ok(user);
     }

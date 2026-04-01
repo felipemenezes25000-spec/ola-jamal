@@ -15,7 +15,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main>
+      <main id="main-content">
         <AppHeroSection />
         <AppStepsSection />
         <AppBenefitsSection />

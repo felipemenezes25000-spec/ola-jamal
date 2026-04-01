@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /pedidos
+Disallow: /consultas
+Disallow: /pacientes
+Disallow: /notificacoes
+Disallow: /perfil
+Disallow: /video
+Disallow: /configuracoes
+Disallow: /certificado
+Disallow: /fila
+Disallow: /resumo-consulta
+Disallow: /completar-cadastro
+Disallow: /login
+Disallow: /registro
+
+Sitemap: https://renovejasaude.com.br/sitemap.xml

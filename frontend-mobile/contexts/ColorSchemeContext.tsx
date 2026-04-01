@@ -28,8 +28,6 @@ const ColorSchemeContext = createContext<ColorSchemeContextValue | undefined>(un
 export function ColorSchemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useSystemColorScheme() ?? 'light';
   const [preference, setPreferenceState] = useState<ColorSchemePreference>('light');
-  const [loaded, setLoaded] = useState(false);
-
   // Carregar preferência persistida (default: light para melhor legibilidade)
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
@@ -39,8 +37,7 @@ export function ColorSchemeProvider({ children }: { children: React.ReactNode })
         }
         // Se nunca salvou, mantém 'light' (já é o default do useState)
       })
-      .catch(() => {})
-      .finally(() => setLoaded(true));
+      .catch(() => {});
   }, []);
 
   const setPreference = useCallback((pref: ColorSchemePreference) => {
@@ -57,9 +54,6 @@ export function ColorSchemeProvider({ children }: { children: React.ReactNode })
     () => ({ colorScheme, preference, setPreference, isDark: colorScheme === 'dark' }),
     [colorScheme, preference, setPreference]
   );
-
-  // Não renderizar até preferência estar carregada (evita flash)
-  if (!loaded) return null;
 
   return (
     <ColorSchemeContext.Provider value={value}>

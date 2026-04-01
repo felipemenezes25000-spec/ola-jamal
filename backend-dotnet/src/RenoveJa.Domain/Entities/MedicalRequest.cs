@@ -115,6 +115,9 @@ public class MedicalRequest : AggregateRoot
         if (patientId == Guid.Empty)
             throw new DomainException("Patient ID is required");
 
+        if (string.IsNullOrWhiteSpace(patientName))
+            throw new DomainException("Patient name is required");
+
         var request = new MedicalRequest(
             Guid.NewGuid(),
             patientId,
@@ -153,6 +156,9 @@ public class MedicalRequest : AggregateRoot
         if (patientId == Guid.Empty)
             throw new DomainException("Patient ID is required");
 
+        if (string.IsNullOrWhiteSpace(patientName))
+            throw new DomainException("Patient name is required");
+
         var hasExams = exams != null && exams.Count > 0;
         var hasImages = examImages != null && examImages.Count > 0;
         var hasSymptoms = !string.IsNullOrWhiteSpace(symptoms);
@@ -185,6 +191,9 @@ public class MedicalRequest : AggregateRoot
         if (patientId == Guid.Empty)
             throw new DomainException("Patient ID is required");
 
+        if (string.IsNullOrWhiteSpace(patientName))
+            throw new DomainException("Patient name is required");
+
         if (string.IsNullOrWhiteSpace(symptoms))
             throw new DomainException("Symptoms are required for consultation");
 
@@ -194,6 +203,9 @@ public class MedicalRequest : AggregateRoot
             patientName,
             Enums.RequestType.Consultation,
             RequestStatus.SearchingDoctor);
+
+        if (contractedMinutes.HasValue && contractedMinutes.Value <= 0)
+            throw new DomainException("Contracted minutes must be positive");
 
         request.Symptoms = symptoms;
         request.AccessCode = GenerateAccessCode();
@@ -404,6 +416,9 @@ public class MedicalRequest : AggregateRoot
         if (doctorId == Guid.Empty)
             throw new DomainException("Doctor ID is required");
 
+        if (string.IsNullOrWhiteSpace(doctorName))
+            throw new DomainException("Doctor name is required");
+
         DoctorId = doctorId;
         DoctorName = doctorName;
 
@@ -473,6 +488,13 @@ public class MedicalRequest : AggregateRoot
         if (string.IsNullOrWhiteSpace(rejectionReason))
             throw new DomainException("Rejection reason is required");
 
+#pragma warning disable CS0618
+        if (Status != RequestStatus.Submitted && Status != RequestStatus.InReview &&
+            Status != RequestStatus.SearchingDoctor && Status != RequestStatus.Pending &&
+            Status != RequestStatus.Analyzing && Status != RequestStatus.Approved)
+            throw new DomainException($"Cannot reject request in '{Status}' state. Only Pending, Submitted, InReview, Approved, or SearchingDoctor requests can be rejected.");
+#pragma warning restore CS0618
+
         RejectionReason = rejectionReason;
         Status = RequestStatus.Rejected;
         UpdatedAt = DateTime.UtcNow;
@@ -532,6 +554,9 @@ public class MedicalRequest : AggregateRoot
 
     public void Cancel()
     {
+        if (Status == RequestStatus.Signed || Status == RequestStatus.Delivered || Status == RequestStatus.Cancelled)
+            throw new DomainException($"Cannot cancel request in '{Status}' state.");
+
         Status = RequestStatus.Cancelled;
         UpdatedAt = DateTime.UtcNow;
     }

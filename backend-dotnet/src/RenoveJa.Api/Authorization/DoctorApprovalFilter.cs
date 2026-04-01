@@ -19,7 +19,7 @@ public class DoctorApprovalFilter : IAsyncActionFilter
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var path = context.HttpContext.Request.Path.Value ?? "";
-        if (AllowedPathsForPendingDoctor.Any(p => path.Contains(p, StringComparison.OrdinalIgnoreCase)))
+        if (AllowedPathsForPendingDoctor.Any(p => path.Equals(p, StringComparison.OrdinalIgnoreCase) || path.StartsWith(p + "/", StringComparison.OrdinalIgnoreCase)))
         {
             await next();
             return;

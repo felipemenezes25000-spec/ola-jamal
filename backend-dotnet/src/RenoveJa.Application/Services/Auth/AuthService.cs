@@ -128,7 +128,7 @@ public class AuthService(
         var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
         if (user == null)
             throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (!VerifyPasswordAgainstHash(request.Password, user.PasswordHash, user.Id))
             throw new UnauthorizedAccessException("E-mail ou senha incorretos.");
 
         // Verificar aprovação do médico ANTES de criar token (evita tokens órfãos no banco)
@@ -159,7 +159,7 @@ public class AuthService(
     public async Task<UserDto> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
-        if (user == null) throw new InvalidOperationException("User not found");
+        if (user == null) throw new UnauthorizedAccessException("Sessão inválida.");
         return await MapUserToDtoAsync(user);
     }
 
@@ -338,7 +338,7 @@ public class AuthService(
             throw new ArgumentException("A nova senha deve ter no mínimo 8 caracteres.");
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("Usuário não encontrado.");
-        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+        if (!VerifyPasswordAgainstHash(currentPassword, user.PasswordHash, user.Id))
             throw new UnauthorizedAccessException("Senha atual incorreta.");
         var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.UpdatePassword(newHash);
@@ -377,9 +377,13 @@ public class AuthService(
         if (user == null)
             throw new UnauthorizedAccessException("Usuário não encontrado.");
 
-        // Rotate: generate new access token + new refresh token
+        // Rotate: generate new access token + new refresh token (optimistic concurrency)
+        var previousRefreshToken = authToken.RefreshToken
+            ?? throw new UnauthorizedAccessException("Refresh token inválido.");
         authToken.RotateTokens();
-        await tokenRepository.UpdateAsync(authToken, cancellationToken);
+        var rotated = await tokenRepository.TryRotateAsync(authToken, previousRefreshToken, cancellationToken);
+        if (rotated == null)
+            throw new UnauthorizedAccessException("Token já foi rotacionado por outra requisição. Faça login novamente.");
 
         DoctorProfileDto? doctorProfile = null;
         if (user.IsDoctor())
@@ -473,6 +477,23 @@ public class AuthService(
             user.CreatedAt, user.UpdatedAt, user.ProfileComplete,
             user.Street, user.Number, user.Neighborhood, user.Complement,
             user.City, user.State, user.PostalCode);
+    }
+
+    /// <summary>
+    /// Verifica senha com BCrypt. Hash inválido/vazio não deve lançar — evita 500 no login (ex.: dados legados).
+    /// </summary>
+    private bool VerifyPasswordAgainstHash(string password, string passwordHash, Guid userId)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash)) return false;
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+        }
+        catch (SaltParseException ex)
+        {
+            logger.LogWarning(ex, "Password hash inválido ou corrompido (UserId={UserId})", userId);
+            return false;
+        }
     }
 
     private static UserDto MapUserToDto(User user)

@@ -24,13 +24,12 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTheme } from '@/hooks/useTheme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
   Navigate,
   Route,
   Routes,
   useLocation,
-  useNavigate,
 } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
@@ -128,7 +127,6 @@ function DoctorShell() {
   const { isDark, toggleDarkMode } = useTheme();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const { unreadCount } = useNotifications();
   useFaviconBadge(unreadCount);
 
@@ -136,15 +134,6 @@ function DoctorShell() {
     onToggleDarkMode: toggleDarkMode,
     onShowShortcuts: () => setShortcutsOpen(true),
   });
-
-  // Redirect via React Router quando auth expirar
-  useEffect(() => {
-    const handleExpired = () => {
-      navigate('/login', { replace: true });
-    };
-    window.addEventListener('auth:expired', handleExpired);
-    return () => window.removeEventListener('auth:expired', handleExpired);
-  }, [navigate]);
 
   return (
     <>

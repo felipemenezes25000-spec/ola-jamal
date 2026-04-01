@@ -11,17 +11,20 @@ import { AppInput } from '../../components/ui/AppInput';
 import { Loading } from '../../components/Loading';
 import { uploadCertificate, getActiveCertificate, revokeCertificate } from '../../lib/api';
 import { spacing, typography, borderRadius, doctorDS } from '../../lib/themeDoctor';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
+import type { CertificateInfoDto } from '../../types/database';
 
 export default function CertificateUploadScreen() {
   const router = useRouter();
+  useRequireAuth('doctor');
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [certificate, setCertificate] = useState<any>(null);
+  const [certificate, setCertificate] = useState<CertificateInfoDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [password, setPassword] = useState('');
   const [revoking, setRevoking] = useState(false);
 
@@ -148,7 +151,7 @@ export default function CertificateUploadScreen() {
             <TouchableOpacity style={styles.fileBtn} onPress={pickFile}>
               <Ionicons name={selectedFile ? 'document-attach' : 'cloud-upload'} size={32} color={colors.primary} />
               <Text style={styles.fileText}>{selectedFile ? selectedFile.name : 'Selecionar arquivo .PFX'}</Text>
-              {selectedFile && <Text style={styles.fileSize}>{(selectedFile.size / 1024).toFixed(0)} KB</Text>}
+              {selectedFile?.size != null && <Text style={styles.fileSize}>{(selectedFile.size / 1024).toFixed(0)} KB</Text>}
             </TouchableOpacity>
 
             <AppInput

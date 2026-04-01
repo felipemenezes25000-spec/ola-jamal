@@ -15,8 +15,9 @@ describe('adminApi', () => {
       expect(isAuthenticated()).toBe(false);
     });
 
-    it('deve retornar true quando há token', () => {
+    it('deve retornar true quando há token e login_at válido', () => {
       localStorage.setItem('admin_auth_token', 'abc123');
+      localStorage.setItem('admin_login_at', String(Date.now()));
       expect(isAuthenticated()).toBe(true);
     });
   });

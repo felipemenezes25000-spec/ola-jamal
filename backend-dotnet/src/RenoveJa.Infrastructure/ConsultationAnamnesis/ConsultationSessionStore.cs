@@ -49,28 +49,35 @@ public class ConsultationSessionStore : IConsultationSessionStore
 
     public void EnsureSession(Guid requestId, Guid patientId)
     {
-        var key = KeyPrefix + requestId;
-        var db = Db;
+        try
+        {
+            var key = KeyPrefix + requestId;
+            var db = Db;
 
-        // Only create if doesn't exist yet (HSETNX on patientId field)
-        var created = db.HashSet(key, FieldPatientId, patientId.ToString(), When.NotExists);
-        if (created)
-        {
-            // Initialize empty transcript and segments
-            db.HashSet(key, new HashEntry[]
+            // Only create if doesn't exist yet (HSETNX on patientId field)
+            var created = db.HashSet(key, FieldPatientId, patientId.ToString(), When.NotExists);
+            if (created)
             {
-                new(FieldTranscript, string.Empty),
-                new(FieldSegments, "[]"),
-            });
-            db.KeyExpire(key, SessionExpiration);
-            _logger.LogInformation(
-                "[ConsultationSession] Sessão criada RequestId={RequestId} PatientId={PatientId}",
-                requestId, patientId);
+                // Initialize empty transcript and segments
+                db.HashSet(key, new HashEntry[]
+                {
+                    new(FieldTranscript, string.Empty),
+                    new(FieldSegments, "[]"),
+                });
+                db.KeyExpire(key, SessionExpiration);
+                _logger.LogInformation(
+                    "[ConsultationSession] Sessão criada RequestId={RequestId} PatientId={PatientId}",
+                    requestId, patientId);
+            }
+            else
+            {
+                // Refresh TTL on existing session
+                db.KeyExpire(key, SessionExpiration);
+            }
         }
-        else
+        catch (RedisConnectionException ex)
         {
-            // Refresh TTL on existing session
-            db.KeyExpire(key, SessionExpiration);
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em EnsureSession — sessão não criada. RequestId={RequestId}", requestId);
         }
     }
 
@@ -85,8 +92,19 @@ public class ConsultationSessionStore : IConsultationSessionStore
         }
 
         var key = KeyPrefix + requestId;
-        var db = Db;
+        IDatabase db;
+        try
+        {
+            db = Db;
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em AppendTranscript — transcrição perdida. RequestId={RequestId}", requestId);
+            return;
+        }
 
+        try
+        {
         if (!db.KeyExists(key))
         {
             _logger.LogWarning(
@@ -160,51 +178,87 @@ public class ConsultationSessionStore : IConsultationSessionStore
         _logger.LogDebug(
             "[ConsultationSession] Transcript append RequestId={RequestId} totalLen={Len} startTime={StartTime} deduped={Deduped}",
             requestId, totalLen, startTimeSeconds, deduped != trimmed);
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível durante AppendTranscript — transcrição perdida. RequestId={RequestId}", requestId);
+        }
     }
 
     public void UpdateAnamnesis(Guid requestId, string? anamnesisJson, string? suggestionsJson, string? evidenceJson = null)
     {
-        var key = KeyPrefix + requestId;
-        var db = Db;
-
-        if (!db.KeyExists(key)) return;
-
-        var entries = new List<HashEntry>();
-        if (anamnesisJson != null) entries.Add(new HashEntry(FieldAnamnesisJson, anamnesisJson));
-        if (suggestionsJson != null) entries.Add(new HashEntry(FieldAiSuggestionsJson, suggestionsJson));
-        if (evidenceJson != null) entries.Add(new HashEntry(FieldEvidenceJson, evidenceJson));
-
-        if (entries.Count > 0)
+        try
         {
-            db.HashSet(key, entries.ToArray());
-            db.KeyExpire(key, SessionExpiration);
+            var key = KeyPrefix + requestId;
+            var db = Db;
+
+            if (!db.KeyExists(key)) return;
+
+            var entries = new List<HashEntry>();
+            if (anamnesisJson != null) entries.Add(new HashEntry(FieldAnamnesisJson, anamnesisJson));
+            if (suggestionsJson != null) entries.Add(new HashEntry(FieldAiSuggestionsJson, suggestionsJson));
+            if (evidenceJson != null) entries.Add(new HashEntry(FieldEvidenceJson, evidenceJson));
+
+            if (entries.Count > 0)
+            {
+                db.HashSet(key, entries.ToArray());
+                db.KeyExpire(key, SessionExpiration);
+            }
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em UpdateAnamnesis. RequestId={RequestId}", requestId);
         }
     }
 
     public string GetTranscript(Guid requestId)
     {
-        var key = KeyPrefix + requestId;
-        var transcript = (string?)Db.HashGet(key, FieldTranscript);
-        return transcript?.Trim() ?? string.Empty;
+        try
+        {
+            var key = KeyPrefix + requestId;
+            var transcript = (string?)Db.HashGet(key, FieldTranscript);
+            return transcript?.Trim() ?? string.Empty;
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em GetTranscript — retornando vazio. RequestId={RequestId}", requestId);
+            return string.Empty;
+        }
     }
 
     public (string? AnamnesisJson, string? SuggestionsJson) GetAnamnesisState(Guid requestId)
     {
-        var key = KeyPrefix + requestId;
-        var db = Db;
+        try
+        {
+            var key = KeyPrefix + requestId;
+            var db = Db;
 
-        if (!db.KeyExists(key)) return (null, null);
+            if (!db.KeyExists(key)) return (null, null);
 
-        var values = db.HashGet(key, new RedisValue[] { FieldAnamnesisJson, FieldAiSuggestionsJson });
-        return ((string?)values[0], (string?)values[1]);
+            var values = db.HashGet(key, new RedisValue[] { FieldAnamnesisJson, FieldAiSuggestionsJson });
+            return ((string?)values[0], (string?)values[1]);
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em GetAnamnesisState — retornando vazio. RequestId={RequestId}", requestId);
+            return (null, null);
+        }
     }
 
     public string? GetEvidenceJson(Guid requestId)
     {
-        var key = KeyPrefix + requestId;
-        var db = Db;
-        if (!db.KeyExists(key)) return null;
-        return (string?)db.HashGet(key, FieldEvidenceJson);
+        try
+        {
+            var key = KeyPrefix + requestId;
+            var db = Db;
+            if (!db.KeyExists(key)) return null;
+            return (string?)db.HashGet(key, FieldEvidenceJson);
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em GetEvidenceJson — retornando null. RequestId={RequestId}", requestId);
+            return null;
+        }
     }
 
     public ConsultationSessionData? GetAndRemove(Guid requestId)
@@ -212,15 +266,28 @@ public class ConsultationSessionStore : IConsultationSessionStore
         var key = KeyPrefix + requestId;
         var db = Db;
 
-        var allFields = db.HashGetAll(key);
+        HashEntry[] allFields;
+        try
+        {
+            allFields = db.HashGetAll(key);
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em GetAndRemove — retornando null (dados serão preservados no Redis quando voltar). RequestId={RequestId}", requestId);
+            return null;
+        }
         if (allFields.Length == 0) return null;
 
         var dict = allFields.ToDictionary(
             e => (string)e.Name!,
             e => (string?)e.Value) ?? new Dictionary<string, string?>();
 
-        // Remove the key from Redis
-        db.KeyDelete(key);
+        // Remove the key from Redis (best-effort; if this fails, data may be re-processed but that's safer than losing it)
+        try { db.KeyDelete(key); }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível ao deletar sessão em GetAndRemove — dados retornados mas não removidos. RequestId={RequestId}", requestId);
+        }
 
         var patientId = dict.TryGetValue(FieldPatientId, out var pid) && Guid.TryParse(pid, out var parsedPid)
             ? parsedPid

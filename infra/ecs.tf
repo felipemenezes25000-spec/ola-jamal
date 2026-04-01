@@ -167,11 +167,11 @@ resource "aws_ecs_task_definition" "api" {
       { name = "ASPNETCORE_URLS", value = "http://+:8080" },
     ]
     healthCheck = {
-      command     = ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/health || exit 1"]
+      command     = ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/api/health/live || exit 1"]
       interval    = 30
       timeout     = 10
       retries     = 5
-      startPeriod = 60
+      startPeriod = 120
     }
     logConfiguration = {
       logDriver = "awslogs"

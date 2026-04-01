@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,12 @@ export const RejectReasonDialog = ({
   doctorName,
 }: RejectReasonDialogProps) => {
   const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    // Reset reason when dialog opens — intentional synchronous setState
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (open) setReason('');
+  }, [open]);
 
   const handleConfirm = () => {
     onConfirm(reason);

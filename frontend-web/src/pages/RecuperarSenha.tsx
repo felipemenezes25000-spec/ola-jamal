@@ -23,7 +23,7 @@ export default function RecuperarSenha() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValidToken || !passwordsValid || !passwordsMatch) return;
+    if (!isValidToken || !passwordsValid || !passwordsMatch || state === 'loading') return;
 
     setState('loading');
     setErrorMessage('');

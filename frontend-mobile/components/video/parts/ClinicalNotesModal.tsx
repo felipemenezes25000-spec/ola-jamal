@@ -48,6 +48,10 @@ export const ClinicalNotesModal = React.memo(function ClinicalNotesModal({
             value={clinicalNotes}
             onChangeText={onChangeNotes}
             autoFocus
+            autoCapitalize="sentences"
+            autoCorrect={true}
+            returnKeyType="default"
+            accessibilityLabel="Notas clínicas"
           />
           <View style={S.acts}>
             <TouchableOpacity

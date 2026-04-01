@@ -41,7 +41,7 @@ export function StickyCTA({
   style,
 }: StickyCTAProps) {
   const insets = useSafeAreaInsets();
-  const { colors, shadows, typography, role } = useAppTheme();
+  const { colors, typography, role } = useAppTheme();
 
   const padBottom = Math.max(insets.bottom, uiTokens.spacing.md) + extraBottomInset;
 
@@ -57,11 +57,15 @@ export function StickyCTA({
         s.container,
         {
           backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          borderTopColor: '#F1F5F9',
           paddingBottom: padBottom,
           zIndex: theme.zIndex.sticky,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          elevation: 3,
         },
-        ((shadows as any)?.sm ?? undefined) as any,
         style,
       ]}
     >
@@ -132,10 +136,10 @@ const s = StyleSheet.create({
     gap: 12,
   },
   summaryTextWrap: { flex: 1, minWidth: 0 },
-  summaryTitle: { fontSize: 13, fontWeight: '600' },
+  summaryTitle: { fontSize: 13, fontWeight: '700' },
   summaryHint: { marginTop: 2, fontSize: 12, lineHeight: 16 },
-  summaryValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
-  buttonsRow: { flexDirection: 'row', gap: 12 },
+  summaryValue: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  buttonsRow: { flexDirection: 'row', gap: 12, minHeight: 48 },
   secondaryCol: { flex: 1 },
   primaryCol: { flex: 1.4 },
 });

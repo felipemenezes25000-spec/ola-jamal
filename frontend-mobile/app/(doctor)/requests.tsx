@@ -8,6 +8,8 @@ import {
   RefreshControl,
   Platform,
   TextInput,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -22,40 +24,40 @@ import { cacheRequest } from '../doctor-request/[id]';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRequestsEvents } from '../../contexts/RequestsEventsContext';
 import { useDoctorRequestsQuery, useInvalidateDoctorRequests } from '../../lib/hooks/useDoctorRequestsQuery';
-import RequestCard from '../../components/RequestCard';
-import { AppSegmentedControl, AppEmptyState } from '../../components/ui';
+import { QueueItem } from '../../components/doctor/QueueItem';
+import { AppEmptyState } from '../../components/ui';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { FadeIn } from '../../components/ui/FadeIn';
 import { showToast } from '../../components/ui/Toast';
 import { haptics } from '../../lib/haptics';
-import { motionTokens } from '../../lib/ui/motion';
+// motionTokens removed — FadeIn cards use inline delay/duration
 import { humanizeError } from '../../lib/errors/humanizeError';
 import type { ApiError } from '../../lib/api-client';
 import { useEffect } from 'react';
 
 const pad = doctorDS.screenPaddingHorizontal;
 
-// staleTime configurado em useDoctorRequestsQuery (10s) — refetch só se dado tiver mais
 const DOCTOR_REQUESTS_STALE_MS = 10_000;
 
 const TYPE_FILTER_ITEMS = [
-  { key: 'all', label: 'Todos' },
-  { key: 'prescription', label: 'Receitas', type: 'prescription' },
-  { key: 'exam', label: 'Exames', type: 'exam' },
-  { key: 'consultation', label: 'Consultas', type: 'consultation' },
+  { key: 'all', label: 'Todos', type: undefined },
+  { key: 'prescription', label: 'Receitas', type: 'prescription' as const },
+  { key: 'exam', label: 'Exames', type: 'exam' as const },
+  { key: 'consultation', label: 'Consultas', type: 'consultation' as const },
 ];
 
 export default function DoctorQueue() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
+  const { width: screenWidth } = useWindowDimensions();
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
 
   const { colors } = useAppTheme({ role: 'doctor' });
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, screenWidth), [colors, screenWidth]);
 
   const { subscribe, isConnected } = useRequestsEvents();
   const invalidateDoctorRequests = useInvalidateDoctorRequests();
@@ -118,19 +120,19 @@ export default function DoctorQueue() {
   }, [requests, typeParam, searchText]);
 
   const keyExtractor = useCallback((item: RequestResponseDto) => item.id, []);
-  const renderDoctorItem = useCallback(({ item }: { item: RequestResponseDto }) => (
-    <RequestCard
-      request={item}
-      onPress={() => {
-        haptics.selection();
-        cacheRequest(item);
-        router.push(`/doctor-request/${item.id}`);
-      }}
-      showPatientName
-      showRisk={false}
-      suppressHorizontalMargin
-    />
-  ), [router]);
+  const renderDoctorItem = useCallback(({ item, index }: { item: RequestResponseDto; index: number }) => (
+    <FadeIn visible delay={index * 40} duration={300} fromY={8} fill={false}>
+      <QueueItem
+        request={item}
+        onPress={() => {
+          haptics.selection();
+          cacheRequest(item);
+          router.push(`/doctor-request/${item.id}`);
+        }}
+        colors={colors}
+      />
+    </FadeIn>
+  ), [router, colors]);
 
   const errorSubtitle = useMemo(() => {
     if (!isError || !queryError) return null;
@@ -146,9 +148,9 @@ export default function DoctorQueue() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <StatusBar style="dark" translucent backgroundColor="transparent" />
 
-      {/* ── HEADER COMPACTO ── */}
+      {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Pedidos</Text>
@@ -157,18 +159,22 @@ export default function DoctorQueue() {
           </View>
         </View>
 
-        {/* Busca inline no header */}
+        {/* Search field */}
         <View
           style={[
             styles.searchWrap,
-            { borderColor: searchFocused ? colors.primary : colors.borderLight },
+            searchFocused && styles.searchWrapFocused,
           ]}
         >
-          <Ionicons name="search" size={16} color={searchFocused ? colors.primary : colors.textMuted} />
+          <Ionicons
+            name="search"
+            size={16}
+            color={searchFocused ? '#0EA5E9' : '#94A3B8'}
+          />
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar paciente…"
-            placeholderTextColor={colors.textMuted}
+            placeholder="Buscar paciente..."
+            placeholderTextColor="#94A3B8"
             value={searchText}
             onChangeText={setSearchText}
             onFocus={() => setSearchFocused(true)}
@@ -176,29 +182,67 @@ export default function DoctorQueue() {
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="search"
+            accessibilityLabel="Buscar solicitações"
           />
           {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearchText(''); haptics.light(); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            <TouchableOpacity
+              onPress={() => { setSearchText(''); haptics.light(); }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Limpar busca"
+            >
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* ── FILTROS ── */}
-      <AppSegmentedControl
-        items={TYPE_FILTER_ITEMS.map((c) => ({
-          key: c.key,
-          label: c.label,
-          count: (counts as Record<string, number>)[c.key] ?? undefined,
-        }))}
-        value={activeFilter}
-        onValueChange={handleFilterChange}
-        disabled={loading}
-        scrollable
-      />
+      {/* ── HORIZONTAL FILTER CHIPS ── */}
+      <View style={styles.filtersContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersScroll}
+        >
+          {TYPE_FILTER_ITEMS.map((item) => {
+            const isActive = activeFilter === item.key;
+            const count = (counts as Record<string, number>)[item.key] ?? 0;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                onPress={() => handleFilterChange(item.key)}
+                disabled={loading}
+                style={[
+                  styles.filterChip,
+                  isActive && styles.filterChipActive,
+                ]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={`${item.label} ${count}`}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isActive && styles.filterChipTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+                <Text
+                  style={[
+                    styles.filterChipCount,
+                    isActive && styles.filterChipCountActive,
+                  ]}
+                >
+                  ({count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-      {/* ── LISTA ── */}
+      {/* ── LIST ── */}
       {loading && requests.length === 0 ? (
         <View style={styles.loadingWrap}>
           <SkeletonList count={6} />
@@ -212,111 +256,170 @@ export default function DoctorQueue() {
           onAction={() => refetch()}
         />
       ) : (
-        <FadeIn visible={!loading} {...motionTokens.fade.listDoctor} delay={30}>
-          <FlatList
-            data={filteredRequests}
-            keyExtractor={keyExtractor}
-            getItemLayout={(_: unknown, i: number) => ({ length: 98, offset: 98 * i, index: i })}
-            renderItem={renderDoctorItem}
-            contentContainerStyle={[
-              styles.listContent,
-              { paddingBottom: listPadding },
-              empty && styles.listContentEmpty,
-            ]}
-            refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-            }
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews={Platform.OS !== 'web'}
-            maxToRenderPerBatch={10}
-            windowSize={7}
-            initialNumToRender={8}
-            ListEmptyComponent={
-              isQueueEmpty ? (
-                <AppEmptyState
-                  icon="checkmark-done-circle-outline"
-                  title="Nenhum pedido por aqui"
-                  subtitle="Quando pacientes enviarem solicitações, elas aparecerão aqui."
-                />
-              ) : isFilteredEmpty ? (
-                <AppEmptyState
-                  icon="search-outline"
-                  title="Nenhum resultado"
-                  subtitle={
-                    searchText.trim()
-                      ? `Nenhum paciente encontrado para "${searchText.trim()}"`
-                      : 'Tente outro filtro ou limpe a busca.'
-                  }
-                />
-              ) : null
-            }
-          />
-        </FadeIn>
+        <FlatList
+          data={filteredRequests}
+          keyExtractor={keyExtractor}
+          renderItem={renderDoctorItem}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: listPadding },
+            empty && styles.listContentEmpty,
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              colors={['#0EA5E9']}
+              tintColor="#0EA5E9"
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={8}
+          ListEmptyComponent={
+            isQueueEmpty ? (
+              <AppEmptyState
+                icon="checkmark-done-circle-outline"
+                title="Nenhum pedido por aqui"
+                subtitle="Quando pacientes enviarem solicitações, elas aparecerão aqui."
+              />
+            ) : isFilteredEmpty ? (
+              <AppEmptyState
+                icon="search-outline"
+                title="Nenhum resultado"
+                subtitle={
+                  searchText.trim()
+                    ? `Nenhum paciente encontrado para "${searchText.trim()}"`
+                    : 'Tente outro filtro ou limpe a busca.'
+                }
+              />
+            ) : null
+          }
+        />
       )}
     </View>
   );
 }
 
-function makeStyles(colors: DesignColors) {
+function makeStyles(colors: DesignColors, screenWidth: number) {
+  // Responsive padding: narrower on small screens
+  const horizontalPad = screenWidth <= 360 ? 12 : pad;
+
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
+    container: {
+      flex: 1,
+      backgroundColor: '#F8FAFC',
+    },
+
+    // ── Header ──
     header: {
-      backgroundColor: colors.surface,
-      paddingHorizontal: pad,
+      backgroundColor: '#FFFFFF',
+      paddingHorizontal: horizontalPad,
       paddingBottom: 12,
       borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
+      borderBottomColor: '#F1F5F9',
     },
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
       marginBottom: 12,
+      gap: 10,
     },
     title: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: colors.text,
+      fontSize: 22,
+      fontWeight: '700',
+      color: '#0F172A',
       letterSpacing: -0.3,
     },
     countBadge: {
-      minWidth: 32,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: (colors as { primaryGhost?: string; infoLight: string }).primaryGhost ?? (colors as { infoLight: string }).infoLight,
+      minWidth: 28,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: '#EFF6FF',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 10,
+      paddingHorizontal: 8,
     },
     countText: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#0EA5E9',
     },
+
+    // ── Search ──
     searchWrap: {
       flexDirection: 'row',
       alignItems: 'center',
       borderRadius: 12,
       paddingHorizontal: 12,
-      backgroundColor: colors.surfaceSecondary,
+      backgroundColor: '#F8FAFC',
       borderWidth: 1,
+      borderColor: '#F1F5F9',
       gap: 8,
+    },
+    searchWrapFocused: {
+      borderColor: '#0EA5E9',
+      backgroundColor: '#FFFFFF',
     },
     searchInput: {
       flex: 1,
       fontSize: 14,
       fontWeight: '400',
-      paddingVertical: 10,
-      color: colors.text,
+      paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+      color: '#0F172A',
     },
+
+    // ── Filters ──
+    filtersContainer: {
+      backgroundColor: '#FFFFFF',
+      paddingTop: 8,
+      paddingBottom: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: '#F1F5F9',
+    },
+    filtersScroll: {
+      paddingHorizontal: horizontalPad,
+      gap: 8,
+    },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      gap: 4,
+    },
+    filterChipActive: {
+      backgroundColor: '#0EA5E9',
+    },
+    filterChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: '#64748B',
+    },
+    filterChipTextActive: {
+      color: '#FFFFFF',
+    },
+    filterChipCount: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#94A3B8',
+    },
+    filterChipCountActive: {
+      color: 'rgba(255,255,255,0.85)',
+    },
+
+    // ── List ──
     loadingWrap: {
       flex: 1,
-      paddingHorizontal: pad,
+      paddingHorizontal: horizontalPad,
       paddingTop: 16,
     },
     listContent: {
       paddingTop: 8,
-      paddingHorizontal: pad,
+      paddingHorizontal: horizontalPad,
     },
     listContentEmpty: { flexGrow: 1 },
   });

@@ -2,7 +2,7 @@
  * doctor-api-requests.ts — Request CRUD, actions, stats, and AI re-analysis.
  */
 
-import { authFetch } from './doctor-api-auth';
+import { authFetch, getApiBase } from './doctor-api-auth';
 import type { MedicalRequest, DoctorStats } from './doctorApi';
 
 // ── Normalize ──
@@ -12,24 +12,38 @@ import type { MedicalRequest, DoctorStats } from './doctorApi';
  * O backend envia `requestType: "Consultation"`, o frontend usa `type: "consultation"`.
  */
 function normalizeRequest(data: Record<string, unknown>): Record<string, unknown> {
-  if (!data.type && data.requestType) {
-    data.type = (data.requestType as string).toLowerCase();
-  } else if (data.type && typeof data.type === 'string') {
-    data.type = data.type.toLowerCase();
+  const copy = { ...data };
+  if (!copy.type && copy.requestType) {
+    copy.type = (copy.requestType as string).toLowerCase();
+  } else if (copy.type && typeof copy.type === 'string') {
+    copy.type = copy.type.toLowerCase();
   }
-  if (!data.patientName) {
-    data.patientName = data.patientName ?? data.PatientName ?? '';
+  if (!copy.patientName) {
+    copy.patientName = copy.patientName ?? copy.PatientName ?? '';
   }
-  if (!data.createdAt && data.created_at) {
-    data.createdAt = data.created_at;
+  if (!copy.createdAt && copy.created_at) {
+    copy.createdAt = copy.created_at;
   }
-  return data;
+  return copy;
 }
 
+/**
+ * Normaliza a lista de requests preservando o wrapper de paginação { items, totalCount, page, pageSize }.
+ * Se o backend retornar um array puro (legado), retorna o array normalizado.
+ */
 function normalizeList(raw: unknown): unknown {
-  const arr = Array.isArray(raw) ? raw : (raw as Record<string, unknown>)?.items ?? (raw as Record<string, unknown>)?.data ?? raw;
-  if (Array.isArray(arr)) {
-    return arr.map((item: Record<string, unknown>) => normalizeRequest({ ...item }));
+  if (Array.isArray(raw)) {
+    return raw.map((item: Record<string, unknown>) => normalizeRequest({ ...item }));
+  }
+  const obj = raw as Record<string, unknown> | null;
+  if (obj && typeof obj === 'object') {
+    const arr = (obj.items ?? obj.data) as Record<string, unknown>[] | undefined;
+    if (Array.isArray(arr)) {
+      return {
+        ...obj,
+        items: arr.map((item) => normalizeRequest({ ...item })),
+      };
+    }
   }
   return raw;
 }
@@ -53,8 +67,8 @@ export async function getRequestById(id: string): Promise<MedicalRequest> {
   const res = await authFetch(`/api/requests/${id}`);
   if (!res.ok) throw new Error('Erro ao buscar pedido');
   const data = await res.json();
-  normalizeRequest(data);
-  return data as MedicalRequest;
+  const normalized = normalizeRequest(data);
+  return normalized as unknown as MedicalRequest;
 }
 
 // ── Stats ──
@@ -76,7 +90,7 @@ export async function approveRequest(id: string) {
 export async function rejectRequest(id: string, reason?: string) {
   const res = await authFetch(`/api/requests/${id}/reject`, {
     method: 'POST',
-    body: JSON.stringify({ reason: reason || '' }),
+    body: JSON.stringify({ rejectionReason: reason || '' }),
   });
   if (!res.ok) throw new Error('Erro ao recusar');
   return res.json();
@@ -85,7 +99,7 @@ export async function rejectRequest(id: string, reason?: string) {
 export async function signRequest(id: string, password: string) {
   const res = await authFetch(`/api/requests/${id}/sign`, {
     method: 'POST',
-    body: JSON.stringify({ certificatePassword: password }),
+    body: JSON.stringify({ pfxPassword: password }),
   });
   if (!res.ok) throw new Error('Erro ao assinar');
   return res.json();
@@ -138,10 +152,12 @@ export async function generatePdf(id: string): Promise<{ success: boolean; pdfUr
 }
 
 export async function getDocumentDownloadUrl(id: string): Promise<string> {
-  const res = await authFetch(`/api/requests/${id}/document-download-url`);
+  const baseUrl = getApiBase();
+  const res = await authFetch(`/api/requests/${id}/document-token`, { method: 'POST' });
   if (!res.ok) throw new Error('Erro ao obter URL de download');
   const data = await res.json();
-  return typeof data === 'string' ? data : (data?.url ?? data?.downloadUrl ?? '');
+  const docToken = typeof data === 'string' ? data : (data?.token ?? '');
+  return `${baseUrl}/api/requests/${id}/document?token=${encodeURIComponent(docToken)}`;
 }
 
 export async function getDoctorQueue(specialty?: string) {

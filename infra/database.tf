@@ -19,7 +19,7 @@ resource "aws_db_instance" "main" {
 
   db_subnet_group_name   = aws_db_subnet_group.private.name
   vpc_security_group_ids = [aws_security_group.aurora.id]
-  publicly_accessible    = true
+  publicly_accessible    = false
   apply_immediately      = true
 
   backup_retention_period = 30
@@ -32,9 +32,9 @@ resource "aws_db_instance" "main" {
 }
 
 resource "aws_db_subnet_group" "private" {
-  name       = "${var.project}-db-private-subnets"
+  name       = "${var.project}-db-private"
   subnet_ids = aws_subnet.private[*].id
-  tags       = { Name = "${var.project}-db-private-subnets" }
+  tags       = { Name = "${var.project}-db-private" }
 }
 
 # ============================================================
@@ -56,4 +56,7 @@ resource "aws_elasticache_cluster" "main" {
   port                 = 6379
   subnet_group_name    = aws_elasticache_subnet_group.main.name
   security_group_ids   = [aws_security_group.redis.id]
+
+  transit_encryption_enabled = true
+  snapshot_retention_limit   = 7
 }
