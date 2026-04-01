@@ -209,7 +209,6 @@ export default function PatientRequests() {
           <FlatList
             data={filteredRequests}
             keyExtractor={keyExtractor}
-            getItemLayout={(_: unknown, i: number) => ({ length: 98, offset: 98 * i, index: i })}
             renderItem={renderPatientItem}
             contentContainerStyle={[styles.listContent, { paddingBottom: listPadding }, empty && styles.listContentEmpty]}
             ItemSeparatorComponent={ListSeparator}

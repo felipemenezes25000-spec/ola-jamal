@@ -203,15 +203,16 @@ export function useRequestEditor({ requestId, router }: UseRequestEditorOptions)
     loadRequest();
   }, [loadRequest]);
 
+  const requestType = request?.requestType;
   const loadPdfPreview = useCallback(async () => {
-    if (!requestId || !request) return;
+    if (!requestId || !requestType) return;
     setPdfLoading(true);
     try {
-      const getPreview = request.requestType === 'exam' ? getPreviewExamPdf : getPreviewPdf;
+      const getPreview = requestType === 'exam' ? getPreviewExamPdf : getPreviewPdf;
       const blob = await getPreview(requestId);
       if (!blob || blob.size === 0) {
         setPdfUri(null);
-        showToast({ message: request.requestType === 'exam' ? 'Preview não disponível para o pedido de exame.' : 'Preview não disponível. Verifique se há medicamentos na receita.', type: 'warning' });
+        showToast({ message: requestType === 'exam' ? 'Preview não disponível para o pedido de exame.' : 'Preview não disponível. Verifique se há medicamentos na receita.', type: 'warning' });
         return;
       }
       if (Platform.OS === 'web') {
@@ -238,7 +239,7 @@ export function useRequestEditor({ requestId, router }: UseRequestEditorOptions)
     } finally {
       setPdfLoading(false);
     }
-  }, [requestId, request]);
+  }, [requestId, requestType]);
 
   const handleSave = useCallback(async () => {
     if (isExam) {

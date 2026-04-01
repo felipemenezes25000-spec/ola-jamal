@@ -110,7 +110,8 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
     if (!request) return;
     setConductNotes(request.doctorConductNotes || '');
     setIncludeConductInPdf(request.includeConductInPdf ?? true);
-  }, [request?.id, request?.doctorConductNotes, request?.includeConductInPdf, request]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally using granular deps instead of full request object to avoid unnecessary re-syncs
+  }, [request?.id, request?.doctorConductNotes, request?.includeConductInPdf]);
 
   // ── Conduct save ──
 
@@ -159,7 +160,7 @@ export function useDoctorRequest(): UseDoctorRequestReturn {
 
   const canApprove = !!(request && (request.status === 'submitted' || request.status === 'in_review') && request.requestType !== 'consultation');
   const canReject = !!(request && (request.status === 'submitted' || request.status === 'in_review'));
-  const canSign = !!(request && request.status === 'paid' && request.requestType !== 'consultation');
+  const canSign = !!(request && (request.status === 'approved' || request.status === 'paid') && request.requestType !== 'consultation');
   const canAccept = !!(request && request.status === 'searching_doctor' && request.requestType === 'consultation');
   const canVideo = !!(request && ['paid', 'in_consultation'].includes(request.status) && request.requestType === 'consultation');
   const isInQueue = !!(request && request.status === 'submitted' && !request.doctorId);

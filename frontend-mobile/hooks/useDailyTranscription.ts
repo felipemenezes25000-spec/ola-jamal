@@ -188,7 +188,6 @@ export function useDailyTranscription({
     callRef,
     requestId,
     isDoctor,
-    localSessionId,
     callJoined,
     sendToBackend,
   ]);

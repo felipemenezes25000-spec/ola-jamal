@@ -15,6 +15,7 @@ export interface RequestUpdatedPayload {
 export type RequestUpdatedListener = (payload: RequestUpdatedPayload) => void;
 
 let connection: any = null;
+let connectingPromise: Promise<boolean> | null = null;
 const listeners = new Set<RequestUpdatedListener>();
 
 const EVENT_NAME = 'RequestUpdated';
@@ -35,73 +36,81 @@ async function getToken(): Promise<string | null> {
  */
 export async function startRequestsEventsConnection(): Promise<boolean> {
   if (connection) return true;
-  const token = await getToken();
-  if (!token) return false;
+  // Prevent race: if a connection attempt is already in-flight, wait for it
+  if (connectingPromise) return connectingPromise;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SignalR HubConnection tipo dinâmico
-  let conn: any = null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic SignalR
-    const signalR = require('@microsoft/signalr');
-    const url = getHubUrl();
-    // Retry policy: 5s, 15s, 30s — evita spam de negotiate em cold start (API)
-    const retryDelays = [5000, 15000, 30000];
-    const builder = new signalR.HubConnectionBuilder()
-      .withUrl(url, {
-        accessTokenFactory: async () => {
-          const t = await getToken();
-          if (!t) {
-            if (__DEV__) console.warn('[RequestsEvents] Token ausente no reconnect');
-            return '';
-          }
-          return t;
-        },
-      })
-      .withAutomaticReconnect(retryDelays);
-    // Só loga Warning/Error — evita poluir com "WebSocket connected", "Using HubProtocol", "Connection disconnected"
-    if (signalR.LogLevel != null) {
-      builder.configureLogging(signalR.LogLevel.Warning);
-    }
-    conn = builder.build();
+  const doConnect = async (): Promise<boolean> => {
+    const token = await getToken();
+    if (!token) return false;
 
-    conn.onclose((error: Error | undefined) => {
-      if (__DEV__) console.warn('[RequestsEvents] Conexão fechada:', error?.message);
-      connection = null;
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SignalR HubConnection tipo dinâmico
+    let conn: any = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic SignalR
+      const signalR = require('@microsoft/signalr');
+      const url = getHubUrl();
+      // Retry policy: 5s, 15s, 30s — evita spam de negotiate em cold start (API)
+      const retryDelays = [5000, 15000, 30000];
+      const builder = new signalR.HubConnectionBuilder()
+        .withUrl(url, {
+          accessTokenFactory: async () => {
+            const t = await getToken();
+            if (!t) {
+              if (__DEV__) console.warn('[RequestsEvents] Token ausente no reconnect');
+              return '';
+            }
+            return t;
+          },
+        })
+        .withAutomaticReconnect(retryDelays);
+      // Só loga Warning/Error — evita poluir com "WebSocket connected", "Using HubProtocol", "Connection disconnected"
+      if (signalR.LogLevel != null) {
+        builder.configureLogging(signalR.LogLevel.Warning);
+      }
+      conn = builder.build();
 
-    conn.on(EVENT_NAME, (payload: RequestUpdatedPayload) => {
-      const normalized: RequestUpdatedPayload = {
-        requestId: payload?.requestId ?? '',
-        status: payload?.status ?? '',
-        message: payload?.message ?? null,
-      };
-      listeners.forEach((fn) => {
-        try {
-          fn(normalized);
-        } catch (e) {
-          if (__DEV__) console.warn('[RequestsEvents] Listener error:', e);
-        }
+      conn.onclose((error: Error | undefined) => {
+        if (__DEV__) console.warn('[RequestsEvents] Conexão fechada:', error?.message);
+        connection = null;
       });
-    });
 
-    // Timeout 15s — API pode demorar em cold start; evita travar o app
-    const HUB_START_TIMEOUT_MS = 15_000;
-    await Promise.race([
-      conn.start(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Hub connection timeout')), HUB_START_TIMEOUT_MS)
-      ),
-    ]);
-    connection = conn;
-    return true;
-  } catch (e) {
-    // Timeout: conn.start() pode completar em background — limpar para evitar conexão órfã
-    try { conn?.stop(); } catch {}
-    if (__DEV__) {
-      console.warn('[RequestsEvents] Connection failed. Updates em tempo real desativados. Use pull-to-refresh nas telas de pedidos para atualizar.', e);
+      conn.on(EVENT_NAME, (payload: RequestUpdatedPayload) => {
+        const normalized: RequestUpdatedPayload = {
+          requestId: payload?.requestId ?? '',
+          status: payload?.status ?? '',
+          message: payload?.message ?? null,
+        };
+        listeners.forEach((fn) => {
+          try {
+            fn(normalized);
+          } catch (e) {
+            if (__DEV__) console.warn('[RequestsEvents] Listener error:', e);
+          }
+        });
+      });
+
+      // Timeout 15s — API pode demorar em cold start; evita travar o app
+      const HUB_START_TIMEOUT_MS = 15_000;
+      await Promise.race([
+        conn.start(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Hub connection timeout')), HUB_START_TIMEOUT_MS)
+        ),
+      ]);
+      connection = conn;
+      return true;
+    } catch (e) {
+      // Timeout: conn.start() pode completar em background — limpar para evitar conexão órfã
+      try { conn?.stop(); } catch {}
+      if (__DEV__) {
+        console.warn('[RequestsEvents] Connection failed. Updates em tempo real desativados. Use pull-to-refresh nas telas de pedidos para atualizar.', e);
+      }
+      return false;
     }
-    return false;
-  }
+  };
+
+  connectingPromise = doConnect().finally(() => { connectingPromise = null; });
+  return connectingPromise;
 }
 
 /**
