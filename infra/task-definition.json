@@ -45,10 +45,10 @@
       {"name": "Google__AndroidClientId", "valueFrom": "arn:aws:ssm:sa-east-1:064212133215:parameter/renoveja/prod/Google__AndroidClientId"}
     ],
     "healthCheck": {
-      "command": ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/health/live || exit 1"],
+      "command": ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/api/health/live || exit 1"],
       "interval": 30,
       "timeout": 15,
-      "retries": 6,
+      "retries": 5,
       "startPeriod": 120
     },
     "logConfiguration": {
