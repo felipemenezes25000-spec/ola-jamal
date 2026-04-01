@@ -19,6 +19,9 @@
       "android": {
         "buildType": "apk"
       },
+      "cache": {
+        "disabled": true
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.renovejasaude.com.br",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "598286841038-j095u3iopiqltpgbvu0f5od924etobk7.apps.googleusercontent.com",
