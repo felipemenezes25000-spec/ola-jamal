@@ -1,0 +1,64 @@
+#!/usr/bin/env sh
+
+echo "==> Pre-push: verificando lint e testes..."
+
+# Frontend Web
+echo ""
+echo "--- [frontend-web] lint ---"
+cd frontend-web && npm run lint
+if [ $? -ne 0 ]; then
+  echo "ERRO: frontend-web lint falhou. Push abortado."
+  exit 1
+fi
+
+echo "--- [frontend-web] testes ---"
+npm run test:run
+if [ $? -ne 0 ]; then
+  echo "ERRO: frontend-web testes falharam. Push abortado."
+  exit 1
+fi
+cd ..
+
+# Frontend Mobile
+echo ""
+echo "--- [frontend-mobile] lint ---"
+cd frontend-mobile && npm run lint
+if [ $? -ne 0 ]; then
+  echo "ERRO: frontend-mobile lint falhou. Push abortado."
+  exit 1
+fi
+
+echo "--- [frontend-mobile] typecheck ---"
+npm run typecheck
+if [ $? -ne 0 ]; then
+  echo "ERRO: frontend-mobile typecheck falhou. Push abortado."
+  exit 1
+fi
+
+echo "--- [frontend-mobile] testes ---"
+npm test -- --watchAll=false
+if [ $? -ne 0 ]; then
+  echo "ERRO: frontend-mobile testes falharam. Push abortado."
+  exit 1
+fi
+cd ..
+
+# Backend .NET
+echo ""
+echo "--- [backend-dotnet] build ---"
+cd backend-dotnet && dotnet build --nologo -q
+if [ $? -ne 0 ]; then
+  echo "ERRO: backend-dotnet build falhou. Push abortado."
+  exit 1
+fi
+
+echo "--- [backend-dotnet] testes ---"
+dotnet test --nologo -q
+if [ $? -ne 0 ]; then
+  echo "ERRO: backend-dotnet testes falharam. Push abortado."
+  exit 1
+fi
+cd ..
+
+echo ""
+echo "==> Pre-push: tudo OK! Prosseguindo com push."
