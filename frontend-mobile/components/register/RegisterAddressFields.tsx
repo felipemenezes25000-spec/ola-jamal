@@ -93,7 +93,6 @@ export function RegisterAddressFields({
           keyboardType="numeric"
           maxLength={10}
           returnKeyType="next"
-          blurOnSubmit={false}
           containerStyle={{ width: 100 }}
           error={fieldErrors.number}
         />
@@ -105,7 +104,6 @@ export function RegisterAddressFields({
           autoCapitalize="words"
           textContentType="streetAddressLine2"
           returnKeyType="next"
-          blurOnSubmit={false}
           containerStyle={styles.flex1}
         />
       </View>
@@ -130,7 +128,6 @@ export function RegisterAddressFields({
           autoCapitalize="words"
           textContentType="addressCity"
           returnKeyType="next"
-          blurOnSubmit={false}
           containerStyle={styles.flex1}
           error={fieldErrors.city}
         />
@@ -144,7 +141,6 @@ export function RegisterAddressFields({
           autoCapitalize="characters"
           textContentType="addressState"
           returnKeyType="next"
-          blurOnSubmit={false}
           containerStyle={{ width: 96 }}
           error={fieldErrors.state}
         />
