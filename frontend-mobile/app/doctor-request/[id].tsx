@@ -135,7 +135,7 @@ export default function DoctorRequestDetail() {
   );
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <DoctorHeader
         title={TYPE_LABELS[request.requestType] || 'Pedido'}
         onBack={() => router.back()}
