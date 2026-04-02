@@ -13,7 +13,7 @@ jest.mock('../../lib/designSystem', () => ({
 }));
 
 // Mock do asset para evitar require do arquivo real em ambiente de teste
-jest.mock('../../assets/logo.png', () => ({ uri: 'mock-logo.png' }), { virtual: true });
+jest.mock('../../assets/logo.jpg', () => ({ uri: 'mock-logo.jpg' }), { virtual: true });
 
 describe('Logo', () => {
   it('renderiza com tamanho padrão', () => {
