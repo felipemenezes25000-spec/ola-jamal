@@ -23,19 +23,12 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
-# ─── Gate: testes obrigatórios antes de qualquer deploy ───────────────────────
-# Quando disparado por workflow_dispatch, a CI pode não ter rodado.
-# Estes jobs garantem que nenhum deploy ocorra sem testes verdes.
-
 jobs:
-  # ── Testes (gate para deploy) ─────────────────────────────────────────────
-  test-backend:
-    name: Test Backend (.NET)
+  # ── Gate: testes apenas no workflow_dispatch (CI já validou no workflow_run) ─
+  test-gate:
+    name: Test Gate (manual deploy)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    defaults:
-      run:
-        working-directory: backend-dotnet
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -44,77 +37,45 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Restore
-        run: dotnet restore
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
 
-      - name: Build
-        run: dotnet build -c Release --no-restore
+      - name: Backend — build + test
+        working-directory: backend-dotnet
+        run: |
+          dotnet restore
+          dotnet build -c Release --no-restore
+          dotnet test -c Release --no-build --verbosity normal
 
-      - name: Test
-        run: dotnet test -c Release --no-build --verbosity normal
-
-  test-frontend-web:
-    name: Test Frontend Web
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    defaults:
-      run:
+      - name: Frontend Web — lint + test
         working-directory: frontend-web
-    steps:
-      - uses: actions/checkout@v5
+        run: |
+          npm ci
+          npm run lint
+          npm run test:run
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: frontend-web/package-lock.json
-
-      - name: Install
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm run test:run
-
-  test-frontend-mobile:
-    name: Test Frontend Mobile
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    defaults:
-      run:
+      - name: Frontend Mobile — lint + typecheck + test
         working-directory: frontend-mobile
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: frontend-mobile/package-lock.json
-
-      - name: Install
-        run: npm ci
-
-      - name: TypeCheck
-        run: npx tsc --noEmit
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm test -- --no-coverage
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run lint
+          npm test -- --no-coverage
 
   # ── Deploy Backend (ECS) ──────────────────────────────────────────────────
   deploy-backend:
     name: Deploy Backend (ECS)
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend-web, test-frontend-mobile]
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    needs: [test-gate]
+    # Roda após test-gate (dispatch) OU direto quando CI passou (workflow_run)
+    if: |
+      always() &&
+      (
+        (github.event_name == 'workflow_dispatch' && needs.test-gate.result == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      )
     steps:
       - uses: actions/checkout@v5
 
@@ -188,9 +149,13 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend (S3/CloudFront)
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend-web, test-frontend-mobile]
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    needs: [test-gate]
+    if: |
+      always() &&
+      (
+        (github.event_name == 'workflow_dispatch' && needs.test-gate.result == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      )
     defaults:
       run:
         working-directory: frontend-web
