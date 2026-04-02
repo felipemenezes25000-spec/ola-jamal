@@ -176,7 +176,6 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
                   autoCapitalize="none"
                   autoCorrect={false}
                   returnKeyType="search"
-                  blurOnSubmit={false}
                 />
                 {specialtySearch.length > 0 ? (
                   <TouchableOpacity onPress={() => setSpecialtySearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -272,7 +271,6 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         autoComplete="tel"
         textContentType="telephoneNumber"
         returnKeyType="next"
-        blurOnSubmit={false}
       />
 
       <SectionHeader icon="school-outline" title="Formação e experiência (opcional)" variant="form" />
@@ -285,7 +283,6 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         autoCapitalize="words"
         autoCorrect={false}
         returnKeyType="next"
-        blurOnSubmit={false}
       />
       <AppInput
         label="Cursos e especializações"
@@ -295,7 +292,6 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         leftIcon="ribbon-outline"
         autoCapitalize="sentences"
         returnKeyType="next"
-        blurOnSubmit={false}
       />
       <AppInput
         label="Locais de atuação"
@@ -305,7 +301,6 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
         leftIcon="medkit-outline"
         autoCapitalize="sentences"
         returnKeyType="next"
-        blurOnSubmit={false}
       />
 
       <View style={styles.certSection}>
