@@ -18,3 +18,4 @@ export { ToastProvider, showToast } from './Toast';
 export { InfoCard } from './InfoCard';
 export { TopSummaryStrip } from './TopSummaryStrip';
 export type { TopSummaryItem } from './TopSummaryStrip';
+export { AccessibleIcon } from './AccessibleIcon';

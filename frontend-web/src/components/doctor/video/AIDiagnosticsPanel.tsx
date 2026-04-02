@@ -90,7 +90,7 @@ export function AIDiagnosticsPanel({ data }: AIDiagnosticsPanelProps) {
                 toast.success('Hipotese copiada');
               }}
               className="p-1 rounded hover:bg-primary/20 transition-colors"
-              title="Copiar hipotese"
+              title="Copiar hipótese"
             >
               <Copy className="h-3.5 w-3.5 text-primary" />
             </button>

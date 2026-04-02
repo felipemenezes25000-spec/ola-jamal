@@ -70,9 +70,9 @@ export default function PatientHome() {
     setRefreshing(true);
     try {
       await refetch();
-      showToast({ message: 'Inicio atualizado', type: 'success' });
+      showToast({ message: 'Início atualizado', type: 'success' });
     } catch {
-      showToast({ message: 'Nao foi possivel atualizar o inicio', type: 'error' });
+      showToast({ message: 'Não foi possível atualizar o início', type: 'error' });
     } finally {
       setRefreshing(false);
     }
@@ -265,9 +265,9 @@ export default function PatientHome() {
   // Hero card message
   const heroMessage = useMemo(() => {
     if (stats.active > 0) {
-      return `Voce tem ${stats.active} pedido${stats.active > 1 ? 's' : ''} em andamento`;
+      return `Você tem ${stats.active} pedido${stats.active > 1 ? 's' : ''} em andamento`;
     }
-    return 'Seu historico de saude esta aqui. Crie um novo pedido quando precisar.';
+    return 'Seu histórico de saúde está aqui. Crie um novo pedido quando precisar.';
   }, [stats.active]);
 
   return (
@@ -411,7 +411,7 @@ export default function PatientHome() {
                 <Ionicons name="sparkles" size={16} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.followUpLabel}>PROXIMO PASSO</Text>
+                <Text style={styles.followUpLabel}>PRÓXIMO PASSO</Text>
                 <Text style={styles.followUpTitle}>{followUpAction.title}</Text>
               </View>
               <View style={styles.followUpChevron}>
@@ -474,7 +474,7 @@ export default function PatientHome() {
           <AppEmptyState
             icon="document-text-outline"
             title="Nenhum pedido ainda"
-            subtitle="Crie sua primeira solicitacao usando as opcoes abaixo"
+            subtitle="Crie sua primeira solicitação usando as opções abaixo"
           />
         </View>
       )}
@@ -483,7 +483,7 @@ export default function PatientHome() {
           QUICK ACTIONS: Premium vertical cards
          ================================================================ */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>O QUE VOCE PRECISA?</Text>
+        <Text style={styles.sectionLabel}>O QUE VOCÊ PRECISA?</Text>
         <View style={styles.actionsColumn}>
           <LargeActionCard
             icon={
@@ -522,8 +522,8 @@ export default function PatientHome() {
                 <Ionicons name="videocam" size={26} color="#059669" />
               </View>
             }
-            title="Consulta breve +"
-            description="Atendimento por vídeo com o médico"
+            title="Teleconsulta +"
+            description="Atendimento por vídeo com profissional de saúde"
             variant="consultation"
             chips={[
               { label: 'Médicos disponíveis agora', bg: '#D1FAE5', color: '#065F46', showDot: true },
@@ -538,13 +538,17 @@ export default function PatientHome() {
           SUS INFO BANNER
          ================================================================ */}
       <View style={styles.section}>
-        <View style={styles.susBanner}>
+        <View
+          style={styles.susBanner}
+          accessible
+          accessibilityLabel="Atendimento 100% gratuito via SUS. Todos os serviços são cobertos pelo Sistema Único de Saúde"
+        >
           <View style={styles.susBannerIcon}>
-            <Ionicons name="shield-checkmark" size={18} color={colors.success} />
+            <Ionicons name="shield-checkmark" size={18} color={colors.success} importantForAccessibility="no" />
           </View>
           <View style={styles.susBannerText}>
-            <Text style={styles.susBannerTitle}>Atendimento 100% gratuito via SUS</Text>
-            <Text style={styles.susBannerSubtitle}>Todos os servicos sao cobertos pelo Sistema Unico de Saude</Text>
+            <Text style={styles.susBannerTitle} importantForAccessibility="no">Atendimento 100% gratuito via SUS</Text>
+            <Text style={styles.susBannerSubtitle} importantForAccessibility="no">Todos os serviços são cobertos pelo Sistema Único de Saúde</Text>
           </View>
         </View>
       </View>
@@ -594,14 +598,14 @@ export default function PatientHome() {
             router.push('/(patient)/record');
           }}
           accessibilityRole="button"
-          accessibilityLabel="Abrir meu prontuario medico"
+          accessibilityLabel="Abrir meu prontuário médico"
         >
           <View style={styles.recordIconWrap}>
             <Ionicons name="folder-open" size={22} color={colors.primary} />
           </View>
           <View style={styles.recordTextWrap}>
-            <Text style={styles.recordTitle}>Meu Prontuario</Text>
-            <Text style={styles.recordSubtitle}>Historico de atendimentos, receitas e exames</Text>
+            <Text style={styles.recordTitle}>Meu Prontuário</Text>
+            <Text style={styles.recordSubtitle}>Histórico de atendimentos, receitas e exames</Text>
           </View>
           <View style={styles.recordChevron}>
             <Ionicons name="arrow-forward" size={16} color={colors.primary} />

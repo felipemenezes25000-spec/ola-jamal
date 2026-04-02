@@ -46,8 +46,8 @@ export function AIActionSheet({
       animationType={Platform.OS === 'android' ? 'fade' : 'slide'}
       onRequestClose={onClose}
     >
-      <Pressable style={s.backdrop} onPress={onClose} />
-      <View style={[s.sheet, { paddingBottom: padBottom, backgroundColor: colors.surface }, sheetShadow]}>
+      <Pressable style={s.backdrop} onPress={onClose} accessibilityLabel="Fechar menu" accessibilityRole="button" />
+      <View style={[s.sheet, { paddingBottom: padBottom, backgroundColor: colors.surface }, sheetShadow]} accessibilityViewIsModal accessibilityRole="none">
         <View style={s.header}>
           <View style={s.headerText}>
             <Text style={[s.title, { color: colors.text, fontFamily: typography.fontFamily.bold }]}>{title}</Text>
@@ -92,6 +92,8 @@ export function AIActionSheet({
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={a.label}
+                accessibilityHint={a.description}
+                accessibilityState={{ disabled: !!a.disabled }}
               >
                 <View style={[s.iconBox, { backgroundColor: a.destructive ? colors.errorLight : colors.primarySoft }]}>
                   <Ionicons name={icon} size={18} color={tint} />

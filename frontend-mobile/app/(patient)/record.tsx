@@ -302,7 +302,7 @@ export default function PatientRecordScreen() {
         : [];
       setDocuments(safeDocuments);
       if (withFeedback) {
-        showToast({ message: 'Prontuario atualizado', type: 'success' });
+        showToast({ message: 'Prontuário atualizado', type: 'success' });
       }
     } catch {
       if (cancelledRef.current) return;
@@ -311,7 +311,7 @@ export default function PatientRecordScreen() {
       setEncounters([]);
       setDocuments([]);
       if (withFeedback) {
-        showToast({ message: 'Nao foi possivel atualizar o prontuario', type: 'error' });
+        showToast({ message: 'Não foi possível atualizar o prontuário', type: 'error' });
       }
     } finally {
       if (!cancelledRef.current) {
@@ -404,12 +404,14 @@ export default function PatientRecordScreen() {
               <Ionicons name="cloud-offline-outline" size={40} color={colors.error} />
             </View>
             <Text style={s.errorTitle}>Erro ao carregar</Text>
-            <Text style={s.errorSubtitle}>Verifique sua conexao e tente novamente</Text>
+            <Text style={s.errorSubtitle}>Verifique sua conexão e tente novamente</Text>
             <Pressable
               style={({ pressed }) => [s.retryBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
               onPress={() => load()}
+              accessibilityRole="button"
+              accessibilityLabel="Tentar novamente"
             >
-              <Ionicons name="refresh" size={18} color="#FFFFFF" />
+              <Ionicons name="refresh" size={18} color="#FFFFFF" importantForAccessibility="no" />
               <Text style={s.retryText}>Tentar novamente</Text>
             </Pressable>
           </View>
@@ -443,7 +445,7 @@ export default function PatientRecordScreen() {
                     end={{ x: 1, y: 1 }}
                     style={[s.header, { paddingTop: insets.top + 16 }]}
                   >
-                    <Text style={s.headerLabel}>Meu Prontuario</Text>
+                    <Text style={s.headerLabel}>Meu Prontuário</Text>
 
                     {/* Patient Identity Card */}
                     <View style={s.identityCard}>
@@ -500,11 +502,15 @@ export default function PatientRecordScreen() {
                             setActiveTab(tab.key);
                             if (tab.key !== 'resumo') setActiveFilter('todos');
                           }}
+                          accessibilityRole="tab"
+                          accessibilityLabel={tab.label}
+                          accessibilityState={{ selected: isActive }}
                         >
                           <Ionicons
                             name={tab.icon}
                             size={18}
                             color={isActive ? colors.primary : colors.textMuted}
+                            importantForAccessibility="no"
                           />
                           <Text style={[s.tabLabel, isActive && s.tabLabelActive]}>
                             {tab.label}
@@ -531,6 +537,9 @@ export default function PatientRecordScreen() {
                               haptics.selection();
                               setActiveFilter(chip.key);
                             }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Filtrar por ${chip.label}`}
+                            accessibilityState={{ selected: isActive }}
                           >
                             <Text style={[s.filterChipText, isActive && s.filterChipTextActive]}>
                               {chip.label}
@@ -569,8 +578,8 @@ export default function PatientRecordScreen() {
                     </Text>
                     <Text style={s.emptySubtitle}>
                       {activeTab === 'historico'
-                        ? 'Seus atendimentos aparecerao aqui apos sua primeira consulta'
-                        : 'Seus documentos medicos aparecerao aqui'}
+                        ? 'Seus atendimentos aparecerão aqui após sua primeira consulta'
+                        : 'Seus documentos médicos aparecerão aqui'}
                     </Text>
                   </View>
                 ) : null
@@ -745,16 +754,18 @@ function SummaryTab({
           pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
         ]}
         onPress={() => router.push('/(patient)/requests')}
+        accessibilityRole="button"
+        accessibilityLabel="Ver histórico completo. Todos os seus pedidos e documentos"
       >
         <View style={s.actionIconWrap}>
-          <Ionicons name="time-outline" size={22} color={colors.primary} />
+          <Ionicons name="time-outline" size={22} color={colors.primary} importantForAccessibility="no" />
         </View>
         <View style={s.actionTextWrap}>
-          <Text style={s.actionTitle}>Ver historico completo</Text>
+          <Text style={s.actionTitle}>Ver histórico completo</Text>
           <Text style={s.actionSubtitle}>Todos os seus pedidos e documentos</Text>
         </View>
         <View style={s.actionArrow}>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} importantForAccessibility="no" />
         </View>
       </Pressable>
     </>
@@ -904,8 +915,10 @@ const DocumentItem = React.memo(function DocumentItem({
               ]
             );
           }}
+          accessibilityRole="button"
+          accessibilityLabel={`Ver detalhes do documento ${typeMeta.label}`}
         >
-          <Ionicons name="eye-outline" size={18} color={colors.primary} />
+          <Ionicons name="eye-outline" size={18} color={colors.primary} importantForAccessibility="no" />
         </Pressable>
         {isSigned && (
           <Pressable
@@ -913,8 +926,10 @@ const DocumentItem = React.memo(function DocumentItem({
             onPress={() => {
               router.push('/(patient)/requests');
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`Baixar ${typeMeta.label}`}
           >
-            <Ionicons name="download-outline" size={18} color="#22C55E" />
+            <Ionicons name="download-outline" size={18} color="#22C55E" importantForAccessibility="no" />
           </Pressable>
         )}
       </View>

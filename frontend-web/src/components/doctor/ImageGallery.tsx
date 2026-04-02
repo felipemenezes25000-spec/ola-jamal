@@ -62,7 +62,7 @@ export function ImageGallery({ images, label }: ImageGalleryProps) {
       </Card>
 
       <Dialog open={selectedIndex !== null} onOpenChange={(open) => !open && closeModal()}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-0 overflow-hidden">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-0 overflow-hidden" aria-describedby={undefined}>
           <DialogTitle className="sr-only">{label} — visualização ampliada</DialogTitle>
           {selectedIndex !== null && images[selectedIndex] && (
             <div className="relative">

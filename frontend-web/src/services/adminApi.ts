@@ -99,11 +99,12 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
       }
       if (res.status !== 401) return res;
     }
-    const now = Date.now();
-    if (now - lastAdminRedirectAt < 3000) return res;
-    lastAdminRedirectAt = now;
     clearAdminSession();
-    window.location.href = "/admin/login";
+    const now = Date.now();
+    if (now - lastAdminRedirectAt >= 3000) {
+      lastAdminRedirectAt = now;
+      window.location.href = "/admin/login";
+    }
     throw new Error("Não autorizado");
   }
   if (res.status === 403) {

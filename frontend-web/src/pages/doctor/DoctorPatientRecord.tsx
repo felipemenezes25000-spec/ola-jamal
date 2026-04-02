@@ -132,7 +132,7 @@ export default function DoctorPatientRecord() {
   const { patientId } = useParams<{ patientId: string }>();
 
   useEffect(() => {
-    document.title = 'Prontuario — RenoveJa+';
+    document.title = 'Prontuário — RenoveJá+';
     return () => { document.title = 'RenoveJa+'; };
   }, []);
   const navigate = useNavigate();
@@ -157,7 +157,7 @@ export default function DoctorPatientRecord() {
       setRequests(Array.isArray(r) ? r : []);
       setSummaryData(s ? { structured: s.structured ?? null, doctorNotes: s.doctorNotes ?? [] } : null);
     } catch {
-      toast.error('Erro ao carregar prontuario');
+      toast.error('Erro ao carregar prontuário');
     } finally {
       setLoading(false);
     }
@@ -183,7 +183,7 @@ export default function DoctorPatientRecord() {
       }));
       toast.success('Nota registrada');
     } catch {
-      toast.error('Nao foi possivel registrar a nota');
+      toast.error('Não foi possível registrar a nota');
     }
   }, [patientId]);
 
@@ -216,7 +216,7 @@ export default function DoctorPatientRecord() {
     return (
       <DoctorLayout>
         <div className="text-center py-20">
-          <p className="text-muted-foreground">Paciente nao encontrado</p>
+          <p className="text-muted-foreground">Paciente não encontrado</p>
           <Button variant="ghost" onClick={() => navigate(-1)} className="mt-4">Voltar</Button>
         </div>
       </DoctorLayout>
@@ -231,7 +231,7 @@ export default function DoctorPatientRecord() {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Voltar" className="shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Prontuario</h1>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Prontuário</h1>
         </div>
 
         {/* Patient identity card */}
@@ -300,7 +300,7 @@ export default function DoctorPatientRecord() {
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-sm mt-2">
                   <Heart className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" aria-hidden />
                   <div className="min-w-0">
-                    <span className="font-semibold text-amber-700">Condicoes cronicas:</span>{' '}
+                    <span className="font-semibold text-amber-700">Condições crônicas:</span>{' '}
                     <span className="text-amber-600">{patient.chronicConditions.join(', ')}</span>
                   </div>
                 </div>
@@ -317,7 +317,7 @@ export default function DoctorPatientRecord() {
                 value="overview"
                 className="gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-4 py-2.5 text-sm whitespace-nowrap"
               >
-                <Activity className="h-3.5 w-3.5 hidden sm:block" /> Visao Geral
+                <Activity className="h-3.5 w-3.5 hidden sm:block" /> Visão Geral
               </TabsTrigger>
               <TabsTrigger
                 value="consultations"
@@ -378,7 +378,7 @@ export default function DoctorPatientRecord() {
               {summaryData?.structured?.problemList && summaryData.structured.problemList.length > 0 && (
                 <Card className="shadow-sm">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold">Condicoes ativas</CardTitle>
+                    <CardTitle className="text-sm font-semibold">Condições ativas</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="flex flex-wrap gap-2">
@@ -415,7 +415,7 @@ export default function DoctorPatientRecord() {
               {summaryData?.structured && (summaryData.structured.narrativeSummary || summaryData.structured.alerts?.length) ? (
                 <Card className="shadow-sm border-primary/10">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold">Resumo clinico</CardTitle>
+                    <CardTitle className="text-sm font-semibold">Resumo clínico</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 pt-0">
                     {summaryData.structured.narrativeSummary && (
@@ -470,7 +470,7 @@ export default function DoctorPatientRecord() {
                             <div className="rounded-lg bg-muted/30 p-3">
                               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                                 <Info className="h-3.5 w-3.5" aria-hidden />
-                                Informacoes pendentes
+                                Informações pendentes
                               </p>
                               <ul className="space-y-1 text-sm text-muted-foreground">
                                 {lacunas.map((a, i) => (
@@ -683,7 +683,7 @@ export default function DoctorPatientRecord() {
                   </CardContent>
                 </Card>
               ) : (
-                <Card className="shadow-sm"><CardContent className="py-12 text-center"><StickyNote className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" /><p className="text-sm text-muted-foreground">Nenhuma nota registrada. Use o formulario acima.</p></CardContent></Card>
+                <Card className="shadow-sm"><CardContent className="py-12 text-center"><StickyNote className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" /><p className="text-sm text-muted-foreground">Nenhuma nota registrada. Use o formulário acima.</p></CardContent></Card>
               )}
             </div>
           </TabsContent>

@@ -695,7 +695,7 @@ export default function PrescriptionEditorScreen() {
           )}
         </ScrollView>
 
-        {/* Bottom Action Bar — botões em coluna para texto em uma linha. Assinar só após aprovado e pago. */}
+        {/* Bottom Action Bar — botões em coluna para texto em uma linha. Assinar só após aprovado. */}
         {!showSignForm && (
           <View style={[st.bottomBar, { paddingBottom: bottomBarPadding }]}>
             <AppButton

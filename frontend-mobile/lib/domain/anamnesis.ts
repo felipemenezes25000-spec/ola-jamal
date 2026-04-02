@@ -109,6 +109,30 @@ export const ANA_FIELDS: AnaFieldDef[] = [
 ];
 
 /**
+ * Campos para consulta psicológica — substitui a anamnese médica.
+ * Reutiliza as mesmas chaves do AnamnesisData com labels adaptados ao contexto psi.
+ */
+export const PSY_FIELDS: AnaFieldDef[] = [
+  { key: 'queixa_principal', label: 'Motivo da Consulta', icon: 'chatbubble-ellipses', severity: 'neutral' },
+  { key: 'historia_doenca_atual', label: 'Histórico Emocional', icon: 'heart', severity: 'neutral' },
+  { key: 'sintomas', label: 'Estado Emocional Atual', icon: 'cloudy-night', severity: 'warning' },
+  { key: 'revisao_sistemas', label: 'Padrões de Pensamento e Comportamento', icon: 'git-network', severity: 'neutral' },
+  { key: 'antecedentes_pessoais', label: 'Acompanhamento Anterior (Terapia/Psiquiatria)', icon: 'document-text', severity: 'neutral' },
+  { key: 'antecedentes_familiares', label: 'Dinâmica Familiar e Relacional', icon: 'people', severity: 'neutral' },
+  { key: 'medicamentos_em_uso', label: 'Medicação Psiquiátrica em Uso', icon: 'medical', severity: 'info' },
+  { key: 'habitos_vida', label: 'Sono, Rotina e Autocuidado', icon: 'bed', severity: 'neutral' },
+  { key: 'alergias', label: 'Fatores de Risco', icon: 'warning', severity: 'danger' },
+  { key: 'outros', label: 'Recursos e Pontos Fortes do Paciente', icon: 'shield-checkmark', severity: 'success' },
+];
+
+/**
+ * Retorna os campos apropriados ao tipo de consulta.
+ */
+export function getFieldsForConsultationType(consultationType?: string | null): AnaFieldDef[] {
+  return consultationType === 'psicologo' ? PSY_FIELDS : ANA_FIELDS;
+}
+
+/**
  * Subset compacto para exibições resumidas (ex.: card de consulta no prontuário).
  */
 export const ANA_FIELDS_COMPACT: AnaFieldDef[] = [

@@ -26,20 +26,20 @@ export const motionTokens = {
       headerShown: false,
       animation: Platform.OS === 'ios' ? 'simple_push' : 'fade_from_bottom',
       gestureEnabled: true,
-      fullScreenGestureEnabled: true,
-      animationMatchesGesture: true,
+      fullScreenGestureEnabled: Platform.OS === 'ios',
+      animationMatchesGesture: Platform.OS === 'ios',
     },
     softPush: {
       animation: 'fade_from_bottom',
       gestureEnabled: true,
-      fullScreenGestureEnabled: true,
-      animationMatchesGesture: true,
+      fullScreenGestureEnabled: Platform.OS === 'ios',
+      animationMatchesGesture: Platform.OS === 'ios',
     },
     snappyPush: {
       animation: 'slide_from_right',
       gestureEnabled: true,
-      fullScreenGestureEnabled: true,
-      animationMatchesGesture: true,
+      fullScreenGestureEnabled: Platform.OS === 'ios',
+      animationMatchesGesture: Platform.OS === 'ios',
     },
     modal: {
       presentation: 'modal',
@@ -49,7 +49,7 @@ export const motionTokens = {
     authStack: {
       headerShown: false,
       animation: Platform.OS === 'ios' ? 'fade' : 'fade_from_bottom',
-      gestureEnabled: true,
+      gestureEnabled: Platform.OS === 'ios',
     },
     newRequestStack: {
       headerShown: false,

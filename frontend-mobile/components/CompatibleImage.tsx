@@ -14,6 +14,8 @@ interface CompatibleImageProps {
   onError?: () => void;
   /** Blurhash personalizado para placeholder. Usa o padrão cinza se omitido. */
   blurhash?: string;
+  /** Texto alternativo para acessibilidade. */
+  accessibilityLabel?: string;
 }
 
 const RESIZE_TO_CONTENT_FIT: Record<string, ImageContentFit> = {
@@ -37,6 +39,7 @@ export function CompatibleImage({
   resizeMode = 'cover',
   onError,
   blurhash = DEFAULT_BLURHASH,
+  accessibilityLabel,
 }: CompatibleImageProps) {
   const [hasError, setHasError] = useState(false);
   const { colors } = useAppTheme();
@@ -45,9 +48,14 @@ export function CompatibleImage({
 
   if (!uriStr) {
     return (
-      <View style={[styles.fallbackContainer, { backgroundColor: colors.background, borderColor: colors.border }, style as ViewStyle]}>
-        <Ionicons name="image-outline" size={36} color={colors.textMuted} />
-        <Text style={[styles.fallbackText, { color: colors.text }]}>Imagem indisponível</Text>
+      <View
+        style={[styles.fallbackContainer, { backgroundColor: colors.background, borderColor: colors.border }, style as ViewStyle]}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={accessibilityLabel ?? 'Imagem indisponível'}
+      >
+        <Ionicons name="image-outline" size={36} color={colors.textMuted} importantForAccessibility="no" />
+        <Text style={[styles.fallbackText, { color: colors.text }]} importantForAccessibility="no">Imagem indisponível</Text>
       </View>
     );
   }
@@ -59,20 +67,30 @@ export function CompatibleImage({
 
   if (Platform.OS === 'web' && isHeic) {
     return (
-      <View style={[styles.fallbackContainer, style as ViewStyle]}>
-        <Ionicons name="image-outline" size={48} color={colors.textMuted} />
-        <Text style={styles.fallbackText}>Formato HEIC não suportado no navegador</Text>
-        <Text style={styles.fallbackSubtext}>Use o app mobile para visualizar esta imagem</Text>
+      <View
+        style={[styles.fallbackContainer, style as ViewStyle]}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel="Formato HEIC não suportado no navegador"
+      >
+        <Ionicons name="image-outline" size={48} color={colors.textMuted} importantForAccessibility="no" />
+        <Text style={styles.fallbackText} importantForAccessibility="no">Formato HEIC não suportado no navegador</Text>
+        <Text style={styles.fallbackSubtext} importantForAccessibility="no">Use o app mobile para visualizar esta imagem</Text>
       </View>
     );
   }
 
   if (hasError) {
     return (
-      <View style={[styles.fallbackContainer, style as ViewStyle]}>
-        <Ionicons name="image-outline" size={36} color={colors.textMuted} />
-        <Text style={styles.fallbackText}>Erro ao carregar imagem</Text>
-        <Text style={styles.fallbackSubtext}>Verifique sua conexão e tente novamente</Text>
+      <View
+        style={[styles.fallbackContainer, style as ViewStyle]}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel="Erro ao carregar imagem"
+      >
+        <Ionicons name="image-outline" size={36} color={colors.textMuted} importantForAccessibility="no" />
+        <Text style={styles.fallbackText} importantForAccessibility="no">Erro ao carregar imagem</Text>
+        <Text style={styles.fallbackSubtext} importantForAccessibility="no">Verifique sua conexão e tente novamente</Text>
       </View>
     );
   }
@@ -89,6 +107,7 @@ export function CompatibleImage({
         onError?.();
       }}
       cachePolicy="memory-disk"
+      accessibilityLabel={accessibilityLabel ?? 'Imagem'}
     />
   );
 }

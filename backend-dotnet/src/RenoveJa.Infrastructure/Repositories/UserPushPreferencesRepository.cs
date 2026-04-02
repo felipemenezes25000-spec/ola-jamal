@@ -43,7 +43,6 @@ public class UserPushPreferencesRepository(PostgresClient db) : IUserPushPrefere
             new
             {
                 model.RequestsEnabled,
-                model.PaymentsEnabled,
                 model.ConsultationsEnabled,
                 model.RemindersEnabled,
                 model.Timezone,
@@ -57,7 +56,6 @@ public class UserPushPreferencesRepository(PostgresClient db) : IUserPushPrefere
         UserPushPreferences.Reconstitute(
             m.UserId,
             m.RequestsEnabled,
-            m.PaymentsEnabled,
             m.ConsultationsEnabled,
             m.RemindersEnabled,
             m.Timezone);
@@ -66,7 +64,6 @@ public class UserPushPreferencesRepository(PostgresClient db) : IUserPushPrefere
     {
         UserId = p.UserId,
         RequestsEnabled = p.RequestsEnabled,
-        PaymentsEnabled = p.PaymentsEnabled,
         ConsultationsEnabled = p.ConsultationsEnabled,
         RemindersEnabled = p.RemindersEnabled,
         Timezone = p.Timezone,

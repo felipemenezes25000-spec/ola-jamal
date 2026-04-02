@@ -9,7 +9,8 @@ public sealed record AnamnesisWorkItem(
     string FullText,
     string? PreviousAnamnesisJson,
     Guid RequestId,
-    string GroupName);
+    string GroupName,
+    string? ConsultationType = null);
 
 /// <summary>
 /// Bounded channel that decouples anamnesis AI work from the HTTP request lifetime.

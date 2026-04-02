@@ -24,8 +24,8 @@ describe('requestGuards', () => {
 
   describe('getBlockedActionMessage', () => {
     it('sign: retorna disabledReason ou fallback', () => {
-      mockGetUiModel.mockReturnValue({ disabledReason: 'Aguardando pagamento', actions: {} });
-      expect(getBlockedActionMessage(baseRequest, 'doctor', 'sign')).toBe('Aguardando pagamento');
+      mockGetUiModel.mockReturnValue({ disabledReason: 'Aguardando aprovação', actions: {} });
+      expect(getBlockedActionMessage(baseRequest, 'doctor', 'sign')).toBe('Aguardando aprovação');
       mockGetUiModel.mockReturnValue({ disabledReason: undefined, actions: {} });
       expect(getBlockedActionMessage(baseRequest, 'doctor', 'sign')).toBe(
         'Este pedido não está pronto para assinatura.'

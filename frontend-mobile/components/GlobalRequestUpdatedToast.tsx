@@ -16,14 +16,25 @@ function normalizeStatus(s: string | undefined): string {
   return s.toLowerCase().replace(/-/g, '_');
 }
 
+/** Sanitiza mensagens do backend para remover referências a pagamento (serviço gratuito SUS). */
+function sanitizePaymentText(msg: string): string {
+  return msg
+    .replace(/\bpagamento\s*(aprovado|confirmado|realizado|pendente|recebido)\b/gi, 'solicitação aprovada')
+    .replace(/\bpagamento\b/gi, 'aprovação')
+    .replace(/\bpago\b/gi, 'aprovado')
+    .replace(/\bpagar\b/gi, 'confirmar');
+}
+
 export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boolean): string {
-  if (payload.message && payload.message.trim()) return payload.message.trim();
+  if (payload.message && payload.message.trim()) {
+    return sanitizePaymentText(payload.message.trim());
+  }
   const s = (payload.status || '').toLowerCase();
   const patientMap: Record<string, string> = {
+    approved_pending_payment: 'Solicitação aprovada.',
     paid: 'Consulta pronta. Entre na sala de vídeo.',
     signed: 'Documento assinado. Baixe em Meus pedidos.',
     delivered: 'Documento recebido.',
-    approved_pending_payment: 'Solicitação aprovada.',
     in_consultation: 'Médico na sala. Entre na chamada.',
     pending_post_consultation: 'Chamada encerrada. Os documentos serão disponibilizados em breve.',
     consultation_finished: 'Consulta encerrada.',
@@ -32,10 +43,10 @@ export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boo
   };
   const doctorMap: Record<string, string> = {
     submitted: 'Nova solicitação na fila. Toque para ver.',
+    approved_pending_payment: 'Solicitação aprovada.',
     paid: 'Solicitação aprovada.',
     signed: 'Documento assinado.',
     delivered: 'Documento recebido.',
-    approved_pending_payment: 'Solicitação aprovada.',
     in_consultation: 'Paciente na sala.',
     pending_post_consultation: 'Chamada encerrada. Emita os documentos para finalizar a consulta.',
     consultation_finished: 'Consulta encerrada.',

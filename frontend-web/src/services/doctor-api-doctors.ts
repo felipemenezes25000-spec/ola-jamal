@@ -126,7 +126,6 @@ export async function getVideoRoom(requestId: string) {
 
 export interface PushPreferencesDto {
   requestsEnabled: boolean;
-  paymentsEnabled: boolean;
   consultationsEnabled: boolean;
   remindersEnabled: boolean;
   timezone: string;
@@ -137,7 +136,6 @@ export async function getPushPreferences(): Promise<PushPreferencesDto> {
   if (!res.ok) {
     return {
       requestsEnabled: true,
-      paymentsEnabled: true,
       consultationsEnabled: true,
       remindersEnabled: true,
       timezone: 'America/Sao_Paulo',

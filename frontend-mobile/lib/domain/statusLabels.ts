@@ -23,7 +23,7 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   // Common
   rejected: 'Rejeitado',
   cancelled: 'Cancelado',
-  // Legados (retrocompatibilidade)
+  // Legados (retrocompatibilidade — dados históricos do banco)
   pending: 'Pendente',
   pending_payment: 'Aprovado',
   approved_pending_payment: 'Aprovado',

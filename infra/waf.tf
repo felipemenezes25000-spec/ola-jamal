@@ -88,6 +88,20 @@ resource "aws_wafv2_web_acl" "main" {
             positional_constraint = "CONTAINS"
           }
         }
+        # Transcrição de sintomas por voz (exame / teleconsulta)
+        statement {
+          byte_match_statement {
+            search_string         = "/api/speech-to-text"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+            positional_constraint = "CONTAINS"
+          }
+        }
         # Pós-consulta: emit, listagem de documentos, token, download (evita 403 HTML do WAF no app/web)
         statement {
           byte_match_statement {

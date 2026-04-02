@@ -1,8 +1,7 @@
 /**
- * VideoCallTopBar — "AO VIVO" indicator + timer pill + connection quality + AI badge.
+ * VideoCallTopBar — "AO VIVO" indicator + elapsed timer pill + connection quality + AI badge.
  *
  * Dark-mode video overlay bar with immersive design.
- * Countdown visual: normal -> warning (2min) -> critical (1min).
  * Hidden in Picture-in-Picture.
  */
 
@@ -40,10 +39,7 @@ export const VideoCallTopBar = React.memo(function VideoCallTopBar({
   colors, topInset, quality, callSeconds, contractedMinutes, isAiActive, patientName,
 }: VideoCallTopBarProps) {
   const qColor = quality === 'good' ? '#22C55E' : quality === 'poor' ? '#F59E0B' : quality === 'bad' ? '#EF4444' : '#94A3B8';
-  const rem = contractedMinutes ? Math.max(0, contractedMinutes * 60 - callSeconds) : null;
-  const urgent = rem != null && rem <= 120;
-  const critical = rem != null && rem <= 60;
-  const timerStr = contractedMinutes ? `${fmt(callSeconds)} / ${fmt(contractedMinutes * 60)}` : fmt(callSeconds);
+  const timerStr = fmt(callSeconds);
 
   return (
     <View style={[S.top, { paddingTop: topInset + 8 }]}>
@@ -77,26 +73,9 @@ export const VideoCallTopBar = React.memo(function VideoCallTopBar({
             <Text style={S.aiTxt}>IA</Text>
           </View>
         )}
-        <View style={[
-          S.tPill,
-          urgent && S.tPillUrg,
-          critical && S.tPillCrit,
-        ]}>
-          <Ionicons
-            name="time-outline"
-            size={13}
-            color={critical ? '#fff' : urgent ? '#F59E0B' : '#94A3B8'}
-          />
-          <Text
-            allowFontScaling={false}
-            style={[
-              S.tTxt,
-              urgent && S.tTxtUrg,
-              critical && S.tTxtCrit,
-            ]}
-          >
-            {timerStr}
-          </Text>
+        <View style={S.tPill}>
+          <Ionicons name="time-outline" size={13} color="#94A3B8" />
+          <Text allowFontScaling={false} style={S.tTxt}>{timerStr}</Text>
         </View>
       </View>
     </View>
@@ -205,22 +184,10 @@ const S = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(30,41,59,0.85)',
   },
-  tPillUrg: {
-    backgroundColor: 'rgba(251,191,36,0.25)',
-  },
-  tPillCrit: {
-    backgroundColor: '#EF4444',
-  },
   tTxt: {
     fontSize: 13,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     color: 'rgba(255,255,255,0.9)',
-  },
-  tTxtUrg: {
-    color: '#F59E0B',
-  },
-  tTxtCrit: {
-    color: '#FFFFFF',
   },
 });

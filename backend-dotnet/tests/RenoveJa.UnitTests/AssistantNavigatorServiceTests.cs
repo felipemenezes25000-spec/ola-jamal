@@ -143,8 +143,8 @@ public class AssistantNavigatorServiceTests
         var request = new AssistantNextActionRequestDto(RequestId: requestId);
         var result = await _sut.GetNextActionAsync(request, userId);
 
-        result.Intent.Should().Be("pay");
-        result.CtaLabel.Should().Be("Pagar agora");
+        result.Intent.Should().Be("wait");
+        result.CtaLabel.Should().BeNull();
     }
 
     [Fact]

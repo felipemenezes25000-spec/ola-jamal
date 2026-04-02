@@ -35,60 +35,60 @@ const CID_PACKAGES: Record<string, {
   meds: { drug: string; posology: string; note: string }[];
   exams: string[]; examJust: string;
 }> = {
-  J11: { name: 'Gripe (Influenza)', days: 3, body: 'Paciente apresenta sindrome gripal com febre, necessitando repouso domiciliar.',
+  J11: { name: 'Gripe (Influenza)', days: 3, body: 'Paciente apresenta síndrome gripal com febre, necessitando repouso domiciliar.',
     meds: [{ drug: 'Dipirona 500mg', posology: 'VO 6/6h por 5 dias', note: 'Febre e dor' },
-      { drug: 'Loratadina 10mg', posology: 'VO 1x/dia por 7 dias', note: 'Congestao' },
+      { drug: 'Loratadina 10mg', posology: 'VO 1x/dia por 7 dias', note: 'Congestão' },
       { drug: 'Oseltamivir 75mg', posology: 'VO 12/12h por 5 dias', note: 'Antiviral (se <48h)' }],
-    exams: ['Hemograma completo', 'PCR', 'VHS'], examJust: 'Investigacao de quadro gripal febril.' },
-  I10: { name: 'Hipertensao arterial', days: 0, body: '',
-    meds: [{ drug: 'Losartana 50mg', posology: 'VO 1x/dia continuo', note: 'BRA' },
-      { drug: 'HCTZ 25mg', posology: 'VO 1x/dia continuo', note: 'Diuretico' },
-      { drug: 'Anlodipino 5mg', posology: 'VO 1x/dia continuo', note: 'BCC' }],
-    exams: ['Creatinina','Ureia','Na/K','Lipidograma','Glicemia jejum','HbA1c','Acido urico','Urina I','ECG','Microalbuminuria'],
+    exams: ['Hemograma completo', 'PCR', 'VHS'], examJust: 'Investigação de quadro gripal febril.' },
+  I10: { name: 'Hipertensão arterial', days: 0, body: '',
+    meds: [{ drug: 'Losartana 50mg', posology: 'VO 1x/dia contínuo', note: 'BRA' },
+      { drug: 'HCTZ 25mg', posology: 'VO 1x/dia contínuo', note: 'Diurético' },
+      { drug: 'Anlodipino 5mg', posology: 'VO 1x/dia contínuo', note: 'BCC' }],
+    exams: ['Creatinina','Ureia','Na/K','Lipidograma','Glicemia jejum','HbA1c','Ácido úrico','Urina I','ECG','Microalbuminúria'],
     examJust: 'Acompanhamento de HAS.' },
   E11: { name: 'Diabetes tipo 2', days: 0, body: '',
-    meds: [{ drug: 'Metformina 850mg', posology: 'VO 2x/dia continuo', note: '1a linha DM2' },
-      { drug: 'Glicazida 60mg', posology: 'VO 1x/dia continuo', note: 'Sulfonilureia' }],
-    exams: ['Glicemia jejum','HbA1c','Lipidograma','Creatinina','Ureia','Microalbuminuria','K+','Na+','TGO/TGP','Urina I','Fundo de olho'],
-    examJust: 'Controle DM2 e rastreio de complicacoes.' },
-  F32: { name: 'Episodio depressivo', days: 5, body: 'Episodio depressivo, necessitando afastamento para estabilizacao clinica.',
-    meds: [{ drug: 'Sertralina 50mg', posology: 'VO manha continuo', note: 'ISRS' },
+    meds: [{ drug: 'Metformina 850mg', posology: 'VO 2x/dia contínuo', note: '1a linha DM2' },
+      { drug: 'Glicazida 60mg', posology: 'VO 1x/dia contínuo', note: 'Sulfonilureia' }],
+    exams: ['Glicemia jejum','HbA1c','Lipidograma','Creatinina','Ureia','Microalbuminúria','K+','Na+','TGO/TGP','Urina I','Fundo de olho'],
+    examJust: 'Controle DM2 e rastreio de complicações.' },
+  F32: { name: 'Episódio depressivo', days: 5, body: 'Episódio depressivo, necessitando afastamento para estabilização clínica.',
+    meds: [{ drug: 'Sertralina 50mg', posology: 'VO manhã contínuo', note: 'ISRS' },
       { drug: 'Clonazepam 0,5mg', posology: 'VO noite SOS 14 dias', note: 'Ansiedade' }],
     exams: ['TSH','T4 livre','Hemograma','Glicemia','Vit D','Vit B12','Ferro','Ferritina'],
-    examJust: 'Diagnostico diferencial.' },
+    examJust: 'Diagnóstico diferencial.' },
   M54: { name: 'Dorsalgia', days: 3, body: 'Dorsalgia aguda limitando atividades.',
     meds: [{ drug: 'Ibuprofeno 600mg', posology: 'VO 8/8h por 5 dias', note: 'AINE' },
       { drug: 'Ciclobenzaprina 5mg', posology: 'VO noite por 7 dias', note: 'Relaxante' },
       { drug: 'Dipirona 1g', posology: 'VO 6/6h SOS', note: 'Dor' }],
-    exams: ['Hemograma','PCR','VHS','Rx coluna lombar'], examJust: 'Investigacao de dorsalgia aguda.' },
-  J06: { name: 'IVAS (Resfriado)', days: 2, body: 'Infeccao aguda de vias aereas superiores.',
+    exams: ['Hemograma','PCR','VHS','Rx coluna lombar'], examJust: 'Investigação de dorsalgia aguda.' },
+  J06: { name: 'IVAS (Resfriado)', days: 2, body: 'Infecção aguda de vias aéreas superiores.',
     meds: [{ drug: 'Paracetamol 750mg', posology: 'VO 6/6h SOS', note: 'Febre/dor' },
       { drug: 'NaCl 0,9% nasal', posology: '3 gotas 4x/dia', note: 'Lavagem' },
-      { drug: 'Loratadina 10mg', posology: 'VO 1x/dia 5 dias', note: 'Congestao' }],
+      { drug: 'Loratadina 10mg', posology: 'VO 1x/dia 5 dias', note: 'Congestão' }],
     exams: ['Hemograma'], examJust: 'IVAS viral.' },
-  N39: { name: 'Infeccao urinaria', days: 2, body: 'ITU em tratamento antibiotico.',
+  N39: { name: 'Infecção urinária', days: 2, body: 'ITU em tratamento antibiótico.',
     meds: [{ drug: 'Norfloxacino 400mg', posology: 'VO 12/12h 7 dias', note: 'ATB' },
       { drug: 'Fenazopiridina 200mg', posology: 'VO 8/8h 3 dias', note: 'Analgesia' }],
-    exams: ['EAS','Urocultura','Creatinina','Hemograma'], examJust: 'Confirmacao ITU.' },
+    exams: ['EAS','Urocultura','Creatinina','Hemograma'], examJust: 'Confirmação ITU.' },
   K21: { name: 'Refluxo (DRGE)', days: 0, body: '',
     meds: [{ drug: 'Omeprazol 20mg', posology: 'VO jejum 30 dias', note: 'IBP' },
-      { drug: 'Domperidona 10mg', posology: 'VO 3x/dia 14 dias', note: 'Procinetico' }],
-    exams: ['Hemograma','H. pylori'], examJust: 'Investigacao DRGE.' },
-  J45: { name: 'Asma', days: 2, body: 'Crise asmatica leve.',
+      { drug: 'Domperidona 10mg', posology: 'VO 3x/dia 14 dias', note: 'Procinético' }],
+    exams: ['Hemograma','H. pylori'], examJust: 'Investigação DRGE.' },
+  J45: { name: 'Asma', days: 2, body: 'Crise asmática leve.',
     meds: [{ drug: 'Salbutamol 100mcg', posology: '2 jatos 4/4h SOS', note: 'Resgate' },
       { drug: 'Budesonida 200mcg', posology: '2 jatos 12/12h', note: 'CI' },
       { drug: 'Prednisolona 20mg', posology: 'VO 1x/dia 5 dias', note: 'Crise' }],
-    exams: ['Hemograma','IgE total','Rx torax','Espirometria'], examJust: 'Crise asmatica.' },
+    exams: ['Hemograma','IgE total','Rx tórax','Espirometria'], examJust: 'Crise asmática.' },
 };
 
 const EXAM_PACKAGES = [
-  { key: 'checkup', name: 'Check-up completo', exams: ['Hemograma','Glicemia','HbA1c','Colesterol total/fracoes','Triglicerideos','TGO','TGP','GGT','Bilirrubinas','Ureia','Creatinina','Acido urico','TSH','T4 livre','Vit D','Vit B12','Ferro','Ferritina','PCR','VHS','Na/K/Ca','Urina I','Parasitologico'], just: 'Check-up preventivo.' },
-  { key: 'ist', name: 'IST/Sorologias', exams: ['VDRL','Anti-HIV','HBsAg','Anti-HCV','Anti-HBs','Toxo IgG/IgM','CMV IgG/IgM','Rubeola IgG/IgM'], just: 'Rastreamento de ISTs.' },
-  { key: 'prenatal', name: 'Pre-natal', exams: ['Hemograma','ABO/Rh','Coombs','Glicemia','TOTG 75g','VDRL','Anti-HIV','HBsAg','Anti-HCV','Toxo IgG/IgM','Rubeola IgG/IgM','CMV IgG/IgM','TSH','T4 livre','Urina I','Urocultura','Parasitologico'], just: 'Rotina pre-natal ministerial.' },
-  { key: 'cardio', name: 'Risco cardiovascular', exams: ['Lipidograma','Glicemia','HbA1c','PCR-us','Homocisteina','Lp(a)','CPK','Troponina','BNP','Acido urico','Na/K'], just: 'Risco cardiovascular.' },
-  { key: 'tireoide', name: 'Tireoide', exams: ['TSH','T4 livre','T3 total','Anti-TPO','Anti-tireoglobulina'], just: 'Avaliacao tireoidiana.' },
-  { key: 'renal', name: 'Funcao renal', exams: ['Creatinina','Ureia','Acido urico','Na','K','Ca','Fosforo','TFG','Urina I','Microalbuminuria','Proteinuria 24h'], just: 'Avaliacao renal.' },
-  { key: 'hepatico', name: 'Perfil hepatico', exams: ['TGO','TGP','GGT','Fosfatase alcalina','Bilirrubinas','Albumina','Proteinas totais','TAP/INR','LDH'], just: 'Perfil hepatico.' },
+  { key: 'checkup', name: 'Check-up completo', exams: ['Hemograma','Glicemia','HbA1c','Colesterol total/frações','Triglicerídeos','TGO','TGP','GGT','Bilirrubinas','Ureia','Creatinina','Ácido úrico','TSH','T4 livre','Vit D','Vit B12','Ferro','Ferritina','PCR','VHS','Na/K/Ca','Urina I','Parasitológico'], just: 'Check-up preventivo.' },
+  { key: 'ist', name: 'IST/Sorologias', exams: ['VDRL','Anti-HIV','HBsAg','Anti-HCV','Anti-HBs','Toxo IgG/IgM','CMV IgG/IgM','Rubéola IgG/IgM'], just: 'Rastreamento de ISTs.' },
+  { key: 'prenatal', name: 'Pré-natal', exams: ['Hemograma','ABO/Rh','Coombs','Glicemia','TOTG 75g','VDRL','Anti-HIV','HBsAg','Anti-HCV','Toxo IgG/IgM','Rubéola IgG/IgM','CMV IgG/IgM','TSH','T4 livre','Urina I','Urocultura','Parasitológico'], just: 'Rotina pré-natal ministerial.' },
+  { key: 'cardio', name: 'Risco cardiovascular', exams: ['Lipidograma','Glicemia','HbA1c','PCR-us','Homocisteína','Lp(a)','CPK','Troponina','BNP','Ácido úrico','Na/K'], just: 'Risco cardiovascular.' },
+  { key: 'tireoide', name: 'Tireoide', exams: ['TSH','T4 livre','T3 total','Anti-TPO','Anti-tireoglobulina'], just: 'Avaliação tireoidiana.' },
+  { key: 'renal', name: 'Função renal', exams: ['Creatinina','Ureia','Ácido úrico','Na','K','Ca','Fósforo','TFG','Urina I','Microalbuminúria','Proteinúria 24h'], just: 'Avaliação renal.' },
+  { key: 'hepatico', name: 'Perfil hepático', exams: ['TGO','TGP','GGT','Fosfatase alcalina','Bilirrubinas','Albumina','Proteínas totais','TAP/INR','LDH'], just: 'Perfil hepático.' },
 ];
 
 function extractMedsFromAnamnesis(anam: Record<string, unknown> | null): PrescriptionItemEmit[] {
@@ -250,7 +250,7 @@ export default function DoctorPostConsultationEmit() {
   const handleSignClick = () => {
     if (!requestId || docCount === 0) return;
     if (docCount > 4) {
-      toast.error('Maximo de 4 documentos: receita, exames, atestado e encaminhamento.');
+      toast.error('Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
       return;
     }
     setCertPassword('');
@@ -270,8 +270,10 @@ export default function DoctorPostConsultationEmit() {
         structuredAnamnesis: request?.consultationAnamnesis ?? undefined,
         plan: request?.doctorConductNotes ?? request?.aiConductSuggestion ?? undefined,
       };
-      if (rxOn && meds.length > 0) payload.prescription = { type: rxType, items: meds };
-      if (exOn && exams.length > 0) payload.examOrder = { clinicalJustification: examJust, items: exams };
+      const validMeds = meds.filter(m => m.drug.trim());
+      if (rxOn && validMeds.length > 0) payload.prescription = { type: rxType, items: validMeds };
+      const validExams = exams.filter(e => e.description.trim());
+      if (exOn && validExams.length > 0) payload.examOrder = { clinicalJustification: examJust, items: validExams };
       if (atOn && certBody.trim()) {
         payload.medicalCertificate = {
           certificateType: certType, body: certBody, icd10Code: certCid || undefined,
@@ -590,7 +592,7 @@ export default function DoctorPostConsultationEmit() {
                   </div>
                   <CardTitle className="text-base flex-1">Encaminhamento</CardTitle>
                   <Badge variant="secondary" className="font-medium text-xs">
-                    {refProfessional.trim() || 'Medico/Prof.'}
+                    {refProfessional.trim() || 'Médico/Prof.'}
                   </Badge>
                   <Switch checked={refOn} onCheckedChange={v => { setRefOn(v); if (v) setRefOpen(true); }}
                     onClick={e => e.stopPropagation()} />
@@ -600,12 +602,12 @@ export default function DoctorPostConsultationEmit() {
               {refOpen && refOn && (
                 <CardContent className="space-y-3 pt-0">
                   <p className="text-xs text-muted-foreground">
-                    Encaminhe o paciente para avaliacao presencial conforme anamnese.
+                    Encaminhe o paciente para avaliação presencial conforme anamnese.
                   </p>
                   <div>
-                    <label htmlFor="ref-professional" className="text-xs font-medium text-muted-foreground block mb-1.5">Medico ou profissional</label>
+                    <label htmlFor="ref-professional" className="text-xs font-medium text-muted-foreground block mb-1.5">Médico ou profissional</label>
                     <Input id="ref-professional" value={refProfessional} onChange={e => setRefProfessional(e.target.value)}
-                      placeholder="Ex: Dr. Joao Silva" className="text-sm" />
+                      placeholder="Ex: Dr. João Silva" className="text-sm" />
                   </div>
                   <div>
                     <label htmlFor="ref-specialty" className="text-xs font-medium text-muted-foreground block mb-1.5">Especialidade</label>
@@ -653,7 +655,7 @@ export default function DoctorPostConsultationEmit() {
             </Button>
 
             <p className="text-center text-xs text-muted-foreground pb-4">
-              Assinatura digital ICP-Brasil · QR Code verificavel · Prontuario atualizado automaticamente
+              Assinatura digital ICP-Brasil · QR Code verificável · Prontuário atualizado automaticamente
             </p>
           </div>
         </div>
@@ -680,7 +682,7 @@ export default function DoctorPostConsultationEmit() {
               onKeyDown={(e) => { if (e.key === 'Enter' && certPassword) handleSubmit(); }}
             />
             <p className="text-xs text-muted-foreground">
-              A senha e usada apenas para validar o certificado. Nao e armazenada.
+              A senha é usada apenas para validar o certificado. Não é armazenada.
             </p>
           </div>
           <DialogFooter>

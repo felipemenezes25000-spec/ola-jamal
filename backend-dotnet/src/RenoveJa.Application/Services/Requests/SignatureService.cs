@@ -66,11 +66,11 @@ public class SignatureService(
         if (request == null)
             throw new KeyNotFoundException("Request not found");
 
-        // Só permite assinar se o pagamento foi confirmado
+        // Só permite assinar se o pedido foi aprovado (status Paid = aprovado no fluxo gratuito)
         if (request.Status != RequestStatus.Paid)
         {
             throw new InvalidOperationException(
-                "Apenas solicitações com pagamento confirmado podem ser assinadas. O paciente deve efetuar o pagamento (PIX ou cartão) antes da assinatura.");
+                "Apenas solicitações aprovadas podem ser assinadas. O pedido deve ser aprovado pelo médico antes da assinatura.");
         }
 
         // Se o médico está atribuído, tentar fluxo completo de geração + assinatura

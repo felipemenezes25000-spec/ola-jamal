@@ -9,6 +9,12 @@ public interface IConsultationSessionStore
     /// <summary>Garante que existe uma sessão para o requestId (paciente). Chamar ao iniciar a captura de áudio.</summary>
     void EnsureSession(Guid requestId, Guid patientId);
 
+    /// <summary>Armazena o tipo de consulta (psicologo | medico_clinico) na sessão.</summary>
+    void SetConsultationType(Guid requestId, string? consultationType);
+
+    /// <summary>Obtém o tipo de consulta da sessão.</summary>
+    string? GetConsultationType(Guid requestId);
+
     /// <summary>Acumula texto transcrito na sessão. startTimeSeconds opcional (Deepgram/Daily).</summary>
     void AppendTranscript(Guid requestId, string text, double? startTimeSeconds = null);
 

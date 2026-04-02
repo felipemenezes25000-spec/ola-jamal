@@ -99,7 +99,6 @@ public class PushTokensController(
         var updated = UserPushPreferences.Reconstitute(
             userId,
             request.RequestsEnabled ?? prefs.RequestsEnabled,
-            prefs.PaymentsEnabled, // fluxo de pagamento removido — mantém valor existente
             request.ConsultationsEnabled ?? prefs.ConsultationsEnabled,
             request.RemindersEnabled ?? prefs.RemindersEnabled,
             request.Timezone ?? prefs.Timezone);

@@ -31,6 +31,7 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
     public async Task<ConsultationAnamnesisResult?> UpdateAnamnesisAndSuggestionsAsync(
         string transcriptSoFar,
         string? previousAnamnesisJson,
+        string? consultationType = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("[Anamnese IA v2] INICIO transcriptLen={Len} previousAnamnesisLen={PrevLen}",
@@ -48,7 +49,9 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
         _logger.LogInformation("[Anamnese IA v4] Transcript preprocessado: originalLen={OrigLen} processedLen={ProcLen}",
             transcriptSoFar.Length, processedTranscript.Length);
 
-        var systemPrompt = AnamnesisPrompts.BuildSystemPromptV2();
+        var systemPrompt = string.Equals(consultationType, "psicologo", StringComparison.OrdinalIgnoreCase)
+            ? AnamnesisPrompts.BuildPsychologySystemPrompt()
+            : AnamnesisPrompts.BuildSystemPromptV2();
         var userContent = AnamnesisPrompts.BuildUserContentForAnamnesisV2(processedTranscript, previousAnamnesisJson);
 
         var llmResult = await _llmClient.SendAnamnesisChatAsync(anamnesisModel, systemPrompt, userContent, cancellationToken);

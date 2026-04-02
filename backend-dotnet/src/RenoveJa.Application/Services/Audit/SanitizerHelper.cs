@@ -7,7 +7,6 @@ public static class SanitizerHelper
     private static readonly HashSet<string> SensitiveKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "password", "senha", "pwd", "secret",
-        "creditcard", "cartao", "cvv", "cvc",
         "token", "auth", "authorization",
         "cpf", "rg", "documento" // CPF/RG should be masked, not removed, but better safe in free-text logs
     };

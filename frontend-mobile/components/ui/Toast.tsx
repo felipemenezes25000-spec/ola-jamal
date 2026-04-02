@@ -105,13 +105,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                             pointerEvents: 'box-none',
                         },
                     ]}
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={config.message}
                 >
                     <TouchableOpacity
                         style={styles.toastInner}
                         onPress={dismiss}
                         activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${type === 'success' ? 'Sucesso' : type === 'error' ? 'Erro' : type === 'warning' ? 'Aviso' : 'Informação'}: ${config.message}. Toque para fechar`}
                     >
-                        <Ionicons name={tc.icon} size={22} color={tc.iconColor} />
+                        <Ionicons name={tc.icon} size={22} color={tc.iconColor} importantForAccessibility="no" />
                         <Text style={[styles.toastText, { color: themeColors.text }]} numberOfLines={2}>
                             {config.message}
                         </Text>
@@ -123,11 +128,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                                 }}
                                 style={[styles.actionBtn, { backgroundColor: themeColors.textMuted + '20' }]}
                                 activeOpacity={0.8}
+                                accessibilityRole="button"
+                                accessibilityLabel={config.actionLabel}
                             >
                                 <Text style={[styles.actionBtnText, { color: themeColors.primary }]}>{config.actionLabel}</Text>
                             </TouchableOpacity>
                         ) : (
-                            <Ionicons name="close" size={18} color={themeColors.textMuted} />
+                            <Ionicons name="close" size={18} color={themeColors.textMuted} importantForAccessibility="no" />
                         )}
                     </TouchableOpacity>
                 </Animated.View>

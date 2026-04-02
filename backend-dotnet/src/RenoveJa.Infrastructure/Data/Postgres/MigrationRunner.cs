@@ -174,14 +174,15 @@ public static class MigrationRunner
         CREATE TABLE IF NOT EXISTS public.user_push_preferences (
             user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
             requests_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-            payments_enabled BOOLEAN NOT NULL DEFAULT TRUE,
             consultations_enabled BOOLEAN NOT NULL DEFAULT TRUE,
             reminders_enabled BOOLEAN NOT NULL DEFAULT TRUE,
             timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo',
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-        """
+        """,
+        // Serviço gratuito (SUS) — coluna de pagamento não se aplica
+        "ALTER TABLE public.user_push_preferences DROP COLUMN IF EXISTS payments_enabled"
     };
 
     private static readonly string[] DoctorApprovalStatusMigrations =

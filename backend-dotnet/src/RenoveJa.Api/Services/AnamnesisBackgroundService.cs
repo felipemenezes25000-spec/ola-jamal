@@ -48,7 +48,7 @@ public sealed class AnamnesisBackgroundService(
             var anamnesisService = scope.ServiceProvider.GetRequiredService<IConsultationAnamnesisService>();
 
             var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(
-                item.FullText, item.PreviousAnamnesisJson, timeoutCts.Token);
+                item.FullText, item.PreviousAnamnesisJson, item.ConsultationType, timeoutCts.Token);
 
             if (result != null)
             {

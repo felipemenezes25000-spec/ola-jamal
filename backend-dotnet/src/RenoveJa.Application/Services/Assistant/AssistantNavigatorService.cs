@@ -20,48 +20,40 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
         {
             "submitted" => new AssistantNextActionResponseDto(
                 "Pedido recebido",
-                "Seu pedido entrou na fila de analise clinica.",
+                "Seu pedido entrou na fila de análise clínica.",
                 "Aguarde. Se precisar, abra o detalhe para acompanhar em tempo real.",
                 "Normalmente em 3 a 10 minutos.",
                 null,
                 "track"),
 
             "in_review" => new AssistantNextActionResponseDto(
-                "Em analise medica",
-                "Um profissional esta revisando as informacoes enviadas.",
-                "Mantenha notificacoes ativas. Se houver pendencia, voce sera avisado.",
+                "Em análise médica",
+                "Um profissional está revisando as informações enviadas.",
+                "Mantenha notificações ativas. Se houver pendência, você será avisado.",
                 "Geralmente conclui em ate 10 minutos.",
                 null,
                 "wait"),
 
-            "approved_pending_payment" or "consultation_ready" => new AssistantNextActionResponseDto(
-                "Aprovado, falta pagamento",
-                "Seu pedido foi aprovado e esta pronto para liberar a etapa final.",
-                "Conclua o pagamento para liberar assinatura/documento.",
-                "Liberacao quase imediata apos confirmacao.",
-                "Pagar agora",
-                "pay"),
-
-            "paid" when requestType == "consultation" => new AssistantNextActionResponseDto(
-                "Consulta liberada",
-                "Pagamento confirmado. Agora falta o medico iniciar o atendimento.",
-                "Fique no app. Voce sera levado automaticamente para a consulta quando iniciar.",
+            "approved_pending_payment" or "consultation_ready" or "paid" when requestType == "consultation" => new AssistantNextActionResponseDto(
+                "Consulta aprovada",
+                "Seu pedido foi aprovado. Agora falta o médico iniciar o atendimento.",
+                "Fique no app. Você será levado automaticamente para a consulta quando iniciar.",
                 "Normalmente em poucos minutos.",
                 null,
                 "wait"),
 
-            "paid" => new AssistantNextActionResponseDto(
-                "Pagamento confirmado",
-                "Tudo certo com o pagamento.",
-                "Agora o medico prepara e assina seu documento.",
-                "Tempo medio de assinatura: 3 a 10 minutos.",
+            "approved_pending_payment" or "paid" => new AssistantNextActionResponseDto(
+                "Pedido aprovado",
+                "Seu pedido foi aprovado pelo médico.",
+                "Agora o médico prepara e assina seu documento.",
+                "Tempo médio de assinatura: 3 a 10 minutos.",
                 null,
                 "wait"),
 
             "signed" or "delivered" => new AssistantNextActionResponseDto(
                 "Documento pronto",
-                "Seu documento ja esta disponivel para uso.",
-                "Baixe o PDF e apresente em farmacia/laboratorio quando necessario.",
+                "Seu documento já está disponível para uso.",
+                "Baixe o PDF e apresente em farmácia/laboratório quando necessário.",
                 "Disponivel agora.",
                 hasSignedDocument ? "Baixar documento" : null,
                 hasSignedDocument ? "download" : "none"),
@@ -69,13 +61,13 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
             "consultation_finished" => new AssistantNextActionResponseDto(
                 "Consulta finalizada",
                 "Seu atendimento foi concluido com sucesso.",
-                "Revise as orientacoes no detalhe e acesse o documento quando disponivel.",
+                "Revise as orientações no detalhe e acesse o documento quando disponível.",
                 "Disponivel agora.",
                 null,
                 "track"),
 
             "rejected" => new AssistantNextActionResponseDto(
-                "Pedido nao aprovado",
+                "Pedido não aprovado",
                 "Seu pedido foi rejeitado nesta etapa.",
                 "Revise o motivo no detalhe e reenvie com os ajustes.",
                 "Reenvio imediato.",
@@ -86,7 +78,7 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
                 "Pedido cancelado",
                 "Este pedido foi encerrado.",
                 "Se ainda precisar, crie um novo pedido guiado pela Dra. RenoveJa.",
-                "Voce pode iniciar agora.",
+                "Você pode iniciar agora.",
                 null,
                 "none"),
 
@@ -94,7 +86,7 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
                 "Acompanhando seu pedido",
                 "Estamos monitorando o fluxo.",
                 "Abra o detalhe para ver a etapa atual.",
-                "Atualizacao em tempo real.",
+                "Atualização em tempo real.",
                 null,
                 "track")
         };
@@ -128,7 +120,7 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
             redFlags.HasRisk,
             redFlags.Signals,
             redFlags.HasRisk
-                ? "Isso pode ser urgente. Procure emergencia ou ligue 192 agora. Se quiser, eu te ajudo a registrar o ocorrido para o medico."
+                ? "Isso pode ser urgente. Procure emergência ou ligue 192 agora. Se quiser, eu te ajudo a registrar o ocorrido para o médico."
                 : null
         );
     }
@@ -200,7 +192,7 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
                 hasExamDescription),
             new AssistantCompletenessCheckDto(
                 "symptoms",
-                "Descrever sintomas/indicacao clinica",
+                "Descrever sintomas/indicação clínica",
                 true,
                 hasClinicalContext),
             new AssistantCompletenessCheckDto(
@@ -224,12 +216,12 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
                 !string.IsNullOrWhiteSpace(request.ConsultationType)),
             new AssistantCompletenessCheckDto(
                 "duration",
-                "Definir duracao da consulta",
+                "Definir duração da consulta",
                 true,
                 durationMinutes >= 5),
             new AssistantCompletenessCheckDto(
                 "main_reason",
-                "Descrever sintomas ou duvida principal",
+                "Descrever sintomas ou dúvida principal",
                 true,
                 symptoms.Length >= 10),
             new AssistantCompletenessCheckDto(
@@ -249,8 +241,8 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
             "analyzing" => "in_review",
             "pending_payment" => "approved_pending_payment",
             "payment_pending" => "approved_pending_payment",
-            "approved" => "paid",
-            "awaiting_signature" => "paid",
+            "approved" => "approved_pending_payment",
+            "awaiting_signature" => "approved_pending_payment",
             "completed" => "delivered",
             _ => normalized,
         };

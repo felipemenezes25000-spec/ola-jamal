@@ -40,7 +40,7 @@ export function AppStepsSection() {
             Fluxos administrativos ainda consomem tempo assistencial.
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">
-            O desafio não é apenas digitalizar documentos. Em muitos cenários, tambem envolve reduzir fricção
+            O desafio não é apenas digitalizar documentos. Em muitos cenários, também envolve reduzir fricção
             operacional, organizar a demanda e dar mais previsibilidade ao atendimento.
           </p>
         </motion.div>

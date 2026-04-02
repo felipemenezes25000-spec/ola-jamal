@@ -37,5 +37,12 @@ export async function updateAvatar(uri: string, filename?: string): Promise<User
     name,
     type,
   } as unknown as Blob);
-  return apiClient.patchMultipart<UserDto>('/api/auth/avatar', formData);
+  try {
+    return await apiClient.patchMultipart<UserDto>('/api/auth/avatar', formData);
+  } finally {
+    // Clean up temporary cache file created by ensureFileUriForUpload (Android content:// copy)
+    if (uploadUri !== uri) {
+      FileSystem.deleteAsync(uploadUri, { idempotent: true }).catch(() => {});
+    }
+  }
 }

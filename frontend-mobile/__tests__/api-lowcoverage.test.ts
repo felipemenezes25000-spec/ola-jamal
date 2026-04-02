@@ -100,7 +100,7 @@ describe('api-notifications', () => {
   });
 });
 
-// api-payments.ts removido — fluxo de pagamento excluído
+// (serviço gratuito SUS — sem módulo de pagamento)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // api-integrations.ts
