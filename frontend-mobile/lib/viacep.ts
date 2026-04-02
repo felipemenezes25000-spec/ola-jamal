@@ -36,10 +36,24 @@ export async function fetchAddressByCep(cep: string): Promise<ViaCepAddress> {
     throw new Error('CEP deve ter 8 dígitos.');
   }
 
-  const res = await fetch(`${VIACEP_BASE}/${digits}/json/`, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  let res: Response;
+  try {
+    res = await fetch(`${VIACEP_BASE}/${digits}/json/`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Tempo limite excedido ao consultar o CEP. Tente novamente.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     throw new Error('Não foi possível consultar o CEP. Tente novamente.');

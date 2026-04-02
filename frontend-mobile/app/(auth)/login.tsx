@@ -32,8 +32,6 @@ import { loginSchema } from '../../lib/validation/schemas';
 import { COMPANY } from '../../lib/company';
 
 const SMALL_SCREEN_HEIGHT = 700;
-const PRIMARY = '#0EA5E9';
-const BG = '#F8FAFC';
 
 export default function Login() {
   const router = useRouter();
@@ -150,7 +148,6 @@ export default function Login() {
       return;
     }
     setGoogleLoading(true);
-    let keepLoading = false;
     try {
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
@@ -171,7 +168,6 @@ export default function Login() {
       const err = error as { code?: string; message?: string };
       if (err?.code === statusCodes.SIGN_IN_CANCELLED) return;
       if (err?.code === statusCodes.IN_PROGRESS) {
-        keepLoading = true;
         return;
       }
       if (err?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
@@ -181,7 +177,7 @@ export default function Login() {
       const msg = err?.message || String(error) || 'Erro ao fazer login com Google.';
       Alert.alert('Erro no login', msg);
     } finally {
-      if (!keepLoading) setGoogleLoading(false);
+      setGoogleLoading(false);
     }
   }, [hasGoogleConfig, googleWebClientId, googleAndroidClientId, googleIosClientId, signInWithGoogle, router]);
 
@@ -279,9 +275,9 @@ export default function Login() {
                 {/* Login Button */}
                 <TouchableOpacity
                   testID="login-button"
-                  style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+                  style={[styles.primaryButton, (loading || googleLoading) && styles.primaryButtonDisabled]}
                   onPress={handleLogin}
-                  disabled={loading}
+                  disabled={loading || googleLoading}
                   activeOpacity={0.85}
                 >
                   {loading ? (
@@ -300,9 +296,9 @@ export default function Login() {
 
                 {/* Google Sign-In */}
                 <TouchableOpacity
-                  style={[styles.googleButton, (!hasGoogleConfig || googleLoading) && styles.googleButtonDisabled]}
+                  style={[styles.googleButton, (!hasGoogleConfig || loading || googleLoading) && styles.googleButtonDisabled]}
                   onPress={handleGooglePress}
-                  disabled={!hasGoogleConfig || googleLoading}
+                  disabled={!hasGoogleConfig || loading || googleLoading}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="logo-google" size={18} color={hasGoogleConfig ? '#4285F4' : colors.textMuted} />
@@ -346,7 +342,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], isDa
   return StyleSheet.create({
     root: {
       flex: 1,
-      backgroundColor: isDark ? colors.background : BG,
+      backgroundColor: colors.background,
     },
     safeArea: { flex: 1 },
     keyboardView: { flex: 1 },
@@ -430,26 +426,26 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], isDa
       fontSize: 13,
       fontWeight: '600',
       fontFamily: 'PlusJakartaSans_600SemiBold',
-      color: PRIMARY,
+      color: colors.primary,
     },
 
     /* Primary Button */
     primaryButton: {
-      backgroundColor: PRIMARY,
+      backgroundColor: colors.primary,
       height: 52,
       borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
       ...Platform.select({
         ios: {
-          shadowColor: PRIMARY,
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.3,
           shadowRadius: 8,
         },
         android: { elevation: 4 },
         default: {
-          shadowColor: PRIMARY,
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.3,
           shadowRadius: 8,
@@ -531,7 +527,7 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], isDa
       fontSize: 15,
       fontWeight: '700',
       fontFamily: 'PlusJakartaSans_700Bold',
-      color: PRIMARY,
+      color: colors.primary,
     },
     whatsappLink: {
       flexDirection: 'row',

@@ -40,11 +40,14 @@ export function Screen({
   const isDoctor = variant === 'doctor' || variant === 'doctor-gradient';
   const tokens = createTokens(isDoctor ? 'doctor' : 'patient', colorScheme);
 
-  const paddingTopContent = insets.top;
+  // Only apply manual top padding when SafeAreaView does NOT handle the top edge,
+  // otherwise the top inset would be applied twice on notched devices.
+  const safeAreaHandlesTop = edges.includes('top');
+  const paddingTopContent = safeAreaHandlesTop ? 0 : insets.top;
   const paddingStyle = padding
     ? { paddingHorizontal: SCREEN_PAD }
     : undefined;
-  const contentPaddingStyle = { paddingTop: paddingTopContent };
+  const contentPaddingStyle = paddingTopContent > 0 ? { paddingTop: paddingTopContent } : undefined;
 
   const isGradient = variant === 'gradient' || variant === 'doctor-gradient';
   const gradientColors = isDoctor
@@ -76,7 +79,7 @@ export function Screen({
                   contentStyle,
                 ]}
                 showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="always"
+                keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="interactive"
                 scrollEventThrottle={16}
                 {...scrollViewProps}
@@ -110,7 +113,7 @@ export function Screen({
               contentStyle,
             ]}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="always"
+            keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             scrollEventThrottle={16}
             {...scrollViewProps}

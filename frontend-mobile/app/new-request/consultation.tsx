@@ -208,6 +208,7 @@ export default function ConsultationScreen() {
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <AppHeader title="Consulta Breve" />
           <StepIndicator
