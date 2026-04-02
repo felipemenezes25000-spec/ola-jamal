@@ -18,7 +18,7 @@ import type { DesignColors } from '../lib/designSystem';
 import { markOnboardingDone } from '../lib/onboarding';
 import { haptics } from '../lib/haptics';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 // ─── Slide Data ────────────────────────────────────────────────
 interface Slide {
@@ -145,7 +145,7 @@ export default function OnboardingScreen() {
   );
 
   // ─── Render ────────────────────────────────────────────────
-  const contentPaddingBottom = Math.max(insets.bottom, 20) + 16;
+  const contentPaddingBottom = Math.max(insets.bottom, 16);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -161,71 +161,70 @@ export default function OnboardingScreen() {
       </View>
 
       {/* ── Slides ── */}
-      <View style={styles.slidesWrapper}>
-        <Animated.FlatList
-          ref={flatListRef}
-          data={SLIDES}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={renderSlide}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: true },
-          )}
-          scrollEventThrottle={16}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          getItemLayout={(_, index) => ({
-            length: SCREEN_W,
-            offset: SCREEN_W * index,
-            index,
-          })}
-        />
+      <Animated.FlatList
+        ref={flatListRef}
+        data={SLIDES}
+        keyExtractor={(_, i) => String(i)}
+        renderItem={renderSlide}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        style={styles.slidesList}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_W,
+          offset: SCREEN_W * index,
+          index,
+        })}
+      />
 
-        {/* ── Dots ── */}
-        <View
-          style={styles.dotsRow}
-          accessibilityLabel={`Passo ${currentIndex + 1} de ${SLIDES.length}`}
-        >
-          {SLIDES.map((_, i) => {
-            const dotWidth = scrollX.interpolate({
-              inputRange: [
-                (i - 1) * SCREEN_W,
-                i * SCREEN_W,
-                (i + 1) * SCREEN_W,
-              ],
-              outputRange: [8, 28, 8],
-              extrapolate: 'clamp',
-            });
+      {/* ── Dots ── */}
+      <View
+        style={styles.dotsRow}
+        accessibilityLabel={`Passo ${currentIndex + 1} de ${SLIDES.length}`}
+      >
+        {SLIDES.map((_, i) => {
+          const dotWidth = scrollX.interpolate({
+            inputRange: [
+              (i - 1) * SCREEN_W,
+              i * SCREEN_W,
+              (i + 1) * SCREEN_W,
+            ],
+            outputRange: [8, 28, 8],
+            extrapolate: 'clamp',
+          });
 
-            const dotOpacity = scrollX.interpolate({
-              inputRange: [
-                (i - 1) * SCREEN_W,
-                i * SCREEN_W,
-                (i + 1) * SCREEN_W,
-              ],
-              outputRange: [0.3, 1, 0.3],
-              extrapolate: 'clamp',
-            });
+          const dotOpacity = scrollX.interpolate({
+            inputRange: [
+              (i - 1) * SCREEN_W,
+              i * SCREEN_W,
+              (i + 1) * SCREEN_W,
+            ],
+            outputRange: [0.3, 1, 0.3],
+            extrapolate: 'clamp',
+          });
 
-            return (
-              <Animated.View
-                key={i}
-                style={[
-                  styles.dot,
-                  {
-                    width: dotWidth,
-                    opacity: dotOpacity,
-                    backgroundColor: '#0EA5E9',
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
+          return (
+            <Animated.View
+              key={i}
+              style={[
+                styles.dot,
+                {
+                  width: dotWidth,
+                  opacity: dotOpacity,
+                  backgroundColor: '#0EA5E9',
+                },
+              ]}
+            />
+          );
+        })}
       </View>
 
       {/* ── SUS Badge ── */}
@@ -286,15 +285,15 @@ function makeStyles(colors: DesignColors) {
     // ── Header ──
     header: {
       alignItems: 'center',
-      paddingTop: 32,
-      paddingBottom: 8,
+      paddingTop: 16,
+      paddingBottom: 4,
     },
     welcomeLabel: {
       fontSize: 12,
       fontWeight: '600',
       letterSpacing: 2,
       color: '#94A3B8',
-      marginBottom: 6,
+      marginBottom: 4,
     },
     brandName: {
       fontSize: 32,
@@ -309,13 +308,13 @@ function makeStyles(colors: DesignColors) {
       fontSize: 15,
       fontWeight: '400',
       color: '#64748B',
-      marginTop: 6,
+      marginTop: 4,
     },
 
     // ── Slides ──
-    slidesWrapper: {
-      flex: 1,
-      justifyContent: 'center',
+    slidesList: {
+      flexGrow: 0,
+      height: SCREEN_H * 0.38,
     },
     slideContainer: {
       width: SCREEN_W,
@@ -328,19 +327,19 @@ function makeStyles(colors: DesignColors) {
       maxWidth: 320,
     },
     iconCircle: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
+      width: 96,
+      height: 96,
+      borderRadius: 48,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 24,
+      marginBottom: 20,
     },
     slideTitle: {
       fontSize: 22,
       fontWeight: '700',
       color: '#0F172A',
       textAlign: 'center',
-      marginBottom: 12,
+      marginBottom: 10,
       letterSpacing: -0.3,
     },
     slideDescription: {
@@ -358,7 +357,8 @@ function makeStyles(colors: DesignColors) {
       justifyContent: 'center',
       alignItems: 'center',
       gap: 8,
-      marginTop: 28,
+      marginTop: 12,
+      marginBottom: 16,
     },
     dot: {
       height: 8,
@@ -388,7 +388,7 @@ function makeStyles(colors: DesignColors) {
     // ── Bottom Actions ──
     bottomActions: {
       paddingHorizontal: 24,
-      paddingTop: 20,
+      paddingTop: 16,
     },
     ctaBtn: {
       flexDirection: 'row',
