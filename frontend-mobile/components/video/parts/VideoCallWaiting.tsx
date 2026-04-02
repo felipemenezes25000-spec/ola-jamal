@@ -56,12 +56,12 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
 
   if (callState === 'reconnecting') {
     title = 'Reconectando...';
-    subtitle = 'Conexao instavel — tentando reconectar automaticamente';
+    subtitle = 'Conexão instável — tentando reconectar automaticamente';
     iconName = 'cloud-offline-outline';
     iconColor = '#F59E0B';
   } else if (callState === 'joining') {
     title = 'Entrando na sala...';
-    subtitle = isDoctor ? 'O paciente sera notificado' : 'Conectando a sala do medico...';
+    subtitle = isDoctor ? 'O paciente será notificado' : 'Conectando à sala do médico...';
     iconName = 'videocam-outline';
     iconColor = '#0EA5E9';
   } else if (remoteParticipantPresent) {
@@ -71,7 +71,7 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
     iconColor = 'rgba(255,255,255,0.5)';
   } else if (isDoctor && timerStarted && remoteEverJoined && showRemoteLeft) {
     title = 'Paciente saiu da chamada';
-    subtitle = 'O paciente pode voltar enquanto houver tempo.\nSo voce (medico) encerra a consulta — Res. CFM no 2.454/2026.';
+    subtitle = 'O paciente pode voltar enquanto houver tempo.\nSó você (médico) encerra a consulta — Res. CFM no 2.454/2026.';
     iconName = 'person-remove-outline';
     iconColor = '#F59E0B';
   } else if (isDoctor && timerStarted && remoteEverJoined && !showRemoteLeft) {
@@ -81,17 +81,17 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
     iconColor = '#0EA5E9';
   } else if (isDoctor && timerStarted && !remoteEverJoined) {
     title = 'Consulta iniciada';
-    subtitle = 'Aguardando o paciente entrar na chamada. Timer e transcricao ja estao ativos.';
+    subtitle = 'Aguardando o paciente entrar na chamada. Timer e transcrição já estão ativos.';
     iconName = 'hourglass-outline';
     iconColor = '#22C55E';
   } else if (!isDoctor && timerStarted) {
-    title = 'Voce voltou a sala';
-    subtitle = 'Aguardando o medico na sala. Sua consulta continua.';
+    title = 'Você voltou à sala';
+    subtitle = 'Aguardando o médico na sala. Sua consulta continua.';
     iconName = 'checkmark-circle-outline';
     iconColor = '#22C55E';
   } else {
     title = 'Aguardando participante';
-    subtitle = isDoctor ? 'O paciente sera notificado para entrar' : 'O medico entrara em breve';
+    subtitle = isDoctor ? 'O paciente será notificado para entrar' : 'O médico entrará em breve';
     iconName = 'person-circle-outline';
     iconColor = 'rgba(255,255,255,0.4)';
   }

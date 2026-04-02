@@ -140,6 +140,9 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
 
         var result = await crmValidationService.ValidateCrmAsync(dto.Crm, dto.Uf, cancellationToken);
 
+        if (result == null)
+            return StatusCode(502, new { error = "Serviço de validação de CRM indisponível. Tente novamente." });
+
         // CFM cross-validation: avisa se especialidade declarada difere da registrada no CFM
         string? specialtyMismatchWarning = null;
         if (result.IsValid

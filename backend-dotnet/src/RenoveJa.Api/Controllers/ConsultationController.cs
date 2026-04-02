@@ -33,7 +33,7 @@ public class ConsultationController(
     ILogger<ConsultationController> logger) : ControllerBase
 {
     private const string AnamnesisThrottleKeyPrefix = "consultation_anamnesis_last_";
-    private static readonly TimeSpan AnamnesisThrottleInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan AnamnesisThrottleInterval = TimeSpan.FromMinutes(2);
     private const int MinTranscriptLengthForAnamnesis = 200;
     private const int MaxAiCallsPerConsultation = 50;
     private static readonly ConcurrentDictionary<string, (int Count, DateTime LastAccessed)> AiCallCounts = new();
@@ -131,6 +131,7 @@ public class ConsultationController(
         }
 
         sessionStore.EnsureSession(requestId, request.PatientId);
+        sessionStore.SetConsultationType(requestId, request.ConsultationType);
         logger.LogDebug("[Transcribe] Sessão garantida para RequestId={RequestId}", requestId);
 
         var currentTranscript = sessionStore.GetTranscript(requestId);
@@ -178,7 +179,7 @@ public class ConsultationController(
             logger.LogInformation("[Transcribe] Disparando anamnese IA: RequestId={RequestId} previousAnamnesisLen={PrevLen}",
                 requestId, previousAnamnesisJson?.Length ?? 0);
 
-            var workItem = new AnamnesisWorkItem(fullText, previousAnamnesisJson, requestId, group);
+            var workItem = new AnamnesisWorkItem(fullText, previousAnamnesisJson, requestId, group, sessionStore.GetConsultationType(requestId));
             if (!anamnesisChannel.Writer.TryWrite(workItem))
                 logger.LogWarning("[Transcribe] Canal de anamnese cheio, item descartado. RequestId={RequestId}", requestId);
         }
@@ -252,6 +253,7 @@ public class ConsultationController(
         var labeledText = $"{prefix} {dto.Text.Trim()}";
 
         sessionStore.EnsureSession(requestId, request.PatientId);
+        sessionStore.SetConsultationType(requestId, request.ConsultationType);
         sessionStore.AppendTranscript(requestId, labeledText, dto.StartTimeSeconds);
         var fullText = sessionStore.GetTranscript(requestId);
 
@@ -276,7 +278,7 @@ public class ConsultationController(
 
             var (previousAnamnesisJson, _) = sessionStore.GetAnamnesisState(requestId);
 
-            var workItem = new AnamnesisWorkItem(fullText, previousAnamnesisJson, requestId, group);
+            var workItem = new AnamnesisWorkItem(fullText, previousAnamnesisJson, requestId, group, sessionStore.GetConsultationType(requestId));
             if (!anamnesisChannel.Writer.TryWrite(workItem))
                 logger.LogWarning("[TranscribeText] Canal de anamnese cheio, item descartado. RequestId={RequestId}", requestId);
         }
@@ -318,7 +320,7 @@ public class ConsultationController(
         try
         {
             var result = await anamnesisService.UpdateAnamnesisAndSuggestionsAsync(
-                transcript, dto.PreviousAnamnesisJson, cancellationToken);
+                transcript, dto.PreviousAnamnesisJson, null, cancellationToken);
 
             if (result == null)
             {

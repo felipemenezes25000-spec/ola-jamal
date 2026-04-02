@@ -5,7 +5,7 @@ namespace RenoveJa.Application.DTOs.Notifications;
 /// </summary>
 public enum PushChannel
 {
-    Default, // Ação imediata: pagar, entrar na consulta, documento pronto
+    Default, // Ação imediata: entrar na consulta, documento pronto
     Quiet    // Informativo: em análise, lembretes não urgentes
 }
 
@@ -15,7 +15,6 @@ public enum PushChannel
 public enum PushCategory
 {
     Requests,
-    Payments,
     Consultations,
     Reminders,
     System
@@ -49,6 +48,6 @@ public record PushNotificationRequest(
     PushNotificationPayload Payload,
     PushChannel Channel = PushChannel.Default,
     bool HighPriority = true,
-    /// <summary>Se true, ignora quiet hours (ex.: pagamento confirmado, documento assinado).</summary>
+    /// <summary>Se true, ignora quiet hours (ex.: documento assinado, consulta iniciada).</summary>
     bool BypassQuietHours = false
 );

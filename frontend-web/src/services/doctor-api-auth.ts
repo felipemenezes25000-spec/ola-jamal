@@ -114,6 +114,7 @@ async function executeRefresh(): Promise<boolean> {
     const data = await response.json();
     if (!data?.token || !data?.refreshToken) return false;
 
+    localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
     if (data.user) {
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));

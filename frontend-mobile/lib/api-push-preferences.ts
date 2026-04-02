@@ -6,7 +6,6 @@ import { apiClient } from './api-client';
 
 export interface PushPreferencesDto {
   requestsEnabled: boolean;
-  paymentsEnabled: boolean;
   consultationsEnabled: boolean;
   remindersEnabled: boolean;
   timezone: string;

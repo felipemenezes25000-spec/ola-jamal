@@ -12,7 +12,7 @@ public class AuditLog : Entity
     /// <summary>Ação realizada: Create, Read, Update, Delete, Sign, Download, Export.</summary>
     public string Action { get; private set; } = string.Empty;
 
-    /// <summary>Tipo da entidade acessada: Request, User, Payment, Certificate, DoctorProfile.</summary>
+    /// <summary>Tipo da entidade acessada: Request, User, Certificate, DoctorProfile.</summary>
     public string EntityType { get; private set; } = string.Empty;
 
     /// <summary>ID do registro acessado.</summary>

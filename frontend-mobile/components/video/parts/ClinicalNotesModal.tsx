@@ -26,12 +26,16 @@ export const ClinicalNotesModal = React.memo(function ClinicalNotesModal({
   visible, colors, clinicalNotes, onChangeNotes, onSkip, onConfirm,
 }: ClinicalNotesModalProps) {
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onSkip}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.overlay}>
-        <View style={[S.card, { backgroundColor: colors.surface }]}>
+        <View
+          style={[S.card, { backgroundColor: colors.surface }]}
+          accessibilityViewIsModal
+          accessibilityRole="none"
+        >
           <View style={S.head}>
-            <Ionicons name="create-outline" size={22} color={colors.primary} />
-            <Text style={[S.title, { color: colors.text }]}>Notas Clínicas</Text>
+            <Ionicons name="create-outline" size={22} color={colors.primary} importantForAccessibility="no" />
+            <Text style={[S.title, { color: colors.text }]} accessibilityRole="header">Notas Clínicas</Text>
           </View>
           <Text style={[S.sub, { color: colors.textMuted }]}>
             Adicione observações finais antes de encerrar (opcional)
@@ -52,17 +56,24 @@ export const ClinicalNotesModal = React.memo(function ClinicalNotesModal({
             autoCorrect={true}
             returnKeyType="default"
             accessibilityLabel="Notas clínicas"
+            accessibilityHint="Digite diagnóstico, conduta e orientações"
           />
           <View style={S.acts}>
             <TouchableOpacity
               style={[S.btnSec, { backgroundColor: colors.surfaceSecondary }]}
               onPress={onSkip}
+              accessibilityRole="button"
+              accessibilityLabel="Pular notas clínicas"
+              accessibilityHint="Encerra a consulta sem adicionar notas"
             >
               <Text style={[S.btnSecT, { color: colors.textMuted }]}>Pular</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[S.btnPri, { backgroundColor: colors.primary }]}
               onPress={onConfirm}
+              accessibilityRole="button"
+              accessibilityLabel="Encerrar consulta"
+              accessibilityHint="Salva as notas clínicas e encerra a consulta"
             >
               <Text style={[S.btnPriT, { color: colors.white }]}>Encerrar Consulta</Text>
             </TouchableOpacity>

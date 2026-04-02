@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Platform,
   TextInputProps,
   ViewStyle,
 } from 'react-native';
@@ -105,6 +106,8 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
           onChangeText={onChangeText ? handleChangeText : undefined}
           secureTextEntry={hidden}
           editable={!disabled}
+          accessibilityLabel={rest.accessibilityLabel ?? label}
+          accessibilityState={{ disabled: !!disabled }}
           {...rest}
         />
         {secureTextEntry && (
@@ -112,18 +115,28 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
             onPress={() => setHidden(!hidden)}
             style={styles.eyeButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel={hidden ? 'Mostrar senha' : 'Ocultar senha'}
+            accessibilityHint="Toque para alternar a visibilidade da senha"
           >
             <Ionicons
               name={hidden ? 'eye-off-outline' : 'eye-outline'}
               size={18}
               color={colors.textMuted}
+              importantForAccessibility="no"
             />
           </TouchableOpacity>
         )}
       </View>
       {(error || hint) && (
-        <View style={styles.errorContainer}>
-          {error ? <Text style={styles.errorText}>{error}</Text> : hint ? <Text style={styles.hintText}>{hint}</Text> : null}
+        <View style={styles.errorContainer} accessibilityLiveRegion="polite">
+          {error ? (
+            <Text style={styles.errorText} accessibilityRole="alert" accessibilityLabel={`Erro: ${error}`}>
+              {error}
+            </Text>
+          ) : hint ? (
+            <Text style={styles.hintText}>{hint}</Text>
+          ) : null}
         </View>
       )}
     </View>
@@ -159,11 +172,21 @@ const createStyles = (
   },
   focusRing: {
     borderWidth: 2,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+      },
+      android: {},
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+      },
+    }),
   },
   disabled: {
     opacity: 0.5,

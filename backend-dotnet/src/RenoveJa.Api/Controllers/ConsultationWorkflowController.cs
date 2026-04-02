@@ -154,20 +154,40 @@ public class ConsultationWorkflowController(
         CancellationToken cancellationToken)
     {
         var doctorId = GetUserId();
-        var request = await requestService.FinishConsultationAsync(id, doctorId, dto, cancellationToken);
-
-        // Notificar todos os participantes via SignalR que a consulta terminou
-        var group = VideoSignalingHub.GroupName(id.ToString());
-        await hubContext.Clients.Group(group).SendAsync("ConsultationEnded", id.ToString(), cancellationToken);
-
-        // Deletar sala Daily para impedir reconexão (fire-and-forget, não bloqueia resposta)
-        var roomName = dailyConfig.Value.GetRoomName(id);
-        _ = dailyVideoService.DeleteRoomAsync(roomName, CancellationToken.None)
-            .ContinueWith(t =>
+        RequestResponseDto request;
+        try
+        {
+            request = await requestService.FinishConsultationAsync(id, doctorId, dto, cancellationToken);
+        }
+        finally
+        {
+            // Sempre notificar participantes e limpar sala, mesmo se FinishConsultationAsync falhar parcialmente.
+            // Isso evita que o paciente fique preso na videochamada ou a sala Daily fique órfã.
+            try
             {
-                if (t.IsFaulted)
-                    logger.LogWarning(t.Exception, "[FinishConsultation] Falha ao deletar sala Daily {RoomName}", roomName);
-            }, TaskContinuationOptions.OnlyOnFaulted);
+                var group = VideoSignalingHub.GroupName(id.ToString());
+                await hubContext.Clients.Group(group).SendAsync("ConsultationEnded", id.ToString(), CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[FinishConsultation] Falha ao notificar SignalR ConsultationEnded para {RequestId}", id);
+            }
+
+            try
+            {
+                var roomName = dailyConfig.Value.GetRoomName(id);
+                _ = dailyVideoService.DeleteRoomAsync(roomName, CancellationToken.None)
+                    .ContinueWith(t =>
+                    {
+                        if (t.IsFaulted)
+                            logger.LogWarning(t.Exception, "[FinishConsultation] Falha ao deletar sala Daily {RoomName}", roomName);
+                    }, TaskContinuationOptions.OnlyOnFaulted);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[FinishConsultation] Falha ao iniciar deleção da sala Daily para {RequestId}", id);
+            }
+        }
 
         return Ok(request);
     }

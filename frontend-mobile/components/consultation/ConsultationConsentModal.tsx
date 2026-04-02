@@ -66,11 +66,11 @@ export function ConsultationConsentModal({
       statusBarTranslucent
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
+        <View style={styles.card} accessibilityViewIsModal accessibilityRole="none">
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
-            <Text style={styles.title}>Termo de Consentimento</Text>
+            <Ionicons name="shield-checkmark" size={32} color={colors.primary} importantForAccessibility="no" />
+            <Text style={styles.title} accessibilityRole="header">Termo de Consentimento</Text>
             <Text style={styles.subtitle}>Resolução CFM 2.314/2022</Text>
           </View>
 
@@ -85,14 +85,15 @@ export function ConsultationConsentModal({
             </Text>
 
             {CONSENT_ITEMS.map((item, index) => (
-              <View key={index} style={styles.consentItem}>
+              <View key={index} style={styles.consentItem} accessible accessibilityLabel={item}>
                 <Ionicons
                   name="checkmark-circle"
                   size={18}
                   color={colors.primary}
                   style={styles.consentIcon}
+                  importantForAccessibility="no"
                 />
-                <Text style={styles.consentText}>{item}</Text>
+                <Text style={styles.consentText} importantForAccessibility="no">{item}</Text>
               </View>
             ))}
           </ScrollView>

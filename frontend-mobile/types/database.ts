@@ -85,7 +85,7 @@ export type RequestStatus =
   | 'pending'
   | 'analyzing'
   | 'completed'
-  // Legados (backend pode retornar; fluxo de pagamento removido — tratados como approved)
+  // Legados (backend pode retornar dados históricos — tratados como approved)
   | 'approved_pending_payment'
   | 'pending_payment'
   | 'paid';
@@ -120,7 +120,7 @@ export interface RequestResponseDto {
   aiUrgency: string | null;
   aiReadabilityOk: boolean | null;
   aiMessageToUser: string | null;
-  /** Preço (legado; fluxo de pagamento removido). */
+  /** Preço (legado; sempre 0 — serviço gratuito SUS). */
   price?: number | null;
   /** Transcrição da consulta por vídeo (apenas solicitações tipo consultation). */
   consultationTranscript?: string | null;

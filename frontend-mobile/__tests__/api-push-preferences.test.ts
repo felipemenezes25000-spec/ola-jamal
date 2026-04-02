@@ -14,7 +14,6 @@ import { getPushPreferences, updatePushPreferences } from '../lib/api-push-prefe
 
 const MOCK_PREFS = {
   requestsEnabled: true,
-  paymentsEnabled: true,
   consultationsEnabled: false,
   remindersEnabled: true,
   timezone: 'America/Sao_Paulo',

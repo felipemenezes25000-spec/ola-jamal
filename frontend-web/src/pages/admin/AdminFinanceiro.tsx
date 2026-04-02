@@ -162,7 +162,7 @@ const AdminFinanceiro = () => {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(var(--primary-rgb,99,102,241),0.12),transparent)]" />
           <div className="relative">
             <h1 className="text-2xl font-bold tracking-tight">Simulador Financeiro — Telemedicina</h1>
-            <p className="text-muted-foreground text-sm mt-1">Plataforma de analise e projecao financeira para teleconsultas por video — modelos SUS & privado em tempo real</p>
+            <p className="text-muted-foreground text-sm mt-1">Plataforma de análise e projeção financeira para teleconsultas por vídeo — modelos SUS & privado em tempo real</p>
             <div className="flex flex-wrap gap-2 mt-4">
               <div className="flex items-center gap-1.5 bg-card/80 border border-border/60 rounded-full px-3 py-1.5">
                 <span className={`w-2 h-2 rounded-full ${r.res >= 0 ? "bg-green-400 animate-pulse" : "bg-red-400"}`} />
@@ -186,7 +186,7 @@ const AdminFinanceiro = () => {
           <CardContent className="p-5 space-y-4">
             <div>
               <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span className="w-1 h-4 bg-primary rounded-full" /> Parametros de Receita
+                <span className="w-1 h-4 bg-primary rounded-full" /> Parâmetros de Receita
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Slider icon="📊" label="Teleconsultas/dia" value={ad} onChange={setADSync} min={1} max={5000} />
@@ -199,10 +199,10 @@ const AdminFinanceiro = () => {
                 <span className="w-1 h-4 bg-primary rounded-full" /> Parametros Operacionais
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <Slider icon="🩺" label="Custo diario/medico (R$)" value={med} onChange={v => setMed(v)} min={100} max={20000} step={50} />
-                <Slider icon="👨‍⚕️" label="Qtd medicos" value={docs} onChange={v => setDocs(v)} min={1} max={500} />
-                <Slider icon="📅" label="Dias trabalhados/mes" tag="editavel" value={dias} onChange={setDiasSync} min={1} max={31} />
-                <Slider icon="⏱️" label="Duracao teleconsulta (min)" value={dur} onChange={v => setDur(v)} min={5} max={60} />
+                <Slider icon="🩺" label="Custo diário/médico (R$)" value={med} onChange={v => setMed(v)} min={100} max={20000} step={50} />
+                <Slider icon="👨‍⚕️" label="Qtd médicos" value={docs} onChange={v => setDocs(v)} min={1} max={500} />
+                <Slider icon="📅" label="Dias trabalhados/mês" tag="editável" value={dias} onChange={setDiasSync} min={1} max={31} />
+                <Slider icon="⏱️" label="Duração teleconsulta (min)" value={dur} onChange={v => setDur(v)} min={5} max={60} />
               </div>
             </div>
             <div>
@@ -222,7 +222,7 @@ const AdminFinanceiro = () => {
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
             className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl p-4 text-sm flex items-start gap-3">
             <span className="text-lg mt-0.5">⚠️</span>
-            <div><b>Capacidade excedida:</b> {docs} medico(s) x {r.cap} teleconsultas/dia x {dias}d = {NL(capM)} max. Precisa de <b>{r.dn} medicos</b>.</div>
+            <div><b>Capacidade excedida:</b> {docs} médico(s) x {r.cap} teleconsultas/dia x {dias}d = {NL(capM)} máx. Precisa de <b>{r.dn} médicos</b>.</div>
           </motion.div>
         )}
 
@@ -230,10 +230,10 @@ const AdminFinanceiro = () => {
         <div className="flex gap-2 flex-wrap">
           <TabButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>Dashboard Executivo</TabButton>
           <TabButton active={activeTab === "funil"} onClick={() => setActiveTab("funil")}>Funil de Teleconsulta</TabButton>
-          <TabButton active={activeTab === "cenarios"} onClick={() => setActiveTab("cenarios")}>Cenarios Operacionais</TabButton>
+          <TabButton active={activeTab === "cenarios"} onClick={() => setActiveTab("cenarios")}>Cenários Operacionais</TabButton>
           <TabButton active={activeTab === "cidade"} onClick={() => setActiveTab("cidade")} count={SP_CITIES.length}>Potencial por Cidade</TabButton>
-          <TabButton active={activeTab === "modelos"} onClick={() => setActiveTab("modelos")} count={11}>Modelos de Cobranca</TabButton>
-          <TabButton active={activeTab === "analise"} onClick={() => setActiveTab("analise")}>Analise Avancada</TabButton>
+          <TabButton active={activeTab === "modelos"} onClick={() => setActiveTab("modelos")} count={11}>Modelos de Cobrança</TabButton>
+          <TabButton active={activeTab === "analise"} onClick={() => setActiveTab("analise")}>Análise Avançada</TabButton>
         </div>
 
         <AnimatePresence mode="wait">
@@ -341,68 +341,68 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
     { id: "fixo", name: "Fixo por Consulta", tipo: "Privado", perConsulta: val, recMes: refRecMes,
       color: "text-primary", borderColor: "border-primary/30", bgColor: "bg-primary/5",
       desc: "Valor fixo por teleconsulta. Modelo atual da plataforma de telemedicina.",
-      pros: ["Simples de implementar", "Previsibilidade para o paciente", "Facil de calcular"],
-      contras: ["Receita limitada por volume", "Nao diferencia complexidade", "Sem receita recorrente"],
+      pros: ["Simples de implementar", "Previsibilidade para o paciente", "Fácil de calcular"],
+      contras: ["Receita limitada por volume", "Não diferencia complexidade", "Sem receita recorrente"],
       score: calcScore(refRecMes, false, true) },
     { id: "minuto", name: "Por Minuto", tipo: "Privado", perConsulta: perMinConsulta, recMes: perMinMes,
       color: "text-green-400", borderColor: "border-green-400/30", bgColor: "bg-green-400/5",
-      desc: "Cobranca proporcional ao tempo de teleconsulta por video. Justo para ambas as partes.",
-      pros: ["Justo para paciente e medico", "Incentiva eficiencia", "Margem em teleconsultas longas"],
-      contras: ["Imprevisivel para paciente", "Pode gerar pressa no atendimento", "Complexo de faturar"],
+      desc: "Cobrança proporcional ao tempo de teleconsulta por vídeo. Justo para ambas as partes.",
+      pros: ["Justo para paciente e médico", "Incentiva eficiência", "Margem em teleconsultas longas"],
+      contras: ["Imprevisível para paciente", "Pode gerar pressa no atendimento", "Complexo de faturar"],
       score: calcScore(perMinMes, false, true) },
     { id: "mensal", name: "Assinatura Mensal", tipo: "Privado", perConsulta: mensalPerConsulta, recMes: mensalRecMes,
       color: "text-purple-400", borderColor: "border-purple-400/30", bgColor: "bg-purple-400/5",
-      desc: "Plano mensal com teleconsultas ilimitadas ou limitadas. Receita recorrente previsivel.",
-      pros: ["Receita recorrente (MRR)", "Alto LTV", "Fidelizacao do paciente"],
-      contras: ["Risco de uso excessivo", "Churn se nao usar", "Necessita boa retencao"],
+      desc: "Plano mensal com teleconsultas ilimitadas ou limitadas. Receita recorrente previsível.",
+      pros: ["Receita recorrente (MRR)", "Alto LTV", "Fidelização do paciente"],
+      contras: ["Risco de uso excessivo", "Churn se não usar", "Necessita boa retenção"],
       score: calcScore(mensalRecMes, true, true) },
     { id: "anual", name: "Assinatura Anual", tipo: "Privado", perConsulta: anualPerConsulta, recMes: anualRecMes,
       color: "text-blue-400", borderColor: "border-blue-400/30", bgColor: "bg-blue-400/5",
-      desc: "Plano anual com desconto. Receita antecipada e previsivel.",
+      desc: "Plano anual com desconto. Receita antecipada e previsível.",
       pros: ["Receita antecipada", "Churn reduzido", "Desconto atrai clientes"],
       contras: ["Barreira de entrada alta", "Reembolso complexo", "Dificuldade de reajuste"],
       score: calcScore(anualRecMes, true, true) },
-    { id: "convenio", name: "Convenio / Plano", tipo: "Privado", perConsulta: convenioLiq, recMes: convenioMes,
+    { id: "convenio", name: "Convênio / Plano", tipo: "Privado", perConsulta: convenioLiq, recMes: convenioMes,
       color: "text-orange-400", borderColor: "border-orange-400/30", bgColor: "bg-orange-400/5",
-      desc: "Teleconsultas via planos de saude com tabela TUSS. Volume alto mas margem menor.",
+      desc: "Teleconsultas via planos de saúde com tabela TUSS. Volume alto mas margem menor.",
       pros: ["Volume garantido pelo plano", "Base grande de pacientes", "Credibilidade"],
       contras: ["Glosa de " + glosa + "%", "Valor tabelado baixo", "Pagamento em 30-60 dias"],
       score: calcScore(convenioMes, true, false) },
     { id: "pacote", name: "Pacote Bundle", tipo: "Privado", perConsulta: pacotePerConsulta, recMes: pacoteMes,
       color: "text-cyan-400", borderColor: "border-cyan-400/30", bgColor: "bg-cyan-400/5",
-      desc: "Pacote com N teleconsultas por preco fechado. Incentiva uso e retorno.",
+      desc: "Pacote com N teleconsultas por preço fechado. Incentiva uso e retorno.",
       pros: ["Receita antecipada", "Paciente retorna", "Perceived value alto"],
-      contras: ["Desconto implicito", "Consultas nao usadas = custo zero", "Controle complexo"],
+      contras: ["Desconto implícito", "Consultas não usadas = custo zero", "Controle complexo"],
       score: calcScore(pacoteMes, false, true) },
     { id: "freemium", name: "Freemium + Premium", tipo: "Privado", perConsulta: freemiumPerConsulta, recMes: freemiumMes,
       color: "text-pink-400", borderColor: "border-pink-400/30", bgColor: "bg-pink-400/5",
-      desc: "Base gratis com conversao para plano premium pago. Funil de aquisicao.",
-      pros: ["Aquisicao massiva", "Baixo CAC", "Upsell natural"],
-      contras: ["Apenas " + freemiumConv + "% converte", "Custo de atender gratis", "Receita dependente de conversao"],
+      desc: "Base grátis com conversão para plano premium pago. Funil de aquisição.",
+      pros: ["Aquisição massiva", "Baixo CAC", "Upsell natural"],
+      contras: ["Apenas " + freemiumConv + "% converte", "Custo de atender grátis", "Receita dependente de conversão"],
       score: calcScore(freemiumMes, false, true) },
     { id: "sus-tele", name: "Telessaude SIGTAP", tipo: "SUS", perConsulta: susTeleconsulta * (susPercRepasse / 100), recMes: susTelemedicinaMes,
       color: "text-emerald-400", borderColor: "border-emerald-400/30", bgColor: "bg-emerald-400/5",
       desc: "Teleconsulta BPA cod. 0301010072. Repasse federal por procedimento.",
-      pros: ["Demanda garantida (SUS)", "Impacto social", "Escala via municipios"],
-      contras: ["Valor tabelado baixo", "Burocracia de habilitacao", "Repasse pode atrasar"],
+      pros: ["Demanda garantida (SUS)", "Impacto social", "Escala via municípios"],
+      contras: ["Valor tabelado baixo", "Burocracia de habilitação", "Repasse pode atrasar"],
       score: calcScore(susTelemedicinaMes, false, false) },
     { id: "sus-psf", name: "PSF/ESF Per Capita", tipo: "SUS", perConsulta: susPsfPerConsulta, recMes: susPsfMes,
       color: "text-teal-400", borderColor: "border-teal-400/30", bgColor: "bg-teal-400/5",
-      desc: "Programa Saude da Familia — repasse fixo por pessoa cadastrada na equipe.",
+      desc: "Programa Saúde da Família — repasse fixo por pessoa cadastrada na equipe.",
       pros: ["Receita fixa mensal", "Independe de volume", "Longo prazo"],
-      contras: ["Necessita vinculo ESF", "Limite de populacao/equipe", "Reajuste raro"],
+      contras: ["Necessita vínculo ESF", "Limite de população/equipe", "Reajuste raro"],
       score: calcScore(susPsfMes, true, false) },
-    { id: "sus-mac", name: "MAC (Media/Alta)", tipo: "SUS", perConsulta: susMacPerConsulta, recMes: susMacMes,
+    { id: "sus-mac", name: "MAC (Média/Alta)", tipo: "SUS", perConsulta: susMacPerConsulta, recMes: susMacMes,
       color: "text-amber-400", borderColor: "border-amber-400/30", bgColor: "bg-amber-400/5",
-      desc: "Procedimentos de media/alta complexidade viabilizados por telemedicina — tabela SIGTAP.",
+      desc: "Procedimentos de média/alta complexidade viabilizados por telemedicina — tabela SIGTAP.",
       pros: ["Valor por procedimento mais alto", "Especialidades valorizadas", "Complementa BPA"],
-      contras: ["Volume limitado por teto", "Necessita autorizacao", "Auditoria rigorosa"],
+      contras: ["Volume limitado por teto", "Necessita autorização", "Auditoria rigorosa"],
       score: calcScore(susMacMes, false, false) },
     { id: "sus-nasf", name: "NASF/eMulti", tipo: "SUS", perConsulta: susNasfPerConsulta, recMes: susNasfMes,
       color: "text-lime-400", borderColor: "border-lime-400/30", bgColor: "bg-lime-400/5",
-      desc: "Nucleo de Apoio a Saude da Familia — custeio fixo por equipe vinculada.",
+      desc: "Núcleo de Apoio à Saúde da Família — custeio fixo por equipe vinculada.",
       pros: ["Receita fixa por equipe", "Multidisciplinar", "Apoio matricial"],
-      contras: ["Depende de vinculacao", "Limite de equipes", "Pode ser descontinuado"],
+      contras: ["Depende de vinculação", "Limite de equipes", "Pode ser descontinuado"],
       score: calcScore(susNasfMes, true, false) },
   ];}, [val, refRecMes, perMinConsulta, perMinMes, mensalPerConsulta, mensalRecMes,
       anualPerConsulta, anualRecMes, convenioLiq, convenioMes, pacotePerConsulta, pacoteMes,
@@ -416,7 +416,7 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
 
   return (
     <>
-      <SectionHeader title="Modelos de Cobranca — Telemedicina" subtitle="Configure e compare modelos de receita para teleconsultas por video — SUS e privado" badge="11 MODELOS" />
+      <SectionHeader title="Modelos de Cobrança — Telemedicina" subtitle="Configure e compare modelos de receita para teleconsultas por vídeo — SUS e privado" badge="11 MODELOS" />
 
       {/* Best picks */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -433,7 +433,7 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
           className="bg-gradient-to-r from-blue-500/10 to-blue-500/5 border border-blue-500/20 rounded-xl p-4 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-2xl flex-shrink-0">⭐</div>
           <div className="min-w-0">
-            <p className="text-[9px] font-bold text-blue-400 uppercase tracking-wider">Melhor Avaliacao</p>
+            <p className="text-[9px] font-bold text-blue-400 uppercase tracking-wider">Melhor Avaliação</p>
             <p className="text-sm font-bold truncate">{bestScore.name}</p>
             <p className="text-lg font-bold font-mono text-blue-400">{bestScore.score}<span className="text-xs text-muted-foreground font-normal">/100 pts</span></p>
           </div>
@@ -579,7 +579,7 @@ function PricingModelsTab({ val, dur, pes }: Pick<SimProps, 'val' | 'dur' | 'pes
               <ParamInput label="% Glosa" value={glosa} onChange={setGlosa} step={1} />
               <ParamInput label="Pacote (R$)" value={valPacote} onChange={setValPacote} step={1} />
               <ParamInput label="Consultas/pacote" value={consultasPacote} onChange={setConsultasPacote} step={1} />
-              <ParamInput label="% Conversao free" value={freemiumConv} onChange={setFreemiumConv} step={1} />
+              <ParamInput label="% Conversão free" value={freemiumConv} onChange={setFreemiumConv} step={1} />
               <ParamInput label="R$/premium" value={valPremium} onChange={setValPremium} step={1} />
             </div>
           </div>
@@ -727,7 +727,7 @@ function ScenariosCard({ val, pes, med, docs, dur, dias }: SimProps) {
   return (
     <Card className="border-border/60">
       <CardContent className="p-5">
-        <SectionHeader title="Cenarios Comparativos" subtitle="Pessimista (50% vol, -15% preco), realista e otimista (180% vol, +15% preco)" />
+        <SectionHeader title="Cenários Comparativos" subtitle="Pessimista (50% vol, -15% preço), realista e otimista (180% vol, +15% preço)" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           {scenarios.map(s => {
             const sp = Math.round(pes * s.pesMult);
@@ -796,7 +796,7 @@ function GrowthProjectionCard({ val, pes, med, docs, dur, dias }: SimProps) {
     <Card className="border-border/60">
       <CardContent className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <SectionHeader title="Projecao 12 Meses" subtitle="Crescimento mensal composto — receita, custo e resultado acumulado" />
+          <SectionHeader title="Projeção 12 Meses" subtitle="Crescimento mensal composto — receita, custo e resultado acumulado" />
           <div className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2">
             <span className="text-[10px] text-muted-foreground">Crescimento/mes:</span>
             <input type="number" className="w-16 bg-secondary border border-border/60 rounded-lg px-2 py-1 text-right text-sm font-mono text-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -873,12 +873,12 @@ function SensitivityCard({ val, pes, med, docs, dur, dias }: SimProps) {
   return (
     <Card className="border-border/60">
       <CardContent className="p-5">
-        <SectionHeader title="Analise de Sensibilidade" subtitle="Resultado mensal variando preco (colunas) e volume (linhas) — heatmap de viabilidade" />
+        <SectionHeader title="Análise de Sensibilidade" subtitle="Resultado mensal variando preço (colunas) e volume (linhas) — heatmap de viabilidade" />
         <div className="overflow-x-auto mt-4">
           <table className="w-full text-[10px]">
             <thead>
               <tr>
-                <th className="px-3 py-2 text-left text-muted-foreground font-semibold">Vol \ Preco</th>
+                <th className="px-3 py-2 text-left text-muted-foreground font-semibold">Vol \ Preço</th>
                 {priceSteps.map(p => (
                   <th key={p} className="px-3 py-2 text-center text-muted-foreground font-semibold">
                     {p >= 0 ? "+" : ""}{p}%<br />
@@ -934,12 +934,12 @@ function UnitEconomicsCard({ val, pes, dias, r, mgP, bm }: Omit<SimProps, 'med' 
   const kpis = [
     { label: "LTV", value: "R$ " + NL(Math.round(ltv)), sub: `${lifetimeMonths}m x ${avgConsultsPerPatient} cons/ano`, color: "text-blue-400", score: ltv > 100 },
     { label: "CAC", value: "R$ " + NL(cac), sub: "marketing digital", color: "text-pink-400", score: cac < 50 },
-    { label: "LTV:CAC", value: ltvCacRatio.toFixed(1) + "x", sub: ltvCacRatio >= 3 ? "saudavel" : "atencao", color: ltvCacRatio >= 3 ? "text-green-400" : "text-warning", score: ltvCacRatio >= 3 },
+    { label: "LTV:CAC", value: ltvCacRatio.toFixed(1) + "x", sub: ltvCacRatio >= 3 ? "saudável" : "atenção", color: ltvCacRatio >= 3 ? "text-green-400" : "text-warning", score: ltvCacRatio >= 3 },
     { label: "Payback CAC", value: paybackMonths === Infinity ? "N/A" : paybackMonths + "m", sub: "tempo recuperar", color: paybackMonths <= 6 ? "text-green-400" : "text-warning", score: paybackMonths <= 6 },
     { label: "Margem Bruta", value: grossMargin.toFixed(1) + "%", sub: "receita - custos", color: grossMargin >= 30 ? "text-green-400" : "text-warning", score: grossMargin >= 30 },
-    { label: "Utilizacao", value: Math.min(utilizationRate, 100).toFixed(0) + "%", sub: `${NL(Math.ceil(pes / dias))}/${r.cap * r.dn} cap`, color: utilizationRate >= 70 ? "text-green-400" : "text-warning", score: utilizationRate >= 70 },
-    { label: "Receita/Med", value: FK(revenuePerDoctor), sub: "por medico/mes", color: "text-blue-400", score: revenuePerDoctor > 10000 },
-    { label: "Lucro/Med", value: FK(profitPerDoctor), sub: "resultado/medico", color: profitPerDoctor >= 0 ? "text-green-400" : "text-destructive", score: profitPerDoctor > 0 },
+    { label: "Utilização", value: Math.min(utilizationRate, 100).toFixed(0) + "%", sub: `${NL(Math.ceil(pes / dias))}/${r.cap * r.dn} cap`, color: utilizationRate >= 70 ? "text-green-400" : "text-warning", score: utilizationRate >= 70 },
+    { label: "Receita/Med", value: FK(revenuePerDoctor), sub: "por médico/mês", color: "text-blue-400", score: revenuePerDoctor > 10000 },
+    { label: "Lucro/Med", value: FK(profitPerDoctor), sub: "resultado/médico", color: profitPerDoctor >= 0 ? "text-green-400" : "text-destructive", score: profitPerDoctor > 0 },
     { label: "Breakeven", value: bm === Infinity ? "N/A" : NL(bm), sub: `margem R$ ${F2(mgP)}/pac`, color: "text-warning", score: bm !== Infinity && bm < 500 },
     { label: "Burn Rate", value: burnRate > 0 ? FK(burnRate) : "Lucrativo", sub: burnRate > 0 ? "consumo/mes" : "sem queima", color: burnRate > 0 ? "text-destructive" : "text-green-400", score: burnRate === 0 },
   ];
@@ -947,7 +947,7 @@ function UnitEconomicsCard({ val, pes, dias, r, mgP, bm }: Omit<SimProps, 'med' 
   return (
     <Card className="border-border/60">
       <CardContent className="p-5">
-        <SectionHeader title="Unit Economics & KPIs" subtitle="Metricas-chave para investidores — LTV, CAC, margens e eficiencia" badge="EXECUTIVO" />
+        <SectionHeader title="Unit Economics & KPIs" subtitle="Métricas-chave para investidores — LTV, CAC, margens e eficiência" badge="EXECUTIVO" />
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-4">
           {kpis.map(k => (
             <div key={k.label} className="bg-secondary/20 rounded-xl p-3 text-center border border-border/40 relative overflow-hidden group hover:border-primary/20 transition-all">

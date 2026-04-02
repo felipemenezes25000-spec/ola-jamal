@@ -14,10 +14,12 @@ public interface IConsultationAnamnesisService
     /// </summary>
     /// <param name="transcriptSoFar">Texto transcrito até o momento.</param>
     /// <param name="previousAnamnesisJson">JSON da anamnese anterior (ou null). O modelo mantém e atualiza.</param>
+    /// <param name="consultationType">Tipo de consulta: "psicologo" ou "medico_clinico". Altera o prompt.</param>
     /// <param name="cancellationToken">Cancelamento.</param>
     /// <returns>Anamnese JSON atualizada e até 3 sugestões; ou null se API não configurada.</returns>
     Task<ConsultationAnamnesisResult?> UpdateAnamnesisAndSuggestionsAsync(
         string transcriptSoFar,
         string? previousAnamnesisJson,
+        string? consultationType = null,
         CancellationToken cancellationToken = default);
 }

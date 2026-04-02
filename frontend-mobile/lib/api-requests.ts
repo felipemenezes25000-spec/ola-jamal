@@ -168,6 +168,23 @@ export async function getAssistantNextAction(
   return apiClient.post('/api/assistant/next-action', data);
 }
 
+export interface ExamSuggestion {
+  exam: string;
+  reason: string;
+}
+
+export interface SuggestExamsResponse {
+  suggestions: ExamSuggestion[];
+  message?: string;
+}
+
+export async function suggestExamsFromSymptoms(
+  symptoms: string,
+  examType?: string,
+): Promise<SuggestExamsResponse> {
+  return apiClient.post('/api/assistant/suggest-exams', { symptoms, examType });
+}
+
 export async function evaluateAssistantCompleteness(
   data: AssistantCompleteRequestData
 ): Promise<AssistantCompleteResponseData> {
@@ -369,7 +386,7 @@ export async function autoFinishConsultation(requestId: string): Promise<Request
   return apiClient.post(`/api/requests/${requestId}/auto-finish-consultation`, {});
 }
 
-/** Paciente cancela o pedido (apenas antes do pagamento). */
+/** Paciente cancela o pedido (apenas enquanto ainda não assinado). */
 export async function cancelRequest(requestId: string): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/cancel`, {});
 }

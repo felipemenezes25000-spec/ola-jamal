@@ -125,6 +125,7 @@ export default function VideoCallScreenInner() {
   const [contractedMinutes, setContractedMinutes] = useState<number | null>(null);
   const [consultationStartedAt, setConsultationStartedAt] = useState<string | null>(null);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
+  const [consultationType, setConsultationType] = useState<string | null>(null);
   /** Ref shadows — kept in sync via effects; used inside useCallback to avoid adding state to deps. */
   const consultationStartedAtRef = useRef<string | null>(null);
   const requestStatusRef = useRef<string | null>(null);
@@ -376,6 +377,7 @@ export default function VideoCallScreenInner() {
         if (req?.contractedMinutes) setContractedMinutes(req.contractedMinutes);
         if (req?.consultationStartedAt) setConsultationStartedAt(req.consultationStartedAt);
         if (req?.status) setRequestStatus(req.status);
+        if (req?.consultationType) setConsultationType(req.consultationType);
 
         // 2. Join token (precisa da sala criada) — novo deadline, não compartilha o da fase 1
         const t2 = createTimeoutRace(INIT_PHASE2_MS);
@@ -702,7 +704,18 @@ export default function VideoCallScreenInner() {
     await leave();
     try {
       await finishConsultation(rid, clinicalNotes.trim() ? { clinicalNotes: clinicalNotes.trim() } : undefined);
-    } catch {}
+    } catch (e: unknown) {
+      if (__DEV__) console.warn('[VideoCall] finishConsultation failed:', e);
+      Alert.alert(
+        'Erro ao encerrar',
+        'Não foi possível encerrar a consulta no servidor. Tente novamente.',
+        [
+          { text: 'Tentar novamente', onPress: () => { leavingRef.current = false; setEnding(false); } },
+          { text: 'Sair mesmo assim', style: 'destructive', onPress: () => { cleanup(); nav.replace(router, `/post-consultation-emit/${rid}`); } },
+        ],
+      );
+      return;
+    }
     cleanup();
     // Médico vai para tela de pós-consulta (emissão de receita + exames + atestado)
     nav.replace(router, `/post-consultation-emit/${rid}`);
@@ -717,12 +730,8 @@ export default function VideoCallScreenInner() {
         { text: 'Encerrar', style: 'destructive', onPress: () => doEnd(false) },
       ]);
     } else {
-      // Paciente: só sai da chamada — pode voltar enquanto houver minutos; só o médico encerra
-      const rem = contractedMinutes ? contractedMinutes * 60 - callSeconds : null;
-      const unusedMin = rem != null && rem > 0 ? Math.floor(rem / 60) : 0;
-      const msg = unusedMin > 0
-        ? `Você ainda tem ~${unusedMin} minuto(s) restante(s).\n\nVocê pode voltar à sala a qualquer momento pelo detalhe do pedido. Só o médico pode encerrar a consulta.`
-        : 'Você pode voltar à sala pelo detalhe do pedido enquanto houver tempo. Só o médico encerra a consulta.\n\nDeseja sair agora?';
+      // Paciente: só sai da chamada — pode voltar; só o médico encerra
+      const msg = 'Você pode voltar à sala a qualquer momento pelo detalhe do pedido. Só o médico pode encerrar a consulta.\n\nDeseja sair agora?';
       Alert.alert('Sair da chamada', msg, [
         { text: 'Continuar', style: 'cancel' },
         {
@@ -739,7 +748,7 @@ export default function VideoCallScreenInner() {
         },
       ]);
     }
-  }, [isDoctor, doEnd, contractedMinutes, callSeconds, leave, cleanup, router, rid]);
+  }, [isDoctor, doEnd, leave, cleanup, router, rid]);
 
   // Android: botão Voltar durante a chamada — mostrar confirmação em vez de sair direto
   useEffect(() => {
@@ -932,7 +941,7 @@ export default function VideoCallScreenInner() {
       )}
 
       {/* Patient: só o médico encerra; paciente pode sair e voltar */}
-      {!isInPipMode && !isDoctor && callState === 'joined' && contractedMinutes && callSeconds > 0 && (
+      {!isInPipMode && !isDoctor && callState === 'joined' && callSeconds > 0 && (
         <View style={[S.earlyLeaveHint, { bottom: 80 + insets.bottom + 12 }]}>
           <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
           <Text style={S.earlyLeaveText}>
@@ -947,7 +956,7 @@ export default function VideoCallScreenInner() {
           style={[S.panel, { width: panelWidth, top: insets.top + 48, bottom: 80 + insets.bottom, transform: [{ translateX: panelX }] }]}
           pointerEvents={panelOpen ? 'auto' : 'none'}
         >
-          <DoctorAIPanel anamnesis={anamnesis} suggestions={suggestions} evidence={evidence} />
+          <DoctorAIPanel anamnesis={anamnesis} suggestions={suggestions} evidence={evidence} consultationType={consultationType} />
         </Animated.View>
       )}
 

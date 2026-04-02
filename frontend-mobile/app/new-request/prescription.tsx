@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
@@ -145,7 +146,7 @@ export default function NewPrescription() {
 
     const remaining = 5 - images.length;
     if (remaining <= 0) {
-      Alert.alert('Limite atingido', 'Máximo de 5 fotos por solicitação.');
+      Alert.alert('Limite atingido', 'Máximo de 5 arquivos por solicitação.');
       return;
     }
 
@@ -153,6 +154,25 @@ export default function NewPrescription() {
       quality: 0.8,
       allowsMultipleSelection: true,
       selectionLimit: remaining,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const allowed = result.assets.slice(0, remaining);
+      setImages([...images, ...allowed.map((a) => a.uri)]);
+    }
+  };
+
+  const pickDocument = async () => {
+    const remaining = 5 - images.length;
+    if (remaining <= 0) {
+      Alert.alert('Limite atingido', 'Máximo de 5 arquivos por solicitação.');
+      return;
+    }
+
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+      multiple: remaining > 1,
     });
 
     if (!result.canceled && result.assets?.length) {
@@ -185,7 +205,7 @@ export default function NewPrescription() {
     }
 
     if (images.length === 0) {
-      Alert.alert('Foto necessária', 'Tire uma foto da receita antiga para continuar.');
+      Alert.alert('Foto ou arquivo necessário', 'Envie uma foto ou PDF da receita antiga para continuar.');
       return;
     }
 
@@ -368,13 +388,13 @@ export default function NewPrescription() {
             })}
           </View>
 
-          {/* Photo Upload */}
-          <Text style={styles.sectionLabel}>Foto da receita</Text>
+          {/* Photo / Document Upload */}
+          <Text style={styles.sectionLabel}>Foto ou arquivo da receita</Text>
 
           <View style={styles.warningCard}>
             <Ionicons name="warning" size={16} color={colors.warning} />
             <Text style={styles.warningText}>
-              Envie <Text style={styles.warningBold}>somente</Text> fotos da receita (papel ou tela). Outras imagens serão rejeitadas.
+              Envie <Text style={styles.warningBold}>somente</Text> fotos ou PDFs da receita. Outras imagens ou arquivos serão rejeitados.
             </Text>
           </View>
 
@@ -383,7 +403,7 @@ export default function NewPrescription() {
               <View style={styles.photoStatusLeft}>
                 <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                 <Text style={styles.photoStatusText}>
-                  {images.length} foto{images.length > 1 ? 's' : ''} adicionada{images.length > 1 ? 's' : ''}
+                  {images.length} arquivo{images.length > 1 ? 's' : ''} adicionado{images.length > 1 ? 's' : ''}
                 </Text>
               </View>
               <Text style={styles.photoStatusHint}>máx. 5</Text>
@@ -391,7 +411,7 @@ export default function NewPrescription() {
           ) : (
             <View style={styles.photoRequiredRow}>
               <Ionicons name="camera-outline" size={14} color={colors.warning} />
-              <Text style={styles.photoRequiredText}>Adicione ao menos 1 foto para continuar</Text>
+              <Text style={styles.photoRequiredText}>Adicione ao menos 1 foto ou arquivo para continuar</Text>
             </View>
           )}
 
@@ -417,6 +437,17 @@ export default function NewPrescription() {
                 <Ionicons name="image" size={24} color={colors.primary} />
               </View>
               <Text style={styles.photoButtonLabel}>Galeria</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.photoButton, pressed && styles.photoButtonPressed]}
+              onPress={pickDocument}
+              accessibilityRole="button"
+              accessibilityLabel="Anexar arquivo PDF da receita"
+            >
+              <View style={styles.photoIconCircle}>
+                <Ionicons name="document-attach" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.photoButtonLabel}>Arquivo</Text>
             </Pressable>
           </View>
 
@@ -451,7 +482,7 @@ export default function NewPrescription() {
         <StickyCTA
           summaryTitle="Resumo"
           summaryValue={`${completeness.score}% pronto`}
-          summaryHint={`${images.length} ${images.length === 1 ? 'foto anexada' : 'fotos anexadas'}`}
+          summaryHint={`${images.length} ${images.length === 1 ? 'arquivo anexado' : 'arquivos anexados'}`}
           primary={{
             label: 'Enviar pedido',
             onPress: handleSubmit,

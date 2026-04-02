@@ -15,8 +15,6 @@ import {
   getPatientProfile, type PatientProfile,
 } from '@/services/doctorApi';
 import { getTypeLabel, getTypeIcon, getStatusInfo, normalizeStatus } from '@/lib/doctor-helpers';
-import { AiCopilotCard } from '@/components/doctor/AiCopilotCard';
-import { hasUsefulAiContent } from '@/lib/aiCopilotHelpers';
 import { StatusTracker } from '@/components/doctor/StatusTracker';
 import { ConsultationPostSection } from '@/components/doctor/ConsultationPostSection';
 import { PatientSidePanel } from '@/components/doctor/PatientSidePanel';
@@ -152,7 +150,7 @@ export default function DoctorRequestDetail() {
     setActionLoading('download');
     try {
       const url = request.signedDocumentUrl || await getDocumentDownloadUrl(id);
-      if (!url) { toast.error('URL de download nao disponivel'); return; }
+      if (!url) { toast.error('URL de download não disponível'); return; }
       window.open(url, '_blank', 'noopener,noreferrer');
       toast.success('Download iniciado');
     } catch (err) {
@@ -176,7 +174,7 @@ export default function DoctorRequestDetail() {
     return (
       <DoctorLayout>
         <div className="text-center py-20">
-          <p className="text-muted-foreground">Pedido nao encontrado</p>
+          <p className="text-muted-foreground">Pedido não encontrado</p>
           <Button variant="ghost" onClick={() => navigate('/pedidos')} className="mt-4">
             Voltar aos pedidos
           </Button>
@@ -285,7 +283,7 @@ export default function DoctorRequestDetail() {
                             onClick={() => navigate(`/paciente/${request.patientId}`)}
                             className="gap-1 shrink-0 text-xs sm:text-sm"
                           >
-                            Prontuario <ChevronRight className="h-3.5 w-3.5" />
+                            Prontuário <ChevronRight className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>
@@ -307,7 +305,7 @@ export default function DoctorRequestDetail() {
                                   : 'bg-emerald-100 text-emerald-700'
                             }`}
                           >
-                            {request.aiUrgency.toLowerCase() === 'routine' ? 'Rotina' : request.aiUrgency.toLowerCase() === 'urgent' ? 'Urgente' : request.aiUrgency.toLowerCase() === 'emergency' ? 'Emergencia' : request.aiUrgency}
+                            {request.aiUrgency.toLowerCase() === 'routine' ? 'Rotina' : request.aiUrgency.toLowerCase() === 'urgent' ? 'Urgente' : request.aiUrgency.toLowerCase() === 'emergency' ? 'Emergência' : request.aiUrgency}
                           </Badge>
                         )}
                         {patient?.phone && (
@@ -367,12 +365,6 @@ export default function DoctorRequestDetail() {
                   </motion.div>
                 )}
 
-                {/* AI copilot card (fallback) */}
-                {hasUsefulAiContent(request.aiSummaryForDoctor, request.aiRiskLevel, request.aiUrgency) && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-                    <AiCopilotCard aiSummaryForDoctor={request.aiSummaryForDoctor} aiRiskLevel={request.aiRiskLevel} aiUrgency={request.aiUrgency} />
-                  </motion.div>
-                )}
 
                 {/* ── Medications list (numbered) ── */}
                 {Array.isArray(request.medications) && request.medications.length > 0 && (
@@ -454,7 +446,7 @@ export default function DoctorRequestDetail() {
                         Atendimento gratuito via SUS
                       </p>
                       <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                        Este servico e 100% gratuito pelo Sistema Unico de Saude.
+                        Este serviço é 100% gratuito pelo Sistema Único de Saúde.
                       </p>
                     </div>
                   </div>

@@ -30,7 +30,7 @@ const COMPANION_TIPS = [
   'Receitas e exames digitais com assinatura segura. Estou aqui para ajudar.',
   'Fotos nítidas e bem iluminadas agilizam a análise do médico.',
   'Conte ao médico sintomas, há quanto tempo e quais medicamentos você usa.',
-  'Pedidos pendentes? Acompanhe o status aqui e pague quando aprovado.',
+  'Pedidos pendentes? Acompanhe o status aqui mesmo.',
   'Não esqueça de levar os resultados dos exames ao seu médico.',
 ];
 
@@ -41,7 +41,7 @@ interface AssistantBannerProps {
   onCompanionPress?: () => void;
   /** Estilo extra para posicionamento */
   containerStyle?: object;
-  /** Se true, esconde completamente (ex.: telas de pagamento com dados privados) */
+  /** Se true, esconde completamente (ex.: telas com dados privados) */
   hidden?: boolean;
   /** Modo embutido: esconde cabeçalho repetido e remove animação de entrada */
   embedded?: boolean;
@@ -207,7 +207,7 @@ export function AssistantBanner({ onAction, onCompanionPress, containerStyle, hi
       >
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setExpanded(false)} />
-          <View style={styles.modalCard}>
+          <View style={styles.modalCard} accessibilityViewIsModal accessibilityRole="none">
             <View style={styles.modalHeader}>
               <View style={[styles.avatar, { backgroundColor: av.bg, borderColor: av.border }]}>
                 <Ionicons name={av.icon} size={18} color={av.iconColor} />
@@ -221,8 +221,10 @@ export function AssistantBanner({ onAction, onCompanionPress, containerStyle, hi
               <Pressable
                 onPress={() => setExpanded(false)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar mensagem expandida"
               >
-                <Ionicons name="close" size={20} color={colors.textSecondary} />
+                <Ionicons name="close" size={20} color={colors.textSecondary} importantForAccessibility="no" />
               </Pressable>
             </View>
 

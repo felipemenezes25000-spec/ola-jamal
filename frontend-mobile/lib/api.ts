@@ -28,6 +28,7 @@ export * from './api-doctors';
 export * from './api-clinical';
 export * from './api-consultation';
 export * from './api-auth-extended';
+export * from './api-speech';
 
 // ── Existing split modules ──────────────────────────────────────
 export {

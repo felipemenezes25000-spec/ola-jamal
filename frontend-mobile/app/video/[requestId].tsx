@@ -126,15 +126,15 @@ export default function VideoRequestIdRoute() {
               <>
                 <Text style={styles.title}>Erro ao iniciar videochamada</Text>
                 <Text style={styles.message}>
-                  Nao conseguimos carregar o modulo de video.{'\n'}
+                  Não conseguimos carregar o módulo de vídeo.{'\n'}
                   Feche o aplicativo, abra novamente e tente entrar na consulta.
                 </Text>
               </>
             ) : isDev ? (
               <>
-                <Text style={styles.title}>Modulo de video indisponivel</Text>
+                <Text style={styles.title}>Módulo de vídeo indisponível</Text>
                 <Text style={styles.message}>
-                  Em modo de desenvolvimento (Expo Go), a videochamada nao esta disponivel.{'\n'}
+                  Em modo de desenvolvimento (Expo Go), a videochamada não está disponível.{'\n'}
                   Use um build de desenvolvimento para testar.
                 </Text>
                 <View style={styles.hintBox}>
@@ -145,10 +145,10 @@ export default function VideoRequestIdRoute() {
               </>
             ) : (
               <>
-                <Text style={styles.title}>Consulta por video</Text>
+                <Text style={styles.title}>Consulta por vídeo</Text>
                 <Text style={styles.message}>
-                  Seu medico esta aguardando voce.{'\n'}
-                  Certifique-se de ter uma boa conexao com a internet e que a camera e o microfone estejam liberados.
+                  Seu médico está aguardando você.{'\n'}
+                  Certifique-se de ter uma boa conexão com a internet e que a câmera e o microfone estejam liberados.
                 </Text>
               </>
             )}
@@ -186,7 +186,7 @@ export default function VideoRequestIdRoute() {
 
             {Platform.OS !== 'web' && (
               <View style={styles.tipsRow}>
-                <Tip icon="wifi-outline" text="Conexao estavel" />
+                <Tip icon="wifi-outline" text="Conexão estável" />
                 <Tip icon="mic-outline" text="Microfone liberado" />
                 <Tip icon="videocam-outline" text="Camera liberada" />
               </View>

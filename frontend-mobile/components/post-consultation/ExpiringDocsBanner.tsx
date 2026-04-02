@@ -57,12 +57,19 @@ export function ExpiringDocsBanner({ requests }: Props) {
       style={[S.banner, isUrgent && S.bannerUrgent]}
       activeOpacity={0.8}
       onPress={() => router.push(`/request-detail/${first.request.id}`)}
+      accessibilityRole="button"
+      accessibilityLabel={
+        expiring.length === 1
+          ? `Receita vence em ${first.daysLeft} dia${first.daysLeft !== 1 ? 's' : ''}. Toque para renovar`
+          : `${expiring.length} receitas vencendo em breve. Mais urgente: ${first.daysLeft} dia${first.daysLeft !== 1 ? 's' : ''}`
+      }
+      accessibilityHint="Abre os detalhes do pedido para renovação"
     >
-      <View style={[S.icon, isUrgent && S.iconUrgent]}>
+      <View style={[S.icon, isUrgent && S.iconUrgent]} importantForAccessibility="no">
         <Ionicons name={isUrgent ? 'warning' : 'time-outline'}
           size={20} color={isUrgent ? '#DC2626' : '#D97706'} />
       </View>
-      <View style={S.body}>
+      <View style={S.body} importantForAccessibility="no">
         <Text style={[S.title, isUrgent && S.titleUrgent]}>
           {expiring.length === 1
             ? `Receita vence em ${first.daysLeft} dia${first.daysLeft !== 1 ? 's' : ''}`
@@ -74,7 +81,7 @@ export function ExpiringDocsBanner({ requests }: Props) {
             : `Mais urgente: ${first.daysLeft} dia${first.daysLeft !== 1 ? 's' : ''}`}
         </Text>
       </View>
-      <View style={S.action}>
+      <View style={S.action} importantForAccessibility="no">
         <Text style={[S.actionText, isUrgent && S.actionTextUrgent]}>Renovar</Text>
         <Ionicons name="chevron-forward" size={14}
           color={isUrgent ? '#DC2626' : '#D97706'} />

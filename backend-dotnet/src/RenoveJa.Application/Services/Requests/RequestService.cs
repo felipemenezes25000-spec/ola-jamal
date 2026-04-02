@@ -204,9 +204,11 @@ public class RequestService(
         var consultationType = string.IsNullOrWhiteSpace(request.ConsultationType)
             ? "medico_clinico"
             : request.ConsultationType;
-        var durationMinutes = request.DurationMinutes > 0 ? request.DurationMinutes : 15;
+        // Consultas sem limite de tempo — ContractedMinutes null = sem countdown.
+        // Se o frontend enviar um valor > 0, ainda será respeitado.
+        int? durationMinutes = request.DurationMinutes > 0 ? request.DurationMinutes : null;
 
-        // Serviço gratuito — sem cobrança
+        // Serviço gratuito (SUS)
 
         var medicalRequest = MedicalRequest.CreateConsultation(
             userId,
@@ -811,8 +813,10 @@ public class RequestService(
         if (result.SignsOfTampering == true)
             return new("reject", "O documento enviado apresenta sinais de adulteração, edição ou recorte para ocultar informações. Envie uma foto completa e original da receita, sem alterações.");
 
+        // Nome não visível → encaminha ao médico em vez de rejeitar automaticamente.
+        // Receitas do SUS frequentemente têm nomes parciais, abreviados ou ilegíveis.
         if (result.PatientNameVisible == false)
-            return new("reject", "O nome do paciente não está visível na receita (recortado, em branco ou ilegível). Envie uma foto completa do documento onde o nome do paciente esteja claramente legível.");
+            return new("doubts");
 
         if (result.PrescriptionTypeVisible == false)
             return new("reject", "O tipo da receita (simples, controlada ou azul) não está visível no documento (recortado ou oculto). Envie uma foto completa onde o cabeçalho da receita esteja visível.");

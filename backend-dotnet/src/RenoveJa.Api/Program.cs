@@ -153,7 +153,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "RenoveJá API",
         Version = "v1",
-        Description = "API de telemedicina: receitas, exames, consultas por vídeo, pagamentos PIX/cartão e assinatura digital ICP-Brasil.",
+        Description = "API de telemedicina do SUS: receitas, exames, consultas por vídeo e assinatura digital ICP-Brasil. Serviço 100% gratuito.",
         Contact = new OpenApiContact
         {
             Name = "RenoveJá Saúde",

@@ -42,7 +42,7 @@ describe('statusLabels', () => {
   });
 
   describe('DASHBOARD_STATS_LABELS', () => {
-    it('tem chaves esperadas (sem fluxo de pagamento)', () => {
+    it('tem chaves esperadas', () => {
       expect(DASHBOARD_STATS_LABELS.analyzing).toBe('Em análise médica');
       expect(DASHBOARD_STATS_LABELS.ready).toBe('Prontos');
     });

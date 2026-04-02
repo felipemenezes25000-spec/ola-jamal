@@ -81,7 +81,6 @@ public class PushNotificationDispatcher : IPushNotificationDispatcher
         return category switch
         {
             PushCategory.Requests => prefs.RequestsEnabled,
-            PushCategory.Payments => prefs.PaymentsEnabled,
             PushCategory.Consultations => prefs.ConsultationsEnabled,
             PushCategory.Reminders => prefs.RemindersEnabled,
             PushCategory.System => true,

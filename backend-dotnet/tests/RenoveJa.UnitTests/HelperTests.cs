@@ -153,21 +153,4 @@ public class CpfHelperTests
         CpfHelper.ExtractDigits("").Should().BeEmpty();
     }
 
-    [Fact]
-    public void IsValidForPayment_ShouldReturnTrue_WhenFormattedValid()
-    {
-        CpfHelper.IsValidForPayment("529.982.247-25").Should().BeTrue();
-    }
-
-    [Fact]
-    public void IsValidForPayment_ShouldReturnFalse_WhenInvalid()
-    {
-        CpfHelper.IsValidForPayment("111.111.111-11").Should().BeFalse();
-    }
-
-    [Fact]
-    public void IsValidForPayment_ShouldReturnFalse_WhenNull()
-    {
-        CpfHelper.IsValidForPayment(null).Should().BeFalse();
-    }
 }

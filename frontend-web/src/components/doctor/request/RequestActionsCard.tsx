@@ -51,14 +51,14 @@ export function RequestActionsCard({
   return (
     <Card className="shadow-sm lg:sticky lg:top-6">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Acoes</CardTitle>
+        <CardTitle className="text-base">Ações</CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         {/* On mobile: primary actions in a row, secondary stacked */}
         <div className="space-y-3">
           {/* Primary actions group */}
           {(canApprove || canReject || canEdit) && (
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col gap-2">
               {canApprove && (
                 <Button
                   className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -156,7 +156,7 @@ export function RequestActionsCard({
           {noActions && (
             <div className="text-center py-4">
               <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Sem acoes disponiveis</p>
+              <p className="text-sm text-muted-foreground">Sem ações disponíveis</p>
             </div>
           )}
         </div>

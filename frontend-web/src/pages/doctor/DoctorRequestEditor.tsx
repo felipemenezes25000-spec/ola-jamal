@@ -731,7 +731,7 @@ export default function DoctorRequestEditor() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" aria-hidden />
-                      <span className="text-violet-900 dark:text-violet-200">Sugestao da IA</span>
+                      <span className="text-violet-900 dark:text-violet-200">Sugestão da IA</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">

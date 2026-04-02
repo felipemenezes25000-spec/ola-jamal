@@ -50,7 +50,7 @@ export type CTAAction =
   | 'tire_duvidas'
   | 'abrir_documento'
   | 'acompanhar_pedido'
-  | 'abrir_pagamento'  // legado; tratado como abrir_documento
+  | 'abrir_pagamento'  // legado; tratado como acompanhar_pedido (sem pagamento no SUS)
   | 'dismiss'
   | null;
 

@@ -426,7 +426,7 @@ export default function DoctorDashboard() {
                           {comRiscoAlto.length} {comRiscoAlto.length === 1 ? 'pedido' : 'pedidos'} com risco alto identificado pela IA
                         </p>
                         <p className="text-xs text-red-600 dark:text-red-400">
-                          Requer atencao prioritaria
+                          Requer atenção prioritária
                         </p>
                       </div>
                       <Button
@@ -629,7 +629,7 @@ export default function DoctorDashboard() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold">Consulta Inteligente</p>
                         <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                          Transcricao em tempo real, anamnese automatica e sugestoes de conduta.
+                          Transcrição em tempo real, anamnese automática e sugestões de conduta.
                         </p>
                         <Badge variant="outline" className="text-[9px] gap-1 mt-2">
                           <Shield className="h-3 w-3" /> CFM 2.454/2026

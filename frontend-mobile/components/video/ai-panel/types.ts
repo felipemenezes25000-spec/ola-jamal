@@ -57,6 +57,7 @@ export interface DoctorAIPanelProps {
   anamnesis: Record<string, unknown> | null;
   suggestions: string[];
   evidence: EvidenceItem[];
+  consultationType?: string | null;
 }
 
 // ── Tab definition ──

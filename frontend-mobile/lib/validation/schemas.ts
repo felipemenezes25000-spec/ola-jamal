@@ -54,13 +54,13 @@ export const completeProfileSchema = z.object({
         .length(11, 'CPF deve ter 11 dígitos')
         .regex(/^\d{11}$/, 'CPF deve conter apenas números')
     ),
-  street: z.string().optional(),
-  number: z.string().optional(),
-  neighborhood: z.string().optional(),
+  street: z.string().min(1, 'Rua é obrigatória'),
+  number: z.string().min(1, 'Número é obrigatório').max(20, 'Número não pode exceder 20 caracteres'),
+  neighborhood: z.string().min(1, 'Bairro é obrigatório'),
   complement: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().max(2, 'UF deve ter 2 letras').optional(),
-  postalCode: z.string().optional(),
+  city: z.string().min(1, 'Cidade é obrigatória'),
+  state: z.string().length(2, 'UF deve ter 2 letras'),
+  postalCode: z.string().max(10, 'CEP não pode exceder 10 caracteres').optional(),
 });
 
 export const changePasswordSchema = z
@@ -138,8 +138,9 @@ export const createConsultationSchema = z.object({
   durationMinutes: z
     .number()
     .int()
-    .min(CONSULTATION_MIN_MINUTES, `Mínimo ${CONSULTATION_MIN_MINUTES} minutos`)
-    .max(CONSULTATION_MAX_MINUTES, `Máximo ${CONSULTATION_MAX_MINUTES} minutos`),
+    .min(0)
+    .optional()
+    .default(0),
   symptoms: z
     .string()
     .transform(normalizeText)
@@ -162,7 +163,7 @@ export const createExamSchema = z
   );
 
 export const rejectRequestSchema = z.object({
-  rejectionReason: z.string().transform(normalizeText).pipe(z.string().min(1, 'Informe o motivo da rejeição')),
+  rejectionReason: z.string().transform(normalizeText).pipe(z.string().min(10, 'Informe o motivo da rejeição (mínimo 10 caracteres)')),
 });
 
 export const signRequestSchema = z.object({

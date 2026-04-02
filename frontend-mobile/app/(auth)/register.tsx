@@ -39,113 +39,6 @@ function formatCep(value: string) {
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
 
-/* ── Step indicator component ── */
-function StepIndicator({
-  steps,
-  current,
-  colors,
-}: {
-  steps: string[];
-  current: number;
-  colors: DesignColors;
-}) {
-  return (
-    <View style={stepStyles.container}>
-      {steps.map((label, i) => {
-        const isActive = i === current;
-        const isCompleted = i < current;
-        return (
-          <View key={label} style={stepStyles.stepItem}>
-            <View
-              style={[
-                stepStyles.dot,
-                {
-                  backgroundColor: isActive
-                    ? colors.primary
-                    : isCompleted
-                    ? colors.primary
-                    : colors.borderLight,
-                },
-              ]}
-            >
-              {isCompleted ? (
-                <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-              ) : (
-                <Text
-                  style={[
-                    stepStyles.dotText,
-                    { color: isActive || isCompleted ? '#FFFFFF' : colors.textMuted },
-                  ]}
-                >
-                  {i + 1}
-                </Text>
-              )}
-            </View>
-            <Text
-              style={[
-                stepStyles.label,
-                {
-                  color: isActive ? colors.primary : isCompleted ? colors.text : colors.textMuted,
-                  fontWeight: isActive ? '700' : '400',
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {label}
-            </Text>
-            {i < steps.length - 1 && (
-              <View
-                style={[
-                  stepStyles.connector,
-                  { backgroundColor: isCompleted ? colors.primary : colors.borderLight },
-                ]}
-              />
-            )}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-const stepStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 4,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    gap: 4,
-  },
-  dot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dotText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  label: {
-    fontSize: 12,
-    fontFamily: 'PlusJakartaSans_400Regular',
-  },
-  connector: {
-    width: 14,
-    height: 2,
-    borderRadius: 1,
-    marginHorizontal: 2,
-    flexShrink: 1,
-  },
-});
-
 /* ── Section divider ── */
 function SectionDivider({ icon, title, colors }: { icon: string; title: string; colors: DesignColors }) {
   return (
@@ -498,26 +391,7 @@ export default function Register() {
     }
   };
 
-  /* Step labels for the indicator */
-  const stepLabels = role === 'doctor'
-    ? ['Perfil', 'Dados', 'Segurança', 'Médico']
-    : ['Perfil', 'Dados', 'Segurança'];
 
-  /* Compute current visual step based on filled fields */
-  const currentStep = useMemo(() => {
-    const hasIdentity = !!(name.trim() && email.trim());
-    const hasPersonal = !!(phone && cpf && birthDate.trim());
-    const hasSecurity = !!(password && confirmPassword);
-    if (role === 'doctor') {
-      if (hasSecurity) return 3;
-      if (hasPersonal) return 2;
-      if (hasIdentity) return 1;
-      return 0;
-    }
-    if (hasSecurity) return 2;
-    if (hasPersonal) return 1;
-    return 0;
-  }, [name, email, phone, cpf, birthDate, password, confirmPassword, role]);
 
   return (
     <Screen variant="gradient" scroll>
@@ -582,9 +456,6 @@ export default function Register() {
           )}
         </TouchableOpacity>
       </View>
-
-      {/* Step Indicator */}
-      <StepIndicator steps={stepLabels} current={currentStep} colors={colors} />
 
       {/* Form Card */}
       <View style={styles.card}>
@@ -919,21 +790,6 @@ function makeStyles(colors: DesignColors) {
     roleCardActive: {
       backgroundColor: `${colors.primary}08`,
       borderColor: colors.primary,
-      ...Platform.select({
-        ios: {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-        },
-        android: { elevation: 4 },
-        default: {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-        },
-      }),
     },
     roleIconCircle: {
       width: 48,
