@@ -356,10 +356,10 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       if (exEnabled && exams.length > 0) {
         payload.examOrder = { clinicalJustification: examJustification, items: exams };
       }
-      if (refEnabled && refSpecialty.trim() && refReason.trim()) {
+      if (refEnabled && refProfessional.trim() && refReason.trim()) {
         payload.referral = {
-          professionalName: refProfessional.trim() || undefined,
-          specialty: refSpecialty.trim(),
+          professionalName: refProfessional.trim(),
+          specialty: refSpecialty.trim() || undefined,
           reason: refReason.trim(),
           icd10Code: certCid || detectedCid || undefined,
         };
