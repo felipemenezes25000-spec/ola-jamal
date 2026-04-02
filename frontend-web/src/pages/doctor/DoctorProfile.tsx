@@ -103,7 +103,7 @@ export default function DoctorProfile() {
 
   const handleChangePassword = async () => {
     if (newPw !== newPwConfirm) {
-      toast.error('Senhas nao coincidem');
+      toast.error('Senhas não coincidem');
       return;
     }
     if (newPw.length < 8) {
@@ -242,7 +242,7 @@ export default function DoctorProfile() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">Dados Profissionais</p>
-                  <p className="text-xs text-muted-foreground truncate">Telefone e endereco</p>
+                  <p className="text-xs text-muted-foreground truncate">Telefone e endereço</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </button>
@@ -258,15 +258,15 @@ export default function DoctorProfile() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="prof-address">Endereco profissional</Label>
+                    <Label htmlFor="prof-address">Endereço profissional</Label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
-                      <Input id="prof-address" value={profAddress} onChange={e => setProfAddress(e.target.value)} placeholder="Rua, numero, bairro..." className="pl-10" />
+                      <Input id="prof-address" value={profAddress} onChange={e => setProfAddress(e.target.value)} placeholder="Rua, número, bairro..." className="pl-10" />
                     </div>
                   </div>
                   <Button onClick={handleSaveProfile} disabled={saving} size="sm" className="gap-2">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Salvar alteracoes
+                    Salvar alterações
                   </Button>
                 </div>
               )}
@@ -372,8 +372,8 @@ export default function DoctorProfile() {
                   <Bell className="h-4.5 w-4.5 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">Notificacoes</p>
-                  <p className="text-xs text-muted-foreground">Preferencias de aviso</p>
+                  <p className="text-sm font-medium text-gray-900">Notificações</p>
+                  <p className="text-xs text-muted-foreground">Preferências de aviso</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </button>
@@ -449,7 +449,7 @@ export default function DoctorProfile() {
             <div className="space-y-2">
               <Label>Confirmar nova senha</Label>
               <Input type="password" value={newPwConfirm} onChange={e => setNewPwConfirm(e.target.value)} autoComplete="new-password" />
-              {newPwConfirm && newPw !== newPwConfirm && <p className="text-xs text-destructive">Senhas nao coincidem</p>}
+              {newPwConfirm && newPw !== newPwConfirm && <p className="text-xs text-destructive">Senhas não coincidem</p>}
             </div>
           </div>
           <DialogFooter>
@@ -505,11 +505,11 @@ export default function DoctorProfile() {
               Revogar Certificado
             </DialogTitle>
             <DialogDescription>
-              Esta acao e irreversivel. O certificado sera revogado e voce precisara enviar um novo para assinar documentos.
+              Esta ação é irreversível. O certificado será revogado e você precisará enviar um novo para assinar documentos.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Motivo da revogacao</Label>
+            <Label>Motivo da revogação</Label>
             <Textarea
               value={revokeReason}
               onChange={e => setRevokeReason(e.target.value)}

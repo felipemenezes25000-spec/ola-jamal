@@ -84,8 +84,11 @@ public class SpeechToTextController(
     /// </summary>
     private async Task<string?> PolishSymptomTextAsync(string rawText, string? context, CancellationToken ct)
     {
-        var apiKey = openAiConfig.Value.ApiKey;
-        if (string.IsNullOrWhiteSpace(apiKey))
+        var apiKey = openAiConfig.Value.ApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey)
+            || apiKey.Contains("YOUR_") || apiKey.Contains("_HERE")
+            || apiKey.Contains("SUA_CHAVE") || apiKey.Contains("SUA_KEY")
+            || apiKey.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase))
             return null;
 
         try

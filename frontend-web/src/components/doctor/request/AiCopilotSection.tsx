@@ -14,23 +14,23 @@ import { cn } from '@/lib/utils';
 
 const RISK_LABELS: Record<string, string> = {
   low: 'Risco baixo',
-  medium: 'Risco medio',
+  medium: 'Risco médio',
   high: 'Risco alto',
 };
 const URGENCY_LABELS: Record<string, string> = {
   routine: 'Rotina',
   urgent: 'Urgente',
-  emergency: 'Emergencia',
+  emergency: 'Emergência',
 };
 
 function getRiskLabel(level: string | null | undefined): string {
-  if (!level) return 'Risco nao classificado';
-  return RISK_LABELS[level.toLowerCase()] ?? 'Risco nao classificado';
+  if (!level) return 'Risco não classificado';
+  return RISK_LABELS[level.toLowerCase()] ?? 'Risco não classificado';
 }
 
 function getUrgencyLabel(level: string | null | undefined): string {
-  if (!level) return 'Nao informado';
-  return URGENCY_LABELS[level.toLowerCase()] ?? 'Nao informado';
+  if (!level) return 'Não informado';
+  return URGENCY_LABELS[level.toLowerCase()] ?? 'Não informado';
 }
 
 interface AiCopilotSectionProps {
@@ -60,8 +60,12 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
         : 'bg-amber-100 text-amber-700';
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(summaryText);
-    toast.success('Resumo copiado');
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      toast.success('Resumo copiado');
+    } catch {
+      toast.error('Não foi possível copiar. Selecione o texto manualmente.');
+    }
   };
 
   return (
@@ -92,7 +96,7 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
           )}
         </div>
         <p className="text-xs text-muted-foreground italic mt-1">
-          Sugestoes geradas por IA — decisao final do medico.
+          Sugestões geradas por IA — decisão final do médico.
         </p>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
@@ -138,7 +142,7 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
                   className="gap-1.5 h-8 text-violet-700 hover:text-violet-800 hover:bg-violet-100 dark:text-violet-300 dark:hover:bg-violet-900/30"
                 >
                   {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  {expanded ? 'Ver menos' : 'Ver analise completa'}
+                  {expanded ? 'Ver menos' : 'Ver análise completa'}
                 </Button>
               )}
             </div>
@@ -147,7 +151,7 @@ export function AiCopilotSection({ request, className }: AiCopilotSectionProps) 
         {request.aiUrgency && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
-            Urgencia: {getUrgencyLabel(request.aiUrgency)}
+            Urgência: {getUrgencyLabel(request.aiUrgency)}
           </div>
         )}
       </CardContent>

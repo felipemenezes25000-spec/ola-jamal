@@ -200,7 +200,7 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [], consultat
               <div className="space-y-2">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
                   <Lightbulb className="h-3.5 w-3.5 text-[#8B5CF6]" />
-                  Sugestoes em tempo real
+                  Sugestões em tempo real
                 </h3>
                 {parsedSuggestions.map((s, i) => {
                   const isDanger = s.startsWith('\u{1F6A8}');

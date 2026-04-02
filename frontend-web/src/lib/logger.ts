@@ -1,14 +1,13 @@
 /**
- * Logger estruturado: categorias, niveis e atributos.
- * Logs sao emitidos via console.
+ * Logger estruturado: categorias, níveis e atributos.
+ * Logs são emitidos via console.
  *
- * Categorias sugeridas: auth | api | payment | video | request | verify | ui
+ * Categorias sugeridas: auth | api | video | request | verify | ui
  */
 
 export type LogCategory =
   | 'auth'
   | 'api'
-  | 'payment'
   | 'video'
   | 'request'
   | 'verify'

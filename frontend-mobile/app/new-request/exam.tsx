@@ -18,7 +18,8 @@ import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
-import { createExamRequest, evaluateAssistantCompleteness } from '../../lib/api';
+import { createExamRequest, evaluateAssistantCompleteness, suggestExamsFromSymptoms } from '../../lib/api';
+import type { ExamSuggestion } from '../../lib/api-requests';
 import { showToast } from '../../components/ui/Toast';
 import { useInvalidateRequests } from '../../lib/hooks/useRequestsQuery';
 import { getApiErrorMessage } from '../../lib/api-client';
@@ -135,6 +136,8 @@ export default function NewExam() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, narrow), [colors, narrow]);
   const voice = useSymptomVoiceInput();
+  const [aiSuggestions, setAiSuggestions] = useState<ExamSuggestion[]>([]);
+  const [aiSugLoading, setAiSugLoading] = useState(false);
   const [expandedPacks, setExpandedPacks] = useState<Set<string>>(new Set());
   const togglePack = useCallback((key: string) => {
     setExpandedPacks((prev) => {
@@ -238,6 +241,28 @@ export default function NewExam() {
         guidance: apiResult.urgencyMessage ?? 'Sinais de urgência detectados. Considere buscar atendimento presencial.',
       }
     : redFlagsLocal;
+
+  // Buscar sugestões de exames por IA quando sintomas tiverem >= 15 caracteres
+  useEffect(() => {
+    const trimmed = symptoms.trim();
+    if (trimmed.length < 15) {
+      setAiSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      setAiSugLoading(true);
+      suggestExamsFromSymptoms(trimmed, examType)
+        .then((res) => {
+          if (!cancelled && Array.isArray(res.suggestions)) {
+            setAiSuggestions(res.suggestions.filter((s) => s.exam));
+          }
+        })
+        .catch(() => { if (!cancelled) setAiSuggestions([]); })
+        .finally(() => { if (!cancelled) setAiSugLoading(false); });
+    }, 1200); // debounce 1.2s
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [symptoms, examType]);
 
   let currentStep = 1;
   if (examType) currentStep = 2;
@@ -692,6 +717,48 @@ export default function NewExam() {
             <Text style={styles.inputErrorHint}>Descreva seus sintomas para continuar</Text>
           )}
 
+          {/* AI Exam Suggestions */}
+          {(aiSugLoading || aiSuggestions.length > 0) && (
+            <View style={styles.aiSuggestCard}>
+              <View style={styles.aiSuggestHeader}>
+                <Ionicons name="sparkles" size={16} color="#8B5CF6" />
+                <Text style={styles.aiSuggestTitle}>Sugestões da IA</Text>
+                {aiSugLoading && <ActivityIndicator size="small" color="#8B5CF6" style={{ marginLeft: 'auto' }} />}
+              </View>
+              {aiSuggestions.length > 0 && (
+                <Text style={styles.aiSuggestHint}>Toque para adicionar ao pedido</Text>
+              )}
+              {aiSuggestions.map((s, i) => {
+                const alreadyAdded = exams.includes(s.exam);
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.aiSuggestItem, alreadyAdded && styles.aiSuggestItemAdded]}
+                    onPress={() => !alreadyAdded && addQuickExam(s.exam)}
+                    disabled={alreadyAdded}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.aiSuggestRow}>
+                      <Ionicons
+                        name={alreadyAdded ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={18}
+                        color={alreadyAdded ? '#22C55E' : '#8B5CF6'}
+                      />
+                      <View style={styles.flex1}>
+                        <Text style={[styles.aiSuggestExam, alreadyAdded && styles.aiSuggestExamAdded]}>
+                          {s.exam}
+                        </Text>
+                        {s.reason ? (
+                          <Text style={styles.aiSuggestReason}>{s.reason}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {/* Photo / Document */}
           <Text style={styles.sectionLabel}>Foto ou arquivo do pedido (opcional)</Text>
           <Text style={styles.fieldHint}>
@@ -1027,6 +1094,63 @@ function makeStyles(colors: DesignColors, narrow: boolean) {
       fontSize: 12,
       color: colors.error,
       lineHeight: 16,
+    },
+
+    /* AI Suggestions */
+    aiSuggestCard: {
+      marginTop: s.sm,
+      padding: s.md,
+      borderRadius: 14,
+      backgroundColor: '#8B5CF610',
+      borderWidth: 1,
+      borderColor: '#8B5CF620',
+    },
+    aiSuggestHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 4,
+    },
+    aiSuggestTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#8B5CF6',
+    },
+    aiSuggestHint: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginBottom: s.sm,
+    },
+    aiSuggestItem: {
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      backgroundColor: colors.surface,
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    aiSuggestItemAdded: {
+      backgroundColor: '#22C55E10',
+      borderColor: '#22C55E30',
+    },
+    aiSuggestRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+    },
+    aiSuggestExam: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    aiSuggestExamAdded: {
+      color: '#22C55E',
+    },
+    aiSuggestReason: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginTop: 2,
     },
 
     /* Expandable Packs */

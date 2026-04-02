@@ -411,7 +411,7 @@ export default function PatientHome() {
                 <Ionicons name="sparkles" size={16} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.followUpLabel}>PROXIMO PASSO</Text>
+                <Text style={styles.followUpLabel}>PRÓXIMO PASSO</Text>
                 <Text style={styles.followUpTitle}>{followUpAction.title}</Text>
               </View>
               <View style={styles.followUpChevron}>

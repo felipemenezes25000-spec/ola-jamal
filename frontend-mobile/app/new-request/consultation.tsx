@@ -69,9 +69,11 @@ export default function ConsultationScreen() {
   const { colors } = useAppTheme({ role: 'patient' });
   const styles = useMemo(() => makeStyles(colors, narrow), [colors, narrow]);
   const listPadding = useStickyCtaScrollPadding();
+  // Teleconsulta sem limite de tempo — usar 30min como padrão para completude
+  const defaultDuration = 30;
   const completenessLocal = evaluateConsultationCompleteness({
     consultationType,
-    durationMinutes: 0,
+    durationMinutes: defaultDuration,
     symptoms,
   });
   const redFlagsLocal = detectRedFlags(symptoms);
@@ -94,7 +96,7 @@ export default function ConsultationScreen() {
       evaluateAssistantCompleteness({
         flow: 'consultation',
         consultationType,
-        durationMinutes: 0,
+        durationMinutes: defaultDuration,
         symptoms,
       })
         .then((res) => {
@@ -136,7 +138,7 @@ export default function ConsultationScreen() {
 
   const consultationValidation = validate(createConsultationSchema, {
     consultationType,
-    durationMinutes: 0,
+    durationMinutes: defaultDuration,
     symptoms,
   });
   const isFormValid = completeness.missingRequired.length === 0 && consultationValidation.success;
@@ -147,6 +149,9 @@ export default function ConsultationScreen() {
       const text = await voice.stopAndTranscribe(symptoms);
       if (text) {
         setSymptoms((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+        showToast({ message: 'Sintomas transcritos com sucesso!', type: 'success' });
+      } else if (voice.error) {
+        showToast({ message: voice.error, type: 'error' });
       }
     } else {
       await voice.startRecording();
@@ -188,7 +193,7 @@ export default function ConsultationScreen() {
 
     const validation = validate(createConsultationSchema, {
       consultationType,
-      durationMinutes: 0,
+      durationMinutes: defaultDuration,
       symptoms,
     });
     if (!validation.success) {

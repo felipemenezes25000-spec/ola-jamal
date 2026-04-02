@@ -1,7 +1,7 @@
 /**
  * Banner de atualização de pedido em tempo real.
  * Design limpo sem branding de assistente — é um alerta de status, não IA.
- * Role-aware: médico vê "Paciente pagou" etc, paciente vê "Médico na sala" etc.
+ * Role-aware: médico vê "Solicitação atualizada" etc, paciente vê "Médico na sala" etc.
  */
 
 import React from 'react';

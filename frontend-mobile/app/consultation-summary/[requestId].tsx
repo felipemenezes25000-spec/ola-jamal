@@ -197,7 +197,7 @@ export default function ConsultationSummaryScreen() {
     return (
       <View style={[S.container, S.center]}>
         <Ionicons name="alert-circle" size={48} color={colors.error} />
-        <Text style={S.errorText}>Consulta nao encontrada</Text>
+        <Text style={S.errorText}>Consulta não encontrada</Text>
         <TouchableOpacity style={S.backBtnError} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Voltar">
           <Text style={S.backBtnErrorText}>Voltar</Text>
         </TouchableOpacity>
@@ -255,9 +255,9 @@ export default function ConsultationSummaryScreen() {
             <View style={[S.infoCardIcon, { backgroundColor: `${ACCENT_PURPLE}18` }]}>
               <Ionicons name="medkit" size={18} color={ACCENT_PURPLE} />
             </View>
-            <Text style={S.infoCardLabel}>Medico</Text>
+            <Text style={S.infoCardLabel}>Médico</Text>
             <Text style={S.infoCardName} numberOfLines={2}>
-              {request.doctorName ?? 'Medico'}
+              {request.doctorName ?? 'Médico'}
             </Text>
           </View>
         </View>
@@ -266,7 +266,7 @@ export default function ConsultationSummaryScreen() {
         <View style={S.durationCard}>
           <Ionicons name="time-outline" size={20} color={PRIMARY} />
           <View style={{ flex: 1 }}>
-            <Text style={S.durationLabel}>Duracao da consulta</Text>
+            <Text style={S.durationLabel}>Duração da consulta</Text>
             <Text style={S.durationValue}>{duration}</Text>
           </View>
           {request.consultationStartedAt && (
@@ -401,13 +401,13 @@ export default function ConsultationSummaryScreen() {
           </View>
         )}
 
-        {/* Nota Clinica (editavel apenas para medico) */}
+        {/* Nota Clínica (editavel apenas para medico) */}
         <View style={S.section}>
           <View style={S.sectionHeader}>
             <View style={[S.sectionIconBg, { backgroundColor: `${PRIMARY}18` }]}>
               <Ionicons name="document-text-outline" size={16} color={PRIMARY} />
             </View>
-            <Text style={S.sectionTitle}>Nota Clinica</Text>
+            <Text style={S.sectionTitle}>Nota Clínica</Text>
           </View>
           {user?.role === 'doctor' ? (
             <TextInput
@@ -434,10 +434,10 @@ export default function ConsultationSummaryScreen() {
               <View style={[S.sectionIconBg, { backgroundColor: 'rgba(148,163,184,0.15)' }]}>
                 <Ionicons name="mic" size={16} color={colors.textMuted} />
               </View>
-              <Text style={S.sectionTitle}>Transcricao</Text>
+              <Text style={S.sectionTitle}>Transcrição</Text>
               <TouchableOpacity
                 style={S.copyIcon}
-                onPress={() => copyText(transcript, 'Transcricao')}
+                onPress={() => copyText(transcript, 'Transcrição')}
                 accessibilityRole="button"
                 accessibilityLabel="Copiar transcrição"
               >
@@ -516,7 +516,7 @@ export default function ConsultationSummaryScreen() {
                 <>
                   <TextInput
                     style={S.feedbackInput}
-                    placeholder="Comentario opcional..."
+                    placeholder="Comentário opcional..."
                     placeholderTextColor={colors.textMuted}
                     value={feedbackText}
                     onChangeText={setFeedbackText}
@@ -544,8 +544,8 @@ export default function ConsultationSummaryScreen() {
             <Ionicons name="sparkles-outline" size={48} color={colors.textSecondary} />
             <Text style={S.emptyTitle}>Sem dados da IA</Text>
             <Text style={S.emptySub}>
-              A transcricao e anamnese automatica nao foram geradas para esta consulta.
-              Verifique se a gravacao foi iniciada durante a chamada.
+              A transcrição e anamnese automática não foram geradas para esta consulta.
+              Verifique se a gravação foi iniciada durante a chamada.
             </Text>
           </View>
         )}
@@ -554,8 +554,8 @@ export default function ConsultationSummaryScreen() {
         <View style={S.footerDisclaimer}>
           <Ionicons name="information-circle-outline" size={14} color={colors.textSecondary} />
           <Text style={S.footerDisclaimerText}>
-            Conteudo gerado por IA como apoio a decisao clinica. A revisao e validacao
-            medica sao obrigatorias. Conformidade com CFM Resolucao 2.299/2021.
+            Conteúdo gerado por IA como apoio à decisão clínica. A revisão e validação
+            médica são obrigatórias. Conformidade com CFM Resolução 2.299/2021.
           </Text>
         </View>
       </ScrollView>

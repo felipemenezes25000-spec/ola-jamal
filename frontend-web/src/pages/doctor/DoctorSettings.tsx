@@ -54,7 +54,6 @@ export default function DoctorSettings() {
   const [mutedCount, setMutedCount] = useState(0);
   const [pushPrefs, setPushPrefs] = useState<PushPreferencesDto>({
     requestsEnabled: true,
-    paymentsEnabled: true,
     consultationsEnabled: true,
     remindersEnabled: true,
     timezone: 'America/Sao_Paulo',

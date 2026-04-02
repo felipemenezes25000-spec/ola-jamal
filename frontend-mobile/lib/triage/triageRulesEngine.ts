@@ -241,9 +241,9 @@ function rulesHome(i: TriageInput): TriageMessage | null {
   if (hasHighMedicationBurden(i.recentMedications) && (!i.lastConsultationDays || i.lastConsultationDays > 60)) {
     return {
       key: 'home:medication_review',
-      text: 'Vi que voce usa varios medicamentos. Uma revisao com medico pode aumentar seguranca e aderencia do tratamento.',
+      text: 'Vi que você usa vários medicamentos. Uma revisão com médico pode aumentar segurança e aderência do tratamento.',
       severity: 'attention', avatarState: 'alert',
-      cta: 'teleconsulta', ctaLabel: 'Revisar com medico',
+      cta: 'teleconsulta', ctaLabel: 'Revisar com médico',
       cooldownMs: MS.PROACTIVE, canMute: true,
       analyticsEvent: 'triage.home.medication_review',
     };
@@ -340,7 +340,7 @@ function rulesPrescription(i: TriageInput): TriageMessage | null {
       if (hasRedFlagSymptoms(i.symptoms)) {
         return {
           key: 'rx:red_flags_symptoms',
-          text: 'Se houver piora ou sinais de alerta, procure atendimento de urgencia. Se preferir, agende teleconsulta agora.',
+          text: 'Se houver piora ou sinais de alerta, procure atendimento de urgência. Se preferir, agende teleconsulta agora.',
           severity: 'attention', avatarState: 'alert',
           cta: 'teleconsulta', ctaLabel: 'Agendar teleconsulta',
           cooldownMs: MS.INSIGHT,
@@ -407,7 +407,7 @@ function rulesExam(i: TriageInput): TriageMessage | null {
           key: 'exam:high_risk',
           text: 'Este pedido parece exigir avaliação prioritária. Se puder, converse com um médico o quanto antes.',
           severity: 'attention', avatarState: 'alert',
-          cta: 'teleconsulta', ctaLabel: 'Falar com medico',
+          cta: 'teleconsulta', ctaLabel: 'Falar com médico',
           cooldownMs: MS.INSIGHT,
           analyticsEvent: 'triage.exam.high_risk',
         };
@@ -434,9 +434,9 @@ function rulesExam(i: TriageInput): TriageMessage | null {
       if (hasRedFlagSymptoms(i.symptoms)) {
         return {
           key: 'exam:red_flags_symptoms',
-          text: 'Se os sintomas estiverem intensos ou piorando, procure urgencia. Posso te ajudar a falar com medico agora.',
+          text: 'Se os sintomas estiverem intensos ou piorando, procure urgência. Posso te ajudar a falar com médico agora.',
           severity: 'attention', avatarState: 'alert',
-          cta: 'teleconsulta', ctaLabel: 'Falar com medico',
+          cta: 'teleconsulta', ctaLabel: 'Falar com médico',
           cooldownMs: MS.INSIGHT,
           analyticsEvent: 'triage.exam.red_flags',
         };
@@ -539,7 +539,7 @@ function rulesRecord(i: TriageInput): TriageMessage | null {
       key: 'record:medication_review',
       text: 'Seu histórico mostra vários medicamentos recentes. Vale revisar com médico para manter segurança no tratamento.',
       severity: 'attention', avatarState: 'alert',
-      cta: 'teleconsulta', ctaLabel: 'Revisar com medico',
+      cta: 'teleconsulta', ctaLabel: 'Revisar com médico',
       cooldownMs: MS.INSIGHT, canMute: true,
     };
   }
@@ -647,7 +647,7 @@ function rulesDoctorDashboard(i: TriageInput): TriageMessage | null {
     };
   }
 
-  // Muitos documentos pagos aguardando assinatura
+  // Muitos documentos aprovados aguardando assinatura
   if (i.doctorToSignCount && i.doctorToSignCount > 0) {
     return {
       key: 'doctor:dashboard:to_sign',
@@ -682,7 +682,7 @@ function rulesDoctorDetail(i: TriageInput): TriageMessage | null {
   if (i.aiRiskLevel === 'high') {
     return {
       key: 'doctor:detail:high_risk',
-      text: 'A IA sinalizou risco elevado neste caso. Priorize revisao clinica detalhada e registre conduta com clareza.',
+      text: 'A IA sinalizou risco elevado neste caso. Priorize revisão clínica detalhada e registre conduta com clareza.',
       severity: 'attention',
       avatarState: 'alert',
       cta: null,

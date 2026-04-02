@@ -168,6 +168,23 @@ export async function getAssistantNextAction(
   return apiClient.post('/api/assistant/next-action', data);
 }
 
+export interface ExamSuggestion {
+  exam: string;
+  reason: string;
+}
+
+export interface SuggestExamsResponse {
+  suggestions: ExamSuggestion[];
+  message?: string;
+}
+
+export async function suggestExamsFromSymptoms(
+  symptoms: string,
+  examType?: string,
+): Promise<SuggestExamsResponse> {
+  return apiClient.post('/api/assistant/suggest-exams', { symptoms, examType });
+}
+
 export async function evaluateAssistantCompleteness(
   data: AssistantCompleteRequestData
 ): Promise<AssistantCompleteResponseData> {

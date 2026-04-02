@@ -16,8 +16,19 @@ function normalizeStatus(s: string | undefined): string {
   return s.toLowerCase().replace(/-/g, '_');
 }
 
+/** Sanitiza mensagens do backend para remover referências a pagamento (serviço gratuito SUS). */
+function sanitizePaymentText(msg: string): string {
+  return msg
+    .replace(/\bpagamento\s*(aprovado|confirmado|realizado|pendente|recebido)\b/gi, 'solicitação aprovada')
+    .replace(/\bpagamento\b/gi, 'aprovação')
+    .replace(/\bpago\b/gi, 'aprovado')
+    .replace(/\bpagar\b/gi, 'confirmar');
+}
+
 export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boolean): string {
-  if (payload.message && payload.message.trim()) return payload.message.trim();
+  if (payload.message && payload.message.trim()) {
+    return sanitizePaymentText(payload.message.trim());
+  }
   const s = (payload.status || '').toLowerCase();
   const patientMap: Record<string, string> = {
     approved_pending_payment: 'Solicitação aprovada.',

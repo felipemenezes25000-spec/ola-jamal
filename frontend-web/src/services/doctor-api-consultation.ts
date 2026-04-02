@@ -46,13 +46,13 @@ export async function autoFinishConsultation(id: string) {
 
 // ── Recordings ──
 
-export async function getRecordings(id: string): Promise<{ recordings: Recording[] }> {
+export async function getRecordings(id: string): Promise<{ requestId: string; roomName: string; recordings: Recording[] }> {
   const res = await authFetch(`/api/requests/${id}/recordings`);
   if (!res.ok) throw new Error('Erro ao buscar gravações');
   return res.json();
 }
 
-export async function getTranscriptDownloadUrl(id: string): Promise<{ url: string }> {
+export async function getTranscriptDownloadUrl(id: string): Promise<{ signedUrl: string; expiresIn: number }> {
   const res = await authFetch(`/api/requests/${id}/transcript-download-url`);
   if (!res.ok) throw new Error('Erro ao buscar transcrição');
   return res.json();
@@ -76,9 +76,19 @@ export async function updatePrescriptionContent(id: string, payload: {
   notes?: string;
   prescriptionKind?: string;
 }) {
+  // Backend espera medications: string[] (texto livre), não Medication[]
+  const body = {
+    medications: payload.medications?.map((m) =>
+      typeof m === 'string'
+        ? m
+        : [m.name, m.dosage, m.frequency, m.duration, m.notes].filter(Boolean).join(' — '),
+    ).filter(Boolean) ?? undefined,
+    notes: payload.notes ?? undefined,
+    prescriptionKind: payload.prescriptionKind ?? undefined,
+  };
   const res = await authFetch(`/api/requests/${id}/prescription-content`, {
     method: 'PATCH',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error('Erro ao atualizar receita');
   return res.json();
@@ -156,21 +166,31 @@ export async function getAssistantNextAction(requestId?: string, status?: string
 
 // ── Care Plans ──
 
-export async function getExamSuggestions(consultationId: string) {
-  const res = await authFetch(`/api/consultations/${consultationId}/ai/exam-suggestions`);
-  if (!res.ok) return [];
+export async function getExamSuggestions(symptoms: string, examType?: string) {
+  const res = await authFetch('/api/assistant/suggest-exams', {
+    method: 'POST',
+    body: JSON.stringify({ symptoms, examType }),
+  });
+  if (!res.ok) return { suggestions: [], message: 'Não foi possível gerar sugestões.' };
   return res.json();
 }
 
-export async function generateExamSuggestions(consultationId: string) {
-  const res = await authFetch(`/api/consultations/${consultationId}/ai/exam-suggestions`, { method: 'POST' });
-  if (!res.ok) throw new Error('Erro ao gerar sugestões');
-  return res.json();
-}
+/** @deprecated Use getExamSuggestions — mantido para compatibilidade. */
+export const generateExamSuggestions = getExamSuggestions;
 
 // ── Triage ──
 
-export async function enrichTriage(payload: { symptoms?: string; requestType?: string }) {
+export async function enrichTriage(payload: {
+  context: string;
+  ruleText: string;
+  step?: string;
+  ruleKey?: string;
+  prescriptionType?: string;
+  examType?: string;
+  exams?: string[];
+  symptoms?: string;
+  totalRequests?: number;
+}) {
   const res = await authFetch('/api/triage/enrich', {
     method: 'POST',
     body: JSON.stringify(payload),

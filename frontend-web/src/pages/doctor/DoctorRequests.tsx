@@ -378,7 +378,7 @@ export default function DoctorRequests() {
                                   </span>
                                 )}
                                 {hasAiSummary && <Sparkles className="h-3 w-3 text-primary shrink-0" aria-label="Resumo IA" />}
-                                {hasRecording && <Video className="h-3 w-3 text-emerald-500 shrink-0" aria-label="Gravacao" />}
+                                {hasRecording && <Video className="h-3 w-3 text-emerald-500 shrink-0" aria-label="Gravação" />}
                               </div>
                             </div>
                           </div>
@@ -421,7 +421,7 @@ export default function DoctorRequests() {
                             <div className="flex items-center gap-1 pl-[42px]">
                               <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
                               <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase">
-                                {req.aiUrgency === 'urgent' ? 'Urgente' : req.aiUrgency === 'emergency' ? 'Emergencia' : req.aiUrgency}
+                                {req.aiUrgency === 'urgent' ? 'Urgente' : req.aiUrgency === 'emergency' ? 'Emergência' : req.aiUrgency}
                               </span>
                             </div>
                           )}
@@ -457,7 +457,7 @@ export default function DoctorRequests() {
                                 <Sparkles className="h-3 w-3 text-primary shrink-0" aria-label="Resumo IA" />
                               )}
                               {hasRecording && (
-                                <Video className="h-3 w-3 text-emerald-500 shrink-0" aria-label="Gravacao" />
+                                <Video className="h-3 w-3 text-emerald-500 shrink-0" aria-label="Gravação" />
                               )}
                             </div>
 
@@ -501,7 +501,7 @@ export default function DoctorRequests() {
                               <div className="flex items-center gap-1 mt-1.5">
                                 <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
                                 <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase">
-                                  {req.aiUrgency === 'urgent' ? 'Urgente' : req.aiUrgency === 'emergency' ? 'Emergencia' : req.aiUrgency}
+                                  {req.aiUrgency === 'urgent' ? 'Urgente' : req.aiUrgency === 'emergency' ? 'Emergência' : req.aiUrgency}
                                 </span>
                               </div>
                             )}

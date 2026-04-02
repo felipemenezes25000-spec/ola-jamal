@@ -345,7 +345,7 @@ export default function RequestDetailScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.center}>
-          <AppEmptyState icon="alert-circle-outline" title="ID invalido" subtitle="O link acessado contem um identificador invalido. Volte e tente novamente." actionLabel="Voltar" onAction={() => router.back()} />
+          <AppEmptyState icon="alert-circle-outline" title="ID inválido" subtitle="O link acessado contém um identificador inválido. Volte e tente novamente." actionLabel="Voltar" onAction={() => router.back()} />
         </View>
       </SafeAreaView>
     );
@@ -457,7 +457,7 @@ export default function RequestDetailScreen() {
           {isConnected === false && (
             <View style={styles.offlineBanner}>
               <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
-              <Text style={styles.offlineText}>Voce esta offline. Algumas acoes estao temporariamente indisponiveis.</Text>
+              <Text style={styles.offlineText}>Você está offline. Algumas ações estão temporariamente indisponíveis.</Text>
             </View>
           )}
 
@@ -473,7 +473,7 @@ export default function RequestDetailScreen() {
               </View>
               <View style={styles.videoBannerContent}>
                 <Text style={styles.videoBannerTitle}>
-                  {request.status === 'in_consultation' ? 'Medico na sala' : 'Sua consulta esta pronta'}
+                  {request.status === 'in_consultation' ? 'Médico na sala' : 'Sua consulta está pronta'}
                 </Text>
                 <Text style={styles.videoBannerSub}>
                   {request.status === 'in_consultation' ? 'Toque para entrar na videoconsulta' : 'Toque para entrar na sala de espera'}
@@ -507,7 +507,7 @@ export default function RequestDetailScreen() {
             } />
             <Text style={styles.nextActionSummary}>{nextAction.statusSummary}</Text>
             <View style={styles.nextActionDivider} />
-            <Text style={styles.nextActionStepLabel}>Proximo passo</Text>
+            <Text style={styles.nextActionStepLabel}>Próximo passo</Text>
             <Text style={styles.nextActionBody}>{nextAction.whatToDo}</Text>
             {nextAction.eta ? <Text style={styles.nextActionEta}>{nextAction.eta}</Text> : null}
             {nextActionQuickCta && (
@@ -555,7 +555,7 @@ export default function RequestDetailScreen() {
             )}
             {request.doctorName && (
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Medico</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Médico</Text>
                 <View style={styles.doctorInfo}>
                   <View style={[styles.doctorAvatar, { backgroundColor: colors.primary }]}>
                     <Ionicons name="person" size={12} color="#FFFFFF" />
@@ -652,7 +652,7 @@ export default function RequestDetailScreen() {
                 <View style={[styles.aiIconWrap, { backgroundColor: AI_ACCENT + '15' }]}>
                   <Ionicons name="sparkles" size={17} color={AI_ACCENT} />
                 </View>
-                <Text style={[styles.aiCardTitle, { color: colors.text }]}>Analise IA</Text>
+                <Text style={[styles.aiCardTitle, { color: colors.text }]}>Análise IA</Text>
                 {request.aiRiskLevel && (
                   <View style={[styles.riskBadge, {
                     backgroundColor: request.aiRiskLevel === 'high' ? colors.errorLight
@@ -679,7 +679,7 @@ export default function RequestDetailScreen() {
             <View style={[styles.rejectionCard, { backgroundColor: colors.errorLight, borderColor: colors.error + '25' }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
                 <Ionicons name="close-circle" size={20} color={colors.error} />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.error }}>Motivo da Rejeicao</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.error }}>Motivo da Rejeição</Text>
               </View>
               <Text style={{ fontSize: 14, color: colors.error, lineHeight: 20 }}>{request.rejectionReason}</Text>
             </View>
@@ -693,7 +693,7 @@ export default function RequestDetailScreen() {
             <View style={styles.susBannerContent}>
               <Text style={[styles.susBannerTitle, { color: colors.text }]}>Atendimento gratuito via SUS</Text>
               <Text style={[styles.susBannerSub, { color: colors.textSecondary }]}>
-                Servico digital de saude publica
+                Serviço digital de saúde pública
               </Text>
             </View>
           </View>
@@ -736,7 +736,7 @@ export default function RequestDetailScreen() {
               </View>
               <Text style={[styles.autoJoinTitle, { color: colors.text }]}>Consulta agendada</Text>
               <Text style={[styles.autoJoinSub, { color: colors.textSecondary }]}>
-                Quando o medico iniciar a consulta, voce sera automaticamente levado a sala de video.
+                Quando o médico iniciar a consulta, você será automaticamente levado à sala de vídeo.
               </Text>
             </SectionCard>
           )}
@@ -771,12 +771,12 @@ export default function RequestDetailScreen() {
               <Ionicons name="videocam" size={36} color={isConsultation ? AI_ACCENT : colors.primary} />
             </View>
             <Text style={[styles.videoModalTitle, { color: colors.text }]}>
-              {request.status === 'in_consultation' ? 'Medico na sala!' : 'Sua consulta esta pronta'}
+              {request.status === 'in_consultation' ? 'Médico na sala!' : 'Sua consulta está pronta'}
             </Text>
             <Text style={[styles.videoModalSub, { color: colors.textSecondary }]}>
               {request.status === 'in_consultation'
                 ? 'Entre na videoconsulta. Pode voltar a sala enquanto houver tempo contratado.'
-                : 'Entre na sala e aguarde o medico.'}
+                : 'Entre na sala e aguarde o médico.'}
             </Text>
             <TouchableOpacity
               style={[styles.videoModalPrimaryBtn, { backgroundColor: isConsultation ? AI_ACCENT : colors.primary }]}

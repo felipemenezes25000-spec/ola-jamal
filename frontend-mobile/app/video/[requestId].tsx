@@ -126,15 +126,15 @@ export default function VideoRequestIdRoute() {
               <>
                 <Text style={styles.title}>Erro ao iniciar videochamada</Text>
                 <Text style={styles.message}>
-                  Nao conseguimos carregar o modulo de video.{'\n'}
+                  Não conseguimos carregar o módulo de vídeo.{'\n'}
                   Feche o aplicativo, abra novamente e tente entrar na consulta.
                 </Text>
               </>
             ) : isDev ? (
               <>
-                <Text style={styles.title}>Modulo de video indisponivel</Text>
+                <Text style={styles.title}>Módulo de vídeo indisponível</Text>
                 <Text style={styles.message}>
-                  Em modo de desenvolvimento (Expo Go), a videochamada nao esta disponivel.{'\n'}
+                  Em modo de desenvolvimento (Expo Go), a videochamada não está disponível.{'\n'}
                   Use um build de desenvolvimento para testar.
                 </Text>
                 <View style={styles.hintBox}>

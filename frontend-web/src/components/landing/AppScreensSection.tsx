@@ -468,7 +468,7 @@ const screens: ScreenSlide[] = [
                 <p className="text-xs font-bold text-slate-900">CID sugerido pela IA</p>
                 <p className="mt-1 text-[11px] text-slate-600">R51 - Cefaleia</p>
                 <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-                  Sugestao automatica para apoio. O medico pode confirmar, ajustar ou descartar.
+                  Sugestão automática para apoio. O médico pode confirmar, ajustar ou descartar.
                 </p>
               </div>
             </div>
@@ -485,7 +485,7 @@ const screens: ScreenSlide[] = [
                   <MiniTag>Hidratacao</MiniTag>
                 </div>
                 <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-                  Lista apenas de apoio clinico. Prescricao e orientacao final dependem da avaliacao medica.
+                  Lista apenas de apoio clínico. Prescrição e orientação final dependem da avaliação médica.
                 </p>
               </div>
             </div>
@@ -495,11 +495,11 @@ const screens: ScreenSlide[] = [
             <div className="flex items-start gap-2">
               <BookOpen className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-slate-900">Documentacao cientifica consultada</p>
+                <p className="text-xs font-bold text-slate-900">Documentação científica consultada</p>
                 <div className="mt-2 space-y-1.5 text-[10px] leading-relaxed text-slate-500">
-                  <p>• Diretriz de cefaleias primarias para triagem inicial</p>
+                  <p>• Diretriz de cefaleias primárias para triagem inicial</p>
                   <p>• Protocolo de sinais de alarme e encaminhamento</p>
-                  <p>• Referencias farmacologicas para analgesicos usuais</p>
+                  <p>• Referências farmacológicas para analgésicos usuais</p>
                 </div>
               </div>
             </div>
@@ -512,10 +512,10 @@ const screens: ScreenSlide[] = [
               <Stethoscope className="h-3.5 w-3.5 text-emerald-700" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-900">Decisao final do medico</p>
+              <p className="text-xs font-bold text-slate-900">Decisão final do médico</p>
               <p className="mt-1 text-[11px] leading-relaxed text-emerald-700">
-                Conduta aprovada apos avaliacao clinica. A IA apoia a organizacao da consulta, mas a decisao
-                final, a orientacao e a prescricao sao exclusivamente medicas.
+                Conduta aprovada após avaliação clínica. A IA apoia a organização da consulta, mas a decisão
+                final, a orientação e a prescrição são exclusivamente médicas.
               </p>
             </div>
           </div>

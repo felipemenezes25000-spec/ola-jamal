@@ -72,7 +72,7 @@ export function PrescriptionImageGallery({
       </Card>
 
       <Dialog open={!!selectedUrl} onOpenChange={() => setSelectedUrl(null)}>
-        <DialogContent className="max-w-full max-h-[90vh] w-fit p-0 overflow-hidden">
+        <DialogContent className="max-w-full max-h-[90vh] w-fit p-0 overflow-hidden" aria-describedby={undefined}>
           <DialogHeader className="sr-only">
             <DialogTitle>Visualização ampliada</DialogTitle>
           </DialogHeader>

@@ -145,7 +145,11 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        if (response.status === 401) return 'invalid';
+        if (response.status === 401) {
+          // Clear stale token from in-memory cache so getAuthHeader() won't reuse it
+          this.tokenCache = null;
+          return 'invalid';
+        }
         // 403 from refresh may be DoctorApprovalFilter blocking pending doctors — not an invalid token
         if (response.status === 403) return 'error';
         // 429 (rate limit), 500, 502, etc. = problema transitório → NÃO deslogar

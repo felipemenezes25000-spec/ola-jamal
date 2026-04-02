@@ -84,9 +84,6 @@ export default function PublicPrivacy() {
               <strong>AWS (Amazon Web Services):</strong> infraestrutura de hospedagem e armazenamento, com dados na
               região sa-east-1 (São Paulo).
             </li>
-            <li style={styles.li}>
-              <strong>Mercado Pago:</strong> processamento de pagamentos.
-            </li>
           </ul>
         </section>
 

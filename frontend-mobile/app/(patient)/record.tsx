@@ -578,8 +578,8 @@ export default function PatientRecordScreen() {
                     </Text>
                     <Text style={s.emptySubtitle}>
                       {activeTab === 'historico'
-                        ? 'Seus atendimentos aparecerao aqui apos sua primeira consulta'
-                        : 'Seus documentos medicos aparecerao aqui'}
+                        ? 'Seus atendimentos aparecerão aqui após sua primeira consulta'
+                        : 'Seus documentos médicos aparecerão aqui'}
                     </Text>
                   </View>
                 ) : null

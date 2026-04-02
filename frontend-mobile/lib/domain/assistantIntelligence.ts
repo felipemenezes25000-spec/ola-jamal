@@ -137,6 +137,7 @@ const RED_FLAG_RULES: { keyword: string; patterns: RegExp[] }[] = [
   { keyword: 'confusao mental', patterns: [/\bconfusao mental\b/, /\bestou confuso\b/, /\bdesorienta(c|ç)ao\b/] },
   { keyword: 'sinais neurologicos', patterns: [/\bfraqueza de um lado\b/, /\brosto torto\b/, /\bfala enrolada\b/, /\bconvuls(a|ã)o\b/] },
   { keyword: 'sangramento intenso', patterns: [/\bsangramento intenso\b/, /\bsangue em grande quantidade\b/] },
+  { keyword: 'sinais de AVC/derrame', patterns: [/\bavc\b/, /\bderrame\b/, /\bparalisia subit/, /\bdor de cabe(c|ç)a subit/, /\bperda de vis(a|ã)o\b/] },
 ];
 
 export function detectRedFlags(symptoms?: string | null): RedFlagResult {
@@ -168,7 +169,7 @@ export function detectRedFlags(symptoms?: string | null): RedFlagResult {
     isUrgent: true,
     matchedSignals,
     guidance:
-      'Isso pode ser urgente. Procure emergencia ou ligue 192 agora. Se quiser, eu te ajudo a registrar o ocorrido para o medico.',
+      'Isso pode ser urgente. Procure emergência ou ligue 192 agora. Se quiser, eu te ajudo a registrar o ocorrido para o médico.',
   };
 }
 
@@ -181,8 +182,8 @@ export function getNextBestActionForRequest(
   if (status === 'submitted') {
     return {
       title: 'Pedido recebido',
-      statusSummary: 'Seu pedido entrou na fila de analise clinica.',
-      whatToDo: 'Aguarde. Se precisar, voce pode abrir o detalhe para acompanhar em tempo real.',
+      statusSummary: 'Seu pedido entrou na fila de análise clínica.',
+      whatToDo: 'Aguarde. Se precisar, você pode abrir o detalhe para acompanhar em tempo real.',
       eta: 'Normalmente em 3 a 10 minutos.',
       intent: 'track',
     };
@@ -223,7 +224,7 @@ export function getNextBestActionForRequest(
       title: 'Documento aprovado',
       statusSummary: 'Solicitação aprovada.',
       whatToDo: 'O médico está preparando e assinando seu documento.',
-      eta: 'Tempo medio de assinatura: 3 a 10 minutos.',
+      eta: 'Tempo médio de assinatura: 3 a 10 minutos.',
       intent: 'wait',
     };
   }
@@ -231,9 +232,9 @@ export function getNextBestActionForRequest(
   if (status === 'signed' || status === 'delivered') {
     return {
       title: 'Documento pronto',
-      statusSummary: 'Seu documento ja esta disponivel para uso.',
-      whatToDo: 'Baixe o PDF e apresente em farmacia/laboratorio quando necessario.',
-      eta: 'Disponivel agora.',
+      statusSummary: 'Seu documento já está disponível para uso.',
+      whatToDo: 'Baixe o PDF e apresente em farmácia/laboratório quando necessário.',
+      eta: 'Disponível agora.',
       ctaLabel: request.signedDocumentUrl ? 'Baixar documento' : undefined,
       intent: request.signedDocumentUrl ? 'download' : 'none',
     };
@@ -264,7 +265,7 @@ export function getNextBestActionForRequest(
       title: 'Pedido cancelado',
       statusSummary: 'Este pedido foi encerrado.',
       whatToDo: 'Se ainda precisar, crie um novo pedido guiado pela Dra. Renoveja.',
-      eta: 'Voce pode iniciar agora.',
+      eta: 'Você pode iniciar agora.',
       intent: 'none',
     };
   }
@@ -273,7 +274,7 @@ export function getNextBestActionForRequest(
     title: 'Acompanhando seu pedido',
     statusSummary: 'Estamos monitorando o fluxo.',
     whatToDo: 'Abra o detalhe para ver a etapa atual.',
-    eta: 'Atualizacao em tempo real.',
+    eta: 'Atualização em tempo real.',
     intent: 'track',
   };
 }

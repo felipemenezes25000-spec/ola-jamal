@@ -44,7 +44,10 @@ public class WhisperTranscriptionService : ITranscriptionService
 
         var cfg = _config.Value ?? new OpenAIConfig();
         var apiKey = cfg.ApiKey?.Trim();
-        if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR_") || apiKey.Contains("_HERE"))
+        if (string.IsNullOrEmpty(apiKey)
+            || apiKey.Contains("YOUR_") || apiKey.Contains("_HERE")
+            || apiKey.Contains("SUA_CHAVE") || apiKey.Contains("SUA_KEY")
+            || apiKey.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogWarning("[Whisper] TRANSCRICAO_NAO_OCORRE: OpenAI:ApiKey não configurada. Verifique OpenAI:ApiKey ou variável OpenAI__ApiKey.");
             return null;

@@ -15,14 +15,13 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Loader2, Bell, BellOff, CheckCheck, FileText,
-  CreditCard, Stethoscope, ChevronRight, Clock, ExternalLink,
+  Stethoscope, ChevronRight, Clock, ExternalLink,
 } from 'lucide-react';
 
 type FilterType = 'all' | 'requests' | 'consultations';
 
 function getCategoryIcon(type: string | undefined) {
   const t = (type ?? '').toLowerCase();
-  if (t.includes('payment') || t.includes('pago')) return CreditCard;
   if (t.includes('consult')) return Stethoscope;
   if (t.includes('request') || t.includes('pedido')) return FileText;
   return Bell;
@@ -33,7 +32,7 @@ function getBorderColor(type: string | undefined): string {
   const t = (type ?? '').toLowerCase();
   if (t.includes('request') || t.includes('pedido')) return 'border-l-blue-500';
   if (t.includes('consult')) return 'border-l-violet-500';
-  if (t.includes('payment') || t.includes('pago') || t.includes('success') || t.includes('sucesso')) return 'border-l-emerald-500';
+  if (t.includes('success') || t.includes('sucesso')) return 'border-l-emerald-500';
   if (t.includes('reminder') || t.includes('lembrete')) return 'border-l-amber-400';
   return 'border-l-blue-500';
 }
@@ -54,8 +53,8 @@ function getTimeAgo(dateStr: string) {
 function isExpiredTemporal(item: NotificationItem): boolean {
   const msg = (item.message ?? '').toLowerCase();
   const title = (item.title ?? '').toLowerCase();
-  const temporal = msg.includes('comeca em') || msg.includes('minuto') || msg.includes('toque para entrar')
-    || title.includes('comeca em') || title.includes('minuto') || title.includes('toque para entrar');
+  const temporal = msg.includes('começa em') || msg.includes('minuto') || msg.includes('toque para entrar')
+    || title.includes('começa em') || title.includes('minuto') || title.includes('toque para entrar');
   if (!temporal) return false;
   const ageMs = Date.now() - new Date(item.createdAt).getTime();
   return ageMs > 2 * 60 * 60 * 1000;
@@ -71,7 +70,7 @@ function getRequestId(item: NotificationItem): string | undefined {
 function matchesFilter(item: NotificationItem, filter: FilterType): boolean {
   if (filter === 'all') return true;
   const t = (item.notificationType ?? '').toLowerCase();
-  if (filter === 'requests') return t.includes('request') || t.includes('pedido') || t.includes('payment') || t.includes('pago');
+  if (filter === 'requests') return t.includes('request') || t.includes('pedido');
   if (filter === 'consultations') return t.includes('consult');
   return true;
 }
@@ -236,9 +235,9 @@ export default function DoctorNotifications() {
             <CardContent className="py-16 text-center">
               <BellOff className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="font-medium text-muted-foreground">
-                {filter !== 'all' ? 'Nenhuma notificacao neste filtro' : 'Nenhuma notificacao'}
+                {filter !== 'all' ? 'Nenhuma notificação neste filtro' : 'Nenhuma notificação'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Voce recebera alertas de novos pedidos aqui</p>
+              <p className="text-xs text-muted-foreground mt-1">Você receberá alertas de novos pedidos aqui</p>
             </CardContent>
           </Card>
         ) : (

@@ -6,6 +6,10 @@
 
 const mockPost = jest.fn();
 
+jest.mock('react-native', () => ({
+  Platform: { OS: 'android' },
+}));
+
 jest.mock('../lib/api-client', () => ({
   apiClient: {
     post: mockPost,
