@@ -130,7 +130,7 @@ export default function CompleteDoctorScreen() {
         <Text style={styles.headerTitle}>Completar cadastro</Text>
         <View style={{ width: 44 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <AppCard style={{ ...styles.infoBanner, backgroundColor: colors.primarySoft }}>
           <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
           <Text style={styles.infoTitle}>Certificado digital obrigatório</Text>
