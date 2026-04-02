@@ -28,6 +28,15 @@ const mockFetch = jest.fn();
 (global as any).fetch = mockFetch;
 (global as any).__DEV__ = true;
 
+beforeAll(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
 function mockOkResponse<T>(data: T) {
   return {
     ok: true,

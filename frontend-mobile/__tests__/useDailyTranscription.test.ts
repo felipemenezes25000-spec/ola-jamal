@@ -64,6 +64,13 @@ const baseOptions = {
   consultationActive: true,
 };
 
+beforeAll(() => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
 });

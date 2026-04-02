@@ -5,15 +5,11 @@ import { ErrorBoundary } from '../ErrorBoundary';
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 
-const origError = console.error;
 beforeAll(() => {
-  console.error = (...args: unknown[]) => {
-    if (typeof args[0] === 'string' && args[0].includes('[ErrorBoundary]')) return;
-    origError.call(console, ...args);
-  };
+  jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterAll(() => {
-  console.error = origError;
+  jest.restoreAllMocks();
 });
 
 const Throw = () => {
