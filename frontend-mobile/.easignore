@@ -13,5 +13,8 @@ android
 .expo
 web-build
 
+# Web build output
+dist
+
 # Tests
 __tests__
