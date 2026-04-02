@@ -71,7 +71,7 @@ beforeEach(() => {
 // ─── Testes ───────────────────────────────────────────────────────────────
 
 describe('useDailyTranscription — estado inicial', () => {
-  it('retorna isTranscribing=false e error=null inicialmente', () => {
+  it('retorna isTranscribing=false e error=null inicialmente', async () => {
     const fakeCall = makeFakeCall();
     const callRef = makeRef(fakeCall as unknown as null);
 
@@ -82,6 +82,9 @@ describe('useDailyTranscription — estado inicial', () => {
     expect(result.current.isTranscribing).toBe(false);
     expect(result.current.error).toBeNull();
     expect(typeof result.current.stop).toBe('function');
+
+    // Flush async useEffect (startTranscription) to avoid act() warning
+    await flushMicrotasks();
   });
 });
 
