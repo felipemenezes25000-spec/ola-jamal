@@ -75,26 +75,28 @@ git push -u origin hotfix/fix-critico
 ### CI (`ci.yml`)
 
 Roda em **push** e **PR** para `main` e `develop`.
+**Path filters:** cada job so roda quando arquivos do seu modulo mudam (via `dorny/paths-filter`).
 
-| Modulo           | Steps                                    |
-|------------------|------------------------------------------|
-| Backend (.NET)   | restore → build → test                   |
-| Backend Docker   | docker build (valida Dockerfile)         |
-| Frontend Web     | install → lint → test → build            |
-| Frontend Mobile  | install → typecheck → lint → test → export |
+| Modulo           | Path filter          | Steps                                    |
+|------------------|----------------------|------------------------------------------|
+| Backend (.NET)   | `backend-dotnet/**`  | restore → build → test                   |
+| Backend Docker   | `backend-dotnet/**`  | docker build (valida Dockerfile)         |
+| Frontend Web     | `frontend-web/**`    | install → lint → test → build            |
+| Frontend Mobile  | `frontend-mobile/**` | install → typecheck → lint → test → export |
 
 ### Deploy (`deploy-aws.yml`)
 
 Roda **apenas** para `main`, apos CI verde.
 
 ```
-CI verde (main) ──→ Testes (gate) ──→ Deploy Backend (ECS)
-                                  ──→ Deploy Frontend (S3/CloudFront)
+CI verde (main) ──→ Deploy Backend (ECS)
+                ──→ Deploy Frontend (S3/CloudFront)
+
+workflow_dispatch ──→ Test Gate (todos os modulos) ──→ Deploy
 ```
 
-- **Trigger automatico:** apos CI passar em `main`
-- **Trigger manual:** `workflow_dispatch` (tambem roda testes antes)
-- **Testes como gate:** mesmo quando disparado manualmente, todos os testes rodam antes do deploy
+- **Trigger automatico:** apos CI passar em `main` — deploy direto (CI ja validou)
+- **Trigger manual:** `workflow_dispatch` — roda testes antes de deployar
 - **Concurrency:** apenas um deploy por vez, sem cancelar o em andamento
 
 | Componente | Destino                       | Estrategia          |
@@ -126,15 +128,16 @@ Disparado **manualmente** (`workflow_dispatch`). Gera APK release/debug.
 
 ## Pre-push hook (local)
 
-Antes de cada `git push`, o hook Husky roda automaticamente:
+Antes de cada `git push`, o hook Husky **detecta quais modulos foram alterados** e so roda verificacoes para esses modulos.
 
-```
-frontend-web:    lint → test
-frontend-mobile: lint → typecheck → test
-backend-dotnet:  build → test
-```
+| Modulo           | Condicao                        | Steps                    |
+|------------------|---------------------------------|--------------------------|
+| Frontend Web     | arquivos em `frontend-web/`     | lint → test              |
+| Frontend Mobile  | arquivos em `frontend-mobile/`  | lint → typecheck → test  |
+| Backend .NET     | arquivos em `backend-dotnet/`   | build → test             |
 
-Se qualquer step falhar, o push e abortado.
+- Se apenas docs/infra/CI mudaram, o hook **pula todos os testes**
+- Se qualquer step falhar, o push e abortado
 
 ---
 
