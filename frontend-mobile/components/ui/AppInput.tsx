@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Platform,
   TextInputProps,
   ViewStyle,
 } from 'react-native';
@@ -159,11 +160,21 @@ const createStyles = (
   },
   focusRing: {
     borderWidth: 2,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+      },
+      android: {},
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+      },
+    }),
   },
   disabled: {
     opacity: 0.5,

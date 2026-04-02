@@ -23,7 +23,7 @@ import { useAppTheme } from '../../lib/ui/useAppTheme';
 import { useColorSchemeContext } from '../../contexts/ColorSchemeContext';
 import type { DesignColors, DesignTokens } from '../../lib/designSystem';
 import { AppInput } from '../../components/ui';
-import { FadeIn } from '../../components/ui/FadeIn';
+// FadeIn removed — re-animating on nav-back caused visual flash
 import { Logo } from '../../components/Logo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth, FORBIDDEN_MESSAGE_KEY } from '../../contexts/AuthContext';
@@ -208,7 +208,7 @@ export default function Login() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            <FadeIn visible duration={300} fromY={12} fill={false}>
+            <>
               {/* Branding */}
               <View style={[styles.brandSection, isSmallScreen && styles.brandSectionSmall]}>
                 <Logo size={isSmallScreen ? 'small' : 'medium'} variant="dark" compact />
@@ -330,7 +330,7 @@ export default function Login() {
                   <Text style={styles.whatsappLinkText}>Precisa de ajuda? Fale no WhatsApp</Text>
                 </TouchableOpacity>
               </View>
-            </FadeIn>
+            </>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

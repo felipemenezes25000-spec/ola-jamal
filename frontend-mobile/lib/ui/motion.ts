@@ -49,7 +49,7 @@ export const motionTokens = {
     authStack: {
       headerShown: false,
       animation: Platform.OS === 'ios' ? 'fade' : 'fade_from_bottom',
-      gestureEnabled: true,
+      gestureEnabled: Platform.OS === 'ios',
     },
     newRequestStack: {
       headerShown: false,
