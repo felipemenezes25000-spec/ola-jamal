@@ -5,14 +5,21 @@ import { NavLink } from './NavLink';
 
 function renderWithRouter(ui: React.ReactElement, initialEntries = ['/']) {
   return render(
-    <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
+    <MemoryRouter
+      initialEntries={initialEntries}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
+      {ui}
+    </MemoryRouter>
   );
 }
 
 describe('NavLink', () => {
   it('deve renderizar como link com texto', () => {
     renderWithRouter(<NavLink to="/admin">Dashboard</NavLink>);
-    expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Dashboard/i })
+    ).toBeInTheDocument();
   });
 
   it('deve apontar para a rota correta', () => {

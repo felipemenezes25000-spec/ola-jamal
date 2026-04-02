@@ -56,20 +56,22 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../contexts/AuthContext', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  useAuth: () => ({ user: { id: 'user-1' }, loading: false }),
+}));
+
 import {
   RequestsEventsProvider,
   useRequestsEvents,
   useRequestsEventsStable,
 } from '../contexts/RequestsEventsContext';
-import { AuthProvider } from '../contexts/AuthContext';
 
 // ── Wrapper com providers ─────────────────────────────────────────────────────
 
 function makeWrapper() {
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <AuthProvider>
-      <RequestsEventsProvider>{children}</RequestsEventsProvider>
-    </AuthProvider>
+    <RequestsEventsProvider>{children}</RequestsEventsProvider>
   );
   Wrapper.displayName = 'TestWrapper';
   return Wrapper;
