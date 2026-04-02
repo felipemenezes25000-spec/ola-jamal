@@ -50,8 +50,15 @@ const TYPES = [
   },
   {
     key: 'azul' as const,
-    label: 'Receituário AZUL',
-    desc: 'Receituário para medicações que possuem elevada vigilância por causarem dependência. São feitas em receituário azul.',
+    label: 'Receituário AZUL (Notificação B)',
+    desc: 'Receituário para medicações que possuem elevada vigilância por causarem dependência. São feitas em receituário azul (notificação B).',
+    comingSoon: true,
+    anvisaPrevisao: ANVISA_PREVISAO,
+  },
+  {
+    key: 'amarelo' as const,
+    label: 'Receituário AMARELO (Notificação A)',
+    desc: 'Receituário para substâncias sujeitas a controle especial — entorpecentes e psicotrópicos. São feitas em receituário amarelo (notificação A).',
     comingSoon: true,
     anvisaPrevisao: ANVISA_PREVISAO,
   },

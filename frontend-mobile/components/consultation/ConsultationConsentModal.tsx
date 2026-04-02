@@ -25,7 +25,7 @@ interface ConsultationConsentModalProps {
 const CONSENT_ITEMS = [
   'A consulta presencial é a referência em atendimento médico e que posso solicitá-la a qualquer momento.',
   'O médico pode, a seu critério clínico, recusar o atendimento por telemedicina e indicar atendimento presencial.',
-  'A consulta será transcrita em texto para fins de prontuário; nenhum áudio ou vídeo é gravado.',
+  'A consulta será transcrita em texto para fins de prontuário. A sessão de vídeo poderá ser gravada para segurança e auditoria, com armazenamento seguro e acesso restrito.',
   'Meus dados serão tratados conforme a LGPD e a Política de Privacidade do RenoveJá+.',
   'Posso revogar este consentimento a qualquer momento.',
 ] as const;

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, ImageSourcePropType } from 'react-native';
 import { useAppTheme } from '../lib/ui/useAppTheme';
-import { shadows } from '../lib/designSystem';
 
 const TAGLINE = 'Renove sua receita e pedido de exames.\nRápido e sem burocracia.';
 
@@ -19,9 +18,9 @@ interface LogoProps {
 }
 
 const SIZE_MAP = {
-  small:  { width: 110, taglineSize: 12 },
-  medium: { width: 150, taglineSize: 13 },
-  large:  { width: 190, taglineSize: 14 },
+  small:  { width: 130, taglineSize: 12 },
+  medium: { width: 170, taglineSize: 13 },
+  large:  { width: 220, taglineSize: 14 },
 };
 
 export function Logo({ size = 'medium', compact = false, variant = 'light' }: LogoProps) {
@@ -33,14 +32,12 @@ export function Logo({ size = 'medium', compact = false, variant = 'light' }: Lo
 
   return (
     <View style={styles.container}>
-      <View style={styles.logoWrapper}>
-        <Image
-          source={LOGO_IMAGE as ImageSourcePropType}
-          style={[styles.logoImage, { width: dims.width, height }]}
-          resizeMode="contain"
-          accessibilityLabel="Logo RenoveJá"
-        />
-      </View>
+      <Image
+        source={LOGO_IMAGE as ImageSourcePropType}
+        style={{ width: dims.width, height }}
+        resizeMode="contain"
+        accessibilityLabel="Logo RenoveJá"
+      />
       {!compact && (
         <Text style={[styles.tagline, { fontSize: dims.taglineSize, color: taglineColor }]}>
           {TAGLINE}
@@ -55,18 +52,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoWrapper: {
-    backgroundColor: '#FFFFFF', // Clean background for non-transparent logo asset
-    borderRadius: 24,
-    padding: 12,
-    marginBottom: 12,
-    shadowColor: shadows.lg.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  logoImage: {},
   tagline: {
     marginTop: 4,
     textAlign: 'center',

@@ -8,7 +8,7 @@ export default function Cookies() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>Política de Cookies</h1>
-        <p style={styles.lastUpdate}>Última atualização: março de 2026</p>
+        <p style={styles.lastUpdate}>Última atualização: abril de 2026</p>
 
         <section style={styles.section}>
           <h2 style={styles.h2}>1. O que são cookies</h2>

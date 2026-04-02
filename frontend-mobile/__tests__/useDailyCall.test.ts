@@ -37,6 +37,13 @@ const defaultOptions = {
   token: 'mock-token',
 };
 
+beforeAll(() => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
 describe('useDailyCall — estado inicial', () => {
   it('retorna callState idle e participantes nulos', () => {
     const { result } = renderHook(() => useDailyCall(defaultOptions));

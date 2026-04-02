@@ -1,7 +1,7 @@
 ﻿# ROPA — REGISTRO DAS OPERAÇÕES DE TRATAMENTO (LGPD)
 
 **Empresa (Controladora):** RenoveJá Saúde Ltda.  
-**CNPJ:** 14.376.070/0001-53  
+**CNPJ:** 65.947.180/0001-69  
 **Versão:** 1.0  
 **Data:** ____/____/2026
 

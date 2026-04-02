@@ -198,7 +198,8 @@ public class DoctorRepository(PostgresClient db) : IDoctorRepository
             model.ProfessionalNeighborhood,
             model.ProfessionalComplement,
             model.ProfessionalCity,
-            model.ProfessionalState);
+            model.ProfessionalState,
+            model.Rqe);
     }
 
     private static DoctorProfileModel MapToModel(DoctorProfile profile)

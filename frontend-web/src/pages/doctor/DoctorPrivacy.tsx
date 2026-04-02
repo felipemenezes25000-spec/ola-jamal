@@ -33,7 +33,7 @@ export default function DoctorPrivacy() {
               <Shield className="h-5 w-5 text-primary" />
               <h1 className="text-lg font-bold">Política de Privacidade – {COMPANY.name}</h1>
             </div>
-            <p className="text-xs text-muted-foreground mb-6">Última atualização: março de 2026</p>
+            <p className="text-xs text-muted-foreground mb-6">Última atualização: abril de 2026</p>
 
             <Section title="1. Compromisso e base legal">
               A {COMPANY.name} está comprometida com a proteção dos seus dados em conformidade com a LGPD (Lei 13.709/2018).
@@ -45,7 +45,7 @@ export default function DoctorPrivacy() {
             </Section>
             <Section title="3. Dados que coletamos">
               Dados de identificação, cadastro e dados sensíveis de saúde necessários ao atendimento.
-              Nas consultas por vídeo: transcrição em texto (não há gravação de áudio ou vídeo).
+              Nas consultas por vídeo: transcrição em texto; a sessão poderá ser gravada para segurança e auditoria.
             </Section>
             <Section title="4. Seus direitos (LGPD)">
               Você tem direito a acesso, correção, portabilidade e eliminação dos dados.

@@ -1,0 +1,81 @@
+#!/usr/bin/env sh
+
+# Detecta quais módulos foram alterados comparando com o remote
+REMOTE_SHA=$(git rev-parse @{upstream} 2>/dev/null || git rev-parse HEAD~1)
+CHANGED_FILES=$(git diff --name-only "$REMOTE_SHA"..HEAD 2>/dev/null)
+
+if [ -z "$CHANGED_FILES" ]; then
+  echo "==> Pre-push: nenhum arquivo alterado. Prosseguindo."
+  exit 0
+fi
+
+HAS_WEB=$(echo "$CHANGED_FILES" | grep "^frontend-web/" | grep -qv "^frontend-web/\.husky/" && echo 1 || echo 0)
+HAS_MOBILE=$(echo "$CHANGED_FILES" | grep -q "^frontend-mobile/" && echo 1 || echo 0)
+HAS_BACKEND=$(echo "$CHANGED_FILES" | grep -q "^backend-dotnet/" && echo 1 || echo 0)
+HAS_ROOT=$(echo "$CHANGED_FILES" | grep -qvE "^(frontend-web|frontend-mobile|backend-dotnet|infra|docs|\.github)/" && echo 1 || echo 0)
+
+# Arquivos raiz (CLAUDE.md, README.md, etc.) não precisam de testes
+# Arquivos de CI/docs/infra também não
+if [ "$HAS_WEB" = "0" ] && [ "$HAS_MOBILE" = "0" ] && [ "$HAS_BACKEND" = "0" ]; then
+  echo "==> Pre-push: apenas arquivos de config/docs/infra alterados. Prosseguindo."
+  exit 0
+fi
+
+echo "==> Pre-push: verificando módulos alterados..."
+FAILED=0
+
+# Frontend Web
+if [ "$HAS_WEB" = "1" ]; then
+  echo ""
+  echo "--- [frontend-web] lint ---"
+  (cd frontend-web && npm run lint) || { echo "ERRO: frontend-web lint falhou."; FAILED=1; }
+
+  if [ "$FAILED" = "0" ]; then
+    echo "--- [frontend-web] testes ---"
+    (cd frontend-web && npm run test:run) || { echo "ERRO: frontend-web testes falharam."; FAILED=1; }
+  fi
+else
+  echo "--- [frontend-web] sem alterações, pulando ---"
+fi
+
+# Frontend Mobile
+if [ "$HAS_MOBILE" = "1" ] && [ "$FAILED" = "0" ]; then
+  echo ""
+  echo "--- [frontend-mobile] lint ---"
+  (cd frontend-mobile && npm run lint) || { echo "ERRO: frontend-mobile lint falhou."; FAILED=1; }
+
+  if [ "$FAILED" = "0" ]; then
+    echo "--- [frontend-mobile] typecheck ---"
+    (cd frontend-mobile && npm run typecheck) || { echo "ERRO: frontend-mobile typecheck falhou."; FAILED=1; }
+  fi
+
+  if [ "$FAILED" = "0" ]; then
+    echo "--- [frontend-mobile] testes ---"
+    (cd frontend-mobile && npm test -- --watchAll=false) || { echo "ERRO: frontend-mobile testes falharam."; FAILED=1; }
+  fi
+else
+  [ "$HAS_MOBILE" = "0" ] && echo "--- [frontend-mobile] sem alterações, pulando ---"
+fi
+
+# Backend .NET
+if [ "$HAS_BACKEND" = "1" ] && [ "$FAILED" = "0" ]; then
+  echo ""
+  echo "--- [backend-dotnet] build ---"
+  (cd backend-dotnet && dotnet build --nologo) || { echo "ERRO: backend-dotnet build falhou."; FAILED=1; }
+
+  if [ "$FAILED" = "0" ]; then
+    echo "--- [backend-dotnet] testes ---"
+    (cd backend-dotnet && dotnet test --nologo --no-build) || { echo "ERRO: backend-dotnet testes falharam."; FAILED=1; }
+  fi
+else
+  [ "$HAS_BACKEND" = "0" ] && echo "--- [backend-dotnet] sem alterações, pulando ---"
+fi
+
+if [ "$FAILED" = "1" ]; then
+  echo ""
+  echo "==> Pre-push: FALHOU. Push abortado."
+  exit 1
+fi
+
+echo ""
+echo "==> Pre-push: tudo OK! Prosseguindo com push."

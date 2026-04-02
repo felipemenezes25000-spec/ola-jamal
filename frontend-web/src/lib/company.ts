@@ -4,7 +4,7 @@
  */
 export const COMPANY = {
   name: 'RenoveJá Saúde',
-  cnpj: '14.376.070/0001-53',
+  cnpj: '65.947.180/0001-69',
   address: 'Travessa Dona Paula · Higienópolis · São Paulo · SP · Brasil',
   phone: '(11) 98631-8000',
   website: 'www.renovejasaude.com.br',

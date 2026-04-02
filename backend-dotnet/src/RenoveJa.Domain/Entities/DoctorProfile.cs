@@ -18,6 +18,7 @@ public class DoctorProfile : Entity
     public string? ProfessionalCity { get; private set; }
     public string? ProfessionalState { get; private set; }
     public string? ProfessionalPhone { get; private set; }
+    public string? Rqe { get; private set; }
     public string? University { get; private set; }
     public string? Courses { get; private set; }
     public string? HospitalsServices { get; private set; }
@@ -70,6 +71,7 @@ public class DoctorProfile : Entity
     private const int CrmStateLength = 2;
     private const int SpecialtyMaxLength = 100;
     private const int BioMaxLength = 5000;
+    private const int RqeMaxLength = 20;
     private const int ExtendedFieldMaxLength = 500;
 
     public static DoctorProfile Create(
@@ -116,8 +118,14 @@ public class DoctorProfile : Entity
             DoctorApprovalStatus.Pending);
     }
 
-    public void UpdateProfile(string? bio = null, string? specialty = null, string? professionalAddress = null, string? professionalPhone = null, string? university = null, string? courses = null, string? hospitalsServices = null, string? professionalPostalCode = null, string? professionalStreet = null, string? professionalNumber = null, string? professionalNeighborhood = null, string? professionalComplement = null, string? professionalCity = null, string? professionalState = null)
+    public void UpdateProfile(string? bio = null, string? specialty = null, string? professionalAddress = null, string? professionalPhone = null, string? university = null, string? courses = null, string? hospitalsServices = null, string? professionalPostalCode = null, string? professionalStreet = null, string? professionalNumber = null, string? professionalNeighborhood = null, string? professionalComplement = null, string? professionalCity = null, string? professionalState = null, string? rqe = null)
     {
+        if (rqe != null)
+        {
+            if (rqe.Length > RqeMaxLength)
+                throw new DomainException($"RQE cannot exceed {RqeMaxLength} characters");
+            Rqe = rqe;
+        }
         if (!string.IsNullOrWhiteSpace(bio))
         {
             if (bio.Length > BioMaxLength)
@@ -243,7 +251,8 @@ public class DoctorProfile : Entity
         string? professionalNeighborhood = null,
         string? professionalComplement = null,
         string? professionalCity = null,
-        string? professionalState = null)
+        string? professionalState = null,
+        string? rqe = null)
     {
         return new DoctorProfile(
             id,
@@ -261,6 +270,7 @@ public class DoctorProfile : Entity
             ActiveCertificateId = activeCertificateId,
             CrmValidated = crmValidated,
             CrmValidatedAt = crmValidatedAt,
+            Rqe = rqe,
             ProfessionalAddress = professionalAddress,
             ProfessionalPhone = professionalPhone,
             University = university,

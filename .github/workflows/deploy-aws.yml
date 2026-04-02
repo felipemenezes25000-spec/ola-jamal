@@ -4,8 +4,9 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main, fix/frontend-performance-responsive]
+    branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -23,12 +24,58 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ── Gate: testes apenas no workflow_dispatch (CI já validou no workflow_run) ─
+  test-gate:
+    name: Test Gate (manual deploy)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Backend — build + test
+        working-directory: backend-dotnet
+        run: |
+          dotnet restore
+          dotnet build -c Release --no-restore
+          dotnet test -c Release --no-build --verbosity normal
+
+      - name: Frontend Web — lint + test
+        working-directory: frontend-web
+        run: |
+          npm ci
+          npm run lint
+          npm run test:run
+
+      - name: Frontend Mobile — lint + typecheck + test
+        working-directory: frontend-mobile
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run lint
+          npm test -- --no-coverage
+
+  # ── Deploy Backend (ECS) ──────────────────────────────────────────────────
   deploy-backend:
     name: Deploy Backend (ECS)
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    needs: [test-gate]
+    # Roda após test-gate (dispatch) OU direto quando CI passou (workflow_run)
+    if: |
+      always() &&
+      (
+        (github.event_name == 'workflow_dispatch' && needs.test-gate.result == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      )
     steps:
       - uses: actions/checkout@v5
 
@@ -98,12 +145,17 @@ jobs:
           aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].events[0:5]" --output table
           exit 1
 
+  # ── Deploy Frontend (S3/CloudFront) ───────────────────────────────────────
   deploy-frontend:
     name: Deploy Frontend (S3/CloudFront)
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    needs: [test-gate]
+    if: |
+      always() &&
+      (
+        (github.event_name == 'workflow_dispatch' && needs.test-gate.result == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      )
     defaults:
       run:
         working-directory: frontend-web

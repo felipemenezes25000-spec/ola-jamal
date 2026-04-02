@@ -51,6 +51,13 @@ function fireEvent(event: string, data: Record<string, unknown>) {
   registeredHandlers[event]?.(data);
 }
 
+beforeAll(() => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
 beforeEach(() => {
   registeredHandlers = {};
   jest.clearAllMocks();

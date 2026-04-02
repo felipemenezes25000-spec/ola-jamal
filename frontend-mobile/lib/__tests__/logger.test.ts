@@ -1,5 +1,14 @@
 import { logger, logApiError } from '../logger';
 
+beforeAll(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
 describe('logger', () => {
   it('expõe trace, debug, info, warn, error, fatal', () => {
     expect(typeof logger.trace).toBe('function');

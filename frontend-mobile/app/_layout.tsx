@@ -154,6 +154,12 @@ export default function RootLayout() {
                 <Stack.Screen name="doctor-patient-summary/[patientId]" options={motionTokens.nav.snappyPush} />
                 <Stack.Screen name="certificate/upload" options={motionTokens.nav.snappyPush} />
 
+                {/* Perfil paciente: telas de dados */}
+                <Stack.Screen name="personal-info" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="address" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="allergies" options={motionTokens.nav.softPush} />
+                <Stack.Screen name="medications" options={motionTokens.nav.softPush} />
+
                 {/* Utilitários globais */}
                 <Stack.Screen name="settings" options={motionTokens.nav.softPush} />
                 <Stack.Screen name="change-password" options={motionTokens.nav.softPush} />

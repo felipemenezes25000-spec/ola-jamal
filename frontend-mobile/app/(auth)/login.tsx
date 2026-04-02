@@ -215,8 +215,7 @@ export default function Login() {
             <FadeIn visible duration={300} fromY={12} fill={false}>
               {/* Branding */}
               <View style={[styles.brandSection, isSmallScreen && styles.brandSectionSmall]}>
-                <Logo size="small" variant="dark" compact />
-                <Text style={styles.brandTitle}>RenoveJá</Text>
+                <Logo size={isSmallScreen ? 'small' : 'medium'} variant="dark" compact />
                 <Text style={[styles.brandTagline, isSmallScreen && styles.brandTaglineSmall]}>
                   Renove sua receita e pedido de exames.{'\n'}Rápido e sem burocracia.
                 </Text>
@@ -366,14 +365,6 @@ function makeStyles(colors: DesignColors, shadows: DesignTokens['shadows'], isDa
     },
     brandSectionSmall: {
       marginBottom: 18,
-    },
-    brandTitle: {
-      fontSize: 28,
-      fontWeight: '700',
-      color: PRIMARY,
-      letterSpacing: -0.5,
-      marginTop: 10,
-      fontFamily: 'PlusJakartaSans_700Bold',
     },
     brandTagline: {
       marginTop: 8,
