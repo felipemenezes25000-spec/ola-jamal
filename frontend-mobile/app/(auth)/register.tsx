@@ -790,21 +790,6 @@ function makeStyles(colors: DesignColors) {
     roleCardActive: {
       backgroundColor: `${colors.primary}08`,
       borderColor: colors.primary,
-      ...Platform.select({
-        ios: {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-        },
-        android: { elevation: 4 },
-        default: {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-        },
-      }),
     },
     roleIconCircle: {
       width: 48,
