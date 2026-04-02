@@ -36,7 +36,7 @@ export default {
       }
     },
     android: {
-      runtimeVersion: "1.0.0",
+      runtimeVersion: { policy: "appVersion" },
       ...(existsSync(googleServicesPath) && { googleServicesFile: "./google-services.json" }),
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
