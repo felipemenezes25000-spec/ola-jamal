@@ -12,6 +12,11 @@ import { renderHook, act } from '@testing-library/react-native';
 import { MutableRefObject } from 'react';
 import { useDailyTranscription } from '../hooks/useDailyTranscription';
 
+// Flush microtask queue (await Promise.resolve alone is not enough for chained awaits)
+const flushMicrotasks = () => act(async () => {
+  await new Promise((r) => setTimeout(r, 0));
+});
+
 // ─── Mocks ────────────────────────────────────────────────────────────────
 
 const mockTranscribeTextChunk = jest.fn().mockResolvedValue(undefined);
@@ -90,9 +95,7 @@ describe('useDailyTranscription — início de transcrição (médico)', () => {
     );
 
     // startTranscription é chamada no useEffect
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await flushMicrotasks();
 
     expect(fakeCall.startTranscription).toHaveBeenCalledWith({ language: 'pt-BR' });
   });
@@ -129,7 +132,7 @@ describe('useDailyTranscription — início de transcrição (médico)', () => {
       useDailyTranscription({ ...baseOptions, callRef, onTranscriptionFailed })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(onTranscriptionFailed).toHaveBeenCalled();
   });
@@ -144,7 +147,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -153,7 +156,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(mockTranscribeTextChunk).toHaveBeenCalledWith(
       'req-456',
@@ -171,7 +174,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -180,7 +183,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(mockTranscribeTextChunk).toHaveBeenCalledWith(
       'req-456',
@@ -198,7 +201,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -208,7 +211,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(mockTranscribeTextChunk).toHaveBeenCalledWith(
       'req-456',
@@ -226,7 +229,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -235,7 +238,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(mockTranscribeTextChunk).not.toHaveBeenCalled();
   });
@@ -248,7 +251,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -257,7 +260,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(mockTranscribeTextChunk).not.toHaveBeenCalled();
   });
@@ -270,7 +273,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       useDailyTranscription({ ...baseOptions, callRef, consultationActive: false })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -279,7 +282,7 @@ describe('useDailyTranscription — handleMessage (mapeamento de speaker)', () =
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(mockTranscribeTextChunk).not.toHaveBeenCalled();
   });
@@ -295,7 +298,7 @@ describe('useDailyTranscription — callbacks de envio', () => {
       useDailyTranscription({ ...baseOptions, callRef, onSendSuccess })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -304,7 +307,7 @@ describe('useDailyTranscription — callbacks de envio', () => {
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(onSendSuccess).toHaveBeenCalled();
   });
@@ -320,7 +323,7 @@ describe('useDailyTranscription — callbacks de envio', () => {
       useDailyTranscription({ ...baseOptions, callRef, onSendError })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-message', {
@@ -329,7 +332,7 @@ describe('useDailyTranscription — callbacks de envio', () => {
       });
     });
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     expect(onSendError).toHaveBeenCalledWith('network error');
   });
@@ -344,7 +347,7 @@ describe('useDailyTranscription — eventos de controle', () => {
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-started', {});
@@ -361,7 +364,7 @@ describe('useDailyTranscription — eventos de controle', () => {
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-started', {});
@@ -380,7 +383,7 @@ describe('useDailyTranscription — eventos de controle', () => {
       useDailyTranscription({ ...baseOptions, callRef, onTranscriptionFailed })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     act(() => {
       fakeCall._fire('transcription-error', {});
@@ -399,7 +402,7 @@ describe('useDailyTranscription — stop()', () => {
       useDailyTranscription({ ...baseOptions, callRef })
     );
 
-    await act(async () => { await Promise.resolve(); });
+    await flushMicrotasks();
 
     await act(async () => {
       await result.current.stop();
