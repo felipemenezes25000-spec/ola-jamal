@@ -46,14 +46,14 @@ cd ..
 # Backend .NET
 echo ""
 echo "--- [backend-dotnet] build ---"
-cd backend-dotnet && dotnet build --nologo -q
+cd backend-dotnet && dotnet build --nologo
 if [ $? -ne 0 ]; then
   echo "ERRO: backend-dotnet build falhou. Push abortado."
   exit 1
 fi
 
 echo "--- [backend-dotnet] testes ---"
-dotnet test --nologo -q
+dotnet test --nologo --no-build
 if [ $? -ne 0 ]; then
   echo "ERRO: backend-dotnet testes falharam. Push abortado."
   exit 1
