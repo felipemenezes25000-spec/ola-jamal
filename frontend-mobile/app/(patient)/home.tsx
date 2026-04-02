@@ -41,6 +41,7 @@ import { ExpiringDocsBanner } from '../../components/post-consultation/ExpiringD
 import type { AssistantNextActionResponseData } from '../../lib/api';
 import { motionTokens } from '../../lib/ui/motion';
 import { getGreeting, formatDateBR } from '../../lib/utils/format';
+import { LargeActionCard } from '../../components/ui/LargeActionCard';
 
 export default function PatientHome() {
   const router = useRouter();
@@ -479,46 +480,57 @@ export default function PatientHome() {
       )}
 
       {/* ================================================================
-          QUICK ACTIONS: 3-column grid
+          QUICK ACTIONS: Premium vertical cards
          ================================================================ */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>O QUE VOCE PRECISA?</Text>
-        <View style={styles.quickActionsGrid}>
-          <Pressable
-            style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+        <View style={styles.actionsColumn}>
+          <LargeActionCard
+            icon={
+              <View style={[styles.actionIconBox, { backgroundColor: '#E0F2FE' }]}>
+                <Ionicons name="document-text" size={26} color="#0284C7" />
+              </View>
+            }
+            title="Renovar receita"
+            description="Solicitar renovação de receita médica"
+            variant="primary"
+            chips={[
+              { label: 'Mais usado', bg: '#E0F2FE', color: '#0369A1' },
+              { label: 'Resposta em 24h', bg: '#F0FDF4', color: '#166534' },
+            ]}
             onPress={() => { haptics.light(); router.push('/new-request/prescription'); }}
-            accessibilityRole="button"
-            accessibilityLabel="Solicitar renovacao de receita medica"
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons name="document-text" size={20} color={colors.primary} />
-            </View>
-            <Text style={styles.quickActionTitle} numberOfLines={2}>Nova Receita</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+            accessibilityLabel="Solicitar renovação de receita médica. Mais usado. Resposta em 24 horas."
+          />
+          <LargeActionCard
+            icon={
+              <View style={[styles.actionIconBox, { backgroundColor: '#DBEAFE' }]}>
+                <Ionicons name="flask" size={26} color="#2563EB" />
+              </View>
+            }
+            title="Pedir exame"
+            description="Solicitar exames e laudos médicos"
+            variant="exam"
+            chips={[
+              { label: 'Hemograma, TSH, glicemia...', bg: '#DBEAFE', color: '#1E40AF' },
+            ]}
             onPress={() => { haptics.light(); router.push('/new-request/exam'); }}
-            accessibilityRole="button"
-            accessibilityLabel="Solicitar pedido de exame"
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.successLight }]}>
-              <Ionicons name="flask" size={20} color={colors.success} />
-            </View>
-            <Text style={styles.quickActionTitle} numberOfLines={2}>Novo Exame</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.quickAction, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+            accessibilityLabel="Solicitar pedido de exame. Hemograma, TSH, glicemia e outros."
+          />
+          <LargeActionCard
+            icon={
+              <View style={[styles.actionIconBox, { backgroundColor: '#D1FAE5' }]}>
+                <Ionicons name="videocam" size={26} color="#059669" />
+              </View>
+            }
+            title="Consulta breve +"
+            description="Atendimento por vídeo com o médico"
+            variant="consultation"
+            chips={[
+              { label: 'Médicos disponíveis agora', bg: '#D1FAE5', color: '#065F46', showDot: true },
+            ]}
             onPress={() => { haptics.light(); router.push('/new-request/consultation'); }}
-            accessibilityRole="button"
-            accessibilityLabel="Agendar consulta por video"
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: '#EDE9FE' }]}>
-              <Ionicons name="videocam" size={20} color="#8B5CF6" />
-            </View>
-            <Text style={styles.quickActionTitle} numberOfLines={2}>Consulta</Text>
-          </Pressable>
+            accessibilityLabel="Agendar consulta por vídeo. Médicos disponíveis agora."
+          />
         </View>
       </View>
 
@@ -889,38 +901,18 @@ function makeStyles(colors: DesignColors, screenWidth: number) {
     },
 
     // ================================================================
-    // QUICK ACTIONS: 3-column grid
+    // QUICK ACTIONS: Premium vertical cards
     // ================================================================
-    quickActionsGrid: {
-      flexDirection: 'row',
+    actionsColumn: {
+      flexDirection: 'column',
       gap: 10,
     },
-    quickAction: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: dsBorderRadius.card,
-      paddingVertical: 18,
-      paddingHorizontal: 8,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.borderLight,
-      ...dsShadows.card,
-    },
-    quickActionIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      alignItems: 'center',
+    actionIconBox: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
       justifyContent: 'center',
-      marginBottom: 10,
-    },
-    quickActionTitle: {
-      fontSize: isCompact ? 11 : 12,
-      fontFamily: 'PlusJakartaSans_700Bold',
-      fontWeight: '700',
-      color: colors.text,
-      textAlign: 'center',
-      lineHeight: 16,
+      alignItems: 'center',
     },
 
     // ================================================================

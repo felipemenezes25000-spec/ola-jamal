@@ -33,11 +33,12 @@ export default function DoctorTerms() {
               <FileText className="h-5 w-5 text-primary" />
               <h1 className="text-lg font-bold">Termos de Uso – {COMPANY.name}</h1>
             </div>
-            <p className="text-xs text-muted-foreground mb-6">Última atualização: março de 2026</p>
+            <p className="text-xs text-muted-foreground mb-6">Última atualização: abril de 2026</p>
 
             <Section title="1. Identificação do prestador">
               {COMPANY.name}, CNPJ {COMPANY.cnpj}, com sede em {COMPANY.address}. Contato: {COMPANY.fullContact}.
               Estes Termos regem o uso do aplicativo RenoveJá+ e dos serviços de telemedicina oferecidos pela plataforma.
+              Em breve: renovação de receitas azuis (notificação B) e amarelas (notificação A) com fluxo específico de segurança.
             </Section>
             <Section title="2. Aceitação dos Termos">
               Ao utilizar o RenoveJá+ ({COMPANY.name}), você declara ter lido e aceitado os presentes Termos de Uso.

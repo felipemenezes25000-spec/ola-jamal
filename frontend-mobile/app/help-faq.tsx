@@ -13,7 +13,7 @@ const FAQ_ITEMS = [
   {
     question: 'Como renovar uma receita?',
     answer:
-      'Escolha o tipo de receita (simples ou controlada), tire uma foto ou envie da galeria, e aguarde a análise. Após aprovação do médico, a receita assinada ficará disponível para download.',
+      'Escolha o tipo de receita (simples ou controlada), tire uma foto ou envie da galeria, e aguarde a análise. Após aprovação do médico, a receita assinada ficará disponível para download. Em breve: renovação de receitas azuis (notificação B) e amarelas (notificação A) com fluxo específico de segurança.',
   },
   {
     question: 'Como solicitar exames?',

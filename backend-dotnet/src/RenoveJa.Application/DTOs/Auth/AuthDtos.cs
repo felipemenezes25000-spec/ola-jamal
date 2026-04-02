@@ -49,7 +49,8 @@ public record RegisterDoctorRequestDto(
     string? ProfessionalState = null,
     string? University = null,
     string? Courses = null,
-    string? HospitalsServices = null
+    string? HospitalsServices = null,
+    string? Rqe = null
 );
 
 public record LoginRequestDto(
@@ -146,5 +147,6 @@ public record DoctorProfileDto(
     string? ProfessionalState = null,
     string? University = null,
     string? Courses = null,
-    string? HospitalsServices = null
+    string? HospitalsServices = null,
+    string? Rqe = null
 );

@@ -40,7 +40,7 @@ export default {
       ...(existsSync(googleServicesPath) && { googleServicesFile: "./google-services.json" }),
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#0EA5E9"
+        backgroundColor: "#FFFFFF"
       },
       package: "com.renoveja.app",
       edgeToEdgeEnabled: false,

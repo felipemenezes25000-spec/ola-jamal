@@ -36,7 +36,7 @@ export default function DoctorRegister() {
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', cpf: '',
-    crm: '', crmState: '', specialtyId: '',
+    crm: '', crmState: '', specialtyId: '', rqe: '',
     professionalPhone: '',
     cep: '', city: '', state: '', professionalAddress: '',
     password: '', confirmPassword: '',
@@ -120,6 +120,7 @@ export default function DoctorRegister() {
         crmState: form.crmState,
         specialty: specialtyName,
         professionalPhone: form.professionalPhone || undefined,
+        rqe: form.rqe || undefined,
         cep: form.cep || undefined,
         city: form.city || undefined,
         state: form.state || undefined,
@@ -253,6 +254,10 @@ export default function DoctorRegister() {
                         {specialties.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rqe">RQE (se especialista)</Label>
+                    <Input id="rqe" inputMode="numeric" placeholder="Ex.: 12345" value={form.rqe} onChange={e => updateField('rqe', e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="profPhone">Telefone profissional</Label>

@@ -246,6 +246,7 @@ export async function registerDoctorFull(payload: {
   city?: string;
   state?: string;
   cep?: string;
+  rqe?: string;
 }) {
   const base = getApiBase();
   if (!base) throw new Error('URL da API não configurada.');

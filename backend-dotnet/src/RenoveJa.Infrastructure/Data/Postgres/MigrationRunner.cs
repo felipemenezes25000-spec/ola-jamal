@@ -583,6 +583,51 @@ public static class MigrationRunner
         "ALTER TABLE public.patient_conditions ALTER COLUMN icd10_code TYPE VARCHAR(20)",
     };
 
+    /// <summary>Campo RQE (Registro de Qualificação de Especialista) — CFM 2.314/2022 Art. 3.</summary>
+    private static readonly string[] DoctorRqeMigrations =
+    {
+        "ALTER TABLE public.doctor_profiles ADD COLUMN IF NOT EXISTS rqe VARCHAR(20)"
+    };
+
+    /// <summary>
+    /// Proteção contra DELETE acidental em tabelas de prontuário (CFM 1.821/2007 — retenção 20 anos).
+    /// Trigger bloqueia DELETE hard; usar soft-delete (status = 'cancelled') para inativar registros.
+    /// </summary>
+    private static readonly string[] ClinicalRecordRetentionMigrations =
+    {
+        """
+        CREATE OR REPLACE FUNCTION prevent_clinical_delete() RETURNS trigger AS $$
+        BEGIN
+          RAISE EXCEPTION 'DELETE bloqueado: registros clínicos devem ser retidos por 20 anos (CFM 1.821/2007). Use soft-delete.';
+        END;
+        $$ LANGUAGE plpgsql
+        """,
+        """
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_no_delete_encounters') THEN
+            CREATE TRIGGER trg_no_delete_encounters BEFORE DELETE ON public.encounters
+              FOR EACH ROW EXECUTE FUNCTION prevent_clinical_delete();
+          END IF;
+        END $$
+        """,
+        """
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_no_delete_medical_documents') THEN
+            CREATE TRIGGER trg_no_delete_medical_documents BEFORE DELETE ON public.medical_documents
+              FOR EACH ROW EXECUTE FUNCTION prevent_clinical_delete();
+          END IF;
+        END $$
+        """,
+        """
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_no_delete_consultation_anamnesis') THEN
+            CREATE TRIGGER trg_no_delete_consultation_anamnesis BEFORE DELETE ON public.consultation_anamnesis
+              FOR EACH ROW EXECUTE FUNCTION prevent_clinical_delete();
+          END IF;
+        END $$
+        """
+    };
+
     /// <summary>
     /// Executa todas as migrations. Só roda se DatabaseUrl estiver definida.
     /// </summary>
@@ -647,7 +692,9 @@ public static class MigrationRunner
             ("chronic_condition", ChronicConditionMigrations),
             ("prescriptions_table", PrescriptionsTableMigrations),
             ("audit_logs_schema_fix", AuditLogsSchemaFixMigrations),
-            ("icd10_column_widen", Icd10ColumnWidenMigrations)
+            ("icd10_column_widen", Icd10ColumnWidenMigrations),
+            ("doctor_rqe", DoctorRqeMigrations),
+            ("clinical_record_retention", ClinicalRecordRetentionMigrations)
         };
 
         foreach (var (name, sqls) in allMigrations)
