@@ -12,9 +12,32 @@ on:
 permissions:
   contents: read
 
+# Detecta quais módulos mudaram para rodar apenas os jobs necessários
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend-web: ${{ steps.filter.outputs.frontend-web }}
+      frontend-mobile: ${{ steps.filter.outputs.frontend-mobile }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend-dotnet/**'
+            frontend-web:
+              - 'frontend-web/**'
+            frontend-mobile:
+              - 'frontend-mobile/**'
+
   backend:
     name: Backend (.NET)
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,6 +61,8 @@ jobs:
 
   backend-docker:
     name: Backend Docker Build
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -47,6 +72,8 @@ jobs:
 
   frontend-web:
     name: Frontend Web
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend-web == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -75,6 +102,8 @@ jobs:
 
   frontend-mobile:
     name: Frontend Mobile (Expo)
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend-mobile == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
