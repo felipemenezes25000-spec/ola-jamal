@@ -19,8 +19,10 @@ export function StepIndicator({ current, total, labels, showConnectorLines = tru
   return (
     <View
       style={s.wrap}
-      accessibilityRole="header"
-      accessibilityLabel={`Passo ${safeCurrent} de ${total}`}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={`Passo ${safeCurrent} de ${total}${labels?.[safeCurrent - 1] ? `: ${labels[safeCurrent - 1]}` : ''}`}
+      accessibilityValue={{ min: 1, max: total, now: safeCurrent }}
     >
       {steps.map((n, idx) => {
         const done = n < safeCurrent;

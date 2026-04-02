@@ -89,7 +89,7 @@ describe('Fluxo de Pedido — regras de negócio críticas', () => {
     expect(getRequestUiState(req('pending')).uiState).toBe('needs_action');
   });
 
-  it('pedido approved_pending_payment → needs_action (fluxo sem pagamento)', () => {
+  it('pedido approved_pending_payment → needs_action (legado normalizado)', () => {
     expect(getRequestUiState(req('approved_pending_payment')).uiState).toBe('needs_action');
   });
 

@@ -268,6 +268,8 @@ export default function Login() {
                   onPress={handleForgotPassword}
                   style={styles.forgotRow}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="link"
+                  accessibilityLabel="Esqueci minha senha"
                 >
                   <Text style={styles.forgotText}>Esqueci minha senha</Text>
                 </TouchableOpacity>
@@ -279,6 +281,9 @@ export default function Login() {
                   onPress={handleLogin}
                   disabled={loading || googleLoading}
                   activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={loading ? 'Entrando' : 'Entrar'}
+                  accessibilityState={{ disabled: loading || googleLoading, busy: loading }}
                 >
                   {loading ? (
                     <Text style={styles.primaryButtonText}>Entrando...</Text>
@@ -300,8 +305,11 @@ export default function Login() {
                   onPress={handleGooglePress}
                   disabled={!hasGoogleConfig || loading || googleLoading}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={googleLoading ? 'Conectando com Google' : 'Continuar com Google'}
+                  accessibilityState={{ disabled: !hasGoogleConfig || loading || googleLoading, busy: googleLoading }}
                 >
-                  <Ionicons name="logo-google" size={18} color={hasGoogleConfig ? '#4285F4' : colors.textMuted} />
+                  <Ionicons name="logo-google" size={18} color={hasGoogleConfig ? '#4285F4' : colors.textMuted} importantForAccessibility="no" />
                   <Text style={[styles.googleButtonText, !hasGoogleConfig && styles.googleButtonTextDisabled]}>
                     {googleLoading ? 'Conectando...' : 'Continuar com Google'}
                   </Text>
@@ -316,6 +324,8 @@ export default function Login() {
                     testID="register-link"
                     onPress={handleRegister}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="link"
+                    accessibilityLabel="Cadastre-se"
                   >
                     <Text style={styles.registerLink}>Cadastre-se</Text>
                   </TouchableOpacity>
@@ -325,8 +335,11 @@ export default function Login() {
                   style={styles.whatsappLink}
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="link"
+                  accessibilityLabel="Precisa de ajuda? Fale no WhatsApp"
+                  accessibilityHint="Abre o WhatsApp para suporte"
                 >
-                  <Ionicons name="logo-whatsapp" size={14} color={colors.textMuted} style={styles.whatsappIcon} />
+                  <Ionicons name="logo-whatsapp" size={14} color={colors.textMuted} style={styles.whatsappIcon} importantForAccessibility="no" />
                   <Text style={styles.whatsappLinkText}>Precisa de ajuda? Fale no WhatsApp</Text>
                 </TouchableOpacity>
               </View>

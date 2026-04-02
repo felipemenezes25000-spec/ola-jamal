@@ -59,7 +59,6 @@ public class UserPushPreferencesModel
 {
     public Guid UserId { get; set; }
     public bool RequestsEnabled { get; set; }
-    public bool PaymentsEnabled { get; set; }
     public bool ConsultationsEnabled { get; set; }
     public bool RemindersEnabled { get; set; }
     public string Timezone { get; set; } = "America/Sao_Paulo";

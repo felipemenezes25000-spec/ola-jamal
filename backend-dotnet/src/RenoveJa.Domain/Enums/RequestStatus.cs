@@ -5,14 +5,14 @@ namespace RenoveJa.Domain.Enums;
 /// <summary>
 /// Status canônicos de uma solicitação médica (MedicalRequest).
 ///
-/// State machine por tipo:
+/// State machine por tipo (serviço gratuito SUS — aprovação vai direto para Paid com price=0):
 ///
 /// prescription / exam:
-///   Submitted → InReview → ApprovedPendingPayment → Paid → Signed → Delivered
+///   Submitted → InReview → Paid → Signed → Delivered
 ///   Qualquer estado → Rejected | Cancelled
 ///
 /// consultation:
-///   Submitted → SearchingDoctor → ApprovedPendingPayment → Paid → InConsultation → PendingPostConsultation → ConsultationFinished
+///   Submitted → SearchingDoctor → Paid → InConsultation → PendingPostConsultation → ConsultationFinished
 ///   Qualquer estado → Rejected | Cancelled
 ///
 /// Status marcados com [Obsolete] + [EditorBrowsable(Never)] são legados:
@@ -31,10 +31,10 @@ public enum RequestStatus
     /// <summary>Médico assumiu e está revisando (prescription/exam).</summary>
     InReview,
 
-    /// <summary>Aprovada pelo médico; aguardando pagamento do paciente.</summary>
+    /// <summary>Aprovada pelo médico; aguardando assinatura (legado — nome mantido por compatibilidade com banco).</summary>
     ApprovedPendingPayment,
 
-    /// <summary>Pagamento confirmado; aguardando assinatura do médico.</summary>
+    /// <summary>Aprovada e pronta para assinatura do médico (serviço gratuito — price sempre 0).</summary>
     Paid,
 
     /// <summary>PDF assinado digitalmente e disponível para download.</summary>
@@ -53,8 +53,7 @@ public enum RequestStatus
     /// <summary>Aguardando médico disponível aceitar a consulta.</summary>
     SearchingDoctor,
 
-    /// <summary>[Semi-legado] Médico aceitou sem pagamento prévio. Novo fluxo: ApprovedPendingPayment → Paid.
-    /// Ainda aceito como origem de transição em Approve() para compatibilidade.</summary>
+    /// <summary>[Semi-legado] Médico aceitou a consulta. Ainda aceito como origem de transição em Approve() para compatibilidade.</summary>
     ConsultationReady,
 
     /// <summary>Consulta por vídeo em andamento.</summary>
@@ -91,8 +90,8 @@ public enum RequestStatus
     [EditorBrowsable(EditorBrowsableState.Never)]
     Completed,
 
-    /// <summary>Use <see cref="ApprovedPendingPayment"/> para novas solicitações.</summary>
-    [Obsolete("Status legado. Use ApprovedPendingPayment para novas transições.")]
+    /// <summary>Use <see cref="Paid"/> para novas solicitações.</summary>
+    [Obsolete("Status legado. Use Paid para novas transições.")]
     [EditorBrowsable(EditorBrowsableState.Never)]
     PendingPayment,
 }

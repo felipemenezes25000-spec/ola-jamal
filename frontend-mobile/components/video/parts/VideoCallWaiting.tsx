@@ -56,7 +56,7 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
 
   if (callState === 'reconnecting') {
     title = 'Reconectando...';
-    subtitle = 'Conexao instavel — tentando reconectar automaticamente';
+    subtitle = 'Conexão instável — tentando reconectar automaticamente';
     iconName = 'cloud-offline-outline';
     iconColor = '#F59E0B';
   } else if (callState === 'joining') {
@@ -91,7 +91,7 @@ export const VideoCallWaiting = React.memo(function VideoCallWaiting({
     iconColor = '#22C55E';
   } else {
     title = 'Aguardando participante';
-    subtitle = isDoctor ? 'O paciente sera notificado para entrar' : 'O medico entrara em breve';
+    subtitle = isDoctor ? 'O paciente será notificado para entrar' : 'O médico entrará em breve';
     iconName = 'person-circle-outline';
     iconColor = 'rgba(255,255,255,0.4)';
   }

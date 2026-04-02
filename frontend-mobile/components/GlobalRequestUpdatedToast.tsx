@@ -20,10 +20,10 @@ export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boo
   if (payload.message && payload.message.trim()) return payload.message.trim();
   const s = (payload.status || '').toLowerCase();
   const patientMap: Record<string, string> = {
+    approved_pending_payment: 'Solicitação aprovada.',
     paid: 'Consulta pronta. Entre na sala de vídeo.',
     signed: 'Documento assinado. Baixe em Meus pedidos.',
     delivered: 'Documento recebido.',
-    approved_pending_payment: 'Solicitação aprovada.',
     in_consultation: 'Médico na sala. Entre na chamada.',
     pending_post_consultation: 'Chamada encerrada. Os documentos serão disponibilizados em breve.',
     consultation_finished: 'Consulta encerrada.',
@@ -32,10 +32,10 @@ export function getMessageForUser(payload: RequestUpdatedPayload, isDoctor?: boo
   };
   const doctorMap: Record<string, string> = {
     submitted: 'Nova solicitação na fila. Toque para ver.',
+    approved_pending_payment: 'Solicitação aprovada.',
     paid: 'Solicitação aprovada.',
     signed: 'Documento assinado.',
     delivered: 'Documento recebido.',
-    approved_pending_payment: 'Solicitação aprovada.',
     in_consultation: 'Paciente na sala.',
     pending_post_consultation: 'Chamada encerrada. Emita os documentos para finalizar a consulta.',
     consultation_finished: 'Consulta encerrada.',

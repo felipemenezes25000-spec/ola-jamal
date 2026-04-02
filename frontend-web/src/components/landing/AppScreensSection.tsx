@@ -433,8 +433,8 @@ const screens: ScreenSlide[] = [
               <Video className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900">Consulta Breve +</p>
-              <p className="text-[11px] text-slate-500">Anamnese guiada e revisão clínica</p>
+              <p className="text-sm font-bold text-slate-900">Teleconsulta +</p>
+              <p className="text-[11px] text-slate-500">Atendimento por vídeo com profissional de saúde</p>
             </div>
           </div>
           <MiniTag tone="primary">Ao vivo</MiniTag>

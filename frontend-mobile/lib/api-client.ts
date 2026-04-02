@@ -387,7 +387,7 @@ class ApiClient {
         status: 502,
       } as ApiError;
     }
-    // For text responses (like PIX code)
+    // For text responses
     return (await response.text()) as unknown as T;
   }
 

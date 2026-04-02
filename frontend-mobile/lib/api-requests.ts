@@ -369,7 +369,7 @@ export async function autoFinishConsultation(requestId: string): Promise<Request
   return apiClient.post(`/api/requests/${requestId}/auto-finish-consultation`, {});
 }
 
-/** Paciente cancela o pedido (apenas antes do pagamento). */
+/** Paciente cancela o pedido (apenas enquanto ainda não assinado). */
 export async function cancelRequest(requestId: string): Promise<RequestResponseDto> {
   return apiClient.post(`/api/requests/${requestId}/cancel`, {});
 }

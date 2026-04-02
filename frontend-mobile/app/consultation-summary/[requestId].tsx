@@ -117,7 +117,7 @@ export default function ConsultationSummaryScreen() {
         setClinicalNote(r.notes ?? '');
       })
       .catch(() => {
-        Alert.alert('Erro', 'Nao foi possivel carregar o resumo da consulta.');
+        Alert.alert('Erro', 'Não foi possível carregar o resumo da consulta.');
         router.back();
       })
       .finally(() => setLoading(false));
@@ -163,17 +163,17 @@ export default function ConsultationSummaryScreen() {
 
   const copyText = async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copiado', `${label} copiado para area de transferencia.`);
+    Alert.alert('Copiado', `${label} copiado para área de transferência.`);
   };
 
   const handleSubmitFeedback = () => {
     if (rating === 0) {
-      Alert.alert('Avaliacao', 'Selecione uma nota antes de enviar.');
+      Alert.alert('Avaliação', 'Selecione uma nota antes de enviar.');
       return;
     }
     // TODO: integrate with API to save feedback
     setFeedbackSubmitted(true);
-    Alert.alert('Obrigado!', 'Sua avaliacao foi enviada com sucesso.');
+    Alert.alert('Obrigado!', 'Sua avaliação foi enviada com sucesso.');
   };
 
   if (isPatient && rid) {
@@ -198,7 +198,7 @@ export default function ConsultationSummaryScreen() {
       <View style={[S.container, S.center]}>
         <Ionicons name="alert-circle" size={48} color={colors.error} />
         <Text style={S.errorText}>Consulta nao encontrada</Text>
-        <TouchableOpacity style={S.backBtnError} onPress={() => router.back()}>
+        <TouchableOpacity style={S.backBtnError} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Voltar">
           <Text style={S.backBtnErrorText}>Voltar</Text>
         </TouchableOpacity>
       </View>
@@ -412,7 +412,7 @@ export default function ConsultationSummaryScreen() {
           {user?.role === 'doctor' ? (
             <TextInput
               style={S.clinicalNoteInput}
-              placeholder="Digite ou edite a nota clinica (salva automaticamente no prontuario)"
+              placeholder="Digite ou edite a nota clínica (salva automaticamente no prontuário)"
               placeholderTextColor={colors.textMuted}
               value={clinicalNote}
               onChangeText={(t) => {
@@ -438,13 +438,17 @@ export default function ConsultationSummaryScreen() {
               <TouchableOpacity
                 style={S.copyIcon}
                 onPress={() => copyText(transcript, 'Transcricao')}
+                accessibilityRole="button"
+                accessibilityLabel="Copiar transcrição"
               >
-                <Ionicons name="copy-outline" size={16} color={PRIMARY} />
+                <Ionicons name="copy-outline" size={16} color={PRIMARY} importantForAccessibility="no" />
               </TouchableOpacity>
             </View>
             <TouchableOpacity
               onPress={() => setExpandedTranscript(!expandedTranscript)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={expandedTranscript ? 'Recolher transcrição' : 'Expandir transcrição'}
             >
               <Text
                 style={S.transcriptText}
@@ -465,8 +469,10 @@ export default function ConsultationSummaryScreen() {
           style={S.downloadBtn}
           onPress={() => nav.push(router, `/post-consultation-emit/${rid}`)}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Baixar documentos da consulta"
         >
-          <Ionicons name="download-outline" size={20} color="#fff" />
+          <Ionicons name="download-outline" size={20} color="#fff" importantForAccessibility="no" />
           <Text style={S.downloadBtnText}>Baixar documentos</Text>
         </TouchableOpacity>
 
@@ -476,13 +482,13 @@ export default function ConsultationSummaryScreen() {
             <View style={[S.sectionIconBg, { backgroundColor: '#FEF3C720' }]}>
               <Ionicons name="star" size={16} color="#F59E0B" />
             </View>
-            <Text style={S.sectionTitle}>Avaliacao</Text>
+            <Text style={S.sectionTitle}>Avaliação</Text>
           </View>
 
           {feedbackSubmitted ? (
             <View style={S.feedbackDone}>
               <Ionicons name="checkmark-circle" size={32} color={colors.success} />
-              <Text style={S.feedbackDoneText}>Obrigado pela sua avaliacao!</Text>
+              <Text style={S.feedbackDoneText}>Obrigado pela sua avaliação!</Text>
             </View>
           ) : (
             <>
@@ -494,6 +500,9 @@ export default function ConsultationSummaryScreen() {
                     onPress={() => setRating(star)}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${star} estrela${star > 1 ? 's' : ''}`}
+                    accessibilityState={{ selected: rating >= star }}
                   >
                     <Ionicons
                       name={star <= rating ? 'star' : 'star-outline'}
@@ -518,8 +527,10 @@ export default function ConsultationSummaryScreen() {
                     style={S.feedbackSubmitBtn}
                     onPress={handleSubmitFeedback}
                     activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Enviar avaliação"
                   >
-                    <Text style={S.feedbackSubmitText}>Enviar avaliacao</Text>
+                    <Text style={S.feedbackSubmitText}>Enviar avaliação</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -554,15 +565,19 @@ export default function ConsultationSummaryScreen() {
         <TouchableOpacity
           style={S.actionBtnPrimary}
           onPress={() => nav.push(router, `/post-consultation-emit/${rid}`)}
+          accessibilityRole="button"
+          accessibilityLabel="Emitir documentos da consulta"
         >
-          <Ionicons name="document-text" size={20} color="#fff" />
+          <Ionicons name="document-text" size={20} color="#fff" importantForAccessibility="no" />
           <Text style={S.actionBtnPrimaryText}>Emitir documentos</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={S.actionBtnSecondary}
           onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Concluir sem emitir documentos"
         >
-          <Ionicons name="checkmark-circle" size={20} color={colors.text} />
+          <Ionicons name="checkmark-circle" size={20} color={colors.text} importantForAccessibility="no" />
           <Text style={S.actionBtnSecondaryText}>Concluir sem emitir</Text>
         </TouchableOpacity>
       </View>

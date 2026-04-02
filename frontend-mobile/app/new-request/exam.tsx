@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { theme } from '../../lib/theme';
 import { uiTokens } from '../../lib/ui/tokens';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
@@ -30,6 +31,8 @@ import { AppHeader, AppCard, AppInput, StepIndicator, StickyCTA } from '../../co
 import { CompatibleImage } from '../../components/CompatibleImage';
 import { useTriageEval } from '../../hooks/useTriageEval';
 import { detectRedFlags, evaluateExamCompleteness } from '../../lib/domain/assistantIntelligence';
+import { useSymptomVoiceInput } from '../../hooks/useSymptomVoiceInput';
+import { EXAM_PACKAGES } from '../../lib/data/cidPackages';
 
 const s = theme.spacing;
 const _r = theme.borderRadius;
@@ -40,13 +43,81 @@ const EXAM_TYPES = [
   { key: 'imagem' as const, label: 'Imagem', desc: 'Raio-X, ultrassom, tomografia.', icon: 'scan-outline' as const, accent: '#0EA5E9' },
 ];
 
-const QUICK_EXAMS = [
+const QUICK_EXAMS_LAB = [
   'Hemograma completo',
   'Glicemia em jejum',
   'TSH',
   'Colesterol total',
   'TGO / TGP',
   'Creatinina',
+];
+
+const QUICK_EXAMS_IMAGEM = [
+  'Raio-X de tórax PA e perfil',
+  'USG abdome total',
+  'USG tireoide',
+  'Tomografia de crânio',
+  'Ressonância magnética de coluna lombar',
+  'Mamografia bilateral',
+];
+
+interface QuickPack {
+  key: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  exams: string[];
+}
+
+const QUICK_PACKS_LAB: QuickPack[] = EXAM_PACKAGES.map((p) => ({
+  key: p.key,
+  label: p.name,
+  icon: p.key === 'checkup' ? 'fitness-outline' :
+        p.key === 'ist' ? 'shield-checkmark-outline' :
+        p.key === 'prenatal' ? 'heart-outline' :
+        p.key === 'cardiovascular' ? 'pulse-outline' :
+        p.key === 'renal' ? 'water-outline' :
+        p.key === 'hepatico' ? 'analytics-outline' :
+        'body-outline',
+  exams: p.exams,
+}));
+
+const QUICK_PACKS_IMAGEM: QuickPack[] = [
+  {
+    key: 'img_torax',
+    label: 'Tórax',
+    icon: 'body-outline',
+    exams: ['Raio-X de tórax PA e perfil', 'Tomografia de tórax', 'Angiotomografia de tórax'],
+  },
+  {
+    key: 'img_abdome',
+    label: 'Abdome',
+    icon: 'fitness-outline',
+    exams: ['USG abdome total', 'USG abdome superior', 'Tomografia de abdome', 'Ressonância de abdome'],
+  },
+  {
+    key: 'img_cabeca',
+    label: 'Cabeça e pescoço',
+    icon: 'happy-outline',
+    exams: ['Tomografia de crânio', 'Ressonância de crânio', 'USG tireoide', 'USG cervical', 'Raio-X de seios da face'],
+  },
+  {
+    key: 'img_musculo',
+    label: 'Musculoesquelético',
+    icon: 'walk-outline',
+    exams: ['Raio-X de coluna lombar', 'Raio-X de coluna cervical', 'Ressonância de coluna lombar', 'Ressonância de joelho', 'Raio-X de ombro', 'USG de ombro'],
+  },
+  {
+    key: 'img_gineco',
+    label: 'Ginecológico',
+    icon: 'flower-outline',
+    exams: ['Mamografia bilateral', 'USG das mamas', 'USG transvaginal', 'USG pélvica'],
+  },
+  {
+    key: 'img_vascular',
+    label: 'Vascular',
+    icon: 'pulse-outline',
+    exams: ['Doppler de carótidas', 'Doppler venoso de MMII', 'Doppler arterial de MMII', 'Ecocardiograma'],
+  },
 ];
 
 export default function NewExam() {
@@ -63,6 +134,35 @@ export default function NewExam() {
   const [loading, setLoading] = useState(false);
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, narrow), [colors, narrow]);
+  const voice = useSymptomVoiceInput();
+  const [expandedPacks, setExpandedPacks] = useState<Set<string>>(new Set());
+  const togglePack = useCallback((key: string) => {
+    setExpandedPacks((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  const quickPacks = examType === 'imagem' ? QUICK_PACKS_IMAGEM : QUICK_PACKS_LAB;
+  const quickExamsFlat = examType === 'imagem' ? QUICK_EXAMS_IMAGEM : QUICK_EXAMS_LAB;
+
+  const handleVoiceRecord = useCallback(async () => {
+    if (voice.isRecording) {
+      const text = await voice.stopAndTranscribe(
+        examType === 'imagem' ? 'Solicitação de exame de imagem' : 'Solicitação de exame laboratorial',
+      );
+      if (text) {
+        setSymptoms((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
+        showToast({ message: 'Sintomas transcritos com sucesso!', type: 'success' });
+      } else if (voice.error) {
+        showToast({ message: voice.error, type: 'error' });
+      }
+    } else {
+      await voice.startRecording();
+    }
+  }, [voice, examType]);
+
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateExamCompleteness({
     examType,
@@ -188,9 +288,33 @@ export default function NewExam() {
   };
 
   const pickFromGallery = async () => {
+    const remaining = 5 - images.length;
+    if (remaining <= 0) {
+      Alert.alert('Limite atingido', 'Máximo de 5 arquivos por solicitação.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
     if (!result.canceled && result.assets[0]) {
       setImages([...images, result.assets[0].uri]);
+    }
+  };
+
+  const pickDocument = async () => {
+    const remaining = 5 - images.length;
+    if (remaining <= 0) {
+      Alert.alert('Limite atingido', 'Máximo de 5 arquivos por solicitação.');
+      return;
+    }
+
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+      multiple: remaining > 1,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const allowed = result.assets.slice(0, remaining);
+      setImages([...images, ...allowed.map((a) => a.uri)]);
     }
   };
 
@@ -369,30 +493,124 @@ export default function NewExam() {
               style={[styles.addButton, !examInput.trim() && styles.addButtonDisabled]}
               onPress={addExam}
               disabled={!examInput.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Adicionar exame"
+              accessibilityState={{ disabled: !examInput.trim() }}
             >
-              <Ionicons name="add" size={22} color="#FFFFFF" />
+              <Ionicons name="add" size={22} color="#FFFFFF" importantForAccessibility="no" />
             </TouchableOpacity>
           </View>
 
           {/* Quick Exam Chips */}
-          {exams.length === 0 && (
-            <View style={styles.quickSection}>
-              <Text style={styles.quickLabel}>Sugestões rápidas:</Text>
-              <View style={styles.quickChips}>
-                {QUICK_EXAMS.map((exam) => (
-                  <TouchableOpacity
-                    key={exam}
-                    style={styles.quickChip}
-                    onPress={() => addQuickExam(exam)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
-                    <Text style={styles.quickChipText}>{exam}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          <View style={styles.quickSection}>
+            <Text style={styles.quickLabel}>Sugestões rápidas:</Text>
+            <View style={styles.quickChips}>
+              {quickExamsFlat.filter((e) => !exams.includes(e)).map((exam) => (
+                <TouchableOpacity
+                  key={exam}
+                  style={styles.quickChip}
+                  onPress={() => addQuickExam(exam)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Adicionar ${exam}`}
+                >
+                  <Ionicons name="add-circle-outline" size={14} color={colors.primary} importantForAccessibility="no" />
+                  <Text style={styles.quickChipText}>{exam}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
+          </View>
+
+          {/* Expandable Packs */}
+          <View style={styles.packsSection}>
+            <Text style={styles.packsTitle}>
+              {examType === 'imagem' ? 'Pacotes de imagem por região' : 'Pacotes laboratoriais'}
+            </Text>
+            <Text style={styles.packsHint}>Toque para expandir e adicionar exames individuais</Text>
+            {quickPacks.map((pack) => {
+              const isExpanded = expandedPacks.has(pack.key);
+              const availableExams = pack.exams.filter((e) => !exams.includes(e));
+              const allAdded = availableExams.length === 0;
+              return (
+                <View key={pack.key} style={styles.packCard}>
+                  <TouchableOpacity
+                    style={styles.packHeader}
+                    onPress={() => togglePack(pack.key)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${pack.label}. ${pack.exams.length} exames`}
+                    accessibilityState={{ expanded: isExpanded }}
+                    accessibilityHint={isExpanded ? 'Toque para recolher' : 'Toque para expandir'}
+                  >
+                    <View style={styles.packIconWrap}>
+                      <Ionicons name={pack.icon as any} size={18} color={colors.primary} importantForAccessibility="no" />
+                    </View>
+                    <Text style={styles.packLabel} numberOfLines={1}>{pack.label}</Text>
+                    <Text style={styles.packCount}>{pack.exams.length} exames</Text>
+                    {!allAdded && (
+                      <TouchableOpacity
+                        style={styles.packAddAllBtn}
+                        onPress={() => {
+                          const newExams = [...exams, ...availableExams];
+                          setExams(newExams);
+                          showToast({ message: `${availableExams.length} exames adicionados`, type: 'success' });
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Adicionar todos os ${availableExams.length} exames de ${pack.label}`}
+                      >
+                        <Text style={styles.packAddAllText}>+ Todos</Text>
+                      </TouchableOpacity>
+                    )}
+                    {allAdded && (
+                      <View style={styles.packDoneBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                      </View>
+                    )}
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                  {isExpanded && (
+                    <View style={styles.packBody}>
+                      {pack.exams.map((exam) => {
+                        const alreadyAdded = exams.includes(exam);
+                        return (
+                          <TouchableOpacity
+                            key={exam}
+                            style={[styles.packExamRow, alreadyAdded && styles.packExamRowAdded]}
+                            onPress={() => {
+                              if (alreadyAdded) {
+                                setExams(exams.filter((e) => e !== exam));
+                              } else {
+                                addQuickExam(exam);
+                              }
+                            }}
+                            activeOpacity={0.7}
+                            accessibilityRole="checkbox"
+                            accessibilityLabel={exam}
+                            accessibilityState={{ checked: alreadyAdded }}
+                          >
+                            <Ionicons
+                              name={alreadyAdded ? 'checkmark-circle' : 'add-circle-outline'}
+                              size={16}
+                              color={alreadyAdded ? '#22C55E' : colors.primary}
+                              importantForAccessibility="no"
+                            />
+                            <Text style={[styles.packExamText, alreadyAdded && styles.packExamTextAdded]}>
+                              {exam}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
 
           {exams.length > 0 && (
             <View style={styles.tags}>
@@ -408,8 +626,51 @@ export default function NewExam() {
           )}
 
           {/* Symptoms */}
-          <Text style={styles.sectionLabel}>Sintomas</Text>
-          <Text style={styles.fieldHint}>Descreva o que motivou o pedido de exame</Text>
+          <View style={styles.symptomHeaderRow}>
+            <View style={styles.flex1}>
+              <Text style={styles.sectionLabel}>Sintomas</Text>
+              <Text style={styles.fieldHint}>Descreva o que motivou o pedido de exame</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.micButton,
+                voice.isRecording && styles.micButtonRecording,
+                voice.isTranscribing && styles.micButtonTranscribing,
+              ]}
+              onPress={handleVoiceRecord}
+              disabled={loading || voice.isTranscribing}
+              activeOpacity={0.7}
+              accessibilityLabel={voice.isRecording ? 'Parar gravação' : 'Gravar sintomas por voz'}
+              accessibilityRole="button"
+            >
+              {voice.isTranscribing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons
+                  name={voice.isRecording ? 'stop' : 'mic'}
+                  size={20}
+                  color="#FFFFFF"
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Voice recording indicator */}
+          {voice.isRecording && (
+            <View style={styles.voiceIndicator}>
+              <View style={styles.voicePulse} />
+              <Text style={styles.voiceIndicatorText}>
+                Gravando... {voice.durationSeconds}s — Toque no mic para parar
+              </Text>
+            </View>
+          )}
+          {voice.isTranscribing && (
+            <View style={styles.voiceIndicator}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.voiceIndicatorText}>Transcrevendo e organizando seus sintomas...</Text>
+            </View>
+          )}
+
           <TextInput
             ref={symptomsRef}
             style={[styles.textarea, !isFormValid && symptoms.trim().length === 0 && styles.inputError]}
@@ -423,7 +684,7 @@ export default function NewExam() {
             autoCapitalize="sentences"
             autoCorrect
             returnKeyType="default"
-            editable={!loading}
+            editable={!loading && !voice.isTranscribing}
             accessibilityLabel="Descreva seus sintomas"
             accessibilityHint="Campo obrigatório para descrever seus sintomas"
           />
@@ -431,10 +692,10 @@ export default function NewExam() {
             <Text style={styles.inputErrorHint}>Descreva seus sintomas para continuar</Text>
           )}
 
-          {/* Photo */}
-          <Text style={styles.sectionLabel}>Foto do pedido (opcional)</Text>
+          {/* Photo / Document */}
+          <Text style={styles.sectionLabel}>Foto ou arquivo do pedido (opcional)</Text>
           <Text style={styles.fieldHint}>
-            Se você tem um pedido de exame ou laudo, envie a foto aqui.
+            Se você tem um pedido de exame ou laudo, envie a foto ou PDF aqui.
           </Text>
           <View style={styles.photoRow}>
             <TouchableOpacity style={styles.photoButton} onPress={pickImage} activeOpacity={0.7}>
@@ -448,6 +709,12 @@ export default function NewExam() {
                 <Ionicons name="image" size={22} color={colors.primary} />
               </View>
               <Text style={styles.photoText}>Galeria</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.photoButton} onPress={pickDocument} activeOpacity={0.7}>
+              <View style={styles.photoIconCircle}>
+                <Ionicons name="document-attach" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.photoText}>Arquivo</Text>
             </TouchableOpacity>
           </View>
           {images.length > 0 && (
@@ -695,6 +962,51 @@ function makeStyles(colors: DesignColors, narrow: boolean) {
       fontWeight: '500',
     },
 
+    /* Symptom header with mic */
+    symptomHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: s.sm,
+    },
+    micButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: s.lg,
+    },
+    micButtonRecording: {
+      backgroundColor: '#EF4444',
+    },
+    micButtonTranscribing: {
+      backgroundColor: colors.textMuted,
+    },
+
+    /* Voice indicator */
+    voiceIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s.sm,
+      paddingVertical: s.xs,
+      paddingHorizontal: s.sm,
+      marginBottom: s.xs,
+      borderRadius: 10,
+      backgroundColor: colors.primarySoft,
+    },
+    voicePulse: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: '#EF4444',
+    },
+    voiceIndicatorText: {
+      fontSize: 12,
+      color: colors.primary,
+      fontWeight: '500',
+    },
+
     /* Textarea */
     textarea: {
       backgroundColor: colors.surface,
@@ -715,6 +1027,98 @@ function makeStyles(colors: DesignColors, narrow: boolean) {
       fontSize: 12,
       color: colors.error,
       lineHeight: 16,
+    },
+
+    /* Expandable Packs */
+    packsSection: {
+      marginTop: s.md,
+    },
+    packsTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 2,
+    },
+    packsHint: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginBottom: s.sm,
+    },
+    packCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: s.xs,
+      overflow: 'hidden',
+    },
+    packHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      gap: 8,
+    },
+    packIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    packLabel: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    packCount: {
+      fontSize: 11,
+      color: colors.textMuted,
+    },
+    packAddAllBtn: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 999,
+      backgroundColor: colors.primary + '18',
+    },
+    packAddAllText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    packDoneBadge: {
+      paddingHorizontal: 4,
+    },
+    packBody: {
+      paddingHorizontal: 12,
+      paddingBottom: 10,
+      gap: 2,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: 8,
+    },
+    packExamRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 5,
+      paddingHorizontal: 4,
+      borderRadius: 8,
+    },
+    packExamRowAdded: {
+      backgroundColor: '#22C55E' + '10',
+    },
+    packExamText: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.text,
+      lineHeight: 16,
+    },
+    packExamTextAdded: {
+      color: '#22C55E',
+      fontWeight: '500',
     },
 
     /* Photo */

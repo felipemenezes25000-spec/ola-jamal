@@ -49,17 +49,12 @@ async function buildFallbackJourneyMessage(input: TriageInput): Promise<TriageMe
     ? `Seu pedido evoluiu de ${previousStatus} para ${input.status}. `
     : '';
 
-  const cta = next.intent === 'pay'
-    ? 'abrir_pagamento'
-    : next.intent === 'download'
-      ? 'abrir_documento'
-      : next.intent === 'track'
-        ? 'acompanhar_pedido'
-        : next.intent === 'wait'
-          ? 'acompanhar_pedido'
-          : null;
+  const cta = next.intent === 'download'
+    ? 'abrir_documento'
+    : next.intent === 'track' || next.intent === 'wait' || next.intent === 'pay'
+      ? 'acompanhar_pedido'
+      : null;
   const ctaLabel =
-    cta === 'abrir_pagamento' ? 'Ir para pagamento' :
     cta === 'abrir_documento' ? 'Ver documento' :
     cta ? 'Acompanhar pedido' : undefined;
 

@@ -145,10 +145,10 @@ export default function VideoRequestIdRoute() {
               </>
             ) : (
               <>
-                <Text style={styles.title}>Consulta por video</Text>
+                <Text style={styles.title}>Consulta por vídeo</Text>
                 <Text style={styles.message}>
-                  Seu medico esta aguardando voce.{'\n'}
-                  Certifique-se de ter uma boa conexao com a internet e que a camera e o microfone estejam liberados.
+                  Seu médico está aguardando você.{'\n'}
+                  Certifique-se de ter uma boa conexão com a internet e que a câmera e o microfone estejam liberados.
                 </Text>
               </>
             )}
@@ -186,7 +186,7 @@ export default function VideoRequestIdRoute() {
 
             {Platform.OS !== 'web' && (
               <View style={styles.tipsRow}>
-                <Tip icon="wifi-outline" text="Conexao estavel" />
+                <Tip icon="wifi-outline" text="Conexão estável" />
                 <Tip icon="mic-outline" text="Microfone liberado" />
                 <Tip icon="videocam-outline" text="Camera liberada" />
               </View>

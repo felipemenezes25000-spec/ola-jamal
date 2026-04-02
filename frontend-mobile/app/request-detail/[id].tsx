@@ -107,12 +107,12 @@ function getPrescriptionTypeLabel(type: string | null): string {
 }
 
 function getRiskLabelPt(level: string | null | undefined): string {
-  if (!level) return 'Risco nao classificado';
+  if (!level) return 'Risco não classificado';
   switch (level.toLowerCase()) {
     case 'high': return 'Risco alto';
-    case 'medium': return 'Risco medio';
+    case 'medium': return 'Risco médio';
     case 'low': return 'Risco baixo';
-    default: return 'Risco nao classificado';
+    default: return 'Risco não classificado';
   }
 }
 
@@ -260,7 +260,7 @@ export default function RequestDetailScreen() {
   const handleDownload = async () => {
     if (!requestId || documentActionLoading) return;
     if (isConnected === false) {
-      Alert.alert('Sem conexao', 'Conecte-se a internet para baixar o documento.');
+      Alert.alert('Sem conexão', 'Conecte-se à internet para baixar o documento.');
       return;
     }
     setDocumentActionLoading(true);
@@ -286,7 +286,7 @@ export default function RequestDetailScreen() {
           throw e;
         }
       } catch {
-        Alert.alert('Erro', (e as Error)?.message || String(e) || 'Nao foi possivel baixar o documento');
+        Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível baixar o documento');
       }
     } finally {
       setDocumentActionLoading(false);
@@ -296,7 +296,7 @@ export default function RequestDetailScreen() {
   const handleViewDocument = async () => {
     if (!requestId || documentActionLoading) return;
     if (isConnected === false) {
-      Alert.alert('Sem conexao', 'Conecte-se a internet para visualizar o documento.');
+      Alert.alert('Sem conexão', 'Conecte-se à internet para visualizar o documento.');
       return;
     }
     setDocumentActionLoading(true);
@@ -305,7 +305,7 @@ export default function RequestDetailScreen() {
       const viewUrl = await getDocumentDownloadUrl(requestId);
       await WebBrowser.openBrowserAsync(viewUrl);
     } catch (e: unknown) {
-      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Nao foi possivel abrir o documento.');
+      Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível abrir o documento.');
     } finally {
       setDocumentActionLoading(false);
     }
@@ -315,9 +315,9 @@ export default function RequestDetailScreen() {
     if (!requestId || !request) return;
     Alert.alert(
       'Cancelar pedido',
-      'Tem certeza? Esta acao nao pode ser desfeita.',
+      'Tem certeza? Esta ação não pode ser desfeita.',
       [
-        { text: 'Nao', style: 'cancel' },
+        { text: 'Não', style: 'cancel' },
         {
           text: 'Sim, cancelar',
           style: 'destructive',
@@ -325,7 +325,7 @@ export default function RequestDetailScreen() {
             try {
               await cancelMutation.mutateAsync(requestId);
             } catch (e: unknown) {
-              Alert.alert('Erro', (e as Error)?.message || String(e) || 'Nao foi possivel cancelar.');
+              Alert.alert('Erro', (e as Error)?.message || String(e) || 'Não foi possível cancelar.');
             }
           },
         },
@@ -379,7 +379,7 @@ export default function RequestDetailScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.center}>
-          <AppEmptyState icon="document-text-outline" title="Solicitacao nao encontrada" subtitle="Este pedido pode ter sido removido ou nao esta mais disponivel." actionLabel="Voltar" onAction={() => router.back()} />
+          <AppEmptyState icon="document-text-outline" title="Solicitação não encontrada" subtitle="Este pedido pode ter sido removido ou não está mais disponível." actionLabel="Voltar" onAction={() => router.back()} />
         </View>
       </SafeAreaView>
     );
@@ -548,7 +548,7 @@ export default function RequestDetailScreen() {
 
           {/* ─── Request Info Card ─── */}
           <SectionCard>
-            <SectionHeader icon="information-circle-outline" iconColor={colors.info} title="Detalhes da solicitacao" />
+            <SectionHeader icon="information-circle-outline" iconColor={colors.info} title="Detalhes da solicitação" />
             <DetailRow label="Tipo" value={getTypeLabel(request.requestType)} colors={colors} />
             {request.prescriptionType && (
               <DetailRow label="Controle" value={getPrescriptionTypeLabel(request.prescriptionType)} colors={colors} />

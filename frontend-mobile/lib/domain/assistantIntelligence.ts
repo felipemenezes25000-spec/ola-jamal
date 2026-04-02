@@ -116,7 +116,6 @@ export function evaluateConsultationCompleteness(input: {
   const symptomLength = input.symptoms.trim().length;
   const items: CompletenessItem[] = [
     { id: 'professional_type', label: 'Escolher o profissional', required: true, done: !!input.consultationType },
-    { id: 'duration', label: 'Definir duração da consulta', required: true, done: input.durationMinutes >= 5 },
     { id: 'main_reason', label: 'Descrever sintomas ou dúvida principal', required: true, done: symptomLength >= 10 },
     { id: 'details', label: 'Adicionar detalhes (quando começou, frequência, intensidade)', required: false, done: symptomLength >= 40 },
   ];

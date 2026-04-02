@@ -16,14 +16,6 @@ public static class CpfHelper
     }
 
     /// <summary>
-    /// Valida CPF para uso em pagamentos (Mercado Pago etc).
-    /// </summary>
-    public static bool IsValidForPayment(string? cpf)
-    {
-        return !string.IsNullOrWhiteSpace(cpf) && IsValid(cpf);
-    }
-
-    /// <summary>
     /// Valida se o CPF (11 dígitos) é válido.
     /// Rejeita CPFs com todos os dígitos iguais.
     /// </summary>

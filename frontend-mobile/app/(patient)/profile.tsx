@@ -490,8 +490,8 @@ export default function PatientProfile() {
         onRequestClose={() => setAvatarPreviewUri(null)}
       >
         <View style={styles.previewOverlay}>
-          <View style={styles.previewCard}>
-            <Text style={styles.previewTitle}>Pré-visualizar foto</Text>
+          <View style={styles.previewCard} accessibilityViewIsModal accessibilityRole="none">
+            <Text style={styles.previewTitle} accessibilityRole="header">Pré-visualizar foto</Text>
             <Text style={styles.previewSubtitle}>
               Confira como sua foto ficará no perfil.
             </Text>
@@ -514,6 +514,8 @@ export default function PatientProfile() {
                   void pickAvatar();
                 }}
                 disabled={avatarLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Escolher outra foto"
               >
                 <Text style={[styles.previewBtnText, { color: COLORS.textSecondary }]}>
                   Escolher outra
@@ -529,6 +531,9 @@ export default function PatientProfile() {
                   void saveAvatar();
                 }}
                 disabled={avatarLoading}
+                accessibilityRole="button"
+                accessibilityLabel={avatarLoading ? 'Salvando foto' : 'Salvar foto'}
+                accessibilityState={{ disabled: avatarLoading, busy: avatarLoading }}
               >
                 {avatarLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -545,8 +550,10 @@ export default function PatientProfile() {
                 void takeAvatarPhoto();
               }}
               disabled={avatarLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Tirar nova foto com a câmera"
             >
-              <Ionicons name="camera-outline" size={15} color={COLORS.primary} />
+              <Ionicons name="camera-outline" size={15} color={COLORS.primary} importantForAccessibility="no" />
               <Text style={[styles.previewCameraText, { color: COLORS.primary }]}>
                 Tirar nova foto
               </Text>

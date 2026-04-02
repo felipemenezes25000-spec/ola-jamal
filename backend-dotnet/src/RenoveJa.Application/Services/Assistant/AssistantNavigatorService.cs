@@ -34,25 +34,17 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
                 null,
                 "wait"),
 
-            "approved_pending_payment" or "consultation_ready" => new AssistantNextActionResponseDto(
-                "Aprovado, falta pagamento",
-                "Seu pedido foi aprovado e esta pronto para liberar a etapa final.",
-                "Conclua o pagamento para liberar assinatura/documento.",
-                "Liberacao quase imediata apos confirmacao.",
-                "Pagar agora",
-                "pay"),
-
-            "paid" when requestType == "consultation" => new AssistantNextActionResponseDto(
-                "Consulta liberada",
-                "Pagamento confirmado. Agora falta o medico iniciar o atendimento.",
+            "approved_pending_payment" or "consultation_ready" or "paid" when requestType == "consultation" => new AssistantNextActionResponseDto(
+                "Consulta aprovada",
+                "Seu pedido foi aprovado. Agora falta o medico iniciar o atendimento.",
                 "Fique no app. Voce sera levado automaticamente para a consulta quando iniciar.",
                 "Normalmente em poucos minutos.",
                 null,
                 "wait"),
 
-            "paid" => new AssistantNextActionResponseDto(
-                "Pagamento confirmado",
-                "Tudo certo com o pagamento.",
+            "approved_pending_payment" or "paid" => new AssistantNextActionResponseDto(
+                "Pedido aprovado",
+                "Seu pedido foi aprovado pelo medico.",
                 "Agora o medico prepara e assina seu documento.",
                 "Tempo medio de assinatura: 3 a 10 minutos.",
                 null,
@@ -249,8 +241,8 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
             "analyzing" => "in_review",
             "pending_payment" => "approved_pending_payment",
             "payment_pending" => "approved_pending_payment",
-            "approved" => "paid",
-            "awaiting_signature" => "paid",
+            "approved" => "approved_pending_payment",
+            "awaiting_signature" => "approved_pending_payment",
             "completed" => "delivered",
             _ => normalized,
         };

@@ -30,6 +30,7 @@ public class ConsultationSessionStore : IConsultationSessionStore
     private const string FieldAnamnesisJson = "anamnesisJson";
     private const string FieldAiSuggestionsJson = "aiSuggestionsJson";
     private const string FieldEvidenceJson = "evidenceJson";
+    private const string FieldConsultationType = "consultationType";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -257,6 +258,34 @@ public class ConsultationSessionStore : IConsultationSessionStore
         catch (RedisConnectionException ex)
         {
             _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em GetEvidenceJson — retornando null. RequestId={RequestId}", requestId);
+            return null;
+        }
+    }
+
+    public void SetConsultationType(Guid requestId, string? consultationType)
+    {
+        if (string.IsNullOrWhiteSpace(consultationType)) return;
+        try
+        {
+            var key = KeyPrefix + requestId;
+            Db.HashSet(key, FieldConsultationType, consultationType);
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em SetConsultationType. RequestId={RequestId}", requestId);
+        }
+    }
+
+    public string? GetConsultationType(Guid requestId)
+    {
+        try
+        {
+            var key = KeyPrefix + requestId;
+            return (string?)Db.HashGet(key, FieldConsultationType);
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogWarning(ex, "[ConsultationSession] Redis indisponível em GetConsultationType. RequestId={RequestId}", requestId);
             return null;
         }
     }

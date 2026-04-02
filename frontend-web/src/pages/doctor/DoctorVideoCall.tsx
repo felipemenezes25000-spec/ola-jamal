@@ -362,6 +362,7 @@ export default function DoctorVideoCall() {
                 anamnesis={parsedAnamnesis}
                 suggestions={normalizedSuggestions}
                 evidence={evidence as import('@/components/doctor/video/ai-panel/types').EvidenceItem[]}
+                consultationType={request?.consultationType}
               />
             </TabsContent>
 

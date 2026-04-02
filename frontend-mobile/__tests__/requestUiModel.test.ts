@@ -46,7 +46,7 @@ describe('normalizeRequestStatus', () => {
     canonical.forEach((s) => expect(normalizeRequestStatus(s)).toBe(s));
   });
 
-  it('converte legados de pagamento para approved (fluxo sem pagamento)', () => {
+  it('converte status legados para approved (legado normalizado)', () => {
     expect(normalizeRequestStatus('approved_pending_payment')).toBe('approved');
     expect(normalizeRequestStatus('pending_payment')).toBe('approved');
     expect(normalizeRequestStatus('payment_pending')).toBe('approved');
@@ -92,13 +92,13 @@ describe('getUiModel — patient × prescription', () => {
     expect(m.phase).toBe('ai');
   });
 
-  it('approved_pending_payment → fase approved (normalizado, fluxo sem pagamento)', () => {
+  it('approved_pending_payment → fase approved (normalizado, legado normalizado)', () => {
     const m = getUiModel(makeRequest({ status: 'approved_pending_payment' }), role);
     expect(m.phase).toBe('approved');
     expect(m.countersBucket).toBe('pending');
   });
 
-  it('paid → fase approved (normalizado, fluxo sem pagamento)', () => {
+  it('paid → fase approved (normalizado, legado normalizado)', () => {
     const m = getUiModel(makeRequest({ status: 'paid' }), role);
     expect(m.phase).toBe('approved');
     expect(m.actions.canDownload).toBe(false);
@@ -248,7 +248,7 @@ describe('getCountersForPatient', () => {
     expect(c).toEqual({ pending: 0, ready: 0 });
   });
 
-  it('conta pending (in_review), ready (signed) — fluxo sem pagamento', () => {
+  it('conta pending (in_review), ready (signed) — legado normalizado', () => {
     const requests = [
       makeRequest({ status: 'in_review' }),
       makeRequest({ status: 'in_review' }),
@@ -566,7 +566,7 @@ describe('getUiModel — badge e timeline', () => {
 // ─── Contadores ────────────────────────────────────────────────────────────
 
 describe('getCountersForPatient', () => {
-  it('approved_pending_payment conta como pending (fluxo sem pagamento)', () => {
+  it('approved_pending_payment conta como pending (legado normalizado)', () => {
     const reqs = [req('approved_pending_payment'), req('submitted'), req('signed')] as Parameters<typeof getCountersForPatient>[0];
     const { pending, ready } = getCountersForPatient(reqs);
     expect(pending).toBeGreaterThanOrEqual(0);

@@ -14,7 +14,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
-import { ANA_FIELDS as SHARED_ANA_FIELDS } from '../../lib/domain/anamnesis';
+import { getFieldsForConsultationType } from '../../lib/domain/anamnesis';
 import { parseMed, parseExam } from './ai-panel/types';
 import { AIIndicators } from './ai-panel/AIIndicators';
 import { AIMetadataPanel } from './ai-panel/AIMetadataPanel';
@@ -68,6 +68,7 @@ interface DoctorAIPanelProps {
   anamnesis: Record<string, unknown> | null;
   suggestions: string[];
   evidence: EvidenceItem[];
+  consultationType?: string | null;
 }
 
 // ── Tab definition ──
@@ -92,15 +93,15 @@ function getGravityConfig(colors: any): Record<string, { color: string; label: s
 
 // ── Anamnesis field definitions (source: lib/domain/anamnesis.ts) ──
 
-const ANA_FIELDS = SHARED_ANA_FIELDS;
-
 // Re-export types for consumers that import from this file
 export type { DoctorAIPanelProps } from './ai-panel/types';
 
-export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPanelProps) {
+export function DoctorAIPanel({ anamnesis, suggestions, evidence, consultationType }: DoctorAIPanelProps) {
   const { colors } = useAppTheme({ scheme: 'dark', role: 'doctor' });
   const S = useMemo(() => makeStyles(colors), [colors]);
   const GRAVITY_CONFIG = useMemo(() => getGravityConfig(colors), [colors]);
+  const isPsy = consultationType === 'psicologo';
+  const displayFields = useMemo(() => getFieldsForConsultationType(consultationType), [consultationType]);
   const [activeTab, setActiveTab] = useState<TabKey>('consulta');
   const [expandedEvidence, setExpandedEvidence] = useState<Set<number>>(new Set());
   const [expandedMeds, setExpandedMeds] = useState<Set<number>>(new Set());
@@ -197,7 +198,7 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
       parts.push('\nDIAGNÓSTICO DIFERENCIAL:');
       diagDiferencial.forEach((dd, i) => parts.push(`${i + 1}. ${dd.hipotese} (${dd.cid}) — ${dd.probabilidade}`));
     }
-    ANA_FIELDS.forEach(({ key, label }) => {
+    displayFields.forEach(({ key, label }) => {
       const v = anamnesis?.[key];
       if (!v || (typeof v === 'string' && !(v as string).trim())) return;
       const d = Array.isArray(v) ? (v as unknown[]).join(', ') : String(v);
@@ -227,7 +228,7 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
       criteriosRetorno.forEach(c => parts.push(`\u26A0\uFE0F ${c}`));
     }
     return parts.join('\n');
-  }, [gravidade, GRAVITY_CONFIG, primaryHipotese, primaryCid, diagDiferencial, anamnesis, meds, exames, orientacoesPaciente, criteriosRetorno]);
+  }, [gravidade, GRAVITY_CONFIG, primaryHipotese, primaryCid, diagDiferencial, anamnesis, displayFields, meds, exames, orientacoesPaciente, criteriosRetorno]);
 
   return (
     <View style={S.container}>
@@ -324,12 +325,12 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             )}
 
-            {/* Differential diagnosis */}
+            {/* Differential diagnosis / Psychology hypotheses */}
             {diagDiferencial.length > 0 && (
               <View style={S.sec}>
                 <View style={S.secH}>
-                  <Ionicons name="git-branch" size={14} color={colors.primary} />
-                  <Text style={[S.secT, { color: colors.primary }]}>DIAGNÓSTICO DIFERENCIAL</Text>
+                  <Ionicons name={isPsy ? 'bulb' : 'git-branch'} size={14} color={colors.primary} />
+                  <Text style={[S.secT, { color: colors.primary }]}>{isPsy ? 'HIPÓTESES CLÍNICAS' : 'DIAGNÓSTICO DIFERENCIAL'}</Text>
                 </View>
                 {diagDiferencial.map((dd, i) => {
                   const probColor = dd.probabilidade === 'alta' ? colors.success
@@ -356,15 +357,15 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             )}
 
-            {/* Anamnesis fields */}
+            {/* Anamnesis / Psychology assessment fields */}
             {hasAna && (
               <View style={S.sec}>
                 <View style={S.secH}>
-                  <Ionicons name="document-text" size={14} color={colors.primary} />
-                  <Text style={S.secT}>ANAMNESE</Text>
+                  <Ionicons name={isPsy ? 'heart' : 'document-text'} size={14} color={colors.primary} />
+                  <Text style={S.secT}>{isPsy ? 'AVALIAÇÃO PSICOLÓGICA' : 'ANAMNESE'}</Text>
                   <View style={S.badge}><Ionicons name="sparkles" size={10} color={colors.primary} /><Text style={S.badgeTxt}>IA</Text></View>
                 </View>
-                {ANA_FIELDS.map(({ key, label, icon }) => {
+                {displayFields.map(({ key, label, icon }) => {
                   const v = anamnesis?.[key];
                   if (!v || (typeof v === 'string' && !(v as string).trim())) return null;
                   const d = Array.isArray(v) ? (v as unknown[]).join(', ') : String(v);
@@ -382,8 +383,8 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             )}
 
-            {/* Physical exam guidance */}
-            {exameFisicoDirigido.length > 0 && (
+            {/* Physical exam guidance — medical only */}
+            {!isPsy && exameFisicoDirigido.length > 0 && (
               <View style={S.examFisicoBlock}>
                 <View style={S.secH}>
                   <Ionicons name="fitness" size={14} color={colors.accent} />
@@ -393,8 +394,8 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             )}
 
-            {/* Medications */}
-            {meds.length > 0 && (
+            {/* Medications — medical only */}
+            {!isPsy && meds.length > 0 && (
               <View style={S.sec}>
                 <View style={S.secH}>
                   <Ionicons name="medkit" size={14} color={colors.primary} />
@@ -499,8 +500,8 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             )}
 
-            {/* Drug interactions */}
-            {interacoesCruzadas.length > 0 && (
+            {/* Drug interactions — medical only */}
+            {!isPsy && interacoesCruzadas.length > 0 && (
               <View style={S.sec}>
                 <View style={S.secH}>
                   <Ionicons name="warning" size={14} color={colors.error} />
@@ -534,8 +535,8 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence }: DoctorAIPane
               </View>
             )}
 
-            {/* Exams */}
-            {exames.length > 0 && (
+            {/* Exams — medical only */}
+            {!isPsy && exames.length > 0 && (
               <View style={S.sec}>
                 <View style={S.secH}>
                   <Ionicons name="flask" size={14} color={colors.primary} />

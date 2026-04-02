@@ -26,14 +26,13 @@ import { useStickyCtaScrollPadding } from '../../lib/ui/responsive';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader, AppCard, StepIndicator, StickyCTA } from '../../components/ui';
 import { useTriageEval } from '../../hooks/useTriageEval';
+import { useSymptomVoiceInput } from '../../hooks/useSymptomVoiceInput';
 import { detectRedFlags, evaluateConsultationCompleteness } from '../../lib/domain/assistantIntelligence';
 import { evaluateAssistantCompleteness } from '../../lib/api';
 
 const s = theme.spacing;
 const _r = theme.borderRadius;
 const ty = theme.typography;
-
-const CONSULTATION_DURATION_MINUTES = 15;
 
 const CONSULTATION_TYPES = [
   {
@@ -66,12 +65,13 @@ export default function ConsultationScreen() {
   const [symptoms, setSymptoms] = useState('');
   const [urgency, setUrgency] = useState<'rotina' | 'urgente'>('rotina');
   const [loading, setLoading] = useState(false);
+  const voice = useSymptomVoiceInput();
   const { colors } = useAppTheme({ role: 'patient' });
   const styles = useMemo(() => makeStyles(colors, narrow), [colors, narrow]);
   const listPadding = useStickyCtaScrollPadding();
   const completenessLocal = evaluateConsultationCompleteness({
     consultationType,
-    durationMinutes: CONSULTATION_DURATION_MINUTES,
+    durationMinutes: 0,
     symptoms,
   });
   const redFlagsLocal = detectRedFlags(symptoms);
@@ -94,7 +94,7 @@ export default function ConsultationScreen() {
       evaluateAssistantCompleteness({
         flow: 'consultation',
         consultationType,
-        durationMinutes: CONSULTATION_DURATION_MINUTES,
+        durationMinutes: 0,
         symptoms,
       })
         .then((res) => {
@@ -136,11 +136,22 @@ export default function ConsultationScreen() {
 
   const consultationValidation = validate(createConsultationSchema, {
     consultationType,
-    durationMinutes: CONSULTATION_DURATION_MINUTES,
+    durationMinutes: 0,
     symptoms,
   });
   const isFormValid = completeness.missingRequired.length === 0 && consultationValidation.success;
   const symptomsRef = useRef<TextInput>(null);
+
+  const handleMicToggle = async () => {
+    if (voice.isRecording) {
+      const text = await voice.stopAndTranscribe(symptoms);
+      if (text) {
+        setSymptoms((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+      }
+    } else {
+      await voice.startRecording();
+    }
+  };
 
   useTriageEval({
     context: 'consultation',
@@ -177,7 +188,7 @@ export default function ConsultationScreen() {
 
     const validation = validate(createConsultationSchema, {
       consultationType,
-      durationMinutes: CONSULTATION_DURATION_MINUTES,
+      durationMinutes: 0,
       symptoms,
     });
     if (!validation.success) {
@@ -210,7 +221,7 @@ export default function ConsultationScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <AppHeader title="Consulta Breve" />
+          <AppHeader title="Teleconsulta" />
           <StepIndicator
             current={currentStep}
             total={3}
@@ -286,15 +297,6 @@ export default function ConsultationScreen() {
             })}
           </View>
 
-          {/* Duration Info */}
-          <View style={styles.durationCard}>
-            <Ionicons name="videocam" size={18} color={colors.primary} />
-            <View style={styles.durationTextWrap}>
-              <Text style={styles.durationTitle}>Teleconsulta de {CONSULTATION_DURATION_MINUTES} minutos</Text>
-              <Text style={styles.durationDesc}>A chamada encerra automaticamente ao atingir o tempo.</Text>
-            </View>
-          </View>
-
           {/* Urgency */}
           <Text style={styles.sectionLabel}>Urgência</Text>
           <View style={styles.urgencyRow}>
@@ -306,11 +308,15 @@ export default function ConsultationScreen() {
                   style={[styles.urgencyChip, isSelected && styles.urgencyChipSelected]}
                   onPress={() => setUrgency(opt.key)}
                   activeOpacity={0.7}
+                  accessibilityRole="radio"
+                  accessibilityLabel={opt.label}
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <Ionicons
                     name={opt.icon}
                     size={16}
                     color={isSelected ? colors.primary : colors.textMuted}
+                    importantForAccessibility="no"
                   />
                   <Text style={[styles.urgencyLabel, isSelected && styles.urgencyLabelSelected]}>
                     {opt.label}
@@ -321,8 +327,42 @@ export default function ConsultationScreen() {
           </View>
 
           {/* Symptoms */}
-          <Text style={styles.sectionLabel}>Descreva seus sintomas</Text>
-          <Text style={styles.fieldHint}>Escreva o que sente ou sua dúvida. Isso ajuda o profissional a te atender melhor.</Text>
+          <View style={styles.symptomLabelRow}>
+            <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>Descreva seus sintomas</Text>
+            <TouchableOpacity
+              style={[styles.micBtn, voice.isRecording && styles.micBtnRecording]}
+              onPress={handleMicToggle}
+              disabled={voice.isTranscribing || loading}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={voice.isRecording ? 'Parar gravação' : 'Gravar sintomas por voz'}
+            >
+              {voice.isTranscribing ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={voice.isRecording ? 'stop' : 'mic'}
+                    size={16}
+                    color={voice.isRecording ? '#EF4444' : colors.primary}
+                  />
+                  <Text style={[styles.micBtnText, voice.isRecording && styles.micBtnTextRec]}>
+                    {voice.isRecording ? `${voice.durationSeconds}s` : 'Falar'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.fieldHint}>
+            {voice.isRecording
+              ? 'Fale seus sintomas... toque em parar quando terminar.'
+              : voice.isTranscribing
+                ? 'Processando sua fala...'
+                : 'Escreva ou use o microfone para descrever o que sente.'}
+          </Text>
+          {voice.error && (
+            <Text style={styles.voiceError}>{voice.error}</Text>
+          )}
           <TextInput
             ref={symptomsRef}
             style={[
@@ -339,7 +379,7 @@ export default function ConsultationScreen() {
             autoCapitalize="sentences"
             autoCorrect
             returnKeyType="default"
-            editable={!loading}
+            editable={!loading && !voice.isTranscribing}
             accessibilityLabel="Descreva seus sintomas"
             accessibilityHint="Campo obrigatório para descrever seus sintomas ou dúvida"
           />
@@ -348,7 +388,7 @@ export default function ConsultationScreen() {
         <StickyCTA
           summaryTitle="Resumo"
           summaryValue={`${completeness.score}% pronto`}
-          summaryHint={`${CONSULTATION_DURATION_MINUTES} min de consulta`}
+          summaryHint="Teleconsulta sem limite de tempo"
           primary={{
             label: 'Agendar consulta',
             onPress: handleSubmit,
@@ -499,31 +539,6 @@ function makeStyles(colors: DesignColors, narrow: boolean) {
       lineHeight: 16,
     },
 
-    /* Duration */
-    durationCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s.sm,
-      marginTop: s.md,
-      padding: s.md,
-      borderRadius: 12,
-      backgroundColor: colors.primarySoft,
-    },
-    durationTextWrap: {
-      flex: 1,
-    },
-    durationTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    durationDesc: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginTop: 2,
-      lineHeight: 16,
-    },
-
     /* Urgency */
     urgencyRow: {
       flexDirection: 'row',
@@ -552,6 +567,43 @@ function makeStyles(colors: DesignColors, narrow: boolean) {
     },
     urgencyLabelSelected: {
       color: colors.primary,
+    },
+
+    /* Symptom label + mic */
+    symptomLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: s.lg,
+      marginBottom: s.sm,
+    },
+    micBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+    },
+    micBtnRecording: {
+      backgroundColor: '#FEE2E2',
+      borderColor: '#EF444440',
+    },
+    micBtnText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    micBtnTextRec: {
+      color: '#EF4444',
+    },
+    voiceError: {
+      fontSize: 12,
+      color: colors.error,
+      marginBottom: s.xs,
     },
 
     /* Textarea */

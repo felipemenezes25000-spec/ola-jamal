@@ -229,6 +229,20 @@ public class ConsultationLifecycleService(
 
     public async Task<RequestResponseDto> FinishConsultationAsync(Guid id, Guid doctorId, FinishConsultationDto? dto, CancellationToken cancellationToken = default)
     {
+        var semaphore = GetLockFor(id);
+        await semaphore.WaitAsync(cancellationToken);
+        try
+        {
+        return await FinishConsultationCoreAsync(id, doctorId, dto, cancellationToken);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    private async Task<RequestResponseDto> FinishConsultationCoreAsync(Guid id, Guid doctorId, FinishConsultationDto? dto, CancellationToken cancellationToken)
+    {
         var request = await requestRepository.GetByIdAsync(id, cancellationToken);
         if (request == null)
             throw new KeyNotFoundException("Request not found");

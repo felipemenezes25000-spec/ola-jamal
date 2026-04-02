@@ -405,7 +405,7 @@ function rulesExam(i: TriageInput): TriageMessage | null {
       if (i.aiRiskLevel === 'high') {
         return {
           key: 'exam:high_risk',
-          text: 'Este pedido parece exigir avaliacao prioritaria. Se puder, converse com um medico o quanto antes.',
+          text: 'Este pedido parece exigir avaliação prioritária. Se puder, converse com um médico o quanto antes.',
           severity: 'attention', avatarState: 'alert',
           cta: 'teleconsulta', ctaLabel: 'Falar com medico',
           cooldownMs: MS.INSIGHT,
@@ -471,8 +471,8 @@ function rulesConsultation(i: TriageInput): TriageMessage | null {
   if (i.step === 'symptoms_entered' && hasRedFlagSymptoms(i.symptoms)) {
     return {
       key: 'consult:red_flags',
-      text: 'Esses sintomas podem merecer avaliacao rapida. Se houver piora, procure urgencia e converse com um medico.',
-      severity: 'attention', avatarState: 'alert', cta: 'teleconsulta', ctaLabel: 'Falar com medico',
+      text: 'Esses sintomas podem merecer avaliação rápida. Se houver piora, procure urgência e converse com um médico.',
+      severity: 'attention', avatarState: 'alert', cta: 'teleconsulta', ctaLabel: 'Falar com médico',
       cooldownMs: MS.INSIGHT,
       analyticsEvent: 'triage.consult.red_flags',
     };
@@ -537,7 +537,7 @@ function rulesRecord(i: TriageInput): TriageMessage | null {
   if (hasHighMedicationBurden(i.recentMedications) && (!i.lastConsultationDays || i.lastConsultationDays > 60)) {
     return {
       key: 'record:medication_review',
-      text: 'Seu historico mostra varios medicamentos recentes. Vale revisar com medico para manter seguranca no tratamento.',
+      text: 'Seu histórico mostra vários medicamentos recentes. Vale revisar com médico para manter segurança no tratamento.',
       severity: 'attention', avatarState: 'alert',
       cta: 'teleconsulta', ctaLabel: 'Revisar com medico',
       cooldownMs: MS.INSIGHT, canMute: true,

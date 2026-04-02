@@ -28,9 +28,11 @@ interface DoctorAIPanelProps {
   anamnesis: Record<string, unknown> | null;
   suggestions: (string | { text?: string; suggestion?: string })[];
   evidence?: EvidenceItem[];
+  consultationType?: string | null;
 }
 
-export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorAIPanelProps) {
+export function DoctorAIPanel({ anamnesis, suggestions, evidence = [], consultationType }: DoctorAIPanelProps) {
+  const isPsy = consultationType === 'psicologo';
   const [activeTab, setActiveTab] = useState<TabKey>('consulta');
   const [expandedMeds, setExpandedMeds] = useState<Set<number>>(new Set());
 
@@ -183,13 +185,13 @@ export function DoctorAIPanel({ anamnesis, suggestions, evidence = [] }: DoctorA
             <AISuggestionView
               anamnesis={anamnesis}
               hasAna={!!hasAna}
-              meds={meds}
-              exames={exames}
-              interacoesCruzadas={interacoesCruzadas}
+              meds={isPsy ? [] : meds}
+              exames={isPsy ? [] : exames}
+              interacoesCruzadas={isPsy ? [] : interacoesCruzadas}
               expandedMeds={expandedMeds}
               toggleMedExpand={toggleMedExpand}
               lacunasAnamnese={lacunasAnamnese}
-              exameFisicoDirigido={exameFisicoDirigido}
+              exameFisicoDirigido={isPsy ? '' : exameFisicoDirigido}
               orientacoesPaciente={orientacoesPaciente}
               criteriosRetorno={criteriosRetorno}
               copyToClipboard={copyToClipboard}
