@@ -36,7 +36,7 @@ public static class FileSignatureValidator
             }
 
             if (!Signatures.TryGetValue(contentType, out var expectedSignatures))
-                return true;
+                return false; // Reject unknown content types by default
 
             var maxLen = expectedSignatures.Max(s => s.Length);
             var buf = new byte[maxLen];

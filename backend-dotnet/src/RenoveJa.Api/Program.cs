@@ -495,6 +495,21 @@ app.Use(async (ctx, next) =>
     // Permite camera e microfone para o portal do médico (Daily.co videochamada)
     ctx.Response.Headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()";
     ctx.Response.Headers["X-XSS-Protection"] = "0";
+    ctx.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' https://*.daily.co; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data: https:; " +
+        "font-src 'self' data:; " +
+        "connect-src 'self' https://*.daily.co wss://*.daily.co https://api.openai.com; " +
+        "frame-src 'self' https://*.daily.co; " +
+        "media-src 'self' blob:; " +
+        "object-src 'none'; " +
+        "base-uri 'self'";
+    if (!app.Environment.IsDevelopment())
+    {
+        ctx.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    }
     await next();
 });
 
