@@ -1,7 +1,7 @@
 /**
  * DoctorPostConsultationEmit — Emissao de documentos pos-consulta (web).
  * Design alinhado ao mockup aprovado. Usa shadcn/ui + Tailwind.
- * Receita + Exames (com pacotes) + Atestado, pre-preenchidos pela IA.
+ * Receita + Exames (com pacotes) + Encaminhamento, pre-preenchidos pela IA.
  *
  * Responsive: mobile full-width, desktop max-w-4xl centered with 2-col where appropriate.
  */
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  Loader2, ArrowLeft, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Send, Minus, Lock,
+  Loader2, ArrowLeft, X, Plus, ChevronDown, ChevronUp, ShieldCheck, Send, Lock,
 } from 'lucide-react';
 
 // ── CID Packages (same data as mobile) ──
@@ -152,13 +152,11 @@ export default function DoctorPostConsultationEmit() {
   // Document toggles
   const [rxOn, setRxOn] = useState(true);
   const [exOn, setExOn] = useState(false);
-  const [atOn, setAtOn] = useState(false);
   const [refOn, setRefOn] = useState(false);
 
   // Sections
   const [rxOpen, setRxOpen] = useState(true);
   const [exOpen, setExOpen] = useState(false);
-  const [atOpen, setAtOpen] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
   const [cidPickerOpen, setCidPickerOpen] = useState(false);
   const [exListExpanded, setExListExpanded] = useState(false);
@@ -171,12 +169,8 @@ export default function DoctorPostConsultationEmit() {
   const [exams, setExams] = useState<ExamItemEmitWeb[]>([]);
   const [examJust, setExamJust] = useState(cidPkg?.examJust ?? '');
 
-  // Certificate
-  const [certType, setCertType] = useState<'afastamento' | 'comparecimento' | 'aptidao'>('afastamento');
-  const [certBody, setCertBody] = useState(cidPkg?.body ?? '');
+  // Selected CID (shared by CID picker, payload, referral)
   const [certCid, setCertCid] = useState(detectedCid ?? '');
-  const [certDays, setCertDays] = useState(cidPkg?.days ?? 3);
-  const [certIncludeCid, setCertIncludeCid] = useState(true);
 
   // Referral
   const [refProfessional, setRefProfessional] = useState('');
@@ -204,14 +198,9 @@ export default function DoctorPostConsultationEmit() {
     setMeds(finalMeds);
     setExams(finalExams);
     if (pkg?.examJust) setExamJust(pkg.examJust);
-    if (pkg?.body) setCertBody(pkg.body);
     if (detectedCid) setCertCid(detectedCid);
-    if (pkg?.days) setCertDays(pkg.days);
-
     setExOn(finalExams.length > 0);
     setExOpen(finalExams.length > 0);
-    setAtOn((pkg?.days ?? 0) > 0);
-    setAtOpen((pkg?.days ?? 0) > 0);
 
     const refSug = extractReferralFromAnamnesis(anamnesis);
     if (refSug?.professional || refSug?.reason) {
@@ -228,8 +217,7 @@ export default function DoctorPostConsultationEmit() {
     if (!pkg) return;
     setMeds(pkg.meds.map(m => ({ drug: m.drug, posology: m.posology, notes: m.note })));
     setExams(pkg.exams.map(e => ({ type: 'laboratorial', description: e })));
-    setExamJust(pkg.examJust); setCertBody(pkg.body); setCertCid(code);
-    setCertDays(pkg.days || 1); setAtOn(pkg.days > 0); setAtOpen(pkg.days > 0);
+    setExamJust(pkg.examJust); setCertCid(code);
     if (pkg.exams.length > 0) { setExOn(true); setExOpen(true); }
     setCidPickerOpen(false);
   }, []);
@@ -241,7 +229,7 @@ export default function DoctorPostConsultationEmit() {
     setExamJust(pkg.just); setExOn(true); setExOpen(true);
   }, [examPackagesDisplay]);
 
-  const docCount = (rxOn ? 1 : 0) + (exOn ? 1 : 0) + (atOn ? 1 : 0) + (refOn ? 1 : 0);
+  const docCount = (rxOn ? 1 : 0) + (exOn ? 1 : 0) + (refOn ? 1 : 0);
 
   // Password dialog state
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -249,8 +237,8 @@ export default function DoctorPostConsultationEmit() {
 
   const handleSignClick = () => {
     if (!requestId || docCount === 0) return;
-    if (docCount > 4) {
-      toast.error('Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
+    if (docCount > 3) {
+      toast.error('Máximo de 3 documentos: receita, exames e encaminhamento.');
       return;
     }
     setCertPassword('');
@@ -274,13 +262,6 @@ export default function DoctorPostConsultationEmit() {
       if (rxOn && validMeds.length > 0) payload.prescription = { type: rxType, items: validMeds };
       const validExams = exams.filter(e => e.description.trim());
       if (exOn && validExams.length > 0) payload.examOrder = { clinicalJustification: examJust, items: validExams };
-      if (atOn && certBody.trim()) {
-        payload.medicalCertificate = {
-          certificateType: certType, body: certBody, icd10Code: certCid || undefined,
-          leaveDays: certDays, leaveStartDate: new Date().toISOString(),
-          leavePeriod: 'integral', includeIcd10: certIncludeCid,
-        };
-      }
       if (refOn && refProfessional.trim() && refReason.trim()) {
         payload.referral = {
           professionalName: refProfessional.trim(),
@@ -518,70 +499,8 @@ export default function DoctorPostConsultationEmit() {
             </Card>
           </div>
 
-          {/* ── Desktop 2-column for Atestado + Encaminhamento ── */}
+          {/* ── Encaminhamento ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-            {/* ═══ ATESTADO ═══ */}
-            <Card className={`${!atOn ? 'opacity-35 pointer-events-none' : ''} shadow-sm border-0 ring-1 ring-gray-200`}>
-              <CardHeader className="pb-2 cursor-pointer bg-white rounded-t-lg" onClick={() => atOn && setAtOpen(!atOpen)}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                  </div>
-                  <CardTitle className="text-base flex-1">Atestado</CardTitle>
-                  <Badge variant="secondary" className="font-medium text-xs">{certDays} dia{certDays !== 1 ? 's' : ''}</Badge>
-                  <Switch checked={atOn} onCheckedChange={v => { setAtOn(v); if (v) setAtOpen(true); }}
-                    onClick={e => e.stopPropagation()} />
-                  {atOn && (atOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />)}
-                </div>
-              </CardHeader>
-              {atOpen && atOn && (
-                <CardContent className="space-y-3 pt-0">
-                  <div className="flex gap-2 flex-wrap">
-                    {(['afastamento', 'comparecimento', 'aptidao'] as const).map(t => (
-                      <button key={t} onClick={() => setCertType(t)}
-                        className={`px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] transition-all ${
-                          certType === t ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                        {t.charAt(0).toUpperCase() + t.slice(1).replace('ao', 'ao')}
-                      </button>
-                    ))}
-                  </div>
-                  <div>
-                    <label htmlFor="cert-body" className="text-xs font-medium text-muted-foreground block mb-1.5">Motivo</label>
-                    <Textarea id="cert-body" value={certBody} onChange={e => setCertBody(e.target.value)} rows={3} className="text-sm" />
-                  </div>
-                  <div className="flex gap-3 items-end flex-wrap">
-                    <div className="w-20">
-                      <label htmlFor="cert-cid" className="text-xs font-medium text-muted-foreground block mb-1.5">CID</label>
-                      <Input id="cert-cid" value={certCid} onChange={e => setCertCid(e.target.value.toUpperCase())}
-                        className="text-center font-semibold text-base" />
-                    </div>
-                    <div className="w-28">
-                      <label id="cert-days-label" htmlFor="cert-days" className="text-xs font-medium text-muted-foreground block mb-1.5">Dias</label>
-                      <input id="cert-days" type="number" value={certDays} readOnly aria-hidden className="sr-only" tabIndex={-1} />
-                      <div role="spinbutton" aria-labelledby="cert-days-label" aria-valuenow={certDays} className="flex items-center border rounded-xl overflow-hidden h-11 bg-gray-50">
-                        <button onClick={() => setCertDays(Math.max(1, certDays - 1))} className="w-11 h-full flex items-center justify-center hover:bg-gray-100 transition-colors">
-                          <Minus className="h-4 w-4 text-gray-500" />
-                        </button>
-                        <span className="flex-1 text-center font-semibold text-lg">{certDays}</span>
-                        <button onClick={() => setCertDays(Math.min(30, certDays + 1))} className="w-11 h-full flex items-center justify-center hover:bg-gray-100 transition-colors">
-                          <Plus className="h-4 w-4 text-gray-500" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-[120px]">
-                      <label htmlFor="cert-start" className="text-xs font-medium text-muted-foreground block mb-1.5">Inicio</label>
-                      <Input id="cert-start" value={new Date().toLocaleDateString('pt-BR')} readOnly className="bg-gray-50 text-muted-foreground" />
-                    </div>
-                  </div>
-                  <label htmlFor="cert-include-cid" className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">
-                    <input id="cert-include-cid" type="checkbox" checked={certIncludeCid} onChange={e => setCertIncludeCid(e.target.checked)}
-                      className="w-4 h-4 accent-blue-600 rounded" />
-                    <span className="text-sm text-gray-600">Incluir CID no atestado (paciente autorizou)</span>
-                  </label>
-                </CardContent>
-              )}
-            </Card>
 
             {/* ═══ ENCAMINHAMENTO ═══ */}
             <Card className={`${!refOn ? 'opacity-35 pointer-events-none' : ''} shadow-sm border-0 ring-1 ring-gray-200`}>
@@ -592,7 +511,7 @@ export default function DoctorPostConsultationEmit() {
                   </div>
                   <CardTitle className="text-base flex-1">Encaminhamento</CardTitle>
                   <Badge variant="secondary" className="font-medium text-xs">
-                    {refProfessional.trim() || 'Médico/Prof.'}
+                    {refSpecialty.trim() || 'Especialidade'}
                   </Badge>
                   <Switch checked={refOn} onCheckedChange={v => { setRefOn(v); if (v) setRefOpen(true); }}
                     onClick={e => e.stopPropagation()} />
@@ -605,14 +524,14 @@ export default function DoctorPostConsultationEmit() {
                     Encaminhe o paciente para avaliação presencial conforme anamnese.
                   </p>
                   <div>
-                    <label htmlFor="ref-professional" className="text-xs font-medium text-muted-foreground block mb-1.5">Médico ou profissional</label>
-                    <Input id="ref-professional" value={refProfessional} onChange={e => setRefProfessional(e.target.value)}
-                      placeholder="Ex: Dr. João Silva" className="text-sm" />
-                  </div>
-                  <div>
-                    <label htmlFor="ref-specialty" className="text-xs font-medium text-muted-foreground block mb-1.5">Especialidade</label>
+                    <label htmlFor="ref-specialty" className="text-xs font-medium text-muted-foreground block mb-1.5">Especialidade *</label>
                     <Input id="ref-specialty" value={refSpecialty} onChange={e => setRefSpecialty(e.target.value)}
                       placeholder="Ex: Cardiologia, Fisioterapia" className="text-sm" />
+                  </div>
+                  <div>
+                    <label htmlFor="ref-professional" className="text-xs font-medium text-muted-foreground block mb-1.5">Médico ou profissional (opcional)</label>
+                    <Input id="ref-professional" value={refProfessional} onChange={e => setRefProfessional(e.target.value)}
+                      placeholder="Ex: Dr. João Silva" className="text-sm" />
                   </div>
                   <div>
                     <label htmlFor="ref-reason" className="text-xs font-medium text-muted-foreground block mb-1.5">Motivo / Indicacao</label>
@@ -634,7 +553,6 @@ export default function DoctorPostConsultationEmit() {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {rxOn && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Receita ({meds.length})</Badge>}
                   {exOn && <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Exames ({exams.length})</Badge>}
-                  {atOn && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Atestado ({certDays}d)</Badge>}
                   {refOn && <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100">Encaminhamento</Badge>}
                 </div>
               </CardContent>

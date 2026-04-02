@@ -1,6 +1,6 @@
 /**
  * Tela Pós-Consulta — Design aprovado.
- * Emite receita + exames + atestado pré-preenchidos pela IA.
+ * Emite receita + exames pré-preenchidos pela IA.
  * O médico revisa, edita e assina tudo de uma vez.
  */
 
@@ -144,13 +144,11 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   // ── State: Document toggles ──
   const [rxEnabled, setRxEnabled] = useState(true);
   const [exEnabled, setExEnabled] = useState(false);
-  const [atEnabled, setAtEnabled] = useState(() => (cidPkg?.defaultLeaveDays ?? 0) > 0);
   const [refEnabled, setRefEnabled] = useState(false);
 
   // ── State: Sections expanded ──
   const [rxOpen, setRxOpen] = useState(true);
   const [exOpen, setExOpen] = useState(false);
-  const [atOpen, setAtOpen] = useState(() => (cidPkg?.defaultLeaveDays ?? 0) > 0);
   const [refOpen, setRefOpen] = useState(false);
   const [cidPickerOpen, setCidPickerOpen] = useState(false);
   const [exListExpanded, setExListExpanded] = useState(false);
@@ -174,12 +172,8 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   );
   const [examJustification, setExamJustification] = useState(cidPkg?.examJustification ?? '');
 
-  // ── State: Certificate ──
-  const [certType, setCertType] = useState<'afastamento' | 'comparecimento' | 'aptidao'>('afastamento');
-  const [certBody, setCertBody] = useState(cidPkg?.defaultCertificateBody ?? '');
+  // ── State: Selected CID (shared by CID picker, payload, referral) ──
   const [certCid, setCertCid] = useState(detectedCid ?? '');
-  const [certDays, setCertDays] = useState(cidPkg?.defaultLeaveDays ?? 3);
-  const [certIncludeCid, setCertIncludeCid] = useState(true);
 
   // ── State: Referral ──
   const refSug = useMemo(() => buildReferralFromAnamnesis(anamnesis), [anamnesis]);
@@ -226,11 +220,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
     setMeds(pkg.medications.map((m) => ({ drug: m.drug, posology: m.posology, notes: m.indication })));
     setExams(pkg.exams.map((e) => ({ type: 'laboratorial', description: e })));
     setExamJustification(pkg.examJustification);
-    setCertBody(pkg.defaultCertificateBody);
     setCertCid(code);
-    setCertDays(pkg.defaultLeaveDays || 1);
-    setAtEnabled(pkg.defaultLeaveDays > 0);
-    setAtOpen(pkg.defaultLeaveDays > 0);
     if (pkg.exams.length > 0) { setExEnabled(true); setExOpen(true); }
     setCidPickerOpen(false);
   }, []);
@@ -316,11 +306,10 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   }, [examForm, editingExamIndex]);
 
   // ── Computed ──
-  const docCount = (rxEnabled ? 1 : 0) + (exEnabled ? 1 : 0) + (atEnabled ? 1 : 0) + (refEnabled ? 1 : 0);
+  const docCount = (rxEnabled ? 1 : 0) + (exEnabled ? 1 : 0) + (refEnabled ? 1 : 0);
   const docTags: string[] = [];
   if (rxEnabled) docTags.push(`Receita (${meds.length})`);
   if (exEnabled) docTags.push(`Exames (${exams.length})`);
-  if (atEnabled) docTags.push(`Atestado (${certDays}d)`);
   if (refEnabled) docTags.push('Encaminhamento');
 
   // ── Submit ──
@@ -330,7 +319,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       return;
     }
     if (docCount > 4) {
-      Alert.alert('Limite excedido', 'Máximo de 4 documentos: receita, exames, atestado e encaminhamento.');
+      Alert.alert('Limite excedido', 'Máximo de 3 documentos: receita, exames e encaminhamento.');
       return;
     }
     updateCertPassword('');
@@ -367,21 +356,10 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       if (exEnabled && exams.length > 0) {
         payload.examOrder = { clinicalJustification: examJustification, items: exams };
       }
-      if (atEnabled && certBody.trim()) {
-        payload.medicalCertificate = {
-          certificateType: certType,
-          body: certBody,
-          icd10Code: certCid || undefined,
-          leaveDays: certDays,
-          leaveStartDate: new Date().toISOString(),
-          leavePeriod: 'integral',
-          includeIcd10: certIncludeCid,
-        };
-      }
-      if (refEnabled && refProfessional.trim() && refReason.trim()) {
+      if (refEnabled && refSpecialty.trim() && refReason.trim()) {
         payload.referral = {
-          professionalName: refProfessional.trim(),
-          specialty: refSpecialty.trim() || undefined,
+          professionalName: refProfessional.trim() || undefined,
+          specialty: refSpecialty.trim(),
           reason: refReason.trim(),
           icd10Code: certCid || detectedCid || undefined,
         };
@@ -554,70 +532,12 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
           )}
         </View>
 
-        {/* ═══ ATESTADO ═══ */}
-        <View style={[S.panel, !atEnabled && S.panelOff]}>
-          <TouchableOpacity style={S.panelHead} onPress={() => atEnabled && setAtOpen(!atOpen)} activeOpacity={0.7}>
-            <View style={[S.panelDot, { backgroundColor: '#E88D1A' }]} />
-            <Text style={S.panelName}>Atestado</Text>
-            <Text style={S.panelBadge}>{certDays} dia{certDays !== 1 ? 's' : ''}</Text>
-            <Switch value={atEnabled} onValueChange={(v) => { setAtEnabled(v); if (v) setAtOpen(true); }}
-              trackColor={{ false: '#D4D7DF', true: '#E88D1A' }} thumbColor="#fff" />
-            <Ionicons name={atOpen && atEnabled ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
-          </TouchableOpacity>
-          {atOpen && atEnabled && (
-            <View style={S.panelBody}>
-              <View style={S.chips}>
-                {(['afastamento', 'comparecimento', 'aptidao'] as const).map((t) => (
-                  <TouchableOpacity key={t} style={[S.chip, certType === t && S.chipOn]} onPress={() => setCertType(t)}>
-                    <Text style={[S.chipText, certType === t && S.chipTextOn]}>
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={S.fieldLabel}>Motivo</Text>
-              <TextInput style={S.textArea} value={certBody} onChangeText={setCertBody}
-                multiline placeholderTextColor={colors.textMuted} />
-              <View style={S.certRow}>
-                <View style={{ width: 80 }}>
-                  <Text style={S.fieldLabel}>CID</Text>
-                  <TextInput style={[S.input, { textAlign: 'center', fontWeight: '600', fontSize: 16 }]}
-                    value={certCid} onChangeText={setCertCid} autoCapitalize="characters" />
-                </View>
-                <View style={{ width: 100 }}>
-                  <Text style={S.fieldLabel}>Dias</Text>
-                  <View style={S.stepper}>
-                    <TouchableOpacity style={S.stepBtn} onPress={() => setCertDays(Math.max(1, certDays - 1))}>
-                      <Text style={S.stepBtnText}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={S.stepVal}>{certDays}</Text>
-                    <TouchableOpacity style={S.stepBtn} onPress={() => setCertDays(Math.min(30, certDays + 1))}>
-                      <Text style={S.stepBtnText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={S.fieldLabel}>Início</Text>
-                  <TextInput style={[S.input, { backgroundColor: '#F9FAFB' }]}
-                    value={new Date().toLocaleDateString('pt-BR')} editable={false} />
-                </View>
-              </View>
-              <TouchableOpacity style={S.checkRow} onPress={() => setCertIncludeCid(!certIncludeCid)}>
-                <View style={[S.checkbox, certIncludeCid && S.checkboxOn]}>
-                  {certIncludeCid && <Ionicons name="checkmark" size={14} color="#fff" />}
-                </View>
-                <Text style={S.checkText}>Incluir CID no atestado (paciente autorizou)</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
         {/* ═══ ENCAMINHAMENTO ═══ */}
         <View style={[S.panel, !refEnabled && S.panelOff]}>
           <TouchableOpacity style={S.panelHead} onPress={() => refEnabled && setRefOpen(!refOpen)} activeOpacity={0.7}>
             <View style={[S.panelDot, { backgroundColor: '#7C3AED' }]} />
             <Text style={S.panelName}>Encaminhamento</Text>
-            <Text style={S.panelBadge}>{refProfessional.trim() || 'Médico/Prof.'}</Text>
+            <Text style={S.panelBadge}>{refSpecialty.trim() || 'Especialidade'}</Text>
             <Switch value={refEnabled} onValueChange={(v) => { setRefEnabled(v); if (v) setRefOpen(true); }}
               trackColor={{ false: '#D4D7DF', true: '#7C3AED' }} thumbColor="#fff" />
             <Ionicons name={refOpen && refEnabled ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
@@ -625,12 +545,12 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
           {refOpen && refEnabled && (
             <View style={S.panelBody}>
               <Text style={S.refHint}>Encaminhe o paciente para avaliação presencial conforme anamnese.</Text>
-              <Text style={S.fieldLabel}>Médico ou profissional *</Text>
-              <TextInput style={S.input} value={refProfessional} onChangeText={setRefProfessional}
-                placeholder="Ex: Dr. João Silva" placeholderTextColor={colors.textMuted} />
-              <Text style={S.fieldLabel}>Especialidade</Text>
+              <Text style={S.fieldLabel}>Especialidade *</Text>
               <TextInput style={S.input} value={refSpecialty} onChangeText={setRefSpecialty}
                 placeholder="Ex: Cardiologia, Fisioterapia" placeholderTextColor={colors.textMuted} />
+              <Text style={S.fieldLabel}>Médico ou profissional (opcional)</Text>
+              <TextInput style={S.input} value={refProfessional} onChangeText={setRefProfessional}
+                placeholder="Ex: Dr. João Silva" placeholderTextColor={colors.textMuted} />
               <Text style={S.fieldLabel}>Motivo / Indicação *</Text>
               <TextInput style={S.textArea} value={refReason} onChangeText={setRefReason}
                 placeholder="Conforme anamnese, para avaliação de..." multiline placeholderTextColor={colors.textMuted} />
