@@ -4,9 +4,9 @@ import { useAppTheme } from '../lib/ui/useAppTheme';
 
 const TAGLINE = 'Renove sua receita e pedido de exames.\nRápido e sem burocracia.';
 
-const LOGO_IMAGE = require('../assets/logo.png');
+const LOGO_IMAGE = require('../assets/logo.jpg');
 
-// Proporção real do logo.png (455x423) — evita distorção ou recorte
+// Proporção real do logo (455x423) — evita distorção ou recorte
 const LOGO_ASPECT_RATIO = 455 / 423;
 
 interface LogoProps {

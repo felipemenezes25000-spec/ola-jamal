@@ -3,13 +3,13 @@
  * Returns discriminated union for type-safe narrowing.
  */
 
-import { ZodSchema, ZodError } from 'zod';
+import { ZodType, ZodError } from 'zod';
 
 export type ValidationResult<T> =
   | { success: true; data: T }
   | { success: false; errors: Record<string, string>; firstError?: string };
 
-export function validate<T>(schema: ZodSchema<T>, input: unknown): ValidationResult<T> {
+export function validate<T>(schema: ZodType<T>, input: unknown): ValidationResult<T> {
   const result = schema.safeParse(input);
   if (result.success) {
     return { success: true, data: result.data };
