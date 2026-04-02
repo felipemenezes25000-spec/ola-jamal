@@ -83,13 +83,28 @@ describe('schemas', () => {
   });
 
   describe('completeProfileSchema', () => {
-    it('accepts valid phone and cpf', () => {
-      const result = completeProfileSchema.safeParse({ phone: '11999999999', cpf: '12345678901' });
+    const validProfile = {
+      phone: '11999999999',
+      cpf: '12345678901',
+      street: 'Rua Exemplo',
+      number: '123',
+      neighborhood: 'Centro',
+      city: 'São Paulo',
+      state: 'SP',
+    };
+
+    it('accepts valid phone, cpf and address', () => {
+      const result = completeProfileSchema.safeParse(validProfile);
       expect(result.success).toBe(true);
     });
 
     it('rejects cpf with wrong length', () => {
-      const result = completeProfileSchema.safeParse({ phone: '11999999999', cpf: '123' });
+      const result = completeProfileSchema.safeParse({ ...validProfile, cpf: '123' });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects missing address fields', () => {
+      const result = completeProfileSchema.safeParse({ phone: '11999999999', cpf: '12345678901' });
       expect(result.success).toBe(false);
     });
   });
