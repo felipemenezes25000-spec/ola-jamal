@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Keyboard,
+  Linking,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -27,7 +28,6 @@ import { RegisterDoctorForm } from '../../components/register/RegisterDoctorForm
 import { showToast } from '../../components/ui/Toast';
 
 const s = spacing;
-const PRIMARY = '#0EA5E9';
 
 function onlyDigits(s: string) {
   return (s || '').replace(/\D/g, '');
@@ -61,9 +61,9 @@ function StepIndicator({
                 stepStyles.dot,
                 {
                   backgroundColor: isActive
-                    ? PRIMARY
+                    ? colors.primary
                     : isCompleted
-                    ? PRIMARY
+                    ? colors.primary
                     : colors.borderLight,
                 },
               ]}
@@ -85,7 +85,7 @@ function StepIndicator({
               style={[
                 stepStyles.label,
                 {
-                  color: isActive ? PRIMARY : isCompleted ? colors.text : colors.textMuted,
+                  color: isActive ? colors.primary : isCompleted ? colors.text : colors.textMuted,
                   fontWeight: isActive ? '700' : '400',
                 },
               ]}
@@ -97,7 +97,7 @@ function StepIndicator({
               <View
                 style={[
                   stepStyles.connector,
-                  { backgroundColor: isCompleted ? PRIMARY : colors.borderLight },
+                  { backgroundColor: isCompleted ? colors.primary : colors.borderLight },
                 ]}
               />
             )}
@@ -150,8 +150,8 @@ const stepStyles = StyleSheet.create({
 function SectionDivider({ icon, title, colors }: { icon: string; title: string; colors: DesignColors }) {
   return (
     <View style={sectionStyles.row}>
-      <View style={[sectionStyles.iconWrap, { backgroundColor: `${PRIMARY}15` }]}>
-        <Ionicons name={icon as any} size={14} color={PRIMARY} />
+      <View style={[sectionStyles.iconWrap, { backgroundColor: `${colors.primary}15` }]}>
+        <Ionicons name={icon as any} size={14} color={colors.primary} />
       </View>
       <Text style={[sectionStyles.title, { color: colors.text }]}>{title}</Text>
       <View style={[sectionStyles.line, { backgroundColor: colors.borderLight }]} />
@@ -235,7 +235,6 @@ export default function Register() {
   const [university, setUniversity] = useState('');
   const [courses, setCourses] = useState('');
   const [hospitalsServices, setHospitalsServices] = useState('');
-  const [rqe, _setRqe] = useState('');
 
   const specialtiesDisplayList =
     role === 'doctor'
@@ -451,7 +450,6 @@ export default function Register() {
             university: university.trim() || undefined,
             courses: courses.trim() || undefined,
             hospitalsServices: hospitalsServices.trim() || undefined,
-            rqe: rqe.trim() || undefined,
           } as DoctorSignUpData)
         : { user: await signUp(baseData), requiresApproval: false };
 
@@ -611,7 +609,6 @@ export default function Register() {
           autoComplete="name"
           textContentType="name"
           returnKeyType="next"
-          blurOnSubmit={false}
         />
         <AppInput
           testID="register-email-input"
@@ -628,7 +625,6 @@ export default function Register() {
           autoComplete="email"
           textContentType="emailAddress"
           returnKeyType="next"
-          blurOnSubmit={false}
         />
         <AppInput
           label="CPF"
@@ -641,7 +637,6 @@ export default function Register() {
           keyboardType="numeric"
           maxLength={14}
           returnKeyType="next"
-          blurOnSubmit={false}
           hint="Obrigatório para receitas e pedidos de exame"
         />
         <AppInput
@@ -656,7 +651,6 @@ export default function Register() {
           autoComplete="tel"
           textContentType="telephoneNumber"
           returnKeyType="next"
-          blurOnSubmit={false}
           hint="Para contato e notificações"
         />
         <AppInput
@@ -676,7 +670,6 @@ export default function Register() {
           keyboardType="numeric"
           maxLength={10}
           returnKeyType="next"
-          blurOnSubmit={false}
           hint="Usada nas receitas médicas"
         />
 
@@ -696,7 +689,6 @@ export default function Register() {
           autoComplete="new-password"
           textContentType="newPassword"
           returnKeyType="next"
-          blurOnSubmit={false}
         />
         <AppInput
           label="Confirmar senha"
@@ -708,9 +700,8 @@ export default function Register() {
           error={fieldErrors.confirmPassword}
           secureTextEntry
           autoComplete="new-password"
-          textContentType="newPassword"
-          returnKeyType="next"
-          blurOnSubmit={false}
+          textContentType="none"
+          returnKeyType="done"
         />
 
         {/* Section: Address */}
@@ -862,7 +853,11 @@ export default function Register() {
             <Text style={styles.loginLink}>Entre</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.whatsappRow} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.whatsappRow}
+          activeOpacity={0.7}
+          onPress={() => Linking.openURL('https://wa.me/5511986318000')}
+        >
           <Ionicons name="logo-whatsapp" size={15} color={colors.secondary} />
           <Text style={styles.whatsappText}>Suporte RenoveJá: (11) 98631-8000</Text>
         </TouchableOpacity>
@@ -922,18 +917,18 @@ function makeStyles(colors: DesignColors) {
       position: 'relative',
     },
     roleCardActive: {
-      backgroundColor: `${PRIMARY}08`,
-      borderColor: PRIMARY,
+      backgroundColor: `${colors.primary}08`,
+      borderColor: colors.primary,
       ...Platform.select({
         ios: {
-          shadowColor: PRIMARY,
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.15,
           shadowRadius: 12,
         },
         android: { elevation: 4 },
         default: {
-          shadowColor: PRIMARY,
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.15,
           shadowRadius: 12,
@@ -950,7 +945,7 @@ function makeStyles(colors: DesignColors) {
       marginBottom: 10,
     },
     roleIconCircleActive: {
-      backgroundColor: PRIMARY,
+      backgroundColor: colors.primary,
     },
     roleCardTitle: {
       fontSize: 16,
@@ -979,7 +974,7 @@ function makeStyles(colors: DesignColors) {
       width: 22,
       height: 22,
       borderRadius: 11,
-      backgroundColor: PRIMARY,
+      backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
@@ -1014,7 +1009,7 @@ function makeStyles(colors: DesignColors) {
 
     /* Submit Button */
     submitButton: {
-      backgroundColor: PRIMARY,
+      backgroundColor: colors.primary,
       height: 52,
       borderRadius: 14,
       alignItems: 'center',
@@ -1022,14 +1017,14 @@ function makeStyles(colors: DesignColors) {
       marginTop: s.lg,
       ...Platform.select({
         ios: {
-          shadowColor: PRIMARY,
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.3,
           shadowRadius: 8,
         },
         android: { elevation: 4 },
         default: {
-          shadowColor: PRIMARY,
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.3,
           shadowRadius: 8,
@@ -1065,7 +1060,7 @@ function makeStyles(colors: DesignColors) {
     },
     loginLink: {
       fontSize: 15,
-      color: PRIMARY,
+      color: colors.primary,
       fontWeight: '700',
       fontFamily: 'PlusJakartaSans_700Bold',
     },
@@ -1093,7 +1088,7 @@ function makeStyles(colors: DesignColors) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 10,
-      backgroundColor: `${PRIMARY}10`,
+      backgroundColor: `${colors.primary}10`,
       padding: 14,
       borderRadius: 14,
       marginTop: s.lg,
@@ -1103,7 +1098,7 @@ function makeStyles(colors: DesignColors) {
       width: 28,
       height: 28,
       borderRadius: 8,
-      backgroundColor: PRIMARY,
+      backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 1,
@@ -1144,8 +1139,8 @@ function makeStyles(colors: DesignColors) {
       backgroundColor: colors.surface,
     },
     checkboxChecked: {
-      backgroundColor: PRIMARY,
-      borderColor: PRIMARY,
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
     },
     termsLabel: {
       flex: 1,
@@ -1156,7 +1151,7 @@ function makeStyles(colors: DesignColors) {
     },
     termsLink: {
       fontSize: 14,
-      color: PRIMARY,
+      color: colors.primary,
       fontWeight: '700',
       textDecorationLine: 'underline',
       fontFamily: 'PlusJakartaSans_700Bold',

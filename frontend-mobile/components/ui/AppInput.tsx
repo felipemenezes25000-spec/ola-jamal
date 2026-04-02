@@ -1,4 +1,4 @@
-import React, { useState, forwardRef, useCallback, useRef, useMemo } from 'react';
+import React, { useState, forwardRef, useCallback, useMemo } from 'react';
 import {
   View,
   TextInput,
@@ -49,16 +49,9 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput({
   const styles = useMemo(() => createStyles(spacing, radius, colors), [spacing, radius, colors]);
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(secureTextEntry);
-  const focusUpdateScheduled = useRef(false);
-
   const handleFocus = useCallback((e: any) => {
     onFocus?.(e);
-    if (focusUpdateScheduled.current) return;
-    focusUpdateScheduled.current = true;
-    requestAnimationFrame(() => {
-      setFocused(true);
-      focusUpdateScheduled.current = false;
-    });
+    setFocused(true);
   }, [onFocus]);
 
   const handleBlur = useCallback((e: any) => {

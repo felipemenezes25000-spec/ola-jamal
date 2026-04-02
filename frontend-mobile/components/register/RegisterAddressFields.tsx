@@ -67,7 +67,6 @@ export function RegisterAddressFields({
         textContentType="postalCode"
         maxLength={9}
         returnKeyType="next"
-        blurOnSubmit={false}
         leftIcon="location-outline"
         hint="Digite o CEP para preencher automaticamente"
       />
@@ -82,7 +81,6 @@ export function RegisterAddressFields({
         autoComplete="street-address"
         textContentType="streetAddressLine1"
         returnKeyType="next"
-        blurOnSubmit={false}
         error={fieldErrors.street}
       />
       <View style={styles.row}>
@@ -120,7 +118,6 @@ export function RegisterAddressFields({
         leftIcon="business-outline"
         autoCapitalize="words"
         returnKeyType="next"
-        blurOnSubmit={false}
         error={fieldErrors.neighborhood}
       />
       <View style={styles.row}>

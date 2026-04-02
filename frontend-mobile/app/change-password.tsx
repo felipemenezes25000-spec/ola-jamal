@@ -65,7 +65,6 @@ export default function ChangePasswordScreen() {
             autoComplete="current-password"
             textContentType="password"
             returnKeyType="next"
-            blurOnSubmit={false}
             editable={!loading}
             placeholder="Digite sua senha atual"
             leftIcon="lock-closed-outline"
@@ -78,7 +77,6 @@ export default function ChangePasswordScreen() {
             autoComplete="new-password"
             textContentType="newPassword"
             returnKeyType="next"
-            blurOnSubmit={false}
             editable={!loading}
             placeholder="Digite a nova senha"
             leftIcon="key-outline"

@@ -103,7 +103,6 @@ export default function ResetPasswordScreen() {
               autoComplete="new-password"
               textContentType="newPassword"
               returnKeyType="next"
-              blurOnSubmit={false}
               editable={!loading}
               leftIcon="lock-closed-outline"
             />

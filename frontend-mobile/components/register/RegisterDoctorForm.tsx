@@ -126,7 +126,6 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
           keyboardType="numeric"
           maxLength={7}
           returnKeyType="next"
-          blurOnSubmit={false}
           containerStyle={styles.flex1}
           hint="4 a 7 dígitos"
         />
@@ -141,7 +140,6 @@ export function RegisterDoctorForm(props: RegisterDoctorFormProps) {
           maxLength={2}
           autoCapitalize="characters"
           returnKeyType="next"
-          blurOnSubmit={false}
           containerStyle={{ width: 120 }}
         />
       </View>

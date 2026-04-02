@@ -277,6 +277,7 @@ export default function NewExam() {
         <ScrollView
           contentContainerStyle={[styles.body, { paddingBottom: listPadding }]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <AppHeader title="Novo Exame" />
           <StepIndicator current={currentStep} total={4} labels={['Tipo', 'Exames', 'Sintomas', 'Revisão']} />

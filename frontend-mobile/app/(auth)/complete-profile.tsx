@@ -169,7 +169,6 @@ export default function CompleteProfileScreen() {
           textContentType="postalCode"
           maxLength={9}
           returnKeyType="next"
-          blurOnSubmit={false}
           leftIcon="location-outline"
           editable={!cepLoading && !loading}
         />
@@ -184,7 +183,6 @@ export default function CompleteProfileScreen() {
           textContentType="streetAddressLine1"
           autoCapitalize="words"
           returnKeyType="next"
-          blurOnSubmit={false}
           editable={!loading}
           error={fieldErrors.street}
         />
@@ -198,7 +196,6 @@ export default function CompleteProfileScreen() {
             keyboardType="numeric"
             maxLength={10}
             returnKeyType="next"
-            blurOnSubmit={false}
             editable={!loading}
             containerStyle={styles.numberInput}
             error={fieldErrors.number}
@@ -210,7 +207,6 @@ export default function CompleteProfileScreen() {
             onChangeText={setComplement}
             autoCapitalize="words"
             returnKeyType="next"
-            blurOnSubmit={false}
             editable={!loading}
             containerStyle={styles.complementInput}
           />
@@ -224,7 +220,6 @@ export default function CompleteProfileScreen() {
           leftIcon="business-outline"
           autoCapitalize="words"
           returnKeyType="next"
-          blurOnSubmit={false}
           editable={!loading}
           error={fieldErrors.neighborhood}
         />
@@ -238,7 +233,6 @@ export default function CompleteProfileScreen() {
             autoCapitalize="words"
             textContentType="addressCity"
             returnKeyType="next"
-            blurOnSubmit={false}
             editable={!loading}
             containerStyle={styles.cityInput}
             error={fieldErrors.city}
@@ -253,7 +247,6 @@ export default function CompleteProfileScreen() {
             autoCapitalize="characters"
             textContentType="addressState"
             returnKeyType="next"
-            blurOnSubmit={false}
             editable={!loading}
             containerStyle={styles.stateInput}
             error={fieldErrors.state}
@@ -269,7 +262,6 @@ export default function CompleteProfileScreen() {
           autoComplete="tel"
           textContentType="telephoneNumber"
           returnKeyType="next"
-          blurOnSubmit={false}
           editable={!loading}
           leftIcon="call-outline"
           error={fieldErrors.phone}

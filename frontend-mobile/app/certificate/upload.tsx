@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { DoctorHeader } from '../../components/ui/DoctorHeader';
+import { showToast } from '../../components/ui/Toast';
 import { DoctorCard } from '../../components/ui/DoctorCard';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppInput } from '../../components/ui/AppInput';
@@ -32,7 +33,8 @@ export default function CertificateUploadScreen() {
 
   const loadCert = async () => {
     try { const cert = await getActiveCertificate(); setCertificate(cert); }
-    catch {} finally { setLoading(false); }
+    catch { showToast({ message: 'Erro ao carregar certificado', type: 'error' }); }
+    finally { setLoading(false); }
   };
 
   const pickFile = async () => {
@@ -93,7 +95,7 @@ export default function CertificateUploadScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <DoctorHeader title="Certificado Digital" onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Info banner */}
         <DoctorCard style={styles.infoBanner}>
           <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
