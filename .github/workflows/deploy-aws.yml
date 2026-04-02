@@ -4,8 +4,9 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main, fix/frontend-performance-responsive]
+    branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -22,13 +23,98 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
+# ─── Gate: testes obrigatórios antes de qualquer deploy ───────────────────────
+# Quando disparado por workflow_dispatch, a CI pode não ter rodado.
+# Estes jobs garantem que nenhum deploy ocorra sem testes verdes.
+
 jobs:
+  # ── Testes (gate para deploy) ─────────────────────────────────────────────
+  test-backend:
+    name: Test Backend (.NET)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    defaults:
+      run:
+        working-directory: backend-dotnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Test
+        run: dotnet test -c Release --no-build --verbosity normal
+
+  test-frontend-web:
+    name: Test Frontend Web
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    defaults:
+      run:
+        working-directory: frontend-web
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend-web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test:run
+
+  test-frontend-mobile:
+    name: Test Frontend Mobile
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    defaults:
+      run:
+        working-directory: frontend-mobile
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend-mobile/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: TypeCheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --no-coverage
+
+  # ── Deploy Backend (ECS) ──────────────────────────────────────────────────
   deploy-backend:
     name: Deploy Backend (ECS)
     runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend-web, test-frontend-mobile]
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -98,12 +184,13 @@ jobs:
           aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].events[0:5]" --output table
           exit 1
 
+  # ── Deploy Frontend (S3/CloudFront) ───────────────────────────────────────
   deploy-frontend:
     name: Deploy Frontend (S3/CloudFront)
     runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend-web, test-frontend-mobile]
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     defaults:
       run:
         working-directory: frontend-web

@@ -65,6 +65,7 @@ Voltar ao repositório: [README principal](../README.md) · [CLAUDE.md](../CLAUD
 
 | Documento | Descrição |
 |-----------|-----------|
+| [BRANCH_STRATEGY.md](../.github/BRANCH_STRATEGY.md) | Git Flow, CI/CD pipeline e protecao de branches |
 | [CUTOVER_REQUESTS_TO_CLINICAL.md](infra/CUTOVER_REQUESTS_TO_CLINICAL.md) | Cutover de requests para modelo clínico |
 | [PLANO_RECUPERACAO_ESCALABILIDADE.md](infra/PLANO_RECUPERACAO_ESCALABILIDADE.md) | Plano de recuperação e escalabilidade |
 
