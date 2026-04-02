@@ -9,7 +9,7 @@ export default function PublicTerms() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>Termos de Uso</h1>
-        <p style={styles.lastUpdate}>Última atualização: março de 2026</p>
+        <p style={styles.lastUpdate}>Última atualização: abril de 2026</p>
 
         <section style={styles.section}>
           <h2 style={styles.h2}>1. Identificação do prestador</h2>
@@ -41,7 +41,8 @@ export default function PublicTerms() {
           <h2 style={styles.h2}>3. Natureza do serviço</h2>
           <p style={styles.p}>
             O RenoveJá+ é uma plataforma de telemedicina que conecta pacientes a médicos credenciados para teleconsultas
-            e renovação de receitas, em conformidade com a Resolução CFM 2.314/2022 e demais normas aplicáveis.
+            e renovação de receitas (simples e controladas), em conformidade com a Resolução CFM 2.314/2022 e demais normas aplicáveis.
+            Em breve: renovação de receitas azuis (notificação B) e amarelas (notificação A) com fluxo específico de segurança.
           </p>
         </section>
 

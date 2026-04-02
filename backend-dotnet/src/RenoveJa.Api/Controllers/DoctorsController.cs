@@ -140,6 +140,17 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
 
         var result = await crmValidationService.ValidateCrmAsync(dto.Crm, dto.Uf, cancellationToken);
 
+        // CFM cross-validation: avisa se especialidade declarada difere da registrada no CFM
+        string? specialtyMismatchWarning = null;
+        if (result.IsValid
+            && !string.IsNullOrWhiteSpace(dto.DeclaredSpecialty)
+            && !string.IsNullOrWhiteSpace(result.Specialty)
+            && !result.Specialty.Contains(dto.DeclaredSpecialty, StringComparison.OrdinalIgnoreCase)
+            && !dto.DeclaredSpecialty.Contains(result.Specialty, StringComparison.OrdinalIgnoreCase))
+        {
+            specialtyMismatchWarning = $"Especialidade declarada ({dto.DeclaredSpecialty}) difere da registrada no CFM ({result.Specialty}). Verifique o RQE.";
+        }
+
         return Ok(new
         {
             valid = result.IsValid,
@@ -148,7 +159,8 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
             uf = result.Uf,
             specialty = result.Specialty,
             situation = result.Situation,
-            error = result.ErrorMessage
+            error = result.ErrorMessage,
+            specialtyMismatchWarning
         });
     }
 }
@@ -156,4 +168,4 @@ public class DoctorsController(IDoctorService doctorService, ICrmValidationServi
 /// <summary>
 /// DTO para validação de CRM.
 /// </summary>
-public record ValidateCrmRequestDto(string Crm, string Uf);
+public record ValidateCrmRequestDto(string Crm, string Uf, string? DeclaredSpecialty = null);

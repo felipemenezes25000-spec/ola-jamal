@@ -48,7 +48,7 @@ public class PrescriptionPdfService : IPrescriptionPdfService
 
     private const string DefaultVerificationBaseUrl = "https://renoveja.com/verificar";
     private const string CompanyLine1 = "Travessa Dona Paula · Higienópolis · São Paulo · SP · Brasil";
-    private const string CompanyLine2 = "(11) 98631-8000 · www.renovejasaude.com.br · CNPJ 14.376.070/0001-53";
+    private const string CompanyLine2 = "(11) 98631-8000 · www.renovejasaude.com.br · CNPJ 65.947.180/0001-69";
 
     // Logo
     private static byte[]? _logoCache;

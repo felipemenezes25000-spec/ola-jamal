@@ -66,7 +66,7 @@
 | Operador | Dados que processa | DPA / Contrato | Status |
 |----------|--------------------|----------------|--------|
 | **OpenAI** | Imagens de receita/exame, textos (triagem, anamnese) | [Adendo de Processamento de Dados](https://openai.com/pt-BR/policies/data-processing-addendum/) — vigente 01/2026; [Lista de subprocessadores](https://platform.openai.com/subprocessors) | ✅ DPA assinado (Data Processing Agreement RenoveJa and OpenAI) |
-| **Deepgram** | Áudio/voz → transcrição (não há gravação; apenas texto) | Verificar DPA em deepgram.com | ⚠️ Verificar DPA, localização |
+| **Deepgram** | Áudio/voz → transcrição em texto | Verificar DPA em deepgram.com | ⚠️ Verificar DPA, localização |
 | **Daily.co** | Vídeo/áudio em tempo real (videoconsulta) | [DPA Daily.co](https://www.daily.co/legal/data-processing-addendum/) | ✅ DPA assinado (Online Personal Data Processing Agreement, Oct 2023) |
 | **Mercado Pago** | Dados de pagamento (PIX, cartão) | [Termos e Condições para Desenvolvedores](https://www.mercadopago.com.br/developers/pt/docs/resources/legal/terms-and-conditions) — Cláusula 6 (LGPD, Operador, subprocessadores, incidentes) | ✅ Cláusulas LGPD incorporadas nos Termos; aceite ao usar a API |
 | **AWS** | Dados de saúde, storage, banco | AWS DPA | ✅ DPA aceito nos ToS AWS |\n
@@ -123,7 +123,7 @@
 **Recomendação:** Na Política de Privacidade, deixar explícito:
 - Que imagens de receita/exame são enviadas a provedor de IA (OpenAI) para análise e triagem.
 - Que o áudio da consulta é transcrito por provedor externo (Deepgram) e o texto pode ser processado por IA para anamnese.
-- Que não há gravação de áudio/vídeo; apenas o texto e dados estruturados são armazenados.
+- Que a sessão de vídeo poderá ser gravada para segurança e auditoria, com armazenamento seguro e acesso restrito. O texto da transcrição e os dados estruturados são armazenados no prontuário.
 - Que esses provedores são tratados como operadores com obrigações de confidencialidade e proteção.
 
 ---

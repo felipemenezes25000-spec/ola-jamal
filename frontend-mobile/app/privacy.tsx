@@ -23,7 +23,7 @@ export default function PrivacyScreen() {
           <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
           <Text style={styles.pageTitle}>Política de Privacidade – {COMPANY.name}</Text>
         </View>
-        <Text style={styles.lastUpdate}>Última atualização: março de 2026</Text>
+        <Text style={styles.lastUpdate}>Última atualização: abril de 2026</Text>
 
         <AppCard style={styles.card}>
           <Section title="1. Compromisso e base legal">
@@ -35,7 +35,7 @@ export default function PrivacyScreen() {
           </Section>
 
           <Section title="3. Dados que coletamos">
-            Coletamos dados de identificação e cadastro (nome, e-mail, telefone, CPF, data de nascimento, endereço quando aplicável) e dados sensíveis de saúde necessários ao atendimento: informações relacionadas a solicitações de receitas, exames e consultas, incluindo imagens e textos que você envia. Para médicos, podem ser tratados ainda CRM, especialidade e dados do certificado digital (a senha do certificado não é armazenada; é utilizada apenas no momento da assinatura). Nas consultas por vídeo: tratamos dados de voz na forma de transcrição em texto (não há gravação de áudio ou vídeo) e o texto processado por IA para fins de apoio à consulta, registro em prontuário e melhoria do serviço, em conformidade com a LGPD e com as normas do CFM; o tempo de retenção é alinhado ao prontuário e à legislação aplicável.
+            Coletamos dados de identificação e cadastro (nome, e-mail, telefone, CPF, data de nascimento, endereço quando aplicável) e dados sensíveis de saúde necessários ao atendimento: informações relacionadas a solicitações de receitas, exames e consultas, incluindo imagens e textos que você envia. Para médicos, podem ser tratados ainda CRM, especialidade e dados do certificado digital (a senha do certificado não é armazenada; é utilizada apenas no momento da assinatura). Nas consultas por vídeo: tratamos dados de voz na forma de transcrição em texto e o texto processado por IA para fins de apoio à consulta, registro em prontuário e melhoria do serviço. A sessão de vídeo poderá ser gravada para segurança e auditoria, com armazenamento seguro e acesso restrito. O tratamento é realizado em conformidade com a LGPD e com as normas do CFM; o tempo de retenção é alinhado ao prontuário e à legislação aplicável.
           </Section>
 
           <Section title="3.1. Dados do assistente virtual e conduta médica">
@@ -43,7 +43,7 @@ export default function PrivacyScreen() {
           </Section>
 
           <Section title="3.2. Uso de IA e operadores">
-            Imagens de receita e exame são enviadas a provedor de IA (OpenAI) para análise e triagem — o médico sempre decide. O áudio da consulta é transcrito por provedor externo (Daily.co/Deepgram) e o texto pode ser processado por IA para anamnese. Não há gravação de áudio nem vídeo; apenas texto e dados estruturados são armazenados. Esses provedores são tratados como operadores com obrigações de confidencialidade e proteção de dados equivalentes às nossas.
+            Imagens de receita e exame são enviadas a provedor de IA (OpenAI) para análise e triagem — o médico sempre decide. O áudio da consulta é transcrito por provedor externo (Daily.co/Deepgram) e o texto pode ser processado por IA para anamnese. A sessão de vídeo poderá ser gravada para segurança e auditoria; a transcrição em texto e os dados estruturados são armazenados no prontuário. Esses provedores são tratados como operadores com obrigações de confidencialidade e proteção de dados equivalentes às nossas.
           </Section>
 
           <Section title="4. Compartilhamento e não comercialização">

@@ -3,7 +3,7 @@ import { COMPANY } from '../company';
 describe('company', () => {
   it('expõe nome e CNPJ', () => {
     expect(COMPANY.name).toBe('RenoveJá Saúde');
-    expect(COMPANY.cnpj).toBe('14.376.070/0001-53');
+    expect(COMPANY.cnpj).toBe('65.947.180/0001-69');
   });
 
   it('expõe endereço e contato', () => {

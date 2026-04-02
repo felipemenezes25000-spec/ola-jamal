@@ -72,6 +72,7 @@ export interface DoctorSignUpData {
   university?: string;
   courses?: string;
   hospitalsServices?: string;
+  rqe?: string;
 }
 
 interface CompleteProfileData {
@@ -287,7 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await apiClient.post<AuthResponseDto>('/api/auth/register-doctor', {
         name: data.name, email: data.email, password: data.password, confirmPassword: data.confirmPassword,
-        phone: data.phone, cpf: data.cpf, crm: data.crm, crmState: data.crmState, specialty: data.specialty,
+        phone: data.phone, cpf: data.cpf, crm: data.crm, crmState: data.crmState, specialty: data.specialty, rqe: data.rqe || undefined,
         birthDate: data.birthDate, bio: data.bio, street: data.street, number: data.number, neighborhood: data.neighborhood,
         complement: data.complement, city: data.city, state: data.state, postalCode: data.postalCode,
         professionalPhone: data.professionalPhone || undefined,

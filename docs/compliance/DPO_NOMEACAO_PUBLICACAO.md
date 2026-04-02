@@ -1,7 +1,7 @@
 # NOMEAÇÃO FORMAL DE DPO/ENCARREGADO (LGPD)
 
 **Empresa:** RenoveJá Saúde Ltda.  
-**CNPJ:** 14.376.070/0001-53  
+**CNPJ:** 65.947.180/0001-69  
 **Data de emissão:** ____/____/2026  
 
 ## 1. Ato formal de nomeação

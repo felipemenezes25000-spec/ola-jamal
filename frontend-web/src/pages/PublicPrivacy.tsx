@@ -9,7 +9,7 @@ export default function PublicPrivacy() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>Política de Privacidade</h1>
-        <p style={styles.lastUpdate}>Última atualização: março de 2026</p>
+        <p style={styles.lastUpdate}>Última atualização: abril de 2026</p>
 
         <section style={styles.section}>
           <h2 style={styles.h2}>1. Controlador dos Dados</h2>
@@ -163,7 +163,7 @@ export default function PublicPrivacy() {
           <h2 style={styles.h2}>10. Atualização da política</h2>
           <p style={styles.p}>
             Esta política pode ser atualizada periodicamente. A versão mais recente estará sempre disponível nesta
-            página. Última atualização: março de 2026.
+            página. Última atualização: abril de 2026.
           </p>
         </section>
 

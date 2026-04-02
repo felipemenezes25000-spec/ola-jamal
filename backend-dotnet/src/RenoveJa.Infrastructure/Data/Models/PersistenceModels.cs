@@ -56,6 +56,7 @@ public class DoctorProfileModel
     public string? ProfessionalState { get; set; }
     [JsonPropertyName("professional_phone")]
     public string? ProfessionalPhone { get; set; }
+    public string? Rqe { get; set; }
     public string? University { get; set; }
     public string? Courses { get; set; }
     [JsonPropertyName("hospitals_services")]
@@ -80,6 +81,7 @@ public class DoctorProfileModel
             Crm = profile.Crm,
             CrmState = profile.CrmState,
             Specialty = profile.Specialty,
+            Rqe = profile.Rqe,
             ProfessionalAddress = profile.ProfessionalAddress,
             ProfessionalPhone = profile.ProfessionalPhone,
             ProfessionalPostalCode = profile.ProfessionalPostalCode,
@@ -121,7 +123,8 @@ public class DoctorProfileModel
             ProfessionalAddress, ProfessionalPhone,
             University, Courses, HospitalsServices,
             ProfessionalPostalCode, ProfessionalStreet, ProfessionalNumber,
-            ProfessionalNeighborhood, ProfessionalComplement, ProfessionalCity, ProfessionalState);
+            ProfessionalNeighborhood, ProfessionalComplement, ProfessionalCity, ProfessionalState,
+            Rqe);
     }
 }
 

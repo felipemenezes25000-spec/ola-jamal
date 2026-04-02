@@ -93,7 +93,8 @@ public class AuthService(
                 professionalStreet: request.ProfessionalStreet, professionalNumber: request.ProfessionalNumber,
                 professionalNeighborhood: request.ProfessionalNeighborhood,
                 professionalComplement: request.ProfessionalComplement,
-                professionalCity: request.ProfessionalCity, professionalState: request.ProfessionalState);
+                professionalCity: request.ProfessionalCity, professionalState: request.ProfessionalState,
+                rqe: request.Rqe);
             doctorProfile = await doctorRepository.CreateAsync(doctorProfile, cancellationToken);
         }
         catch

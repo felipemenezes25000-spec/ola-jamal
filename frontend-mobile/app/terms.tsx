@@ -23,7 +23,7 @@ export default function TermsScreen() {
           <Ionicons name="document-text-outline" size={24} color={colors.primary} />
           <Text style={styles.pageTitle}>Termos de Uso – {COMPANY.name}</Text>
         </View>
-        <Text style={styles.lastUpdate}>Última atualização: março de 2026</Text>
+        <Text style={styles.lastUpdate}>Última atualização: abril de 2026</Text>
 
         <AppCard style={styles.card}>
           <Section title="1. Identificação do prestador">
@@ -31,7 +31,7 @@ export default function TermsScreen() {
           </Section>
 
           <Section title="2. Aceitação dos Termos">
-            Ao utilizar o aplicativo RenoveJá+ ({COMPANY.name}), você declara ter lido, compreendido e aceitado os presentes Termos de Uso. O cadastro e o uso dos serviços constituem aceitação eletrônica. Os serviços são oferecidos a maiores de 18 anos ou com representação legal. O aplicativo oferece serviços de telemedicina em conformidade com a legislação brasileira, incluindo renovação de receitas, solicitação de exames e consultas online.
+            Ao utilizar o aplicativo RenoveJá+ ({COMPANY.name}), você declara ter lido, compreendido e aceitado os presentes Termos de Uso. O cadastro e o uso dos serviços constituem aceitação eletrônica. Os serviços são oferecidos a maiores de 18 anos ou com representação legal. O aplicativo oferece serviços de telemedicina em conformidade com a legislação brasileira, incluindo renovação de receitas (simples e controladas), solicitação de exames e consultas online. Em breve: renovação de receitas azuis (notificação B) e amarelas (notificação A) com fluxo específico de segurança.
           </Section>
 
           <Section title="3. Definições">
@@ -59,7 +59,7 @@ export default function TermsScreen() {
           </Section>
 
           <Section title="6.1. Consultas por vídeo – informação ao paciente">
-            Nas consultas por vídeo, a conversa pode ser transcrita em tempo quase real (apenas em texto) e o texto pode ser processado por ferramentas de inteligência artificial para auxiliar o médico (estruturação de anamnese e sugestões de apoio). Não há gravação de áudio nem de vídeo; apenas o texto da transcrição e os dados estruturados (anamnese) são armazenados e integram o prontuário eletrônico do paciente, nos termos da Resolução CFM nº 2.314/2022 e das normas do CFM aplicáveis. O uso está em conformidade com a LGPD (finalidade legítima, apoio à prestação do serviço de saúde e ao prontuário) e com a Política de Privacidade da plataforma. Ao agendar ou iniciar uma consulta por vídeo, o paciente declara estar ciente dessas condições.
+            Nas consultas por vídeo, a conversa pode ser transcrita em tempo quase real (apenas em texto) e o texto pode ser processado por ferramentas de inteligência artificial para auxiliar o médico (estruturação de anamnese e sugestões de apoio). A sessão de vídeo poderá ser gravada para segurança e auditoria, com armazenamento seguro e acesso restrito. O texto da transcrição e os dados estruturados (anamnese) são armazenados e integram o prontuário eletrônico do paciente, nos termos da Resolução CFM nº 2.314/2022 e das normas do CFM aplicáveis. O uso está em conformidade com a LGPD (finalidade legítima, apoio à prestação do serviço de saúde e ao prontuário) e com a Política de Privacidade da plataforma. Ao agendar ou iniciar uma consulta por vídeo, o paciente declara estar ciente dessas condições.
           </Section>
 
           <Section title="6.2. Uso profissional – médicos">

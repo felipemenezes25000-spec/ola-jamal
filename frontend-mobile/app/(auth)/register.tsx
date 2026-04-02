@@ -119,7 +119,8 @@ const stepStyles = StyleSheet.create({
   stepItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    flexShrink: 1,
+    gap: 4,
   },
   dot: {
     width: 24,
@@ -137,10 +138,11 @@ const stepStyles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_400Regular',
   },
   connector: {
-    width: 20,
+    width: 14,
     height: 2,
     borderRadius: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
+    flexShrink: 1,
   },
 });
 
@@ -233,6 +235,7 @@ export default function Register() {
   const [university, setUniversity] = useState('');
   const [courses, setCourses] = useState('');
   const [hospitalsServices, setHospitalsServices] = useState('');
+  const [rqe, _setRqe] = useState('');
 
   const specialtiesDisplayList =
     role === 'doctor'
@@ -448,6 +451,7 @@ export default function Register() {
             university: university.trim() || undefined,
             courses: courses.trim() || undefined,
             hospitalsServices: hospitalsServices.trim() || undefined,
+            rqe: rqe.trim() || undefined,
           } as DoctorSignUpData)
         : { user: await signUp(baseData), requiresApproval: false };
 
@@ -590,7 +594,7 @@ export default function Register() {
         {/* Section: Personal Data */}
         <SectionDivider
           icon="person-outline"
-          title={role === 'patient' ? 'Dados para atendimento' : 'Dados pessoais'}
+          title="Dados pessoais"
           colors={colors}
         />
         <AppInput
@@ -970,14 +974,16 @@ function makeStyles(colors: DesignColors) {
     },
     roleCheckBadge: {
       position: 'absolute',
-      top: 10,
-      right: 10,
+      top: -9,
+      right: -9,
       width: 22,
       height: 22,
       borderRadius: 11,
       backgroundColor: PRIMARY,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.background,
     },
 
     /* Card */
