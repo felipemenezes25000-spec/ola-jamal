@@ -632,12 +632,13 @@ export default function DoctorPostConsultationEmit() {
           clinicalJustification: examJust,
           items: validExams,
         };
-      if (refOn && refProfessional.trim() && refReason.trim()) {
+      if (refOn && refReason.trim()) {
         payload.referral = {
-          professionalName: refProfessional.trim(),
+          professionalName:
+            refProfessional.trim() || refSpecialty.trim() || 'Profissional',
           specialty: refSpecialty.trim() || undefined,
           reason: refReason.trim(),
-          icd10Code: certCid || detectedCid || undefined,
+          icd10Code: isPsy ? undefined : certCid || detectedCid || undefined,
         };
       }
       const result = await emitPostConsultationDocuments(payload);
