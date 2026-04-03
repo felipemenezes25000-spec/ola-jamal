@@ -15,7 +15,7 @@ export const STATUS_LABELS_PT: Record<string, string> = {
   signed: 'Assinado',
   delivered: 'Entregue',
   // Consultation (canônicos)
-  searching_doctor: 'Buscando médico',
+  searching_doctor: 'Buscando profissional',
   consultation_ready: 'Consulta pronta',
   in_consultation: 'Em consulta',
   pending_post_consultation: 'Emitir documentos',
@@ -53,3 +53,30 @@ export const DASHBOARD_STATS_LABELS = {
   analyzing: 'Em análise médica',
   ready: 'Prontos',
 } as const;
+
+/**
+ * Grupos de status para filtro por categoria na tela de pedidos.
+ * Cada grupo agrupa os status do backend em categorias visíveis ao paciente.
+ */
+export const STATUS_GROUPS: Record<string, { label: string; statuses: string[] }> = {
+  em_analise_medica: {
+    label: 'Em análise médica',
+    statuses: [
+      'submitted', 'in_review', 'analyzing',
+      'searching_doctor', 'pending', 'pending_payment',
+    ],
+  },
+  ativo: {
+    label: 'Ativos',
+    statuses: [
+      'approved', 'consultation_ready', 'in_consultation',
+      'pending_post_consultation', 'approved_pending_payment', 'paid',
+    ],
+  },
+  pronto: {
+    label: 'Prontos',
+    statuses: [
+      'signed', 'delivered', 'consultation_finished', 'completed',
+    ],
+  },
+};

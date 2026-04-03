@@ -9,8 +9,15 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useTranscription, useLocalSessionId, useMeetingState } from '@daily-co/daily-react';
-import { transcribeText } from '@/services/doctor-api-consultation';
+import {
+  useTranscription,
+  useLocalSessionId,
+  useMeetingState,
+} from '@daily-co/daily-react';
+import {
+  transcribeText,
+  refreshAnamnesis,
+} from '@/services/doctor-api-consultation';
 
 interface UseWebTranscriptionOptions {
   requestId: string | null;
@@ -69,7 +76,11 @@ export function useWebTranscription({
   const meetingState = useMeetingState();
 
   const sendToBackend = useCallback(
-    async (text: string, speaker: 'medico' | 'paciente', startTimeSeconds?: number) => {
+    async (
+      text: string,
+      speaker: 'medico' | 'paciente',
+      startTimeSeconds?: number
+    ) => {
       if (!requestId || !text?.trim()) return;
       if (!consultationActiveRef.current) return;
       // #5: We explicitly do NOT check tabHiddenRef — keep sending even when tab is hidden
@@ -78,7 +89,10 @@ export function useWebTranscription({
         onSendSuccessRef.current?.();
       } catch (e: unknown) {
         const err = e as { message?: string };
-        const msg = typeof err?.message === 'string' ? err.message : 'Erro ao enviar transcrição';
+        const msg =
+          typeof err?.message === 'string'
+            ? err.message
+            : 'Erro ao enviar transcrição';
         onSendErrorRef.current?.(msg);
       }
     },
@@ -86,16 +100,24 @@ export function useWebTranscription({
   );
 
   const handleMessage = useCallback(
-    (event: { text?: string; message?: { text?: string; start?: number; start_time?: number }; start?: number; start_time?: number; participantId?: string; participant_id?: string; session_id?: string; participant?: { session_id?: string } }) => {
+    (event: {
+      text?: string;
+      message?: { text?: string; start?: number; start_time?: number };
+      start?: number;
+      start_time?: number;
+      participantId?: string;
+      participant_id?: string;
+      session_id?: string;
+      participant?: { session_id?: string };
+    }) => {
       const text = event?.text ?? event?.message?.text ?? '';
       if (!text?.trim()) return;
 
-      const msg = event?.message as { start?: number; start_time?: number } | undefined;
+      const msg = event?.message as
+        | { start?: number; start_time?: number }
+        | undefined;
       const startTimeSeconds =
-        event?.start ??
-        event?.start_time ??
-        msg?.start ??
-        msg?.start_time;
+        event?.start ?? event?.start_time ?? msg?.start ?? msg?.start_time;
 
       const eventParticipantId =
         event?.participantId ??
@@ -108,9 +130,16 @@ export function useWebTranscription({
       if (!resolvedLocalId || !eventParticipantId) return;
 
       const isLocal = eventParticipantId === resolvedLocalId;
-      const remoteSpeaker: 'medico' | 'paciente' = localRoleRef.current === 'medico' ? 'paciente' : 'medico';
-      const speaker: 'medico' | 'paciente' = isLocal ? localRoleRef.current : remoteSpeaker;
-      void sendToBackend(text, speaker, typeof startTimeSeconds === 'number' ? startTimeSeconds : undefined);
+      const remoteSpeaker: 'medico' | 'paciente' =
+        localRoleRef.current === 'medico' ? 'paciente' : 'medico';
+      const speaker: 'medico' | 'paciente' = isLocal
+        ? localRoleRef.current
+        : remoteSpeaker;
+      void sendToBackend(
+        text,
+        speaker,
+        typeof startTimeSeconds === 'number' ? startTimeSeconds : undefined
+      );
     },
     [localSessionId, sendToBackend]
   );
@@ -118,6 +147,18 @@ export function useWebTranscription({
   const { startTranscription } = useTranscription({
     onTranscriptionMessage: handleMessage,
   });
+
+  // Periodic anamnesis refresh — every 2 min, ensures AI updates even during silence
+  useEffect(() => {
+    if (!requestId || !consultationActive) return;
+    const timer = setInterval(
+      () => {
+        refreshAnamnesis(requestId).catch(() => {});
+      },
+      2 * 60 * 1000
+    );
+    return () => clearInterval(timer);
+  }, [requestId, consultationActive]);
 
   // #1: Only start transcription when meetingJoined is true (which has the 150ms buffer)
   // AND meetingState is 'joined-meeting' — double-gate for safety

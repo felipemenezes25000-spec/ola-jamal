@@ -111,6 +111,14 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
         var totalCount = checks.Count;
         var redFlags = DetectRedFlags(request.Symptoms);
 
+        string? urgencyMessage = null;
+        if (redFlags.HasRisk)
+        {
+            urgencyMessage = redFlags.Category == "psychological"
+                ? "Sinto muito que você esteja passando por isso. Você não precisa lidar com isso sozinho(a). Procure ajuda agora — ligue para o CVV (188) ou vá até um pronto-atendimento. Se puder, fale com alguém de confiança neste momento."
+                : "Seus sintomas podem indicar uma emergência médica. Procure imediatamente um pronto-atendimento ou ligue para o SAMU (192).";
+        }
+
         return new AssistantCompleteResponseDto(
             score,
             doneCount,
@@ -119,9 +127,7 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
             checks,
             redFlags.HasRisk,
             redFlags.Signals,
-            redFlags.HasRisk
-                ? "Isso pode ser urgente. Procure emergência ou ligue 192 agora. Se quiser, eu te ajudo a registrar o ocorrido para o médico."
-                : null
+            urgencyMessage
         );
     }
 
@@ -259,30 +265,63 @@ public class AssistantNavigatorService(IRequestService requestService) : IAssist
         };
     }
 
-    private static (bool HasRisk, List<string> Signals) DetectRedFlags(string? symptoms)
+    private static (bool HasRisk, List<string> Signals, string? Category) DetectRedFlags(string? symptoms)
     {
         var normalizedText = NormalizeFreeText(symptoms);
         if (string.IsNullOrWhiteSpace(normalizedText))
-            return (false, new List<string>());
+            return (false, new List<string>(), null);
 
-        var rules = new Dictionary<string, string[]>
+        // Physical emergency patterns
+        var physicalRules = new Dictionary<string, string[]>
         {
-            ["dor no peito"] = ["dor no peito", "pressao no peito"],
-            ["falta de ar"] = ["falta de ar", "nao consigo respirar", "dificuldade para respirar"],
-            ["desmaio"] = ["desmaio", "desmaiei"],
+            ["dor no peito"] = ["dor no peito", "pressao no peito", "dor no coracao"],
+            ["taquicardia"] = ["taquicardia", "coracao acelerado", "coracao disparado"],
+            ["falta de ar"] = ["falta de ar", "nao consigo respirar", "dificuldade para respirar", "falta de ar intensa"],
+            ["desmaio"] = ["desmaio", "desmaiei", "vou desmaiar"],
             ["confusao mental"] = ["confusao mental", "estou confuso", "desorientacao"],
             ["sinais neurologicos"] = ["fraqueza de um lado", "rosto torto", "fala enrolada", "convulsao"],
             ["sangramento intenso"] = ["sangramento intenso", "sangue em grande quantidade"],
+            ["sinais de AVC/derrame"] = ["avc", "derrame", "paralisia subit", "dor de cabeca subit", "perda de visao"],
+        };
+
+        // Psychological crisis / suicide risk patterns
+        var psychologicalRules = new Dictionary<string, string[]>
+        {
+            ["risco de suicidio"] = [
+                "quero me matar", "vou me matar", "pensar em me matar", "pensando em me matar",
+                "nao aguento mais viver", "nao quero mais viver",
+                "vou fazer algo contra mim", "vou acabar com tudo",
+                "ideacao suicida", "suicid", "me machucar",
+                "vou tirar minha vida", "tentei me matar"
+            ],
+            ["autolesao"] = [
+                "estou me cortando", "me corto", "autolesao", "auto lesao",
+                "me machuco de proposito", "me machucar de proposito"
+            ],
         };
 
         var signals = new List<string>();
-        foreach (var (signal, keywords) in rules)
+        string? category = null;
+
+        foreach (var (signal, keywords) in physicalRules)
         {
             if (keywords.Any(normalizedText.Contains))
+            {
                 signals.Add(signal);
+                category ??= "physical";
+            }
         }
 
-        return (signals.Count > 0, signals);
+        foreach (var (signal, keywords) in psychologicalRules)
+        {
+            if (keywords.Any(normalizedText.Contains))
+            {
+                signals.Add(signal);
+                category = "psychological"; // psychological takes priority for guidance tone
+            }
+        }
+
+        return (signals.Count > 0, signals, category);
     }
 
     private static string NormalizeFreeText(string? text)

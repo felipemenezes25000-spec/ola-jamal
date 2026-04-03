@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useListBottomPadding } from '../../lib/ui/responsive';
@@ -31,6 +31,7 @@ import { showToast } from '../../components/ui/Toast';
 import { useRequestsQuery, REQUESTS_QUERY_KEY } from '../../lib/hooks/useRequestsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDateBR } from '../../lib/utils/format';
+import { STATUS_GROUPS } from '../../lib/domain/statusLabels';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -270,17 +271,38 @@ const cardStyles = StyleSheet.create({
 
 // ─── Main Screen ────────────────────────────────────────────────
 
+const STATUS_GROUP_ITEMS: { key: string; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'em_analise_medica', label: 'Em análise médica' },
+  { key: 'ativo', label: 'Ativos' },
+  { key: 'pronto', label: 'Prontos' },
+];
+
 export default function PatientRequests() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ statusGroup?: string }>();
   const insets = useSafeAreaInsets();
   const listPadding = useListBottomPadding();
   const { width: screenWidth } = useWindowDimensions();
   const [activeFilter, setActiveFilter] = useState('all');
+  const [activeStatusGroup, setActiveStatusGroup] = useState(
+    params.statusGroup && params.statusGroup in STATUS_GROUPS ? params.statusGroup : 'all'
+  );
   const [search, setSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
   const queryClient = useQueryClient();
+
+  // Sync statusGroup from navigation params (e.g. when tapping a card on Home)
+  useEffect(() => {
+    const group = params.statusGroup;
+    if (group && group in STATUS_GROUPS) {
+      setActiveStatusGroup(group);
+    } else if (!group) {
+      setActiveStatusGroup('all');
+    }
+  }, [params.statusGroup]);
 
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, screenWidth), [colors, screenWidth]);
@@ -317,8 +339,18 @@ export default function PatientRequests() {
     totalRequests: requests.length,
   });
 
+  const statusGroupCounts = useMemo(() => ({
+    all: requests.length,
+    em_analise_medica: requests.filter((r) => STATUS_GROUPS.em_analise_medica.statuses.includes(r.status)).length,
+    ativo: requests.filter((r) => STATUS_GROUPS.ativo.statuses.includes(r.status)).length,
+    pronto: requests.filter((r) => STATUS_GROUPS.pronto.statuses.includes(r.status)).length,
+  }), [requests]);
+
   const filteredRequests = useMemo(() => {
     let result = requests;
+    if (activeStatusGroup !== 'all' && STATUS_GROUPS[activeStatusGroup]) {
+      result = result.filter((r) => STATUS_GROUPS[activeStatusGroup].statuses.includes(r.status));
+    }
     if (filterConfig?.type) {
       result = result.filter((r) => r.requestType === filterConfig.type);
     }
@@ -333,7 +365,7 @@ export default function PatientRequests() {
       );
     }
     return sortRequestsByNewestFirst(result);
-  }, [requests, filterConfig?.type, debouncedSearch]);
+  }, [requests, activeStatusGroup, filterConfig?.type, debouncedSearch]);
 
   const onRefresh = useCallback(async () => {
     haptics.light();
@@ -353,6 +385,11 @@ export default function PatientRequests() {
   const handleFilterChange = useCallback((key: string) => {
     haptics.selection();
     setActiveFilter(key);
+  }, []);
+
+  const handleStatusGroupChange = useCallback((key: string) => {
+    haptics.selection();
+    setActiveStatusGroup(key);
   }, []);
 
   const error = isError ? ((queryError as Error)?.message ?? 'Não foi possível carregar') : null;
@@ -419,8 +456,43 @@ export default function PatientRequests() {
         </View>
       </View>
 
-      {/* ── HORIZONTAL FILTER CHIPS ── */}
+      {/* ── STATUS GROUP CHIPS ── */}
       <View style={styles.filtersContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersScroll}
+        >
+          {STATUS_GROUP_ITEMS.map((item) => {
+            const isActive = activeStatusGroup === item.key;
+            const count = (statusGroupCounts as Record<string, number>)[item.key] ?? 0;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                onPress={() => handleStatusGroupChange(item.key)}
+                disabled={loading}
+                style={[styles.filterChip, isActive && styles.statusGroupChipActive]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={`${item.label} ${count}`}
+              >
+                <Text style={[styles.filterChipText, isActive && styles.statusGroupChipTextActive]}>
+                  {item.label}
+                </Text>
+                <View style={[styles.filterChipCountBadge, isActive && styles.statusGroupChipCountBadgeActive]}>
+                  <Text style={[styles.filterChipCount, isActive && styles.statusGroupChipCountActive]}>
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── TYPE FILTER CHIPS ── */}
+      <View style={[styles.filtersContainer, { paddingTop: 0 }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -458,7 +530,11 @@ export default function PatientRequests() {
       {!loading && !error && filteredRequests.length > 0 && (
         <View style={styles.sectionLabelWrap}>
           <Text style={styles.sectionLabel}>
-            {activeFilter === 'all' ? 'TODOS OS PEDIDOS' : FILTER_ITEMS.find(f => f.key === activeFilter)?.label?.toUpperCase() ?? 'PEDIDOS'}
+            {activeStatusGroup !== 'all'
+              ? (STATUS_GROUP_ITEMS.find(f => f.key === activeStatusGroup)?.label?.toUpperCase() ?? 'PEDIDOS')
+              : activeFilter === 'all'
+                ? 'TODOS OS PEDIDOS'
+                : FILTER_ITEMS.find(f => f.key === activeFilter)?.label?.toUpperCase() ?? 'PEDIDOS'}
           </Text>
           <Text style={styles.sectionCount}>{filteredRequests.length}</Text>
         </View>
@@ -659,6 +735,21 @@ function makeStyles(colors: DesignColors, screenWidth: number) {
       color: '#94A3B8',
     },
     filterChipCountActive: {
+      color: '#FFFFFF',
+    },
+
+    // ── Status group chips (distinct color from type chips) ──
+    statusGroupChipActive: {
+      backgroundColor: '#6366F1',
+      borderColor: '#6366F1',
+    },
+    statusGroupChipTextActive: {
+      color: '#FFFFFF',
+    },
+    statusGroupChipCountBadgeActive: {
+      backgroundColor: 'rgba(255,255,255,0.25)',
+    },
+    statusGroupChipCountActive: {
       color: '#FFFFFF',
     },
 

@@ -4,23 +4,35 @@
  */
 
 import { authFetch } from './doctor-api-auth';
-import type { ConsultationSummary, Medication, ExamItem, Recording } from './doctorApi';
+import type {
+  ConsultationSummary,
+  Medication,
+  ExamItem,
+  Recording,
+} from './doctorApi';
 
 // ── Consultation Flow ──
 
 export async function startConsultation(id: string) {
-  const res = await authFetch(`/api/requests/${id}/start-consultation`, { method: 'POST' });
+  const res = await authFetch(`/api/requests/${id}/start-consultation`, {
+    method: 'POST',
+  });
   if (!res.ok) throw new Error('Erro ao iniciar consulta');
   return res.json();
 }
 
 export async function reportCallConnected(id: string) {
-  const res = await authFetch(`/api/requests/${id}/report-call-connected`, { method: 'POST' });
+  const res = await authFetch(`/api/requests/${id}/report-call-connected`, {
+    method: 'POST',
+  });
   if (!res.ok) throw new Error('Erro ao reportar conexão');
   return res.json();
 }
 
-export async function finishConsultation(id: string, payload?: { conductNotes?: string }) {
+export async function finishConsultation(
+  id: string,
+  payload?: { conductNotes?: string }
+) {
   const res = await authFetch(`/api/requests/${id}/finish-consultation`, {
     method: 'POST',
     body: JSON.stringify(payload || {}),
@@ -29,7 +41,10 @@ export async function finishConsultation(id: string, payload?: { conductNotes?: 
   return res.json();
 }
 
-export async function saveConsultationSummary(id: string, payload: ConsultationSummary) {
+export async function saveConsultationSummary(
+  id: string,
+  payload: ConsultationSummary
+) {
   const res = await authFetch(`/api/requests/${id}/save-consultation-summary`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -39,20 +54,26 @@ export async function saveConsultationSummary(id: string, payload: ConsultationS
 }
 
 export async function autoFinishConsultation(id: string) {
-  const res = await authFetch(`/api/requests/${id}/auto-finish-consultation`, { method: 'POST' });
+  const res = await authFetch(`/api/requests/${id}/auto-finish-consultation`, {
+    method: 'POST',
+  });
   if (!res.ok) throw new Error('Erro ao auto-finalizar');
   return res.json();
 }
 
 // ── Recordings ──
 
-export async function getRecordings(id: string): Promise<{ requestId: string; roomName: string; recordings: Recording[] }> {
+export async function getRecordings(
+  id: string
+): Promise<{ requestId: string; roomName: string; recordings: Recording[] }> {
   const res = await authFetch(`/api/requests/${id}/recordings`);
   if (!res.ok) throw new Error('Erro ao buscar gravações');
   return res.json();
 }
 
-export async function getTranscriptDownloadUrl(id: string): Promise<{ signedUrl: string; expiresIn: number }> {
+export async function getTranscriptDownloadUrl(
+  id: string
+): Promise<{ signedUrl: string; expiresIn: number }> {
   const res = await authFetch(`/api/requests/${id}/transcript-download-url`);
   if (!res.ok) throw new Error('Erro ao buscar transcrição');
   return res.json();
@@ -60,7 +81,10 @@ export async function getTranscriptDownloadUrl(id: string): Promise<{ signedUrl:
 
 // ── Conduct ──
 
-export async function updateConduct(id: string, payload: { conductNotes: string; includeConductInPdf?: boolean }) {
+export async function updateConduct(
+  id: string,
+  payload: { conductNotes: string; includeConductInPdf?: boolean }
+) {
   const res = await authFetch(`/api/requests/${id}/conduct`, {
     method: 'PUT',
     body: JSON.stringify(payload),
@@ -71,18 +95,26 @@ export async function updateConduct(id: string, payload: { conductNotes: string;
 
 // ── Prescription/Exam Content ──
 
-export async function updatePrescriptionContent(id: string, payload: {
-  medications?: Medication[];
-  notes?: string;
-  prescriptionKind?: string;
-}) {
+export async function updatePrescriptionContent(
+  id: string,
+  payload: {
+    medications?: Medication[];
+    notes?: string;
+    prescriptionKind?: string;
+  }
+) {
   // Backend espera medications: string[] (texto livre), não Medication[]
   const body = {
-    medications: payload.medications?.map((m) =>
-      typeof m === 'string'
-        ? m
-        : [m.name, m.dosage, m.frequency, m.duration, m.notes].filter(Boolean).join(' — '),
-    ).filter(Boolean) ?? undefined,
+    medications:
+      payload.medications
+        ?.map((m) =>
+          typeof m === 'string'
+            ? m
+            : [m.name, m.dosage, m.frequency, m.duration, m.notes]
+                .filter(Boolean)
+                .join(' — ')
+        )
+        .filter(Boolean) ?? undefined,
     notes: payload.notes ?? undefined,
     prescriptionKind: payload.prescriptionKind ?? undefined,
   };
@@ -94,10 +126,16 @@ export async function updatePrescriptionContent(id: string, payload: {
   return res.json();
 }
 
-export async function updateExamContent(id: string, payload: { exams?: ExamItem[]; notes?: string }) {
+export async function updateExamContent(
+  id: string,
+  payload: { exams?: ExamItem[]; notes?: string }
+) {
   // Backend espera exams: string[] (nomes), não ExamItem[]
   const body = {
-    exams: payload.exams?.map((e) => (typeof e === 'string' ? e : e.name).trim()).filter(Boolean) ?? undefined,
+    exams:
+      payload.exams
+        ?.map((e) => (typeof e === 'string' ? e : e.name).trim())
+        .filter(Boolean) ?? undefined,
     notes: payload.notes ?? undefined,
   };
   const res = await authFetch(`/api/requests/${id}/exam-content`, {
@@ -135,16 +173,28 @@ export async function validatePrescription(id: string): Promise<{
   missingFields?: string[];
   messages?: string[];
 }> {
-  const res = await authFetch(`/api/requests/${id}/validate-prescription`, { method: 'POST' });
+  const res = await authFetch(`/api/requests/${id}/validate-prescription`, {
+    method: 'POST',
+  });
   const data = await res.json().catch(() => ({}));
   if (res.ok) return { valid: true, ...data };
-  if (res.status === 400) return { valid: false, missingFields: data.missingFields ?? [], messages: data.messages ?? [] };
+  if (res.status === 400)
+    return {
+      valid: false,
+      missingFields: data.missingFields ?? [],
+      messages: data.messages ?? [],
+    };
   throw new Error('Erro ao validar');
 }
 
 // ── Transcription ──
 
-export async function transcribeText(requestId: string, text: string, speaker: 'medico' | 'paciente', startTimeSeconds?: number) {
+export async function transcribeText(
+  requestId: string,
+  text: string,
+  speaker: 'medico' | 'paciente',
+  startTimeSeconds?: number
+) {
   const res = await authFetch('/api/consultation/transcribe-text', {
     method: 'POST',
     body: JSON.stringify({ requestId, text, speaker, startTimeSeconds }),
@@ -153,9 +203,22 @@ export async function transcribeText(requestId: string, text: string, speaker: '
   return res.json();
 }
 
+export async function refreshAnamnesis(requestId: string) {
+  const res = await authFetch('/api/consultation/refresh-anamnesis', {
+    method: 'POST',
+    body: JSON.stringify({ requestId }),
+  });
+  if (!res.ok) throw new Error('Erro ao atualizar anamnese');
+  return res.json();
+}
+
 // ── AI Assistant ──
 
-export async function getAssistantNextAction(requestId?: string, status?: string, requestType?: string) {
+export async function getAssistantNextAction(
+  requestId?: string,
+  status?: string,
+  requestType?: string
+) {
   const res = await authFetch('/api/assistant/next-action', {
     method: 'POST',
     body: JSON.stringify({ requestId, status, requestType }),
@@ -171,7 +234,8 @@ export async function getExamSuggestions(symptoms: string, examType?: string) {
     method: 'POST',
     body: JSON.stringify({ symptoms, examType }),
   });
-  if (!res.ok) return { suggestions: [], message: 'Não foi possível gerar sugestões.' };
+  if (!res.ok)
+    return { suggestions: [], message: 'Não foi possível gerar sugestões.' };
   return res.json();
 }
 
@@ -198,7 +262,6 @@ export async function enrichTriage(payload: {
   if (!res.ok) throw new Error('Erro na triagem');
   return res.json();
 }
-
 
 // ── Post-consultation document emission ──
 

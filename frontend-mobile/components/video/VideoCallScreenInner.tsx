@@ -115,6 +115,9 @@ export default function VideoCallScreenInner() {
   // PiP: hook estável (evita optional chaining no hook — corrompe ordem com React 19)
   const isInPipMode = useExpoPipMode();
 
+  // LGPD recording notice
+  const [lgpdDismissed, setLgpdDismissed] = useState(false);
+
   // Core state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -882,6 +885,19 @@ export default function VideoCallScreenInner() {
         />
       )}
 
+      {/* LGPD: aviso de gravação — visível para todos os participantes */}
+      {!isInPipMode && !lgpdDismissed && callState === 'joined' && (
+        <View style={[S.lgpdBanner, { top: insets.top + 60 }]}>
+          <Ionicons name="videocam" size={14} color="#F59E0B" />
+          <Text style={S.lgpdText}>
+            Esta consulta está sendo gravada e transcrita para fins de prontuário, conforme LGPD.
+          </Text>
+          <TouchableOpacity onPress={() => setLgpdDismissed(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={14} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Doctor: panel toggle — oculto em PiP */}
       {!isInPipMode && isDoctor && callState === 'joined' && (
         <TouchableOpacity
@@ -1156,6 +1172,10 @@ function makeStyles(colors: VideoColors, modalColors?: VideoColors) {
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.white },
   recText: { color: colors.white, fontSize: 12, fontWeight: '600' },
   recCountdownText: { color: 'rgba(255,255,255,0.95)', fontSize: 13, fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
+
+  // LGPD recording banner
+  lgpdBanner: { position: 'absolute', left: 12, right: 12, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(245,158,11,0.15)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+  lgpdText: { flex: 1, color: '#FDE68A', fontSize: 11, lineHeight: 16, fontWeight: '500' },
 
   // Reconnecting overlay (Bug #6)
   reconnectOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', gap: 8 },
