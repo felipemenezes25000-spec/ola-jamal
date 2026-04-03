@@ -475,7 +475,7 @@ export async function getConsultationDocuments(
   const res = await apiClient.get<{ documents: ConsultationDocument[] }>(
     `/api/post-consultation/${requestId}/documents`
   );
-  return res.documents;
+  return Array.isArray(res.documents) ? res.documents : [];
 }
 
 /**
