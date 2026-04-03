@@ -786,7 +786,7 @@ export default function DoctorPostConsultationEmit() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* ═══ RECEITA ═══ */}
               <Card
-                className={`${!rxOn ? 'pointer-events-none opacity-35' : ''} border-0 shadow-sm ring-1 ring-gray-200`}
+                className={`${!rxOn ? 'opacity-35' : ''} border-0 shadow-sm ring-1 ring-gray-200`}
               >
                 <CardHeader
                   className="cursor-pointer rounded-t-lg bg-white pb-2"
@@ -875,7 +875,7 @@ export default function DoctorPostConsultationEmit() {
 
               {/* ═══ EXAMES ═══ */}
               <Card
-                className={`${!exOn ? 'pointer-events-none opacity-35' : ''} border-0 shadow-sm ring-1 ring-gray-200`}
+                className={`${!exOn ? 'opacity-35' : ''} border-0 shadow-sm ring-1 ring-gray-200`}
               >
                 <CardHeader
                   className="cursor-pointer rounded-t-lg bg-white pb-2"
@@ -998,7 +998,7 @@ export default function DoctorPostConsultationEmit() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* ═══ ENCAMINHAMENTO ═══ */}
             <Card
-              className={`${!refOn ? 'pointer-events-none opacity-35' : ''} border-0 shadow-sm ring-1 ring-gray-200`}
+              className={`${!refOn ? 'opacity-35' : ''} border-0 shadow-sm ring-1 ring-gray-200`}
             >
               <CardHeader
                 className="cursor-pointer rounded-t-lg bg-white pb-2"
