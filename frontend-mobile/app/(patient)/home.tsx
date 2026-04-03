@@ -18,7 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAppTheme } from '../../lib/ui/useAppTheme';
 import type { DesignColors } from '../../lib/designSystem';
 import { layout as dsLayout, shadows as dsShadows, borderRadius as dsBorderRadius } from '../../lib/designSystem';
-import { DASHBOARD_STATS_LABELS } from '../../lib/domain/statusLabels';
+import { DASHBOARD_STATS_LABELS, STATUS_GROUPS } from '../../lib/domain/statusLabels';
 import { RequestResponseDto } from '../../types/database';
 import { useRequestsQuery } from '../../lib/hooks/useRequestsQuery';
 import { getRequestUiState, isSignedOrDelivered } from '../../lib/domain/getRequestUiState';
@@ -151,8 +151,18 @@ export default function PatientHome() {
       ? requests.filter(r => r.id !== followUpRequest!.id).slice(0, 2)
       : requests.slice(0, 2);
 
+    const emAnaliseMedicaCount = requests.filter(
+      (r) => STATUS_GROUPS.em_analise_medica.statuses.includes(r.status),
+    ).length;
+    const ativoCount = requests.filter(
+      (r) => STATUS_GROUPS.ativo.statuses.includes(r.status),
+    ).length;
+    const prontoCount = requests.filter(
+      (r) => STATUS_GROUPS.pronto.statuses.includes(r.status),
+    ).length;
+
     return {
-      stats: { pending, ready, total, active, completed },
+      stats: { pending, ready, total, active, completed, emAnaliseMedicaCount, ativoCount, prontoCount },
       recentPrescriptionCount: prescriptionCount,
       recentExamCount: examCount,
       lastConsultation,
@@ -372,26 +382,26 @@ export default function PatientHome() {
         <StatsCard
           icon="documents"
           label={DASHBOARD_STATS_LABELS.analyzing}
-          value={stats.total}
+          value={stats.emAnaliseMedicaCount}
           iconColor={colors.primary}
           iconBgColor={colors.primarySoft}
-          onPress={() => router.push('/(patient)/requests')}
+          onPress={() => router.push('/(patient)/requests?statusGroup=em_analise_medica')}
         />
         <StatsCard
           icon="time"
           label="Ativos"
-          value={stats.active}
+          value={stats.ativoCount}
           iconColor={colors.warning}
           iconBgColor={colors.warningLight}
-          onPress={() => router.push('/(patient)/requests')}
+          onPress={() => router.push('/(patient)/requests?statusGroup=ativo')}
         />
         <StatsCard
           icon="shield-checkmark"
           label={DASHBOARD_STATS_LABELS.ready}
-          value={stats.completed}
+          value={stats.prontoCount}
           iconColor={colors.success}
           iconBgColor={colors.successLight}
-          onPress={() => router.push('/(patient)/requests')}
+          onPress={() => router.push('/(patient)/requests?statusGroup=pronto')}
         />
       </View>
 

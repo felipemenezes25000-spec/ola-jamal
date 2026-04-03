@@ -1,6 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { verifyReceita, verifyDocument, dispenseDocument, dispensePrescription, type VerifySuccess, type DocumentVerifyResult } from '@/api/verify';
+import {
+  verifyReceita,
+  verifyDocument,
+  dispenseDocument,
+  dispensePrescription,
+  type VerifySuccess,
+  type DocumentVerifyResult,
+} from '@/api/verify';
 import '@/styles/recuperar-verify.css';
 
 type VerifyState = 'idle' | 'loading' | 'success' | 'error';
@@ -18,13 +25,16 @@ const ALLOWED_DOWNLOAD_DOMAINS = [
 function isAllowedDownloadUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return ALLOWED_DOWNLOAD_DOMAINS.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d));
+    return ALLOWED_DOWNLOAD_DOMAINS.some(
+      (d) => parsed.hostname === d || parsed.hostname.endsWith('.' + d)
+    );
   } catch {
     return false;
   }
 }
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Formata ISO string da API para exibição em pt-BR (apenas dados retornados pela API). */
 const TZ_BR = 'America/Sao_Paulo';
@@ -104,10 +114,16 @@ export default function Verify() {
         }
 
         // Ambos falharam — mostrar erro mais relevante
-        setErrorMessage(docRes.message || res.message || 'Código inválido ou documento não encontrado.');
+        setErrorMessage(
+          docRes.message ||
+            res.message ||
+            'Código inválido ou documento não encontrado.'
+        );
         setState('error');
       } catch {
-        setErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+        setErrorMessage(
+          'Erro de conexão. Verifique sua internet e tente novamente.'
+        );
         setState('error');
       } finally {
         submittingRef.current = false;
@@ -121,7 +137,10 @@ export default function Verify() {
       <div style={styles.container}>
         <div style={styles.card}>
           <h1 style={styles.title}>Verificar receita</h1>
-          <p style={styles.error}>ID inválido na URL. O formato esperado é um UUID (ex: 550e8400-e29b-41d4-a716-446655440000).</p>
+          <p style={styles.error}>
+            ID inválido na URL. O formato esperado é um UUID (ex:
+            550e8400-e29b-41d4-a716-446655440000).
+          </p>
         </div>
       </div>
     );
@@ -132,12 +151,15 @@ export default function Verify() {
       <div style={styles.card} className="verify-card">
         <h1 style={styles.title}>Verificação de Documento Médico</h1>
         <p style={styles.subtitle}>
-          Use o código presente no documento (receita, atestado ou exame) para validar sua autenticidade.
+          Use o código presente no documento (receita, atestado ou exame) para
+          validar sua autenticidade.
         </p>
 
         {state === 'idle' && (
           <form onSubmit={handleSubmit} style={styles.form}>
-            <label htmlFor="verify-code" style={styles.label}>Código de verificação</label>
+            <label htmlFor="verify-code" style={styles.label}>
+              Código de verificação
+            </label>
             <input
               id="verify-code"
               type="text"
@@ -146,27 +168,47 @@ export default function Verify() {
               maxLength={6}
               placeholder="000000"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) =>
+                setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+              }
               style={styles.input}
               aria-label="Código de 6 dígitos"
             />
-            <button type="submit" disabled={code.length !== 6} style={styles.button}>
+            <button
+              type="submit"
+              disabled={code.length !== 6}
+              style={styles.button}
+            >
               Validar
             </button>
           </form>
         )}
 
-        {state === 'loading' && (
-          <p style={styles.loading}>Verificando…</p>
-        )}
+        {state === 'loading' && <p style={styles.loading}>Verificando…</p>}
 
         {state === 'success' && result && (
           <div style={styles.success}>
             <p style={styles.validBadge}>✓ Receita válida</p>
             {result.wasDispensed && (
-              <div style={{ padding: '12px 16px', backgroundColor: '#FEF3C7', borderRadius: 12, marginBottom: 12, border: '1px solid #FDE68A' }}>
-                <p style={{ margin: 0, fontSize: 14, color: '#92400E', fontWeight: 600 }}>
-                  ⚠️ Esta receita já foi dispensada na farmácia. Não pode ser utilizada novamente.
+              <div
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#FEF3C7',
+                  borderRadius: 12,
+                  marginBottom: 12,
+                  border: '1px solid #FDE68A',
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    color: '#92400E',
+                    fontWeight: 600,
+                  }}
+                >
+                  ⚠️ Esta receita já foi dispensada na farmácia. Não pode ser
+                  utilizada novamente.
                 </p>
               </div>
             )}
@@ -174,13 +216,17 @@ export default function Verify() {
               {result.issuedAt && (
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>Emitida em</span>
-                  <span style={styles.metaValue}>{formatIsoDate(result.issuedAt)}</span>
+                  <span style={styles.metaValue}>
+                    {formatIsoDate(result.issuedAt)}
+                  </span>
                 </div>
               )}
               {result.signedAt != null && result.signedAt !== '' && (
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>Assinada em</span>
-                  <span style={styles.metaValue}>{formatIsoDateTime(result.signedAt)}</span>
+                  <span style={styles.metaValue}>
+                    {formatIsoDateTime(result.signedAt)}
+                  </span>
                 </div>
               )}
               {result.patientName != null && result.patientName !== '' && (
@@ -189,7 +235,7 @@ export default function Verify() {
                   <span style={styles.metaValue}>{result.patientName}</span>
                 </div>
               )}
-              {(result.doctorName != null && result.doctorName !== '') && (
+              {result.doctorName != null && result.doctorName !== '' && (
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>Médico</span>
                   <span style={styles.metaValue}>{result.doctorName}</span>
@@ -208,7 +254,9 @@ export default function Verify() {
               onClick={async () => {
                 // FIX #10: Valida domínio do downloadUrl antes de abrir
                 if (!result.downloadUrl) {
-                  alert('Download não disponível. O PDF pode ainda estar sendo processado.');
+                  alert(
+                    'Download não disponível. O PDF pode ainda estar sendo processado.'
+                  );
                   return;
                 }
                 if (!isAllowedDownloadUrl(result.downloadUrl)) {
@@ -218,8 +266,13 @@ export default function Verify() {
                 try {
                   const res = await fetch(result.downloadUrl);
                   if (!res.ok) {
-                    const err = await res.json().catch(() => ({})) as { error?: string };
-                    alert(err?.error ?? 'Não foi possível baixar o PDF. Tente novamente.');
+                    const err = (await res.json().catch(() => ({}))) as {
+                      error?: string;
+                    };
+                    alert(
+                      err?.error ??
+                        'Não foi possível baixar o PDF. Tente novamente.'
+                    );
                     return;
                   }
                   const blob = await res.blob();
@@ -231,7 +284,9 @@ export default function Verify() {
                   a.click();
                   setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
                 } catch {
-                  alert('Erro ao baixar o PDF. Verifique sua conexão e tente novamente.');
+                  alert(
+                    'Erro ao baixar o PDF. Verifique sua conexão e tente novamente.'
+                  );
                 }
               }}
               style={{
@@ -249,15 +304,37 @@ export default function Verify() {
                 disabled={dispensing}
                 onClick={async () => {
                   const pharmacy = prompt('Nome da farmácia:');
-                  if (!pharmacy?.trim()) { alert('Nome da farmácia é obrigatório.'); return; }
+                  if (!pharmacy?.trim()) {
+                    alert('Nome da farmácia é obrigatório.');
+                    return;
+                  }
                   const pharmacist = prompt('Nome do(a) farmacêutico(a):');
-                  if (!pharmacist?.trim()) { alert('Nome do(a) farmacêutico(a) é obrigatório.'); return; }
-                  const crm = prompt('CRM do(a) farmacêutico(a):');
-                  if (!crm?.trim()) { alert('CRM do(a) farmacêutico(a) é obrigatório.'); return; }
-                  if (!window.confirm(`Confirmar dispensação?\n\nFarmácia: ${pharmacy.trim()}\nFarmacêutico(a): ${pharmacist.trim()}\nCRM: ${crm.trim()}`)) return;
+                  if (!pharmacist?.trim()) {
+                    alert('Nome do(a) farmacêutico(a) é obrigatório.');
+                    return;
+                  }
+                  const crf = prompt(
+                    'CRF do(a) farmacêutico(a) (Conselho Regional de Farmácia):'
+                  );
+                  if (!crf?.trim()) {
+                    alert('CRF do(a) farmacêutico(a) é obrigatório.');
+                    return;
+                  }
+                  if (
+                    !window.confirm(
+                      `Confirmar dispensação?\n\nFarmácia: ${pharmacy.trim()}\nFarmacêutico(a): ${pharmacist.trim()}\nCRF: ${crf.trim()}`
+                    )
+                  )
+                    return;
                   setDispensing(true);
                   try {
-                    const res = await dispensePrescription(id!.trim(), code.trim(), pharmacy.trim(), pharmacist.trim());
+                    const res = await dispensePrescription(
+                      id!.trim(),
+                      code.trim(),
+                      pharmacy.trim(),
+                      pharmacist.trim(),
+                      crf.trim()
+                    );
                     if (res.success) {
                       alert('Receita marcada como dispensada.');
                       setResult({ ...result, wasDispensed: true });
@@ -270,14 +347,23 @@ export default function Verify() {
                     setDispensing(false);
                   }
                 }}
-                style={{ ...styles.button, marginTop: 12, backgroundColor: '#059669' }}
+                style={{
+                  ...styles.button,
+                  marginTop: 12,
+                  backgroundColor: '#059669',
+                }}
               >
                 {dispensing ? 'Marcando...' : '✓ Marcar como dispensado'}
               </button>
             )}
             <button
               type="button"
-              onClick={() => { setState('idle'); setCode(''); setResult(null); setDocResult(null); }}
+              onClick={() => {
+                setState('idle');
+                setCode('');
+                setResult(null);
+                setDocResult(null);
+              }}
               style={styles.buttonSecondary}
             >
               Verificar outro código
@@ -288,10 +374,27 @@ export default function Verify() {
         {/* Resultado de documento universal (atestado, exame, receita via medical_documents) */}
         {state === 'success' && docResult && !result && (
           <div style={styles.success}>
-            <p style={styles.validBadge}>✓ {docResult.documentType ?? 'Documento'} válido</p>
+            <p style={styles.validBadge}>
+              ✓ {docResult.documentType ?? 'Documento'} válido
+            </p>
             {docResult.wasDispensed && (
-              <div style={{ padding: '12px 16px', backgroundColor: '#FEF3C7', borderRadius: 12, marginBottom: 12, border: '1px solid #FDE68A' }}>
-                <p style={{ margin: 0, fontSize: 14, color: '#92400E', fontWeight: 600 }}>
+              <div
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#FEF3C7',
+                  borderRadius: 12,
+                  marginBottom: 12,
+                  border: '1px solid #FDE68A',
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    color: '#92400E',
+                    fontWeight: 600,
+                  }}
+                >
                   ⚠️ {docResult.dispensedWarning}
                 </p>
               </div>
@@ -300,13 +403,17 @@ export default function Verify() {
               {docResult.issuedAt && (
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>Emitido em</span>
-                  <span style={styles.metaValue}>{formatIsoDate(docResult.issuedAt)}</span>
+                  <span style={styles.metaValue}>
+                    {formatIsoDate(docResult.issuedAt)}
+                  </span>
                 </div>
               )}
               {docResult.signedAt && (
                 <div style={styles.metaRow}>
                   <span style={styles.metaLabel}>Assinado em</span>
-                  <span style={styles.metaValue}>{formatIsoDateTime(docResult.signedAt)}</span>
+                  <span style={styles.metaValue}>
+                    {formatIsoDateTime(docResult.signedAt)}
+                  </span>
                 </div>
               )}
               {docResult.documentType && (
@@ -329,8 +436,13 @@ export default function Verify() {
                   try {
                     const res = await fetch(docResult.downloadUrl);
                     if (!res.ok) {
-                      const err = await res.json().catch(() => ({})) as { error?: string };
-                      alert(err?.error ?? 'Não foi possível baixar o PDF. Tente novamente.');
+                      const err = (await res.json().catch(() => ({}))) as {
+                        error?: string;
+                      };
+                      alert(
+                        err?.error ??
+                          'Não foi possível baixar o PDF. Tente novamente.'
+                      );
                       return;
                     }
                     const blob = await res.blob();
@@ -342,7 +454,9 @@ export default function Verify() {
                     a.click();
                     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
                   } catch {
-                    alert('Erro ao baixar o PDF. Verifique sua conexão e tente novamente.');
+                    alert(
+                      'Erro ao baixar o PDF. Verifique sua conexão e tente novamente.'
+                    );
                   }
                 }}
                 style={{
@@ -355,9 +469,23 @@ export default function Verify() {
               </button>
             )}
             {docResult.verificationUrl && (
-              <p style={{ fontSize: 12, color: '#6B7280', marginTop: 8, textAlign: 'center' as const }}>
-                Validar assinatura ICP-Brasil em: <a href={docResult.verificationUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ color: '#2563EB' }}>{docResult.verificationUrl}</a>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: '#6B7280',
+                  marginTop: 8,
+                  textAlign: 'center' as const,
+                }}
+              >
+                Validar assinatura ICP-Brasil em:{' '}
+                <a
+                  href={docResult.verificationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563EB' }}
+                >
+                  {docResult.verificationUrl}
+                </a>
               </p>
             )}
             {/* Botão dispensar/utilizado (receitas, exames, atestados — todos ICP-Brasil) */}
@@ -366,19 +494,51 @@ export default function Verify() {
                 type="button"
                 disabled={dispensing}
                 onClick={async () => {
-                  const pharmacy = prompt('Nome da farmácia/clínica/laboratório:');
-                  if (!pharmacy?.trim()) { alert('Nome da farmácia/clínica/laboratório é obrigatório.'); return; }
-                  const pharmacist = prompt('Nome do(a) farmacêutico(a) ou responsável:');
-                  if (!pharmacist?.trim()) { alert('Nome do(a) responsável é obrigatório.'); return; }
-                  const crm = prompt('CRM do(a) responsável:');
-                  if (!crm?.trim()) { alert('CRM do(a) responsável é obrigatório.'); return; }
-                  if (!window.confirm(`Confirmar dispensação?\n\nLocal: ${pharmacy.trim()}\nResponsável: ${pharmacist.trim()}\nCRM: ${crm.trim()}`)) return;
+                  const pharmacy = prompt(
+                    'Nome da farmácia/clínica/laboratório:'
+                  );
+                  if (!pharmacy?.trim()) {
+                    alert(
+                      'Nome da farmácia/clínica/laboratório é obrigatório.'
+                    );
+                    return;
+                  }
+                  const pharmacist = prompt(
+                    'Nome do(a) farmacêutico(a) ou responsável:'
+                  );
+                  if (!pharmacist?.trim()) {
+                    alert('Nome do(a) responsável é obrigatório.');
+                    return;
+                  }
+                  const crf = prompt(
+                    'CRF do(a) farmacêutico(a) (Conselho Regional de Farmácia):'
+                  );
+                  if (!crf?.trim()) {
+                    alert('CRF do(a) farmacêutico(a) é obrigatório.');
+                    return;
+                  }
+                  if (
+                    !window.confirm(
+                      `Confirmar dispensação?\n\nLocal: ${pharmacy.trim()}\nResponsável: ${pharmacist.trim()}\nCRF: ${crf.trim()}`
+                    )
+                  )
+                    return;
                   setDispensing(true);
                   try {
-                    const res = await dispenseDocument(id!.trim(), code.trim(), pharmacy.trim(), pharmacist.trim());
+                    const res = await dispenseDocument(
+                      id!.trim(),
+                      code.trim(),
+                      pharmacy.trim(),
+                      pharmacist.trim(),
+                      crf.trim()
+                    );
                     if (res.success) {
                       alert('Documento marcado como dispensado/utilizado.');
-                      setDocResult({ ...docResult, wasDispensed: true, dispensedWarning: 'Dispensado/utilizado agora.' });
+                      setDocResult({
+                        ...docResult,
+                        wasDispensed: true,
+                        dispensedWarning: 'Dispensado/utilizado agora.',
+                      });
                     } else {
                       alert(res.message);
                     }
@@ -388,14 +548,24 @@ export default function Verify() {
                     setDispensing(false);
                   }
                 }}
-                style={{ ...styles.button, marginTop: 12, backgroundColor: '#059669' }}
+                style={{
+                  ...styles.button,
+                  marginTop: 12,
+                  backgroundColor: '#059669',
+                }}
               >
-                {dispensing ? 'Marcando...' : '✓ Marcar como dispensado/utilizado'}
+                {dispensing
+                  ? 'Marcando...'
+                  : '✓ Marcar como dispensado/utilizado'}
               </button>
             )}
             <button
               type="button"
-              onClick={() => { setState('idle'); setCode(''); setDocResult(null); }}
+              onClick={() => {
+                setState('idle');
+                setCode('');
+                setDocResult(null);
+              }}
               style={styles.buttonSecondary}
             >
               Verificar outro código
@@ -408,7 +578,11 @@ export default function Verify() {
             <p style={styles.error}>{errorMessage}</p>
             <button
               type="button"
-              onClick={() => { setState('idle'); setCode(''); setErrorMessage(''); }}
+              onClick={() => {
+                setState('idle');
+                setCode('');
+                setErrorMessage('');
+              }}
               style={styles.buttonSecondary}
             >
               Tentar novamente
@@ -421,7 +595,9 @@ export default function Verify() {
         </div>
 
         <footer style={styles.footer}>
-          <a href="/cookies" style={styles.footerLink}>Política de Cookies</a>
+          <a href="/cookies" style={styles.footerLink}>
+            Política de Cookies
+          </a>
         </footer>
       </div>
     </div>

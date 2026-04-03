@@ -117,6 +117,7 @@ function buildReferralFromAnamnesis(anamnesis: AnamnesisData | null): { professi
 export default function PostConsultationScreen({ request, onComplete, onBack }: Props) {
   const { colors } = useAppTheme();
   const S = useMemo(() => makeStyles(colors), [colors]);
+  const isPsy = request.consultationType === 'psicologo';
 
   // ── Parse anamnesis ──
   const anamnesis = useMemo(
@@ -142,14 +143,15 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
   }, [request.examQuickPackages]);
 
   // ── State: Document toggles ──
-  const [rxEnabled, setRxEnabled] = useState(true);
+  // Psicólogo: only referral available (no prescription, no exams, no CID)
+  const [rxEnabled, setRxEnabled] = useState(!isPsy);
   const [exEnabled, setExEnabled] = useState(false);
-  const [refEnabled, setRefEnabled] = useState(false);
+  const [refEnabled, setRefEnabled] = useState(isPsy);
 
   // ── State: Sections expanded ──
-  const [rxOpen, setRxOpen] = useState(true);
+  const [rxOpen, setRxOpen] = useState(!isPsy);
   const [exOpen, setExOpen] = useState(false);
-  const [refOpen, setRefOpen] = useState(false);
+  const [refOpen, setRefOpen] = useState(isPsy);
   const [cidPickerOpen, setCidPickerOpen] = useState(false);
   const [exListExpanded, setExListExpanded] = useState(false);
 
@@ -340,7 +342,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
       const payload: PostConsultationEmitRequest = {
         requestId: request.id,
         certificatePassword: password,
-        mainIcd10Code: certCid || detectedCid || undefined,
+        mainIcd10Code: isPsy ? undefined : (certCid || detectedCid || undefined),
         anamnesis: request.consultationAnamnesis ?? undefined,
         structuredAnamnesis: request.consultationAnamnesis ?? undefined,
         plan: request.doctorConductNotes ?? request.aiConductSuggestion ?? undefined,
@@ -386,24 +388,26 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
     <View style={S.root}>
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* CID Hero Card */}
-        <View style={S.cidCard}>
-          <View style={S.cidBadge}>
-            <Text style={S.cidBadgeText}>{certCid || detectedCid || '—'}</Text>
+        {/* CID Hero Card — medical only (psychologist does not use CID) */}
+        {!isPsy && (
+          <View style={S.cidCard}>
+            <View style={S.cidBadge}>
+              <Text style={S.cidBadgeText}>{certCid || detectedCid || '—'}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.cidTitle}>
+                {cidPkg?.name ?? CID_PACKAGES[certCid]?.name ?? 'CID não identificado'}
+              </Text>
+              <Text style={S.cidSub}>Documentos pré-preenchidos com base na transcrição da consulta.</Text>
+              <TouchableOpacity onPress={() => setCidPickerOpen(!cidPickerOpen)}>
+                <Text style={S.cidLink}>Trocar CID</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={S.cidTitle}>
-              {cidPkg?.name ?? CID_PACKAGES[certCid]?.name ?? 'CID não identificado'}
-            </Text>
-            <Text style={S.cidSub}>Documentos pré-preenchidos com base na transcrição da consulta.</Text>
-            <TouchableOpacity onPress={() => setCidPickerOpen(!cidPickerOpen)}>
-              <Text style={S.cidLink}>Trocar CID</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        )}
 
-        {/* CID Picker (colapsável) */}
-        {cidPickerOpen && (
+        {/* CID Picker (colapsável) — medical only */}
+        {!isPsy && cidPickerOpen && (
           <View style={S.cidGrid}>
             {Object.values(CID_PACKAGES).map((pkg) => (
               <TouchableOpacity
@@ -418,8 +422,8 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
           </View>
         )}
 
-        {/* ═══ RECEITA ═══ */}
-        <View style={[S.panel, !rxEnabled && S.panelOff]}>
+        {/* ═══ RECEITA ═══ (medical only — psychologist cannot prescribe) */}
+        {!isPsy && <View style={[S.panel, !rxEnabled && S.panelOff]}>
           <TouchableOpacity style={S.panelHead} onPress={() => rxEnabled && setRxOpen(!rxOpen)} activeOpacity={0.7}>
             <View style={[S.panelDot, { backgroundColor: '#2E5BFF' }]} />
             <Text style={S.panelName}>Receita</Text>
@@ -474,10 +478,10 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
               </View>
             </View>
           )}
-        </View>
+        </View>}
 
-        {/* ═══ EXAMES ═══ */}
-        <View style={[S.panel, !exEnabled && S.panelOff]}>
+        {/* ═══ EXAMES ═══ (medical only — psychologist does not order exams) */}
+        {!isPsy && <View style={[S.panel, !exEnabled && S.panelOff]}>
           <TouchableOpacity style={S.panelHead} onPress={() => exEnabled && setExOpen(!exOpen)} activeOpacity={0.7}>
             <View style={[S.panelDot, { backgroundColor: '#00B27A' }]} />
             <Text style={S.panelName}>Exames</Text>
@@ -530,7 +534,7 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
               </View>
             </View>
           )}
-        </View>
+        </View>}
 
         {/* ═══ ENCAMINHAMENTO ═══ */}
         <View style={[S.panel, !refEnabled && S.panelOff]}>
@@ -544,10 +548,15 @@ export default function PostConsultationScreen({ request, onComplete, onBack }: 
           </TouchableOpacity>
           {refOpen && refEnabled && (
             <View style={S.panelBody}>
-              <Text style={S.refHint}>Encaminhe o paciente para avaliação presencial conforme anamnese.</Text>
+              <Text style={S.refHint}>
+                {isPsy
+                  ? 'Encaminhe o paciente para outro profissional ou serviço conforme avaliação psicológica.'
+                  : 'Encaminhe o paciente para avaliação presencial conforme anamnese.'}
+              </Text>
               <Text style={S.fieldLabel}>Especialidade *</Text>
               <TextInput style={S.input} value={refSpecialty} onChangeText={setRefSpecialty}
-                placeholder="Ex: Cardiologia, Fisioterapia" placeholderTextColor={colors.textMuted} />
+                placeholder={isPsy ? 'Ex: Psiquiatra, Neurologista, Clínico Geral' : 'Ex: Cardiologia, Fisioterapia'}
+                placeholderTextColor={colors.textMuted} />
               <Text style={S.fieldLabel}>Médico ou profissional (opcional)</Text>
               <TextInput style={S.input} value={refProfessional} onChangeText={setRefProfessional}
                 placeholder="Ex: Dr. João Silva" placeholderTextColor={colors.textMuted} />

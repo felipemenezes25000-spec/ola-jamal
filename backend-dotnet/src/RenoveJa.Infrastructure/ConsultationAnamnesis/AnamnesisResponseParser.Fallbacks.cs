@@ -5,7 +5,7 @@ namespace RenoveJa.Infrastructure.ConsultationAnamnesis;
 /// <summary>Fallbacks de perguntas e sugestões quando a IA retorna arrays vazios.</summary>
 internal static partial class AnamnesisResponseParser
 {
-    internal static void EnsurePerguntasFallback(JsonElement root, Dictionary<string, object> enrichedObj, string? transcriptSoFar)
+    internal static void EnsurePerguntasFallback(JsonElement root, Dictionary<string, object> enrichedObj, string? transcriptSoFar, string? consultationType = null)
     {
         var hasPerguntas = false;
         if (root.TryGetProperty("perguntas_sugeridas", out var pEl) && pEl.ValueKind == JsonValueKind.Array && pEl.GetArrayLength() > 0)
@@ -13,10 +13,93 @@ internal static partial class AnamnesisResponseParser
 
         if (hasPerguntas) return;
 
+        var isPsy = string.Equals(consultationType, "psicologo", StringComparison.OrdinalIgnoreCase);
         var isEarlyConsultation = string.IsNullOrWhiteSpace(transcriptSoFar) || transcriptSoFar!.Length < 200;
         List<object> fallback;
 
-        if (isEarlyConsultation)
+        if (isPsy)
+        {
+            fallback = isEarlyConsultation
+                ? new List<object>
+                {
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "O que te motivou a buscar atendimento neste momento?",
+                        ["objetivo"] = "Compreender a demanda manifesta e o contexto que levou à busca",
+                        ["hipoteses_afetadas"] = "Define o eixo da formulação do caso",
+                        ["impacto_na_conduta"] = "Direciona a abordagem terapêutica inicial",
+                        ["prioridade"] = "alta"
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "Como você tem se sentido nos últimos dias?",
+                        ["objetivo"] = "Avaliar estado emocional atual — humor, afeto, nível de angústia",
+                        ["hipoteses_afetadas"] = "Humor rebaixado sugere quadro depressivo; inquietação sugere ansiedade",
+                        ["impacto_na_conduta"] = "Define urgência e intensidade do acompanhamento",
+                        ["prioridade"] = "alta"
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "Tem algo acontecendo agora que esteja te sobrecarregando mais?",
+                        ["objetivo"] = "Identificar fatores estressores e gatilhos atuais",
+                        ["hipoteses_afetadas"] = "Estressores recentes sugerem crise adaptativa vs quadro crônico",
+                        ["impacto_na_conduta"] = "Orienta foco da intervenção (manejo de crise vs trabalho processual)",
+                        ["prioridade"] = "alta"
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "Como estão seu sono, apetite e energia?",
+                        ["objetivo"] = "Rastrear impacto funcional e sinais neurovegetativos",
+                        ["hipoteses_afetadas"] = "Alterações de sono/apetite/energia reforçam hipóteses de depressão ou ansiedade",
+                        ["impacto_na_conduta"] = "Pode indicar encaminhamento psiquiátrico se graves",
+                        ["prioridade"] = "media"
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "Você sente que tem com quem contar? Como estão suas relações?",
+                        ["objetivo"] = "Avaliar rede de apoio e isolamento social",
+                        ["hipoteses_afetadas"] = "Isolamento severo é fator de risco para agravamento",
+                        ["impacto_na_conduta"] = "Pode indicar necessidade de rede de apoio ou acompanhamento mais frequente",
+                        ["prioridade"] = "media"
+                    }
+                }
+                : new List<object>
+                {
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "O que mais tem te incomodado emocionalmente desde que começamos a conversar?",
+                        ["objetivo"] = "Aprofundar a queixa principal e captar demanda latente",
+                        ["hipoteses_afetadas"] = "Pode revelar questões não trazidas espontaneamente",
+                        ["impacto_na_conduta"] = "Refina o foco terapêutico da sessão",
+                        ["prioridade"] = "alta"
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "Em quais momentos isso costuma piorar?",
+                        ["objetivo"] = "Identificar gatilhos e padrões situacionais",
+                        ["hipoteses_afetadas"] = "Gatilhos situacionais sugerem abordagem comportamental; interpessoais sugerem trabalho relacional",
+                        ["impacto_na_conduta"] = "Direciona técnicas terapêuticas específicas",
+                        ["prioridade"] = "media"
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "Já fez terapia antes? Como foi essa experiência?",
+                        ["objetivo"] = "Mapear histórico terapêutico e expectativas",
+                        ["hipoteses_afetadas"] = "Experiência anterior influencia a escolha de abordagem",
+                        ["impacto_na_conduta"] = "Adapta linguagem e técnica ao que o paciente já conhece",
+                        ["prioridade"] = "media"
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["pergunta"] = "Em algum momento você sentiu que não daria conta?",
+                        ["objetivo"] = "Rastreio de risco — avaliar desesperança e ideação suicida",
+                        ["hipoteses_afetadas"] = "Resposta positiva eleva classificação de gravidade",
+                        ["impacto_na_conduta"] = "Pode indicar encaminhamento psiquiátrico ou protocolo de segurança",
+                        ["prioridade"] = "alta"
+                    }
+                };
+        }
+        else if (isEarlyConsultation)
         {
             fallback = new List<object>
             {

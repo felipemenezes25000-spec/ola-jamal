@@ -31,6 +31,7 @@ export interface RedFlagResult {
   isUrgent: boolean;
   matchedSignals: string[];
   guidance: string;
+  category: 'physical' | 'psychological' | null;
 }
 
 /** Converte resultado local para o formato da API (fallback quando API falha). */
@@ -130,46 +131,72 @@ function normalizeText(value: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-const RED_FLAG_RULES: { keyword: string; patterns: RegExp[] }[] = [
-  { keyword: 'dor no peito', patterns: [/\bdor no peito\b/, /\bpressao no peito\b/] },
-  { keyword: 'falta de ar', patterns: [/\bfalta de ar\b/, /\bnao consigo respirar\b/, /\bdificuldade para respirar\b/] },
-  { keyword: 'desmaio', patterns: [/\bdesmaio\b/, /\bdesmaiei\b/] },
-  { keyword: 'confusao mental', patterns: [/\bconfusao mental\b/, /\bestou confuso\b/, /\bdesorienta(c|ç)ao\b/] },
-  { keyword: 'sinais neurologicos', patterns: [/\bfraqueza de um lado\b/, /\brosto torto\b/, /\bfala enrolada\b/, /\bconvuls(a|ã)o\b/] },
-  { keyword: 'sangramento intenso', patterns: [/\bsangramento intenso\b/, /\bsangue em grande quantidade\b/] },
-  { keyword: 'sinais de AVC/derrame', patterns: [/\bavc\b/, /\bderrame\b/, /\bparalisia subit/, /\bdor de cabe(c|ç)a subit/, /\bperda de vis(a|ã)o\b/] },
+export type EmergencyCategory = 'physical' | 'psychological';
+
+interface RedFlagRule {
+  keyword: string;
+  patterns: RegExp[];
+  category: EmergencyCategory;
+}
+
+const RED_FLAG_RULES: RedFlagRule[] = [
+  // ── Emergências físicas ──
+  { keyword: 'dor no peito', category: 'physical', patterns: [/\bdor no peito\b/, /\bpressao no peito\b/, /\bdor no cora(c|ç)(a|ã)o\b/] },
+  { keyword: 'taquicardia', category: 'physical', patterns: [/\btaquicardia\b/, /\bcora(c|ç)(a|ã)o acelerado\b/, /\bcora(c|ç)(a|ã)o disparado\b/] },
+  { keyword: 'falta de ar', category: 'physical', patterns: [/\bfalta de ar\b/, /\bn(a|ã)o consigo respirar\b/, /\bdificuldade para respirar\b/, /\bfalta de ar intensa\b/] },
+  { keyword: 'desmaio', category: 'physical', patterns: [/\bdesmaio\b/, /\bdesmaiei\b/, /\bvou desmaiar\b/] },
+  { keyword: 'confusao mental', category: 'physical', patterns: [/\bconfus(a|ã)o mental\b/, /\bestou confuso\b/, /\bdesorienta(c|ç)(a|ã)o\b/] },
+  { keyword: 'sinais neurologicos', category: 'physical', patterns: [/\bfraqueza de um lado\b/, /\brosto torto\b/, /\bfala enrolada\b/, /\bconvuls(a|ã)o\b/] },
+  { keyword: 'sangramento intenso', category: 'physical', patterns: [/\bsangramento intenso\b/, /\bsangue em grande quantidade\b/] },
+  { keyword: 'sinais de AVC/derrame', category: 'physical', patterns: [/\bavc\b/, /\bderrame\b/, /\bparalisia subit/, /\bdor de cabe(c|ç)a subit/, /\bperda de vis(a|ã)o\b/] },
+  // ── Crise psicológica / risco de suicídio ──
+  { keyword: 'risco de suicidio', category: 'psychological', patterns: [
+    /\bquero me matar\b/, /\bvou me matar\b/, /\bpensar em me matar\b/, /\bpensando em me matar\b/,
+    /\bn(a|ã)o aguento mais viver\b/, /\bn(a|ã)o quero mais viver\b/,
+    /\bvou fazer algo contra mim\b/, /\bvou acabar com tudo\b/,
+    /\bidea(c|ç)(a|ã)o suicida\b/, /\bsuicid/, /\bme machucar\b/,
+    /\bvou tirar minha vida\b/, /\btentei me matar\b/,
+  ]},
+  { keyword: 'autolesao', category: 'psychological', patterns: [
+    /\bestou me cortando\b/, /\bme corto\b/, /\bautolesao\b/, /\bauto( |-)?les(a|ã)o\b/,
+    /\bme machuco de proposito\b/, /\bme machucar de proposito\b/,
+  ]},
 ];
+
+const EMERGENCY_GUIDANCE: Record<EmergencyCategory, string> = {
+  physical:
+    'Seus sintomas podem indicar uma emergência médica. Procure imediatamente um pronto-atendimento ou ligue para o SAMU (192).',
+  psychological:
+    'Sinto muito que você esteja passando por isso. Você não precisa lidar com isso sozinho(a). Procure ajuda agora — ligue para o CVV (188) ou vá até um pronto-atendimento. Se puder, fale com alguém de confiança neste momento.',
+};
 
 export function detectRedFlags(symptoms?: string | null): RedFlagResult {
   const text = normalizeText(symptoms ?? '');
   if (!text) {
-    return {
-      isUrgent: false,
-      matchedSignals: [],
-      guidance: '',
-    };
+    return { isUrgent: false, matchedSignals: [], guidance: '', category: null };
   }
 
   const matchedSignals: string[] = [];
+  let detectedCategory: EmergencyCategory | null = null;
   for (const rule of RED_FLAG_RULES) {
     if (rule.patterns.some((pattern) => pattern.test(text))) {
       matchedSignals.push(rule.keyword);
+      // Psychological takes priority for guidance tone
+      if (!detectedCategory || rule.category === 'psychological') {
+        detectedCategory = rule.category;
+      }
     }
   }
 
   if (matchedSignals.length === 0) {
-    return {
-      isUrgent: false,
-      matchedSignals: [],
-      guidance: '',
-    };
+    return { isUrgent: false, matchedSignals: [], guidance: '', category: null };
   }
 
   return {
     isUrgent: true,
     matchedSignals,
-    guidance:
-      'Isso pode ser urgente. Procure emergência ou ligue 192 agora. Se quiser, eu te ajudo a registrar o ocorrido para o médico.',
+    guidance: EMERGENCY_GUIDANCE[detectedCategory!],
+    category: detectedCategory,
   };
 }
 

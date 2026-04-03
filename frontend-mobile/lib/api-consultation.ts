@@ -47,6 +47,13 @@ export async function transcribeTextChunk(
   });
 }
 
+/** Heartbeat periódico — re-avalia anamnese IA com transcript acumulado. */
+export async function refreshAnamnesis(
+  requestId: string,
+): Promise<{ ok: boolean; skipped?: boolean; reason?: string }> {
+  return apiClient.post('/api/consultation/refresh-anamnesis', { requestId });
+}
+
 /** Regex para validar UUID v4. */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 

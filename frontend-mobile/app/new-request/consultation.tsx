@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  Alert,
   useWindowDimensions,
   ScrollView,
   ActivityIndicator,
@@ -29,6 +28,7 @@ import { useTriageEval } from '../../hooks/useTriageEval';
 import { useSymptomVoiceInput } from '../../hooks/useSymptomVoiceInput';
 import { detectRedFlags, evaluateConsultationCompleteness } from '../../lib/domain/assistantIntelligence';
 import { evaluateAssistantCompleteness } from '../../lib/api';
+import { EmergencyAlert } from '../../components/ui/EmergencyAlert';
 
 const s = theme.spacing;
 const _r = theme.borderRadius;
@@ -128,6 +128,7 @@ export default function ConsultationScreen() {
         isUrgent: apiResult.hasUrgencyRisk,
         matchedSignals: apiResult.urgencySignals,
         guidance: apiResult.urgencyMessage ?? 'Sinais de urgência detectados. Considere buscar atendimento presencial.',
+        category: redFlagsLocal.category,
       }
     : redFlagsLocal;
 
@@ -135,6 +136,9 @@ export default function ConsultationScreen() {
   let currentStep = 1;
   if (userPickedType) currentStep = 2;
   if (userPickedType && symptoms.trim().length > 0) currentStep = 3;
+
+  const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
+  const pendingPayloadRef = useRef<{ consultationType: 'psicologo' | 'medico_clinico'; durationMinutes: number; symptoms: string } | null>(null);
 
   const consultationValidation = validate(createConsultationSchema, {
     consultationType,
@@ -204,14 +208,8 @@ export default function ConsultationScreen() {
     const payload = validation.data!;
 
     if (redFlags.isUrgent) {
-      Alert.alert(
-        'Sinais de urgência detectados',
-        `${redFlags.guidance}\n\nSinais identificados: ${redFlags.matchedSignals.join(', ')}`,
-        [
-          { text: 'Voltar', style: 'cancel' },
-          { text: 'Continuar mesmo assim', style: 'destructive', onPress: () => { void submitConsultation(payload); } },
-        ]
-      );
+      pendingPayloadRef.current = payload;
+      setShowEmergencyAlert(true);
       return;
     }
 
@@ -220,6 +218,24 @@ export default function ConsultationScreen() {
 
   return (
     <Screen scroll={false} edges={['top', 'bottom']} padding={false}>
+      {showEmergencyAlert && (
+        <EmergencyAlert
+          category={redFlags.category ?? 'physical'}
+          guidance={redFlags.guidance}
+          matchedSignals={redFlags.matchedSignals}
+          onDismiss={() => {
+            setShowEmergencyAlert(false);
+            pendingPayloadRef.current = null;
+          }}
+          onContinue={() => {
+            setShowEmergencyAlert(false);
+            if (pendingPayloadRef.current) {
+              void submitConsultation(pendingPayloadRef.current);
+              pendingPayloadRef.current = null;
+            }
+          }}
+        />
+      )}
       <View style={styles.flex1}>
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: listPadding }]}
@@ -272,9 +288,21 @@ export default function ConsultationScreen() {
           </View>
 
           {redFlags.isUrgent && (
-            <View style={styles.redFlagCard}>
-              <Ionicons name="warning-outline" size={18} color={colors.error} />
-              <Text style={styles.redFlagText}>{redFlags.guidance}</Text>
+            <View style={[
+              styles.redFlagCard,
+              redFlags.category === 'psychological' && styles.redFlagCardPsych,
+            ]}>
+              <Ionicons
+                name={redFlags.category === 'psychological' ? 'heart' : 'warning-outline'}
+                size={18}
+                color={redFlags.category === 'psychological' ? '#7C3AED' : colors.error}
+              />
+              <Text style={[
+                styles.redFlagText,
+                redFlags.category === 'psychological' && styles.redFlagTextPsych,
+              ]}>
+                {redFlags.guidance}
+              </Text>
             </View>
           )}
 
@@ -493,6 +521,13 @@ function makeStyles(colors: DesignColors, narrow: boolean) {
       gap: s.sm,
     },
     redFlagText: { flex: 1, color: colors.error, fontSize: 12, lineHeight: 18 },
+    redFlagCardPsych: {
+      borderColor: '#EDE9FE',
+      backgroundColor: '#EDE9FE',
+    },
+    redFlagTextPsych: {
+      color: '#7C3AED',
+    },
 
     /* Section */
     sectionLabel: {

@@ -286,6 +286,63 @@ public class ConsultationController(
         return Ok(new { ok = true, fullLength = fullText.Length });
     }
 
+    /// <summary>
+    /// Heartbeat periódico (a cada 2 min) para garantir que a anamnese IA seja atualizada
+    /// mesmo durante períodos de silêncio na consulta.
+    /// O frontend chama este endpoint em um timer; o backend re-enfileira o transcript atual.
+    /// </summary>
+    [HttpPost("refresh-anamnesis")]
+    public async Task<IActionResult> RefreshAnamnesis(
+        [FromBody] RefreshAnamnesisRequestDto dto,
+        CancellationToken cancellationToken)
+    {
+        if (dto.RequestId == Guid.Empty)
+            return BadRequest(new { message = "RequestId is required" });
+
+        var requestId = dto.RequestId;
+        var userId = GetUserId();
+        var request = await requestRepository.GetByIdAsync(requestId, cancellationToken);
+        if (request == null)
+            return NotFound(new { message = "Request not found" });
+
+        if (request.DoctorId != userId && request.PatientId != userId)
+            return Forbid();
+
+        if (request.RequestType != RequestType.Consultation)
+            return BadRequest(new { message = "Only consultation requests" });
+
+        var canRefresh = request.Status == RequestStatus.InConsultation || request.Status == RequestStatus.Paid;
+        if (!canRefresh)
+            return BadRequest(new { message = "Consultation must be in progress" });
+
+        var fullText = sessionStore.GetTranscript(requestId);
+        if (string.IsNullOrWhiteSpace(fullText) || fullText.Length < MinTranscriptLengthForAnamnesis)
+            return Ok(new { ok = true, skipped = true, reason = "transcript_too_short" });
+
+        var throttleKey = AnamnesisThrottleKeyPrefix + requestId;
+        if (memoryCache.TryGetValue(throttleKey, out _))
+            return Ok(new { ok = true, skipped = true, reason = "throttle_active" });
+
+        var aiCallKey = requestId.ToString();
+        var entry = AiCallCounts.GetOrAdd(aiCallKey, _ => (0, DateTime.UtcNow));
+        if (entry.Count >= MaxAiCallsPerConsultation)
+            return Ok(new { ok = true, skipped = true, reason = "rate_limit" });
+
+        AiCallCounts.AddOrUpdate(aiCallKey, _ => (1, DateTime.UtcNow), (_, e) => (e.Count + 1, DateTime.UtcNow));
+        memoryCache.Set(throttleKey, true,
+            new MemoryCacheEntryOptions().SetAbsoluteExpiration(AnamnesisThrottleInterval));
+
+        var (previousAnamnesisJson, _) = sessionStore.GetAnamnesisState(requestId);
+        var group = VideoSignalingHub.GroupName(requestId.ToString());
+        var workItem = new AnamnesisWorkItem(fullText, previousAnamnesisJson, requestId, group, sessionStore.GetConsultationType(requestId));
+
+        if (!anamnesisChannel.Writer.TryWrite(workItem))
+            logger.LogWarning("[RefreshAnamnesis] Canal cheio. RequestId={RequestId}", requestId);
+
+        logger.LogInformation("[RefreshAnamnesis] Anamnese enfileirada. RequestId={RequestId} transcriptLen={Len}", requestId, fullText.Length);
+        return Ok(new { ok = true, skipped = false });
+    }
+
 #if DEBUG
     /// <summary>
     /// Endpoint de teste de anamnese (apenas Development).
