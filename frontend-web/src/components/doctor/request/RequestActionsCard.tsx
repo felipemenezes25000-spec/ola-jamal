@@ -1,7 +1,18 @@
 import { useNavigate } from 'react-router-dom';
 import {
-  Loader2, CheckCircle2, XCircle, Pen, Video, Stethoscope,
-  FileOutput, Download, PackageCheck, Ban, Clock, FileText, ClipboardList,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Pen,
+  Video,
+  Stethoscope,
+  FileOutput,
+  Download,
+  PackageCheck,
+  Ban,
+  Clock,
+  FileText,
+  ClipboardList,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,9 +33,16 @@ interface Props {
 }
 
 export function RequestActionsCard({
-  request, id, actionLoading,
-  onApprove, onRejectOpen, onAcceptConsult,
-  onGenPdf, onDownloadPdf, onDeliver, onCancel,
+  request,
+  id,
+  actionLoading,
+  onApprove,
+  onRejectOpen,
+  onAcceptConsult,
+  onGenPdf,
+  onDownloadPdf,
+  onDeliver,
+  onCancel,
 }: Props) {
   const navigate = useNavigate();
   const statusNorm = normalizeStatus(request.status);
@@ -32,21 +50,63 @@ export function RequestActionsCard({
   const isConsultation = reqType === 'consultation';
 
   // ── Action conditions ──
-  const canApprove       = !isConsultation && ['submitted', 'pending'].includes(statusNorm);
-  const canReject        = ['submitted', 'pending', 'in_review', 'searching_doctor', 'approved_pending_payment', 'approved', 'paid'].includes(statusNorm);
-  const canEdit          = statusNorm === 'paid' && !isConsultation;
-  const canAcceptConsult = isConsultation && ['searching_doctor', 'submitted', 'pending'].includes(statusNorm);
-  const canVideo         = isConsultation && ['paid', 'consultation_accepted', 'consultation_ready', 'in_consultation'].includes(statusNorm);
-  const canPostConsult   = isConsultation && (statusNorm === 'consultation_finished' || statusNorm === 'pending_post_consultation');
-  const canSummary       = isConsultation && (statusNorm === 'consultation_finished' || statusNorm === 'pending_post_consultation');
-  const canCancel        = ['submitted', 'pending', 'in_review', 'searching_doctor'].includes(statusNorm);
-  const canDeliver       = statusNorm === 'signed';
-  const canGenPdf        = statusNorm === 'paid' && reqType === 'prescription';
-  const canDownload      = !!request.signedDocumentUrl || statusNorm === 'signed' || statusNorm === 'delivered';
+  const canApprove =
+    !isConsultation &&
+    ['submitted', 'pending', 'in_review'].includes(statusNorm);
+  const canReject = [
+    'submitted',
+    'pending',
+    'in_review',
+    'searching_doctor',
+    'approved_pending_payment',
+    'approved',
+    'paid',
+  ].includes(statusNorm);
+  const canEdit = statusNorm === 'paid' && !isConsultation;
+  const canAcceptConsult =
+    isConsultation &&
+    ['searching_doctor', 'submitted', 'pending'].includes(statusNorm);
+  const canVideo =
+    isConsultation &&
+    [
+      'paid',
+      'consultation_accepted',
+      'consultation_ready',
+      'in_consultation',
+    ].includes(statusNorm);
+  const canPostConsult =
+    isConsultation &&
+    (statusNorm === 'consultation_finished' ||
+      statusNorm === 'pending_post_consultation');
+  const canSummary =
+    isConsultation &&
+    (statusNorm === 'consultation_finished' ||
+      statusNorm === 'pending_post_consultation');
+  const canCancel = [
+    'submitted',
+    'pending',
+    'in_review',
+    'searching_doctor',
+  ].includes(statusNorm);
+  const canDeliver = statusNorm === 'signed';
+  const canGenPdf = statusNorm === 'paid' && reqType === 'prescription';
+  const canDownload =
+    !!request.signedDocumentUrl ||
+    statusNorm === 'signed' ||
+    statusNorm === 'delivered';
 
-  const noActions = !canApprove && !canReject && !canEdit && !canVideo &&
-    !canAcceptConsult && !canCancel && !canDeliver && !canGenPdf && !canDownload &&
-    !canPostConsult && !canSummary;
+  const noActions =
+    !canApprove &&
+    !canReject &&
+    !canEdit &&
+    !canVideo &&
+    !canAcceptConsult &&
+    !canCancel &&
+    !canDeliver &&
+    !canGenPdf &&
+    !canDownload &&
+    !canPostConsult &&
+    !canSummary;
 
   return (
     <Card className="shadow-sm lg:sticky lg:top-6">
@@ -61,11 +121,15 @@ export function RequestActionsCard({
             <div className="flex flex-col gap-2">
               {canApprove && (
                 <Button
-                  className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex-1 gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
                   onClick={onApprove}
                   disabled={!!actionLoading}
                 >
-                  {actionLoading === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  {actionLoading === 'approve' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
                   Aprovar
                 </Button>
               )}
@@ -94,29 +158,59 @@ export function RequestActionsCard({
           )}
 
           {canAcceptConsult && (
-            <Button className="w-full gap-2" onClick={onAcceptConsult} disabled={!!actionLoading}>
-              {actionLoading === 'accept' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Stethoscope className="h-4 w-4" />}
+            <Button
+              className="w-full gap-2"
+              onClick={onAcceptConsult}
+              disabled={!!actionLoading}
+            >
+              {actionLoading === 'accept' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Stethoscope className="h-4 w-4" />
+              )}
               Aceitar Consulta
             </Button>
           )}
           {canVideo && (
-            <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate(`/video/${id}`)}>
-              <Video className="h-4 w-4" />Iniciar Video
+            <Button
+              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => navigate(`/video/${id}`)}
+            >
+              <Video className="h-4 w-4" />
+              Iniciar Video
             </Button>
           )}
           {canPostConsult && (
-            <Button className="w-full gap-2" onClick={() => navigate(`/pos-consulta/${id}`)}>
-              <FileText className="h-4 w-4" />Emitir Documentos
+            <Button
+              className="w-full gap-2"
+              onClick={() => navigate(`/pos-consulta/${id}`)}
+            >
+              <FileText className="h-4 w-4" />
+              Emitir Documentos
             </Button>
           )}
           {canSummary && (
-            <Button variant="outline" className="w-full gap-2" onClick={() => navigate(`/resumo-consulta/${id}`)}>
-              <ClipboardList className="h-4 w-4" />Ver Resumo
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => navigate(`/resumo-consulta/${id}`)}
+            >
+              <ClipboardList className="h-4 w-4" />
+              Ver Resumo
             </Button>
           )}
           {canGenPdf && (
-            <Button variant="outline" className="w-full gap-2" onClick={onGenPdf} disabled={!!actionLoading}>
-              {actionLoading === 'genpdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileOutput className="h-4 w-4" />}
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={onGenPdf}
+              disabled={!!actionLoading}
+            >
+              {actionLoading === 'genpdf' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileOutput className="h-4 w-4" />
+              )}
               Gerar PDF
             </Button>
           )}
@@ -127,7 +221,11 @@ export function RequestActionsCard({
               onClick={onDownloadPdf}
               disabled={!!actionLoading}
             >
-              {actionLoading === 'download' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {actionLoading === 'download' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
               Baixar documento
             </Button>
           )}
@@ -138,7 +236,11 @@ export function RequestActionsCard({
               onClick={onDeliver}
               disabled={!!actionLoading}
             >
-              {actionLoading === 'deliver' ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+              {actionLoading === 'deliver' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <PackageCheck className="h-4 w-4" />
+              )}
               Marcar entregue
             </Button>
           )}
@@ -149,14 +251,20 @@ export function RequestActionsCard({
               onClick={onCancel}
               disabled={!!actionLoading}
             >
-              {actionLoading === 'cancel' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+              {actionLoading === 'cancel' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Ban className="h-4 w-4" />
+              )}
               Cancelar pedido
             </Button>
           )}
           {noActions && (
-            <div className="text-center py-4">
-              <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Sem ações disponíveis</p>
+            <div className="py-4 text-center">
+              <Clock className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Sem ações disponíveis
+              </p>
             </div>
           )}
         </div>

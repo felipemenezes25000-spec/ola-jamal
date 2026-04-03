@@ -7,7 +7,8 @@
 function getApiBaseUrl(): string {
   const env = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '');
   if (env) return env;
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  if (typeof window !== 'undefined' && window.location?.origin)
+    return window.location.origin;
   return '';
 }
 
@@ -61,10 +62,16 @@ function reasonToMessage(reason: string | undefined): string {
   return REASON_MESSAGES[reason] ?? reason;
 }
 
-export async function verifyReceita(payload: VerifyPayload): Promise<VerifyResponse> {
+export async function verifyReceita(
+  payload: VerifyPayload
+): Promise<VerifyResponse> {
   const apiBase = getApiBaseUrl();
   if (!apiBase) {
-    return { status: 'error', message: 'URL da API não configurada. Defina VITE_API_URL ou use o mesmo domínio.' };
+    return {
+      status: 'error',
+      message:
+        'URL da API não configurada. Defina VITE_API_URL ou use o mesmo domínio.',
+    };
   }
 
   const id = payload.id.trim();
@@ -97,13 +104,23 @@ export async function verifyReceita(payload: VerifyPayload): Promise<VerifyRespo
       status: 'error',
       message: isNetwork
         ? 'Não foi possível conectar ao servidor. Verifique sua internet e a URL da API.'
-        : (err instanceof Error ? err.message : 'Erro de conexão.'),
+        : err instanceof Error
+          ? err.message
+          : 'Erro de conexão.',
     };
   }
 
   if (!res.ok) {
-    const errBody = data as unknown as { error?: string; message?: string; detail?: string };
-    let msg = errBody?.error ?? errBody?.message ?? errBody?.detail ?? `Erro do servidor (${res.status}).`;
+    const errBody = data as unknown as {
+      error?: string;
+      message?: string;
+      detail?: string;
+    };
+    let msg =
+      errBody?.error ??
+      errBody?.message ??
+      errBody?.detail ??
+      `Erro do servidor (${res.status}).`;
     if (res.status === 405) {
       msg =
         '405 Método não permitido. Verifique se VITE_API_URL aponta para a URL da API (AWS), e não para o domínio do site. Faça novo build e deploy após alterar.';
@@ -139,29 +156,37 @@ export async function dispensePrescription(
   prescriptionId: string,
   code: string,
   pharmacyName: string,
-  pharmacistName: string
+  pharmacistName: string,
+  pharmacistCrf: string
 ): Promise<{ success: boolean; error?: string }> {
   const apiBase = getApiBaseUrl();
   if (!apiBase) return { success: false, error: 'URL da API não configurada.' };
 
   try {
-    const res = await fetch(`${apiBase}/api/verify/${prescriptionId}/dispense`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        accessCode: code.trim(),
-        pharmacyName: pharmacyName.trim(),
-        pharmacistName: pharmacistName.trim(),
-      }),
-    });
-    const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
-    if (!res.ok) return { success: false, error: data?.error ?? `Erro ${res.status}` };
+    const res = await fetch(
+      `${apiBase}/api/verify/${prescriptionId}/dispense`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessCode: code.trim(),
+          pharmacyName: pharmacyName.trim(),
+          pharmacistName: pharmacistName.trim(),
+          pharmacistCrf: pharmacistCrf.trim(),
+        }),
+      }
+    );
+    const data = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      error?: string;
+    };
+    if (!res.ok)
+      return { success: false, error: data?.error ?? `Erro ${res.status}` };
     return { success: data?.success ?? false, error: data?.error };
   } catch {
     return { success: false, error: 'Erro de conexão.' };
   }
 }
-
 
 // ── Verificação universal (atestados, exames, receitas via medical_documents) ──
 
@@ -181,20 +206,33 @@ export interface DocumentVerifyResult {
   reason?: string;
 }
 
-export async function verifyDocument(documentId: string, code: string): Promise<DocumentVerifyResult> {
+export async function verifyDocument(
+  documentId: string,
+  code: string
+): Promise<DocumentVerifyResult> {
   const apiBase = getApiBaseUrl();
-  if (!apiBase) return { status: 'error', message: 'URL da API não configurada.' };
+  if (!apiBase)
+    return { status: 'error', message: 'URL da API não configurada.' };
 
   try {
     const res = await fetch(`${apiBase}/api/documents/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documentId: documentId.trim(), code: code.trim() }),
+      body: JSON.stringify({
+        documentId: documentId.trim(),
+        code: code.trim(),
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok && !data.status) {
       const errBody = data as { error?: string; message?: string };
-      return { status: 'error', message: errBody?.error ?? errBody?.message ?? `Erro do servidor (${res.status}).` };
+      return {
+        status: 'error',
+        message:
+          errBody?.error ??
+          errBody?.message ??
+          `Erro do servidor (${res.status}).`,
+      };
     }
     return data as DocumentVerifyResult;
   } catch {
@@ -207,24 +245,41 @@ export async function dispenseDocument(
   documentId: string,
   code: string,
   pharmacyName: string,
-  pharmacistName: string
+  pharmacistName: string,
+  pharmacistCrf: string
 ): Promise<{ success: boolean; message: string }> {
   const apiBase = getApiBaseUrl();
-  if (!apiBase) return { success: false, message: 'URL da API não configurada.' };
+  if (!apiBase)
+    return { success: false, message: 'URL da API não configurada.' };
 
   try {
-    const res = await fetch(`${apiBase}/api/documents/${documentId}/dispense-by-code`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code: code.trim(),
-        pharmacyName: pharmacyName.trim(),
-        pharmacistName: pharmacistName.trim(),
-      }),
-    });
-    const data = (await res.json().catch(() => ({}))) as { success?: boolean; message?: string; error?: string };
-    if (!res.ok) return { success: false, message: data?.error ?? data?.message ?? 'Erro ao processar.' };
-    return { success: data?.success ?? false, message: data?.message ?? data?.error ?? '' };
+    const res = await fetch(
+      `${apiBase}/api/documents/${documentId}/dispense-by-code`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: code.trim(),
+          pharmacyName: pharmacyName.trim(),
+          pharmacistName: pharmacistName.trim(),
+          pharmacistCrf: pharmacistCrf.trim(),
+        }),
+      }
+    );
+    const data = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      message?: string;
+      error?: string;
+    };
+    if (!res.ok)
+      return {
+        success: false,
+        message: data?.error ?? data?.message ?? 'Erro ao processar.',
+      };
+    return {
+      success: data?.success ?? false,
+      message: data?.message ?? data?.error ?? '',
+    };
   } catch {
     return { success: false, message: 'Erro de conexão.' };
   }

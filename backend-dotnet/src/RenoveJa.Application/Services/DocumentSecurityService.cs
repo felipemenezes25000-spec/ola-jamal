@@ -85,7 +85,7 @@ public class DocumentSecurityService(
     /// Retorna erro se já atingiu max_dispenses.
     /// </summary>
     public async Task<(bool success, string? error)> RecordDispensationAsync(
-        Guid documentId, string dispensedBy, string? pharmacistName, string? ip, CancellationToken ct)
+        Guid documentId, string dispensedBy, string? pharmacistName, string? pharmacistCrf, string? ip, CancellationToken ct)
     {
         var securityFields = await medicalDocumentRepository.GetSecurityFieldsAsync(documentId, ct);
         if (securityFields != null)
@@ -109,12 +109,13 @@ public class DocumentSecurityService(
             metadata: System.Text.Json.JsonSerializer.Serialize(new
             {
                 dispensed_by = dispensedBy,
-                pharmacist_name = pharmacistName
+                pharmacist_name = pharmacistName,
+                pharmacist_crf = pharmacistCrf
             })
         ), ct);
 
-        logger.LogInformation("Document {DocumentId} dispensed by {Pharmacy} (pharmacist: {Pharmacist})",
-            documentId, dispensedBy, pharmacistName ?? "N/A");
+        logger.LogInformation("Document {DocumentId} dispensed by {Pharmacy} (pharmacist: {Pharmacist}, CRF: {Crf})",
+            documentId, dispensedBy, pharmacistName ?? "N/A", pharmacistCrf ?? "N/A");
         return (true, null);
     }
 

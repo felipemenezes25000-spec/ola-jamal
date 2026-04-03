@@ -34,7 +34,7 @@ public interface IPrescriptionVerifyRepository
     /// <summary>
     /// Marca a prescrição como dispensada.
     /// </summary>
-    Task<bool> MarkAsDispensedAsync(Guid requestId, string pharmacyName, string pharmacistName, CancellationToken ct = default);
+    Task<bool> MarkAsDispensedAsync(Guid requestId, string pharmacyName, string pharmacistName, string? pharmacistCrf = null, CancellationToken ct = default);
 
     /// <summary>
     /// Retorna true se a prescrição já foi dispensada.

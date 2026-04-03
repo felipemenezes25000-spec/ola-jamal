@@ -679,6 +679,7 @@ CREATE TABLE IF NOT EXISTS public.prescriptions (
     dispensed_at TIMESTAMPTZ,
     dispensed_pharmacy TEXT,
     dispensed_pharmacist TEXT,
+    dispensed_pharmacist_crf TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

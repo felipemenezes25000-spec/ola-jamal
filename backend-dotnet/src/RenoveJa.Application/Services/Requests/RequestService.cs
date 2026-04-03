@@ -829,8 +829,14 @@ public class RequestService(
             return new("reject", $"O documento enviado é uma receita {docLabel}, mas você selecionou receita {RequestHelpers.PrescriptionTypeToRejectionLabel(userType)}. O tipo da receita enviada deve corresponder ao tipo selecionado. Por favor, crie uma nova solicitação escolhendo o tipo correto.");
         }
 
-        if (!string.IsNullOrEmpty(result.ExtractedPatientName) && !RequestHelpers.PatientNamesMatch(request.PatientName, result.ExtractedPatientName))
-            return new("reject", $"O nome do paciente na receita ({result.ExtractedPatientName}) não corresponde ao nome cadastrado no app ({request.PatientName ?? "cadastro"}). A receita deve ser do próprio titular da conta. Verifique se o nome no seu cadastro está correto ou envie uma receita em seu nome.");
+        if (!string.IsNullOrEmpty(result.ExtractedPatientName))
+        {
+            var nameMatch = RequestHelpers.ComparePatientNames(request.PatientName, result.ExtractedPatientName);
+            if (nameMatch == RequestHelpers.NameMatchResult.NoMatch)
+                return new("reject", $"O nome do paciente na receita ({result.ExtractedPatientName}) não corresponde ao nome cadastrado no app ({request.PatientName ?? "cadastro"}). A receita deve ser do próprio titular da conta. Verifique se o nome no seu cadastro está correto ou envie uma receita em seu nome.");
+            if (nameMatch == RequestHelpers.NameMatchResult.Partial)
+                return new("doubts");
+        }
 
         return new("success");
     }
@@ -852,11 +858,18 @@ public class RequestService(
         if (hasImages && result.SignsOfTampering == true)
             return new("reject", "O documento enviado apresenta sinais de adulteração, edição ou recorte para ocultar informações. Envie uma foto completa e original do pedido de exame, sem alterações.");
 
+        // Nome não visível → encaminha ao médico em vez de rejeitar automaticamente.
         if (hasImages && result.PatientNameVisible == false)
-            return new("reject", "O nome do paciente não está visível no documento (recortado, em branco ou ilegível). Envie uma foto completa onde o nome do paciente esteja claramente legível.");
+            return new("doubts");
 
-        if (hasImages && !string.IsNullOrEmpty(result.ExtractedPatientName) && !RequestHelpers.PatientNamesMatch(request.PatientName, result.ExtractedPatientName))
-            return new("reject", $"O nome do paciente no documento ({result.ExtractedPatientName}) não corresponde ao nome cadastrado no app ({request.PatientName ?? "cadastro"}). O pedido deve ser do próprio titular da conta.");
+        if (hasImages && !string.IsNullOrEmpty(result.ExtractedPatientName))
+        {
+            var nameMatch = RequestHelpers.ComparePatientNames(request.PatientName, result.ExtractedPatientName);
+            if (nameMatch == RequestHelpers.NameMatchResult.NoMatch)
+                return new("reject", $"O nome do paciente no documento ({result.ExtractedPatientName}) não corresponde ao nome cadastrado no app ({request.PatientName ?? "cadastro"}). O pedido deve ser do próprio titular da conta.");
+            if (nameMatch == RequestHelpers.NameMatchResult.Partial)
+                return new("doubts");
+        }
 
         return new("success");
     }
