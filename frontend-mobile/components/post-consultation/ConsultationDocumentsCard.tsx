@@ -42,7 +42,7 @@ export function ConsultationDocumentsCard({ requestId, requestType }: Props) {
   useEffect(() => {
     if (requestType !== 'consultation') { setLoading(false); return; }
     getConsultationDocuments(requestId)
-      .then(setDocs)
+      .then((result) => { if (Array.isArray(result)) setDocs(result); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [requestId, requestType]);
