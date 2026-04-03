@@ -165,6 +165,8 @@ public class PostConsultationService(
         if (request.ExamOrder is { Items.Count: > 0 }) docCount++;
         if (request.MedicalCertificate is { Body.Length: > 0 }) docCount++;
         if (request.Referral is { Reason.Length: > 0 }) docCount++;
+        if (docCount == 0)
+            throw new InvalidOperationException("Pelo menos um documento deve ser solicitado (receita, exames, atestado ou encaminhamento).");
         if (docCount > 4)
             throw new InvalidOperationException("Máximo de 4 documentos por pós-consulta: receita, exames, atestado e encaminhamento.");
 
