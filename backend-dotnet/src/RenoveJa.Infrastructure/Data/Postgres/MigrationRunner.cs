@@ -529,7 +529,8 @@ public static class MigrationRunner
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """,
-        "CREATE INDEX IF NOT EXISTS idx_prescriptions_verify_code_hash ON public.prescriptions(verify_code_hash) WHERE verify_code_hash != ''"
+        "CREATE INDEX IF NOT EXISTS idx_prescriptions_verify_code_hash ON public.prescriptions(verify_code_hash) WHERE verify_code_hash != ''",
+        "ALTER TABLE public.prescriptions ADD COLUMN IF NOT EXISTS dispensed_pharmacist_crf TEXT"
     };
 
     private static readonly string[] ChronicConditionMigrations =

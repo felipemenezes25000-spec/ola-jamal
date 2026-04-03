@@ -381,14 +381,17 @@ function extractMedsFromAnamnesis(
   const arr = anam.medicamentos_sugeridos as Array<
     Record<string, string> | string
   >;
-  return arr.map((m) => {
-    if (typeof m === 'string') return { drug: m };
-    return {
-      drug: m.nome ?? 'Medicamento',
-      posology: m.posologia ?? undefined,
-      notes: m.indicacao ?? undefined,
-    };
-  });
+  return arr
+    .map((m) => {
+      if (typeof m === 'string') return { drug: m };
+      return {
+        drug: m.nome ?? m.drug ?? m.medicamento ?? 'Medicamento',
+        concentration: m.concentracao ?? m.concentration ?? undefined,
+        posology: m.posologia ?? m.posology ?? m.dose ?? undefined,
+        notes: m.indicacao ?? m.indication ?? m.nota ?? m.notes ?? undefined,
+      };
+    })
+    .filter((m) => m.drug && m.drug !== 'Medicamento');
 }
 
 function extractExamsFromAnamnesis(
@@ -396,23 +399,103 @@ function extractExamsFromAnamnesis(
 ): ExamItemEmitWeb[] {
   if (!anam?.exames_sugeridos) return [];
   const arr = anam.exames_sugeridos as Array<Record<string, string> | string>;
-  return arr.map((e) => {
-    if (typeof e === 'string') return { type: 'laboratorial', description: e };
-    return { type: 'laboratorial', description: e.nome ?? 'Exame' };
-  });
+  return arr
+    .map((e) => {
+      if (typeof e === 'string')
+        return { type: 'laboratorial', description: e };
+      return {
+        type: e.tipo ?? e.type ?? 'laboratorial',
+        description: e.nome ?? e.description ?? e.exame ?? 'Exame',
+        code: e.codigo ?? e.code ?? undefined,
+      };
+    })
+    .filter((e) => e.description && e.description !== 'Exame');
+}
+
+function extractExamJustificationFromAnamnesis(
+  anam: Record<string, unknown> | null
+): string {
+  if (!anam) return '';
+  // Try direct justification field
+  if (
+    typeof anam.justificativa_exames === 'string' &&
+    anam.justificativa_exames.trim()
+  )
+    return anam.justificativa_exames as string;
+  // Build from diagnostico_diferencial + denominador_comum
+  const parts: string[] = [];
+  const denom =
+    typeof anam.denominador_comum === 'string'
+      ? (anam.denominador_comum as string).trim()
+      : '';
+  if (denom) parts.push(denom);
+  const dd = Array.isArray(anam.diagnostico_diferencial)
+    ? anam.diagnostico_diferencial
+    : [];
+  if (dd.length > 0) {
+    const hipoteses = dd
+      .slice(0, 3)
+      .map((d: Record<string, string>) => {
+        const cid = d.cid ?? '';
+        const hip = d.hipotese ?? '';
+        return cid ? `${hip} (${cid})` : hip;
+      })
+      .filter(Boolean);
+    if (hipoteses.length > 0)
+      parts.push(`Investigação de: ${hipoteses.join(', ')}.`);
+  }
+  return parts.join(' — ') || '';
+}
+
+function extractCidFromAnamnesis(
+  anam: Record<string, unknown> | null
+): { code: string; name: string } | null {
+  if (!anam) return null;
+  const dd = anam.diagnostico_diferencial;
+  if (!Array.isArray(dd) || dd.length === 0) return null;
+  const first = dd[0] as Record<string, string> | undefined;
+  const code = first?.cid ?? '';
+  const name = first?.hipotese ?? '';
+  if (!code) return null;
+  return { code, name };
 }
 
 function extractReferralFromAnamnesis(
   anam: Record<string, unknown> | null
 ): { professional?: string; specialty?: string; reason?: string } | null {
-  if (!anam?.encaminhamento_sugerido) return null;
-  const enc = anam.encaminhamento_sugerido as Record<string, string>;
-  if (!enc?.profissional && !enc?.motivo) return null;
-  return {
-    professional: enc.profissional ?? enc.medico ?? enc.professional,
-    specialty: enc.especialidade ?? enc.specialty,
-    reason: enc.motivo ?? enc.reason ?? enc.indication,
-  };
+  if (!anam) return null;
+  // Try direct encaminhamento_sugerido field
+  if (anam.encaminhamento_sugerido) {
+    const enc = anam.encaminhamento_sugerido as Record<string, string>;
+    if (
+      enc?.profissional ||
+      enc?.motivo ||
+      enc?.especialidade ||
+      enc?.specialty ||
+      enc?.reason
+    ) {
+      return {
+        professional:
+          enc.profissional ?? enc.medico ?? enc.professional ?? undefined,
+        specialty: enc.especialidade ?? enc.specialty ?? undefined,
+        reason: enc.motivo ?? enc.reason ?? enc.indication ?? undefined,
+      };
+    }
+  }
+  // Build referral reason from orientacoes_paciente + criterios_retorno
+  const orientacoes = Array.isArray(anam.orientacoes_paciente)
+    ? (anam.orientacoes_paciente as string[])
+    : [];
+  const criterios = Array.isArray(anam.criterios_retorno)
+    ? (anam.criterios_retorno as string[])
+    : [];
+  if (orientacoes.length > 0 || criterios.length > 0) {
+    const reason = [...orientacoes.slice(0, 2), ...criterios.slice(0, 2)].join(
+      '. '
+    );
+    if (reason.trim()) return { reason };
+  }
+  return null;
 }
 
 export default function DoctorPostConsultationEmit() {
@@ -433,13 +516,12 @@ export default function DoctorPostConsultationEmit() {
     }
   }, [request?.consultationAnamnesis]);
 
-  const detectedCid: string | null = useMemo(() => {
-    if (!anamnesis) return null;
-    const dd = anamnesis.diagnostico_diferencial;
-    if (!Array.isArray(dd) || dd.length === 0) return null;
-    const first = dd[0] as Record<string, string> | undefined;
-    return first?.cid ?? null;
-  }, [anamnesis]);
+  const detectedCidInfo = useMemo(
+    () => extractCidFromAnamnesis(anamnesis),
+    [anamnesis]
+  );
+  const detectedCid = detectedCidInfo?.code ?? null;
+  const detectedCidName = detectedCidInfo?.name ?? null;
   const cidPkg = detectedCid ? CID_PACKAGES[detectedCid] : null;
 
   const isPsy = request?.consultationType === 'psicologo';
@@ -521,6 +603,7 @@ export default function DoctorPostConsultationEmit() {
     } else {
       const aiMeds = extractMedsFromAnamnesis(anamnesis);
       const aiExams = extractExamsFromAnamnesis(anamnesis);
+      const aiExamJust = extractExamJustificationFromAnamnesis(anamnesis);
       const pkg = detectedCid ? CID_PACKAGES[detectedCid] : null;
 
       const finalMeds =
@@ -541,14 +624,17 @@ export default function DoctorPostConsultationEmit() {
 
       setMeds(finalMeds);
       setExams(finalExams);
-      if (pkg?.examJust) setExamJust(pkg.examJust);
+      // Prefer AI-generated justification, then CID package, then empty
+      setExamJust(aiExamJust || pkg?.examJust || '');
       if (detectedCid) setCertCid(detectedCid);
+      setRxOn(finalMeds.length > 0);
+      setRxOpen(finalMeds.length > 0);
       setExOn(finalExams.length > 0);
       setExOpen(finalExams.length > 0);
     }
 
     const refSug = extractReferralFromAnamnesis(anamnesis);
-    if (refSug?.professional || refSug?.reason) {
+    if (refSug?.professional || refSug?.reason || refSug?.specialty) {
       setRefProfessional(refSug.professional ?? '');
       setRefSpecialty(refSug.specialty ?? '');
       setRefReason(refSug.reason ?? '');
@@ -747,6 +833,7 @@ export default function DoctorPostConsultationEmit() {
                 <span className="text-sm text-muted-foreground">
                   {cidPkg?.name ??
                     CID_PACKAGES[certCid]?.name ??
+                    detectedCidName ??
                     'Selecionar CID'}
                 </span>
                 <button

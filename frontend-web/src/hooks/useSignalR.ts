@@ -6,7 +6,12 @@
  * Events: "RequestUpdated" { requestId, status, message }
  */
 import { useEffect, useRef, useState } from 'react';
-import { clearAuth, getToken, hasAuthSession, tryRefreshToken } from '@/services/doctorApi';
+import {
+  clearAuth,
+  getToken,
+  hasAuthSession,
+  tryRefreshToken,
+} from '@/services/doctorApi';
 
 interface RequestEvent {
   requestId: string;
@@ -34,7 +39,10 @@ async function getSignalR() {
     try {
       signalR = await import('@microsoft/signalr');
     } catch {
-      if (import.meta.env.DEV) console.warn('[SignalR] @microsoft/signalr not installed. Real-time disabled.');
+      if (import.meta.env.DEV)
+        console.warn(
+          '[SignalR] @microsoft/signalr not installed. Real-time disabled.'
+        );
       return null;
     }
   }
@@ -49,7 +57,8 @@ function isHttp401Error(err: unknown): boolean {
 function getApiBase(): string {
   const env = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '');
   if (env) return env;
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  if (typeof window !== 'undefined' && window.location?.origin)
+    return window.location.origin;
   return '';
 }
 
@@ -65,7 +74,9 @@ export function useRequestEvents(onEvent?: EventHandler) {
     if (onEvent) {
       handlersRef.current.add(onEvent);
       const handlers = handlersRef.current;
-      return () => { handlers.delete(onEvent); };
+      return () => {
+        handlers.delete(onEvent);
+      };
     }
   }, [onEvent]);
 
@@ -99,8 +110,12 @@ export function useRequestEvents(onEvent?: EventHandler) {
 
       connection.on('RequestUpdated', (payload: RequestEvent) => {
         setLastEvent(payload);
-        handlersRef.current.forEach(h => {
-          try { h(payload); } catch (e) { console.error('[SignalR] Handler error:', e); }
+        handlersRef.current.forEach((h) => {
+          try {
+            h(payload);
+          } catch (e) {
+            console.error('[SignalR] Handler error:', e);
+          }
         });
       });
 
@@ -128,7 +143,8 @@ export function useRequestEvents(onEvent?: EventHandler) {
             window.dispatchEvent(new CustomEvent('auth:expired'));
           }
         }
-        if (import.meta.env.DEV) console.warn('[SignalR] Connection failed:', err);
+        if (import.meta.env.DEV)
+          console.warn('[SignalR] Connection failed:', err);
       }
     }
 
@@ -190,33 +206,113 @@ export function useVideoSignaling(requestId: string | undefined) {
         .configureLogging(sr.LogLevel.Warning)
         .build();
 
-      connection.on('TranscriptUpdate', (data: { fullText?: string; FullText?: string; fullTranscript?: string }) => {
-        setTranscript(data.fullText ?? data.FullText ?? data.fullTranscript ?? '');
-      });
+      connection.on(
+        'TranscriptUpdate',
+        (data: {
+          fullText?: string;
+          FullText?: string;
+          fullTranscript?: string;
+        }) => {
+          setTranscript(
+            data.fullText ?? data.FullText ?? data.fullTranscript ?? ''
+          );
+        }
+      );
 
-      connection.on('AnamnesisUpdate', (data: { anamnesisJson?: string; AnamnesisJson?: string }) => {
-        setAnamnesis(data.anamnesisJson ?? data.AnamnesisJson ?? null);
-      });
+      connection.on(
+        'AnamnesisUpdate',
+        (data: { anamnesisJson?: string; AnamnesisJson?: string }) => {
+          const incoming = data.anamnesisJson ?? data.AnamnesisJson ?? null;
+          // Merge: preserve perguntas_sugeridas from previous anamnesis if new one lacks them
+          setAnamnesis((prev) => {
+            if (!incoming) return prev;
+            try {
+              const newObj = JSON.parse(incoming);
+              if (prev) {
+                try {
+                  const prevObj = JSON.parse(prev);
+                  // Carry forward perguntas_sugeridas when new update doesn't include them
+                  if (
+                    Array.isArray(prevObj.perguntas_sugeridas) &&
+                    prevObj.perguntas_sugeridas.length > 0 &&
+                    (!Array.isArray(newObj.perguntas_sugeridas) ||
+                      newObj.perguntas_sugeridas.length === 0)
+                  ) {
+                    newObj.perguntas_sugeridas = prevObj.perguntas_sugeridas;
+                  }
+                  // Also preserve lacunas_anamnese
+                  if (
+                    Array.isArray(prevObj.lacunas_anamnese) &&
+                    prevObj.lacunas_anamnese.length > 0 &&
+                    (!Array.isArray(newObj.lacunas_anamnese) ||
+                      newObj.lacunas_anamnese.length === 0)
+                  ) {
+                    newObj.lacunas_anamnese = prevObj.lacunas_anamnese;
+                  }
+                } catch {
+                  /* prev not parseable — ignore */
+                }
+              }
+              return JSON.stringify(newObj);
+            } catch {
+              return incoming;
+            }
+          });
+        }
+      );
 
-      connection.on('SuggestionUpdate', (data: { items?: unknown[]; Items?: unknown[]; suggestions?: unknown[] }) => {
-        // Backend envia SuggestionUpdateDto(Items) — JSON camelCase: items
-        const items = data.items ?? data.Items ?? data.suggestions ?? [];
-        setSuggestions(Array.isArray(items) ? items : []);
-      });
+      connection.on(
+        'SuggestionUpdate',
+        (data: {
+          items?: unknown[];
+          Items?: unknown[];
+          suggestions?: unknown[];
+        }) => {
+          // Backend envia SuggestionUpdateDto(Items) — JSON camelCase: items
+          const items = data.items ?? data.Items ?? data.suggestions ?? [];
+          setSuggestions(Array.isArray(items) ? items : []);
+        }
+      );
 
-      connection.on('EvidenceUpdate', (data: { items?: Record<string, unknown>[]; Items?: Record<string, unknown>[]; evidence?: Record<string, unknown>[] }) => {
-        const raw = data.items ?? data.Items ?? data.evidence ?? [];
-        if (!Array.isArray(raw)) { setEvidence([]); return; }
-        setEvidence(raw.map((e): EvidenceItemDto => ({
-          title: String(e?.title ?? e?.Title ?? ''),
-          abstract: String(e?.abstract ?? e?.Abstract ?? ''),
-          source: String(e?.source ?? e?.Source ?? ''),
-          translatedAbstract: e?.translatedAbstract != null ? String(e.translatedAbstract) : undefined,
-          relevantExcerpts: Array.isArray(e?.relevantExcerpts) ? (e.relevantExcerpts as string[]) : (Array.isArray(e?.RelevantExcerpts) ? (e.RelevantExcerpts as string[]) : undefined),
-          clinicalRelevance: e?.clinicalRelevance != null ? String(e.clinicalRelevance) : (e?.ClinicalRelevance != null ? String(e.ClinicalRelevance) : undefined),
-          provider: String(e?.provider ?? e?.Provider ?? 'PubMed'),
-        })));
-      });
+      connection.on(
+        'EvidenceUpdate',
+        (data: {
+          items?: Record<string, unknown>[];
+          Items?: Record<string, unknown>[];
+          evidence?: Record<string, unknown>[];
+        }) => {
+          const raw = data.items ?? data.Items ?? data.evidence ?? [];
+          if (!Array.isArray(raw)) {
+            setEvidence([]);
+            return;
+          }
+          setEvidence(
+            raw.map(
+              (e): EvidenceItemDto => ({
+                title: String(e?.title ?? e?.Title ?? ''),
+                abstract: String(e?.abstract ?? e?.Abstract ?? ''),
+                source: String(e?.source ?? e?.Source ?? ''),
+                translatedAbstract:
+                  e?.translatedAbstract != null
+                    ? String(e.translatedAbstract)
+                    : undefined,
+                relevantExcerpts: Array.isArray(e?.relevantExcerpts)
+                  ? (e.relevantExcerpts as string[])
+                  : Array.isArray(e?.RelevantExcerpts)
+                    ? (e.RelevantExcerpts as string[])
+                    : undefined,
+                clinicalRelevance:
+                  e?.clinicalRelevance != null
+                    ? String(e.clinicalRelevance)
+                    : e?.ClinicalRelevance != null
+                      ? String(e.ClinicalRelevance)
+                      : undefined,
+                provider: String(e?.provider ?? e?.Provider ?? 'PubMed'),
+              })
+            )
+          );
+        }
+      );
 
       // VideoSignalingHub envia "Joined" após JoinRoom; o protocolo pode expor como "joined" → sem .on() o SignalR avisa no console.
       const onJoinedAck = () => {};
@@ -253,7 +349,8 @@ export function useVideoSignaling(requestId: string | undefined) {
             window.dispatchEvent(new CustomEvent('auth:expired'));
           }
         }
-        if (import.meta.env.DEV) console.warn('[SignalR Video] Connection failed:', err);
+        if (import.meta.env.DEV)
+          console.warn('[SignalR Video] Connection failed:', err);
         connection.stop().catch(() => {});
       }
     }
@@ -267,5 +364,12 @@ export function useVideoSignaling(requestId: string | undefined) {
     };
   }, [requestId]);
 
-  return { connected, transcript, anamnesis, suggestions, evidence, consultationEnded };
+  return {
+    connected,
+    transcript,
+    anamnesis,
+    suggestions,
+    evidence,
+    consultationEnded,
+  };
 }
