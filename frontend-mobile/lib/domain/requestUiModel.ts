@@ -267,7 +267,7 @@ function getConsultationPhaseConfig(role: Role, status: NormalizedStatus): Phase
     switch (status) {
       case 'submitted':
       case 'searching_doctor':
-        return { phase: 'sent', title: 'Buscando médico', actions: { canCancel: true }, countersBucket: 'pending' };
+        return { phase: 'sent', title: 'Buscando profissional', actions: { canCancel: true }, countersBucket: 'pending' };
       case 'consultation_ready':
       case 'approved':
         return {
@@ -291,7 +291,7 @@ function getConsultationPhaseConfig(role: Role, status: NormalizedStatus): Phase
           countersBucket: 'ready',
         };
       default:
-        return { phase: 'sent', title: 'Buscando médico', actions: {}, countersBucket: 'pending' };
+        return { phase: 'sent', title: 'Buscando profissional', actions: {}, countersBucket: 'pending' };
     }
   }
 

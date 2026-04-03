@@ -194,7 +194,7 @@ describe('getUiModel — patient × consultation', () => {
   const role: Role = 'patient';
   const kind = 'consultation';
 
-  it('submitted → buscando médico, canCancel=true', () => {
+  it('submitted → buscando profissional, canCancel=true', () => {
     const m = getUiModel(makeRequest({ status: 'submitted', requestType: kind }), role);
     expect(m.phase).toBe('sent');
     expect(m.actions.canCancel).toBe(true);

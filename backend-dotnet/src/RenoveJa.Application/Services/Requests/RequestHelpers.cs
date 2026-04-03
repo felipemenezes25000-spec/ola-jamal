@@ -185,21 +185,51 @@ internal static class RequestHelpers
         _ => type ?? "desconhecido"
     };
 
+    /// <summary>
+    /// Resultado da comparação de nomes: Match (iguais), Partial (alguma sobreposição), NoMatch (totalmente diferentes).
+    /// </summary>
+    internal enum NameMatchResult { Match, Partial, NoMatch }
+
     /// <summary>Verifica se o nome do documento corresponde ao nome cadastrado (primeiro e último nome devem bater).</summary>
     internal static bool PatientNamesMatch(string? registeredName, string? documentName)
     {
+        return ComparePatientNames(registeredName, documentName) == NameMatchResult.Match;
+    }
+
+    /// <summary>
+    /// Compara nomes retornando grau de correspondência:
+    /// - Match: primeiro e último nome coincidem.
+    /// - Partial: ao menos o primeiro nome coincide (ex: "Felipe Silva" vs "Felipe Menezes").
+    /// - NoMatch: nenhum nome significativo em comum (ex: "Gabriel Silva" vs "Felipe Menezes").
+    /// Nomes vazios/nulos são tratados como Match (não há como comparar).
+    /// </summary>
+    internal static NameMatchResult ComparePatientNames(string? registeredName, string? documentName)
+    {
         if (string.IsNullOrWhiteSpace(registeredName) || string.IsNullOrWhiteSpace(documentName))
-            return true;
+            return NameMatchResult.Match;
         var regWords = GetSignificantNameWords(registeredName);
         var docWords = GetSignificantNameWords(documentName);
         if (regWords.Count == 0 || docWords.Count == 0)
-            return true;
+            return NameMatchResult.Match;
+
         var firstReg = regWords[0];
         var lastReg = regWords[^1];
         var firstDoc = docWords[0];
         var lastDoc = docWords[^1];
-        return string.Equals(firstReg, firstDoc, StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(lastReg, lastDoc, StringComparison.OrdinalIgnoreCase);
+
+        var firstMatch = string.Equals(firstReg, firstDoc, StringComparison.OrdinalIgnoreCase);
+        var lastMatch = string.Equals(lastReg, lastDoc, StringComparison.OrdinalIgnoreCase);
+
+        if (firstMatch && lastMatch)
+            return NameMatchResult.Match;
+
+        // Sobreposição parcial: primeiro nome bate OU qualquer palavra significativa em comum
+        if (firstMatch)
+            return NameMatchResult.Partial;
+
+        var regSet = new HashSet<string>(regWords, StringComparer.OrdinalIgnoreCase);
+        var hasAnyOverlap = docWords.Any(w => regSet.Contains(w));
+        return hasAnyOverlap ? NameMatchResult.Partial : NameMatchResult.NoMatch;
     }
 
     internal static List<string> GetSignificantNameWords(string name)

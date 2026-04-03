@@ -218,6 +218,8 @@ public class VerificationController(
         public string? AccessCode { get; set; }
         public string? PharmacyName { get; set; }
         public string? PharmacistName { get; set; }
+        /// <summary>CRF (Conselho Regional de Farmácia) do farmacêutico responsável.</summary>
+        public string? PharmacistCrf { get; set; }
     }
 
     /// <summary>
@@ -242,14 +244,18 @@ public class VerificationController(
 
         var pharmacy = (request.PharmacyName ?? string.Empty).Trim();
         var pharmacist = (request.PharmacistName ?? string.Empty).Trim();
+        var crf = (request.PharmacistCrf ?? string.Empty).Trim();
 
         if (string.IsNullOrWhiteSpace(pharmacy) || string.IsNullOrWhiteSpace(pharmacist))
             return BadRequest(new { error = "Informe nome da farmácia e farmacêutico(a)." });
 
-        var ok = await prescriptionVerifyRepository.MarkAsDispensedAsync(id, pharmacy, pharmacist, cancellationToken);
+        if (string.IsNullOrWhiteSpace(crf))
+            return BadRequest(new { error = "Informe o CRF (Conselho Regional de Farmácia) do(a) farmacêutico(a)." });
+
+        var ok = await prescriptionVerifyRepository.MarkAsDispensedAsync(id, pharmacy, pharmacist, crf, cancellationToken);
         if (!ok)
             return Conflict(new { error = "Prescrição já dispensada." });
 
-        return Ok(new { success = true, dispensedAt = DateTime.UtcNow, pharmacy, pharmacist });
+        return Ok(new { success = true, dispensedAt = DateTime.UtcNow, pharmacy, pharmacist, pharmacistCrf = crf });
     }
 }

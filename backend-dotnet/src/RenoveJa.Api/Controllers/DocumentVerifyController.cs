@@ -250,6 +250,8 @@ public class DocumentVerifyController(
             return BadRequest(new { error = "Código de verificação é obrigatório." });
         if (string.IsNullOrWhiteSpace(request.PharmacyName) || string.IsNullOrWhiteSpace(request.PharmacistName))
             return BadRequest(new { error = "Informe nome da farmácia e farmacêutico(a) ou responsável." });
+        if (string.IsNullOrWhiteSpace(request.PharmacistCrf))
+            return BadRequest(new { error = "Informe o CRF (Conselho Regional de Farmácia) do(a) farmacêutico(a)." });
 
         try
         {
@@ -273,7 +275,7 @@ public class DocumentVerifyController(
 
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
             await securityService.RecordDispensationAsync(
-                documentId, request.PharmacyName.Trim(), request.PharmacistName.Trim(), ip, ct);
+                documentId, request.PharmacyName.Trim(), request.PharmacistName.Trim(), request.PharmacistCrf?.Trim(), ip, ct);
 
             var isControlled = false;
             if (doc.DocumentType == Domain.Enums.DocumentType.Prescription)
@@ -336,7 +338,7 @@ public class DocumentVerifyController(
                 return BadRequest(new { error = "Receita já dispensada. Não é permitido dispensar novamente.", alreadyDispensed = true });
 
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-            await securityService.RecordDispensationAsync(documentId, request.PharmacyName ?? "Não informado", null, ip, ct);
+            await securityService.RecordDispensationAsync(documentId, request.PharmacyName ?? "Não informado", request.PharmacistName, request.PharmacistCrf, ip, ct);
 
             // Check if the prescription is controlled via the source request
             var isControlled = false;
@@ -384,5 +386,5 @@ public class DocumentVerifyController(
 }
 
 public record VerifyDocumentRequest(string DocumentId, string Code);
-public record DispenseRequest(string? PharmacyName);
-public record DispenseByCodeRequest(string Code, string PharmacyName, string PharmacistName);
+public record DispenseRequest(string? PharmacyName, string? PharmacistName = null, string? PharmacistCrf = null);
+public record DispenseByCodeRequest(string Code, string PharmacyName, string PharmacistName, string? PharmacistCrf = null);

@@ -88,7 +88,8 @@ public class ConsultationAnamnesisService : IConsultationAnamnesisService
             llmResult.ModelUsed,
             llmResult.PromptHash,
             llmResult.StartedAt,
-            cancellationToken);
+            cancellationToken,
+            consultationType);
 
         if (composed == null)
             return null;

@@ -10,7 +10,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { MutableRefObject } from 'react';
 import type { DailyCall } from '@daily-co/react-native-daily-js';
-import { transcribeTextChunk } from '../lib/api';
+import { transcribeTextChunk, refreshAnamnesis } from '../lib/api';
 
 // Tipo local: o SDK Daily.co não exporta tipos para eventos de transcrição
 interface DailyTranscriptionMessageEvent {
@@ -191,6 +191,15 @@ export function useDailyTranscription({
     callJoined,
     sendToBackend,
   ]);
+
+  // Periodic anamnesis refresh — every 2 min, ensures AI updates even during silence
+  useEffect(() => {
+    if (!requestId || !consultationActive) return;
+    const timer = setInterval(() => {
+      refreshAnamnesis(requestId).catch(() => {});
+    }, 2 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [requestId, consultationActive]);
 
   const stop = useCallback(async () => {
     const call = callRef.current;

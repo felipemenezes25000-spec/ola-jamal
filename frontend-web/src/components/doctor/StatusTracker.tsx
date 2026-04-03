@@ -30,18 +30,59 @@ interface Step {
 // Receita e Exame
 const PRESCRIPTION_STEPS: Step[] = [
   { key: 'submitted', label: 'Enviado', icon: Send, statuses: ['submitted'] },
-  { key: 'review', label: 'Análise', icon: Eye, statuses: ['analyzing', 'in_review'] },
-  { key: 'approved', label: 'Assinatura', icon: FileText, statuses: ['approved_pending_payment', 'pending_payment', 'paid'] },
+  {
+    key: 'review',
+    label: 'Análise',
+    icon: Eye,
+    statuses: ['analyzing', 'in_review'],
+  },
+  {
+    key: 'approved',
+    label: 'Assinatura',
+    icon: FileText,
+    statuses: ['approved_pending_payment', 'pending_payment', 'paid'],
+  },
   { key: 'signed', label: 'Assinado', icon: ShieldCheck, statuses: ['signed'] },
-  { key: 'delivered', label: 'Entregue', icon: CheckCheck, statuses: ['delivered', 'completed'] },
+  {
+    key: 'delivered',
+    label: 'Entregue',
+    icon: CheckCheck,
+    statuses: ['delivered', 'completed'],
+  },
 ];
 
 // Consulta
 const CONSULTATION_STEPS: Step[] = [
-  { key: 'searching', label: 'Buscando médico', icon: Search, statuses: ['searching_doctor'] },
-  { key: 'ready', label: 'Consulta pronta', icon: CheckCircle2, statuses: ['approved_pending_payment', 'pending_payment', 'paid', 'consultation_ready', 'consultation_accepted'] },
-  { key: 'in_consultation', label: 'Em consulta', icon: Video, statuses: ['in_consultation'] },
-  { key: 'finished', label: 'Finalizada', icon: CheckCheck, statuses: ['consultation_finished'] },
+  {
+    key: 'searching',
+    label: 'Buscando profissional',
+    icon: Search,
+    statuses: ['searching_doctor'],
+  },
+  {
+    key: 'ready',
+    label: 'Consulta pronta',
+    icon: CheckCircle2,
+    statuses: [
+      'approved_pending_payment',
+      'pending_payment',
+      'paid',
+      'consultation_ready',
+      'consultation_accepted',
+    ],
+  },
+  {
+    key: 'in_consultation',
+    label: 'Em consulta',
+    icon: Video,
+    statuses: ['in_consultation'],
+  },
+  {
+    key: 'finished',
+    label: 'Finalizada',
+    icon: CheckCheck,
+    statuses: ['consultation_finished'],
+  },
 ];
 
 function getStepIndex(steps: Step[], status: string): number {
@@ -58,18 +99,23 @@ export interface StatusTrackerProps {
   requestType?: string;
 }
 
-export function StatusTracker({ status, type, requestType }: StatusTrackerProps) {
+export function StatusTracker({
+  status,
+  type,
+  requestType,
+}: StatusTrackerProps) {
   const reqType = (type || requestType || '').toLowerCase();
-  const steps = reqType === 'consultation' ? CONSULTATION_STEPS : PRESCRIPTION_STEPS;
+  const steps =
+    reqType === 'consultation' ? CONSULTATION_STEPS : PRESCRIPTION_STEPS;
   const normStatus = normalizeStatus(status);
 
   if (normStatus === 'rejected' || normStatus === 'cancelled') {
     const isRejected = normStatus === 'rejected';
     const TerminalIcon = isRejected ? XCircle : Ban;
     return (
-      <div className="flex flex-col items-center justify-center py-6 gap-2">
+      <div className="flex flex-col items-center justify-center gap-2 py-6">
         <div
-          className={`w-14 h-14 rounded-full flex items-center justify-center ${
+          className={`flex h-14 w-14 items-center justify-center rounded-full ${
             isRejected ? 'bg-red-100' : 'bg-muted'
           }`}
         >
@@ -78,7 +124,9 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
             aria-hidden
           />
         </div>
-        <p className={`text-sm font-semibold ${isRejected ? 'text-red-600' : 'text-muted-foreground'}`}>
+        <p
+          className={`text-sm font-semibold ${isRejected ? 'text-red-600' : 'text-muted-foreground'}`}
+        >
           {isRejected ? 'Solicitação rejeitada' : 'Solicitação cancelada'}
         </p>
       </div>
@@ -88,18 +136,22 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
   const currentIndex = getStepIndex(steps, status);
 
   return (
-    <div className="w-full rounded-xl bg-white dark:bg-card border p-4 sm:p-6">
+    <div className="w-full rounded-xl border bg-white p-4 dark:bg-card sm:p-6">
       {/* Desktop: horizontal */}
-      <div className="hidden sm:flex items-start justify-between relative">
+      <div className="relative hidden items-start justify-between sm:flex">
         {/* Connecting line behind circles */}
-        <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted z-0" style={{ marginLeft: '2rem', marginRight: '2rem' }} />
         <div
-          className="absolute top-4 left-0 h-0.5 bg-emerald-500 z-0 transition-all duration-500"
+          className="absolute left-0 right-0 top-4 z-0 h-0.5 bg-muted"
+          style={{ marginLeft: '2rem', marginRight: '2rem' }}
+        />
+        <div
+          className="absolute left-0 top-4 z-0 h-0.5 bg-emerald-500 transition-all duration-500"
           style={{
             marginLeft: '2rem',
-            width: currentIndex > 0
-              ? `calc(${(currentIndex / (steps.length - 1)) * 100}% - 4rem)`
-              : '0',
+            width:
+              currentIndex > 0
+                ? `calc(${(currentIndex / (steps.length - 1)) * 100}% - 4rem)`
+                : '0',
           }}
         />
 
@@ -109,14 +161,17 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
           const Icon = step.icon;
 
           return (
-            <div key={step.key} className="flex flex-col items-center z-10 flex-1">
+            <div
+              key={step.key}
+              className="z-10 flex flex-1 flex-col items-center"
+            >
               <div
-                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                   isCompleted
-                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    ? 'border-emerald-500 bg-emerald-500 text-white'
                     : isCurrent
-                      ? 'bg-sky-900 border-sky-900 text-white'
-                      : 'border-gray-300 text-gray-400 bg-white dark:bg-card'
+                      ? 'border-sky-900 bg-sky-900 text-white'
+                      : 'border-gray-300 bg-white text-gray-400 dark:bg-card'
                 }`}
               >
                 {isCompleted ? (
@@ -126,11 +181,11 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
                 )}
               </div>
               <p
-                className={`text-xs mt-2 text-center font-medium leading-tight max-w-[80px] ${
+                className={`mt-2 max-w-[80px] text-center text-xs font-medium leading-tight ${
                   isCompleted
                     ? 'text-emerald-600'
                     : isCurrent
-                      ? 'text-sky-900 dark:text-sky-300 font-semibold'
+                      ? 'font-semibold text-sky-900 dark:text-sky-300'
                       : 'text-muted-foreground'
                 }`}
               >
@@ -138,7 +193,7 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
               </p>
               {isCurrent && (
                 <motion.span
-                  className="w-1.5 h-1.5 rounded-full bg-sky-900 dark:bg-sky-400 mt-1"
+                  className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-900 dark:bg-sky-400"
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
                 />
@@ -149,7 +204,7 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
       </div>
 
       {/* Mobile: compact horizontal with smaller elements */}
-      <div className="flex sm:hidden items-center justify-between gap-1">
+      <div className="flex items-center justify-between gap-1 sm:hidden">
         {steps.map((step, index) => {
           const isCompleted = index < currentIndex;
           const isCurrent = index === currentIndex;
@@ -157,15 +212,18 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
           const Icon = step.icon;
 
           return (
-            <div key={step.key} className="flex items-center flex-1 last:flex-none">
+            <div
+              key={step.key}
+              className="flex flex-1 items-center last:flex-none"
+            >
               <div className="flex flex-col items-center">
                 <div
-                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
                     isCompleted
-                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
                       : isCurrent
-                        ? 'bg-sky-900 border-sky-900 text-white'
-                        : 'border-gray-300 text-gray-400 bg-white dark:bg-card'
+                        ? 'border-sky-900 bg-sky-900 text-white'
+                        : 'border-gray-300 bg-white text-gray-400 dark:bg-card'
                   }`}
                 >
                   {isCompleted ? (
@@ -175,11 +233,11 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
                   )}
                 </div>
                 <p
-                  className={`text-[10px] mt-1 text-center leading-tight max-w-[50px] ${
+                  className={`mt-1 max-w-[50px] text-center text-[10px] leading-tight ${
                     isCompleted
-                      ? 'text-emerald-600 font-medium'
+                      ? 'font-medium text-emerald-600'
                       : isCurrent
-                        ? 'text-sky-900 dark:text-sky-300 font-semibold'
+                        ? 'font-semibold text-sky-900 dark:text-sky-300'
                         : 'text-muted-foreground'
                   }`}
                 >
@@ -188,8 +246,10 @@ export function StatusTracker({ status, type, requestType }: StatusTrackerProps)
               </div>
               {!isLast && (
                 <div
-                  className={`h-0.5 flex-1 mx-1 rounded ${
-                    index < currentIndex ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-muted'
+                  className={`mx-1 h-0.5 flex-1 rounded ${
+                    index < currentIndex
+                      ? 'bg-emerald-500'
+                      : 'bg-gray-200 dark:bg-muted'
                   }`}
                 />
               )}

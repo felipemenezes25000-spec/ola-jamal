@@ -76,7 +76,7 @@ public class PrescriptionVerifyRepository(
         return row?.DispensedAt != null;
     }
 
-    public async Task<bool> MarkAsDispensedAsync(Guid requestId, string pharmacyName, string pharmacistName, CancellationToken ct = default)
+    public async Task<bool> MarkAsDispensedAsync(Guid requestId, string pharmacyName, string pharmacistName, string? pharmacistCrf = null, CancellationToken ct = default)
     {
         // Atomic conditional UPDATE to avoid TOCTOU race condition
         await using var conn = db.CreateConnectionPublic();
@@ -85,7 +85,8 @@ public class PrescriptionVerifyRepository(
             UPDATE public.prescriptions
             SET dispensed_at = @DispensedAt,
                 dispensed_pharmacy = @Pharmacy,
-                dispensed_pharmacist = @Pharmacist
+                dispensed_pharmacist = @Pharmacist,
+                dispensed_pharmacist_crf = @PharmacistCrf
             WHERE id = @Id AND dispensed_at IS NULL
             """;
         var rows = await conn.ExecuteAsync(
@@ -94,7 +95,8 @@ public class PrescriptionVerifyRepository(
                 Id = requestId,
                 DispensedAt = DateTime.UtcNow,
                 Pharmacy = pharmacyName,
-                Pharmacist = pharmacistName
+                Pharmacist = pharmacistName,
+                PharmacistCrf = pharmacistCrf
             }, cancellationToken: ct));
         return rows > 0;
     }

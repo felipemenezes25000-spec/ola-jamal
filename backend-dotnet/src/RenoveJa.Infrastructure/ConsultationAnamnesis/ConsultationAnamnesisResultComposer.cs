@@ -20,7 +20,8 @@ internal static class ConsultationAnamnesisResultComposer
         string anamnesisModel,
         string promptHash,
         DateTime startedAt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? consultationType = null)
     {
         try
         {
@@ -143,7 +144,7 @@ internal static class ConsultationAnamnesisResultComposer
 
             AnamnesisResponseParser.CopyArrayIfExists(root, enrichedObj, "interacoes_cruzadas");
 
-            AnamnesisResponseParser.EnsurePerguntasFallback(root, enrichedObj, transcriptSoFar);
+            AnamnesisResponseParser.EnsurePerguntasFallback(root, enrichedObj, transcriptSoFar, consultationType);
             AnamnesisResponseParser.EnsureSuggestionsFallback(root, enrichedObj, hasClinicalContext);
 
             var enrichedJson = JsonSerializer.Serialize(enrichedObj);
